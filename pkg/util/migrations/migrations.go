@@ -97,6 +97,14 @@ func IsMigrating(vmi *v1.VirtualMachineInstance) bool {
 	return running
 }
 
+func IsBackupInProgress(vmi *v1.VirtualMachineInstance) bool {
+	if vmi == nil || vmi.Status.ChangedBlockTracking == nil || vmi.Status.ChangedBlockTracking.BackupStatus == nil {
+		return false
+	}
+	backupStatus := vmi.Status.ChangedBlockTracking.BackupStatus
+	return backupStatus.BackupName != "" && !backupStatus.Completed
+}
+
 func MigrationFailed(vmi *v1.VirtualMachineInstance) bool {
 
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Failed {

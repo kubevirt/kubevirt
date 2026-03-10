@@ -49,12 +49,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
+	kvtesting "kubevirt.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -1203,6 +1205,186 @@ var _ = Describe("Migration watcher", func() {
 
 			expectMigrationFailedState(migration.Namespace, migration.Name)
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+		})
+	})
+
+	Context("Migration blocked by backup", func() {
+		It("should set blocked-by-backup condition when backup is in progress", func() {
+			start := metav1.Now()
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName:     "backup-1",
+					StartTimestamp: &start,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			expectMigrationPendingState(migration.Namespace, migration.Name)
+			expectMigrationCondition(migration.Namespace, migration.Name, v1.VirtualMachineInstanceMigrationBlockedByBackup)
+		})
+
+		It("should remove blocked-by-backup condition once backup completes", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName: "backup-1",
+					Completed:  true,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Status.Conditions = append(migration.Status.Conditions, v1.VirtualMachineInstanceMigrationCondition{
+				Type:   v1.VirtualMachineInstanceMigrationBlockedByBackup,
+				Status: k8sv1.ConditionTrue,
+			})
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+			addPod(targetPod)
+
+			sanityExecute()
+
+			expectMigrationSchedulingState(migration.Namespace, migration.Name)
+			updatedMigration, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, cond := range updatedMigration.Status.Conditions {
+				Expect(cond.Type).ToNot(Equal(v1.VirtualMachineInstanceMigrationBlockedByBackup), "Condition should be removed after backup completes")
+			}
+		})
+
+		It("should abort backup for system-critical migration", func() {
+			start := metav1.Now()
+			backupCalled := false
+			var receivedOptions *backupv1.BackupOptions
+
+			virtClientset.Fake.PrependReactor("put", "virtualmachineinstances/backup", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				switch putAction := action.(type) {
+				case kvtesting.PutAction[*backupv1.BackupOptions]:
+					backupCalled = true
+					receivedOptions = putAction.GetOptions()
+					return true, nil, nil
+				default:
+					return false, nil, nil
+				}
+			})
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName:     "backup-1",
+					StartTimestamp: &start,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			Expect(backupCalled).To(BeTrue())
+			Expect(receivedOptions).ToNot(BeNil())
+			Expect(receivedOptions.BackupName).To(Equal("backup-1"))
+			Expect(receivedOptions.Cmd).To(Equal(backupv1.Abort))
+			expectMigrationCondition(migration.Namespace, migration.Name, v1.VirtualMachineInstanceMigrationBlockedByBackup)
+			testutils.ExpectEvent(recorder, "BackupAbortedForMigration")
+		})
+
+		It("should not set blocked-by-backup condition when abort backup API fails for system-critical migration", func() {
+			start := metav1.Now()
+			backupCallCount := 0
+
+			virtClientset.Fake.PrependReactor("put", "virtualmachineinstances/backup", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				switch action.(type) {
+				case kvtesting.PutAction[*backupv1.BackupOptions]:
+					backupCallCount++
+					return true, nil, errors.New("backup abort failed")
+				default:
+					return false, nil, nil
+				}
+			})
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName:     "backup-1",
+					StartTimestamp: &start,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			Expect(backupCallCount).To(Equal(1), "Backup abort should have been attempted once")
+			testutils.ExpectEvent(recorder, "BackupAbortFailed")
+			updatedMigration, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			condMgr := virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			Expect(condMgr.HasCondition(updatedMigration, v1.VirtualMachineInstanceMigrationBlockedByBackup)).To(BeFalse(),
+				"Condition should not be set when abort backup API fails")
+		})
+
+		It("should not call abort backup again when system-critical migration already has blocked-by-backup condition", func() {
+			start := metav1.Now()
+			backupCallCount := 0
+
+			virtClientset.Fake.PrependReactor("put", "virtualmachineinstances/backup", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				switch action.(type) {
+				case kvtesting.PutAction[*backupv1.BackupOptions]:
+					backupCallCount++
+					return true, nil, nil
+				default:
+					return false, nil, nil
+				}
+			})
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName:     "backup-1",
+					StartTimestamp: &start,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			Expect(backupCallCount).To(Equal(1), "Backup abort should be called on first reconciliation")
+			testutils.ExpectEvent(recorder, "BackupAbortedForMigration")
+
+			// Update indexer with migration that now has BlockedByBackup so second run sees it
+			updatedMigration, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.migrationIndexer.Update(updatedMigration)).To(Succeed())
+			migrationKey, err := virtcontroller.KeyFunc(migration)
+			Expect(err).ToNot(HaveOccurred())
+			controller.Queue.Add(migrationKey)
+
+			sanityExecute()
+
+			Expect(backupCallCount).To(Equal(1), "Backup abort should not be called again when condition already set")
 		})
 	})
 
