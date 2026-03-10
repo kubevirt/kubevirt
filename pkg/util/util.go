@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
-	vmipredicates "kubevirt.io/api/core/v1/predicates"
 )
 
 const (
@@ -132,7 +132,7 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 
 func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
 	swtpmPath := "/var/lib/libvirt/swtpm"
-	if IsNonRootVMI(vmi) {
+	if vmipredicates.IsNonRootVMI(vmi) {
 		swtpmPath = filepath.Join(VirtPrivateDir, "libvirt", "qemu", "swtpm")
 	}
 
