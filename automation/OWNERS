@@ -1,6 +1,15 @@
-reviewers:
-- sig-buildsystem-reviewers
-approvers:
-- sig-buildsystem-approvers
-labels:
-- sig/buildsystem
+filters:
+  ".*":
+    reviewers:
+      - sig-buildsystem-reviewers
+    approvers:
+      - sig-buildsystem-approvers
+    labels:
+      - sig/buildsystem
+  "test.sh|repeated_test.sh":
+    reviewers:
+      - sig-test-reviewers
+    approvers:
+      - sig-test-approvers
+    labels:
+      - sig/test
