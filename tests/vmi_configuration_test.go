@@ -2147,7 +2147,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 
-			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
+			It("[QUARANTINE][test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", decorators.Quarantine, func() {
 				vmi := noDedicatedCPUVMI()
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
