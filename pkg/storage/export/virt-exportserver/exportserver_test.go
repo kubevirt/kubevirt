@@ -1275,7 +1275,8 @@ var _ = Describe("exportserver", func() {
 			server = &exportServer{
 				handler: baseHandler,
 				ExportServerConfig: ExportServerConfig{
-					ListenAddr: ":8443",
+					ListenAddr:    ":8443",
+					TLSMinVersion: tls.VersionTLS12,
 				},
 			}
 		})
