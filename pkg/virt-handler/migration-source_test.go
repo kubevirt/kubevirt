@@ -292,7 +292,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				AllowPostCopy:            true,
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
-				ParallelMigrationThreads: nil,
+				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
 			sanityExecute()
@@ -549,7 +549,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				testutils.ExpectEvent(recorder, VMIMigrating)
 			},
 				Entry("if CPU is limited", false, k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}),
-				Entry("if post-copy is enabled", true, k8sv1.ResourceList{}),
 			)
 		})
 	})

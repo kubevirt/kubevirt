@@ -638,9 +638,5 @@ func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *
 		return
 	}
 
-	if options.AllowPostCopy {
-		return
-	}
-
 	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
 }
