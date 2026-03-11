@@ -352,7 +352,7 @@ fi
 # cache configuration written by create_bazel_cache_rcs.sh during bootstrap
 # is propagated into the hack/dockerized builder container (which only sees
 # files rsync'd from the source tree).
-cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || true
+cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || : >ci.bazelrc
 cat >>ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
