@@ -7,3 +7,11 @@ approvers:
 emeritus_approvers:
   - emeritus_approvers
   
+filters:
+  "^(WORKSPACE|.*\\.(bazel|bzl))$":
+    reviewers:
+      - sig-buildsystem-reviewers
+    approvers:
+      - sig-buildsystem-approvers
+    labels:
+      - sig/buildsystem
