@@ -476,11 +476,13 @@ func (ctrl *VMExportController) Init() error {
 			ctrl.ClusterInstancetypeInformer.GetStore(),
 			ctrl.ControllerRevisionInformer.GetStore(),
 			ctrl.Client,
+			ctrl.Client,
 		),
 		preferencefind.NewSpecFinder(
 			ctrl.PreferenceInformer.GetStore(),
 			ctrl.ClusterPreferenceInformer.GetStore(),
 			ctrl.ControllerRevisionInformer.GetStore(),
+			ctrl.Client,
 			ctrl.Client,
 		),
 	)

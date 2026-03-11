@@ -786,11 +786,13 @@ func setupTestCollector() {
 			clusterInstanceTypeInformer.GetStore(),
 			controllerRevisionInformer.GetStore(),
 			nil,
+			nil,
 		),
 		preferencefind.NewSpecFinder(
 			preferenceInformer.GetStore(),
 			clusterPreferenceInformer.GetStore(),
 			controllerRevisionInformer.GetStore(),
+			nil,
 			nil,
 		),
 	)
