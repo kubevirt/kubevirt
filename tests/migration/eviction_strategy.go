@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -88,7 +89,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				), libvmops.StartupTimeoutSecondsXLarge)
+				), flags.StartupTimeoutSecondsXLarge())
 
 				originalNode := vmi.Status.NodeName
 
@@ -155,7 +156,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", decorators.WgS390x, func() {
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(fedoraVMIWithEvictionStrategy(), libvmops.StartupTimeoutSecondsHuge)
+				vmi := libvmops.RunVMIAndExpectLaunch(fedoraVMIWithEvictionStrategy(), flags.StartupTimeoutSecondsHuge())
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -264,7 +265,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -290,7 +291,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -319,7 +320,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					config.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
@@ -540,7 +541,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					// no EvictionStrategy set
 					vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
 
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 					vmiNodeOrig := vmi.Status.NodeName
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
@@ -580,7 +581,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						libnet.WithMasqueradeNetworking(),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 					)
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})

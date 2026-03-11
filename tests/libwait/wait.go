@@ -36,12 +36,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
-
-const defaultTimeout = 360
 
 // Option represents an action that enables an option.
 type Option func(waiting *Waiting)
@@ -62,7 +61,7 @@ type Waiting struct {
 func WaitForVMIPhase(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineInstancePhase, opts ...Option) *v1.VirtualMachineInstance {
 	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	gomega.ExpectWithOffset(1, phases).ToNot(gomega.BeEmpty())
-	waiting := Waiting{timeout: defaultTimeout, wp: &wp, phases: phases}
+	waiting := Waiting{timeout: flags.VMIStartupTimeout(), wp: &wp, phases: phases}
 	for _, f := range opts {
 		f(&waiting)
 	}
