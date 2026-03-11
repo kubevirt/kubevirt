@@ -121,7 +121,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 					Type:  api.AddressCCW,
 					CSSID: "0xfe",
 					SSID:  "0x0",
-					DevNo: "0x0007",
+					DevNo: "0x0006",
 				}
 			}
 			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
@@ -155,7 +155,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 					Type:  api.AddressCCW,
 					CSSID: "0xfe",
 					SSID:  "0x0",
-					DevNo: "0x0007",
+					DevNo: "0x0006",
 				}
 			}
 			if period > 0 {
