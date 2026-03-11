@@ -188,7 +188,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with sidecar-shim", func() {
 			It("should receive Terminal signal on VMI deletion", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge())
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -214,7 +214,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			DescribeTable("migrate VMI with sidecar", decorators.RequiresTwoSchedulableNodes, func(hookVersion string, sidecarShouldTerminate bool) {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge())
 
 				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
@@ -272,7 +272,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				} else {
 					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge())
 
 				By("Logging in to the guest")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())

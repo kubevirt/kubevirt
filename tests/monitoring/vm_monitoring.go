@@ -71,7 +71,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		var sharedVMI *v1.VirtualMachineInstance
 
 		BeforeAll(func() {
-			sharedVMI = libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsHuge)
+			sharedVMI = libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsHuge())
 		})
 
 		AfterAll(func() {
@@ -342,7 +342,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge())
 
 			By("Migrating VMIs")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -371,7 +371,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge())
 			labels := map[string]string{
 				"vmi":       vmi.Name,
 				"namespace": vmi.Namespace,
@@ -411,7 +411,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge())
 
 			By("delete virt-handler daemonset")
 			err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
@@ -449,7 +449,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 func createAgentVMI() *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 	vmiAgentConnectedConditionMatcher := MatchFields(IgnoreExtras, Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})
-	vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), libvmops.StartupTimeoutSecondsXLarge)
+	vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), libvmops.StartupTimeoutSecondsXLarge())
 
 	var err error
 	var agentVMI *v1.VirtualMachineInstance

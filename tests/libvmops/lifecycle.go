@@ -29,6 +29,7 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -36,8 +37,7 @@ import (
 )
 
 func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
-	const stopVMTimeout = 300
-	return StopVirtualMachineWithTimeout(vm, stopVMTimeout*time.Second)
+	return StopVirtualMachineWithTimeout(vm, flags.VMStopTimeoutInSeconds())
 }
 
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
@@ -54,7 +54,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 		matcher.BeGone(), "The vmi did not disappear")
 
 	By("Waiting for VM to stop")
-	EventuallyWithOffset(1, matcher.ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(matcher.BeReady()))
+	EventuallyWithOffset(1, matcher.ThisVM(vm), timeout, 1*time.Second).Should(Not(matcher.BeReady()))
 
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -63,14 +63,13 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 
 func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	virtClient := kubevirt.Client()
-	const eventualTimeout = 300
 
 	ExpectWithOffset(1, virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
 	EventuallyWithOffset(1, matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(
-		eventualTimeout * time.Second).WithPolling(time.Second).Should(matcher.Exist())
+		flags.VMIStartupTimeoutInSeconds()).WithPolling(time.Second).Should(matcher.Exist())
 
 	By("Waiting for VM to be ready")
-	EventuallyWithOffset(1, matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+	EventuallyWithOffset(1, matcher.ThisVM(vm), flags.VMReadyTimeoutInSeconds(), 1*time.Second).Should(matcher.BeReady())
 
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

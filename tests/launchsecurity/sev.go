@@ -316,7 +316,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge())
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())

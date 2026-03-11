@@ -58,7 +58,7 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 		}
 
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall())
 
 		node := vmi.Status.NodeName
 
