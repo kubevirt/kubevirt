@@ -6872,7 +6872,6 @@ var _ = Describe("VirtualMachine", func() {
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
-			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{})
 
@@ -6882,15 +6881,12 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
-				kvInformer,
-				namespaceInformer,
+				namespaceInformer.GetStore(),
 				pvcInformer,
 				crInformer,
 				record.NewFakeRecorder(100),
 				virtClient,
 				config,
-				nil,
-				nil,
 				nil,
 				nil,
 				nil,
