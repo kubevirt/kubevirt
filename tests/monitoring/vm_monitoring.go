@@ -73,7 +73,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		BeforeAll(func() {
 			sharedVMI = libvmops.RunVMIAndExpectLaunch(
-				libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsHuge,
+				libvmifact.NewGuestless(), flags.StartupTimeoutSecondsHuge(),
 			)
 		})
 
@@ -421,7 +421,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
 			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Migrating VMIs")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -457,7 +457,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 			labels := map[string]string{
 				"vmi":       vmi.Name,
 				"namespace": vmi.Namespace,
@@ -510,7 +510,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("delete virt-handler daemonset")
 			err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(
@@ -556,7 +556,7 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 		gstruct.IgnoreExtras, gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)},
 	)
 	vmi := libvmops.RunVMIAndExpectLaunch(
-		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), libvmops.StartupTimeoutSecondsXLarge,
+		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), flags.StartupTimeoutSecondsXLarge(),
 	)
 
 	var err error
