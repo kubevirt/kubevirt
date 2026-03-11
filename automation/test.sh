@@ -347,8 +347,13 @@ if [ "$CI" != "true" ]; then
   make cluster-down
 fi
 
-# Create .bazelrc to use 4 jobs, remote cache and disable progress output
-cat >ci.bazelrc <<EOF
+# Create .bazelrc to use 4 jobs, remote cache and disable progress output.
+# Seed ci.bazelrc with /etc/bazel.bazelrc if it exists so the Bazel remote
+# cache configuration written by create_bazel_cache_rcs.sh during bootstrap
+# is propagated into the hack/dockerized builder container (which only sees
+# files rsync'd from the source tree).
+cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || true
+cat >>ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
 build --noshow_progress
