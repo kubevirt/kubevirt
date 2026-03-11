@@ -3689,17 +3689,15 @@ var _ = Describe("Manager helper functions", func() {
 			Entry("with nil options", nil),
 			Entry("with nil migration threads", &cmdclient.MigrationOptions{ParallelMigrationThreads: nil}),
 			Entry("with nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: nil, AllowPostCopy: true}),
-			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: virtpointer.P(uint(3)), AllowPostCopy: true}),
 		)
 
-		It("should configure parallel migration with non-nil migration threads and post-copy not allowed", func() {
-			options := &cmdclient.MigrationOptions{
-				ParallelMigrationThreads: virtpointer.P(uint(3)),
-				AllowPostCopy:            false,
-			}
+		DescribeTable("should configure parallel migration", func(options *cmdclient.MigrationOptions) {
 			shouldConfigure, _ := shouldConfigureParallelMigration(options)
 			Expect(shouldConfigure).To(BeTrue())
-		})
+		},
+			Entry("with non-nil migration threads and post-copy not allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: virtpointer.P(uint(3)), AllowPostCopy: false}),
+			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: virtpointer.P(uint(3)), AllowPostCopy: true}),
+		)
 	})
 })
 
