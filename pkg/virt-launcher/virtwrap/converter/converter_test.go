@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	lsec "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 var (
@@ -115,7 +116,7 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
 
 // createContextWithDevices creates a ConverterContext populated with mock host devices
 // based on the current VMI specification.
-func createContextWithDevices(vmi *v1.VirtualMachineInstance, baseContext *convertertypes.ConverterContext) *convertertypes.ConverterContext {
+func createContextWithDevices(vmi *v1.VirtualMachineInstance, baseContext *convertertypes.ConverterContext, vfioSpec vfio.VFIOSpec) *convertertypes.ConverterContext {
 	pciPool := &stubAddressPool{addresses: make(map[string][]string)}
 
 	// Count devices by DeviceName to determine how many addresses are needed
@@ -145,9 +146,9 @@ func createContextWithDevices(vmi *v1.VirtualMachineInstance, baseContext *conve
 	mdevPool := &stubAddressPool{addresses: make(map[string][]string)}
 	usbPool := &stubAddressPool{addresses: make(map[string][]string)}
 
-	gpuHostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+	gpuHostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, vfioSpec)
 	Expect(err).ToNot(HaveOccurred())
-	genericHostDevices, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)
+	genericHostDevices, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool, vfioSpec)
 	Expect(err).ToNot(HaveOccurred())
 
 	newContext := *baseContext // copy the base context
@@ -1841,11 +1842,27 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("PCIe topology with NUMA alignment", func() {
+		const pciAddr0 = "0000:81:01.0"
+		const pciAddr1 = "0000:81:02.0"
+		const pciAddr2 = "0000:82:01.0"
+		const pciAddr3 = "0000:82:02.0"
+
 		var vmi *v1.VirtualMachineInstance
 		var c *convertertypes.ConverterContext
 		var cleanup func()
+		var vfioSpec vfio.VFIOSpec
 
 		BeforeEach(func() {
+			mockVFIOSpec := vfio.NewMockVFIOSpec(gomock.NewController(GinkgoT()))
+			// set times to 1 as each test only call `vmiToDomain` once
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(pciAddr0).Return(true).Times(1)
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(pciAddr1).Return(false).Times(1)
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(pciAddr2).Return(false).Times(1)
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(pciAddr3).Return(true).Times(1)
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(gomock.Any()).Times(0)
+			mockVFIOSpec.EXPECT().IsMDevAssignableViaIOMMUFD(gomock.Any()).Times(0)
+			vfioSpec = mockVFIOSpec
+
 			vmi = &v1.VirtualMachineInstance{
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
@@ -1891,10 +1908,10 @@ var _ = Describe("Converter", func() {
 			}
 
 			testDevices := map[string]string{
-				"0000:81:01.0": "0", // example.com/gpu
-				"0000:81:02.0": "0", // example.com/gpu
-				"0000:82:01.0": "0", // example.com/device
-				"0000:82:02.0": "0", // example.com/device
+				pciAddr0: "0", // example.com/gpu
+				pciAddr1: "0", // example.com/gpu
+				pciAddr2: "0", // example.com/device
+				pciAddr3: "0", // example.com/device
 			}
 			numaCPUMap := map[string]string{"0": "0-1"}
 			cleanup = setupMockHardwarePaths(testDevices, numaCPUMap)
@@ -1923,7 +1940,7 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should create PCIe controllers for NUMA-aligned devices", func() {
-				c = createContextWithDevices(vmi, c)
+				c = createContextWithDevices(vmi, c, vfioSpec)
 				domain := vmiToDomain(vmi, c)
 
 				controllers := domain.Spec.Devices.Controllers
@@ -1956,7 +1973,7 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should not create any PCIe expander bus controllers", func() {
-				c = createContextWithDevices(vmi, c)
+				c = createContextWithDevices(vmi, c, vfioSpec)
 				domain := vmiToDomain(vmi, c)
 
 				expanderBusCount := 0

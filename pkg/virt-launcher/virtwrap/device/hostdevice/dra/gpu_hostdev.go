@@ -30,6 +30,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
@@ -39,7 +40,7 @@ const (
 )
 
 // CreateDRAGPUHostDevices creates host devices for GPUs allocated via DRA.
-func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]api.HostDevice, error) {
+func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string, vfioSpec vfio.VFIOSpec) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasGPUsWithDRA(vmi) {
 		log.Log.V(3).Infof("No DRA GPU devices found for vmi %s/%s", vmi.GetNamespace(), vmi.GetName())
@@ -51,7 +52,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 			continue
 		}
 
-		hostDevice, err := createHostDeviceForGPU(gpu, basePath, vmi.Spec.ResourceClaims)
+		hostDevice, err := createHostDeviceForGPU(gpu, basePath, vmi.Spec.ResourceClaims, vfioSpec)
 		if err != nil {
 			return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 		}
@@ -78,7 +79,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 	return hostDevices, nil
 }
 
-func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
+func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.PodResourceClaim, vfioSpec vfio.VFIOSpec) (*api.HostDevice, error) {
 	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == nil || gpu.ClaimRequest.RequestName == nil {
 		return nil, fmt.Errorf("GPU %s has incomplete ClaimRequest", gpu.Name)
 	}
@@ -112,6 +113,10 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 				}
 			}
 		}
+
+		if vfioSpec.IsMDevAssignableViaIOMMUFD(mdevUUID) {
+			hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+		}
 		return &hostDevice, nil
 	}
 
@@ -121,12 +126,17 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 		if err != nil {
 			return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
 		}
-		return &api.HostDevice{
+		hostDevice := api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
-		}, nil
+		}
+
+		if vfioSpec.IsPCIAssignableViaIOMMUFD(pciAddr) {
+			hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+		}
+		return &hostDevice, nil
 	}
 
 	return nil, fmt.Errorf("GPU %s has no mdevUUID or pciBusID in metadata for claim %s request %s", gpu.Name, claimName, requestName)

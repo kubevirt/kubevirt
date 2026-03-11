@@ -24,76 +24,97 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 var _ = Describe("Generic HostDevice", func() {
 	var vmi *v1.VirtualMachineInstance
+	var vfioSpec vfio.VFIOSpec
 
-	BeforeEach(func() {
-		vmi = &v1.VirtualMachineInstance{}
-	})
+	DescribeTableSubtree("creation", func(viaIOMMUFD bool) {
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{}
 
-	It("creates no device given no generic host-devices/s", func() {
-		Expect(generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)).To(BeEmpty())
-	})
+			mockVFIOSpec := vfio.NewMockVFIOSpec(gomock.NewController(GinkgoT()))
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(hostdevPCIAddress0).Return(viaIOMMUFD).AnyTimes()
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(gomock.Any()).Times(0)
+			mockVFIOSpec.EXPECT().IsMDevAssignableViaIOMMUFD(hostdevMDEVAddress1).Return(viaIOMMUFD).AnyTimes()
+			mockVFIOSpec.EXPECT().IsMDevAssignableViaIOMMUFD(gomock.Any()).Times(0)
+			vfioSpec = mockVFIOSpec
+		})
 
-	It("fails to create devices given no resource", func() {
-		vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{{DeviceName: hostdevResource0, Name: hostdevName0}}
-		_, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
-		Expect(err).To(HaveOccurred())
-	})
+		It("creates no device given no generic host-devices/s", func() {
+			Expect(generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices, vfioSpec)).To(BeEmpty())
+		})
 
-	It("fails to create device given two devices but only one address", func() {
-		vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-			{DeviceName: hostdevResource0, Name: hostdevName0},
-			{DeviceName: hostdevResource0, Name: hostdevName1},
-		}
-		pciPool := newAddressPoolStub()
-		pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
-		mdevPool := newAddressPoolStub()
-		mdevPool.AddResource(hostdevResource1, hostdevPCIAddress1)
-		usbPool := newAddressPoolStub()
+		It("fails to create devices given no resource", func() {
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{{DeviceName: hostdevResource0, Name: hostdevName0}}
+			_, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices, vfioSpec)
+			Expect(err).To(HaveOccurred())
+		})
 
-		_, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)
-		Expect(err).To(HaveOccurred())
-	})
+		It("fails to create device given two devices but only one address", func() {
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{DeviceName: hostdevResource0, Name: hostdevName0},
+				{DeviceName: hostdevResource0, Name: hostdevName1},
+			}
+			pciPool := newAddressPoolStub()
+			pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
+			mdevPool := newAddressPoolStub()
+			mdevPool.AddResource(hostdevResource1, hostdevPCIAddress1)
+			usbPool := newAddressPoolStub()
 
-	It("creates two devices, PCI and MDEV", func() {
-		vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-			{DeviceName: hostdevResource0, Name: hostdevName0},
-			{DeviceName: hostdevResource1, Name: hostdevName1},
-		}
-		pciPool := newAddressPoolStub()
-		pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
-		mdevPool := newAddressPoolStub()
-		mdevPool.AddResource(hostdevResource1, hostdevMDEVAddress1)
-		usbPool := newAddressPoolStub()
+			_, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool, vfioSpec)
+			Expect(err).To(HaveOccurred())
+		})
 
-		hostPCIAddress := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
-		expectHostDevice0 := api.HostDevice{
-			Alias:   api.NewUserDefinedAlias(generic.AliasPrefix + hostdevName0),
-			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
-			Type:    api.HostDevicePCI,
-			Managed: "no",
-		}
+		It("creates two devices, PCI and MDEV", func() {
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{DeviceName: hostdevResource0, Name: hostdevName0},
+				{DeviceName: hostdevResource1, Name: hostdevName1},
+			}
+			pciPool := newAddressPoolStub()
+			pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
+			mdevPool := newAddressPoolStub()
+			mdevPool.AddResource(hostdevResource1, hostdevMDEVAddress1)
+			usbPool := newAddressPoolStub()
 
-		hostMDEVAddress := api.Address{UUID: hostdevMDEVAddress1}
-		expectHostDevice1 := api.HostDevice{
-			Alias:  api.NewUserDefinedAlias(generic.AliasPrefix + hostdevName1),
-			Source: api.HostDeviceSource{Address: &hostMDEVAddress},
-			Type:   api.HostDeviceMDev,
-			Mode:   "subsystem",
-			Model:  "vfio-pci",
-		}
+			hostPCIAddress := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+			expectHostDevice0 := api.HostDevice{
+				Alias:   api.NewUserDefinedAlias(generic.AliasPrefix + hostdevName0),
+				Source:  api.HostDeviceSource{Address: &hostPCIAddress},
+				Type:    api.HostDevicePCI,
+				Managed: "no",
+			}
+			if viaIOMMUFD {
+				expectHostDevice0.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+			}
 
-		Expect(generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)).
-			To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
-	})
+			hostMDEVAddress := api.Address{UUID: hostdevMDEVAddress1}
+			expectHostDevice1 := api.HostDevice{
+				Alias:  api.NewUserDefinedAlias(generic.AliasPrefix + hostdevName1),
+				Source: api.HostDeviceSource{Address: &hostMDEVAddress},
+				Type:   api.HostDeviceMDev,
+				Mode:   "subsystem",
+				Model:  "vfio-pci",
+			}
+			if viaIOMMUFD {
+				expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+			}
+
+			Expect(generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool, vfioSpec)).
+				To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
+		})
+	},
+		Entry("via IOMMUFD", true),
+		Entry("via VFIO legacy", false),
+	)
 })
 
 type stubAddressPool struct {
