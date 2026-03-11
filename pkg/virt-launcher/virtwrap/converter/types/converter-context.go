@@ -20,7 +20,6 @@
 package types
 
 import (
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -39,9 +38,7 @@ type EFIConfiguration struct {
 
 type ConverterContext struct {
 	Architecture                    arch.Converter
-	AllowEmulation                  bool
-	HypervisorDeviceAvailable       bool
-	Secrets                         map[string]*k8sv1.Secret
+	UseEmulation                    bool
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
 	IsBlockPVC                      map[string]bool
