@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -60,7 +61,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 			)
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
@@ -118,7 +119,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("should not remove eviction-in-progress annotation from source virt-launcher pod", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -167,29 +168,29 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 			It("retrying immediately should be blocked by the migration backoff", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				By("Waiting for the migration to fail")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 
 				By("Try again")
 				migration = libmigration.New(vmi.Name, vmi.Namespace)
 				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 
 				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 			})
 
 			It("after a successful migration backoff should be cleared", func() {
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				By("Waiting for the migration to fail")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 
 				By("Patch VMI")
 				patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, patch.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
@@ -223,7 +224,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -273,7 +274,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 						libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 					)
-					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 					virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())

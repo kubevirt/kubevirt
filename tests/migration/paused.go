@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
@@ -120,7 +121,7 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 						}
 
 						By("Starting the VirtualMachineInstance")
-						vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+						vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 						By("Checking that the VirtualMachineInstance console has expected output")
 						Expect(console.LoginToFedora(vmi)).To(Succeed())

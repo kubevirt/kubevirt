@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -1362,7 +1363,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			DescribeTable("should allow live migration with attached hotplug volumes", decorators.StorageCritical, func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 				volumeName := "testvolume"
 				volumeMode := k8sv1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI
