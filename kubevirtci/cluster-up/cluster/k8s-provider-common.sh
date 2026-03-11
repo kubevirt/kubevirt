@@ -5,7 +5,7 @@ set -e
 # shellcheck source=cluster-up/cluster/ephemeral-provider-common.sh
 source "${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh"
 
-
+export KUBEVIRT_CONTAINER_LOG_MAX_SIZE="30Mi"
 
 function deploy_kwok() {
     if [[ ${KUBEVIRT_DEPLOY_KWOK} == "true" ]]; then
@@ -50,6 +50,13 @@ function configure_nfs() {
             -c 'for disk in disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9 disk10 extraDisk1 extraDisk2; do \
             mkdir -p /nfsdir/${disk} && chmod 777 /nfsdir/${disk}; done'
     fi
+}
+
+function configure_log_max_size() {
+        for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
+            $ssh node${nodeNum} -- "echo 'containerLogMaxSize: ${KUBEVIRT_CONTAINER_LOG_MAX_SIZE}' | sudo tee -a /var/lib/kubelet/config.yaml"
+            $ssh node${nodeNum} -- "sudo systemctl daemon-reload && sudo systemctl restart kubelet"
+        done
 }
 
 
@@ -99,6 +106,8 @@ function up() {
     copy_istio_cni_conf_files
 
     configure_nfs
+
+    configure_log_max_size
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault
