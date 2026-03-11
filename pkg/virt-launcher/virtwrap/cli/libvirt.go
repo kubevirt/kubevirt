@@ -671,6 +671,7 @@ type VirDomain interface {
 	Screenshot(stream *libvirt.Stream, screen, flags uint32) (string, error)
 	BackupBegin(backupXML string, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error
 	CreateCheckpointXML(xmlConfig string, flags libvirt.DomainCheckpointCreateFlags) (*libvirt.DomainCheckpoint, error)
+	QemuMonitorCommand(command string, flags libvirt.DomainQemuMonitorCommandFlags) (string, error)
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

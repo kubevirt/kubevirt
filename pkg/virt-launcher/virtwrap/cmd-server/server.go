@@ -824,12 +824,19 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 
 	switch options.Cmd {
 	case backupv1.Start:
-		if options.Mode != backupv1.PushMode {
-			return nil, fmt.Errorf("currently only backup in push mode is supported")
+		switch options.Mode {
+		case backupv1.PushMode, backupv1.PullMode:
+			if options.TargetPath == nil {
+				return nil, fmt.Errorf("backup targetPath wasn't provided")
+			}
+		default:
+			return nil, fmt.Errorf("unknown backup mode: only Push and Pull are supported")
 		}
-		if options.PushPath == nil {
-			return nil, fmt.Errorf("backup with push mode - pushPath wasn't provided")
+	case backupv1.Export:
+		if err := validateBackupExportRequest(options); err != nil {
+			return nil, err
 		}
+		return options, nil
 	case backupv1.Abort:
 		return options, nil
 	default:
@@ -837,6 +844,34 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 	}
 
 	return options, nil
+}
+
+func validateBackupExportRequest(options *backupv1.BackupOptions) error {
+	if options.Mode != backupv1.PullMode {
+		return fmt.Errorf("can only export Pull mode backup")
+	}
+	if options.ExportServerAddr == nil {
+		return fmt.Errorf("backup export server address wasn't provided")
+	}
+	if options.ExportServerName == nil {
+		return fmt.Errorf("backup export server name wasn't provided")
+	}
+	if options.BackupName == "" {
+		return fmt.Errorf("backup name wasn't provided")
+	}
+	if options.BackupStartTime == nil {
+		return fmt.Errorf("backup start time wasn't provided")
+	}
+	if options.BackupCert == nil {
+		return fmt.Errorf("backup certificate wasn't provided")
+	}
+	if options.BackupKey == nil {
+		return fmt.Errorf("backup key wasn't provided")
+	}
+	if options.CACert == nil {
+		return fmt.Errorf("backup export server CA cert wasn't provided")
+	}
+	return nil
 }
 
 func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.BackupRequest) (*cmdv1.Response, error) {

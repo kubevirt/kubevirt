@@ -36,9 +36,14 @@ import (
 
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
+
+func DiskHasDataStore(disk *api.Disk) bool {
+	return disk != nil && disk.Source.DataStore != nil
+}
 
 func IsChangedBlockTrackingEnabled(vmi *v1.VirtualMachineInstance) bool {
 	return cbt.CompareCBTState(vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
@@ -271,6 +276,47 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		if err != nil {
 			return err
 		}
+		applyCBTMap[volumeName] = overlayPath
+	}
+
+	c.ApplyCBT = applyCBTMap
+	return nil
+}
+
+func isMigrationNewBackendStorage(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Status.MigrationState == nil {
+		return false
+	}
+	sourcePVC := vmi.Status.MigrationState.SourcePersistentStatePVCName
+	targetPVC := vmi.Status.MigrationState.TargetPersistentStatePVCName
+	return sourcePVC != "" && targetPVC != "" && sourcePVC != targetPVC
+}
+
+func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
+	logger := log.Log.Object(vmi)
+	applyCBTMap := make(map[string]string)
+
+	for _, volume := range vmi.Spec.Volumes {
+		if !cbt.IsCBTEligibleVolume(&volume) {
+			continue
+		}
+
+		volumeName := volume.Name
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+
+		if isMigrationNewBackendStorage(vmi) {
+			_, isHotplug := c.HotplugVolumes[volumeName]
+			isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
+			imagePath := converter.GetVolumeImagePath(volumeName, isBlock, isHotplug)
+
+			logger.V(3).Infof("Creating CBT overlay for migration: %s -> %s (block=%v, hotplug=%v)", overlayPath, imagePath, isBlock, isHotplug)
+			if err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock); err != nil {
+				return fmt.Errorf("failed to create CBT overlay for volume %s: %v", volumeName, err)
+			}
+		} else {
+			logger.V(3).Infof("Using existing CBT overlay for migration (RWX backend): %s", overlayPath)
+		}
+
 		applyCBTMap[volumeName] = overlayPath
 	}
 

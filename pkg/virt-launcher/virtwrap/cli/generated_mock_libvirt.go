@@ -845,6 +845,21 @@ func (mr *MockVirDomainMockRecorder) PinVcpuFlags(vcpu, cpuMap, flags any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinVcpuFlags", reflect.TypeOf((*MockVirDomain)(nil).PinVcpuFlags), vcpu, cpuMap, flags)
 }
 
+// QemuMonitorCommand mocks base method.
+func (m *MockVirDomain) QemuMonitorCommand(command string, flags libvirt.DomainQemuMonitorCommandFlags) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QemuMonitorCommand", command, flags)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QemuMonitorCommand indicates an expected call of QemuMonitorCommand.
+func (mr *MockVirDomainMockRecorder) QemuMonitorCommand(command, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QemuMonitorCommand", reflect.TypeOf((*MockVirDomain)(nil).QemuMonitorCommand), command, flags)
+}
+
 // Reboot mocks base method.
 func (m *MockVirDomain) Reboot(flags libvirt.DomainRebootFlagValues) error {
 	m.ctrl.T.Helper()

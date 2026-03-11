@@ -252,6 +252,7 @@ var _ = Describe("Application", func() {
 			PreferenceInformer:          preferenceInformer,
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
+			VMBackupInformer:            backupInformer,
 		}
 		_ = app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer
@@ -275,7 +276,10 @@ var _ = Describe("Application", func() {
 			vmInformer,
 			vmiInformer,
 			pvcInformer,
+			vmExportInformer,
+			configMapInformer,
 			recorder,
+			"",
 		)
 
 		app.readyChan = make(chan bool)

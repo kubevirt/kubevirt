@@ -26,6 +26,7 @@ const (
 	KubeVirtCASecretName                              = "kubevirt-ca"
 	ExternalKubeVirtCAConfigMapName                   = "kubevirt-external-ca"
 	KubeVirtExportCASecretName                        = "kubevirt-export-ca"
+	KubeVirtBackupCASecretName                        = "kubevirt-backup-ca"
 	VirtHandlerCertSecretName                         = "kubevirt-virt-handler-certs"
 	VirtHandlerServerCertSecretName                   = "kubevirt-virt-handler-server-certs"
 	VirtHandlerMigrationClientCertSecretName          = "kubevirt-virt-handler-migration-client-certs"
@@ -54,6 +55,10 @@ var populationStrategy = map[string]CertificateCreationCallback{
 	},
 	KubeVirtExportCASecretName: func(secret *k8sv1.Secret, _ *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
 		caKeyPair, _ := triple.NewCA("export.kubevirt.io", duration)
+		return caKeyPair.Cert, caKeyPair.Key
+	},
+	KubeVirtBackupCASecretName: func(secret *k8sv1.Secret, _ *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair, _ := triple.NewCA("backup.kubevirt.io", duration)
 		return caKeyPair.Cert, caKeyPair.Key
 	},
 	VirtOperatorCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
@@ -310,6 +315,20 @@ func NewCACertSecrets(operatorNamespace string) []*k8sv1.Secret {
 			},
 			Type: k8sv1.SecretTypeTLS,
 		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      KubeVirtBackupCASecretName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
 	}
 }
 
@@ -335,6 +354,19 @@ func NewCAConfigMaps(operatorNamespace string) []*k8sv1.ConfigMap {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      KubeVirtExportCASecretName,
+				Namespace: operatorNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      KubeVirtBackupCASecretName,
 				Namespace: operatorNamespace,
 				Labels: map[string]string{
 					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,

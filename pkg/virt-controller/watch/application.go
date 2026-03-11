@@ -194,6 +194,7 @@ type VirtControllerApp struct {
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
+	caBackupConfigMapInformer    cache.SharedIndexInformer
 	exportRouteConfigMapInformer cache.SharedInformer
 	exportServiceInformer        cache.SharedIndexInformer
 	exportController             *export.VMExportController
@@ -270,8 +271,9 @@ type VirtControllerApp struct {
 	additionalLauncherLabelsSync      []string
 	backupControllerThreads           int
 
-	promCertFilePath         string
-	promKeyFilePath          string
+	promCertFilePath string
+	promKeyFilePath  string
+
 	nodeTopologyUpdater      topology.NodeTopologyUpdater
 	nodeTopologyUpdatePeriod time.Duration
 	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
@@ -401,6 +403,7 @@ func Execute() {
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
+	app.caBackupConfigMapInformer = app.informerFactory.KubeVirtBackupCAConfigMap()
 	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
 	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
 	app.allPodInformer = app.informerFactory.Pod()
@@ -938,6 +941,8 @@ func (vca *VirtControllerApp) initExportController() {
 		PreferenceInformer:          vca.preferenceInformer,
 		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
 		ControllerRevisionInformer:  vca.controllerRevisionInformer,
+		VMBackupInformer:            vca.vmBackupInformer,
+		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
 	}
 	if err := vca.exportController.Init(); err != nil {
 		panic(err)
@@ -959,7 +964,16 @@ func (vca *VirtControllerApp) initBackupController() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "backup-controller")
 	vca.vmBackupController, err = backup.NewVMBackupController(
-		vca.clientSet, vca.vmBackupInformer, vca.vmBackupTrackerInformer, vca.vmInformer, vca.vmiInformer, vca.persistentVolumeClaimInformer, recorder,
+		vca.clientSet,
+		vca.vmBackupInformer,
+		vca.vmBackupTrackerInformer,
+		vca.vmInformer,
+		vca.vmiInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.vmExportInformer,
+		vca.caExportConfigMapInformer,
+		recorder,
+		vca.kubevirtNamespace,
 	)
 	if err != nil {
 		panic(err)
