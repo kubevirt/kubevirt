@@ -1492,6 +1492,13 @@ func (c *VirtualMachineController) sync(key string,
 		c.logger.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
+	// Detect PCI topology version for running VMIs missing the annotation (upgrade window)
+	if vmiExists && domainExists {
+		if err := c.detectPCITopologyAndAnnotate(vmi, domain); err != nil {
+			return err
+		}
+	}
+
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
 		vmi.Spec = *oldSpec
