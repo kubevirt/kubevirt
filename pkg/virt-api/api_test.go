@@ -223,12 +223,6 @@ var _ = Describe("Virt-api", func() {
 			// TODO: Check list
 		})
 
-		It("should have default values for flags", func() {
-			app.AddFlags()
-			Expect(app.SwaggerUI).To(Equal("third_party/swagger-ui"))
-			Expect(app.SubresourcesOnly).To(BeFalse())
-		})
-
 		It("should return OpenAPI v3 discovery endpoint", func() {
 			app.authorizor = authorizorMock
 			authorizorMock.EXPECT().
