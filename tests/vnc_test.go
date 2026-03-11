@@ -68,95 +68,107 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	}
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		BeforeEach(func() {
-			var err error
-			vmi = libvmifact.NewGuestless(libvmi.WithAutoattachGraphicsDevice(true))
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-		})
+		Context("with non-exclusive VNC access", Ordered, decorators.OncePerOrderedCleanup, func() {
+			BeforeAll(func() {
+				var err error
+				vmi = libvmifact.NewGuestless(libvmi.WithAutoattachGraphicsDevice(true))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+			})
 
-		Context("with VNC connection", func() {
-			It("[test_id:1611]should allow accessing the VNC device multiple times", decorators.Conformance, func() {
-				for i := 0; i < 10; i++ {
-					ctx, cancel, connected := newCtxWithConnect()
-					DeferCleanup(cancel)
-					go func() {
-						defer GinkgoRecover()
-						vncConnect(ctx, vmi, false, "")
-					}()
-					Eventually(connected, vncConnectTimeout).Should(Receive(BeTrue()))
+			Context("with VNC connection", func() {
+				It("[test_id:1611]should allow accessing the VNC device multiple times", decorators.Conformance, func() {
+					for i := 0; i < 10; i++ {
+						ctx, cancel, connected := newCtxWithConnect()
+						DeferCleanup(cancel)
+						go func() {
+							defer GinkgoRecover()
+							vncConnect(ctx, vmi, false, "")
+						}()
+						Eventually(connected, vncConnectTimeout).Should(Receive(BeTrue()))
+					}
+				})
+			})
+
+			DescribeTable("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]should upgrade websocket connection which look like coming from a browser", func(subresource string) {
+				config, err := kubecli.GetKubevirtClientConfig()
+				Expect(err).ToNot(HaveOccurred())
+				// Browsers need a subprotocol, since they will have to use the subprotocol mechanism to forward the bearer token.
+				// As a consequence they need a subprotocol match.
+				rt, err := upgradeCheckRoundTripperFromConfig(config, []string{"fantasy.protocol", subresources.PlainStreamProtocolName})
+				Expect(err).ToNot(HaveOccurred())
+				wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
+				Expect(err).ToNot(HaveOccurred())
+				req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Add an Origin header to look more like an arbitrary browser
+				if req.Header == nil {
+					req.Header = http.Header{}
 				}
+				req.Header.Add("Origin", config.Host)
+				_, err = wrappedRoundTripper.RoundTrip(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
+			},
+				Entry("[test_id:1612]for vnc", "vnc"),
+				// TODO: This should be moved to console tests
+				Entry("[test_id:1613]for serial console", "console"),
+			)
+
+			It("[test_id:1614]should upgrade websocket connections without a subprotocol given", func() {
+				config, err := kubecli.GetKubevirtClientConfig()
+				Expect(err).ToNot(HaveOccurred())
+				// If no subprotocol is given, we still want to upgrade to be backward compatible
+				rt, err := upgradeCheckRoundTripperFromConfig(config, nil)
+				Expect(err).ToNot(HaveOccurred())
+				wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
+				Expect(err).ToNot(HaveOccurred())
+				req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = wrappedRoundTripper.RoundTrip(req)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
-		DescribeTable("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]should upgrade websocket connection which look like coming from a browser", func(subresource string) {
-			config, err := kubecli.GetKubevirtClientConfig()
-			Expect(err).ToNot(HaveOccurred())
-			// Browsers need a subprotocol, since they will have to use the subprotocol mechanism to forward the bearer token.
-			// As a consequence they need a subprotocol match.
-			rt, err := upgradeCheckRoundTripperFromConfig(config, []string{"fantasy.protocol", subresources.PlainStreamProtocolName})
-			Expect(err).ToNot(HaveOccurred())
-			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
-			Expect(err).ToNot(HaveOccurred())
-			req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
-			Expect(err).ToNot(HaveOccurred())
+		Context("with dual VNC connections", func() {
+			BeforeEach(func() {
+				var err error
+				vmi = libvmifact.NewGuestless(libvmi.WithAutoattachGraphicsDevice(true))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+			})
 
-			// Add an Origin header to look more like an arbitrary browser
-			if req.Header == nil {
-				req.Header = http.Header{}
-			}
-			req.Header.Add("Origin", config.Host)
-			_, err = wrappedRoundTripper.RoundTrip(req)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
-		},
-			Entry("[test_id:1612]for vnc", "vnc"),
-			// TODO: This should be moved to console tests
-			Entry("[test_id:1613]for serial console", "console"),
-		)
+			DescribeTable("Dual connection. Validate default behavior and with 'preserve-session' option", func(preserve1, preserve2 bool) {
+				ctx1, cancel1, connected1 := newCtxWithConnect()
+				DeferCleanup(cancel1)
+				go func() {
+					defer GinkgoRecover()
+					vncConnect(ctx1, vmi, preserve1, "")
+				}()
+				Eventually(connected1, vncConnectTimeout).Should(Receive(BeTrue()))
 
-		It("[test_id:1614]should upgrade websocket connections without a subprotocol given", func() {
-			config, err := kubecli.GetKubevirtClientConfig()
-			Expect(err).ToNot(HaveOccurred())
-			// If no subprotocol is given, we still want to upgrade to be backward compatible
-			rt, err := upgradeCheckRoundTripperFromConfig(config, nil)
-			Expect(err).ToNot(HaveOccurred())
-			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
-			Expect(err).ToNot(HaveOccurred())
-			req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
-			Expect(err).ToNot(HaveOccurred())
-			_, err = wrappedRoundTripper.RoundTrip(req)
-			Expect(err).ToNot(HaveOccurred())
+				ctx2, cancel2, connected2 := newCtxWithConnect()
+				DeferCleanup(cancel2)
+				go func() {
+					defer GinkgoRecover()
+					errMsg := ""
+					if preserve2 {
+						errMsg = "websocket: bad handshake"
+					}
+					vncConnect(ctx2, vmi, preserve2, errMsg)
+				}()
+				Eventually(connected2, vncConnectTimeout).Should(Receive(Not(Equal(preserve2))))
+			},
+				Entry("Second session without preserve", false, false),
+				Entry("Second session with preserve", false, true),
+				// preserve in the first session should not change the behavior
+				Entry("First with preserve, Second session without preserve", true, false),
+				Entry("First with preserve, Second session with preserve", true, true),
+			)
 		})
-
-		DescribeTable("Dual connection. Validate default behavior and with 'preserve-session' option", func(preserve1, preserve2 bool) {
-			ctx1, cancel1, connected1 := newCtxWithConnect()
-			DeferCleanup(cancel1)
-			go func() {
-				defer GinkgoRecover()
-				vncConnect(ctx1, vmi, preserve1, "")
-			}()
-			Eventually(connected1, vncConnectTimeout).Should(Receive(BeTrue()))
-
-			ctx2, cancel2, connected2 := newCtxWithConnect()
-			DeferCleanup(cancel2)
-			go func() {
-				defer GinkgoRecover()
-				errMsg := ""
-				if preserve2 {
-					errMsg = "websocket: bad handshake"
-				}
-				vncConnect(ctx2, vmi, preserve2, errMsg)
-			}()
-			Eventually(connected2, vncConnectTimeout).Should(Receive(Not(Equal(preserve2))))
-		},
-			Entry("Second session without preserve", false, false),
-			Entry("Second session with preserve", false, true),
-			// preserve in the first session should not change the behavior
-			Entry("First with preserve, Second session without preserve", true, false),
-			Entry("First with preserve, Second session with preserve", true, true),
-		)
 	})
 })
 
