@@ -380,7 +380,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
-			Expect(newVmi.Annotations).To(Equal(vmi.Annotations))
+			for k, v := range vmi.Annotations {
+				Expect(newVmi.Annotations).To(HaveKeyWithValue(k, v))
+			}
 			Expect(vmi.Labels).To(HaveKeyWithValue(overrideKey, overrideFlavor))
 
 			vmiMemory := resource.MustParse("128M")

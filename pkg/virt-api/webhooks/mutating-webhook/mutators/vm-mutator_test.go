@@ -187,6 +187,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("amd64", "amd64", "q35"),
 	)
 
+	It("should set PCI topology version v3 annotation on new VM template", func() {
+		vmSpec, _ := getVMSpecMetaFromResponseCreate()
+		Expect(vmSpec.Template.ObjectMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV3))
+	})
+
+	It("should not override existing PCI topology version annotation on VM template", func() {
+		vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+			v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV2,
+		}
+		vmSpec, _ := getVMSpecMetaFromResponseCreate()
+		Expect(vmSpec.Template.ObjectMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV2))
+	})
+
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{

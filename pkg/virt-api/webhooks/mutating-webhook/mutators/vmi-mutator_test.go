@@ -624,6 +624,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(exist).To(BeTrue())
 	})
 
+	It("should set PCI topology version v3 annotation on new VMI", func() {
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV3))
+	})
+
+	It("should not override existing PCI topology version annotation", func() {
+		vmi.Annotations = map[string]string{
+			v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV2,
+		}
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV2))
+	})
+
 	It("should convert CPU requests to sockets", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
