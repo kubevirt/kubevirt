@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
@@ -73,7 +74,7 @@ var _ = Describe(SIG("[crit:medium][vendor:cnv-qe@redhat.com][level:component][s
 	BeforeEach(func() {
 		// A VMI for each test to have fresh stack on server side
 		vmi = libvmi.New(libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation), withClientPassthrough())
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsMedium())
 	})
 
 	It("Should fail when limit is reached", func() {
