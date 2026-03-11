@@ -47,7 +47,7 @@ var _ = Describe("Evaluator", func() {
 
 	DescribeTable("Should not require migration", func(vmi *v1.VirtualMachineInstance) {
 		pod := &k8scorev1.Pod{}
-		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi, pod)).To(Equal(k8scorev1.ConditionUnknown))
+		Expect(migration.NewEvaluator().Evaluate(vmi, pod)).To(Equal(k8scorev1.ConditionUnknown))
 	},
 		Entry("when no networks are specified",
 			libvmi.New(libvmi.WithAutoAttachPodInterface(false)),
@@ -102,7 +102,7 @@ var _ = Describe("Evaluator", func() {
 
 	DescribeTable("Should require a pending migration", func(vmi *v1.VirtualMachineInstance) {
 		pod := &k8scorev1.Pod{}
-		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi, pod)).To(Equal(k8scorev1.ConditionFalse))
+		Expect(migration.NewEvaluator().Evaluate(vmi, pod)).To(Equal(k8scorev1.ConditionFalse))
 	},
 		Entry("when a secondary iface using bridge binding is hotplugged",
 			libvmi.New(
@@ -164,7 +164,7 @@ var _ = Describe("Evaluator", func() {
 			),
 		)
 
-		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi, &k8scorev1.Pod{})).
+		Expect(migration.NewEvaluator().Evaluate(vmi, &k8scorev1.Pod{})).
 			To(Equal(k8scorev1.ConditionTrue))
 	})
 
@@ -197,7 +197,7 @@ var _ = Describe("Evaluator", func() {
 				return metav1.Time{Time: stubNow}
 			}
 
-			Expect(migration.NewEvaluatorWithTimeProvider(stubTimeProvider, stubClusterConfigurer{}).
+			Expect(migration.NewEvaluatorWithTimeProvider(stubTimeProvider).
 				Evaluate(vmi, &k8scorev1.Pod{})).To(Equal(expectedResult))
 		},
 			Entry("Should require a pending migration when timeout hasn't expired",
@@ -224,16 +224,14 @@ var _ = Describe("Evaluator", func() {
 
 			nadName1 = "nad1"
 			nadName2 = "nad2"
-
-			liveUpdateNADRefEnabled = true
 		)
 
 		DescribeTable("should trigger",
-			func(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod, isLiveUpdateEnabled bool, expectedMigration k8scorev1.ConditionStatus) {
-				evaluator := migration.NewEvaluator(stubClusterConfigurer{isLiveUpdateNADRefEnabled: isLiveUpdateEnabled})
+			func(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod, expectedMigration k8scorev1.ConditionStatus) {
+				evaluator := migration.NewEvaluator()
 				Expect(evaluator.Evaluate(vmi, pod)).To(Equal(expectedMigration))
 			},
-			Entry("no migration when NAD name in spec matches that in pod annotation and FG is enabled",
+			Entry("no migration when NAD name in spec matches that in pod annotation",
 				libvmi.New(
 					libvmi.WithNamespace(testNamespace),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
@@ -250,30 +248,9 @@ var _ = Describe("Evaluator", func() {
 					"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
 						secondaryPodIfaceName1, testNamespace, nadName1),
 				}),
-				liveUpdateNADRefEnabled,
 				k8scorev1.ConditionUnknown,
 			),
-			Entry("no migration when NAD name in spec differs from that in pod annotation and FG is disabled",
-				libvmi.New(
-					libvmi.WithNamespace(testNamespace),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
-					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName1, nadName1)),
-					libvmistatus.WithStatus(libvmistatus.New(
-						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-							Name:             secondaryNetworkName1,
-							PodInterfaceName: secondaryPodIfaceName1,
-							InfoSource:       multusAndDomainInfoSource,
-						}),
-					)),
-				),
-				newPod(map[string]string{
-					"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
-						secondaryPodIfaceName1, testNamespace, nadName2),
-				}),
-				!liveUpdateNADRefEnabled,
-				k8scorev1.ConditionUnknown,
-			),
-			Entry("immediate migration when NAD name in spec differs from that in pod annotation and FG is enabled",
+			Entry("immediate migration when NAD name in spec differs from that in pod annotation",
 				libvmi.New(
 					libvmi.WithNamespace(testNamespace),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
@@ -290,11 +267,10 @@ var _ = Describe("Evaluator", func() {
 					"k8s.v1.cni.cncf.io/network-status": fmt.Sprintf(`[{"interface": %q, "name": "%s/%s"}]`,
 						secondaryPodIfaceName1, testNamespace, nadName1),
 				}),
-				liveUpdateNADRefEnabled,
 				k8scorev1.ConditionTrue,
 			),
 			Entry(
-				"immediate migration when a VM has NADs in different namespaces and one is out of sync and FG is enabled",
+				"immediate migration when a VM has NADs in different namespaces and one is out of sync",
 				libvmi.New(
 					libvmi.WithNamespace(testNamespace),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
@@ -321,20 +297,11 @@ var _ = Describe("Evaluator", func() {
 						secondaryPodIfaceName2, otherNamespace, nadName1,
 					),
 				}),
-				liveUpdateNADRefEnabled,
 				k8scorev1.ConditionTrue,
 			),
 		)
 	})
 })
-
-type stubClusterConfigurer struct {
-	isLiveUpdateNADRefEnabled bool
-}
-
-func (s stubClusterConfigurer) LiveUpdateNADRefEnabled() bool {
-	return s.isLiveUpdateNADRefEnabled
-}
 
 func newPod(annotations map[string]string) *k8scorev1.Pod {
 	return &k8scorev1.Pod{
