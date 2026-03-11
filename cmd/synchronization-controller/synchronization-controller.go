@@ -185,7 +185,7 @@ func (app *synchronizationControllerApp) Run() {
 		break
 	}
 	if retryCount >= maxRetryCount {
-		panic(fmt.Errorf("unable to get kubevirt client config after %d retries %v", maxRetryCount, err))
+		log.Log.Reason(err).Critical("unable to get kubevirt client config after max retries")
 	}
 
 	clientConfig.RateLimiter = app.reloadableRateLimiter
@@ -200,7 +200,7 @@ func (app *synchronizationControllerApp) Run() {
 		break
 	}
 	if retryCount >= maxRetryCount {
-		panic(fmt.Errorf("unable to get kubevirt client from rest config after %d retries %v", maxRetryCount, err))
+		log.Log.Reason(err).Critical("unable to get kubevirt client from rest config after max retries")
 	}
 
 	app.namespace, err = clientutil.GetNamespace()
@@ -221,7 +221,7 @@ func (app *synchronizationControllerApp) Run() {
 
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
-		panic(err)
+		log.Log.Reason(err).Critical("Error creating cluster config")
 	}
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
@@ -259,7 +259,7 @@ func (app *synchronizationControllerApp) Run() {
 		app.ip,
 	)
 	if err != nil {
-		panic(err)
+		log.Log.Reason(err).Critical("Error creating synchronization controller")
 	}
 
 	go app.clientcertmanager.Start()
@@ -274,8 +274,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 
 	id, err := os.Hostname()
 	if err != nil {
-		log.Log.Criticalf("unable to get hostname: %v", err)
-		panic(err)
+		log.Log.Reason(err).Critical("unable to get hostname")
 	}
 
 	tlsConfig := SetupTLS(app.servercertmanager)
@@ -334,7 +333,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 			EventRecorder: recorder,
 		})
 	if err != nil {
-		panic(err)
+		log.Log.Reason(err).Critical("Error creating resource lock")
 	}
 
 	controllerContext, controllerCancel := context.WithCancel(context.Background())
@@ -350,7 +349,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 				OnStartedLeading: func(ctx context.Context) {
 					// run app
 					if err := synchronizationController.Run(10, controllerContext.Done()); err != nil {
-						panic(err)
+						log.Log.Reason(err).Critical("Failed to run synchronization controller")
 					}
 					log.Log.Info("successfully shut down controller")
 					wg.Done()
@@ -362,7 +361,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 			},
 		})
 	if err != nil {
-		panic(err)
+		log.Log.Reason(err).Critical("Error creating leader elector")
 	}
 	leaderElector.Run(app.ctx)
 	wg.Wait()
