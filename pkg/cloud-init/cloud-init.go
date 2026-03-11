@@ -185,7 +185,7 @@ func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceD
 			continue
 		}
 
-		baseDir := filepath.Join(secretSourceDir, secretName+"-access-cred")
+		baseDir := filepath.Join(secretSourceDir, dns.SanitizeAccessCredentialVolumeName(secretName))
 		files, err := os.ReadDir(baseDir)
 		if err != nil {
 			return keys, err

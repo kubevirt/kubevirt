@@ -86,6 +86,7 @@ go_test(
         "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
