@@ -73,7 +73,7 @@ if [ -n "$KUBEVIRT_E2E_LABEL_FILTER" ]; then
     additional_test_args+="--label-filter=${KUBEVIRT_E2E_LABEL_FILTER}"
 fi
 
-perftest ${additional_test_args} ${FUNC_TEST_ARGS}
+perftest "${additional_test_args}" ${FUNC_TEST_ARGS}
 
 echo 'Delete kubevirt related kwok manifests'
 kubectl delete -k tests/performance/manifests/kwok
