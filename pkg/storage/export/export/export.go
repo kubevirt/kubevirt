@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -61,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -1136,6 +1138,26 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Name:  "EXPORT_SECRET_DEF_URI",
 		Value: secretManifestPath,
 	})
+
+	if kv := ctrl.clusterConfig.GetConfigFromKubeVirtCR(); kv != nil && kv.Spec.Configuration.TLSConfiguration != nil {
+		tlsConfig := kv.Spec.Configuration.TLSConfiguration
+		if tlsConfig.MinTLSVersion != "" {
+			podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "TLS_MIN_VERSION",
+				Value: strconv.FormatUint(uint64(kvtls.TLSVersion(tlsConfig.MinTLSVersion)), 10),
+			})
+		}
+		if len(tlsConfig.Ciphers) > 0 {
+			var cipherIDs []string
+			for _, id := range kvtls.CipherSuiteIds(tlsConfig.Ciphers) {
+				cipherIDs = append(cipherIDs, strconv.FormatUint(uint64(id), 10))
+			}
+			podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "TLS_CIPHER_SUITES",
+				Value: strings.Join(cipherIDs, ","),
+			})
+		}
+	}
 
 	tokenSecretRef := ""
 	if vmExport.Status != nil && vmExport.Status.TokenSecretRef != nil {

@@ -256,10 +256,32 @@ func (s *exportServer) Run() {
 	}
 }
 
+func tlsMinVersionFromEnv() uint16 {
+	if v, err := strconv.ParseUint(os.Getenv("TLS_MIN_VERSION"), 10, 16); err == nil {
+		return uint16(v)
+	}
+	return tls.VersionTLS12
+}
+
+func cipherSuitesFromEnv() []uint16 {
+	env := os.Getenv("TLS_CIPHER_SUITES")
+	if env == "" {
+		return nil
+	}
+	var ids []uint16
+	for _, s := range strings.Split(env, ",") {
+		if id, err := strconv.ParseUint(s, 10, 16); err == nil {
+			ids = append(ids, uint16(id))
+		}
+	}
+	return ids
+}
+
 func (s *exportServer) buildServer() *http.Server {
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		NextProtos: []string{"h2", "http/1.1"},
+		MinVersion:   tlsMinVersionFromEnv(),
+		CipherSuites: cipherSuitesFromEnv(),
+		NextProtos:   []string{"h2", "http/1.1"},
 	}
 
 	rootHandler := s.handler
