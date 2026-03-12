@@ -22,7 +22,6 @@ package eventsserver
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -141,10 +140,7 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		return err
 	}
 
-	defer func() {
-		sock.Close()
-		os.Remove(sockFile)
-	}()
+	defer sock.Close()
 
 	serveErr := make(chan error, 1)
 	go func() {
