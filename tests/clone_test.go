@@ -34,7 +34,7 @@ import (
 
 	clone "kubevirt.io/api/clone/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -503,22 +503,22 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 				Context("with instancetype and preferences", decorators.SigComputeInstancetype, func() {
 					var (
-						instancetype *instancetypev1beta1.VirtualMachineInstancetype
-						preference   *instancetypev1beta1.VirtualMachinePreference
+						instancetype *instancetypev1.VirtualMachineInstancetype
+						preference   *instancetypev1.VirtualMachinePreference
 					)
 
 					BeforeEach(func() {
 						ns := testsuite.GetTestNamespace(nil)
-						instancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+						instancetype = &instancetypev1.VirtualMachineInstancetype{
 							ObjectMeta: v1.ObjectMeta{
 								GenerateName: "vm-instancetype-",
 								Namespace:    ns,
 							},
-							Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-								CPU: instancetypev1beta1.CPUInstancetype{
+							Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+								CPU: instancetypev1.CPUInstancetype{
 									Guest: 1,
 								},
-								Memory: instancetypev1beta1.MemoryInstancetype{
+								Memory: instancetypev1.MemoryInstancetype{
 									Guest: resource.MustParse("128Mi"),
 								},
 							},
@@ -526,14 +526,14 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						instancetype, err := virtClient.VirtualMachineInstancetype(ns).Create(context.Background(), instancetype, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						preferredCPUTopology := instancetypev1beta1.Sockets
-						preference = &instancetypev1beta1.VirtualMachinePreference{
+						preferredCPUTopology := instancetypev1.Sockets
+						preference = &instancetypev1.VirtualMachinePreference{
 							ObjectMeta: v1.ObjectMeta{
 								GenerateName: "vm-preference-",
 								Namespace:    ns,
 							},
-							Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-								CPU: &instancetypev1beta1.CPUPreferences{
+							Spec: instancetypev1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1.CPUPreferences{
 									PreferredCPUTopology: &preferredCPUTopology,
 								},
 							},

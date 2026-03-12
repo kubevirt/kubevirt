@@ -85,7 +85,7 @@ go_test(
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/prometheusoperator/fake:go_default_library",

@@ -49,7 +49,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -95,8 +95,8 @@ type StrategyInterface interface {
 	ConfigMaps() []*corev1.ConfigMap
 	CRDs() []*extv1.CustomResourceDefinition
 	Routes() []*routev1.Route
-	Instancetypes() []*instancetypev1beta1.VirtualMachineClusterInstancetype
-	Preferences() []*instancetypev1beta1.VirtualMachineClusterPreference
+	Instancetypes() []*instancetypev1.VirtualMachineClusterInstancetype
+	Preferences() []*instancetypev1.VirtualMachineClusterPreference
 	ValidatingAdmissionPolicyBindings() []*admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	ValidatingAdmissionPolicies() []*admissionregistrationv1.ValidatingAdmissionPolicy
 }
@@ -124,8 +124,8 @@ type Strategy struct {
 	prometheusRules                   []*promv1.PrometheusRule
 	configMaps                        []*corev1.ConfigMap
 	routes                            []*routev1.Route
-	instancetypes                     []*instancetypev1beta1.VirtualMachineClusterInstancetype
-	preferences                       []*instancetypev1beta1.VirtualMachineClusterPreference
+	instancetypes                     []*instancetypev1.VirtualMachineClusterInstancetype
+	preferences                       []*instancetypev1.VirtualMachineClusterPreference
 	validatingAdmissionPolicyBindings []*admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	validatingAdmissionPolicies       []*admissionregistrationv1.ValidatingAdmissionPolicy
 }
@@ -268,11 +268,11 @@ func (ins *Strategy) Routes() []*routev1.Route {
 	return ins.routes
 }
 
-func (ins *Strategy) Instancetypes() []*instancetypev1beta1.VirtualMachineClusterInstancetype {
+func (ins *Strategy) Instancetypes() []*instancetypev1.VirtualMachineClusterInstancetype {
 	return ins.instancetypes
 }
 
-func (ins *Strategy) Preferences() []*instancetypev1beta1.VirtualMachineClusterPreference {
+func (ins *Strategy) Preferences() []*instancetypev1.VirtualMachineClusterPreference {
 	return ins.preferences
 }
 
@@ -913,13 +913,13 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 			}
 			strategy.routes = append(strategy.routes, route)
 		case "VirtualMachineClusterInstancetype":
-			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{}
+			instancetype := &instancetypev1.VirtualMachineClusterInstancetype{}
 			if err := yaml.Unmarshal([]byte(entry), &instancetype); err != nil {
 				return nil, err
 			}
 			strategy.instancetypes = append(strategy.instancetypes, instancetype)
 		case "VirtualMachineClusterPreference":
-			preference := &instancetypev1beta1.VirtualMachineClusterPreference{}
+			preference := &instancetypev1.VirtualMachineClusterPreference{}
 			if err := yaml.Unmarshal([]byte(entry), &preference); err != nil {
 				return nil, err
 			}

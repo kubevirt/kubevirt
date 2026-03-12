@@ -30,12 +30,12 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 )
 
 type FakeStrategy struct {
-	FakeInstancetypes []*instancetypev1beta1.VirtualMachineClusterInstancetype
-	FakePreferences   []*instancetypev1beta1.VirtualMachineClusterPreference
+	FakeInstancetypes []*instancetypev1.VirtualMachineClusterInstancetype
+	FakePreferences   []*instancetypev1.VirtualMachineClusterPreference
 }
 
 func (ins *FakeStrategy) ServiceAccounts() []*corev1.ServiceAccount {
@@ -130,11 +130,11 @@ func (ins *FakeStrategy) Routes() []*routev1.Route {
 	return nil
 }
 
-func (ins *FakeStrategy) Instancetypes() []*instancetypev1beta1.VirtualMachineClusterInstancetype {
+func (ins *FakeStrategy) Instancetypes() []*instancetypev1.VirtualMachineClusterInstancetype {
 	return ins.FakeInstancetypes
 }
 
-func (ins *FakeStrategy) Preferences() []*instancetypev1beta1.VirtualMachineClusterPreference {
+func (ins *FakeStrategy) Preferences() []*instancetypev1.VirtualMachineClusterPreference {
 	return ins.FakePreferences
 }
 

@@ -41,7 +41,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -778,7 +778,7 @@ func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
 	}
 }
 
-func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachineInstancetype {
+func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1.VirtualMachineInstancetype {
 	instancetype := builder.NewInstancetype(
 		builder.WithCPUs(1),
 		builder.WithMemory("128Mi"),
@@ -789,9 +789,9 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.
 	return instancetype
 }
 
-func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachinePreference {
+func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1.VirtualMachinePreference {
 	preference := builder.NewPreference(
-		builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+		builder.WithPreferredCPUTopology(instancetypev1.Cores),
 	)
 	preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).
 		Create(context.Background(), preference, metav1.CreateOptions{})

@@ -20,7 +20,7 @@ package requirements
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
@@ -32,8 +32,8 @@ func New() *checker {
 }
 
 func (c *checker) Check(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) (conflict.Conflicts, error) {
 	if preferenceSpec == nil || preferenceSpec.Requirements == nil {

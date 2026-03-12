@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
@@ -36,7 +36,7 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 	requirementsChecker := requirements.New()
 
 	DescribeTable("should pass when sufficient resources are provided",
-		func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+		func(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 			vmiSpec *v1.VirtualMachineInstanceSpec,
 		) {
 			conflict, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
@@ -44,14 +44,14 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 			Expect(conflict).ToNot(HaveOccurred())
 		},
 		Entry("by an instance type for Memory",
-			&v1beta1.VirtualMachineInstancetypeSpec{
-				Memory: v1beta1.MemoryInstancetype{
+			&instancetypev1.VirtualMachineInstancetypeSpec{
+				Memory: instancetypev1.MemoryInstancetype{
 					Guest: resource.MustParse("1Gi"),
 				},
 			},
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					Memory: &v1beta1.MemoryPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					Memory: &instancetypev1.MemoryPreferenceRequirement{
 						Guest: resource.MustParse("1Gi"),
 					},
 				},
@@ -60,9 +60,9 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 		),
 		Entry("by a VM for Memory",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					Memory: &v1beta1.MemoryPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					Memory: &instancetypev1.MemoryPreferenceRequirement{
 						Guest: resource.MustParse("1Gi"),
 					},
 				},
@@ -78,7 +78,7 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 	)
 
 	DescribeTable("should be rejected when insufficient resources are provided",
-		func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+		func(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 			vmiSpec *v1.VirtualMachineInstanceSpec, expectedConflict conflict.Conflicts, errSubString string,
 		) {
 			conflicts, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
@@ -87,14 +87,14 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 			Expect(conflicts).To(Equal(expectedConflict))
 		},
 		Entry("by an instance type for Memory",
-			&v1beta1.VirtualMachineInstancetypeSpec{
-				Memory: v1beta1.MemoryInstancetype{
+			&instancetypev1.VirtualMachineInstancetypeSpec{
+				Memory: instancetypev1.MemoryInstancetype{
 					Guest: resource.MustParse("1Gi"),
 				},
 			},
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					Memory: &v1beta1.MemoryPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					Memory: &instancetypev1.MemoryPreferenceRequirement{
 						Guest: resource.MustParse("2Gi"),
 					},
 				},
@@ -105,9 +105,9 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 		),
 		Entry("by a VM for Memory",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					Memory: &v1beta1.MemoryPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					Memory: &instancetypev1.MemoryPreferenceRequirement{
 						Guest: resource.MustParse("2Gi"),
 					},
 				},
@@ -124,9 +124,9 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 		),
 		Entry("by a VM without Memory - bug #14551",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					Memory: &v1beta1.MemoryPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					Memory: &instancetypev1.MemoryPreferenceRequirement{
 						Guest: resource.MustParse("2Gi"),
 					},
 				},
@@ -139,9 +139,9 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 		),
 		Entry("by a VM with Memory but without a Guest value provided - bug #14551",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					Memory: &v1beta1.MemoryPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					Memory: &instancetypev1.MemoryPreferenceRequirement{
 						Guest: resource.MustParse("2Gi"),
 					},
 				},

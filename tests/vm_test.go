@@ -41,7 +41,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -910,15 +910,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", decorators.SigComputeInstancetype, func() {
 			By("creating a VirtualMachineClusterInstancetype")
-			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+			instancetype := &instancetypev1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "instancetype-",
 				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(1),
 					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("64Mi"),
 					},
 				},
