@@ -60,38 +60,7 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 }
 
 func ConfigureSEVSNPLaunchSecurity(snpConfig *v1.SEVSNP) *api.LaunchSecurity {
-	snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(snpConfig)
-	domain := &api.LaunchSecurity{
-		Type: "sev-snp",
-	}
-	if snpConfig.Policy != "" {
-		domain.LaunchSecuritySEVCommon.Policy = snpConfig.Policy
-	} else {
-		// Use Default Policy
-		domain.LaunchSecuritySEVCommon.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-	}
-	if snpConfig.VCEK != "" {
-		domain.LaunchSecuritySNP.VCEK = snpConfig.VCEK
-	}
-	if snpConfig.AuthorKey != "" {
-		domain.LaunchSecuritySNP.AuthorKey = snpConfig.AuthorKey
-	}
-	if snpConfig.KernelHashes != "" {
-		domain.LaunchSecuritySEVCommon.KernelHashes = snpConfig.KernelHashes
-	}
-	if snpConfig.Cbitpos != "" {
-		domain.LaunchSecuritySEVCommon.Cbitpos = snpConfig.Cbitpos
-	}
-	if snpConfig.IdBlock != "" {
-		domain.LaunchSecuritySNP.IdBlock = snpConfig.IdBlock
-	}
-	if snpConfig.IdAuth != "" {
-		domain.LaunchSecuritySNP.IdAuth = snpConfig.IdAuth
-	}
-	if snpConfig.ReducedPhysBits != "" {
-		domain.LaunchSecuritySEVCommon.ReducedPhysBits = snpConfig.ReducedPhysBits
-	}
-	return domain
+	return launchsecurity.ConfigureSEVSNPLaunchSecurity(snpConfig)
 }
 
 func ConfigureSEVLaunchSecurity(sevConfig *v1.SEV) *api.LaunchSecurity {
@@ -114,7 +83,7 @@ func ConfigureSEVLaunchSecurity(sevConfig *v1.SEV) *api.LaunchSecurity {
 func Amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	launchSec := vmi.Spec.Domain.LaunchSecurity
 	if launchSec.SNP != nil {
-		return ConfigureSEVSNPLaunchSecurity(launchSec.SNP)
+		return launchsecurity.ConfigureSEVSNPLaunchSecurity(launchSec.SNP)
 	} else if launchSec.SEV != nil {
 		return ConfigureSEVLaunchSecurity(launchSec.SEV)
 	} else if launchSec.TDX != nil {
