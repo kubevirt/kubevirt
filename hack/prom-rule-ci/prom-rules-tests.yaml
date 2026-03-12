@@ -1072,28 +1072,28 @@ tests:
       # VMs that SHOULD alert (in problematic states with VMI)
       - series: 'kubevirt_vm_info{name="vm-stuck-starting", namespace="test-ns", status="starting", status_group="starting"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-stuck-starting", namespace="test-ns", node="worker-node-1"}'
+      - series: 'kubevirt_vmi_info{name="vm-stuck-starting", namespace="test-ns", node="worker-node-1", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-image-error", namespace="test-ns", status="ErrImagePull", status_group="error"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-image-error", namespace="test-ns", node="worker-node-2"}'
+      - series: 'kubevirt_vmi_info{name="vm-image-error", namespace="test-ns", node="worker-node-2", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-stuck-stopping", namespace="test-ns", status="stopping", status_group="non_running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-stuck-stopping", namespace="test-ns", node="worker-node-3"}'
+      - series: 'kubevirt_vmi_info{name="vm-stuck-stopping", namespace="test-ns", node="worker-node-3", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-terminating-with-vmi", namespace="test-ns", status="terminating", status_group="non_running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-terminating-with-vmi", namespace="test-ns", node="worker-node-4"}'
+      - series: 'kubevirt_vmi_info{name="vm-terminating-with-vmi", namespace="test-ns", node="worker-node-4", phase="running"}'
         values: "1x11"
       # VMs that should NOT alert (in healthy states with VMI)
       - series: 'kubevirt_vm_info{name="vm-running", namespace="test-ns", status="running", status_group="running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-running", namespace="test-ns", node="worker-node-5"}'
+      - series: 'kubevirt_vmi_info{name="vm-running", namespace="test-ns", node="worker-node-5", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-paused", namespace="test-ns", status="paused", status_group="running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-paused", namespace="test-ns", node="worker-node-6"}'
+      - series: 'kubevirt_vmi_info{name="vm-paused", namespace="test-ns", node="worker-node-6", phase="running"}'
         values: "1x11"
 
     alert_rule_test:
@@ -1157,6 +1157,80 @@ tests:
               namespace: "test-ns"
               status: "terminating"
               node: "worker-node-4"
+
+  # VirtualMachineStuckOnNode - duplicate VMI series regression tests
+  # Verifies topk-based dedup prevents many-to-many matching errors
+  # during VMI phase transitions and live migrations.
+  - interval: 1m
+    input_series:
+      # Phase transition: scheduling + running VMI coexist for same VM
+      - series: 'kubevirt_vm_info{name="vm-phase-overlap", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-phase-overlap", namespace="test-ns", phase="scheduling"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-phase-overlap", namespace="test-ns", phase="running", node="worker-node-7"}'
+        values: "1x11"
+      # Migration: two running VMIs on different nodes for same VM
+      - series: 'kubevirt_vm_info{name="vm-migration-overlap", namespace="test-ns", status="stopping", status_group="non_running"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-migration-overlap", namespace="test-ns", phase="running", node="source-node"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-migration-overlap", namespace="test-ns", phase="running", node="target-node"}'
+        values: "1x11"
+      # Error with migration overlap: tests inner and + outer group_left
+      - series: 'kubevirt_vm_info{name="vm-error-migration", namespace="test-ns", status="ErrImagePull", status_group="error"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-error-migration", namespace="test-ns", phase="running", node="source-node-2"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-error-migration", namespace="test-ns", phase="running", node="target-node-2"}'
+        values: "1x11"
+
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: VirtualMachineStuckOnNode
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: VirtualMachineStuckOnNode
+        exp_alerts:
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-phase-overlap in namespace test-ns on node worker-node-7 has been in starting state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-phase-overlap"
+              namespace: "test-ns"
+              status: "starting"
+              node: "worker-node-7"
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-migration-overlap in namespace test-ns on node source-node has been in stopping state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-migration-overlap"
+              namespace: "test-ns"
+              status: "stopping"
+              node: "source-node"
+          - exp_annotations:
+              summary: "Virtual machine stuck in unhealthy state for more than 5 minutes"
+              description: "Virtual machine vm-error-migration in namespace test-ns on node source-node-2 has been in ErrImagePull state for more than 5 minutes. This may indicate issues with the VM lifecycle on the target node."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineStuckOnNode"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm-error-migration"
+              namespace: "test-ns"
+              status: "ErrImagePull"
+              node: "source-node-2"
 
   # GuestFilesystemAlmostOutOfSpace - Warning (85% usage)
   - interval: 1m
