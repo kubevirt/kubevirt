@@ -6,6 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/vnc",
     visibility = ["//visibility:public"],
     deps = [
+        "//cmd/virtctl/config:go_default_library",
+
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//pkg/virtctl/vnc/screenshot:go_default_library",

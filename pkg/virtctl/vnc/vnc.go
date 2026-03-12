@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	configcmd "kubevirt.io/kubevirt/cmd/virtctl/config"
 
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
@@ -294,9 +295,23 @@ func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 
 	vncBin := ""
 	osType := runtime.GOOS
-
+	cfg, cfgErr := configcmd.LoadConfig()
+	if cfgErr != nil && !os.IsNotExist(cfgErr) {
+		log.Log.Warningf("Failed to load config: %v, falling back to default viewer selection", cfgErr)
+	}
 	if vncType != "" && vncPath != "" {
 		vncBin, args, err = getUserSpecifiedVnc(ctx, osType, vncType, vncPath, port)
+	} else if cfgErr == nil && cfg.VNC.Viewer != "" {
+		vncBin = cfg.VNC.Viewer
+		switch vncBin {
+		case "remote-viewer", "virt-viewer":
+			args = remoteViewerArgs(port)
+		case "vncviewer":
+			args = tigerVncArgs(port)
+		default:
+			errChan <- fmt.Errorf("unsupported configured viewer: %s", vncBin)
+			return
+		}
 	} else {
 		vncBin, args, err = getAutoDetectedVnc(osType, port)
 	}
@@ -322,7 +337,6 @@ func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 	}
 	errChan <- err
 }
-
 func tigerVncArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf(listenAddressFmt, port))
 	if log.Log.Verbosity(4) {
