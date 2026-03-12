@@ -64,7 +64,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 		"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
 	}
 
-	DescribeTable("should have ssh-key under authorized keys added", func(withQEMUAccessCredential bool, options ...libvmi.Option) {
+	DescribeTable("should have ssh-key under authorized keys added", decorators.WgS390x, func(withQEMUAccessCredential bool, options ...libvmi.Option) {
 		By("Creating a secret with three ssh keys")
 		Expect(createNewSecret(testsuite.GetTestNamespace(nil), pubKeySecretID, keysSecretData)).To(Succeed())
 
@@ -128,7 +128,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 			"fedora": []byte(customPassword),
 		}
 
-		It("[test_id:6221]should propagate user password", func() {
+		It("[test_id:6221]should propagate user password", decorators.WgS390x, func() {
 			vmi := libvmifact.NewFedora(libvmi.WithAccessCredentialUserPassword(userPassSecretID))
 
 			By("Creating a secret with custom password")
@@ -179,7 +179,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
 					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-ssh-add-authorized-keys"),
 				))),
-			Entry("[test_id:6223] for user password", userPassSecretID, userPassData,
+			Entry("[test_id:6223] for user password", decorators.WgS390x, userPassSecretID, userPassData,
 				libvmi.WithAccessCredentialUserPassword(userPassSecretID),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
 					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password"),

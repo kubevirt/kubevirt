@@ -369,7 +369,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("with nodeselector", func() {
-			It("[test_id:5760]should check if vm's with non existing nodeselector is not running and node selector is not updated", func() {
+			It("[test_id:5760]should check if vm's with non existing nodeselector is not running and node selector is not updated", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine()
 				By("setting nodeselector with non-existing-os label")
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
@@ -394,7 +394,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 			})
 
-			It("[test_id:5761]should check if vm with valid node selector is scheduled and running and node selector is not updated", func() {
+			It("[test_id:5761]should check if vm with valid node selector is scheduled and running and node selector is not updated", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "linux"}
 				libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
@@ -450,7 +450,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				},
 					Entry("amd64", "pc-q35-test-1.2.3", decorators.RequiresAMD64),
 					Entry("arm64", "virt-test-1.2.3", decorators.RequiresARM64),
-					Entry("s390x", "s390-ccw-virtio-test-1.2.3", decorators.RequiresS390X),
+					Entry("s390x", "s390-ccw-virtio-test-1.2.3", decorators.RequiresS390X), decorators.WgS390x,
 				)
 			})
 		})
@@ -520,7 +520,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when virt-handler crashes", Serial, func() {
+		Context("when virt-handler crashes", Serial, decorators.WgS390x, func() {
 			// FIXME: This test has the issues that it tests a lot of different timing scenarios in an intransparent way:
 			// e.g. virt-handler can die before or after virt-launcher. If we wait until virt-handler is dead before we
 			// kill virt-launcher then we don't know if virt-handler already restarted.
@@ -592,7 +592,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
 			})
 
-			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
+			It("[test_id:3198]device plugins should re-register if the kubelet restarts", decorators.WgS390x, func() {
 
 				By("starting a VMI on a node")
 				vmi := libvmifact.NewAlpine()
@@ -767,7 +767,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node tainted", Serial, func() {
+		Context("with node tainted", Serial, decorators.WgS390x, func() {
 			var nodes *k8sv1.NodeList
 			BeforeEach(func() {
 				Eventually(func() []k8sv1.Node {
@@ -813,7 +813,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with affinity", func() {
+		Context("with affinity", decorators.WgS390x, func() {
 			var node *k8sv1.Node
 
 			BeforeEach(func() {
@@ -1030,7 +1030,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
 
-			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
+			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
@@ -1185,7 +1185,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
 			})
 
-			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
+			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", decorators.WgS390x, func() {
 
 				// Add node affinity first to test later on that although there is node affinity to
 				// the specific node - the feature policy 'forbid' will deny scheduling on that node.
@@ -1314,7 +1314,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
-	Describe("Freeze/Unfreeze a VirtualMachineInstance", func() {
+	Describe("Freeze/Unfreeze a VirtualMachineInstance", decorators.WgS390x, func() {
 		It("[test_id:7476][test_id:7477]should fail without guest agent", func() {
 			vmi := libvmifact.NewAlpine()
 			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1403,7 +1403,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	Describe("Softreboot a VirtualMachineInstance", decorators.ACPI, func() {
 		const vmiLaunchTimeout = 360
 
-		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {
+		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1431,7 +1431,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			waitForVMIRebooted(vmi, console.LoginToFedora)
 		})
 
-		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
+		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withoutACPI()), vmiLaunchTimeout)
 
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1441,7 +1441,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(err).To(MatchError(ContainSubstring("VMI neither have the agent connected nor the ACPI feature enabled")))
 		})
 
-		It("soft reboot vmi should fail to soft reboot a paused vmi", func() {
+		It("soft reboot vmi should fail to soft reboot a paused vmi", decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -1465,7 +1465,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
-	Describe("Pausing/Unpausing a VirtualMachineInstance", func() {
+	Describe("Pausing/Unpausing a VirtualMachineInstance", decorators.WgS390x, func() {
 		It("[test_id:4597]should signal paused state with condition", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsMedium)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
@@ -1626,7 +1626,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			)
 		})
 		Context("with grace period greater than 0", func() {
-			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, func() {
+			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, decorators.WgS390x, func() {
 				By("Setting a VirtualMachineInstance termination grace period to 5")
 				// Give the VirtualMachineInstance a custom grace period
 				vmi := libvmifact.NewAlpine(libvmi.WithTerminationGracePeriod(5))

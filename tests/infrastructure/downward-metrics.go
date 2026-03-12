@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -59,7 +60,7 @@ var _ = Describe(SIG("downwardMetrics", func() {
 		Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 	},
 		Entry("[test_id:6535]using a disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
-		Entry("using a virtio serial device", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
+		Entry("using a virtio serial device", decorators.WgS390x, libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
 	)
 
 	It("metric ResourceProcessorLimit should be present", func() {

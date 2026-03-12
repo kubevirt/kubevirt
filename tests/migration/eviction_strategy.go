@@ -145,7 +145,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 
-			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {
+			It("[test_id:3244]should block the eviction api while a slow migration is in progress", decorators.WgS390x, func() {
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmops.RunVMIAndExpectLaunch(fedoraVMIWithEvictionStrategy(), libvmops.StartupTimeoutSecondsHuge)
 
@@ -277,7 +277,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 				})
 
-				It("[test_id:2221] should migrate a VMI under load to another node", func() {
+				It("[test_id:2221] should migrate a VMI under load to another node", decorators.WgS390x, func() {
 					vmi := fedoraVMIWithEvictionStrategy()
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
@@ -500,7 +500,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 		})
 	})
 
-	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, func() {
+	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, decorators.WgS390x, func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {
