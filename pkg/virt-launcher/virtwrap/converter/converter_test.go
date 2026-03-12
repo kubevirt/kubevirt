@@ -398,28 +398,41 @@ var _ = Describe("Converter", func() {
 			Entry("on s390x", s390x, "virtio"),
 		)
 
-		It("Should add blockio fields when custom sizes are provided", func() {
+		DescribeTable("Should handle custom block sizes correctly per architecture", func(arch string, logical, physical uint, shouldSucceed bool) {
 			kubevirtDisk := &v1.Disk{
 				BlockSize: &v1.BlockSize{
 					Custom: &v1.CustomBlockSize{
-						Logical:            1234,
-						Physical:           1234,
-						DiscardGranularity: pointer.P[uint](1234),
+						Logical:            logical,
+						Physical:           physical,
+						DiscardGranularity: pointer.P(physical),
 					},
 				},
 			}
-			expectedXML := `<Disk device="" type="">
+			libvirtDisk := &api.Disk{}
+			err := Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk, arch)
+			if shouldSucceed {
+				Expect(err).ToNot(HaveOccurred())
+				expectedXML := fmt.Sprintf(`<Disk device="" type="">
   <source></source>
   <target></target>
-  <blockio logical_block_size="1234" physical_block_size="1234" discard_granularity="1234"></blockio>
-</Disk>`
-			libvirtDisk := &api.Disk{}
-			Expect(Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)).To(Succeed())
-			data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
-			Expect(err).ToNot(HaveOccurred())
-			xml := string(data)
-			Expect(xml).To(Equal(expectedXML))
-		})
+  <blockio logical_block_size="%d" physical_block_size="%d" discard_granularity="%d"></blockio>
+</Disk>`, logical, physical, physical)
+				data, xmlErr := xml.MarshalIndent(libvirtDisk, "", "  ")
+				Expect(xmlErr).ToNot(HaveOccurred())
+				Expect(string(data)).To(Equal(expectedXML))
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("exceeds the maximum supported size")))
+			}
+		},
+			MultiArchEntry("valid 1234", uint(1234), uint(1234), true),
+			Entry("4096 on s390x", s390x, uint(4096), uint(4096), true),
+			Entry("2048 on s390x", s390x, uint(2048), uint(2048), true),
+			Entry("1024 on s390x", s390x, uint(1024), uint(1024), true),
+			Entry("8192 on s390x", s390x, uint(8192), uint(8192), false),
+			Entry("65536 on s390x", s390x, uint(65536), uint(65536), false),
+			Entry("1 MiB on s390x", s390x, uint(1048576), uint(1048576), false),
+		)
+
 		DescribeTable("should set sharable and the cache if requested", func(arch, expectedModel string) {
 			v1Disk := &v1.Disk{
 				Name: "mydisk",
@@ -1854,7 +1867,7 @@ var _ = Describe("Converter", func() {
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
-				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(Succeed())
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(Succeed())
 
 				blockIO := apiDisk.BlockIO
 				Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
@@ -1876,7 +1889,7 @@ var _ = Describe("Converter", func() {
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{}}
-				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
 			})
 		})
 	})

@@ -64,6 +64,7 @@ import (
 
 const (
 	deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
+	maxCustomBlockSizeS390x    = 4096
 )
 
 type deviceNamer struct {
@@ -240,12 +241,18 @@ func (c *directIOChecker) check(path string, flags int) (bool, error) {
 	return true, nil
 }
 
-func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error {
+func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string) error {
 	if source.BlockSize == nil {
 		return nil
 	}
 
 	if blockSize := source.BlockSize.Custom; blockSize != nil {
+		if arch == "s390x" &&
+			(blockSize.Logical > maxCustomBlockSizeS390x || blockSize.Physical > maxCustomBlockSizeS390x) {
+			return fmt.Errorf(
+				"custom block size (logical=%d, physical=%d) exceeds the maximum supported size of %d for architecture %s",
+				blockSize.Logical, blockSize.Physical, maxCustomBlockSizeS390x, arch)
+		}
 		disk.BlockIO = &api.BlockIO{
 			LogicalBlockSize:  blockSize.Logical,
 			PhysicalBlockSize: blockSize.Physical,
@@ -1102,7 +1109,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 
-		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
+		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, c.Architecture.GetArchitecture()); err != nil {
 			return err
 		}
 
