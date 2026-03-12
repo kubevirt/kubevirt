@@ -19,6 +19,7 @@
 package export
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -63,8 +64,8 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
@@ -133,7 +134,7 @@ var _ = Describe("Export controller", func() {
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		fakeCertManager             *bootstrap.MockCertificateManager
+		fakeCertManager             *MockCertManager
 		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
@@ -217,9 +218,7 @@ var _ = Describe("Export controller", func() {
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
-		var err error
-		fakeCertManager, err = bootstrap.NewMockCertificateManager()
-		Expect(err).ToNot(HaveOccurred())
+		fakeCertManager = &MockCertManager{}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
@@ -1861,4 +1860,34 @@ func (v *MockVolumeSnapshotProvider) GetVolumeSnapshot(namespace, name string) (
 
 func (v *MockVolumeSnapshotProvider) Add(s *vsv1.VolumeSnapshot) {
 	v.volumeSnapshots = append(v.volumeSnapshots, s)
+}
+
+// A mock to implement the certificate.Manager interface for the export controller
+type MockCertManager struct {
+	crt *tls.Certificate
+}
+
+func (f *MockCertManager) Start() {
+	caKeyPair, _ := triple.NewCA("test.kubevirt.io", time.Hour)
+
+	encodedCert := cert.EncodeCertPEM(caKeyPair.Cert)
+	encodedKey := cert.EncodePrivateKeyPEM(caKeyPair.Key)
+
+	crt, err := tls.X509KeyPair(encodedCert, encodedKey)
+	Expect(err).ToNot(HaveOccurred())
+	leaf, err := cert.ParseCertsPEM(encodedCert)
+	Expect(err).ToNot(HaveOccurred())
+	crt.Leaf = leaf[0]
+	f.crt = &crt
+}
+
+func (f *MockCertManager) Stop() {
+}
+
+func (f *MockCertManager) Current() *tls.Certificate {
+	return f.crt
+}
+
+func (f *MockCertManager) ServerHealthy() bool {
+	return true
 }
