@@ -465,11 +465,10 @@ type GracePeriodMetadata struct {
 
 // DomainBackup mirroring libvirt XML under https://libvirt.org/formatbackup.html#backup-xml-format
 type DomainBackup struct {
-	XMLName     xml.Name            `xml:"domainbackup"`
-	Mode        string              `xml:"mode,attr"`
-	Incremental *string             `xml:"incremental,omitempty"`
-	BackupDisks *BackupDisks        `xml:"disks"`
-	Server      *DomainBackupServer `xml:"server"`
+	XMLName     xml.Name     `xml:"domainbackup"`
+	Mode        string       `xml:"mode,attr"`
+	Incremental *string      `xml:"incremental,omitempty"`
+	BackupDisks *BackupDisks `xml:"disks"`
 }
 
 type BackupDisks struct {
@@ -477,20 +476,13 @@ type BackupDisks struct {
 }
 
 type BackupDisk struct {
-	Name         string         `xml:"name,attr"`
-	Backup       string         `xml:"backup,attr"`
-	Type         string         `xml:"type,attr,omitempty"`
-	Target       *BackupTarget  `xml:"target,omitempty"`
-	Scratch      *BackupScratch `xml:"scratch,omitempty"`
-	ExportName   string         `xml:"exportname,attr,omitempty"`
-	ExportBitmap string         `xml:"exportbitmap,attr,omitempty"`
+	Name   string        `xml:"name,attr"`
+	Backup string        `xml:"backup,attr"`
+	Type   string        `xml:"type,attr,omitempty"`
+	Target *BackupTarget `xml:"target,omitempty"`
 }
 
 type BackupTarget struct {
-	File string `xml:"file,attr,omitempty"`
-}
-
-type BackupScratch struct {
 	File string `xml:"file,attr,omitempty"`
 }
 
@@ -515,17 +507,6 @@ type CheckpointDisk struct {
 type CheckpointParent struct {
 	Name string `xml:"name"`
 }
-
-type DomainBackupServer struct {
-	Transport DomainBackupServerTransport `xml:"transport,attr"`
-	Socket    string                      `xml:"socket,attr,omitempty"`
-}
-
-type DomainBackupServerTransport string
-
-const (
-	BackupUnixTransport DomainBackupServerTransport = "unix"
-)
 
 type Commandline struct {
 	QEMUEnv []Env `xml:"qemu:env,omitempty"`

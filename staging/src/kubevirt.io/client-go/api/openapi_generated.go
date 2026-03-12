@@ -17321,7 +17321,7 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"targetPath": {
+					"pushPath": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

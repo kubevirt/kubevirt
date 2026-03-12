@@ -31,9 +31,6 @@ const (
 	// PushMode defines backup which pushes the backup output
 	// to a provided PVC - this is the default behavior
 	PushMode BackupMode = "Push"
-	// PullMode defines backup which exposes a pull endpoint
-	// containing the backup disks and metadata
-	PullMode BackupMode = "Pull"
 )
 
 // BackupVolumeInfo contains information about a volume included in a backup
@@ -79,7 +76,7 @@ type BackupOptions struct {
 	Mode            BackupMode   `json:"mode,omitempty"`
 	BackupStartTime *metav1.Time `json:"backupStartTime,omitempty"`
 	Incremental     *string      `json:"incremental,omitempty"`
-	TargetPath      *string      `json:"targetPath,omitempty"`
+	PushPath        *string      `json:"pushPath,omitempty"`
 	SkipQuiesce     bool         `json:"skipQuiesce,omitempty"`
 }
 
@@ -155,7 +152,7 @@ type VirtualMachineBackupList struct {
 
 // VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable after creation"
-// +kubebuilder:validation:XValidation:rule="has(self.pvcName) && self.pvcName != \"\"",message="pvcName is required"
+// +kubebuilder:validation:XValidation:rule="(has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName != \"\")",message="pvcName must be provided when mode is unset or Push"
 type VirtualMachineBackupSpec struct {
 	// Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.
 	// When Kind is VirtualMachine: performs a backup of the specified VM.
@@ -168,7 +165,7 @@ type VirtualMachineBackupSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.name != ''",message="name is required"
 	Source corev1.TypedLocalObjectReference `json:"source"`
 	// +optional
-	// +kubebuilder:validation:Enum=Push;Pull
+	// +kubebuilder:validation:Enum=Push
 	// Mode specifies the way the backup output will be recieved
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional
