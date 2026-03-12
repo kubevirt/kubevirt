@@ -302,8 +302,7 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateL
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
 		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
-		switch secret.Name {
-		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, components.KubeVirtBackupCASecretName:
+		if secret.Name == components.KubeVirtCASecretName || secret.Name == components.KubeVirtExportCASecretName {
 			continue
 		}
 
@@ -392,12 +391,10 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 
 	// create/update CA Certificate secret
 	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
@@ -407,12 +404,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 
 	// create/update export CA Certificate secret
 	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, caExportDuration, caExportRenewBefore)
-	if err != nil {
-		return err
-	}
-
-	// create/update backup CA Certificate secret
-	caBackupCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtBackupCASecretName, caBackupDuration, caBackupRenewBefore)
 	if err != nil {
 		return err
 	}
@@ -438,12 +429,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 
 	// create/update export CA config map
 	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, nil, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
-	if err != nil {
-		return err
-	}
-
-	// create/update backup CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caBackupCert, nil, caBackupRenewBefore, findRequiredCAConfigMap(components.KubeVirtBackupCASecretName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
