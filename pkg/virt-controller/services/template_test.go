@@ -6412,6 +6412,25 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].Args).ToNot(ContainElement("--firmware-auto-selection"))
 		})
+
+		It("should pass --arm64-secure-boot flag to virt-launcher when enabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			enableFeatureGate(featuregate.ARM64SecureBoot)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--arm64-secure-boot"))
+		})
+
+		It("should not pass --arm64-secure-boot flag when disabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].Command).ToNot(ContainElement("--arm64-secure-boot"))
+		})
 	})
 })
 
