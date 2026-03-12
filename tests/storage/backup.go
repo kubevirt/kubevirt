@@ -69,7 +69,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Backup", func() {
+var _ = Describe(SIG("Backup", Serial, func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
