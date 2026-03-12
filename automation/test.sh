@@ -502,7 +502,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
       add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
-    label_filter='(sig-storage)'
+    label_filter='(sig-storage && exactbackupmatch)'
   elif [[ $TARGET =~ wg-s390x ]]; then
     label_filter='(wg-s390x) && !(requires-amd64)'
   elif [[ $TARGET =~ wg-arm64 ]]; then
