@@ -1,6 +1,6 @@
-FROM quay.io/centos/centos:stream9
+FROM registry.gitlab.com/libvirt/libvirt/ci-centos-stream-9
 
-RUN dnf config-manager --set-enabled crb
+# RUN dnf config-manager --set-enabled crb
 RUN dnf update -y && dnf builddep -y libvirt qemu-kvm
 
 RUN dnf install -y \
