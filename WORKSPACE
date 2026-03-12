@@ -22,6 +22,13 @@ http_archive(
 )
 
 http_archive(
+    name = "package_metadata",
+    sha256 = "5bd0cc7594ea528fd28f98d82457f157827d48cc20e07bcfdbb56072f35c8f67",
+    strip_prefix = "supply-chain-0.0.6/metadata",
+    url = "https://github.com/bazel-contrib/supply-chain/releases/download/v0.0.6/supply-chain-v0.0.6.tar.gz",
+)
+
+http_archive(
     name = "rules_oci",
     sha256 = "e987cab7a35475cb9c9060fc3f338a1fc8896c240295a3272968b217acefd0cb",
     strip_prefix = "rules_oci-2.3.0",
