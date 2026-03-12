@@ -66,8 +66,11 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "VMCannotBeEvicted",
-		Expr:  intstr.FromString("kubevirt_vmi_non_evictable * on(name, namespace) group_left() kubevirt_vmi_info{phase='running'} == 1"),
-		For:   ptr.To(promv1.Duration("1m")),
+		Expr: intstr.FromString(
+			"kubevirt_vmi_non_evictable * on(name, namespace) group_left() " +
+				"topk by(name, namespace) (1, kubevirt_vmi_info{phase='running'}) == 1",
+		),
+		For: ptr.To(promv1.Duration("1m")),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "Eviction policy for VirtualMachine {{ $labels.name }} in namespace {{ $labels.namespace }} " +
 				"(on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
@@ -153,7 +156,8 @@ var vmsAlerts = []promv1.Rule{
 			"sum by (name, namespace, status, node)((kubevirt_vm_info{status='starting'} == 1 " +
 				"or kubevirt_vm_info{status='stopping'} == 1 or kubevirt_vm_info{status='terminating'} == 1 " +
 				"or (kubevirt_vm_info{status_group='error'} == 1 " +
-				"and on(name, namespace) kubevirt_vmi_info) ) * on(name, namespace) group_left(node) kubevirt_vmi_info)",
+				"and on(name, namespace) kubevirt_vmi_info{phase=~'scheduled|running'}) ) " +
+				"* on(name, namespace) group_left(node) topk by(name, namespace) (1, kubevirt_vmi_info{phase=~'scheduled|running'}))",
 		),
 		For: ptr.To(promv1.Duration("5m")),
 		Annotations: map[string]string{
