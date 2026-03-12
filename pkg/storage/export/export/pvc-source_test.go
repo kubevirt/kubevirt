@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -84,7 +83,6 @@ var _ = Describe("PVC source", func() {
 		preferenceInformer          cache.SharedIndexInformer
 		clusterPreferenceInformer   cache.SharedIndexInformer
 		controllerRevisionInformer  cache.SharedIndexInformer
-		vmBackupInformer            cache.SharedIndexInformer
 		rqInformer                  cache.SharedIndexInformer
 		nsInformer                  cache.SharedIndexInformer
 		k8sClient                   *k8sfake.Clientset
@@ -121,7 +119,6 @@ var _ = Describe("PVC source", func() {
 		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
-		vmBackupInformer, _ = testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
@@ -168,7 +165,6 @@ var _ = Describe("PVC source", func() {
 			PreferenceInformer:          preferenceInformer,
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
-			VMBackupInformer:            vmBackupInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			ctrl.caCertManager.Start()
