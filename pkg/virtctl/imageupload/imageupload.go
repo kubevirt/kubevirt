@@ -134,7 +134,7 @@ func NewImageUploadCommand() *cobra.Command {
 	cmd.Flags().StringVar(&c.archivePath, "archive-path", "", "Path to the local archive.")
 	cmd.Flags().BoolVar(&c.noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&c.uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
-	cmd.Flags().UintVar(&c.uploadRetries, "retry", 5, "When upload server returns a transient error, we retry this number of times before giving up")
+	cmd.Flags().UintVar(&c.uploadRetries, "retry", 1, "When upload server returns a transient error, we retry this number of times before giving up")
 	cmd.Flags().BoolVar(&c.forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
 	cmd.Flags().BoolVar(&c.dataSource, "datasource", false, "Create a DataSource pointing to the created DataVolume/PVC.")
 	cmd.Flags().StringVar(&c.defaultInstancetype, "default-instancetype", "", "The default instance type to associate with the image.")
