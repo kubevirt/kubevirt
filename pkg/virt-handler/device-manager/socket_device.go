@@ -288,7 +288,14 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 	}
 	logger.Infof("device '%s' is present.", devicePath)
 
-	err = watcher.Add(filepath.Dir(dpi.socketPath))
+	// This allows us to detect when kubelet removes the socket on restart (event.Name == dpi.socketPath),
+	// so we can exit and trigger re-registration. 
+	if dpi.socketPath == "" {
+		return fmt.Errorf("device-plugin socket path is empty, kubelet restart detection will not work")
+	}
+	kubeletSocketDir := filepath.Dir(dpi.socketPath)
+	logger.Infof("watching kubelet socket directory: %s", kubeletSocketDir)
+	err = watcher.Add(kubeletSocketDir)
 
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
