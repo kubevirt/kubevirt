@@ -234,15 +234,12 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 					ClaimName: volume.Name,
 				}
 			}
+			usePVCStatus := false
 			if attachmentPod == nil {
 				if !c.volumeReady(status.Phase) {
 					status.HotplugVolume.AttachPodUID = ""
 					// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-					phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
-					status.Phase = phase
-					log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
-					status.Message = message
-					status.Reason = reason
+					usePVCStatus = true
 				}
 			} else {
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
@@ -259,6 +256,22 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 					status.Reason = controller.SuccessfulCreatePodReason
 					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
 				}
+				// Handle race condition where an unplugged volume was quickly re-attached.
+				// The old attachment pod may still be cleaning up while the new one is created,
+				// causing the new volume to inherit HotplugVolumeDetaching status from the previous
+				// hotplug instead of being reset. We reset the phase based on PVC status so it can
+				// properly transition through the normal attach flow on the next reconcile.
+				if status.Phase == virtv1.HotplugVolumeDetaching {
+					usePVCStatus = true
+				}
+			}
+
+			if usePVCStatus {
+				phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
+				status.Phase = phase
+				log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
+				status.Message = message
+				status.Reason = reason
 			}
 		}
 
