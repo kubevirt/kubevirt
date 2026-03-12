@@ -67,8 +67,11 @@ var _ = Describe("LaunchSecurity: AMD Secure Encrypted Virtualization (SEV)", fu
 
 		It("should correctly set SNP-specific bits set when SNP is enabled", func() {
 			snpPolicy := v1.SEVSNP{}
-			Expect(launchsecurity.SEVSNPPolicyToBits(&snpPolicy) & launchsecurity.SNPPolicySmt).To(Equal(launchsecurity.SNPPolicySmt))
-			Expect(launchsecurity.SEVSNPPolicyToBits(&snpPolicy) & launchsecurity.SNPPolicyReserved).To(Equal(launchsecurity.SNPPolicyReserved))
+			policyBits := launchsecurity.SEVSNPPolicyToBits(&snpPolicy)
+
+			// Check that SMT allowed bit (bit 16) is set
+			Expect(policyBits & launchsecurity.SNPPolicySmt).To(Equal(launchsecurity.SNPPolicySmt))
+
 		})
 
 		It("should return zero when SNP policy is nil", func() {

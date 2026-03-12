@@ -151,7 +151,9 @@ var _ = Describe("configureSEVSNPLaunchSecurity", func() {
 
 		Expect(result).ToNot(BeNil())
 		Expect(result.Type).To(Equal("sev-snp"))
-		Expect(result.Policy).To(Equal("0x30000")) // Default SEV-SNP policy
+		// Default SEV-SNP policy 0x30000: SMT allowed (bit 16) + Reserved MBO (bit 17)
+		// Both bits required by RHEL 9.7 kernel validation
+		Expect(result.Policy).To(Equal("0x30000"))
 	})
 
 	It("should configure SEV-SNP with custom policy", func() {
