@@ -144,7 +144,7 @@ tests:
             exp_labels:
               node: "node01"
               severity: "warning"
-              operator_health_impact: "none"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -186,7 +186,7 @@ tests:
             exp_labels:
               node: "node01"
               severity: "warning"
-              operator_health_impact: "none"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
