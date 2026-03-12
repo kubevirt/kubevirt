@@ -378,7 +378,8 @@ func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 }
 
 func SupplementalPoolThreadCount(vmi *v12.VirtualMachineInstance) int {
-	if vmi.Spec.Domain.IOThreads == nil || vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
+	if vmi.Spec.Domain.IOThreads == nil || vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil ||
+		vmi.Spec.Domain.IOThreadsPolicy == nil || *vmi.Spec.Domain.IOThreadsPolicy != v12.IOThreadsPolicySupplementalPool {
 		return 0
 	}
 	return int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
@@ -396,7 +397,7 @@ func HasIOThreads(vmi *v12.VirtualMachineInstance) bool {
 	return false
 }
 
-func FormatDomainIOThreadSupplementalPin(cpuPool VCPUPool, vmi *v12.VirtualMachineInstance, domain *api.Domain) (int, error) {
+func formatDomainIOThreadSupplementalPin(cpuPool VCPUPool, vmi *v12.VirtualMachineInstance, domain *api.Domain) (int, error) {
 	if domain.Spec.IOThreads == nil {
 		return 0, fmt.Errorf("domain is missing IOThreads")
 	}
@@ -410,9 +411,8 @@ func FormatDomainIOThreadSupplementalPin(cpuPool VCPUPool, vmi *v12.VirtualMachi
 		// The cpus for the iothreads are additionally allocated and aren't part of the cpu set dedicated to the vcpus threads
 		availableThread, err := cpuPool.FitThread()
 		if err != nil {
-			e := fmt.Errorf("no CPU allocated for the iothread: %v", err)
-			log.Log.Reason(e).Error("failed to format iothread pin")
-			return i, e
+			err = fmt.Errorf("no CPU allocated for the iothread: %w", err)
+			return 0, err
 		}
 		appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", availableThread))
 	}
@@ -429,16 +429,16 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 		return fmt.Errorf("domain has supplemental pool IOThreads and attempted to pin auto/shared IOThreads")
 	}
 
-	iothreads := int(domain.Spec.IOThreads.IOThreads)
+	numIOThreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU))
 
 	switch {
 	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
 		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
-	case iothreads >= vcpus:
+	case numIOThreads >= vcpus:
 		// pin an IOThread on a CPU
-		for thread := 1; thread <= iothreads; thread++ {
+		for thread := 1; thread <= numIOThreads; thread++ {
 			cpuset := fmt.Sprintf("%d", cpuset[thread%vcpus])
 			appendDomainIOThreadPin(domain, uint32(thread), cpuset)
 		}
@@ -449,10 +449,10 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 		//   1    0,1,2
 		//   2    3,4,5
 		//   3    6,7
-		series := vcpus % iothreads
+		series := vcpus % numIOThreads
 		curr := 0
-		for thread := 1; thread <= iothreads; thread++ {
-			remainder := vcpus/iothreads - 1
+		for thread := 1; thread <= numIOThreads; thread++ {
+			remainder := vcpus/numIOThreads - 1
 			if thread <= series {
 				remainder += 1
 			}
@@ -540,7 +540,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	if SupplementalPoolThreadCount(vmi) > 0 {
 		// Supplemental pool threads must be pinned before emulator thread because they increase the pinned CPU count
 		// This will affect emulator parity
-		if supplementalThreads, err = FormatDomainIOThreadSupplementalPin(cpuPool, vmi, domain); err != nil {
+		if supplementalThreads, err = formatDomainIOThreadSupplementalPin(cpuPool, vmi, domain); err != nil {
 			log.Log.Reason(err).Error("failed to format domain supplemental pool iothread pinning.")
 			return err
 		}
