@@ -20,8 +20,6 @@
 package storage
 
 import (
-	"sync"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
@@ -36,9 +34,6 @@ type StorageManager struct {
 	metadataCache            *metadata.Cache
 	memoryDumpInProgress     chan struct{}
 	cancelSafetyUnfreezeChan chan struct{}
-
-	activeBackupTunnel *backupTunnelManager
-	backupTunnelMu     sync.Mutex
 }
 
 func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache) *StorageManager {
