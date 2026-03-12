@@ -3321,6 +3321,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeAttachedToNode, "Created hotplug attachment pod test-pod, for volume volume%d", kvcontroller.SuccessfulCreatePodReason, indexes...)
 		}
 
+		makeDetachVolumeStatus := func(indexes ...int) []virtv1.VolumeStatus {
+			return makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeDetaching, "Deleted hotplug attachment pod test-pod, for volume%d", kvcontroller.SuccessfulDeletePodReason, indexes...)
+		}
+
 		DescribeTable("updateVolumeStatus", func(oldStatus []virtv1.VolumeStatus, specVolumes []*virtv1.Volume, podIndexes []int, pvcIndexes []int, expectedStatus []virtv1.VolumeStatus, expectedEvents []string) {
 			vmi := newPendingVirtualMachine("testvmi")
 			volumes := make([]virtv1.Volume, 0)
@@ -3381,6 +3385,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]int{0},
 				makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeDetaching, "Deleted hotplug attachment pod test-pod, for volume volume0", kvcontroller.SuccessfulDeletePodReason, 0),
 				[]string{kvcontroller.SuccessfulDeletePodReason}),
+			Entry("should update volume status, if volume gets stuck in Detaching state due to it being removed and re-added",
+				makeDetachVolumeStatus(),
+				makeVolumes(0),
+				[]int{0},
+				[]int{0},
+				makeVolumeStatusesForUpdateWithMessage("", "", virtv1.VolumeBound, "PVC is in phase Bound", kvcontroller.PVCNotReadyReason, 0),
+				[]string{}),
 			Entry("should keep status and not update phase if volume is still Ready",
 				makeVolumeStatusesForUpdateWithMessage("", "", virtv1.VolumeReady, "", "", 0),
 				makeVolumes(),
