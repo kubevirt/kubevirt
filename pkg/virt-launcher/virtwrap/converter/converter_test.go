@@ -2995,7 +2995,7 @@ var _ = Describe("Converter", func() {
 	Context("Correctly handle supplementalPool with dedicated cpus", func() {
 		DescribeTable("should succeed assigning CPUs to supplementalPool",
 			func(vmiAnnotations map[string]string, isolateEmulator bool, vCPUs, iothreadCount uint32, expectedLayout api.CPUTune) {
-				c := &ConverterContext{
+				c := &convertertypes.ConverterContext{
 					Architecture:   archconverter.NewConverter(runtime.GOARCH),
 					AllowEmulation: true,
 					CPUSet:         []int{5, 6, 7, 8, 9, 10, 11, 12},
