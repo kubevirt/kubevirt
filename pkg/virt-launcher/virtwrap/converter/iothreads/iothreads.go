@@ -108,7 +108,8 @@ func BuildSupplementalPoolIOThreads(vmi *v1.VirtualMachineInstance) *api.DiskIOT
 }
 
 func SupplementalPoolThreadCount(vmi *v1.VirtualMachineInstance) int {
-	if vmi.Spec.Domain.IOThreads == nil || vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
+	if vmi.Spec.Domain.IOThreads == nil || vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil ||
+		vmi.Spec.Domain.IOThreadsPolicy == nil || *vmi.Spec.Domain.IOThreadsPolicy != v1.IOThreadsPolicySupplementalPool {
 		return 0
 	}
 	return int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
