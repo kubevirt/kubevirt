@@ -163,6 +163,68 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			Expect(dev.Type).To(Equal(api.HostDeviceMDev))
 			Expect(dev.Alias.GetName()).To(Equal(DRAHostDeviceAliasPrefix + "vhd1"))
 			Expect(dev.Source.Address.UUID).To(Equal(uuid))
+			Expect(dev.Source.Address.Type).To(Equal(""))
+			Expect(dev.Source.Address.Bus).To(Equal(""))
+			Expect(dev.Mode).To(Equal("subsystem"))
+			Expect(dev.Model).To(Equal("vfio-pci"))
+		})
+	})
+
+	Context("when the VMI has an MDEV host device allocated through DRA (s390x)", func() {
+		It("should create an MDEV HostDevice", func() {
+			uuid := "abcd1234-1111-2222-3333-444455556666"
+
+			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DeviceMetadata",
+					APIVersion: "v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "claim1",
+				},
+				Requests: []metadata.DeviceMetadataRequest{{
+					Name: "req1",
+					Devices: []metadata.Device{{
+						Driver: "mdev.example.com",
+						Pool:   "mdev-pool",
+						Name:   "device1",
+						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+						},
+					}},
+				}},
+			})
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ResourceClaims: []k8sv1.PodResourceClaim{{
+						Name:              "claim1",
+						ResourceClaimName: ptr.To("claim1"),
+					}},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							HostDevices: []v1.HostDevice{{
+								Name:         "vhd1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+							}},
+						},
+					},
+					Architecture: "s390x",
+				},
+			}
+
+			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevs).To(HaveLen(1))
+			dev := hostDevs[0]
+			Expect(dev.Type).To(Equal(api.HostDeviceMDev))
+			Expect(dev.Alias.GetName()).To(Equal(DRAHostDeviceAliasPrefix + "vhd1"))
+			Expect(dev.Source.Address.UUID).To(Equal(uuid))
+			Expect(dev.Source.Address.Type).To(Equal(""))
+			Expect(dev.Source.Address.Bus).To(Equal(""))
+			Expect(dev.Mode).To(Equal("subsystem"))
+			Expect(dev.Model).To(Equal("vfio-ap"))
 		})
 	})
 

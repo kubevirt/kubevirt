@@ -22,8 +22,6 @@ package dra
 import (
 	"fmt"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -49,7 +47,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 			continue
 		}
 
-		hostDevice, err := createHostDeviceForHostDevice(hd, basePath, vmi.Spec.ResourceClaims)
+		hostDevice, err := createHostDeviceForHostDevice(hd, basePath, vmi.Spec)
 		if err != nil {
 			return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 		}
@@ -65,19 +63,24 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 	return hostDevices, nil
 }
 
-func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
+func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v1.VirtualMachineInstanceSpec) (*api.HostDevice, error) {
 	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || hd.ClaimRequest.RequestName == nil {
 		return nil, fmt.Errorf("HostDevice %s has incomplete ClaimRequest", hd.Name)
 	}
 
 	claimName := *hd.ClaimRequest.ClaimName
 	requestName := *hd.ClaimRequest.RequestName
+	resourceClaims := vmiSpecs.ResourceClaims
 
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
 	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating
 	// it as PCI passthrough would be incorrect.
 	if mdevUUID, err := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName); err == nil {
 		log.Log.V(2).Infof("Adding DRA MDEV HostDevice for %s", hd.Name)
+		model := "vfio-pci"
+		if vmiSpecs.Architecture == "s390x" {
+			model = "vfio-ap"
+		}
 		return &api.HostDevice{
 			Alias: api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),
 			Source: api.HostDeviceSource{
@@ -87,7 +90,7 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, resourceCl
 			},
 			Type:  api.HostDeviceMDev,
 			Mode:  "subsystem",
-			Model: "vfio-pci",
+			Model: model,
 		}, nil
 	}
 
