@@ -22,6 +22,7 @@ package webhooks
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -156,6 +157,48 @@ func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineIn
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
 					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+		if launchSecurity.SNP != nil && launchSecurity.SNP.Policy != "" {
+			// Check if policy is a valid decimal or hex value
+			_, err := strconv.ParseUint(launchSecurity.SNP.Policy, 0, 64)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is not a valid SEV-SNP Policy Config", launchSecurity.SNP.Policy),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+
+		if launchSecurity.SNP != nil {
+			// Validate that AuthorKey, IdBlock, and IdAuth are all set together or all empty
+			hasAuthorKey := launchSecurity.SNP.AuthorKey != ""
+			hasIdBlock := launchSecurity.SNP.IdBlock != ""
+			hasIdAuth := launchSecurity.SNP.IdAuth != ""
+
+			if hasAuthorKey || hasIdBlock || hasIdAuth {
+				if !(hasAuthorKey && hasIdBlock && hasIdAuth) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "AuthorKey, IdBlock, and IdAuth must all be set together for guest identity attestation",
+						Field:   field.Child("launchSecurity", "snp").String(),
+					})
+				}
+			}
+		}
+
+		if launchSecurity.SNP != nil && launchSecurity.SNP.KernelHashes != "" {
+			// Validate that kernelBoot is configured when KernelHashes is set
+			// KernelHashes is used for measured direct boot and requires kernel/initrd to be provided directly
+			if spec.Domain.Firmware == nil ||
+				spec.Domain.Firmware.KernelBoot == nil ||
+				spec.Domain.Firmware.KernelBoot.Container == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "KernelHashes requires direct kernel boot configuration (spec.domain.firmware.kernelBoot)",
+					Field:   field.Child("launchSecurity", "snp", "kernelHashes").String(),
 				})
 			}
 		}
