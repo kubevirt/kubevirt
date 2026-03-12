@@ -411,16 +411,16 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 		return fmt.Errorf("domain has supplemental pool IOThreads and attempted to pin auto/shared IOThreads")
 	}
 
-	iothreads := int(domain.Spec.IOThreads.IOThreads)
+	numIOThreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU))
 
 	switch {
 	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
 		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
-	case iothreads >= vcpus:
+	case numIOThreads >= vcpus:
 		// pin an IOThread on a CPU
-		for thread := 1; thread <= iothreads; thread++ {
+		for thread := 1; thread <= numIOThreads; thread++ {
 			cpuset := fmt.Sprintf("%d", cpuset[thread%vcpus])
 			appendDomainIOThreadPin(domain, uint32(thread), cpuset)
 		}
@@ -431,10 +431,10 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 		//   1    0,1,2
 		//   2    3,4,5
 		//   3    6,7
-		series := vcpus % iothreads
+		series := vcpus % numIOThreads
 		curr := 0
-		for thread := 1; thread <= iothreads; thread++ {
-			remainder := vcpus/iothreads - 1
+		for thread := 1; thread <= numIOThreads; thread++ {
+			remainder := vcpus/numIOThreads - 1
 			if thread <= series {
 				remainder += 1
 			}
