@@ -235,6 +235,17 @@ const (
 	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
 	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
 	FirmwareAutoSelection = "FirmwareAutoSelection"
+
+	// Owner: @lyarwood
+	// Alpha: v1.9.0
+	//
+	// ARM64SecureBoot enables UEFI Secure Boot for ARM64 guests using
+	// libvirt firmware auto-selection and the QEMU uefi-vars device.
+	// Requires QEMU 10.0+, libvirt with uefi-vars/varstore support,
+	// and edk2-aarch64 firmware with Secure Boot templates. These
+	// components are only available in CentOS Stream 10 based
+	// virt-launcher images.
+	ARM64SecureBoot = "ARM64SecureBoot"
 )
 
 func init() {
@@ -281,4 +292,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 }
