@@ -288,7 +288,7 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 	}
 	logger.Infof("device '%s' is present.", devicePath)
 
-	err = watcher.Add(deviceDir)
+	err = watcher.Add(filepath.Dir(dpi.socketPath))
 
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
