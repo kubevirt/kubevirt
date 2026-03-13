@@ -2413,7 +2413,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
-		It("should accept ARM64 EFI with SecureBoot and without SMM", func() {
+		It("should accept ARM64 EFI with SecureBoot and without SMM when feature gate is enabled", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.MultiArchitecture, featuregate.ARM64SecureBoot}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+			vmi.Spec.Architecture = "arm64"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject ARM64 EFI with SecureBoot when ARM64SecureBoot feature gate is disabled", func() {
 			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Architecture = "arm64"
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -2425,10 +2443,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			// SMM validation should be skipped for arm64, but ARM64SecureBoot
-			// feature gate is not enabled so we expect that rejection instead
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+		})
+
+		It("should accept ARM64 EFI without SecureBoot and without ARM64SecureBoot feature gate", func() {
+			enableFeatureGates(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = "arm64"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(false),
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
 		})
 
 		It("should still require SMM for amd64 EFI with SecureBoot", func() {
