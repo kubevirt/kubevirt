@@ -215,6 +215,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, spec.Architecture)...)
+	causes = append(causes, validateARM64SecureBoot(field.Child("domain"), spec, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
 	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
@@ -1482,6 +1483,22 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec, arch string) 
 	}
 
 	return causes
+}
+
+func validateARM64SecureBoot(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	if spec.Architecture != "arm64" || !secureBootEnabled(spec.Domain.Firmware) {
+		return nil
+	}
+
+	if !config.ARM64SecureBootEnabled() {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.ARM64SecureBoot),
+			Field:   field.Child("firmware", "bootloader", "efi", "secureBoot").String(),
+		}}
+	}
+
+	return nil
 }
 
 func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.AccessCredential, volumes []v1.Volume) []metav1.StatusCause {
