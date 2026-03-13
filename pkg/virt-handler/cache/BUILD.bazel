@@ -37,6 +37,7 @@ go_test(
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -48,5 +49,6 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
     ],
 )
