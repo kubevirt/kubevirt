@@ -24,7 +24,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-// WithUefi configures EFI bootloader and SecureBoot.
+// WithUefi configures EFI bootloader and SecureBoot. When secureBoot is
+// enabled, SMM is also enabled for x86 guests. ARM64 does not use SMM;
+// UEFI variable protection is provided by the QEMU uefi-vars device instead.
+// Callers should set WithArchitecture before WithUefi to ensure correct
+// behaviour for ARM64 guests.
 func WithUefi(secureBoot bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {
@@ -37,8 +41,8 @@ func WithUefi(secureBoot bool) Option {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(secureBoot)
-		// secureBoot Requires SMM to be enabled
-		if secureBoot {
+		// SMM is required for SecureBoot on x86 but is not used on ARM64.
+		if secureBoot && vmi.Spec.Architecture != "arm64" {
 			if vmi.Spec.Domain.Features == nil {
 				vmi.Spec.Domain.Features = &v1.Features{}
 			}
