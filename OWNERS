@@ -1,9 +1,18 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
-reviewers:
-  - code-reviewers
-approvers:
-  - approvers
-emeritus_approvers:
-  - emeritus_approvers
+filters:
+  ".*":
+    reviewers:
+      - code-reviewers
+    approvers:
+      - approvers
+    emeritus_approvers:
+      - emeritus_approvers
+  "BUILD\\.bazel|.*\\.bzl|WORKSPACE":
+    reviewers:
+      - sig-buildsystem-reviewers
+    approvers:
+      - sig-buildsystem-approvers
+    labels:
+      - sig/buildsystem
   
