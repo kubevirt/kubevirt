@@ -50,6 +50,24 @@ func WithUefi(secureBoot bool) Option {
 	}
 }
 
+// WithUefiArm64SecureBoot configures EFI with SecureBoot for ARM64 guests.
+// Unlike x86, ARM64 Secure Boot does not require SMM. UEFI variable
+// protection is provided by the QEMU uefi-vars device instead.
+func WithUefiArm64SecureBoot() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(true)
+	}
+}
+
 func WithKernelBootContainer(imageName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Firmware = &v1.Firmware{
