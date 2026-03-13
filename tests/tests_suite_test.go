@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -148,6 +149,10 @@ var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
 	kvReport.Cleanup()
 
 	kvReport.Report(report)
+})
+
+var _ = ReportAfterSuite("VMI startup profiling", func(_ Report) {
+	libwait.FlushProfiles()
 })
 
 var _ = ReportAfterSuite("TestTests", func(report Report) {
