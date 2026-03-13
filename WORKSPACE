@@ -274,8 +274,10 @@ go_repository(
 
 go_repository(
     name = "org_golang_x_crypto",
-    commit = "4def268fd1a49955bfb3dda92fe3db4f924f2285",
     importpath = "golang.org/x/crypto",
+    replace = "github.com/openshift/golang-crypto",
+    sum = "h1:PeYmO02ztuGblPfyuHQL1yJLx2YwGMEyvMnnu8Y+Joc=",
+    version = "v0.36.1-0.20260226221237-df393c7e5723",
 )
 
 # override rules_docker issue with this dependency
