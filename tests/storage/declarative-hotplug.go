@@ -64,8 +64,8 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			libvmifact.NewCirros(options...),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300*time.Second).WithPolling(time.Second).Should(matcher.BeReady(), "VM %s did not become ready in time", vm.Name)
 		return vm
 	}
 
@@ -84,7 +84,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 		var err error
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to create CD-ROM DataVolume in namespace %s", namespace)
 		return dv
 	}
 
@@ -98,7 +98,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 		var err error
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to create blank DataVolume in namespace %s", namespace)
 		return dv
 	}
 
@@ -111,16 +111,16 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			patchObj.AddOption(patch.WithReplace("/spec/template/spec/volumes", volumes))
 		}
 		patchBytes, err := patchObj.GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload for VirtualMachine %s", vm.Name)
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to patch VirtualMachine %s", vm.Name)
 		return vm
 	}
 
 	addHotplugVolume := func(vm *v1.VirtualMachine, volumeName, pvcName string) *v1.VirtualMachine {
 		var err error
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		newVolumes := vm.DeepCopy().Spec.Template.Spec.Volumes
 		newVolumes = append(newVolumes, v1.Volume{
 			Name: volumeName,
@@ -137,7 +137,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	addHotplugVolumeAtBeginning := func(vm *v1.VirtualMachine, volumeName, pvcName string) *v1.VirtualMachine {
 		var err error
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		newVolumes := vm.DeepCopy().Spec.Template.Spec.Volumes
 		newVolume := v1.Volume{
 			Name: volumeName,
@@ -161,7 +161,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	removeHotplugVolume := func(vm *v1.VirtualMachine, volumeName string) *v1.VirtualMachine {
 		var err error
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		var newVolumes []v1.Volume
 		for _, volume := range vm.Spec.Template.Spec.Volumes {
 			if volume.Name != volumeName {
@@ -173,7 +173,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 	swapClaim := func(vm *v1.VirtualMachine, volumeName, newClaimName string) *v1.VirtualMachine {
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		var newVolumes []v1.Volume
 		for _, volume := range vm.Spec.Template.Spec.Volumes {
 			if volume.Name == volumeName {
@@ -186,14 +186,14 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 	loginToVM := func(vm *v1.VirtualMachine) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 		err = console.LoginToCirros(vmi)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to login to Cirros VM %s", vmi.Name)
 	}
 
 	validateVMHasCDRom := func(vm *v1.VirtualMachine, numItems string) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -226,7 +226,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 	validateVMHasNoCDRom := func(vm *v1.VirtualMachine) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
@@ -307,7 +307,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			loginToVM(vm)
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 
 			attachmentPodName := ""
 			for _, volumeStatus := range vmi.Status.VolumeStatus {
@@ -316,7 +316,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 				}
 			}
 
-			Expect(attachmentPodName).ToNot(BeEmpty())
+			Expect(attachmentPodName).ToNot(BeEmpty(), "expected attachment pod name to be set for CD-ROM volume %s", cdRomName)
 
 			By("Verifying no RestartRequired")
 			verifyNoRestartRequired(vm)
