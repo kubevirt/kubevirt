@@ -823,9 +823,7 @@ status:
       failed: true
       startTimestamp: "1986-01-01T01:01:01Z"
       volumes:
-      - dataEndpoint: dataEndpointValue
-        diskTarget: diskTargetValue
-        mapEndpoint: mapEndpointValue
+      - diskTarget: diskTargetValue
         volumeName: volumeNameValue
     state: stateValue
   conditions:

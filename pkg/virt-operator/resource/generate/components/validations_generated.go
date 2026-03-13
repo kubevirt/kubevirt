@@ -8523,17 +8523,9 @@ var CRDsValidation map[string]string = map[string]string{
                     description: BackupVolumeInfo contains information about a volume
                       included in a backup
                     properties:
-                      dataEndpoint:
-                        description: DataEndpoint is the URL of the endpoint for read
-                          for pull mode
-                        type: string
                       diskTarget:
                         description: DiskTarget is the disk target device name at
                           backup time
-                        type: string
-                      mapEndpoint:
-                        description: MapEndpoint is the URL of the endpoint for map
-                          for pull mode
                         type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
@@ -9178,7 +9170,6 @@ var CRDsValidation map[string]string = map[string]string{
           description: Mode specifies the way the backup output will be recieved
           enum:
           - Push
-          - Pull
           type: string
         pvcName:
           description: |-
@@ -9227,29 +9218,15 @@ var CRDsValidation map[string]string = map[string]string{
               self.kind == ''VirtualMachineBackupTracker'')'
           - message: name is required
             rule: self.name != ''
-        tokenSecretRef:
-          description: |-
-            TokenSecretRef is the name of the secret that
-            will be used to pull the backup from an associated endpoint
-          type: string
-        ttlDuration:
-          description: |-
-            TtlDuration limits the lifetime of a pull mode backup and its export
-            If this field is set, after this duration has passed from counting from CreationTimestamp,
-            the backup is eligible to be automatically considered as complete.
-            If this field is omitted, a reasonable default is applied.
-          type: string
       required:
       - source
       type: object
       x-kubernetes-validations:
       - message: spec is immutable after creation
         rule: self == oldSelf
-      - message: pvcName is required
-        rule: has(self.pvcName) && self.pvcName != ""
-      - message: tokenSecretRef is required when mode is Pull
-        rule: '!has(self.mode) || self.mode != ''Pull'' || (has(self.tokenSecretRef)
-          && self.tokenSecretRef != "")'
+      - message: pvcName must be provided when mode is unset or Push
+        rule: (has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName
+          != "")
     status:
       description: VirtualMachineBackupStatus is the status for a VirtualMachineBackup
         resource
@@ -9285,11 +9262,6 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
-        endpointCert:
-          description: |-
-            EndpointCert is the raw CACert that is to be used when connecting
-            to an exported backup endpoint in pull mode.
-          type: string
         includedVolumes:
           description: IncludedVolumes lists the volumes that were included in the
             backup
@@ -9297,16 +9269,8 @@ var CRDsValidation map[string]string = map[string]string{
             description: BackupVolumeInfo contains information about a volume included
               in a backup
             properties:
-              dataEndpoint:
-                description: DataEndpoint is the URL of the endpoint for read for
-                  pull mode
-                type: string
               diskTarget:
                 description: DiskTarget is the disk target device name at backup time
-                type: string
-              mapEndpoint:
-                description: MapEndpoint is the URL of the endpoint for map for pull
-                  mode
                 type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
@@ -9410,17 +9374,9 @@ var CRDsValidation map[string]string = map[string]string{
                 description: BackupVolumeInfo contains information about a volume
                   included in a backup
                 properties:
-                  dataEndpoint:
-                    description: DataEndpoint is the URL of the endpoint for read
-                      for pull mode
-                    type: string
                   diskTarget:
                     description: DiskTarget is the disk target device name at backup
                       time
-                    type: string
-                  mapEndpoint:
-                    description: MapEndpoint is the URL of the endpoint for map for
-                      pull mode
                     type: string
                   volumeName:
                     description: VolumeName is the volume name from VMI spec
@@ -10708,43 +10664,6 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
-                backups:
-                  description: Backups is a list of available backups for the export
-                  items:
-                    description: VirtualMachineExportBackup contains the URL and available
-                      formats for the exported backup
-                    properties:
-                      endpoints:
-                        items:
-                          description: VirtualMachineExportBackupEndpoint contains
-                            the endpoint type and URL to interact with a backup export
-                          properties:
-                            endpoint:
-                              description: Endpoint is the endpoint of the backup
-                                export at the specified URL
-                              type: string
-                            url:
-                              description: Url is the url that contains the volume
-                                in the format specified
-                              type: string
-                          required:
-                          - endpoint
-                          - url
-                          type: object
-                        type: array
-                        x-kubernetes-list-map-keys:
-                        - endpoint
-                        x-kubernetes-list-type: map
-                      name:
-                        description: Name is the name of the exported volume
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
@@ -10814,43 +10733,6 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
-                backups:
-                  description: Backups is a list of available backups for the export
-                  items:
-                    description: VirtualMachineExportBackup contains the URL and available
-                      formats for the exported backup
-                    properties:
-                      endpoints:
-                        items:
-                          description: VirtualMachineExportBackupEndpoint contains
-                            the endpoint type and URL to interact with a backup export
-                          properties:
-                            endpoint:
-                              description: Endpoint is the endpoint of the backup
-                                export at the specified URL
-                              type: string
-                            url:
-                              description: Url is the url that contains the volume
-                                in the format specified
-                              type: string
-                          required:
-                          - endpoint
-                          - url
-                          type: object
-                        type: array
-                        x-kubernetes-list-map-keys:
-                        - endpoint
-                        x-kubernetes-list-type: map
-                      name:
-                        description: Name is the name of the exported volume
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
@@ -14572,17 +14454,9 @@ var CRDsValidation map[string]string = map[string]string{
                     description: BackupVolumeInfo contains information about a volume
                       included in a backup
                     properties:
-                      dataEndpoint:
-                        description: DataEndpoint is the URL of the endpoint for read
-                          for pull mode
-                        type: string
                       diskTarget:
                         description: DiskTarget is the disk target device name at
                           backup time
-                        type: string
-                      mapEndpoint:
-                        description: MapEndpoint is the URL of the endpoint for map
-                          for pull mode
                         type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
@@ -31719,17 +31593,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: BackupVolumeInfo contains information
                                   about a volume included in a backup
                                 properties:
-                                  dataEndpoint:
-                                    description: DataEndpoint is the URL of the endpoint
-                                      for read for pull mode
-                                    type: string
                                   diskTarget:
                                     description: DiskTarget is the disk target device
                                       name at backup time
-                                    type: string
-                                  mapEndpoint:
-                                    description: MapEndpoint is the URL of the endpoint
-                                      for map for pull mode
                                     type: string
                                   volumeName:
                                     description: VolumeName is the volume name from
