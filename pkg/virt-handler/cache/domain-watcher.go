@@ -21,9 +21,11 @@ package cache
 import (
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -121,6 +123,7 @@ func (d *domainWatcher) worker() {
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain Notify aggregation server exited unexpectedly, restarting in %v (attempt %d/%d)",
 					backoff, consecutiveFails, notifyServerMaxConsecutiveFails)
+				d.recordNotifyServerFailureEvent(err)
 			}
 			if consecutiveFails >= notifyServerMaxConsecutiveFails {
 				fatalMsg = fmt.Sprintf("Domain Notify aggregation server failed %d consecutive times, the last error was: %v", consecutiveFails, err)
@@ -151,6 +154,19 @@ func (d *domainWatcher) worker() {
 			return
 		}
 	}
+}
+
+func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
+	if d.recorder == nil {
+		return
+	}
+	hostname, hostnameErr := os.Hostname()
+	if hostnameErr != nil {
+		return
+	}
+	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
+	d.recorder.Event(node, k8sv1.EventTypeWarning, "DomainNotifyServerFailed",
+		fmt.Sprintf("Domain Notify aggregation server exited unexpectedly and will be restarted: %v", err))
 }
 
 func (d *domainWatcher) startBackground() error {
