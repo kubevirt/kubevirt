@@ -214,7 +214,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
+	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, spec.Architecture)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
 	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
@@ -1465,13 +1465,15 @@ func smmFeatureEnabled(features *v1.Features) bool {
 	return features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)
 }
 
-func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
+func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec, arch string) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, storageadmitters.ValidateDisks(field.Child("devices").Child("disks"), spec.Devices.Disks)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
-	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) {
+	// SMM is an x86 concept. ARM64 Secure Boot uses the uefi-vars device
+	// instead and does not require SMM.
+	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) && arch != "arm64" {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
