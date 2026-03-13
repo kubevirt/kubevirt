@@ -183,9 +183,11 @@ func movePrimaryIfaceStatusToFront(
 		return interfacesStatus
 	}
 
-	return append(
-		[]v1.VirtualMachineInstanceNetworkInterface{interfacesStatus[primaryIfaceStatusIndex]},
-		append(interfacesStatus[:primaryIfaceStatusIndex], interfacesStatus[primaryIfaceStatusIndex+1:]...)...,
+	primary := interfacesStatus[primaryIfaceStatusIndex]
+	return slices.Concat(
+		[]v1.VirtualMachineInstanceNetworkInterface{primary},
+		interfacesStatus[:primaryIfaceStatusIndex],
+		interfacesStatus[primaryIfaceStatusIndex+1:],
 	)
 }
 
