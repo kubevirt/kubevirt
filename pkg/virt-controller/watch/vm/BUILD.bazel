@@ -61,6 +61,7 @@ go_test(
     srcs = [
         "firmware_test.go",
         "patchreactor_test.go",
+        "pci_topology_test.go",
         "updatereactor_test.go",
         "vm_suite_test.go",
         "vm_test.go",

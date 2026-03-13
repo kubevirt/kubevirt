@@ -774,6 +774,7 @@ spec:
           - virtualmachineinstances
           verbs:
           - update
+          - patch
           - list
           - watch
         - apiGroups:
@@ -824,6 +825,12 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - get
         - apiGroups:
           - export.kubevirt.io
           resources:

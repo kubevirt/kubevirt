@@ -802,6 +802,7 @@ rules:
   - virtualmachineinstances
   verbs:
   - update
+  - patch
   - list
   - watch
 - apiGroups:
@@ -852,6 +853,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - apps
+  resources:
+  - controllerrevisions
+  verbs:
+  - get
 - apiGroups:
   - export.kubevirt.io
   resources:
