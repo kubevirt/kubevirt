@@ -135,6 +135,9 @@ case "$TARGET" in
   *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    export KUBEVIRT_CENTOS_STREAM_VERSION=10
+    export KUBEVIRT_CS10_BUILDER_VERSION="2602251001-25ce1ccb15"
+    export KUBEVIRT_E2E_FOCUS="should enable ARM64 EFI secure boot"
     ;;
   *wg-mshv-amd64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-mshv-amd64/}
