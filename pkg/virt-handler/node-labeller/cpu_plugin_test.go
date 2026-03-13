@@ -198,13 +198,17 @@ var _ = Describe("Node-labeller config", func() {
 					Expect(nlController.SEV.ReducedPhysBits).To(Equal(uint(1)))
 					Expect(nlController.SEV.MaxGuests).To(Equal(uint(15)))
 
-					if withES {
+					if withES && !withSNP {
+						// SEV-ES without SNP
 						Expect(nlController.SEV.SupportedES).To(Equal("yes"))
 						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15)))
-
-						if withSNP {
-							Expect(nlController.SEV.SupportedSNP).To(Equal("yes"))
-						}
+					} else if withSNP {
+						
+						// A privileged SEV-ES guest can attack SNP guests on older firmware;
+						// newer PSP firmware rejects SEV-ES guests outright.
+						Expect(nlController.SEV.SupportedES).To(Equal("no"))
+						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15)))
+						Expect(nlController.SEV.SupportedSNP).To(Equal("yes"))
 					} else {
 						Expect(nlController.SEV.SupportedES).To(Equal("no"))
 						Expect(nlController.SEV.MaxESGuests).To(BeZero())
@@ -220,7 +224,7 @@ var _ = Describe("Node-labeller config", func() {
 			},
 			Entry("when only SEV is supported", true, false, false),
 			Entry("when both SEV and SEV-ES are supported", true, true, false),
-			Entry("when SEV, SEV-ES, and SEV-SNP are all supported", true, true, true),
+			Entry("when SEV-SNP is supported, SEV-ES is suppressed (CVE-2025-48514)", true, true, true),
 			Entry("when none of SEV, SEV-ES, and SEV-SNP is supported", false, false, false),
 		)
 	})
