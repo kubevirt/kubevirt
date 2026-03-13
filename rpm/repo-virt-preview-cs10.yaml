@@ -1,0 +1,4 @@
+repositories:
+- arch: aarch64
+  baseurl: https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-10-aarch64/
+  name: virt-preview-cs10-aarch64
