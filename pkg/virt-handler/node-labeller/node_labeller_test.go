@@ -161,6 +161,7 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
+		Expect(node.Labels).ToNot(HaveKey(v1.SEVSNPLabel))
 	})
 
 	It("should not add SEV-ES label on SEV-SNP host (CVE-2025-48514)", func() {

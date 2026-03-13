@@ -203,11 +203,13 @@ var _ = Describe("Node-labeller config", func() {
 						Expect(nlController.SEV.SupportedES).To(Equal("yes"))
 						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15)))
 					} else if withSNP {
-						
-						// A privileged SEV-ES guest can attack SNP guests on older firmware;
-						// newer PSP firmware rejects SEV-ES guests outright.
+						// CVE-2025-48514: a privileged SEV-ES guest can attack SNP guests on
+						// older firmware; newer PSP firmware rejects SEV-ES guests outright.
+						// SupportedES is suppressed ("no") to block scheduling, but MaxESGuests
+						// intentionally stays non-zero, it reflects raw hardware capacity as
+						// reported by the hypervisor, not usability.
 						Expect(nlController.SEV.SupportedES).To(Equal("no"))
-						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15)))
+						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15))) // raw hw capacity, not usability
 						Expect(nlController.SEV.SupportedSNP).To(Equal("yes"))
 					} else {
 						Expect(nlController.SEV.SupportedES).To(Equal("no"))
