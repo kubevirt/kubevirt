@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"time"
@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("VMI phase transition time histogram", func() {
 	Context("Transition Time calculations", func() {
-		DescribeTable("time diff calculations", func(expectedVal float64, curPhase v1.VirtualMachineInstancePhase, oldPhase v1.VirtualMachineInstancePhase) {
+		DescribeTable("time diff calculations", func(expectedVal float64, curPhase, oldPhase v1.VirtualMachineInstancePhase) {
 			var oldVMI *v1.VirtualMachineInstance
 
 			vmi := createVMISForPhaseTransitionTime(curPhase, oldPhase, expectedVal*1000, true)
@@ -44,7 +44,6 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
-
 		},
 			Entry("Time between running and scheduled", 5.0, v1.Running, v1.Scheduled),
 			Entry("Time between running and scheduled using fraction of a second", .5, v1.Running, v1.Scheduled),
@@ -55,7 +54,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 	})
 
 	Context("Time since Create/Delete calculations", func() {
-		DescribeTable("time diff calculations", func(expectedVal float64, curPhase v1.VirtualMachineInstancePhase, oldPhase v1.VirtualMachineInstancePhase, creation bool) {
+		DescribeTable("time diff calculations", func(expectedVal float64, curPhase, oldPhase v1.VirtualMachineInstancePhase, creation bool) {
 			var oldVMI *v1.VirtualMachineInstance
 
 			vmi := createVMISForPhaseTransitionTime(curPhase, oldPhase, expectedVal*1000, true)
@@ -85,7 +84,11 @@ var _ = Describe("VMI phase transition time histogram", func() {
 	})
 })
 
-func createVMISForPhaseTransitionTime(phase v1.VirtualMachineInstancePhase, oldPhase v1.VirtualMachineInstancePhase, offset float64, hasTransitionTime bool) *v1.VirtualMachineInstance {
+func createVMISForPhaseTransitionTime(
+	phase, oldPhase v1.VirtualMachineInstancePhase,
+	offset float64,
+	hasTransitionTime bool,
+) *v1.VirtualMachineInstance {
 	now := metav1.NewTime(time.Now())
 	old := metav1.NewTime(now.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
 	creation := metav1.NewTime(old.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
@@ -114,7 +117,6 @@ func createVMISForPhaseTransitionTime(phase v1.VirtualMachineInstancePhase, oldP
 			Phase:                    oldPhase,
 			PhaseTransitionTimestamp: old,
 		})
-
 	}
 
 	return vmi

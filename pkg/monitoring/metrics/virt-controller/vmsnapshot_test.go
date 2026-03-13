@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller_test
+package virtcontroller_test
 
 import (
 	"time"
@@ -59,7 +59,7 @@ var _ = Describe("VMSnapshot Metrics Collector", func() {
 
 			metrics.HandleSucceededVMSnapshot(vmSnapshot)
 
-			metricTime, err := metrics.GetVmSnapshotSucceededTimestamp("vm-name", "snapshot-name", "namespace")
+			metricTime, err := metrics.GetVMSnapshotSucceededTimestamp("vm-name", "snapshot-name", "namespace")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(metricTime).NotTo(BeNil())
 

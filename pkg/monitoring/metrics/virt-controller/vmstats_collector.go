@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"regexp"
@@ -40,7 +40,10 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo, vmLabels),
+		Metrics: append(timestampMetrics,
+			vmResourceRequests, vmResourceLimits, vmInfo,
+			vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo, vmLabels,
+		),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -199,7 +202,8 @@ var (
 	vmLabels = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vm_labels",
-			Help: "The metric exposes the VM labels as Prometheus labels. Configure allowed and ignored labels via the 'kubevirt-vm-labels-config' ConfigMap.",
+			Help: "The metric exposes the VM labels as Prometheus labels. " +
+				"Configure allowed and ignored labels via the 'kubevirt-vm-labels-config' ConfigMap.",
 		},
 		labels,
 	)
@@ -334,14 +338,14 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 		results = append(results, collectMemoryResourceLimitsFromDomainResources(vmCopy)...)
 
 		// CPU requests from domain CPU
-		results = append(results, collectCpuResourceRequestsFromDomainCpu(vmCopy)...)
+		results = append(results, collectCPUResourceRequestsFromDomainCPU(vmCopy)...)
 
 		// CPU requests and limits from domain resources
-		results = append(results, collectCpuResourceRequestsFromDomainResources(vmCopy)...)
-		results = append(results, collectCpuResourceLimitsFromDomainResources(vmCopy)...)
+		results = append(results, collectCPUResourceRequestsFromDomainResources(vmCopy)...)
+		results = append(results, collectCPUResourceLimitsFromDomainResources(vmCopy)...)
 
 		// Allocated CPU and memory requests after applying hierarchy and defaults
-		results = append(results, collectAllocatedCpuValues(vmCopy)...)
+		results = append(results, collectAllocatedCPUValues(vmCopy)...)
 		results = append(results, collectAllocatedMemoryValues(vmCopy)...)
 	}
 
@@ -352,17 +356,17 @@ func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 	var cr []operatormetrics.CollectorResult
 
 	for _, vm := range vms {
-		cr = append(cr, reportVmStats(vm)...)
+		cr = append(cr, reportVMStats(vm)...)
 	}
 
 	return cr
 }
 
-func reportVmStats(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func reportVMStats(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	// VM labels metric collection
-	cr = append(cr, reportVmLabels(vm)...)
+	cr = append(cr, reportVMLabels(vm)...)
 
 	// VM timestamp metrics collection
 	status := vm.Status.PrintableStatus
@@ -511,7 +515,7 @@ func collectAllocatedMemoryValues(vm *k6tv1.VirtualMachine) []operatormetrics.Co
 	return cr
 }
 
-func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectCPUResourceRequestsFromDomainCPU(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	if vm.Spec.Template == nil || vm.Spec.Template.Spec.Domain.CPU == nil {
@@ -542,7 +546,7 @@ func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operato
 	return cr
 }
 
-func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectCPUResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	if vm.Spec.Template == nil {
@@ -554,9 +558,18 @@ func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []o
 		// If no CPU requests and no Domain CPU are set, default to 1 thread with 1 core and 1 socket
 		if vm.Spec.Template.Spec.Domain.CPU == nil {
 			return append(cr,
-				operatormetrics.CollectorResult{Metric: vmResourceRequests, Value: 1.0, Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"}},
-				operatormetrics.CollectorResult{Metric: vmResourceRequests, Value: 1.0, Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"}},
-				operatormetrics.CollectorResult{Metric: vmResourceRequests, Value: 1.0, Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"}},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests, Value: 1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests, Value: 1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests, Value: 1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"},
+				},
 			)
 		}
 		return cr
@@ -570,7 +583,7 @@ func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []o
 	return cr
 }
 
-func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectCPUResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	if vm.Spec.Template == nil {
@@ -591,7 +604,7 @@ func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []ope
 }
 
 // collectAllocatedCpuValues calculates allocated (effective) CPU vCPUs
-func collectAllocatedCpuValues(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func collectAllocatedCPUValues(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	if vm.Spec.Template == nil {
@@ -681,7 +694,10 @@ func getPVCAndDiskName(vol k6tv1.Volume) (pvcName, diskName string, isDataVolume
 	return "", "", false
 }
 
-func getDiskSizeValues(vm *k6tv1.VirtualMachine, pvc *k8sv1.PersistentVolumeClaim, diskName string, isDataVolume bool) operatormetrics.CollectorResult {
+func getDiskSizeValues(
+	vm *k6tv1.VirtualMachine, pvc *k8sv1.PersistentVolumeClaim,
+	diskName string, isDataVolume bool,
+) operatormetrics.CollectorResult {
 	var pvcSize *resource.Quantity
 
 	if isDataVolume {
@@ -745,7 +761,7 @@ func CollectVmsVnicInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.Collector
 		networks := vm.Spec.Template.Spec.Networks
 
 		for _, iface := range interfaces {
-			model := "<none>"
+			model := modelNone
 			if iface.Model != "" {
 				model = iface.Model
 			}
@@ -775,19 +791,24 @@ func CollectVmsVnicInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.Collector
 	return results
 }
 
+const (
+	bindingTypeCore   = "core"
+	bindingTypePlugin = "plugin"
+)
+
 func getBinding(iface k6tv1.Interface) (bindingType, bindingName string) {
 	switch {
 	case iface.Masquerade != nil:
-		bindingType = "core"
+		bindingType = bindingTypeCore
 		bindingName = "masquerade"
 	case iface.Bridge != nil:
-		bindingType = "core"
+		bindingType = bindingTypeCore
 		bindingName = "bridge"
 	case iface.SRIOV != nil:
-		bindingType = "core"
+		bindingType = bindingTypeCore
 		bindingName = "sriov"
 	case iface.Binding != nil:
-		bindingType = "plugin"
+		bindingType = bindingTypePlugin
 		bindingName = iface.Binding.Name
 	}
 
@@ -814,7 +835,7 @@ func LookupNetworkByName(networks []k6tv1.Network, name string) *k6tv1.Network {
 	return nil
 }
 
-func reportVmLabels(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func reportVMLabels(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
 	if vmLabelsCfg == nil {
@@ -870,7 +891,10 @@ func reportVmLabels(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult 
 // character is a letter or underscore, as required by Prometheus label naming.
 func sanitizeLabelName(name string) string {
 	sanitized := invalidLabelCharRE.ReplaceAllString(name, "_")
-	if len(sanitized) == 0 || !((sanitized[0] >= 'a' && sanitized[0] <= 'z') || (sanitized[0] >= 'A' && sanitized[0] <= 'Z') || sanitized[0] == '_') {
+	if sanitized == "" ||
+		!((sanitized[0] >= 'a' && sanitized[0] <= 'z') ||
+			(sanitized[0] >= 'A' && sanitized[0] <= 'Z') ||
+			sanitized[0] == '_') {
 		sanitized = "_" + sanitized
 	}
 

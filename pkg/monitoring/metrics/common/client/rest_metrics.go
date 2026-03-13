@@ -23,6 +23,12 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
+const (
+	rateLimiterBucketStart  = 0.001
+	rateLimiterBucketFactor = 2
+	rateLimiterBucketCount  = 10
+)
+
 var (
 	restMetrics = []operatormetrics.Metric{
 		requestLatency,
@@ -54,7 +60,7 @@ var (
 			Help: "Client side rate limiter latency in seconds. Broken down by verb and URL.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: prometheus.ExponentialBuckets(0.001, 2, 10),
+			Buckets: prometheus.ExponentialBuckets(rateLimiterBucketStart, rateLimiterBucketFactor, rateLimiterBucketCount),
 		},
 		[]string{"verb", "url"},
 	)

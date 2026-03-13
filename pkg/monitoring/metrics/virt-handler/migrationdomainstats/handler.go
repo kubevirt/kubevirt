@@ -28,6 +28,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
+const logVerbosityInfo = 3
+
 type vmiQueue interface {
 	all() ([]result, bool)
 	startPolling()
@@ -65,7 +67,7 @@ func (h *handler) Collect() []result {
 		allResults = append(allResults, vmiResults...)
 
 		if isFinished {
-			log.Log.V(3).Infof("deleting queue for VMI %s", key)
+			log.Log.V(logVerbosityInfo).Infof("deleting queue for VMI %s", key)
 			delete(h.vmiStats, key)
 		}
 	}

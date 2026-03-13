@@ -21,19 +21,17 @@ package domainstats
 
 import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
-var (
-	nodeCpuAffinity = operatormetrics.NewGauge(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_node_cpu_affinity",
-			Help: "Number of VMI CPU affinities to node physical cores.",
-		},
-	)
+var nodeCPUAffinity = operatormetrics.NewGauge(
+	operatormetrics.MetricOpts{
+		Name: "kubevirt_vmi_node_cpu_affinity",
+		Help: "Number of VMI CPU affinities to node physical cores.",
+	},
 )
 
 type cpuAffinityMetrics struct{}
 
 func (cpuAffinityMetrics) Describe() []operatormetrics.Metric {
-	return []operatormetrics.Metric{nodeCpuAffinity}
+	return []operatormetrics.Metric{nodeCPUAffinity}
 }
 
 func (cpuAffinityMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatormetrics.CollectorResult {
@@ -52,6 +50,6 @@ func (cpuAffinityMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []ope
 	}
 
 	return []operatormetrics.CollectorResult{
-		vmiReport.newCollectorResult(nodeCpuAffinity, affinityCount),
+		vmiReport.newCollectorResult(nodeCPUAffinity, affinityCount),
 	}
 }

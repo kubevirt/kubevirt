@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	ioprometheusclient "github.com/prometheus/client_model/go"

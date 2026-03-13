@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"time"
@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("VMI migration phase transition time histogram", func() {
 	Context("Transition Time calculations", func() {
-		DescribeTable("time diff calculations", func(expectedVal float64, curPhase v1.VirtualMachineInstanceMigrationPhase, oldPhase v1.VirtualMachineInstanceMigrationPhase) {
+		DescribeTable("time diff calculations", func(expectedVal float64, curPhase, oldPhase v1.VirtualMachineInstanceMigrationPhase) {
 			var oldMigration *v1.VirtualMachineInstanceMigration
 
 			migration := createVMIMigrationSForPhaseTransitionTime(curPhase, expectedVal*1000)
@@ -44,7 +44,6 @@ var _ = Describe("VMI migration phase transition time histogram", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
-
 		},
 			Entry("Time between succeeded and scheduled", 5.0, v1.MigrationSucceeded, v1.MigrationScheduled),
 			Entry("Time between succeeded and scheduled using fraction of a second", .5, v1.MigrationSucceeded, v1.MigrationScheduled),
@@ -55,7 +54,9 @@ var _ = Describe("VMI migration phase transition time histogram", func() {
 	})
 })
 
-func createVMIMigrationSForPhaseTransitionTime(phase v1.VirtualMachineInstanceMigrationPhase, offset float64) *v1.VirtualMachineInstanceMigration {
+func createVMIMigrationSForPhaseTransitionTime(
+	phase v1.VirtualMachineInstanceMigrationPhase, offset float64,
+) *v1.VirtualMachineInstanceMigration {
 	now := metav1.NewTime(time.Now())
 	old := metav1.NewTime(now.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
 	creation := metav1.NewTime(old.Time.Add(-time.Duration(int64(offset)) * time.Millisecond))
@@ -71,10 +72,13 @@ func createVMIMigrationSForPhaseTransitionTime(phase v1.VirtualMachineInstanceMi
 		},
 	}
 
-	migration.Status.PhaseTransitionTimestamps = append(migration.Status.PhaseTransitionTimestamps, v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
-		Phase:                    phase,
-		PhaseTransitionTimestamp: old,
-	})
+	migration.Status.PhaseTransitionTimestamps = append(
+		migration.Status.PhaseTransitionTimestamps,
+		v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+			Phase:                    phase,
+			PhaseTransitionTimestamp: old,
+		},
+	)
 
 	return migration
 }
