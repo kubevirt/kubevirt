@@ -3750,6 +3750,7 @@ var _ = Describe("Converter", func() {
 				UsesFirmwareAutoSelection: true,
 			}
 
+			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{

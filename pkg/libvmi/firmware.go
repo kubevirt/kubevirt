@@ -41,8 +41,8 @@ func WithUefi(secureBoot bool) Option {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(secureBoot)
-		// secureBoot Requires SMM to be enabled
-		if secureBoot {
+		// SMM is required for SecureBoot on amd64 only.
+		if secureBoot && (vmi.Spec.Architecture == "amd64" || vmi.Spec.Architecture == "") {
 			if vmi.Spec.Domain.Features == nil {
 				vmi.Spec.Domain.Features = &v1.Features{}
 			}

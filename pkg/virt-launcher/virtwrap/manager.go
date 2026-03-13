@@ -1283,6 +1283,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 
 		useAutoSelection := secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled
+		if vmi.Spec.Architecture == "arm64" && !l.arm64SecureBootEnabled {
+			useAutoSelection = false
+		}
 
 		if useAutoSelection {
 			log.Log.V(4).Infof("Using firmware auto-selection for EFI Secure Boot")
