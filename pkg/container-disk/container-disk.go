@@ -41,6 +41,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -221,7 +222,7 @@ func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, config *vir
 }
 
 func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
-	if !util.HasKernelBootContainerImage(vmi) {
+	if !predicates.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
 
@@ -371,7 +372,7 @@ func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kub
 		imageIDs[volume.Name] = volume.ContainerDisk.Image
 	}
 
-	if util.HasKernelBootContainerImage(vmi) {
+	if predicates.HasKernelBootContainerImage(vmi) {
 		imageIDs[KernelBootVolumeName] = vmi.Spec.Domain.Firmware.KernelBoot.Container.Image
 	}
 

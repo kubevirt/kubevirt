@@ -29,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -302,7 +303,7 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
 	cbtPath := "/var/lib/libvirt/qemu/cbt"
-	if util.IsNonRootVMI(vmi) {
+	if predicates.IsNonRootVMI(vmi) {
 		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")
 	}
 

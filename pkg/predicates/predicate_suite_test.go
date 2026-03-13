@@ -17,7 +17,7 @@
  *
  */
 
-package util
+package predicates
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestUtil(t *testing.T) {
+func TestPredicates(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

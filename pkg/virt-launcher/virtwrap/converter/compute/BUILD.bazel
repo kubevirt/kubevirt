@@ -35,6 +35,7 @@ go_library(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/predicates:go_default_library",
         "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",

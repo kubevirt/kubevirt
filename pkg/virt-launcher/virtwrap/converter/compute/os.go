@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -112,7 +113,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		Secure:   boolToYesNo(&o.efiConfiguration.SecureLoader, false),
 	}
 
-	if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
+	if predicates.IsSEVSNPVMI(vmi) || predicates.IsTDXVMI(vmi) {
 		// Use stateless firmware for the TDX/SNP VMs
 		domain.Spec.OS.BootLoader.Type = "rom"
 		domain.Spec.OS.NVRam = nil
@@ -138,7 +139,7 @@ func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
 }
 
 func configureKernelBoot(vmi *v1.VirtualMachineInstance, firmware *v1.Firmware, domain *api.Domain) {
-	if util.HasKernelBootContainerImage(vmi) {
+	if predicates.HasKernelBootContainerImage(vmi) {
 		configureKernelBootContainer(vmi, firmware.KernelBoot, domain)
 	}
 

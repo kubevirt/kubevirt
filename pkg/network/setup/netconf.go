@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/util"
 	converternet "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 )
@@ -94,7 +95,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	}
 
 	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
-	if util.IsNonRootVMI(vmi) {
+	if predicates.IsNonRootVMI(vmi) {
 		ownerID = util.NonRootUID
 	}
 	queuesCapacity := int(converternet.NetworkQueuesCapacity(vmi))
