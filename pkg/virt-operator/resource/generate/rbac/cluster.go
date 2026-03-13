@@ -597,9 +597,10 @@ func newMigrateClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:migrate",
+			Name: "kubevirt.internal.virtualization.deckhouse.io:migrate",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
+				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
