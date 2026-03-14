@@ -17376,7 +17376,33 @@
     }
    },
    "v1.SEVSNP": {
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "authorKey": {
+      "type": "string"
+     },
+     "cbitpos": {
+      "type": "string"
+     },
+     "idAuth": {
+      "type": "string"
+     },
+     "idBlock": {
+      "type": "string"
+     },
+     "kernelHashes": {
+      "type": "string"
+     },
+     "policy": {
+      "type": "string"
+     },
+     "reducedPhysBits": {
+      "type": "string"
+     },
+     "vcek": {
+      "type": "string"
+     }
+    }
    },
    "v1.SEVSecretOptions": {
     "description": "SEVSecretOptions is used to provide a secret for a running guest.",
