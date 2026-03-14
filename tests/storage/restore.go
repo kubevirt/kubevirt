@@ -1939,7 +1939,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("standalone PVC should have no owner with volumeOwnershipPolicyNone", func() {
 				pvcName := "standalone-pvc"
-				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass, libstorage.WithStorageProfile())
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
