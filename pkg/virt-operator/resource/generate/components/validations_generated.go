@@ -6396,7 +6396,6 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                             required:
                             - name
-                            - virtiofs
                             type: object
                           type: array
                           x-kubernetes-list-type: atomic
@@ -12472,7 +12471,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                     required:
                     - name
-                    - virtiofs
                     type: object
                   type: array
                   x-kubernetes-list-type: atomic
@@ -16329,7 +16327,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type: object
                     required:
                     - name
-                    - virtiofs
                     type: object
                   type: array
                   x-kubernetes-list-type: atomic
@@ -18883,7 +18880,6 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                             required:
                             - name
-                            - virtiofs
                             type: object
                           type: array
                           x-kubernetes-list-type: atomic
@@ -23976,7 +23972,6 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     required:
                                     - name
-                                    - virtiofs
                                     type: object
                                   type: array
                                   x-kubernetes-list-type: atomic
@@ -29544,7 +29539,6 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: object
                                         required:
                                         - name
-                                        - virtiofs
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
