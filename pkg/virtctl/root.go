@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/client-go/log"
 	client_version "kubevirt.io/client-go/version"
 
+	configcmd "kubevirt.io/kubevirt/cmd/virtctl/config"
 	"kubevirt.io/kubevirt/pkg/virtctl/adm"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
@@ -107,6 +108,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 		console.NewCommand(),
 		usbredir.NewCommand(),
 		vnc.NewCommand(),
+		configcmd.NewCommand(),
 		scp.NewCommand(),
 		ssh.NewCommand(),
 		portforward.NewCommand(),
