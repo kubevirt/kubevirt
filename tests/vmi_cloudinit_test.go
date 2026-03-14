@@ -65,6 +65,18 @@ const (
 	dataSourceNoCloudVolumeID     = "cidata"
 	dataSourceConfigDriveVolumeID = "config-2"
 	startupTime                   = 30
+
+	// Custom metadata key/value constants for tests
+	customMetaAppNameKey     = "app_name"
+	customMetaAppNameVal     = "my-application"
+	customMetaEnvironmentKey = "environment"
+	customMetaEnvironmentVal = "test"
+	customMetaTeamKey        = "team"
+	customMetaTeamVal        = "platform-engineering"
+	customMetaCostCenterKey  = "cost_center"
+	customMetaCostCenterVal  = "12345"
+	customMetaRegionKey      = "region"
+	customMetaRegionVal      = "us-west-1"
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]CloudInit UserData", decorators.SigCompute, func() {
@@ -507,6 +519,130 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			)
 		})
 
+		DescribeTable("should have custom metadata", func(setupVMI func() *v1.VirtualMachineInstance, expectedMetadata map[string]string, expectedUserData string) {
+			vmi := setupVMI()
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
+
+			By("mounting cloudinit iso")
+			Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
+
+			if expectedUserData != "" {
+				By("checking cloudinit user-data")
+				checkCloudInitFile(vmi, "user-data", expectedUserData)
+			}
+
+			By("checking cloudinit meta-data contains custom fields")
+			for k, v := range expectedMetadata {
+				checkCloudInitFile(vmi, "meta-data", k)
+				checkCloudInitFile(vmi, "meta-data", v)
+			}
+
+			By("checking cloudinit metadata via cloud-init query")
+			for k, v := range expectedMetadata {
+				checkCloudInitMetadataWithQuery(vmi, k, v)
+			}
+		},
+			Entry("from direct MetaData field",
+				func() *v1.VirtualMachineInstance {
+					customMetadata := map[string]string{
+						customMetaAppNameKey:     customMetaAppNameVal,
+						customMetaTeamKey:        customMetaTeamVal,
+						customMetaEnvironmentKey: customMetaEnvironmentVal,
+					}
+					return libvmifact.NewCirros(
+						libvmi.WithCloudInitNoCloud(
+							libcloudinit.WithNoCloudUserData(testUserData),
+							libcloudinit.WithNoCloudMetaData(customMetadata),
+						),
+					)
+				},
+				map[string]string{
+					customMetaAppNameKey:     customMetaAppNameVal,
+					customMetaTeamKey:        customMetaTeamVal,
+					customMetaEnvironmentKey: customMetaEnvironmentVal,
+				},
+				testUserData,
+			),
+			Entry("from k8s secret",
+				func() *v1.VirtualMachineInstance {
+					secretID := fmt.Sprintf("%s-metadata-secret", uuid.NewString())
+					vmi := libvmifact.NewCirros(
+						libvmi.WithCloudInitNoCloud(
+							libcloudinit.WithNoCloudUserData(testUserData),
+							libcloudinit.WithNoCloudMetaDataSecretName(secretID),
+						),
+					)
+					secret := libsecret.New(secretID, libsecret.DataString{
+						customMetaAppNameKey:     customMetaAppNameVal,
+						customMetaTeamKey:        customMetaTeamVal,
+						customMetaEnvironmentKey: customMetaEnvironmentVal,
+						customMetaRegionKey:      customMetaRegionVal,
+					})
+					_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vmi
+				},
+				map[string]string{
+					customMetaAppNameKey:     customMetaAppNameVal,
+					customMetaTeamKey:        customMetaTeamVal,
+					customMetaEnvironmentKey: customMetaEnvironmentVal,
+					customMetaRegionKey:      customMetaRegionVal,
+				},
+				testUserData,
+			),
+			Entry("with userdata and metadata from separate secrets",
+				func() *v1.VirtualMachineInstance {
+					userDataSecretID := fmt.Sprintf("%s-userdata-secret", uuid.NewString())
+					metadataSecretID := fmt.Sprintf("%s-metadata-secret", uuid.NewString())
+					vmi := libvmifact.NewCirros(
+						libvmi.WithCloudInitNoCloud(
+							libcloudinit.WithNoCloudUserDataSecretName(userDataSecretID),
+							libcloudinit.WithNoCloudMetaDataSecretName(metadataSecretID),
+						),
+					)
+					userDataSecret := libsecret.New(userDataSecretID, libsecret.DataString{
+						"userdata": testUserData,
+					})
+					_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), userDataSecret, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					metadataSecret := libsecret.New(metadataSecretID, libsecret.DataString{
+						customMetaAppNameKey:     customMetaAppNameVal,
+						customMetaEnvironmentKey: customMetaEnvironmentVal,
+					})
+					_, err = virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), metadataSecret, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vmi
+				},
+				map[string]string{
+					customMetaAppNameKey:     customMetaAppNameVal,
+					customMetaEnvironmentKey: customMetaEnvironmentVal,
+				},
+				testUserData,
+			),
+		)
+
+		It("should reject reserved metadata fields from custom metadata", func() {
+			customMetadata := map[string]string{
+				customMetaAppNameKey:     customMetaAppNameVal,
+				"instance-type":          "should-cause-error",
+				customMetaEnvironmentKey: customMetaEnvironmentVal,
+			}
+
+			vmi := libvmifact.NewCirros(
+				libvmi.WithCloudInitNoCloud(
+					libcloudinit.WithNoCloudUserData(testUserData),
+					libcloudinit.WithNoCloudMetaData(customMetadata),
+				),
+			)
+
+			By("expecting VMI creation to fail due to reserved field conflict")
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("custom metadata key 'instance-type' conflicts with reserved field"))
+		})
 	})
 })
 
@@ -543,6 +679,17 @@ func checkCloudInitFile(vmi *v1.VirtualMachineInstance, testFile, testData strin
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: testData},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func checkCloudInitMetadataWithQuery(vmi *v1.VirtualMachineInstance, key, expectedValue string) {
+	cmdCheck := fmt.Sprintf("cloud-init query ds.meta_data.%s\n", key)
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "sudo su -\n"},
+		&expect.BExp{R: ""},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: expectedValue},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred())
 }

@@ -14117,6 +14117,18 @@
     "description": "Represents a cloud-init config drive user data source. More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html",
     "type": "object",
     "properties": {
+     "metaData": {
+      "description": "MetaData contains config drive inline cloud-init metadata as key-value pairs.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "metaDataSecretRef": {
+      "description": "MetaDataSecretRef references a k8s secret that contains config drive metadata.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+     },
      "networkData": {
       "description": "NetworkData contains config drive inline cloud-init networkdata.",
       "type": "string"
@@ -14147,6 +14159,18 @@
     "description": "Represents a cloud-init nocloud user data source. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "type": "object",
     "properties": {
+     "metaData": {
+      "description": "MetaData contains NoCloud inline cloud-init metadata as key-value pairs.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "metaDataSecretRef": {
+      "description": "MetaDataSecretRef references a k8s secret that contains NoCloud metadata.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+     },
      "networkData": {
       "description": "NetworkData contains NoCloud inline cloud-init networkdata.",
       "type": "string"
