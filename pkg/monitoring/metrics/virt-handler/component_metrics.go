@@ -14,34 +14,29 @@
  * limitations under the License.
  *
  * Copyright The KubeVirt Authors.
- *
  */
 
-package virtapi
+package virt_handler
 
-import (
-	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
+var (
+	componentMetrics = []operatormetrics.Metric{
+		virtHandlerReady,
+	}
+
+	virtHandlerReady = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_virt_handler_ready_status",
+			Help: "Indication for a virt-handler that is ready to serve requests.",
+		},
+	)
 )
 
-func SetupMetrics() error {
-	if err := client.SetupMetrics(); err != nil {
-		return err
-	}
-
-	if err := workqueue.SetupMetrics(); err != nil {
-		return err
-	}
-
-	return operatormetrics.RegisterMetrics(
-		componentMetrics,
-		connectionMetrics,
-		vmMetrics,
-	)
+func SetVirtHandlerReady() {
+	virtHandlerReady.Set(1)
 }
 
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+func SetVirtHandlerNotReady() {
+	virtHandlerReady.Set(0)
 }
