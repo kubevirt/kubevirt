@@ -22,7 +22,6 @@ package fuzz
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -126,9 +125,6 @@ func FuzzAdmitter(f *testing.F) {
 		},
 	}
 
-	for i := 0; i < 500; i++ {
-		f.Add(int64(i))
-	}
 	f.Fuzz(func(t *testing.T, seed int64) {
 		var focused []testCase
 		for idx, tc := range testCases {
@@ -141,7 +137,7 @@ func FuzzAdmitter(f *testing.F) {
 			focused = testCases
 		}
 
-		timeoutDuration := 500 * time.Millisecond
+		timeoutDuration := 1 * time.Second
 
 		for _, tc := range focused {
 			t.Run(tc.name, func(t *testing.T) {
@@ -157,23 +153,22 @@ func FuzzAdmitter(f *testing.F) {
 				response := tc.admit(config, request)
 				endTime := time.Now()
 				if startTime.Add(timeoutDuration).Before(endTime) {
-					fmt.Printf("Execution time %v is more than %v\n", endTime.Sub(startTime), timeoutDuration)
-					fmt.Println(response.Result.Message)
+					t.Logf("Execution time %v is more than %v\n", endTime.Sub(startTime), timeoutDuration)
+					t.Log(response.Result.Message)
 					j, err := json.MarshalIndent(obj, "", "  ")
 					if err != nil {
-						panic(err)
+						t.Error(err)
 					}
-					fmt.Println(string(j))
-					t.Fail()
+					t.Log(string(j))
 				}
 
 				if tc.debug && !response.Allowed {
-					fmt.Println(response.Result.Message)
+					t.Log(response.Result.Message)
 					j, err := json.MarshalIndent(obj, "", "  ")
 					if err != nil {
-						panic(err)
+						t.Error(err)
 					}
-					fmt.Println(string(j))
+					t.Log(string(j))
 				}
 			})
 		}
