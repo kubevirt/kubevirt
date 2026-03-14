@@ -1323,7 +1323,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
 				fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
 
-			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient)
+			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient, virtClient)
 		})
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
 			const clusterInstancetypeName = "clusterInstancetype"

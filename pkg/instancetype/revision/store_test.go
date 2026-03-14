@@ -73,7 +73,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+		k8sClient := k8sfake.NewSimpleClientset()
+
+		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
 			fakeclientset.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
@@ -107,7 +109,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			clusterInstancetypeInformerStore,
 			preferenceInformerStore,
 			clusterInstancetypeInformerStore,
-			virtClient)
+			virtClient,
+			k8sClient)
 
 		vm = kubecli.NewMinimalVM("testvm")
 		vm.Spec.Template = &virtv1.VirtualMachineInstanceTemplateSpec{
