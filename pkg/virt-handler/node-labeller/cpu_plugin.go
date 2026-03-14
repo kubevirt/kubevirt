@@ -169,10 +169,16 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 	}
 
 	if hostDomCapabilities.SEV.Supported == isSupported && hostDomCapabilities.SEV.MaxESGuests > 0 {
-		hostDomCapabilities.SEV.SupportedES = isSupported
 		if hostDomCapabilities.LaunchSecurity.Supported == isSupported && slices.Contains(hostDomCapabilities.LaunchSecurity.SecTypes.Values, "sev-snp") {
+			// CVE-2025-48514: a privileged SEV-ES guest can attack SNP guests on
+			// older firmware (loss of confidentiality); newer PSP firmware rejects
+			// SEV-ES guests outright. MaxESGuests is left as-is because it reflects
+			// raw hardware capacity; SupportedES is suppressed so the node label is
+			// never applied and the scheduler never places SEV-ES VMs here.
+			hostDomCapabilities.SEV.SupportedES = isUnusable // suppressed: CVE-2025-48514
 			hostDomCapabilities.SEV.SupportedSNP = isSupported
 		} else {
+			hostDomCapabilities.SEV.SupportedES = isSupported
 			hostDomCapabilities.SEV.SupportedSNP = isUnusable
 		}
 	} else {
