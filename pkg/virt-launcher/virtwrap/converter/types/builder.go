@@ -25,15 +25,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type configurator interface {
+type Configurator interface {
 	Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 }
 
 type DomainBuilder struct {
-	configurators []configurator
+	configurators []Configurator
 }
 
-func NewDomainBuilder(configurators ...configurator) DomainBuilder {
+func NewDomainBuilder(configurators ...Configurator) DomainBuilder {
 	return DomainBuilder{configurators: configurators}
 }
 

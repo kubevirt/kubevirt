@@ -23,91 +23,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor/common"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 )
 
 func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) *convertertypes.DomainBuilder {
-	architecture := c.Architecture.GetArchitecture()
-	virtioModel := virtio.InterpretTransitionalModelType(
-		vmi.Spec.Domain.Devices.UseVirtioTransitional,
-		architecture,
-	)
-	scsiControllerModel := c.Architecture.SCSIControllerModel(virtioModel)
-
-	var controllerDriver *api.ControllerDriver
-	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
-		controllerDriver = &api.ControllerDriver{
-			IOMMU: "on",
-		}
-	}
-
-	hasIOThreads := iothreads.HasIOThreads(vmi)
-	var ioThreadCount, autoThreads int
-	if hasIOThreads {
-		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
-	}
-
-	builder := convertertypes.NewDomainBuilder(
-		metadata.DomainConfigurator{},
-		network.NewDomainConfigurator(
-			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
-			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
-			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
-			network.WithROMTuningSupport(c.Architecture.IsROMTuningSupported()),
-			network.WithVirtioModel(virtioModel),
-		),
-		compute.TPMDomainConfigurator{},
-		compute.VSOCKDomainConfigurator{},
-		NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable),
-		compute.NewLaunchSecurityDomainConfigurator(architecture),
-		compute.ChannelsDomainConfigurator{},
-		compute.ClockDomainConfigurator{},
-		compute.NewRNGDomainConfigurator(
-			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
-			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
-			compute.RNGWithVirtioModel(virtioModel),
-		),
-		compute.NewInputDeviceDomainConfigurator(architecture),
-		compute.NewBalloonDomainConfigurator(
-			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
-			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
-			compute.BalloonWithFreePageReporting(c.FreePageReporting),
-			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
-			compute.BalloonWithVirtioModel(virtioModel),
-		),
-		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
-		compute.SoundDomainConfigurator{},
-		compute.NewHostDeviceDomainConfigurator(
-			c.GenericHostDevices,
-			c.GPUHostDevices,
-			c.SRIOVDevices,
-		),
-		compute.NewWatchdogDomainConfigurator(architecture),
-		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
-		compute.PanicDevicesDomainConfigurator{},
-		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
-		compute.NewSysInfoDomainConfigurator(common.ConvertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
-		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), common.ConvertEFIConfiguration(c.EFIConfiguration)),
-		storage.NewVirtiofsConfigurator(),
-		compute.UsbRedirectDeviceDomainConfigurator{},
-		compute.NewControllersDomainConfigurator(
-			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
-			compute.ControllersWithSCSIModel(scsiControllerModel),
-			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
-			compute.ControllersWithControllerDriver(controllerDriver),
-		),
-		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
-		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
-		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
-		compute.MemoryConfigurator{},
-	)
-
-	return &builder
+	return common.MakeDomainBuilder(vmi, c, NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
 }
