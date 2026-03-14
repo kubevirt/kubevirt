@@ -1,5 +1,8 @@
 # KubeVirt metrics
 
+### cluster:kubevirt_non_schedulable_nodes:sum
+The number of non-schedulable nodes in the cluster. Type: Gauge.
+
 ### cluster:kubevirt_virt_controller_pods_running:count
 The number of virt-controller pods that are running. Type: Gauge.
 
