@@ -21,6 +21,7 @@ package gpu
 
 import (
 	"fmt"
+	"sort"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -55,9 +56,20 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 
 	hostDevices := append(pciHostDevices, mdevHostDevices...)
 
-	if err := validateCreationOfDevicePluginsDevices(vmiGPUs, hostDevices); err != nil {
+	if err := validateCreationOfDevicePluginsDevices(vmiGPUs, pciHostDevices, mdevHostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 	}
+
+	// Create host devices for remaining IOMMU companion devices.
+	// When GPUs have multiple devices in their IOMMU group (e.g., GPU + audio controller),
+	// the device plugin provides all addresses but we only consumed one per requested GPU above.
+	// We need to passthrough all remaining devices in the IOMMU groups for proper operation.
+	resources := extractUniqueResources(vmiGPUs)
+	iommuCompanionDevices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(AliasPrefix, resources, pciPool)
+	if err != nil {
+		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
+	}
+	hostDevices = append(hostDevices, iommuCompanionDevices...)
 
 	return hostDevices, nil
 }
@@ -79,7 +91,8 @@ func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData
 // On validation failure, an error is returned.
 // The validation assumes that the assignment of a device to a specified GPU is correct,
 // therefore a simple quantity check is sufficient.
-func validateCreationOfDevicePluginsDevices(gpus []v1.GPU, hostDevices []api.HostDevice) error {
+// Note: This validates the primary GPU devices only, not IOMMU companion devices.
+func validateCreationOfDevicePluginsDevices(gpus []v1.GPU, pciHostDevices, mdevHostDevices []api.HostDevice) error {
 	var gpusWithDP []v1.GPU
 	for _, gpu := range gpus {
 		if !drautil.IsGPUDRA(gpu) {
@@ -87,10 +100,27 @@ func validateCreationOfDevicePluginsDevices(gpus []v1.GPU, hostDevices []api.Hos
 		}
 	}
 
-	if len(gpusWithDP) > 0 && len(gpusWithDP) != len(hostDevices) {
+	primaryHostDevices := append(pciHostDevices, mdevHostDevices...)
+	if len(gpusWithDP) > 0 && len(gpusWithDP) != len(primaryHostDevices) {
 		return fmt.Errorf(
-			"the number of device plugin GPU/s do not match the number of devices:\nGPU: %v\nDevice: %v", gpusWithDP, hostDevices,
+			"the number of device plugin GPU/s do not match the number of devices:\nGPU: %v\nDevice: %v", gpusWithDP, primaryHostDevices,
 		)
 	}
 	return nil
+}
+
+// extractUniqueResources returns a deduplicated, sorted list of resource names from the GPU specs.
+// The result is sorted to ensure deterministic ordering for alias generation and device ordering.
+func extractUniqueResources(gpus []v1.GPU) []string {
+	resourceSet := make(map[string]struct{})
+	for _, gpu := range gpus {
+		resourceSet[gpu.DeviceName] = struct{}{}
+	}
+
+	resources := make([]string, 0, len(resourceSet))
+	for resource := range resourceSet {
+		resources = append(resources, resource)
+	}
+	sort.Strings(resources)
+	return resources
 }
