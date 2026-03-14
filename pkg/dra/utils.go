@@ -27,7 +27,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
 	// TODO: Replace with k8s.io types when KEP-5304 is implemented in kubernetes
 	"kubevirt.io/kubevirt/pkg/dra/metadata"
@@ -48,6 +47,9 @@ func IsHostDeviceDRA(hd v1.HostDevice) bool {
 // See: kubernetes/enhancements#5304
 const (
 	DefaultMetadataBasePath = "/var/run/dra-device-attributes"
+	// templatesSubdir is the subdirectory under the base path where
+	// template-generated claims are mounted, keyed by podClaimName.
+	templatesSubdir = "templates"
 )
 
 // GetPCIAddressForClaim returns the PCI address for a device in the given claim and request.
@@ -105,9 +107,8 @@ func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, cla
 }
 
 // resolveClaimMetadata reads the metadata file for a claim ref + request pair.
-// For direct claims it constructs the exact path; for template claims it
-// searches by PodClaimName.
-// KEP-5304 container path: {base}/{claimName}/{requestName}/{driverName}-metadata.json
+// Direct claims:   {base}/{claimName}/{requestName}/{driverName}-metadata.json
+// Template claims: {base}/templates/{podClaimName}/{requestName}/{driverName}-metadata.json
 func resolveClaimMetadata(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (*metadata.DeviceMetadata, error) {
 	for _, rc := range resourceClaims {
 		if rc.Name != claimRefName {
@@ -116,50 +117,19 @@ func resolveClaimMetadata(basePath string, resourceClaims []k8sv1.PodResourceCla
 		if rc.ResourceClaimName != nil && *rc.ResourceClaimName != "" {
 			return readMetadataFromDir(basePath, *rc.ResourceClaimName, requestName)
 		}
-		return findMetadataByPodClaimName(basePath, rc.Name, requestName)
+		return readMetadataFromDir(filepath.Join(basePath, templatesSubdir), rc.Name, requestName)
 	}
 	return nil, fmt.Errorf("metadata not found for claim %q", claimRefName)
 }
 
-// readMetadataFromDir reads the metadata file at the exact path for a direct claim.
+// readMetadataFromDir reads the metadata file at {basePath}/{claimName}/{requestName}/metadata.json.
 func readMetadataFromDir(basePath, claimName, requestName string) (*metadata.DeviceMetadata, error) {
-	pattern := filepath.Join(basePath, claimName, requestName, "*-metadata.json")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to glob for metadata file: %w", err)
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("metadata not found for claim %q request %q", claimName, requestName)
-	}
-	md, err := readMetadataFile(matches[0])
+	path := filepath.Join(basePath, claimName, requestName, "metadata.json")
+	md, err := readMetadataFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: %w", claimName, requestName, err)
 	}
 	return md, nil
-}
-
-// findMetadataByPodClaimName searches for a template-generated claim's metadata
-// file by matching PodClaimName, scoped to the given request name.
-func findMetadataByPodClaimName(basePath, podClaimName, requestName string) (*metadata.DeviceMetadata, error) {
-	pattern := filepath.Join(basePath, "*", requestName, "*-metadata.json")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to glob for metadata file: %w", err)
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("no metadata file found for templateclaim %q request %q", podClaimName, requestName)
-	}
-	for _, file := range matches {
-		md, err := readMetadataFile(file)
-		if err != nil {
-			log.Log.Reason(err).Warningf("Skipping metadata file %s", file)
-			continue
-		}
-		if md.PodClaimName != nil && *md.PodClaimName == podClaimName {
-			return md, nil
-		}
-	}
-	return nil, fmt.Errorf("no metadata file found with matching with pod claim name %q request %q", podClaimName, requestName)
 }
 
 func metadataRequestNames(md *metadata.DeviceMetadata) []string {
@@ -169,6 +139,7 @@ func metadataRequestNames(md *metadata.DeviceMetadata) []string {
 	}
 	return names
 }
+
 
 func readMetadataFile(path string) (*metadata.DeviceMetadata, error) {
 	data, err := os.ReadFile(path)
