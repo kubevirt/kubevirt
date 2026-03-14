@@ -5715,7 +5715,7 @@ var _ = Describe("Template", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
 
-			netBindingPluginMemoryOverheadCalculator := &stubNetMemoryCalculator{}
+			netMemoryOverheadCalculator := &stubNetMemoryCalculator{}
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
@@ -5731,7 +5731,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithNetMemoryCalculator(netMemoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
@@ -5743,7 +5743,7 @@ var _ = Describe("Template", func() {
 			_, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
+			Expect(netMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
 
