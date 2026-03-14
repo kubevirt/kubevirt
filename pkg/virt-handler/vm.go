@@ -373,6 +373,9 @@ func (c *VirtualMachineController) execute(key string) error {
 			// Make sure we re-enqueue the key to ensure this new VMI is processed
 			// after the stale domain is removed
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
+		} else {
+			c.logger.Object(vmi).V(3).Infof("Old launcher for VMI %s is still responsive, waiting for domain cleanup before processing new VMI %s", oldVMI.UID, vmi.UID)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 		}
 
 		return nil
