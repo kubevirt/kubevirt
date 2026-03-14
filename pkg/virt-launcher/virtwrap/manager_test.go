@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -2129,6 +2130,45 @@ var _ = Describe("Manager", func() {
 
 			manager, _ := newLibvirtDomainManagerDefault()
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+		})
+
+		Context("vGPU live migration target", func() {
+			const (
+				vGPUResourceName = "nvidia.com/gpu_name1"
+				vGPUName         = "gpu0"
+				vGPUMdevUUID     = "123456789-1"
+			)
+
+			It("should add vGPUs to converter context when migration target has single vGPU and vGPU live migration is enabled", func() {
+				envVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, vGPUResourceName)
+				Expect(os.Setenv(envVar, vGPUMdevUUID)).To(Succeed())
+				DeferCleanup(func() { _ = os.Unsetenv(envVar) })
+
+				vmi := newVMI(testNamespace, testVmName)
+				vmi.Annotations = map[string]string{}
+				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+					{DeviceName: vGPUResourceName, Name: vGPUName},
+				}
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					MigrationUID: "111222333",
+					TargetPod:    "fakepod",
+				}
+
+				options := &cmdv1.VirtualMachineOptions{
+					ClusterConfig: &cmdv1.ClusterConfig{VGPULiveMigrationEnabled: true},
+				}
+				manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, true, nil, v1.KvmHypervisorName)
+				Expect(err).ToNot(HaveOccurred())
+				libvirtManager := manager.(*LibvirtDomainManager)
+
+				c, err := libvirtManager.generateConverterContext(vmi, false, options, true)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(c.GPUHostDevices).To(HaveLen(1), "vGPUs (GPU host devices) should be added to the migration target context")
+				Expect(c.GPUHostDevices[0].Type).To(Equal(api.HostDeviceMDev), "migration target vGPU should be an MDev host device")
+				Expect(c.GPUHostDevices[0].Alias).ToNot(BeNil())
+				Expect(c.GPUHostDevices[0].Alias.GetName()).To(ContainSubstring(vGPUName))
+			})
 		})
 
 		It("should detect inprogress migration job", func() {

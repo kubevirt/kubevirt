@@ -973,6 +973,18 @@ func shouldExpandOffline(disk api.Disk) bool {
 	return true
 }
 
+func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+	if err != nil {
+		return nil, err
+	}
+	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath)
+	if err != nil {
+		return nil, err
+	}
+	return append(gpuHostDevices, gpuDRAHostDevices...), nil
+}
+
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*convertertypes.ConverterContext, error) {
 
 	logger := log.Log.Object(vmi)
@@ -1077,6 +1089,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		HypervisorName:            l.hypervisorName,
 	}
 
+	vGPULiveMigrationEnabled := false
 	if options != nil {
 		if options.VirtualMachineSMBios != nil {
 			c.SMBios = options.VirtualMachineSMBios
@@ -1093,6 +1106,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 			c.PCINUMAAwareTopologyEnabled = options.GetClusterConfig().GetPCINUMAAwareTopologyEnabled()
+			vGPULiveMigrationEnabled = options.GetClusterConfig().GetVGPULiveMigrationEnabled()
 		}
 
 		c.DomainAttachmentByInterfaceName = options.GetInterfaceDomainAttachment()
@@ -1114,25 +1128,31 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
-		if err != nil {
-			return nil, err
-		}
-		c.GPUHostDevices = gpuHostDevices
-
 		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
 		if err != nil {
 			return nil, err
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
 
-		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		gpuDevices, err := l.getGPUDevices(vmi)
 		if err != nil {
 			return nil, err
 		}
-		c.GPUHostDevices = append(c.GPUHostDevices, gpuDRAHostDevices...)
+		c.GPUHostDevices = gpuDevices
+	} else if vGPULiveMigrationEnabled {
+		gpuDevices, err := l.getGPUDevices(vmi)
+		if err != nil {
+			return nil, err
+		}
+		if len(gpuDevices) > 1 && gpuDevices[0].Type == api.HostDeviceMDev {
+			return nil, fmt.Errorf("vGPU live migration currently only supports a single vGPU, found %d for vmi %s", len(gpuDevices), vmi.Name)
+		} else if len(gpuDevices) == 1 && gpuDevices[0].Type == api.HostDeviceMDev {
+			if !l.libvirtHooksServerAndClientEnabled {
+				return nil, fmt.Errorf("vGPU live migration requires LibvirtHooksServerAndClient feature gate for vmi %s", vmi.Name)
+			}
+			c.GPUHostDevices = gpuDevices
+		}
 	}
-
 	return c, nil
 }
 

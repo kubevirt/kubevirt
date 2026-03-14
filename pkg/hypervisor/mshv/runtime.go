@@ -60,8 +60,14 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 		return err
 	}
 
+	// If the VMI is running, we adjust the QEMU process
+	// otherwise, we adjust the virtqemud process unless this VMI is a migration target
+	// in which case the VMI status is Running (on the source) but no local QEMU process has been spawned yet,
+	// so we must again adjust the virtqemud process instead
+	isMigrationTargetAwaitingDomain := vmi.Status.MigrationState != nil &&
+		!vmi.Status.MigrationState.TargetNodeDomainDetected
 	var targetProcess ps.Process
-	if vmi.IsRunning() {
+	if vmi.IsRunning() && !isMigrationTargetAwaitingDomain {
 		targetProcess, err = getQEMUProcess(isolationResult)
 		if err != nil {
 			return err

@@ -759,6 +759,10 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		return fmt.Errorf("syncing migration target failed: %v", err)
 	}
 
+	if err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig()); err != nil {
+		return fmt.Errorf("failed to adjust resources on migration target: %w", err)
+	}
+
 	err = c.handleTargetMigrationProxy(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to handle post sync migration proxy: %v", err)

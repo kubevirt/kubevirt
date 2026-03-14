@@ -65,6 +65,7 @@ func virtualMachineOptions(
 			BochsDisplayForEFIGuests:    bochsDisplay,
 			SerialConsoleLogDisabled:    clusterConfig.IsSerialConsoleLogDisabled(),
 			PCINUMAAwareTopologyEnabled: clusterConfig.PCINUMAAwareTopologyEnabled(),
+			VGPULiveMigrationEnabled:    clusterConfig.VGPULiveMigrationEnabled(),
 		}
 	}
 

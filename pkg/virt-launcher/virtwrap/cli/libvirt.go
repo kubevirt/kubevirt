@@ -650,6 +650,7 @@ type VirDomain interface {
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	MigrateToURI3(string, *libvirt.DomainMigrateParameters, libvirt.DomainMigrateFlags) error
 	MigrateStartPostCopy(flags uint32) error
+	MigrateSetMaxDowntime(downtime uint64, flags uint32) error
 	MemoryStats(nrStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error)
 	GetJobStats(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error)
 	GetJobInfo() (*libvirt.DomainJobInfo, error)
