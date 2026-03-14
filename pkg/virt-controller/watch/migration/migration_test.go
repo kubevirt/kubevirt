@@ -239,6 +239,7 @@ var _ = Describe("Migration watcher", func() {
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 		migrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
@@ -256,6 +257,7 @@ var _ = Describe("Migration watcher", func() {
 		controller, _ = NewController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
+			vmInformer,
 			podInformer,
 			migrationInformer,
 			nodeInformer,
