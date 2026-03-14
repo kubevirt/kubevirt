@@ -49,7 +49,9 @@ const (
 	//#### Tiger VNC ####
 	//# https://github.com/TigerVNC/tigervnc/releases
 	// Compatible with multiple Tiger VNC versions
-	MACOS_TIGER_VNC_PATTERN = `/Applications/TigerVNC Viewer *.app/Contents/MacOS/TigerVNC Viewer`
+	MACOS_TIGER_VNC_LEGACY_PATTERN = `/Applications/TigerVNC Viewer *.app/Contents/MacOS/TigerVNC Viewer`
+	// Tiger VNC 1.16.0+ changed the default app name
+	MACOS_TIGER_VNC_PATTERN = `/Applications/TigerVNC.app/Contents/MacOS/vncviewer`
 
 	//#### Chicken VNC ####
 	//# https://sourceforge.net/projects/chicken/
@@ -260,7 +262,11 @@ func getUserSpecifiedVnc(ctx context.Context, osType, vncType, vncPath string, p
 func getAutoDetectedVnc(osType string, port int) (string, []string, error) {
 	switch osType {
 	case "darwin":
-		if matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
+		if _, err := os.Stat(MACOS_TIGER_VNC_PATTERN); err == nil {
+			return MACOS_TIGER_VNC_PATTERN, tigerVncArgs(port), nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", nil, err
+		} else if matches, err := filepath.Glob(MACOS_TIGER_VNC_LEGACY_PATTERN); err == nil && len(matches) > 0 {
 			return matches[len(matches)-1], tigerVncArgs(port), nil
 		} else if err == filepath.ErrBadPattern {
 			return "", nil, err
