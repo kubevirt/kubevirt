@@ -504,9 +504,29 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
+			verifyTPMAndEFI := func(targetVM *v1.VirtualMachine, targetVMI *v1.VirtualMachineInstance) {
+				By("Stopping the VM")
+				libvmops.StopVirtualMachine(targetVM)
+				By("Starting the VM")
+				targetVM = libvmops.StartVirtualMachine(targetVM)
+				By("Logging in")
+				Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+				By("Ensuring the TPM and EFI vars contain the same data after stop and start")
+				checkTPM(targetVMI)
+				checkEFI(targetVMI)
+			}
+
+			verifyComputeLiveMigrate := func(_ *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+				By("compute live migrating the VMI")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				// check VMI, confirm migration state
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			}
 			// TODO: Remove the RequiresRWOFsVMStateStorageClass once libvirt allows us to tell it to ignore the check
 			// for shared storage.
-			It("should decentralized migrate a VMI with persistent TPM+EFI enabled", decorators.RequiresDecentralizedLiveMigration, decorators.RequiresRWOFsVMStateStorageClass, Serial, func() {
+			DescribeTable("should decentralized migrate a VMI with persistent TPM+EFI enabled", decorators.RequiresDecentralizedLiveMigration, decorators.RequiresRWOFsVMStateStorageClass, Serial, func(verifyFunc func(*v1.VirtualMachine, *v1.VirtualMachineInstance)) {
 				migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 				By("Creating a VMI with TPM+EFI enabled")
 				sourceVMI := libvmifact.NewFedora(
@@ -541,19 +561,11 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
 				libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
 
-				By("Ensuring the TPM is still functional and its state and EFI vars are carried over")
-				checkTPM(targetVMI)
-				checkEFI(targetVMI)
-				By("Stopping the VM")
-				libvmops.StopVirtualMachine(targetVM)
-				By("Starting the VM")
-				targetVM = libvmops.StartVirtualMachine(targetVM)
-				By("Logging in")
-				Expect(console.LoginToFedora(targetVMI)).To(Succeed())
-				By("Ensuring the TPM and EFI vars contain the same data after stop and start")
-				checkTPM(targetVMI)
-				checkEFI(targetVMI)
-			})
+				verifyFunc(targetVM, targetVMI)
+			},
+				Entry("should decentralized migrate a VMI with persistent TPM+EFI enabled", verifyTPMAndEFI),
+				Entry("should compute live migrate after decentralized migration", verifyComputeLiveMigrate),
+			)
 		})
 	})
 
