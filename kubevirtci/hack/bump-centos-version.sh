@@ -18,8 +18,10 @@
 #
 #
 
+CENTOS_VERSION=${PROVISION_CENTOS_VERSION:-9}
+
 (
-    curl --no-progress-meter -L https://cloud.centos.org/centos/9-stream/x86_64/images/ |
-        grep -oE 'a href="(CentOS-Stream-Vagrant-9-[^"]+)"' |
+    curl --no-progress-meter -L https://cloud.centos.org/centos/${CENTOS_VERSION}-stream/x86_64/images/ |
+        grep -oE "a href=\"(CentOS-Stream-Vagrant-${CENTOS_VERSION}-[^\"]+)\"" |
         grep -oE '[0-9]{8}\.[0-9]+' | sort -rV | uniq | head -1
-) >./cluster-provision/centos9/version
+) >./cluster-provision/centos${CENTOS_VERSION}/version
