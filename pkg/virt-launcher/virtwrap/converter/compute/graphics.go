@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -91,7 +92,7 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 
 func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	// For AMD64 + EFI, use bochs. For BIOS, use VGA
-	if g.useBochsForEFIGuests && vmi.IsBootloaderEFI() {
+	if g.useBochsForEFIGuests && vmipredicates.IsBootloaderEFI(vmi) {
 		domain.Spec.Devices.Video = []api.Video{
 			{
 				Model: api.VideoModel{

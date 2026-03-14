@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -41,7 +42,6 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -161,7 +161,7 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	// TODO: Once the LibvirtHooksServerAndClient feature gate is GA,
 	// this logic in the source can be removed, as XML modifications
 	// for dedicated CPUs will always be handled on the target side.
-	if vmi.IsCPUDedicated() {
+	if vmipredicates.IsCPUDedicated(vmi) {
 		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
 		// assigned in the source node with the new CPUs assigned in the target node
 		err = xml.Unmarshal([]byte(xmlstr), &domain)
@@ -1043,7 +1043,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	// initiate the live migration
 	var dstURI string
-	if virtutil.IsNonRootVMI(vmi) {
+	if vmipredicates.IsNonRootVMI(vmi) {
 		dstURI = fmt.Sprintf("qemu+unix:///session?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
 	} else {
 		dstURI = fmt.Sprintf("qemu+unix:///system?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))

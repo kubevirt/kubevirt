@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -312,7 +313,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 	// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
 	// via the VMI migration status in order to patch the domain pre migration
-	if vmi.IsCPUDedicated() {
+	if vmipredicates.IsCPUDedicated(vmi) {
 		err := c.reportDedicatedCPUSetForMigratingVMI(vmi)
 		if err != nil {
 			return err
@@ -877,7 +878,7 @@ func (c *MigrationTargetController) hotplugCPU(vmi *v1.VirtualMachineInstance, c
 		return nil
 	}
 
-	if vmi.IsCPUDedicated() {
+	if vmipredicates.IsCPUDedicated(vmi) {
 		cpuLimitStr, ok := vmi.Labels[v1.VirtualMachinePodCPULimitsLabel]
 		if !ok || len(cpuLimitStr) == 0 {
 			return fmt.Errorf("cannot read CPU limit from VMI annotation")

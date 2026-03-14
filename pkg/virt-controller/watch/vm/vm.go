@@ -61,6 +61,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -984,7 +985,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 				log.Log.Object(vm).Infof("processing forced restart request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
 			if forceRestart || vmi.IsFinal() {
-				if vmi.IsDecentralizedMigration() {
+				if vmipredicates.IsDecentralizedMigration(vmi) {
 					if vmi.IsMigrationCompleted() {
 						log.Log.Object(vm).Infof("decentralized migration completed, setting runStrategy to halted")
 						// decentralized migration completed, mark the VM as halted. In this case the VM is now in a different

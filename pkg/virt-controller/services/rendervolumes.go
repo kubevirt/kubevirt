@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -246,7 +247,7 @@ func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			}
 		}
 
-		if util.HasKernelBootContainerImage(vmi) {
+		if vmipredicates.HasKernelBootContainerImage(vmi) {
 			kbc := vmi.Spec.Domain.Firmware.KernelBoot.Container
 			renderer.addKernelBootVolume(kbc)
 			renderer.addKernelBootVolumeMount()
@@ -406,7 +407,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			SubPath:   "meta",
 		})
 
-		if util.IsNonRootVMI(vmi) {
+		if vmipredicates.IsNonRootVMI(vmi) {
 			// For non-root VMIs, the TPM state lives under /var/run/kubevirt-private/libvirt/qemu/swtpm
 			// To persist it, we need the persistent PVC to be mounted under that location.
 			// /var/run/kubevirt-private is an emptyDir, and k8s would automatically create the right sub-directories under it.
@@ -861,5 +862,5 @@ func shouldAddLauncherBinaryVolume(vmi *v1.VirtualMachineInstance, imageIDs map[
 		return true
 	}
 	kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
-	return util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
+	return vmipredicates.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
 }

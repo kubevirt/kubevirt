@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -152,7 +153,7 @@ func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *v1.VirtualMa
 }
 
 func (c *Controller) handlePostHandoffMigrationCancel(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) error {
-	if !vmi.IsDecentralizedMigration() {
+	if !vmipredicates.IsDecentralizedMigration(vmi) {
 		// Do not delete the pod if it is not a decentralized migration
 		return nil
 	}

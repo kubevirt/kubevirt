@@ -27,6 +27,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -34,7 +35,7 @@ import (
 
 // CPUDedicatedHook handles CPU pinning adjustments for dedicated CPU migrations
 func CPUDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
-	if !vmi.IsCPUDedicated() {
+	if !vmipredicates.IsCPUDedicated(vmi) {
 		return nil
 	}
 	// If the VMI has dedicated CPUs, we need to replace the old CPUs that were

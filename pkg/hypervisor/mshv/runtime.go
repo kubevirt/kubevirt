@@ -27,10 +27,10 @@ import (
 	"github.com/mitchellh/go-ps"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor/common"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -51,7 +51,7 @@ func NewMshvVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *l
 }
 
 func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !vmipredicates.IsVFIOVMI(vmi) && !vmipredicates.IsRealtimeEnabled(vmi) && !vmipredicates.IsSEVVMI(vmi) {
 		return nil
 	}
 
@@ -119,7 +119,7 @@ func getVMIBaseMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 }
 
 func (m *MshvVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+	if vmipredicates.IsCPUDedicated(vmi) && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		err := m.configureHousekeepingCgroup(vmi, cgroupManager, domain)
 		if err != nil {
 			return err
@@ -127,7 +127,7 @@ func (m *MshvVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgr
 	}
 
 	// Configure vcpu scheduler for realtime workloads and affine PIT thread for dedicated CPU
-	if vmi.IsRealtimeEnabled() && !vmi.IsRunning() && !vmi.IsFinal() {
+	if vmipredicates.IsRealtimeEnabled(vmi) && !vmi.IsRunning() && !vmi.IsFinal() {
 		m.logger.Object(vmi).Info("Configuring vcpus for real time workloads")
 		if err := m.configureVCPUScheduler(vmi); err != nil {
 			return err

@@ -47,12 +47,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"kubevirt.io/client-go/log"
 
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -398,7 +399,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			if controller.IsPodReady(pod) && vmi.DeletionTimestamp == nil {
 				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
 				podQosClass := pod.Status.QOSClass
-				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
+				if podQosClass != k8sv1.PodQOSGuaranteed && vmipredicates.IsCPUDedicated(vmi) {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
 					syncErr = common.NewSyncError(fmt.Errorf("failed to guarantee pod resources"), controller.FailedGuaranteePodResourcesReason)
 					break
@@ -436,7 +437,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				}
 
 				// Allocate the CID if VSOCK is enabled.
-				if util.IsAutoAttachVSOCK(vmiCopy) {
+				if vmipredicates.IsAutoAttachVSOCK(vmiCopy) {
 					if err := c.cidsMap.Allocate(vmiCopy); err != nil {
 						return err
 					}
@@ -477,7 +478,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			break
 		}
 
-		if pod.Status.Phase == k8sv1.PodSucceeded && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+		if pod.Status.Phase == k8sv1.PodSucceeded && vmipredicates.IsDecentralizedMigration(vmi) && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
 			vmiCopy.Status.Phase = virtv1.Succeeded
 			break
 		}
@@ -510,7 +511,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsScheduled():
 		if !vmiPodExists {
-			if vmiCopy.IsDecentralizedMigration() && vmiCopy.IsMigrationTarget() {
+			if vmipredicates.IsDecentralizedMigration(vmiCopy) && vmiCopy.IsMigrationTarget() {
 				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist")
 				vmiCopy.Status.Phase = virtv1.WaitingForSync
 				if vmiCopy.Status.MigrationState != nil {

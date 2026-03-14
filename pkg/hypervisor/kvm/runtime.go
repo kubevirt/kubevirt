@@ -29,10 +29,10 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor/common"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -54,7 +54,7 @@ func NewKvmVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *lo
 }
 
 func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
+	if !vmipredicates.IsVFIOVMI(vmi) && !vmipredicates.IsRealtimeEnabled(vmi) && !vmipredicates.IsSEVVMI(vmi) && !vmipredicates.RequiresLockingMemory(vmi) {
 		return nil
 	}
 
@@ -124,7 +124,7 @@ func getVMIBaseMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 }
 
 func (k *KvmVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+	if vmipredicates.IsCPUDedicated(vmi) && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		err := k.configureHousekeepingCgroup(vmi, cgroupManager, domain)
 		if err != nil {
 			return err
@@ -132,13 +132,13 @@ func (k *KvmVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgro
 	}
 
 	// Configure vcpu scheduler for realtime workloads and affine PIT thread for dedicated CPU
-	if vmi.IsRealtimeEnabled() && !vmi.IsRunning() && !vmi.IsFinal() {
+	if vmipredicates.IsRealtimeEnabled(vmi) && !vmi.IsRunning() && !vmi.IsFinal() {
 		k.logger.Object(vmi).Info("Configuring vcpus for real time workloads")
 		if err := k.configureVCPUScheduler(vmi); err != nil {
 			return err
 		}
 	}
-	if vmi.IsCPUDedicated() && !vmi.IsRunning() && !vmi.IsFinal() {
+	if vmipredicates.IsCPUDedicated(vmi) && !vmi.IsRunning() && !vmi.IsFinal() {
 		k.logger.V(3).Object(vmi).Info("Affining PIT thread")
 		if err := k.affinePitThread(vmi); err != nil {
 			return err
@@ -170,7 +170,7 @@ func (k *KvmVirtRuntime) affinePitThread(vmi *v1.VirtualMachineInstance) error {
 	if pitpid == -1 {
 		return nil
 	}
-	if vmi.IsRealtimeEnabled() {
+	if vmipredicates.IsRealtimeEnabled(vmi) {
 		param := common.SchedParam{Priority: 2}
 		err = common.SchedSetScheduler(pitpid, common.SchedFIFO, param)
 		if err != nil {

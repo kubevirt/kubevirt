@@ -17,7 +17,7 @@
  *
  */
 
-package util
+package predicates
 
 import (
 	. "github.com/onsi/ginkgo/v2"

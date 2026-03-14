@@ -27,6 +27,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 )
 
 var _ = Describe("PodSelectors", func() {
@@ -43,7 +44,7 @@ var _ = Describe("PodSelectors", func() {
 				k8sv1.ResourceMemory: resource.MustParse("64M"),
 			},
 		}
-		Expect(vmi.WantsToHaveQOSGuaranteed()).To(BeTrue())
+		Expect(vmipredicates.WantsToHaveQOSGuaranteed(vmi)).To(BeTrue())
 	})
 
 	It("should detect if VMIs don't want guaranteed QOS", func() {
@@ -57,7 +58,7 @@ var _ = Describe("PodSelectors", func() {
 				k8sv1.ResourceMemory: resource.MustParse("64M"),
 			},
 		}
-		Expect(vmi.WantsToHaveQOSGuaranteed()).To(BeFalse())
+		Expect(vmipredicates.WantsToHaveQOSGuaranteed(vmi)).To(BeFalse())
 	})
 
 	Context("Pod affinity rules", func() {

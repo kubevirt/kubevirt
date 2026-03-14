@@ -9,6 +9,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -285,7 +286,7 @@ func requiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	// These capabilies are always required because we set them on virt-launcher binary
 	capabilities := []k8sv1.Capability{CAP_NET_BIND_SERVICE}
 
-	if !util.IsNonRootVMI(vmi) {
+	if !vmipredicates.IsNonRootVMI(vmi) {
 		// add a CAP_SYS_NICE capability to allow setting cpu affinity
 		capabilities = append(capabilities, CAP_SYS_NICE)
 	}

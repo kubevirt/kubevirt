@@ -58,6 +58,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
@@ -502,7 +503,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 	}
 
 	// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
-	if vmi.IsCPUDedicated() {
+	if vmipredicates.IsCPUDedicated(vmi) {
 		useIOThreads := false
 		if options != nil && options.Topology != nil {
 			topology = options.Topology
@@ -1029,11 +1030,11 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 
 	var efiConf *convertertypes.EFIConfiguration
-	if vmi.IsBootloaderEFI() {
+	if vmipredicates.IsBootloaderEFI(vmi) {
 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
-		sev := kutil.IsSEVVMI(vmi) && !kutil.IsSEVSNPVMI(vmi)
-		snp := kutil.IsSEVSNPVMI(vmi)
-		tdx := kutil.IsTDXVMI(vmi)
+		sev := vmipredicates.IsSEVVMI(vmi) && !vmipredicates.IsSEVSNPVMI(vmi)
+		snp := vmipredicates.IsSEVSNPVMI(vmi)
+		tdx := vmipredicates.IsTDXVMI(vmi)
 
 		vmType := efi.None
 		if sev {
@@ -1069,9 +1070,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional:     vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:          permanentVolumes,
 		EphemeraldiskCreator:      l.ephemeralDiskCreator,
-		UseLaunchSecuritySEV:      kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
-		UseLaunchSecurityTDX:      kutil.IsTDXVMI(vmi),
-		UseLaunchSecurityPV:       kutil.IsSecureExecutionVMI(vmi),
+		UseLaunchSecuritySEV:      vmipredicates.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
+		UseLaunchSecurityTDX:      vmipredicates.IsTDXVMI(vmi),
+		UseLaunchSecurityPV:       vmipredicates.IsSecureExecutionVMI(vmi),
 		FreePageReporting:         isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:          isSerialConsoleLogEnabled(false, vmi),
 		HypervisorName:            l.hypervisorName,
@@ -1139,7 +1140,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 func isFreePageReportingEnabled(clusterFreePageReportingDisabled bool, vmi *v1.VirtualMachineInstance) bool {
 	if clusterFreePageReportingDisabled ||
 		(vmi.Spec.Domain.Devices.AutoattachMemBalloon != nil && *vmi.Spec.Domain.Devices.AutoattachMemBalloon == false) ||
-		vmi.IsHighPerformanceVMI() ||
+		vmipredicates.IsHighPerformanceVMI(vmi) ||
 		vmi.GetAnnotations()[v1.FreePageReportingDisabledAnnotation] == "true" {
 		return false
 	}
@@ -1362,7 +1363,7 @@ func (l *LibvirtDomainManager) startDomain(
 	}
 
 	logger.Info("Domain started.")
-	if vmi.ShouldStartPaused() {
+	if vmipredicates.ShouldStartPaused(vmi) {
 		l.paused.add(vmi.UID)
 	}
 	return nil
@@ -2064,7 +2065,7 @@ func getDeviceNUMACPUAffinity(dev api.HostDevice, vmi *v1.VirtualMachineInstance
 				numaNodePtr = numa
 				return
 			}
-		} else if vmi.IsCPUDedicated() {
+		} else if vmipredicates.IsCPUDedicated(vmi) {
 			if vCPUList, err := hardware.LookupDeviceVCPUAffinity(pciAddress, domainSpec); err == nil {
 				cpuList = vCPUList
 				return
@@ -2435,7 +2436,7 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	if kutil.HasKernelBootContainerImage(vmi) {
+	if vmipredicates.HasKernelBootContainerImage(vmi) {
 		kb := vmi.Spec.Domain.Firmware.KernelBoot
 
 		err := os.MkdirAll(containerdisk.GetKernelBootArtifactPathFromLauncherView(""), 0755)
@@ -2528,10 +2529,10 @@ func isDomainPaused(dom cli.VirDomain) (bool, error) {
 func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFlags {
 	flags := libvirt.DOMAIN_NONE
 
-	if vmi.ShouldStartPaused() {
+	if vmipredicates.ShouldStartPaused(vmi) {
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+	if vmipredicates.IsCPUDedicated(vmi) && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags

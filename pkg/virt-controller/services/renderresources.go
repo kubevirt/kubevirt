@@ -12,9 +12,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -51,7 +51,7 @@ func NewVMIResourceRule(p resourcePredicate, option ResourceRendererOption) VMIR
 }
 
 func doesVMIRequireDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.IsCPUDedicated()
+	return vmipredicates.IsCPUDedicated(vmi)
 }
 
 func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
@@ -483,7 +483,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, hypervisorResource k8s
 	if !allowEmulation {
 		res[hypervisorResource] = resource.MustParse("1")
 	}
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmipredicates.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")
 	}
 	return res
@@ -546,7 +546,7 @@ func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.Cluster
 
 	// add default cpu and memory limits to enable cpu pinning if requested
 	// TODO(vladikr): make the hookSidecar express resources
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+	if vmipredicates.IsCPUDedicated(vmi) || vmipredicates.WantsToHaveQOSGuaranteed(vmi) {
 		resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 		if limCpu := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceCPU); limCpu != nil {
 			resources.Limits[k8sv1.ResourceCPU] = *limCpu
@@ -569,7 +569,7 @@ func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.Cluster
 }
 
 func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+	if vmipredicates.IsCPUDedicated(vmi) || vmipredicates.WantsToHaveQOSGuaranteed(vmi) {
 		return k8sv1.ResourceRequirements{
 			Limits:   initContainerDedicatedCPURequiredResources(containerType, config),
 			Requests: initContainerDedicatedCPURequiredResources(containerType, config),
