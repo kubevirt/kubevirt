@@ -33,6 +33,8 @@ import (
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const fsFreezeStatusCmd = `{"execute":"guest-fsfreeze-status"}`
+
 func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	if m.MigrationInProgress() {
 		return fmt.Errorf("failed to freeze VMI, VMI is currently during migration")
@@ -127,7 +129,7 @@ func (m *StorageManager) cancelSafetyUnfreeze() {
 }
 
 func (m *StorageManager) getParsedFSStatus(domainName string) (string, error) {
-	cmdResult, err := m.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, domainName)
+	cmdResult, err := m.virConn.QemuAgentCommand(fsFreezeStatusCmd, domainName)
 	if err != nil {
 		return "", err
 	}

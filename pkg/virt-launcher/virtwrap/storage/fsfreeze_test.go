@@ -32,7 +32,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
-	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
@@ -80,7 +79,7 @@ var _ = Describe("FSFreeze", func() {
 	It("should freeze a VirtualMachineInstance", func() {
 		vmi := newVMI(testNamespace, testVmName)
 
-		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
+		mockConn.EXPECT().QemuAgentCommand(fsFreezeStatusCmd, testDomainName).Return(expectedThawedOutput, nil)
 		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(1)
 		mockDomain.EXPECT().Free().Times(1)
 		mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Times(1)
@@ -101,7 +100,7 @@ var _ = Describe("FSFreeze", func() {
 	It("should unfreeze a VirtualMachineInstance", func() {
 		vmi := newVMI(testNamespace, testVmName)
 
-		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+		mockConn.EXPECT().QemuAgentCommand(fsFreezeStatusCmd, testDomainName).Return(expectedFrozenOutput, nil)
 		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(1)
 		mockDomain.EXPECT().Free().Times(1)
 		mockDomain.EXPECT().FSThaw(nil, uint32(0)).Times(1)
@@ -112,8 +111,8 @@ var _ = Describe("FSFreeze", func() {
 	It("should automatically unfreeze after a timeout a frozen VirtualMachineInstance", func() {
 		vmi := newVMI(testNamespace, testVmName)
 
-		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+		mockConn.EXPECT().QemuAgentCommand(fsFreezeStatusCmd, testDomainName).Return(expectedThawedOutput, nil)
+		mockConn.EXPECT().QemuAgentCommand(fsFreezeStatusCmd, testDomainName).Return(expectedFrozenOutput, nil)
 		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(2)
 		mockDomain.EXPECT().Free().Times(2)
 		mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Times(1)
@@ -128,8 +127,8 @@ var _ = Describe("FSFreeze", func() {
 	It("should freeze and unfreeze a VirtualMachineInstance without a trigger to the unfreeze timeout", func() {
 		vmi := newVMI(testNamespace, testVmName)
 
-		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+		mockConn.EXPECT().QemuAgentCommand(fsFreezeStatusCmd, testDomainName).Return(expectedThawedOutput, nil)
+		mockConn.EXPECT().QemuAgentCommand(fsFreezeStatusCmd, testDomainName).Return(expectedFrozenOutput, nil)
 		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(2)
 		mockDomain.EXPECT().Free().Times(2)
 		mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Times(1)
