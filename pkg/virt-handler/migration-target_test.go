@@ -278,16 +278,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer socket.Close()
 
-		// since a random port is generated, we have to create the proxy
-		// here in order to know what port will be in the update.
-		err = controller.handleTargetMigrationProxy(vmi)
-		Expect(err).NotTo(HaveOccurred())
-
-		destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
-		updatedVmi := vmi.DeepCopy()
-		updatedVmi.Status.MigrationState.TargetNodeAddress = controller.migrationIpAddress
-		updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
-
 		client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
 		createVMI(vmi)
 		sanityExecute()
@@ -781,6 +771,138 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		// Update occured for labels but not spec
 		Expect(updatedVMI.Spec.Volumes).To(Equal(originalVMI.Spec.Volumes))
 		Expect(updatedVMI.Labels).To(Not(HaveKey(v1.MigrationTargetNodeNameLabel)))
+	})
+
+	It("should preserve CreateMigrationTarget annotation on failed migration cleanup", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Annotations = map[string]string{
+			v1.CreateMigrationTarget: "true",
+		}
+		vmi.Status.NodeName = "othernode"
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:   host,
+			SourceNode:   "othernode",
+			MigrationUID: "123",
+			Failed:       true,
+			EndTimestamp: pointer.P(metav1.Now()),
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		createVMI(vmi)
+
+		client.EXPECT().SignalTargetPodCleanup(vmi)
+		sanityExecute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedVMI.Labels).To(Not(HaveKey(v1.MigrationTargetNodeNameLabel)))
+		Expect(updatedVMI.Annotations).To(HaveKey(v1.CreateMigrationTarget))
+	})
+
+	It("should remove CreateMigrationTarget annotation on successful migration cleanup", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Annotations = map[string]string{
+			v1.CreateMigrationTarget: "true",
+		}
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:               host,
+			TargetNodeAddress:        "127.0.0.1:12345",
+			SourceNode:               "othernode",
+			MigrationUID:             "123",
+			TargetNodeDomainDetected: true,
+			StartTimestamp:           &pastTime,
+			EndTimestamp:             pointer.P(metav1.Now()),
+			Completed:                true,
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		createVMI(vmi)
+
+		client.EXPECT().FinalizeVirtualMachineMigration(vmi, gomock.Any())
+		sanityExecute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedVMI.Labels).To(Not(HaveKey(v1.MigrationTargetNodeNameLabel)))
+		Expect(updatedVMI.Annotations).To(Not(HaveKey(v1.CreateMigrationTarget)))
+	})
+
+	Context("migrationProxyKey", func() {
+		It("should return the VMI UID for regular migrations", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = "local-uid"
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+			}
+			Expect(migrationProxyKey(vmi)).To(Equal("local-uid"))
+		})
+
+		It("should return the VMI UID when MigrationState is nil", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = "local-uid"
+			Expect(migrationProxyKey(vmi)).To(Equal("local-uid"))
+		})
+
+		It("should return the source VMI UID for decentralized UNIX transport migrations", func() {
+			sourceUID := types.UID("source-uid")
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = "target-uid"
+			vmi.Annotations = map[string]string{v1.CreateMigrationTarget: "true"}
+			vmi.Status.MigrationTransport = v1.MigrationTransportUnix
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:                      "source-node",
+						VirtualMachineInstanceUID: &sourceUID,
+					},
+				},
+			}
+			Expect(migrationProxyKey(vmi)).To(Equal("source-uid"))
+		})
+
+		It("should return the VMI UID for decentralized non-UNIX transport migrations", func() {
+			sourceUID := types.UID("source-uid")
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = "target-uid"
+			vmi.Annotations = map[string]string{v1.CreateMigrationTarget: "true"}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:                      "source-node",
+						VirtualMachineInstanceUID: &sourceUID,
+					},
+				},
+			}
+			Expect(migrationProxyKey(vmi)).To(Equal("target-uid"))
+		})
+
+		It("should return the VMI UID when SourceState has no VirtualMachineInstanceUID", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = "local-uid"
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node: "source-node",
+					},
+				},
+			}
+			Expect(migrationProxyKey(vmi)).To(Equal("local-uid"))
+		})
 	})
 })
 
