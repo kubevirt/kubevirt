@@ -1431,8 +1431,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", Serial, func() {
+	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, Serial, func() {
 		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
+		testEmulatedMachinesS390x := []string{"s390-ccw-virtio*"}
 
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
@@ -1442,35 +1443,36 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
 			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
 			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachines
+			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachinesS390x
 
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		})
 
 		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
-			vmi := libvmi.New(
+			machineType, expectedSubstring, _ := machineTypeForArch()
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
-				withMachineType("pc"),
+				withMachineType(machineType),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
 
 			Expect(vmi.Status.Machine).ToNot(BeNil())
-			Expect(vmi.Status.Machine.Type).To(ContainSubstring("pc-i440"))
+			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
 		})
 
 		It("[test_id:3126]should set machine type from kubevirt-config", Serial, func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
-			testEmulatedMachines := []string{"pc"}
+			machineType, expectedSubstring, emulatedMachines := machineTypeForArch()
 
 			config := kv.Spec.Configuration
 
 			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.MachineType = "pc"
-			config.ArchitectureConfiguration.Arm64.MachineType = "pc"
-			config.ArchitectureConfiguration.S390x.MachineType = "pc"
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachines
+			config.ArchitectureConfiguration.Amd64.MachineType = machineType
+			config.ArchitectureConfiguration.Arm64.MachineType = machineType
+			config.ArchitectureConfiguration.S390x.MachineType = machineType
+			config.ArchitectureConfiguration.Amd64.EmulatedMachines = emulatedMachines
+			config.ArchitectureConfiguration.Arm64.EmulatedMachines = emulatedMachines
+			config.ArchitectureConfiguration.S390x.EmulatedMachines = emulatedMachines
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
@@ -1478,7 +1480,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring(expectedSubstring))
 		})
 	})
 
@@ -2449,6 +2451,13 @@ func withMachineType(machineType string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
+}
+
+func machineTypeForArch() (machineType, expectedSubstring string, emulatedMachines []string) {
+	if testsuite.Arch == testsuite.ArchS390x {
+		return "s390-ccw-virtio", "s390-ccw-virtio", []string{"s390-ccw-virtio*"}
+	}
+	return "pc", "pc-i440", []string{"pc"}
 }
 
 func WithSchedulerName(schedulerName string) libvmi.Option {
