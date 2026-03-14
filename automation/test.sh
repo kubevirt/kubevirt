@@ -431,6 +431,11 @@ done
 kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
+
+if [[ $TARGET =~ sig-compute ]]; then
+  export KUBEVIRT_E2E_PROFILE_VMI_STARTUP=true
+fi
+
 export KUBEVIRT_E2E_PARALLEL=true
 # arm64 e2e test lane use kind provider
 if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then

@@ -74,6 +74,9 @@ func WaitForVMIPhase(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineI
 	}
 
 	WithWarningsIgnoreList(testsuite.TestRunConfiguration.WarningToIgnoreList)(&waiting)
+
+	defer recordStartupProfile(vmi, &waiting)
+
 	return waiting.watchVMIForPhase(vmi)
 }
 
