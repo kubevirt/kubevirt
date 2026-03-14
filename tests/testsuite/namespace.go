@@ -255,41 +255,24 @@ func CleanNamespaces() {
 		}
 
 		// Remove clones
-		clonesList, err := virtCli.VirtualMachineClone(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, clone := range clonesList.Items {
-			Expect(virtCli.VirtualMachineClone(namespace).Delete(context.Background(), clone.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
+		Expect(virtCli.VirtualMachineClone(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove vm snapshots
 		Expect(virtCli.VirtualMachineSnapshot(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 		Expect(virtCli.VirtualMachineSnapshotContent(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
 		Expect(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove events
 		deleteEventsFromNamespace(namespace)
 
 		// Remove vmbackups
-		vmbackupList, err := virtCli.VirtualMachineBackup(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, backup := range vmbackupList.Items {
-			Expect(virtCli.VirtualMachineBackup(namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
+		Expect(virtCli.VirtualMachineBackup(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove vmbackuptrackers
-		vmbackuptrackerList, err := virtCli.VirtualMachineBackupTracker(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, tracker := range vmbackuptrackerList.Items {
-			Expect(virtCli.VirtualMachineBackupTracker(namespace).Delete(context.Background(), tracker.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
+		Expect(virtCli.VirtualMachineBackupTracker(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove vmexports
-		vmexportList, err := virtCli.VirtualMachineExport(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, export := range vmexportList.Items {
-			Expect(virtCli.VirtualMachineExport(namespace).Delete(context.Background(), export.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
+		Expect(virtCli.VirtualMachineExport(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 	}
 }
