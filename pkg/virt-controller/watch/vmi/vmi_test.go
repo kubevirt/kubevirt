@@ -138,7 +138,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady),
-					"Status": BeEquivalentTo(expectedStatus)},
+					"Status": BeEquivalentTo(expectedStatus),
+				},
 				),
 			),
 		)
@@ -306,7 +307,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
-
 		dvVolumeSource := virtv1.VolumeSource{
 			DataVolume: &virtv1.DataVolumeSource{
 				Name: "test1",
@@ -492,13 +492,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 			Entry("fail if pod in failed state", k8sv1.PodFailed, nil, virtv1.Failed),
 			Entry("do nothing if pod succeed", k8sv1.PodSucceeded, nil, virtv1.Pending),
-			//The PodReasonUnschedulable is a transient condition. It can clear up if more resources are added to the cluster
+			// The PodReasonUnschedulable is a transient condition. It can clear up if more resources are added to the cluster
 			Entry("do nothing if pod Pending Unschedulable",
 				k8sv1.PodPending,
 				[]k8sv1.PodCondition{{
 					Type:   k8sv1.PodScheduled,
 					Status: k8sv1.ConditionFalse,
-					Reason: k8sv1.PodReasonUnschedulable}}, virtv1.Pending),
+					Reason: k8sv1.PodReasonUnschedulable,
+				}}, virtv1.Pending),
 		)
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
@@ -577,7 +578,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
 				expectMatchingPodCreation(vmi)
 			})
-
 		})
 
 		When("backend storage no RWX support", func() {
@@ -666,7 +666,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
-
 		pvcVolumeSource := virtv1.VolumeSource{
 			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: "test1",
@@ -787,7 +786,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
 			expectPodDoesNotExist(pod.Namespace, pod.Name)
 			expectVMIDataVolumeReadyCondition(vmi.Namespace, vmi.Name, k8sv1.ConditionTrue)
-
 		})
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
@@ -827,7 +825,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
 			expectMatchingPodCreation(vmi)
 		})
-
 	})
 
 	Context("network annotations generation", func() {
@@ -887,7 +884,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 		})
 		It("should create empty status network interfaces patch, regardless of interfaces order", func() {
-
 			// Reverse the order of interfaces in the new VMI
 			newVMI.Status.Interfaces = slices.Clone(oldVMI.Status.Interfaces)
 			slices.Reverse(newVMI.Status.Interfaces)
@@ -898,7 +894,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(patch.IsEmpty()).To(BeTrue(), "Patch should be empty")
 		})
 		It("should create non empty status network interfaces patch", func() {
-
 			// Add a new interface to the new VMI
 			newVMI.Status.Interfaces = append(oldVMI.Status.Interfaces,
 				virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate3"},
@@ -1238,7 +1233,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 		DescribeTable("should never proceed to creating the launcher pod if not all PVCs are there to determine if they are WFFC and/or an import is done",
 			func(syncReason string, volumeSource virtv1.VolumeSource) {
-
 				expectConditions := func(vmi *virtv1.VirtualMachineInstance) {
 					// PodScheduled and Synchronized (as well as Ready)
 					Expect(vmi.Status.Conditions).To(HaveLen(3), "there should be exactly 3 conditions")
@@ -1533,7 +1527,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			switch expectedPhase {
 			case virtv1.Scheduled:
-				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+				if attachmentPodPhase == k8sv1.PodRunning {
+					testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+				} else {
+					// If the pod is not running we will not get a pod created event.
+				}
 				expectVMIScheduledState(vmi)
 			case virtv1.Scheduling:
 				expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
@@ -3439,7 +3437,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("Should find active and old pods", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, expectedActive *k8sv1.Pod, expectedOld []*k8sv1.Pod) {
-			active, old := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+			active, old := controller.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
 			Expect(active).To(Equal(expectedActive))
 			Expect(old).To(ContainElements(expectedOld))
 		},
@@ -3528,10 +3526,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pvc := &k8sv1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test",
-					Name:      "test"},
+					Name:      "test",
+				},
 				Spec: k8sv1.PersistentVolumeClaimSpec{},
 			}
 
@@ -3915,18 +3915,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			existingPVC := &k8sv1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
-					Name:      "existing"},
+					Name:      "existing",
+				},
 			}
 			hpPVC := &k8sv1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
-					Name:      "hotplug"},
+					Name:      "hotplug",
+				},
 				Status: k8sv1.PersistentVolumeClaimStatus{
 					Phase: k8sv1.ClaimBound,
 				},
@@ -4017,18 +4021,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			existingPVC := &k8sv1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
-					Name:      "existing"},
+					Name:      "existing",
+				},
 			}
 			hpPVC := &k8sv1.PersistentVolumeClaim{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
-					Name:      "hotplug"},
+					Name:      "hotplug",
+				},
 				Status: k8sv1.PersistentVolumeClaimStatus{
 					Phase: k8sv1.ClaimBound,
 				},
@@ -4065,7 +4073,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "existing",
-						FilesystemOverhead: pointer.P(virtv1.Percent("0.055"))},
+						FilesystemOverhead: pointer.P(virtv1.Percent("0.055")),
+					},
 				},
 				{
 					Name:   "hotplug",
@@ -4182,7 +4191,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	Context("topology hints", func() {
-
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.Architecture = "amd64"
@@ -4257,13 +4265,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
 					})
 				})
-
 			})
-
 		})
 
 		Context("pod creation", func() {
-
 			It("does not need to happen if tsc requirement is of type RequiredForBoot", func() {
 				vmi := getVmiWithInvTsc()
 				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.RequiredForBoot))
@@ -4341,11 +4346,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			Expect(alc.calls).To(ConsistOf([]string{"Allocate", "Remove"}))
 		})
-
 	})
 
 	Context("Aggregating DataVolume conditions", func() {
-
 		dvVolumeSource1 := virtv1.VolumeSource{
 			DataVolume: &virtv1.DataVolumeSource{
 				Name: "test1",
@@ -4836,7 +4839,8 @@ func newPvc(namespace string, name string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PersistentVolumeClaim",
-			APIVersion: "v1"},
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
@@ -4848,7 +4852,8 @@ func newPvcWithOwner(namespace string, name string, ownerName string, isControll
 	return &k8sv1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PersistentVolumeClaim",
-			APIVersion: "v1"},
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
@@ -4998,7 +5003,6 @@ func addVolumeStatuses(vmi *virtv1.VirtualMachineInstance, volumeStatuses ...vir
 }
 
 func addActivePods(vmi *virtv1.VirtualMachineInstance, podUID types.UID, hostName string) *virtv1.VirtualMachineInstance {
-
 	if vmi.Status.ActivePods != nil {
 		vmi.Status.ActivePods[podUID] = hostName
 	} else {
