@@ -435,6 +435,7 @@ func (c *Controller) execute(key string) error {
 	}
 
 	if migration.IsFinal() {
+		c.removeHandOffKey(key)
 		err = c.garbageCollectFinalizedMigrations(vmi)
 		if err != nil {
 			return err
