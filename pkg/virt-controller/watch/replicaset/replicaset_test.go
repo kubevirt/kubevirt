@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/client-go/testing"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -161,6 +162,46 @@ var _ = Describe("Replicaset", func() {
 			testutils.ExpectEvents(recorder,
 				common.SuccessfulCreateVirtualMachineReason,
 				common.SuccessfulCreateVirtualMachineReason,
+				common.SuccessfulCreateVirtualMachineReason,
+			)
+		})
+
+		It("should respect default options from libvmi", func() {
+			// Register a default option that sets a label and an annotation
+			libvmi.RegisterDefaultOption(func(vmi *v1.VirtualMachineInstance) {
+				if vmi.Labels == nil {
+					vmi.Labels = make(map[string]string)
+				}
+				// Add a conflicting label to verify template takes precedence
+				vmi.Labels["test"] = "default-value"
+
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations["kubevirt.io/created-by-test"] = "true"
+				vmi.Annotations["kubevirt.io/test-annotation"] = "true"
+			})
+
+			// Ensure cleanup
+			defer libvmi.ClearDefaultOptions()
+
+			rs, _ := defaultReplicaSet(1)
+			addReplicaSet(rs)
+
+			controller.Execute()
+
+			expectVMIReplicas(rs, HaveLen(1))
+
+			vmiList, err := virtClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiList.Items).To(HaveLen(1))
+			createdVMI := vmiList.Items[0]
+
+			Expect(createdVMI.Labels).To(HaveKeyWithValue("test", "test")) // Template wins
+			Expect(createdVMI.Annotations).To(HaveKeyWithValue("kubevirt.io/created-by-test", "true"))
+			Expect(createdVMI.Annotations).To(HaveKeyWithValue("kubevirt.io/test-annotation", "true"))
+
+			testutils.ExpectEvents(recorder,
 				common.SuccessfulCreateVirtualMachineReason,
 			)
 		})
