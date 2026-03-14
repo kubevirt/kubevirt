@@ -456,10 +456,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("when guest crashes", Serial, decorators.VMIlifecycle, func() {
-			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.PanicDevicesGate)
-			})
-
 			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(device v1.PanicDeviceModel) {
 				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(device))
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
