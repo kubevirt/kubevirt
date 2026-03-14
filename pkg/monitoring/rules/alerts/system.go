@@ -29,7 +29,7 @@ func systemAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "LowKVMNodesCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_kvm < 2)"),
+			Expr:  intstr.FromString("(cluster:kubevirt_nodes_allocatable:count > 1) and (cluster:kubevirt_nodes_with_kvm:count < 2)"),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				descriptionAnnotationKey: "Low number of nodes with KVM resource available.",

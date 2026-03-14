@@ -29,5 +29,6 @@ func Register(registry *operatorrules.Registry, namespace string) error {
 		vmRecordingRules,
 		vmiRecordingRules,
 		vmsnapshotRecordingRules,
+		deprecatedRecordingRules,
 	)
 }

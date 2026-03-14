@@ -27,7 +27,7 @@ import (
 var vmRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes",
+			Name: "pod_container:kubevirt_vm_memory_request_margin_based_on_working_set_bytes:sum",
 			Help: "Difference between requested memory and working set for VM containers (request margin). " +
 				"Can be negative when usage exceeds request.",
 		},
@@ -40,7 +40,7 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_container_memory_request_margin_based_on_rss_bytes",
+			Name: "pod_container:kubevirt_vm_memory_request_margin_based_on_rss_bytes:sum",
 			Help: "Difference between requested memory and rss for VM containers (request margin). " +
 				"Can be negative when usage exceeds request.",
 		},
@@ -53,7 +53,7 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_number_of_vms",
+			Name: "namespace:kubevirt_vm:sum",
 			Help: "The number of VMs in the cluster by namespace.",
 		},
 		MetricType: operatormetrics.GaugeType,
@@ -65,13 +65,5 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 				"kubevirt_vm_non_running_status_last_transition_timestamp_seconds + " +
 				"kubevirt_vm_running_status_last_transition_timestamp_seconds + " +
 				"kubevirt_vm_starting_status_last_transition_timestamp_seconds))"),
-	},
-	{
-		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_created_total",
-			Help: "The total number of VMs created by namespace, since install.",
-		},
-		MetricType: operatormetrics.CounterType,
-		Expr:       intstr.FromString("sum by (namespace) (kubevirt_vm_created_by_pod_total)"),
 	},
 }
