@@ -903,6 +903,16 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	if disk.Source.Dev != "" {
 		return 0, true
 	}
+	if storage.DiskHasDataStore(&disk) &&
+		disk.Source.DataStore.Source != nil &&
+		disk.Source.DataStore.Source.Dev != "" {
+		diskInfo, err := osdisk.GetDiskInfo(getBackendSource(disk))
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
+			return 0, false
+		}
+		return diskInfo.VirtualSize, true
+	}
 
 	if disk.Capacity == nil {
 		log.DefaultLogger().Error("No disk capacity")
@@ -957,10 +967,14 @@ func getUsableDiskSize(path string) (int64, error) {
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
-	if disk.Source.Dev != "" {
-		// Block devices don't need to be expanded
+	if disk.Source.Dev != "" ||
+		(storage.DiskHasDataStore(&disk) &&
+			disk.Source.DataStore.Source != nil &&
+			disk.Source.DataStore.Source.Dev != "") {
+		// Block devices don't need to be expanded offline
 		return false
 	}
+
 	diskInfo, err := osdisk.GetDiskInfo(getBackendSource(disk))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
@@ -1333,6 +1347,10 @@ func (l *LibvirtDomainManager) syncDisks(
 			}
 			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
 			if possibleGuestSize == 0 {
+				if storage.DiskHasDataStore(&disk) {
+					// Disks with a metadata overlay cannot use DOMAIN_BLOCK_RESIZE_CAPACITY
+					continue
+				}
 				flags |= libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY
 			}
 			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), flags)

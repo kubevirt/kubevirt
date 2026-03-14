@@ -42,6 +42,7 @@ KUBEVIRT_SWAP_ON=${KUBEVIRT_SWAP_ON:-false}
 KUBEVIRT_SWAP_BEHAVIOR=${KUBEVIRT_SWAP_BEHAVIOR:-}
 KUBEVIRT_KSM_ON=${KUBEVIRT_KSM_ON:-false}
 KUBVIRT_WITH_CNAO_SKIP_CONFIG=${KUBVIRT_WITH_CNAO_SKIP_CONFIG:-false}
+KUBEVIRT_CONTAINER_LOG_MAX_SIZE=${KUBEVIRT_CONTAINER_LOG_MAX_SIZE:"10Mi"}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 # http and https ports are accessed by testing framework and should not be randomized
