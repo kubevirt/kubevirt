@@ -50,6 +50,7 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -1013,7 +1014,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 	// virtiofs require shared access
-	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
+	if predicates.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
 		if domain.Spec.MemoryBacking == nil {
 			domain.Spec.MemoryBacking = &api.MemoryBacking{}
 		}

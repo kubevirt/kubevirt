@@ -77,6 +77,7 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -1031,9 +1032,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	var efiConf *convertertypes.EFIConfiguration
 	if vmi.IsBootloaderEFI() {
 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
-		sev := kutil.IsSEVVMI(vmi) && !kutil.IsSEVSNPVMI(vmi)
-		snp := kutil.IsSEVSNPVMI(vmi)
-		tdx := kutil.IsTDXVMI(vmi)
+		sev := predicates.IsSEVVMI(vmi) && !predicates.IsSEVSNPVMI(vmi)
+		snp := predicates.IsSEVSNPVMI(vmi)
+		tdx := predicates.IsTDXVMI(vmi)
 
 		vmType := efi.None
 		if sev {
@@ -1069,9 +1070,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional:     vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:          permanentVolumes,
 		EphemeraldiskCreator:      l.ephemeralDiskCreator,
-		UseLaunchSecuritySEV:      kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
-		UseLaunchSecurityTDX:      kutil.IsTDXVMI(vmi),
-		UseLaunchSecurityPV:       kutil.IsSecureExecutionVMI(vmi),
+		UseLaunchSecuritySEV:      predicates.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
+		UseLaunchSecurityTDX:      predicates.IsTDXVMI(vmi),
+		UseLaunchSecurityPV:       predicates.IsSecureExecutionVMI(vmi),
 		FreePageReporting:         isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:          isSerialConsoleLogEnabled(false, vmi),
 		HypervisorName:            l.hypervisorName,
@@ -2435,7 +2436,7 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	if kutil.HasKernelBootContainerImage(vmi) {
+	if predicates.HasKernelBootContainerImage(vmi) {
 		kb := vmi.Spec.Domain.Firmware.KernelBoot
 
 		err := os.MkdirAll(containerdisk.GetKernelBootArtifactPathFromLauncherView(""), 0755)

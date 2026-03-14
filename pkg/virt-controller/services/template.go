@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -313,7 +314,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 	// so we need to allow the NonRootUID for virtiofsd to be able to write into the PVC
 	psc.FSGroup = pointer.P(int64(util.NonRootUID))
 
-	if util.IsNonRootVMI(vmi) {
+	if predicates.IsNonRootVMI(vmi) {
 		nonRootUser := int64(util.NonRootUID)
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
@@ -334,7 +335,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	var userId int64 = util.RootUser
 
-	nonRoot := util.IsNonRootVMI(vmi)
+	nonRoot := predicates.IsNonRootVMI(vmi)
 	if nonRoot {
 		userId = util.NonRootUID
 	}
@@ -348,7 +349,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodKillAfter := gracePeriodSeconds + gracePeriodPaddingSeconds
 
 	imagePullSecrets := imgPullSecrets(vmi.Spec.Volumes...)
-	if util.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
+	if predicates.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
 		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret,
 		})
@@ -561,7 +562,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		initContainers = append(initContainers, *sconsolelogContainer)
 	}
 
-	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
+	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || predicates.HasKernelBootContainerImage(vmi)) {
 		initContainerCommand := []string{"/usr/bin/cp", "--preserve=all",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
@@ -603,7 +604,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 		// Generate init container for kernel boot if needed
 		kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
-		if util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
+		if predicates.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
 			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
 			initContainer := containerdisk.CreateImageVolumeInitContainer(
 				vmi,
@@ -738,26 +739,26 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		log.Log.V(4).Info("Add realtime node label selector")
 		opts = append(opts, WithRealtime())
 	}
-	if util.IsSEVVMI(vmi) {
+	if predicates.IsSEVVMI(vmi) {
 		log.Log.V(4).Info("Add SEV node label selector")
 		opts = append(opts, WithSEVSelector())
 	}
-	if util.IsSEVESVMI(vmi) {
+	if predicates.IsSEVESVMI(vmi) {
 		log.Log.V(4).Info("Add SEV-ES node label selector")
 		opts = append(opts, WithSEVESSelector())
 	}
 
-	if util.IsSEVSNPVMI(vmi) {
+	if predicates.IsSEVSNPVMI(vmi) {
 		log.Log.V(4).Info("Add SEV-SNP node label selector")
 		opts = append(opts, WithSEVSNPSelector())
 	}
 
-	if util.IsSecureExecutionVMI(vmi) {
+	if predicates.IsSecureExecutionVMI(vmi) {
 		log.Log.V(4).Info("Add Secure Execution node label selector")
 		opts = append(opts, WithSecureExecutionSelector())
 	}
 
-	if util.IsTDXVMI(vmi) {
+	if predicates.IsTDXVMI(vmi) {
 		log.Log.V(4).Info("Add TDX node label selector")
 		opts = append(opts, WithTDXSelector())
 	}
@@ -801,7 +802,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 	}
 	sidecarOpts = append(sidecarOpts, WithVolumeMounts(mounts...))
 
-	if util.IsNonRootVMI(vmiSpec) {
+	if predicates.IsNonRootVMI(vmiSpec) {
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
 		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
@@ -824,7 +825,7 @@ func (t *TemplateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineIns
 		WithNoCapabilities(),
 	}
 
-	if util.IsNonRootVMI(vmiSpec) {
+	if predicates.IsNonRootVMI(vmiSpec) {
 		cpInitContainerOpts = append(cpInitContainerOpts, WithNonRoot(userId))
 	}
 
@@ -840,7 +841,7 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 		WithPorts(vmi),
 		WithCapabilities(vmi),
 	}
-	if util.IsNonRootVMI(vmi) {
+	if predicates.IsNonRootVMI(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
 	}
@@ -890,7 +891,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
-	if util.IsVMIVirtiofsEnabled(vmi) {
+	if predicates.IsVMIVirtiofsEnabled(vmi) {
 		volumeOpts = append(volumeOpts, withVirioFS())
 	}
 
@@ -1551,8 +1552,8 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
-			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
-			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
+			NewVMIResourceRule(predicates.IsSEVVMI, WithSEV()),
+			NewVMIResourceRule(predicates.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}

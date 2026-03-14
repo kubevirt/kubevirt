@@ -35,7 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	kutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -60,7 +60,7 @@ func (app *SubresourceAPIApp) SEVFetchCertChainRequestHandler(request *restful.R
 		if !vmi.IsScheduled() && !vmi.IsRunning() {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not assigned to a node yet"))
 		}
-		if !kutil.IsSEVAttestationRequested(vmi) {
+		if !predicates.IsSEVAttestationRequested(vmi) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
 		}
 		return nil
@@ -115,7 +115,7 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 		if !vmi.IsScheduled() {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not in %s phase", v1.Scheduled))
 		}
-		if !kutil.IsSEVAttestationRequested(vmi) {
+		if !predicates.IsSEVAttestationRequested(vmi) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
 		}
 		sev := vmi.Spec.Domain.LaunchSecurity.SEV
@@ -175,7 +175,7 @@ func validateVMIForSEVAttestation(vmi *v1.VirtualMachineInstance) *errors.Status
 	if !vmi.IsRunning() {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
 	}
-	if !kutil.IsSEVAttestationRequested(vmi) {
+	if !predicates.IsSEVAttestationRequested(vmi) {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNoAttestationErr))
 	}
 	condManager := controller.NewVirtualMachineInstanceConditionManager()

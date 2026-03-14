@@ -41,7 +41,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -204,7 +204,7 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 		return
 	}
 	log.Log.Object(vmi).Info("In VSOCKHandler")
-	if !util.IsAutoAttachVSOCK(vmi) {
+	if !predicates.IsAutoAttachVSOCK(vmi) {
 		response.WriteError(http.StatusBadRequest, errors.New("VM doesn't have VSOCK enabled"))
 		return
 	}

@@ -29,7 +29,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/predicates"
 )
 
 func (app *SubresourceAPIApp) VSOCKRequestHandler(request *restful.Request, response *restful.Response) {
@@ -49,7 +49,7 @@ func (app *SubresourceAPIApp) VSOCKRequestHandler(request *restful.Request, resp
 }
 
 func validateVMIForVSOCK(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-	if !util.IsAutoAttachVSOCK(vmi) {
+	if !predicates.IsAutoAttachVSOCK(vmi) {
 		err := fmt.Errorf("VSOCK is not attached.")
 		log.Log.Object(vmi).Reason(err).Error("Can't establish Vsock connection.")
 		return errors.NewBadRequest(err.Error())

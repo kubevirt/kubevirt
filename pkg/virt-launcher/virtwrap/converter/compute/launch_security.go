@@ -24,7 +24,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
@@ -40,7 +40,7 @@ func NewLaunchSecurityDomainConfigurator(architecture string) LaunchSecurityDoma
 }
 
 func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if !util.UseLaunchSecurity(vmi) {
+	if !predicates.UseLaunchSecurity(vmi) {
 		return nil
 	}
 

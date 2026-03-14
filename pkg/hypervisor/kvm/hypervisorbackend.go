@@ -28,8 +28,8 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	"kubevirt.io/kubevirt/pkg/tpm"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 )
 
@@ -129,7 +129,7 @@ func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance,
 	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
 	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
 	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
-	if util.IsVFIOVMI(vmi) {
+	if predicates.IsVFIOVMI(vmi) {
 		overhead.Add(resource.MustParse("1Gi"))
 	}
 
@@ -143,7 +143,7 @@ func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance,
 
 	// Consider memory overhead for SEV guests.
 	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
-	if util.IsSEVVMI(vmi) || util.IsSEVSNPVMI(vmi) || util.IsSEVESVMI(vmi) {
+	if predicates.IsSEVVMI(vmi) || predicates.IsSEVSNPVMI(vmi) || predicates.IsSEVESVMI(vmi) {
 		overhead.Add(resource.MustParse("256Mi"))
 	}
 
@@ -157,7 +157,7 @@ func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance,
 		overhead.Add(resource.MustParse("100Mi"))
 	}
 
-	if util.RequiresMemoryOverheadReservation(vmi) {
+	if predicates.RequiresMemoryOverheadReservation(vmi) {
 		overhead.Add(*vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead)
 	}
 

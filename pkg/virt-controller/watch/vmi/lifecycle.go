@@ -50,9 +50,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/predicates"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -436,7 +436,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				}
 
 				// Allocate the CID if VSOCK is enabled.
-				if util.IsAutoAttachVSOCK(vmiCopy) {
+				if predicates.IsAutoAttachVSOCK(vmiCopy) {
 					if err := c.cidsMap.Allocate(vmiCopy); err != nil {
 						return err
 					}
