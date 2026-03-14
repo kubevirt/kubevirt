@@ -217,6 +217,91 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 	return affinity
 }
 
+// setNodeAffinityForHotplugRWOVolumes merges the node affinity from every PV
+// that backs a hotplugged RWO volume into the virt-launcher pod spec. This ensures the Kubernetes scheduler places the pod on the same node as
+// any locally-bound storage, preventing the hotplug attachment pod from getting stuck Pending after a VM restart.
+func (t *TemplateService) setNodeAffinityForHotplugRWOVolumes(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	pvcNameByVolume := make(map[string]string, len(vmi.Spec.Volumes))
+	for _, vol := range vmi.Spec.Volumes {
+		switch {
+		case vol.PersistentVolumeClaim != nil:
+			pvcNameByVolume[vol.Name] = vol.PersistentVolumeClaim.ClaimName
+		case vol.DataVolume != nil:
+			pvcNameByVolume[vol.Name] = vol.DataVolume.Name
+		}
+	}
+
+	for _, volStatus := range vmi.Status.VolumeStatus {
+		if volStatus.HotplugVolume == nil || !hotplugVolumeIsRWO(volStatus) {
+			continue
+		}
+		pvcName, ok := pvcNameByVolume[volStatus.Name]
+		if !ok {
+			continue
+		}
+		obj, exists, err := t.persistentVolumeClaimStore.GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
+		if err != nil || !exists {
+			continue
+		}
+		pvc := obj.(*k8sv1.PersistentVolumeClaim)
+		if pvc.Spec.VolumeName == "" {
+			continue
+		}
+		pv, err := t.virtClient.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Warningf("failed to get PV %s for hotplug volume %s, skipping node affinity injection", pvc.Spec.VolumeName, volStatus.Name)
+			continue
+		}
+		if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
+			continue
+		}
+		pod.Spec.Affinity = mergeNodeSelectorRequired(pod.Spec.Affinity, pv.Spec.NodeAffinity.Required)
+	}
+}
+
+// hotplugVolumeIsRWO reports whether a hotplugged volume has node-local access
+// (ReadWriteOnce or ReadWriteOncePod), meaning it can only be attached on one node.
+func hotplugVolumeIsRWO(vs v1.VolumeStatus) bool {
+	if vs.PersistentVolumeClaimInfo == nil {
+		return false
+	}
+	for _, am := range vs.PersistentVolumeClaimInfo.AccessModes {
+		if am == k8sv1.ReadWriteOnce || am == k8sv1.ReadWriteOncePod {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeNodeSelectorRequired AND-merges pvRequired into the pod's existing required node affinity.
+func mergeNodeSelectorRequired(affinity *k8sv1.Affinity, pvRequired *k8sv1.NodeSelector) *k8sv1.Affinity {
+	if len(pvRequired.NodeSelectorTerms) == 0 {
+		return affinity
+	}
+	if affinity == nil {
+		affinity = &k8sv1.Affinity{}
+	}
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	existing := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if existing == nil || len(existing.NodeSelectorTerms) == 0 {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = pvRequired.DeepCopy()
+		return affinity
+	}
+	merged := make([]k8sv1.NodeSelectorTerm, 0, len(existing.NodeSelectorTerms)*len(pvRequired.NodeSelectorTerms))
+	for _, existingTerm := range existing.NodeSelectorTerms {
+		for _, pvTerm := range pvRequired.NodeSelectorTerms {
+			combined := existingTerm.DeepCopy()
+			combined.MatchExpressions = append(combined.MatchExpressions, pvTerm.MatchExpressions...)
+			combined.MatchFields = append(combined.MatchFields, pvTerm.MatchFields...)
+			merged = append(merged, *combined)
+		}
+	}
+	affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = merged
+	return affinity
+}
+
 func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, error) {
 	logger := log.DefaultLogger()
 	if sysprepVolume.Secret != nil {
@@ -684,6 +769,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	setNodeAffinityForPod(vmi, &pod)
+	t.setNodeAffinityForHotplugRWOVolumes(vmi, &pod)
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
