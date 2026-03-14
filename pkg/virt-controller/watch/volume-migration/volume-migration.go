@@ -291,6 +291,52 @@ func IsVolumeMigrating(vmi *virtv1.VirtualMachineInstance) bool {
 		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
 }
 
+func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) ([]virtv1.StorageMigratedVolumeInfo, error) {
+	var migVolsInfo []virtv1.StorageMigratedVolumeInfo
+	oldVols := make(map[string]*virtv1.PersistentVolumeClaimInfo)
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.SourcePVCInfo != nil {
+			oldVols[v.VolumeName] = v.SourcePVCInfo
+		}
+	}
+	for _, v := range vm.Spec.Template.Spec.Volumes {
+		claim := storagetypes.PVCNameFromVirtVolume(&v)
+		if claim == "" {
+			continue
+		}
+		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vmi.Namespace, claim, pvcStore)
+		if err != nil {
+			return nil, err
+		}
+		if pvc == nil {
+			continue
+		}
+		migVol := virtv1.StorageMigratedVolumeInfo{
+			VolumeName: v.Name,
+			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
+				ClaimName:   claim,
+				VolumeMode:  pvc.Spec.VolumeMode,
+				AccessModes: pvc.Spec.AccessModes,
+				Requests:    pvc.Spec.Resources.Requests,
+				Capacity:    pvc.Status.Capacity,
+			},
+		}
+
+		oldClaim, ok := oldVols[v.Name]
+		if ok && oldClaim != nil {
+			migVol.SourcePVCInfo = &virtv1.PersistentVolumeClaimInfo{
+				ClaimName:   oldClaim.ClaimName,
+				VolumeMode:  oldClaim.VolumeMode,
+				AccessModes: oldClaim.AccessModes,
+				Requests:    oldClaim.Requests,
+				Capacity:    oldClaim.Capacity,
+			}
+		}
+		migVolsInfo = append(migVolsInfo, migVol)
+	}
+	return migVolsInfo, nil
+}
+
 func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) ([]virtv1.StorageMigratedVolumeInfo, error) {
 	var migVolsInfo []virtv1.StorageMigratedVolumeInfo
 	oldVols := make(map[string]string)
