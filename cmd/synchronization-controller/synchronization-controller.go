@@ -209,7 +209,7 @@ func (app *synchronizationControllerApp) Run() {
 		os.Exit(2)
 	}
 	log.Log.V(1).Infof("running in namespace %s", app.namespace)
-	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
+	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.virtCli, nil, app.namespace)
 
 	vmiInformer := factory.VMI()
 	migrationInformer := factory.VirtualMachineInstanceMigration()
