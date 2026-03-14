@@ -180,8 +180,12 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 		unresponsive = append(unresponsive, socket)
 	}
 
+	// Collect events and sockets to mark while holding the lock, then
+	// release the lock before sending to eventChan.
+	var eventsToSend []watch.Event
+	var socketsToMark []string
+
 	d.watchDogLock.Lock()
-	defer d.watchDogLock.Unlock()
 
 	now := time.Now().UTC().Unix()
 
@@ -225,13 +229,22 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 				now := metav1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-
-				err := cmdclient.MarkSocketUnresponsive(key)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
-				}
+				eventsToSend = append(eventsToSend, watch.Event{Type: watch.Modified, Object: domain})
+				socketsToMark = append(socketsToMark, key)
 			}
+		}
+	}
+
+	d.watchDogLock.Unlock()
+
+	// Send events and mark sockets without holding watchDogLock so that
+	// a slow eventChan consumer cannot block other users of the lock.
+	for _, event := range eventsToSend {
+		d.eventChan <- event
+	}
+	for _, key := range socketsToMark {
+		if err := cmdclient.MarkSocketUnresponsive(key); err != nil {
+			log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
 		}
 	}
 
