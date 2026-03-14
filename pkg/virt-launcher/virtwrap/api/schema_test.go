@@ -317,6 +317,38 @@ var _ = ginkgo.Describe("Schema", func() {
 		})
 	})
 
+	ginkgo.Context("With firmware auto-selection", func() {
+		ginkgo.It("should marshal and unmarshal OS with firmware attribute and features", func() {
+			domain := NewMinimalDomainSpec("mynamespace_testvmi")
+			domain.OS.Firmware = "efi"
+			domain.OS.FirmwareInfo = &FirmwareInfo{
+				Features: []FirmwareFeature{
+					{Enabled: "yes", Name: "secure-boot"},
+					{Enabled: "yes", Name: "enrolled-keys"},
+				},
+			}
+			buf, err := xml.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			newDomain := DomainSpec{}
+			err = xml.Unmarshal(buf, &newDomain)
+			Expect(err).ToNot(HaveOccurred())
+
+			domain.XMLName.Local = "domain"
+			Expect(newDomain).To(Equal(*domain))
+		})
+
+		ginkgo.It("should not emit firmware attribute or element when not set", func() {
+			domain := NewMinimalDomainSpec("mynamespace_testvmi")
+			buf, err := xml.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			xmlStr := string(buf)
+			Expect(xmlStr).ToNot(ContainSubstring("firmware="))
+			Expect(xmlStr).ToNot(ContainSubstring("<firmware>"))
+		})
+	})
+
 	ginkgo.Context("With vsock", func() {
 		ginkgo.It("Generate expected libvirt xml", func() {
 			domain := NewMinimalDomainSpec("mynamespace_testvmi")

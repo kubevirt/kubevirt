@@ -1031,27 +1031,38 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	var efiConf *convertertypes.EFIConfiguration
 	if vmi.IsBootloaderEFI() {
 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
-		sev := kutil.IsSEVVMI(vmi) && !kutil.IsSEVSNPVMI(vmi)
-		snp := kutil.IsSEVSNPVMI(vmi)
-		tdx := kutil.IsTDXVMI(vmi)
 
-		vmType := efi.None
-		if sev {
-			vmType = efi.SEV
-		} else if snp {
-			vmType = efi.SNP
-		} else if tdx {
-			vmType = efi.TDX
-		}
-		if !l.efiEnvironment.Bootable(secureBoot, vmType) {
-			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-		}
+		if runtime.GOARCH == "arm64" && secureBoot {
+			// ARM64 Secure Boot uses libvirt firmware auto-selection
+			// with the uefi-vars device. Firmware paths are resolved
+			// by libvirt, not KubeVirt.
+			efiConf = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+		} else {
+			sev := kutil.IsSEVVMI(vmi) && !kutil.IsSEVSNPVMI(vmi)
+			snp := kutil.IsSEVSNPVMI(vmi)
+			tdx := kutil.IsTDXVMI(vmi)
 
-		efiConf = &convertertypes.EFIConfiguration{
-			EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
-			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
-			SecureLoader: secureBoot,
+			vmType := efi.None
+			if sev {
+				vmType = efi.SEV
+			} else if snp {
+				vmType = efi.SNP
+			} else if tdx {
+				vmType = efi.TDX
+			}
+			if !l.efiEnvironment.Bootable(secureBoot, vmType) {
+				log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+				return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+			}
+
+			efiConf = &convertertypes.EFIConfiguration{
+				EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
+				EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
+				SecureLoader: secureBoot,
+			}
 		}
 	}
 

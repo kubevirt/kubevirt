@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -529,6 +530,33 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled"),
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled"),
 		)
+
+		It("should enable ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, func() {
+			kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+
+			fedoraWithUefi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "quay.io/containerdisks/fedora:latest"),
+				libvmi.WithMemoryRequest("1Gi"),
+				libvmi.WithRng(),
+				libvmi.WithArchitecture("arm64"),
+				libvmi.WithUefiArm64SecureBoot(),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Starting the VirtualMachineInstance")
+			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge)
+			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
+
+			By("Check if EFI and SecureBoot state")
+			Expect(console.SafeExpectBatch(fedoraWithUefi, []expect.Batcher{
+				&expect.BSnd{S: "[ -d /sys/firmware/efi ]\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "mokutil --sb-state\n"},
+				&expect.BExp{R: "SecureBoot enabled"},
+			}, 200)).To(Succeed())
+		})
 
 		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
 			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
