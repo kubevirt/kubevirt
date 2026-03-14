@@ -38,25 +38,52 @@ func NewInputDeviceDomainConfigurator(architecture string) InputDeviceDomainConf
 }
 
 func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]api.Input, 0)
-		for _, specInput := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice, err := apiInputDeviceFromV1InputDevice(specInput)
-			if err != nil {
-				return err
-			}
-			inputDevices = append(inputDevices, inputDevice)
-		}
-		domain.Spec.Devices.Inputs = inputDevices
+	if err := configureUserInputDevices(vmi, domain); err != nil {
+		return err
 	}
 
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		if err := i.addArchitectureSpecificInputDevices(vmi, domain); err != nil {
+	if isGraphicsDisabled(vmi) {
+		return nil
+	}
+
+	i.addArchSpecificInputDevices(vmi, domain)
+	return nil
+}
+
+func configureUserInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if vmi.Spec.Domain.Devices.Inputs == nil {
+		return nil
+	}
+	inputDevices := make([]api.Input, 0)
+	for _, specInput := range vmi.Spec.Domain.Devices.Inputs {
+		inputDevice, err := apiInputDeviceFromV1InputDevice(specInput)
+		if err != nil {
 			return err
 		}
+		inputDevices = append(inputDevices, inputDevice)
 	}
-
+	domain.Spec.Devices.Inputs = inputDevices
 	return nil
+}
+
+func (i InputDeviceDomainConfigurator) addArchSpecificInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	switch i.architecture {
+	case "amd64":
+		// No architecture-specific input devices required
+	case "arm64":
+		if !hasTabletDevice(vmi) {
+			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+				api.Input{Bus: "usb", Type: "tablet"},
+			)
+		}
+		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+			api.Input{Bus: "usb", Type: "keyboard"},
+		)
+	case "s390x":
+		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+			api.Input{Bus: "virtio", Type: "keyboard"},
+		)
+	}
 }
 
 func apiInputDeviceFromV1InputDevice(input v1.Input) (api.Input, error) {
@@ -86,36 +113,6 @@ func apiInputDeviceFromV1InputDevice(input v1.Input) (api.Input, error) {
 	}
 
 	return inputDevice, nil
-}
-
-func (i InputDeviceDomainConfigurator) addArchitectureSpecificInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	switch i.architecture {
-	case "amd64":
-		// No architecture-specific input devices required
-	case "arm64":
-		if !hasTabletDevice(vmi) {
-			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-				api.Input{
-					Bus:  "usb",
-					Type: "tablet",
-				},
-			)
-		}
-		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-			api.Input{
-				Bus:  "usb",
-				Type: "keyboard",
-			},
-		)
-	case "s390x":
-		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-			api.Input{
-				Bus:  "virtio",
-				Type: "keyboard",
-			},
-		)
-	}
-	return nil
 }
 
 func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
