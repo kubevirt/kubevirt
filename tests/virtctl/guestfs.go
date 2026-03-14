@@ -26,10 +26,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -39,6 +42,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
+
+const dummyPodName = "libguestfs-image-checker"
 
 var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	var (
@@ -53,6 +58,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	}
 
 	BeforeEach(func() {
+		CheckGuestfsImageAvailability()
 		guestfs.CreateAttacherFunc = fakeCreateAttacher
 		const randNameTail = 5
 		pvcClaim = "pvc-" + rand.String(randNameTail)
@@ -60,6 +66,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	})
 
 	AfterEach(func() {
+		CleanupGuestfsImageCheckPod()
 		guestfs.CreateAttacherFunc = guestfs.CreateAttacher
 		close(done)
 	})
@@ -178,4 +185,70 @@ func verifyCanRunOnFSPVC(podName, namespace string) {
 	Expect(stderr).To(BeEmpty())
 	Expect(stdout).To(BeEmpty())
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func CleanupGuestfsImageCheckPod() {
+	kubeClient := kubevirt.Client()
+	err := kubeClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Delete(context.Background(), dummyPodName, metav1.DeleteOptions{})
+	if err != nil && k8serrors.IsNotFound(err) {
+		return
+	}
+	Expect(err).ToNot(HaveOccurred())
+}
+
+// check if the libguestfs-tools image is available for test
+func CheckGuestfsImageAvailability() {
+	podYaml := ""
+	kubeClient := kubevirt.Client()
+	guestfsImage, err := guestfs.SetImage(kubeClient)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(guestfsImage).ToNot(BeEmpty())
+	namespace := testsuite.GetTestNamespace(nil)
+	pod := CreateDummyPod(guestfsImage, namespace)
+	_, err = kubeClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func(g Gomega) {
+		thePod, err := kubevirt.Client().CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		g.Expect(err).ToNot(HaveOccurred())
+		podBytes, err := yaml.Marshal(thePod)
+		g.Expect(err).ToNot(HaveOccurred())
+		podYaml = string(podBytes)
+		podYaml = fmt.Sprintf("[debug] failed pod yaml: \n%s\n---\n", podYaml)
+		g.Expect(thePod).To(matcher.HaveConditionTrue(corev1.ContainersReady), podYaml)
+	}, 2*time.Minute, 2*time.Second).Should(Succeed())
+}
+
+func CreateDummyPod(img, ns string) *corev1.Pod {
+	containerSecurityContext := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.To(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+	securityContext := &corev1.PodSecurityContext{
+		RunAsNonRoot: ptr.To(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dummyPodName,
+			Namespace: ns,
+		},
+		Spec: corev1.PodSpec{
+			SecurityContext: securityContext,
+			Containers: []corev1.Container{
+				{
+					Name:            "testcontainer",
+					Image:           img,
+					Command:         []string{"sleep", "120"},
+					ImagePullPolicy: corev1.PullAlways,
+					SecurityContext: containerSecurityContext,
+				},
+			},
+			RestartPolicy: corev1.RestartPolicyNever,
+		},
+	}
+	return pod
 }
