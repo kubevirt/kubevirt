@@ -1789,6 +1789,17 @@ var CRDsValidation map[string]string = map[string]string{
                     The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.
                   type: object
               type: object
+            vmExport:
+              description: VMExport controls the enablement of the VM export feature
+                and its related resources (export proxy).
+              nullable: true
+              properties:
+                enabled:
+                  description: |-
+                    Enabled can be used to enable or disable the VMExport feature and its related resources (export proxy).
+                    Defaults to false.
+                  type: boolean
+              type: object
             vmRolloutStrategy:
               description: |-
                 VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
@@ -10736,8 +10747,8 @@ var CRDsValidation map[string]string = map[string]string{
                 backups:
                   description: Backups is a list of available backups for the export
                   items:
-                    description: VirtualMachineExportBackup contains the URL and available
-                      formats for the exported backup
+                    description: VirtualMachineExportBackup contains the name and
+                      available endpoints for the exported backup
                     properties:
                       endpoints:
                         items:
@@ -10842,8 +10853,8 @@ var CRDsValidation map[string]string = map[string]string{
                 backups:
                   description: Backups is a list of available backups for the export
                   items:
-                    description: VirtualMachineExportBackup contains the URL and available
-                      formats for the exported backup
+                    description: VirtualMachineExportBackup contains the name and
+                      available endpoints for the exported backup
                     properties:
                       endpoints:
                         items:

@@ -1819,16 +1819,34 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("with VMExport feature gate toggled", func() {
+	Context("with VMExport configuration toggled", Serial, func() {
+
+		enableVMExport := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kvConfig := kv.Spec.Configuration.DeepCopy()
+			kvConfig.VMExport = &v1.VMExportConfiguration{
+				Enabled: pointer.P(true),
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		}
+
+		disableVMExport := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kvConfig := kv.Spec.Configuration.DeepCopy()
+			kvConfig.VMExport = &v1.VMExportConfiguration{
+				Enabled: pointer.P(false),
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		}
 
 		AfterEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.VMExportGate)
+			enableVMExport()
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
-			kvconfig.DisableFeatureGate(featuregate.VMExportGate)
+			disableVMExport()
 
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})

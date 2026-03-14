@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -47,8 +47,8 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-	Context("With feature gate disabled", func() {
-		It("should reject anything", func() {
+	Context("With VMExport disabled", func() {
+		It("should reject creation", func() {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{},
 			}
@@ -60,36 +60,33 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 		})
 	})
 
-	Context("With feature gate enabled", func() {
-		enableFeatureGate := func(featureGate string) {
+	Context("With VMExport enabled", func() {
+		enableVMExport := func() {
+			enabled := true
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featureGate},
+						VMExport: &v1.VMExportConfiguration{
+							Enabled: &enabled,
 						},
 					},
 				},
 			})
 		}
-		disableFeatureGates := func() {
+		disableVMExport := func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: make([]string, 0),
-						},
-					},
+					Configuration: v1.KubeVirtConfiguration{},
 				},
 			})
 		}
 
 		BeforeEach(func() {
-			enableFeatureGate("VMExport")
+			enableVMExport()
 		})
 
 		AfterEach(func() {
-			disableFeatureGates()
+			disableVMExport()
 		})
 
 		It("should reject invalid request resource", func() {

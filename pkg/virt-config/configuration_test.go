@@ -1009,4 +1009,30 @@ var _ = Describe("test configuration", func() {
 			Entry("should return hyperv-direct when feature gate is enabled with hyperv config", true, &HyperVDirectHypervisorConfig, v1.HyperVDirectHypervisorName),
 		)
 	})
+
+	Context("VMExportEnabled", func() {
+		DescribeTable("should return correct state based on feature gate and configuration",
+			func(featureGateEnabled bool, vmExportConfig *v1.VMExportConfiguration, expectedEnabled bool) {
+				var featureGates []string
+				if featureGateEnabled {
+					featureGates = []string{"VMExport"}
+				}
+
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: featureGates,
+					},
+					VMExport: vmExportConfig,
+				})
+
+				Expect(clusterConfig.VMExportEnabled()).To(Equal(expectedEnabled))
+			},
+			Entry("should return false when feature gate is disabled and no config", false, nil, false),
+			Entry("should return true when feature gate is enabled and no config", true, nil, true),
+			Entry("should return true when explicitly enabled without feature gate", false, &v1.VMExportConfiguration{Enabled: pointer.P(true)}, true),
+			Entry("should return false when explicitly disabled without feature gate", false, &v1.VMExportConfiguration{Enabled: pointer.P(false)}, false),
+			Entry("should return true when explicitly enabled with feature gate", true, &v1.VMExportConfiguration{Enabled: pointer.P(true)}, true),
+			Entry("should return false when explicitly disabled even with feature gate enabled", true, &v1.VMExportConfiguration{Enabled: pointer.P(false)}, false),
+		)
+	})
 })

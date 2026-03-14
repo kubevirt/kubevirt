@@ -1248,7 +1248,22 @@ func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 }
 
 func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(featuregate.VMExportGate)
+	if r.kv.Spec.Configuration.VMExport != nil && r.kv.Spec.Configuration.VMExport.Enabled != nil {
+		return *r.kv.Spec.Configuration.VMExport.Enabled
+	}
+
+	// Check if feature gate is explicitly enabled (for backward compatibility)
+	// we don't use isFeatureGateEnabled() here because it returns true for GA features,
+	// but VMExport should remain opt-in even though it's GA
+	if r.kv.Spec.Configuration.DeveloperConfiguration != nil {
+		for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+			if fg == featuregate.VMExportGate {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {

@@ -21,4 +21,4 @@
 // +groupName=export.kubevirt.io
 // +k8s:openapi-gen=true
 
-package v1alpha1
+package v1

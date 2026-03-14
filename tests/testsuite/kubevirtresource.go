@@ -114,7 +114,6 @@ func AdjustKubeVirtResource() {
 		featuregate.VirtIOFSStorageVolumeGate,
 		featuregate.DownwardMetricsFeatureGate,
 		featuregate.WorkloadEncryptionSEV,
-		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
 		featuregate.ObjectGraph,
 		featuregate.DeclarativeHotplugVolumesGate,
@@ -139,6 +138,11 @@ func AdjustKubeVirtResource() {
 	storageClass, exists := libstorage.GetVMStateStorageClass()
 	if exists {
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
+	}
+
+	// Enable VMExport
+	kv.Spec.Configuration.VMExport = &v1.VMExportConfiguration{
+		Enabled: pointer.P(true),
 	}
 
 	data, err := json.Marshal(kv.Spec)

@@ -3097,6 +3097,10 @@ type KubeVirtConfiguration struct {
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
+
+	// VMExport controls the enablement of the VM export feature and its related resources (export proxy).
+	// +nullable
+	VMExport *VMExportConfiguration `json:"vmExport,omitempty"`
 }
 
 // QGSConfiguration holds QGS configuration
@@ -3774,6 +3778,14 @@ type LiveUpdateConfiguration struct {
 	// MaxGuest defines the maximum amount memory that can be allocated
 	// to the guest using hotplug.
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
+}
+
+// VMExportConfiguration holds configuration options for the VMExport feature.
+type VMExportConfiguration struct {
+	// Enabled can be used to enable or disable the VMExport feature and its related resources (export proxy).
+	// Defaults to false.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // SEVPlatformInfo contains information about the AMD SEV features for the node.

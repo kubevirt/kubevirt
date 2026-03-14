@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
-package v1alpha1
+package v1
 
 import (
 	"time"
@@ -134,6 +134,12 @@ type VirtualMachineExportLink struct {
 	// +optional
 	Volumes []VirtualMachineExportVolume `json:"volumes,omitempty"`
 
+	// Backups is a list of available backups for the export
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	Backups []VirtualMachineExportBackup `json:"backups,omitempty"`
+
 	// Manifests is a list of available manifests for the export
 	// +listType=map
 	// +listMapKey=type
@@ -186,6 +192,33 @@ const (
 type VirtualMachineExportVolumeFormat struct {
 	// Format is the format of the image at the specified URL
 	Format ExportVolumeFormat `json:"format"`
+	// Url is the url that contains the volume in the format specified
+	Url string `json:"url"`
+}
+
+// VirtualMachineExportBackup contains the name and available endpoints for the exported backup
+type VirtualMachineExportBackup struct {
+	// Name is the name of the exported volume
+	Name string `json:"name"`
+	// +listType=map
+	// +listMapKey=endpoint
+	// +optional
+	Endpoints []VirtualMachineExportBackupEndpoint `json:"endpoints,omitempty"`
+}
+
+type ExportBackupEndpoint string
+
+const (
+	// Map is the bitmap endpoint of the backup
+	Map ExportBackupEndpoint = "map"
+	// Data is the read endpoint of the backup
+	Data ExportBackupEndpoint = "data"
+)
+
+// VirtualMachineExportBackupEndpoint contains the endpoint type and URL to interact with a backup export
+type VirtualMachineExportBackupEndpoint struct {
+	// Endpoint is the endpoint of the backup export at the specified URL
+	Endpoint ExportBackupEndpoint `json:"endpoint"`
 	// Url is the url that contains the volume in the format specified
 	Url string `json:"url"`
 }

@@ -890,6 +890,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
 		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
 		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting this field to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled.\nThis is an Alpha feature and subject to change.\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
+		"vmExport":                           "VMExport controls the enablement of the VM export feature and its related resources (export proxy).\n+nullable",
 	}
 }
 
@@ -1194,6 +1195,13 @@ func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 		"maxHotplugRatio": "MaxHotplugRatio is the ratio used to define the max amount\nof a hotplug resource that can be made available to a VM\nwhen the specific Max* setting is not defined (MaxCpuSockets, MaxGuest)\nExample: VM is configured with 512Mi of guest memory, if MaxGuest is not\ndefined and MaxHotplugRatio is 2 then MaxGuest = 1Gi\ndefaults to 4",
 		"maxCpuSockets":   "MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.\nFor VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.",
 		"maxGuest":        "MaxGuest defines the maximum amount memory that can be allocated\nto the guest using hotplug.",
+	}
+}
+
+func (VMExportConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "VMExportConfiguration holds configuration options for the VMExport feature.",
+		"enabled": "Enabled can be used to enable or disable the VMExport feature and its related resources (export proxy).\nDefaults to false.\n+optional",
 	}
 }
 
