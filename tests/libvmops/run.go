@@ -27,6 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -36,14 +37,42 @@ import (
 )
 
 const (
-	StartupTimeoutSecondsTiny   = 30
-	StartupTimeoutSecondsSmall  = 60
-	StartupTimeoutSecondsMedium = 90
-	StartupTimeoutSecondsLarge  = 120
-	StartupTimeoutSecondsXLarge = 180
-	StartupTimeoutSecondsHuge   = 240
-	StartupTimeoutSecondsXHuge  = 360
+	defaultStartupTimeoutSecondsTiny   = 30
+	defaultStartupTimeoutSecondsSmall  = 60
+	defaultStartupTimeoutSecondsMedium = 90
+	defaultStartupTimeoutSecondsLarge  = 120
+	defaultStartupTimeoutSecondsXLarge = 180
+	defaultStartupTimeoutSecondsHuge   = 240
+	defaultStartupTimeoutSecondsXHuge  = 360
 )
+
+func StartupTimeoutSecondsTiny() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsTiny)
+}
+
+func StartupTimeoutSecondsSmall() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsSmall)
+}
+
+func StartupTimeoutSecondsMedium() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsMedium)
+}
+
+func StartupTimeoutSecondsLarge() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsLarge)
+}
+
+func StartupTimeoutSecondsXLarge() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsXLarge)
+}
+
+func StartupTimeoutSecondsHuge() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsHuge)
+}
+
+func StartupTimeoutSecondsXHuge() int {
+	return flags.ScaledStartupTimeout(defaultStartupTimeoutSecondsXHuge)
+}
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	return runVMI(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, watcher.WarningsPolicy{FailOnWarnings: true}, timeout)

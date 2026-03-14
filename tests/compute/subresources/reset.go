@@ -41,7 +41,7 @@ var _ = Describe(compute.SIG("Reset subresource", decorators.WgS390x, func() {
 
 	Describe("Reset a VirtualMachineInstance", func() {
 		It("should succeed", func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), libvmops.StartupTimeoutSecondsXHuge)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), libvmops.StartupTimeoutSecondsXHuge())
 			oldUID := vmi.UID
 
 			By("Checking that the VirtualMachineInstance console has expected output")

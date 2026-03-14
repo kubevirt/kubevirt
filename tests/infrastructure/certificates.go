@@ -52,7 +52,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
 	)
-	const vmiLaunchTimeOut = libvmops.StartupTimeoutSecondsSmall
+	var vmiLaunchTimeOut = libvmops.StartupTimeoutSecondsSmall()
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 

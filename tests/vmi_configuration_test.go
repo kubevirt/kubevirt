@@ -119,7 +119,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithTablet("tablet1", "usb"),
 			)
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -450,7 +450,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						SlicNameRef: volumeSlicSecretName,
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI SLIC table matches the one provided")
@@ -494,7 +494,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						MsdmNameRef: volumeMsdmSecretName,
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI MSDM table matches the one provided")
@@ -513,7 +513,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
-			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge)
+			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge())
 			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
 
 			By("Check if EFI and SecureBoot state")
@@ -1131,7 +1131,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					},
 				}
 				By("Expecting the VirtualMachineInstance start")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge())
 
 				By("Checking the TSC frequency on the VMI")
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1242,7 +1242,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsSmall)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsSmall())
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1454,7 +1454,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType(machineType),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny())
 
 			Expect(vmi.Status.Machine).ToNot(BeNil())
 			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
@@ -1476,7 +1476,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny())
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())

@@ -397,7 +397,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:5761]should check if vm with valid node selector is scheduled and running and node selector is not updated", func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "linux"}
-				libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+				libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall())
 
 				pods, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -949,7 +949,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
 				newVMI := libvmifact.NewAlpine()
-				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, libvmops.StartupTimeoutSecondsMedium)
+				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, libvmops.StartupTimeoutSecondsMedium())
 				By("Fetching virt-launcher pod")
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -971,7 +971,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				newVMI.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiCPUModel,
 				}
-				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, libvmops.StartupTimeoutSecondsMedium)
+				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, libvmops.StartupTimeoutSecondsMedium())
 				By("Fetching virt-launcher pod")
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -1473,7 +1473,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	Describe("Pausing/Unpausing a VirtualMachineInstance", func() {
 		It("[test_id:4597]should signal paused state with condition", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsMedium)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsMedium())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 
@@ -1491,7 +1491,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		It("[test_id:3083][test_id:3084]should be able to connect to serial console and VNC", func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(true)), libvmops.StartupTimeoutSecondsMedium)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(true)), libvmops.StartupTimeoutSecondsMedium())
 
 			By("Pausing the VMI")
 			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
@@ -1531,7 +1531,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}
 			startTime := time.Now()
 			By("Starting a Alpine VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsMedium)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsMedium())
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())

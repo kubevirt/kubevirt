@@ -74,7 +74,7 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{MatchVolume: &v1.FeatureState{}}
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall())
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
