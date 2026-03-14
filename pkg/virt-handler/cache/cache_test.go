@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,9 +36,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -339,6 +342,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             1 * time.Hour,
+				runServer:                notifyserver.RunServer,
 			}
 
 			err = d.startBackground()
@@ -382,6 +386,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             time.Duration(1) * time.Hour,
+				runServer:                notifyserver.RunServer,
 			}
 
 			err = d.startBackground()
@@ -446,6 +451,94 @@ var _ = Describe("Domain informer", func() {
 			err = client.SendDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", nil, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
+		})
+
+		It("should panic after exceeding max consecutive failures", func() {
+			origInitialBackoff := notifyServerInitialBackoff
+			origMaxBackoff := notifyServerMaxBackoff
+			origMaxFails := notifyServerMaxConsecutiveFails
+			notifyServerInitialBackoff = 10 * time.Millisecond
+			notifyServerMaxBackoff = 50 * time.Millisecond
+			notifyServerMaxConsecutiveFails = 3
+			defer func() {
+				notifyServerInitialBackoff = origInitialBackoff
+				notifyServerMaxBackoff = origMaxBackoff
+				notifyServerMaxConsecutiveFails = origMaxFails
+			}()
+
+			var attempts atomic.Int32
+
+			d := &domainWatcher{
+				backgroundWatcherStarted: false,
+				virtShareDir:             shareDir,
+				watchdogTimeout:          10,
+				unresponsiveSockets:      make(map[string]int64),
+				resyncPeriod:             1 * time.Hour,
+				runServer: func(_ string, _ chan struct{}, _ chan watch.Event, _ record.EventRecorder, _ cache.Store) error {
+					attempts.Add(1)
+					return fmt.Errorf("permanent failure")
+				},
+			}
+
+			d.stopChan = make(chan struct{}, 1)
+			d.eventChan = make(chan watch.Event, 100)
+			d.wg.Add(1)
+
+			panicVal := make(chan any, 1)
+			go func() {
+				defer func() {
+					panicVal <- recover()
+				}()
+				d.worker()
+			}()
+
+			var val any
+			Eventually(panicVal, 5*time.Second, 100*time.Millisecond).Should(Receive(&val))
+			Expect(val).ToNot(BeNil(), "worker should have panicked")
+			Expect(val).To(ContainSubstring("failed 3 consecutive times"))
+			Expect(attempts.Load()).To(BeNumerically("==", int32(3)))
+		})
+
+		It("should recover domain-notify.sock after notify server crash", func() {
+			sockFile := filepath.Join(shareDir, "domain-notify.sock")
+
+			var crashCount atomic.Int32
+
+			d := &domainWatcher{
+				backgroundWatcherStarted: false,
+				virtShareDir:             shareDir,
+				watchdogTimeout:          10,
+				unresponsiveSockets:      make(map[string]int64),
+				resyncPeriod:             1 * time.Hour,
+				runServer: func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error {
+					attempt := crashCount.Add(1)
+					if attempt <= 2 {
+						return fmt.Errorf("simulated crash #%d", attempt)
+					}
+					return notifyserver.RunServer(virtShareDir, stopChan, c, recorder, vmiStore)
+				},
+			}
+
+			Expect(d.startBackground()).To(Succeed())
+			defer d.Stop()
+
+			Eventually(func() bool {
+				exists, _ := diskutils.FileExists(sockFile)
+				return exists
+			}, 10*time.Second, 200*time.Millisecond).Should(BeTrue(), "socket should be recreated after transient failures")
+
+			Expect(crashCount.Load()).To(BeNumerically(">=", int32(3)), "server should have been restarted after crashes")
+
+			domain := api.NewMinimalDomain("recovery-test")
+			client := notifyclient.NewNotifier(shareDir)
+			defer client.Close()
+
+			err := client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			Expect(err).ToNot(HaveOccurred())
+
+			var evt watch.Event
+			Eventually(d.eventChan, 5*time.Second, 200*time.Millisecond).Should(Receive(&evt))
+			Expect(evt.Type).To(Equal(watch.Added))
 		})
 	})
 })

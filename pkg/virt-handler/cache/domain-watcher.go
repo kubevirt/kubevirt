@@ -19,10 +19,13 @@
 package cache
 
 import (
+	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -40,6 +43,15 @@ import (
 
 const socketDialTimeout = 5
 
+var (
+	notifyServerInitialBackoff      = 1 * time.Second
+	notifyServerMaxBackoff          = 60 * time.Second
+	notifyServerMaxConsecutiveFails = 10
+	notifyServerHealthyRunTime      = 1 * time.Minute
+)
+
+type notifyServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error
+
 type domainWatcher struct {
 	lock                     sync.Mutex
 	wg                       sync.WaitGroup
@@ -51,6 +63,7 @@ type domainWatcher struct {
 	recorder                 record.EventRecorder
 	vmiStore                 cache.Store
 	resyncPeriod             time.Duration
+	runServer                notifyServerFunc
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
@@ -65,6 +78,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 		vmiStore:                 vmiStore,
 		unresponsiveSockets:      make(map[string]int64),
 		resyncPeriod:             resyncPeriod,
+		runServer:                notifyserver.RunServer,
 	}
 
 	return d
@@ -85,11 +99,46 @@ func (d *domainWatcher) worker() {
 
 	expiredWatchdogTickerChan := expiredWatchdogTicker.C
 
-	srvErr := make(chan error)
+	var fatalMsg string
+	srvDone := make(chan struct{})
 	go func() {
-		defer close(srvErr)
-		err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
-		srvErr <- err
+		defer close(srvDone)
+		consecutiveFails := 0
+		backoff := notifyServerInitialBackoff
+		for {
+			started := time.Now()
+			err := d.runServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
+			select {
+			case <-d.stopChan:
+				return
+			default:
+			}
+
+			if time.Since(started) >= notifyServerHealthyRunTime {
+				consecutiveFails = 0
+				backoff = notifyServerInitialBackoff
+			}
+
+			consecutiveFails++
+			if err != nil {
+				log.Log.Reason(err).Errorf("Domain Notify aggregation server exited unexpectedly, restarting in %v (attempt %d/%d)",
+					backoff, consecutiveFails, notifyServerMaxConsecutiveFails)
+				d.recordNotifyServerFailureEvent(err)
+			}
+			if consecutiveFails >= notifyServerMaxConsecutiveFails {
+				fatalMsg = fmt.Sprintf("Domain Notify aggregation server failed %d consecutive times, the last error was: %v", consecutiveFails, err)
+				return
+			}
+			select {
+			case <-d.stopChan:
+				return
+			case <-time.After(backoff):
+			}
+			backoff *= 2
+			if backoff > notifyServerMaxBackoff {
+				backoff = notifyServerMaxBackoff
+			}
+		}
 	}()
 
 	for {
@@ -98,15 +147,26 @@ func (d *domainWatcher) worker() {
 			d.handleResync()
 		case <-expiredWatchdogTickerChan:
 			d.handleStaleSocketConnections()
-		case err := <-srvErr:
-			if err != nil {
-				log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
+		case <-srvDone:
+			if fatalMsg != "" {
+				panic(fatalMsg)
 			}
-
-			// server exitted so this goroutine is done.
 			return
 		}
 	}
+}
+
+func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
+	if d.recorder == nil {
+		return
+	}
+	hostname, hostnameErr := os.Hostname()
+	if hostnameErr != nil {
+		return
+	}
+	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
+	d.recorder.Event(node, k8sv1.EventTypeWarning, "DomainNotifyServerFailed",
+		fmt.Sprintf("Domain Notify aggregation server exited unexpectedly and will be restarted: %v", err))
 }
 
 func (d *domainWatcher) startBackground() error {
