@@ -16,6 +16,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 )
 
 type VCPUPool interface {
@@ -23,6 +24,10 @@ type VCPUPool interface {
 	FitThread() (thread uint32, err error)
 }
 
+// CalculateRequestedVCPUs returns number of vCPUs
+// It counts sockets*cores*threads
+// It includes sockets that are available for hotplug, but not enabled.
+// The actual number of used sockets (and cpus available on the current node) may be lower
 func CalculateRequestedVCPUs(cpuTopology *api.CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
 }
@@ -373,31 +378,49 @@ func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 	domain.Spec.CPUTune.IOThreadPin = append(domain.Spec.CPUTune.IOThreadPin, iothreadPin)
 }
 
+func FormatDomainIOThreadSupplementalPin(cpuPool VCPUPool, vmi *v12.VirtualMachineInstance, domain *api.Domain) (int, error) {
+	if domain.Spec.IOThreads == nil {
+		return 0, fmt.Errorf("domain is missing IOThreads")
+	}
+
+	supplementalThreads := iothreads.SupplementalPoolThreadCount(vmi)
+	if supplementalThreads == 0 {
+		return 0, fmt.Errorf("domain is missing supplemental pool IOThreads")
+	}
+
+	for i := 1; i <= supplementalThreads; i++ {
+		// The cpus for the iothreads are additionally allocated and aren't part of the cpu set dedicated to the vcpus threads
+		availableThread, err := cpuPool.FitThread()
+		if err != nil {
+			e := fmt.Errorf("no CPU allocated for the iothread: %v", err)
+			log.Log.Reason(e).Error("failed to format iothread pin")
+			return i, e
+		}
+		appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", availableThread))
+	}
+	return supplementalThreads, nil
+}
+
 func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThreadsCPUSet string, cpuset []int) error {
 	if domain.Spec.IOThreads == nil {
 		return fmt.Errorf("domain is missing IOThreads")
 	}
 
-	iothreads := int(domain.Spec.IOThreads.IOThreads)
-	vcpus := int(CalculateRequestedVCPUs(domain.Spec.CPU.Topology))
+	// This is consistent with previous kubevirt behavior, but may not be a real libvirt restriction
+	if iothreads.SupplementalPoolThreadCount(vmi) > 0 {
+		return fmt.Errorf("domain has supplemental pool IOThreads and attempted to pin auto/shared IOThreads")
+	}
+
+	numIOThreads := int(domain.Spec.IOThreads.IOThreads)
+	vcpus := int(hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU))
 
 	switch {
-	case vmi.Spec.Domain.IOThreads != nil && *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount > 0:
-		indexEmulatorThread := 0
-		if emulatorThreadsCPUSet != "" {
-			indexEmulatorThread++
-		}
-		for i := 1; i <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); i++ {
-			// The cpus for the iothreads are additionally allocated and aren't part of the cpu set dedicated to the vcpus threads
-			cpu := vcpus + i + indexEmulatorThread
-			appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", cpu))
-		}
 	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
 		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
-	case iothreads >= vcpus:
+	case numIOThreads >= vcpus:
 		// pin an IOThread on a CPU
-		for thread := 1; thread <= iothreads; thread++ {
+		for thread := 1; thread <= numIOThreads; thread++ {
 			cpuset := fmt.Sprintf("%d", cpuset[thread%vcpus])
 			appendDomainIOThreadPin(domain, uint32(thread), cpuset)
 		}
@@ -408,10 +431,10 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 		//   1    0,1,2
 		//   2    3,4,5
 		//   3    6,7
-		series := vcpus % iothreads
+		series := vcpus % numIOThreads
 		curr := 0
-		for thread := 1; thread <= iothreads; thread++ {
-			remainder := vcpus/iothreads - 1
+		for thread := 1; thread <= numIOThreads; thread++ {
+			remainder := vcpus/numIOThreads - 1
 			if thread <= series {
 				remainder += 1
 			}
@@ -450,7 +473,7 @@ func FormatEmulatorThreadPin(cpuPool VCPUPool, vmiAnnotations map[string]string,
 	return convertCPUListToCPUSet(emulatorThreads), nil
 }
 
-func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachineInstance, topology *v1.Topology, cpuset []int, useIOThreads bool) error {
+func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachineInstance, topology *v1.Topology, cpuset []int) error {
 	var cpuPool VCPUPool
 	requestedToplogy := &api.CPUTopology{
 		Sockets: domain.Spec.CPU.Topology.Sockets,
@@ -495,15 +518,25 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	}
 
 	var emulatorThreadsCPUSet string
+	var supplementalThreads int
+	if iothreads.SupplementalPoolThreadCount(vmi) > 0 {
+		// Supplemental pool threads must be pinned before emulator thread because they increase the pinned CPU count
+		// This will affect emulator parity
+		if supplementalThreads, err = FormatDomainIOThreadSupplementalPin(cpuPool, vmi, domain); err != nil {
+			log.Log.Reason(err).Error("failed to format domain supplemental pool iothread pinning.")
+			return err
+		}
+	}
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		vCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, vmi.Annotations, vCPUs); err != nil {
+		pinnedCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU) + int64(supplementalThreads)
+		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, vmi.Annotations, pinnedCPUs); err != nil {
 			log.Log.Reason(err).Error("failed to format emulation thread pin")
 			return err
 		}
 		appendDomainEmulatorThreadPin(domain, emulatorThreadsCPUSet)
 	}
-	if useIOThreads {
+	if iothreads.HasIOThreads(vmi) && iothreads.SupplementalPoolThreadCount(vmi) == 0 {
+		// Other IOThread pinning may share emulator thread, and must occur after emulator pin
 		if err := FormatDomainIOThreadPin(vmi, domain, emulatorThreadsCPUSet, cpuset); err != nil {
 			log.Log.Reason(err).Error("failed to format domain iothread pinning.")
 			return err
