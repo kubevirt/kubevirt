@@ -1137,6 +1137,78 @@ var _ = Describe("netpod", func() {
 		Expect(nmstatestub.spec.Interfaces[index].Tap.Queues).To(Equal(previousQueueCount))
 	})
 
+	It("setup bridge binding preserves MAC address after live migration", func() {
+		const (
+			defaultGatewayIP4Address = "10.222.222.254"
+			podIfaceNewMAC           = "aa:bb:cc:dd:ee:ff" // New MAC after migration
+			originalMAC              = "12:34:56:78:90:ab" // Original MAC from VMI status
+		)
+
+		// nmstatestub with the NEW pod interface MAC (post-migration)
+		nmstatestub := nmstateStub{status: nmstate.Status{
+			Interfaces: []nmstate.Interface{{
+				Name:       "eth0",
+				Index:      0,
+				TypeName:   nmstate.TypeVETH,
+				State:      nmstate.IfaceStateUp,
+				MacAddress: podIfaceNewMAC,
+				MTU:        1500,
+				IPv4: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        primaryIPv4Address,
+						PrefixLen: 30,
+					}},
+				},
+				IPv6: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        primaryIPv6Address,
+						PrefixLen: 64,
+					}},
+				},
+			}},
+			Routes: nmstate.Routes{Running: []nmstate.Route{
+				{
+					Destination:      "0.0.0.0/0",
+					NextHopInterface: "eth0",
+					NextHopAddress:   defaultGatewayIP4Address,
+					TableID:          0,
+				},
+			}},
+		}}
+
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		}
+
+		// VMI interface statuses with the ORIGINAL MAC (preserved from before migration)
+		vmiIfaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{{
+			Name: defaultPodNetworkName,
+			MAC:  originalMAC,
+		}}
+
+		netPod := netpod.NewNetPod(
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+			netpod.WithVMIIfaceStatuses(vmiIfaceStatuses),
+		)
+		Expect(netPod.Setup()).To(Succeed())
+
+		// Verify DHCP config uses the ORIGINAL MAC, not the new pod interface MAC
+		expDHCPConfig, err := expectedDHCPConfigSimple(
+			"10.222.222.1/30",
+			originalMAC,
+			defaultGatewayIP4Address,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
+	})
+
 	DescribeTable("setup unhandled bindings", func(binding v1.InterfaceBindingMethod, expNmstateSpec nmstate.Spec) {
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{
@@ -1947,6 +2019,29 @@ func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst, st
 		{Gw: net.ParseIP(defaultGW)},
 		{Dst: destAddr.IPNet, Gw: net.ParseIP(defaultGW)},
 		{Dst: staticRouteToWiderSubnetDest.IPNet, Gw: nil},
+	}
+	return &cache.DHCPConfig{
+		IP:           *ipv4,
+		MAC:          mac,
+		Routes:       &routes,
+		IPAMDisabled: false,
+		Gateway:      net.ParseIP(defaultGW),
+		Subdomain:    "",
+	}, nil
+}
+
+func expectedDHCPConfigSimple(podIfaceCIDR, podIfaceMAC, defaultGW string) (*cache.DHCPConfig, error) {
+	ipv4, err := vishnetlink.ParseAddr(podIfaceCIDR)
+	if err != nil {
+		return nil, err
+	}
+	mac, err := net.ParseMAC(podIfaceMAC)
+	if err != nil {
+		return nil, err
+	}
+
+	routes := []vishnetlink.Route{
+		{Gw: net.ParseIP(defaultGW)},
 	}
 	return &cache.DHCPConfig{
 		IP:           *ipv4,
