@@ -35,18 +35,17 @@ import (
 type hostMetricsCollector struct {
 	procPath string
 	sysPath  string
-	pageSize int
+	pageSize uint
 }
 
 func (h *hostMetricsCollector) hostCPUMetrics() []api.Metric {
-	metrics := make([]api.Metric, 0, 2)
-	metrics = append(metrics, h.hostPhysicalCpuCount()...)
-	metrics = append(metrics, h.hostCpuTime()...)
+	metrics := h.hostPhysicalCPUCount()
+	metrics = append(metrics, h.hostCPUTime()...)
 
 	return metrics
 }
 
-func (h *hostMetricsCollector) hostPhysicalCpuCount() []api.Metric {
+func (h *hostMetricsCollector) hostPhysicalCPUCount() []api.Metric {
 	sysFS, err := sysfs.NewFS(h.sysPath)
 	if err != nil {
 		log.Log.Reason(err).Info("failed to access /sys")
@@ -74,7 +73,7 @@ func (h *hostMetricsCollector) hostPhysicalCpuCount() []api.Metric {
 	}
 }
 
-func (h *hostMetricsCollector) hostCpuTime() []api.Metric {
+func (h *hostMetricsCollector) hostCPUTime() []api.Metric {
 	procFS, err := procfs.NewFS(h.procPath)
 	if err != nil {
 		log.Log.Reason(err).Info("failed to access /proc")
@@ -121,9 +120,10 @@ func (h *hostMetricsCollector) hostMemoryMetrics() []api.Metric {
 	}
 
 	if vmstat, err := readVMStat(filepath.Join(h.procPath, "vmstat")); err == nil {
+		const bytesInKib = 1024
 		metrics = append(metrics,
-			metricspkg.MustToHostMetric(vmstat.pswpin*uint64(h.pageSize)/1024, "PagedInMemory", "KiB"),
-			metricspkg.MustToHostMetric(vmstat.pswpout*uint64(h.pageSize)/1024, "PagedOutMemory", "KiB"),
+			metricspkg.MustToHostMetric(vmstat.pswpin*uint64(h.pageSize)/bytesInKib, "PagedInMemory", "KiB"),
+			metricspkg.MustToHostMetric(vmstat.pswpout*uint64(h.pageSize)/bytesInKib, "PagedOutMemory", "KiB"),
 		)
 	} else {
 		log.Log.Reason(err).Info("failed to collect vmstat on the node")
@@ -145,7 +145,8 @@ func defaultHostMetricsCollector() *hostMetricsCollector {
 	return &hostMetricsCollector{
 		procPath: "/proc",
 		sysPath:  "/sys",
-		pageSize: os.Getpagesize(),
+		// It is safe to cast, because os.Getpagesize() never returns negative value.
+		pageSize: uint(os.Getpagesize()), //nolint:gosec // disable G115
 	}
 }
 
