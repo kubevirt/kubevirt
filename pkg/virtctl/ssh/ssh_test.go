@@ -2,12 +2,16 @@ package ssh_test
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 )
+
+const commandSSH = "ssh"
 
 var _ = Describe("SSH", func() {
 	DescribeTable("ParseTarget", func(arg, targetNamespace, targetName, targetKind, targetUsername, expectedError string) {
@@ -89,9 +93,32 @@ var _ = Describe("SSH", func() {
 
 		It("BuildProxyCommandOption", func() {
 			const sshPort = 12345
-			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort)
-			expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name/fake-ns %d", sshPort)
-			Expect(proxyCommand).To(ContainSubstring(expected))
+			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort, nil)
+			expected := fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true %s/%s/%s %d",
+				os.Args[0], fakeKind, fakeName, fakeNamespace, sshPort)
+			Expect(proxyCommand).To(Equal(expected))
+		})
+
+		It("BuildProxyCommandOption with global flags", func() {
+			const sshPort = 12345
+			globalFlags := []string{"--context=my-context", "--kubeconfig=/path/to/config"}
+			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort, globalFlags)
+			expected := fmt.Sprintf("ProxyCommand=%s '--context=my-context' '--kubeconfig=/path/to/config' port-forward --stdio=true %s/%s/%s %d",
+				os.Args[0], fakeKind, fakeName, fakeNamespace, sshPort)
+			Expect(proxyCommand).To(Equal(expected))
+		})
+
+		It("BuildProxyCommandOption shell-escapes flag values with special characters", func() {
+			const sshPort = 12345
+			globalFlags := []string{
+				"--context=kind-experiment",
+				"--as=john doe",
+				"--as-group=my group",
+			}
+			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort, globalFlags)
+			expected := fmt.Sprintf("ProxyCommand=%s '--context=kind-experiment' '--as=john doe' '--as-group=my group' port-forward --stdio=true %s/%s/%s %d",
+				os.Args[0], fakeKind, fakeName, fakeNamespace, sshPort)
+			Expect(proxyCommand).To(Equal(expected))
 		})
 
 		It("LocalClientCmd", func() {
@@ -99,13 +126,92 @@ var _ = Describe("SSH", func() {
 			opts.SSHPort = 12345
 			c := ssh.NewSSH(opts)
 			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
-			const commandSSH = "ssh"
-			cmd := ssh.LocalClientCmd(commandSSH, fakeKind, fakeNamespace, fakeName, opts, clientArgs)
+			cmd := ssh.LocalClientCmd(commandSSH, fakeKind, fakeNamespace, fakeName, opts, nil, clientArgs)
 			Expect(cmd).ToNot(BeNil())
 			Expect(cmd.Args).To(HaveLen(4))
 			Expect(cmd.Args[0]).To(Equal(commandSSH))
-			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort)))
+			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort, nil)))
 			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
+		})
+
+		It("LocalClientCmd with global flags embeds them in ProxyCommand", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
+			globalFlags := []string{"--context=my-context", "--kubeconfig=/path/to/config"}
+			cmd := ssh.LocalClientCmd(commandSSH, fakeKind, fakeNamespace, fakeName, opts, globalFlags, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			Expect(cmd.Args).To(HaveLen(4))
+			Expect(cmd.Args[0]).To(Equal(commandSSH))
+			Expect(cmd.Args[1]).To(Equal("-o"))
+			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort, globalFlags)))
+			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
+		})
+	})
+
+	Describe("GlobalFlagsFromCmd", func() {
+		var (
+			root  *cobra.Command
+			child *cobra.Command
+		)
+
+		BeforeEach(func() {
+			root = &cobra.Command{Use: "root"}
+			root.PersistentFlags().String("context", "", "kube context")
+			root.PersistentFlags().String("kubeconfig", "", "kubeconfig path")
+			root.PersistentFlags().StringSlice("as-groups", nil, "groups to impersonate")
+			root.PersistentFlags().Bool("insecure-skip-tls-verify", false, "skip TLS verification")
+
+			child = &cobra.Command{
+				Use:  commandSSH,
+				RunE: func(cmd *cobra.Command, args []string) error { return nil },
+			}
+			child.Flags().String("local-flag", "", "local only flag")
+			root.AddCommand(child)
+		})
+
+		It("returns empty when no flags are set", func() {
+			root.SetArgs([]string{commandSSH})
+			Expect(root.Execute()).To(Succeed())
+			Expect(ssh.GlobalFlagsFromCmd(child)).To(BeEmpty())
+		})
+
+		It("extracts root persistent string flags that are set", func() {
+			root.SetArgs([]string{"--context=my-context", "--kubeconfig=/path/to/config", commandSSH})
+			Expect(root.Execute()).To(Succeed())
+			Expect(ssh.GlobalFlagsFromCmd(child)).To(ConsistOf(
+				"--context=my-context",
+				"--kubeconfig=/path/to/config",
+			))
+		})
+
+		It("excludes command-local flags from output", func() {
+			root.SetArgs([]string{commandSSH, "--local-flag=value"})
+			Expect(root.Execute()).To(Succeed())
+			Expect(ssh.GlobalFlagsFromCmd(child)).To(BeEmpty())
+		})
+
+		It("expands slice flags into individual entries", func() {
+			root.SetArgs([]string{"--as-groups=group1", "--as-groups=group2", commandSSH})
+			Expect(root.Execute()).To(Succeed())
+			Expect(ssh.GlobalFlagsFromCmd(child)).To(ConsistOf(
+				"--as-groups=group1",
+				"--as-groups=group2",
+			))
+		})
+
+		It("does not include unset boolean persistent flags", func() {
+			root.SetArgs([]string{commandSSH})
+			Expect(root.Execute()).To(Succeed())
+			Expect(ssh.GlobalFlagsFromCmd(child)).ToNot(ContainElement("--insecure-skip-tls-verify=true"))
+			Expect(ssh.GlobalFlagsFromCmd(child)).ToNot(ContainElement("--insecure-skip-tls-verify=false"))
+		})
+
+		It("includes boolean persistent flags when set to true", func() {
+			root.SetArgs([]string{"--insecure-skip-tls-verify=true", commandSSH})
+			Expect(root.Execute()).To(Succeed())
+			Expect(ssh.GlobalFlagsFromCmd(child)).To(ContainElement("--insecure-skip-tls-verify=true"))
 		})
 	})
 })
