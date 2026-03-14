@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
@@ -13,11 +15,14 @@ import (
 	openapi_validate "github.com/go-openapi/validate"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	handler3 "k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 )
 
@@ -25,6 +30,48 @@ type Validator struct {
 	specSchemes   *openapi_spec.Schema
 	statusSchemes *openapi_spec.Schema
 	topLevelKeys  map[string]interface{}
+}
+
+type V3Spec struct {
+	service *handler3.OpenAPIService
+}
+
+func NewV3Spec(subwss []*restful.WebService) (*V3Spec, error) {
+	v3spec := &V3Spec{
+		service: handler3.NewOpenAPIService(),
+	}
+
+	for i, gv := range v1.SubresourceGroupVersions {
+		gvPath := path.Join("apis", gv.Group, gv.Version)
+		openapiV3Spec, err := buildV3Spec(subwss[i], gv.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
+		}
+		v3spec.service.UpdateGroupVersion(gvPath, openapiV3Spec)
+	}
+
+	return v3spec, nil
+}
+
+func (c *V3Spec) HandleDiscovery(w http.ResponseWriter, r *http.Request) {
+	c.service.HandleDiscovery(w, r)
+}
+
+func (c *V3Spec) HandleGroupVersion(w http.ResponseWriter, r *http.Request) {
+	c.service.HandleGroupVersion(w, r)
+}
+
+func buildV3Spec(ws *restful.WebService, version string) (*spec3.OpenAPI, error) {
+	config := CreateV3Config()
+	config.GetDefinitions = api.GetOpenAPIDefinitions
+	openapiV3Spec, err := builderv3.BuildOpenAPISpecFromRoutes(
+		restfuladapter.AdaptWebServices([]*restful.WebService{ws}), config)
+	if err != nil {
+		return nil, err
+	}
+	openapiV3Spec.Info.Version = version
+
+	return openapiV3Spec, nil
 }
 
 func CreateConfig() *common.Config {
