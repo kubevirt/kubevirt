@@ -64,7 +64,6 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		config.EnableFeatureGate("LiveUpdateNADRef")
 
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
