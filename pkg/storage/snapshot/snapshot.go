@@ -26,6 +26,7 @@ import (
 	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -638,7 +640,8 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 			continue
 		}
 
-		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, volumeName)
+		prefix := fmt.Sprintf("vmsnapshot-%s-volume", vmSnapshot.UID)
+		volumeSnapshotName := naming.GetName(prefix, volumeName, validation.DNS1035LabelMaxLength)
 		vb := snapshotv1.VolumeBackup{
 			VolumeName: volumeName,
 			PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{

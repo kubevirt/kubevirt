@@ -46,6 +46,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -235,7 +236,7 @@ var _ = Describe(SIG("Export", func() {
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
 		var err error
-		secret := libsecret.New(fmt.Sprintf("export-token-%s", name), libsecret.DataString{"token": name})
+		secret := libsecret.New(fmt.Sprintf("export-token-%s", name[:min(len(name), validation.DNS1035LabelMaxLength-len("export-token-"))]), libsecret.DataString{"token": name})
 		token, err = virtClient.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return token
