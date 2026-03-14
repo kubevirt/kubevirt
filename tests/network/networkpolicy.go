@@ -74,16 +74,16 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 
 			It("[test_id:1511] should fail to reach serverVMI from clientVMI", func() {
 				By("Connect serverVMI from clientVMI")
-				assertPingFail(clientVMI, serverVMI)
+				assertPingFailToPrimaryIP(clientVMI, serverVMI)
 			})
 
 			It("[test_id:1512] should fail to reach clientVMI from serverVMI", func() {
 				By("Connect clientVMI from serverVMI")
-				assertPingFail(serverVMI, clientVMI)
+				assertPingFailToPrimaryIP(serverVMI, clientVMI)
 			})
 			It("[test_id:369] should deny http traffic for ports 80/81 from clientVMI to serverVMI", func() {
-				assertHTTPPingFailed(clientVMI, serverVMI, 80)
-				assertHTTPPingFailed(clientVMI, serverVMI, 81)
+				assertHTTPPingFailedToPrimaryIP(clientVMI, serverVMI, 80)
+				assertHTTPPingFailedToPrimaryIP(clientVMI, serverVMI, 81)
 			})
 		})
 
@@ -119,7 +119,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				})
 
 				It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", decorators.Conformance, func() {
-					assertPingSucceed(clientVMI, serverVMI)
+					assertPingSucceedToPrimaryIP(clientVMI, serverVMI)
 				})
 			})
 
@@ -134,7 +134,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				})
 
 				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
-					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
+					assertPingFailToPrimaryIP(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
 		})
@@ -176,7 +176,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 
 				It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
 					By("Connect serverVMI from clientVMIAlternativeNamespace")
-					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
+					assertPingFailToPrimaryIP(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
 
@@ -190,7 +190,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 
 				It("[test_id:1515] should fail to reach serverVMI from clientVMI", func() {
 					By("Connect serverVMI from clientVMIAlternativeNamespace")
-					assertPingFail(clientVMI, serverVMI)
+					assertPingFailToPrimaryIP(clientVMI, serverVMI)
 				})
 
 				When("another client vmi is on an alternative namespace", func() {
@@ -205,7 +205,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 
 					It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", func() {
 						By("Connect clientVMI from clientVMIAlternativeNamespace")
-						assertPingSucceed(clientVMIAlternativeNamespace, clientVMI)
+						assertPingSucceedToPrimaryIP(clientVMIAlternativeNamespace, clientVMI)
 					})
 				})
 			})
@@ -238,8 +238,8 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				waitForNetworkPolicyDeletion(policy)
 			})
 			It("[test_id:2774] should allow http traffic for ports 80 and 81 from clientVMI to serverVMI", func() {
-				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
-				assertHTTPPingSucceed(clientVMI, serverVMI, 81)
+				assertHTTPPingSucceedToPrimaryIP(clientVMI, serverVMI, 80)
+				assertHTTPPingSucceedToPrimaryIP(clientVMI, serverVMI, 81)
 			})
 		})
 		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", func() {
@@ -267,8 +267,8 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				waitForNetworkPolicyDeletion(policy)
 			})
 			It("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", func() {
-				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
-				assertHTTPPingFailed(clientVMI, serverVMI, 81)
+				assertHTTPPingSucceedToPrimaryIP(clientVMI, serverVMI, 80)
+				assertHTTPPingFailedToPrimaryIP(clientVMI, serverVMI, 81)
 			})
 		})
 	})
@@ -305,6 +305,68 @@ func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
 		}
 		return err
 	}, 5*time.Second, 1*time.Second).ShouldNot(Succeed())
+}
+
+// primaryIPForConnectivityCheck returns the IP to use when asserting connectivity is blocked.
+// Prefer IPv4 when present (covers IPv4-only and dual-stack where policy typically applies to IPv4),
+// then IPv6, then the first reported IP.
+func primaryIPForConnectivityCheck(vmi *v1.VirtualMachineInstance) string {
+	if vmi == nil {
+		Fail("primaryIPForConnectivityCheck: target VMI is nil; cannot determine IP for connectivity check")
+		return ""
+	}
+
+	if len(vmi.Status.Interfaces) == 0 {
+		Fail(fmt.Sprintf(
+			"primaryIPForConnectivityCheck: VMI %s has no network interfaces in status; cannot determine IP for connectivity check",
+			vmi.Name,
+		))
+		return ""
+	}
+
+	if ip := libnet.GetVmiPrimaryIPByFamily(vmi, corev1.IPv4Protocol); ip != "" {
+		return ip
+	}
+
+	if ip := libnet.GetVmiPrimaryIPByFamily(vmi, corev1.IPv6Protocol); ip != "" {
+		return ip
+	}
+
+	iface := vmi.Status.Interfaces[0]
+	Fail(fmt.Sprintf(
+		"primaryIPForConnectivityCheck: VMI %s interface %q has no IPs reported; cannot determine IP for connectivity check",
+		vmi.Name,
+		iface.Name,
+	))
+
+	return ""
+}
+
+// assertPingFailToPrimaryIP asserts that ping from fromVmi to toVmi's primary IP fails (default-deny).
+// Works on IPv4-only, IPv6-only, or dual-stack clusters: we assert the primary address (IPv4 if
+// present, else first IP) is unreachable, so the test passes regardless of cluster IP family.
+func assertPingFailToPrimaryIP(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	toIP := primaryIPForConnectivityCheck(toVmi)
+	EventuallyWithOffset(1, func() error {
+		if err := libnet.PingFromVMConsole(fromVmi, toIP); err == nil {
+			return nil
+		}
+		return fmt.Errorf("ping started to fail as expected")
+	}, 15*time.Second, time.Second).ShouldNot(Succeed())
+
+	ConsistentlyWithOffset(1, func() error {
+		if err := libnet.PingFromVMConsole(fromVmi, toIP); err == nil {
+			return nil
+		}
+		return fmt.Errorf("ping kept failing as expected")
+	}, 5*time.Second, 1*time.Second).ShouldNot(Succeed())
+}
+
+// assertPingSucceedToPrimaryIP asserts that ping from fromVmi to toVmi's primary IP succeeds (traffic allowed).
+// Uses the same primary-IP selection as assertPingFailToPrimaryIP for consistency across IPv4-only, IPv6-only, and dual-stack.
+func assertPingSucceedToPrimaryIP(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	toIP := primaryIPForConnectivityCheck(toVmi)
+	ExpectWithOffset(1, libnet.PingFromVMConsole(fromVmi, toIP)).To(Succeed())
 }
 
 func createNetworkPolicy(namespace, name string, labelSelector metav1.LabelSelector, ingress []networkv1.NetworkPolicyIngressRule) *networkv1.NetworkPolicy {
@@ -349,6 +411,32 @@ func assertHTTPPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance, port int) 
 func assertHTTPPingFailed(vmiFrom, vmiTo *v1.VirtualMachineInstance, port int) {
 	EventuallyWithOffset(1, checkHTTPPingAndStopOnSucceed(vmiFrom, vmiTo, port), 10*time.Second, time.Second).ShouldNot(Succeed())
 	ConsistentlyWithOffset(1, checkHTTPPingAndStopOnSucceed(vmiFrom, vmiTo, port), 10*time.Second, time.Second).ShouldNot(Succeed())
+}
+
+// assertHTTPPingSucceedToPrimaryIP asserts HTTP reachability to toVmi's primary IP only (IPv4 if present).
+// Use when the server or policy may only listen/apply to one family (e.g. IPv4-only cluster).
+func assertHTTPPingSucceedToPrimaryIP(fromVmi, toVmi *v1.VirtualMachineInstance, port int) {
+	toIP := primaryIPForConnectivityCheck(toVmi)
+	ConsistentlyWithOffset(1, func() error {
+		return checkHTTPPing(fromVmi, toIP, port)
+	}, 10*time.Second, time.Second).Should(Succeed())
+}
+
+// assertHTTPPingFailedToPrimaryIP asserts HTTP is not reachable at toVmi's primary IP only.
+func assertHTTPPingFailedToPrimaryIP(fromVmi, toVmi *v1.VirtualMachineInstance, port int) {
+	toIP := primaryIPForConnectivityCheck(toVmi)
+	EventuallyWithOffset(1, func() error {
+		if err := checkHTTPPing(fromVmi, toIP, port); err == nil {
+			return nil
+		}
+		return fmt.Errorf("http ping started to fail as expected")
+	}, 10*time.Second, time.Second).ShouldNot(Succeed())
+	ConsistentlyWithOffset(1, func() error {
+		if err := checkHTTPPing(fromVmi, toIP, port); err == nil {
+			return nil
+		}
+		return fmt.Errorf("http ping kept failing as expected")
+	}, 10*time.Second, time.Second).ShouldNot(Succeed())
 }
 
 func checkHTTPPingAndStopOnSucceed(fromVmi, toVmi *v1.VirtualMachineInstance, port int) func() error {
