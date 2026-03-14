@@ -49,10 +49,11 @@ const (
 )
 
 type FeatureGate struct {
-	Name        string
-	State       State
-	VmiSpecUsed func(spec *v1.VirtualMachineInstanceSpec) bool
-	Message     string
+	Name         string
+	State        State
+	VmiSpecUsed  func(spec *v1.VirtualMachineInstanceSpec) bool
+	Message      string
+	Dependencies []string
 }
 
 var featureGates = map[string]FeatureGate{}
