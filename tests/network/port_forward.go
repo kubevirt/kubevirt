@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
@@ -103,7 +104,7 @@ var _ = Describe(SIG("Port-forward", func() {
 				By(fmt.Sprintf("checking that service running on port %d can be reached", declaredPort))
 				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).To(Succeed())
 			},
-				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv4", decorators.WgS390x, k8sv1.IPv4Protocol),
 				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
@@ -120,7 +121,7 @@ var _ = Describe(SIG("Port-forward", func() {
 				By(fmt.Sprintf("checking that service running on port %d can be reached", nonDeclaredPort))
 				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).To(Succeed())
 			},
-				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv4", decorators.WgS390x, k8sv1.IPv4Protocol),
 				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
@@ -138,7 +139,7 @@ var _ = Describe(SIG("Port-forward", func() {
 				By(fmt.Sprintf("checking that service running on port %d can not be reached", nonDeclaredPort))
 				Expect(testConnectivityThroughLocalPort(ipFamily, localPort)).ToNot(Succeed())
 			},
-				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv4", decorators.WgS390x, k8sv1.IPv4Protocol),
 				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})

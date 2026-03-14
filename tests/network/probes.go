@@ -16,6 +16,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -30,7 +31,7 @@ const (
 	specifyingVMLivenessProbe  = "Specifying a VMI with a liveness probe"
 )
 
-var _ = Describe(SIG("[ref_id:1182]Probes", func() {
+var _ = Describe(SIG("[ref_id:1182]Probes", decorators.WgS390x, func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
