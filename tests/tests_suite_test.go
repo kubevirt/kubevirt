@@ -66,6 +66,7 @@ import (
 
 var afterSuiteReporters = []Reporter{}
 var k8sReporter *reporter.KubernetesReporter
+var etcdProfiler *reporter.EtcdProfiler
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
@@ -95,6 +96,10 @@ func TestTests(t *testing.T) {
 
 	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, alwaysCollect)
 	k8sReporter.Cleanup()
+
+	if os.Getenv("KUBEVIRT_PROFILE_ETCD") == "true" {
+		etcdProfiler = reporter.NewEtcdProfiler(filepath.Join(flags.ArtifactsDir, "etcd-profiler"))
+	}
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
@@ -159,6 +164,12 @@ func getAlwaysCollectFromEnv() bool {
 	return alwaysCollect
 }
 
+var _ = ReportAfterSuite("Etcd storage profile", func(_ Report) {
+	if etcdProfiler != nil {
+		etcdProfiler.Finalize()
+	}
+})
+
 var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
 	artifactPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter", "suite")
 	kvReport := reporter.NewKubernetesReporter(artifactPath, 1, false)
@@ -177,11 +188,20 @@ var _ = ReportBeforeSuite(func(report Report) {
 	k8sReporter.ConfigurePerSpecReporting(report)
 })
 
+var _ = BeforeEach(func() {
+	if etcdProfiler != nil {
+		etcdProfiler.RecordBeforeSpec()
+	}
+})
+
 var _ = JustAfterEach(func() {
 	if flags.DeployFakeKWOKNodesFlag {
 		return
 	}
 	k8sReporter.ReportSpec(CurrentSpecReport())
+	if etcdProfiler != nil {
+		etcdProfiler.RecordSpec(CurrentSpecReport())
+	}
 })
 
 func testCleanup() {
