@@ -78,7 +78,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 				},
 				Verbs: []string{
-					"update", "list", "watch",
+					"update", "patch", "list", "watch",
 				},
 			},
 			{
@@ -166,6 +166,17 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"list", "watch", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{
+					"controllerrevisions",
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 		},
