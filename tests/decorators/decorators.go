@@ -140,4 +140,8 @@ var (
 	// OpenShift decorator is used for tests that can only run on OpenShift clusters
 	// (e.g., tests requiring SecurityContextConstraints, Routes)
 	OpenShift = Label("OpenShift")
+
+	// RequiresKubevirtCI decorator denotes tests that assume cluster setup by kubevirtci
+	// KUBEVIRT_NUM_SECONDARY_NICS generates node network interfaces named ethX
+	RequiresKubevirtCI = Label("requires-kube-virt-ci")
 )
