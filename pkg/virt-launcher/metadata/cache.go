@@ -28,6 +28,7 @@ import (
 type Cache struct {
 	UID               SafeData[types.UID]
 	Migration         SafeData[api.MigrationMetadata]
+	StartingUp        SafeData[bool]
 	GracePeriod       SafeData[api.GracePeriodMetadata]
 	AccessCredential  SafeData[api.AccessCredentialMetadata]
 	MemoryDump        SafeData[api.MemoryDumpMetadata]
@@ -43,6 +44,7 @@ func NewCache() *Cache {
 	}
 	cache.UID.dirtyChanel = cache.notificationSignal
 	cache.Migration.dirtyChanel = cache.notificationSignal
+	cache.StartingUp.dirtyChanel = cache.notificationSignal
 	cache.GracePeriod.dirtyChanel = cache.notificationSignal
 	cache.AccessCredential.dirtyChanel = cache.notificationSignal
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
