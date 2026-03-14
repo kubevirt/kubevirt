@@ -1,10 +1,14 @@
 package tests_test
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +43,15 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	mdevBusPath               = "/sys/class/mdev_bus/"
+	mdevSupportedTypesDirName = "mdev_supported_types"
+)
+
+var (
+	nvMaxInstanceRE = regexp.MustCompile(`\bmax_instance=(\d+)\b`)
+)
+
 var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -60,7 +73,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		}
 	}
 
-	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount int) func() (*k8sv1.Pod, error) {
+	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount uint) func() (*k8sv1.Pod, error) {
 		return func() (*k8sv1.Pod, error) {
 			By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
 			check := fmt.Sprintf(`set -x
@@ -128,7 +141,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		var deviceName = "nvidia.com/GRID_T4-1B"
 		var mdevSelector = "GRID T4-1B"
 		var desiredMdevTypeName = "nvidia-222"
-		var expectedInstancesNum = 16
+		var expectedInstancesNum uint
 		var config v1.KubeVirtConfiguration
 		var originalFeatureGates []string
 
@@ -154,6 +167,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			noGPUDevicesAreAvailable()
 		}
 		BeforeEach(func() {
+			By("Determining the expected amount of mediated device instances used for the test")
+			expectedInstancesNum = getNumOfInstancesByMdevType(desiredMdevTypeName)
+
 			addMdevsConfiguration()
 
 			By("Verifying that an expected amount of devices has been created")
@@ -206,14 +222,16 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		var updatedMdevSelector = "GRID T4-2B"
 		var parentDeviceID = "10de:1eb8"
 		var desiredMdevTypeName = "nvidia-222"
-		var expectedInstancesNum = 16
+		var expectedInstancesNum uint
 		var config v1.KubeVirtConfiguration
 		var mdevTestLabel = "mdevTestLabel1"
 
 		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			By("Determining the expected amount of mediated device instances used for the test")
+			expectedInstancesNum = getNumOfInstancesByMdevType(desiredMdevTypeName)
 
 			By("Creating a configuration for mediated devices")
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{desiredMdevTypeName},
@@ -282,8 +300,10 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
 		})
 		It("Should override default mdev configuration on a specific node", func() {
+			By("Determining the expected amount of mediated device instances used for the test")
 			newDesiredMdevTypeName := "nvidia-223"
-			newExpectedInstancesNum := 8
+			newExpectedInstancesNum := getNumOfInstancesByMdevType(newDesiredMdevTypeName)
+
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
@@ -326,10 +346,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 	})
 	Context("with generic mediated devices", func() {
-		const mdevBusPath = "/sys/class/mdev_bus/"
 		const findMdevCapableDevices = "ls -df1 " + mdevBusPath + "0000* | head -1"
-		const findSupportedTypeFmt = "ls -df1 " + mdevBusPath + "%s/mdev_supported_types/* | head -1"
-		const deviceNameFmt = mdevBusPath + "%s/mdev_supported_types/%s/name"
+		const findSupportedTypeFmt = "ls -df1 " + mdevBusPath + "%s/" + mdevSupportedTypesDirName + "/* | head -1"
+		const deviceNameFmt = mdevBusPath + "%s/" + mdevSupportedTypesDirName + "/%s/name"
 		const unbindCmdFmt = "echo %s > %s/unbind"
 		const bindCmdFmt = "echo %s > %s/bind"
 		const uuidRegex = "????????-????-????-????-????????????"
@@ -468,3 +487,64 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 	})
 })
+
+// Note: this may not work for non-NVIDIA devices as it relies on `getMaxInstancesOfNVGpu`
+func getNumOfInstancesByMdevType(typeName string) (num uint) {
+	devIDs, err := getSupportedDevIDsByMdevType(typeName)
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, devID := range devIDs {
+		maxIns, err := getMaxInstancesOfNVGpu(devID, typeName)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxIns).To(BeNumerically(">", 0))
+		num += maxIns
+	}
+
+	Expect(num).To(BeNumerically(">", 0))
+	return num
+}
+
+func getSupportedDevIDsByMdevType(typeName string) ([]string, error) {
+	var devIDs []string
+	devices, err := os.ReadDir(mdevBusPath)
+	if err != nil {
+		return devIDs, err
+	}
+
+	for _, device := range devices {
+		path := filepath.Join(mdevBusPath, device.Name(), mdevSupportedTypesDirName, typeName)
+		if _, err := os.Stat(path); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return devIDs, err
+		}
+		devIDs = append(devIDs, device.Name())
+	}
+	return devIDs, nil
+}
+
+// NVIDIA driver implements the `max_instance` attribute via `description`
+// $ cat /sys/class/mdev_bus/0000:ab:00.0/mdev_supported_types/nvidia-222/description
+// num_heads=4, frl_config=45, framebuffer=1024M, max_resolution=5120x2880, max_instance=16
+func getMaxInstancesOfNVGpu(devID string, typeName string) (uint, error) {
+	path := filepath.Join(mdevBusPath, devID, mdevSupportedTypesDirName, typeName, "description")
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if matches := nvMaxInstanceRE.FindStringSubmatch(line); matches != nil {
+			num, err := strconv.ParseUint(matches[1], 10, 0)
+			if err != nil {
+				return 0, err
+			}
+			return uint(num), nil
+		}
+	}
+	return 0, fmt.Errorf("no max_instance is found")
+}
