@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	kubectlutil "k8s.io/kubectl/pkg/util"
@@ -1157,11 +1158,16 @@ func RunPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace stri
 		SubResource("portforward")
 
 	// Set up the port forwarding options
-	transport, upgrader, err := spdy.RoundTripperFor(client.Config())
+	spdyTransport, upgrader, err := spdy.RoundTripperFor(client.Config())
 	if err != nil {
 		log.Fatalf("Failed to set up transport: %v", err)
 	}
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+	spdyDialer := spdy.NewDialer(upgrader, &http.Client{Transport: spdyTransport}, "POST", req.URL())
+	wsDialer, err := portforward.NewSPDYOverWebsocketDialer(req.URL(), client.Config())
+	if err != nil {
+		log.Fatalf("Failed to set up websocket transport: %v", err)
+	}
+	dialer := portforward.NewFallbackDialer(wsDialer, spdyDialer, httpstream.IsUpgradeFailure)
 
 	// Start port-forwarding
 	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stderr, os.Stderr)
