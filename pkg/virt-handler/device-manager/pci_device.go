@@ -267,8 +267,17 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 		if resourceName, supported := supportedPCIDeviceMap[pciID]; supported {
 			// check device driver
 			driver, err := handler.GetDeviceDriver(pciBasePath, info.Name())
-			if err != nil || driver != "vfio-pci" {
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("failed to get driver for device: %s", info.Name())
 				return nil
+			}
+
+			// For devices without vfio-pci driver, check if they're NVIDIA vGPU VFs
+			if driver != "vfio-pci" {
+				if !shouldPermitNvidia(driver, pciBasePath, info.Name(), pciID) {
+					log.DefaultLogger().V(9).Infof("Not supported driver %s, pci %s", driver, pciID)
+					return nil
+				}
 			}
 
 			pcidev := &PCIDevice{
@@ -283,11 +292,34 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 			pcidev.driver = driver
 			pcidev.numaNode = handler.GetDeviceNumaNode(pciBasePath, info.Name())
 			pciDevicesMap[resourceName] = append(pciDevicesMap[resourceName], pcidev)
+		} else {
+			log.DefaultLogger().V(9).Infof("Not supported %s", pciID)
 		}
 		return nil
-	})
+	},
+	)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to discover host devices")
 	}
 	return pciDevicesMap
+}
+
+func shouldPermitNvidia(driver, pciBasePath, pciAddress, pciID string) bool {
+	if driver != "nvidia" {
+		return false
+	}
+	if handler.IsPhysicalFunction(pciBasePath, pciAddress) {
+		log.DefaultLogger().Infof("Skipping non-vfio-pci Physical Function %s (%s)", pciAddress, pciID)
+		return false
+	}
+
+	if !handler.HasVGPUProfile(pciBasePath, pciAddress) {
+		log.DefaultLogger().Infof("Skipping non-vfio-pci device without vGPU profile %s (%s, driver: %s)",
+			pciAddress, pciID, driver)
+		return false
+	}
+
+	// This is a VF with vGPU profile - allow it even without vfio-pci
+	log.DefaultLogger().Infof("Found vGPU-capable VF %s (%s, driver: %s)", pciAddress, pciID, driver)
+	return true
 }
