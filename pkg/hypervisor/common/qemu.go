@@ -20,8 +20,6 @@
 package common
 
 import (
-	"fmt"
-
 	"github.com/mitchellh/go-ps"
 )
 
@@ -34,7 +32,7 @@ func FindIsolatedQemuProcess(qemuProcessExecutablePrefixes []string, processes [
 		}
 	}
 
-	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
+	return nil, nil
 }
 
 func FindVirtqemudProcess(processes []ps.Process, launcherPid int) (ps.Process, error) {
