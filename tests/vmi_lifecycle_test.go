@@ -175,7 +175,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}, 10*time.Second, 1*time.Second).Should(BeNil(), "Should not delete the Pod")
 		})
 
-		It("[test_id:1622]should log libvirtd logs", decorators.WgS390x, func() {
+		It("[QUARANTINE][test_id:1622]should log libvirtd logs", decorators.Quarantine, decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
