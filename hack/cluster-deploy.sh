@@ -53,7 +53,33 @@ function _ensure_cdi_deployment() {
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
 
-    _kubectl apply -f hack/cdi-operator.yaml
+    # Patch CDI operator deployment with custom image URLs
+    cdi_registry="quay.io/akalenyu"
+    cdi_tag="latest"
+
+    _kubectl patch deployment cdi-operator -n ${cdi_namespace} -p='
+    {
+        "spec": {
+            "template": {
+                "spec": {
+                    "containers": [{
+                        "name": "cdi-operator",
+                        "image": "'"${cdi_registry}/cdi-operator:${cdi_tag}"'",
+                        "env": [
+                            {"name": "OPERATOR_VERSION", "value": "'"${cdi_tag}"'"},
+                            {"name": "CONTROLLER_IMAGE", "value": "'"${cdi_registry}/cdi-controller:${cdi_tag}"'"},
+                            {"name": "IMPORTER_IMAGE", "value": "'"${cdi_registry}/cdi-importer:${cdi_tag}"'"},
+                            {"name": "CLONER_IMAGE", "value": "'"${cdi_registry}/cdi-cloner:${cdi_tag}"'"},
+                            {"name": "OVIRT_POPULATOR_IMAGE", "value": "'"${cdi_registry}/cdi-importer:${cdi_tag}"'"},
+                            {"name": "APISERVER_IMAGE", "value": "'"${cdi_registry}/cdi-apiserver:${cdi_tag}"'"},
+                            {"name": "UPLOAD_SERVER_IMAGE", "value": "'"${cdi_registry}/cdi-uploadserver:${cdi_tag}"'"},
+                            {"name": "UPLOAD_PROXY_IMAGE", "value": "'"${cdi_registry}/cdi-uploadproxy:${cdi_tag}"'"}
+                        ]
+                    }]
+                }
+            }
+        }
+    }'
 }
 
 function configure_prometheus() {
