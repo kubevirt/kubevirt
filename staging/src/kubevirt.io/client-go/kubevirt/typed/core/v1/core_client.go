@@ -40,7 +40,8 @@ type KubevirtV1Interface interface {
 
 // KubevirtV1Client is used to interact with features provided by the kubevirt.io group.
 type KubevirtV1Client struct {
-	restClient rest.Interface
+	restClient   rest.Interface
+	clientConfig *rest.Config
 }
 
 func (c *KubevirtV1Client) KubeVirts(namespace string) KubeVirtInterface {
@@ -93,7 +94,10 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KubevirtV1Client, e
 	if err != nil {
 		return nil, err
 	}
-	return &KubevirtV1Client{client}, nil
+	return &KubevirtV1Client{
+		restClient:   client,
+		clientConfig: &config,
+	}, nil
 }
 
 // NewForConfigOrDie creates a new KubevirtV1Client for the given config and
@@ -108,7 +112,7 @@ func NewForConfigOrDie(c *rest.Config) *KubevirtV1Client {
 
 // New creates a new KubevirtV1Client for the given RESTClient.
 func New(c rest.Interface) *KubevirtV1Client {
-	return &KubevirtV1Client{c}
+	return &KubevirtV1Client{restClient: c}
 }
 
 func setConfigDefaults(config *rest.Config) error {

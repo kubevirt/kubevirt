@@ -23,6 +23,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,21 +70,50 @@ type VirtualMachineInstanceExpansion interface {
 }
 
 func (c *virtualMachineInstances) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
-	// TODO not implemented yet
-	//  requires clientConfig
-	return nil, fmt.Errorf("SerialConsole is not implemented yet in generated client")
+	connect := func() (StreamInterface, error) {
+		return c.subresourceConnection(name, "console", url.Values{})
+	}
+
+	if options == nil || options.ConnectionTimeout == 0 {
+		return connect()
+	}
+
+	deadline := time.Now().Add(options.ConnectionTimeout)
+	for {
+		con, err := connect()
+		if err == nil {
+			return con, nil
+		}
+
+		asyncSubresourceError, ok := err.(*AsyncSubresourceError)
+		// Retry only when console is temporarily unavailable.
+		if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
+			return nil, err
+		}
+
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+		}
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (c *virtualMachineInstances) USBRedir(vmiName string) (StreamInterface, error) {
-	// TODO not implemented yet
-	//  requires clientConfig
-	return nil, fmt.Errorf("USBRedir is not implemented yet in generated client")
+	return c.subresourceConnection(vmiName, "usbredir", url.Values{})
 }
 
 func (c *virtualMachineInstances) VNC(name string, preserveSession bool) (StreamInterface, error) {
-	// TODO not implemented yet
-	//  requires clientConfig
-	return nil, fmt.Errorf("VNC is not implemented yet in generated client")
+	queryParams := url.Values{}
+	queryParams.Add("preserveSession", strconv.FormatBool(preserveSession))
+	return c.subresourceConnection(name, "vnc", queryParams)
+}
+
+func (c *virtualMachineInstances) subresourceConnection(name, subresource string, queryParams url.Values) (StreamInterface, error) {
+	if c.clientConfig == nil {
+		return nil, fmt.Errorf("cannot connect to %q subresource without rest.Config", subresource)
+	}
+
+	return AsyncSubresourceHelper(c.clientConfig, "virtualmachineinstances", c.GetNamespace(), name, subresource, queryParams)
 }
 
 func (c *virtualMachineInstances) Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error) {

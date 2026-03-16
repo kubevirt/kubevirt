@@ -27,6 +27,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
+	rest "k8s.io/client-go/rest"
 	corev1 "kubevirt.io/api/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
@@ -53,6 +54,7 @@ type VirtualMachineInstanceInterface interface {
 // virtualMachineInstances implements VirtualMachineInstanceInterface
 type virtualMachineInstances struct {
 	*gentype.ClientWithList[*corev1.VirtualMachineInstance, *corev1.VirtualMachineInstanceList]
+	clientConfig *rest.Config
 }
 
 // newVirtualMachineInstances returns a VirtualMachineInstances
@@ -66,5 +68,6 @@ func newVirtualMachineInstances(c *KubevirtV1Client, namespace string) *virtualM
 			func() *corev1.VirtualMachineInstance { return &corev1.VirtualMachineInstance{} },
 			func() *corev1.VirtualMachineInstanceList { return &corev1.VirtualMachineInstanceList{} },
 		),
+		c.clientConfig,
 	}
 }
