@@ -157,8 +157,18 @@ func (d *domainWatcher) handleResync() {
 			continue
 		}
 
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+		select {
+		case d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}:
+		case <-d.stopChan:
+			return
+		}
 	}
+}
+
+// staleDomainEvent groups an event and its originating socket for post-lock processing.
+type staleDomainEvent struct {
+	event  watch.Event
+	socket string
 }
 
 func (d *domainWatcher) handleStaleSocketConnections() error {
@@ -180,15 +190,15 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 		unresponsive = append(unresponsive, socket)
 	}
 
-	d.watchDogLock.Lock()
-	defer d.watchDogLock.Unlock()
+	// Collect work that must happen outside the lock 
+	var pendingEvents []staleDomainEvent
 
+	d.watchDogLock.Lock()
 	now := time.Now().UTC().Unix()
 
 	// Add new unresponsive sockets
 	for _, socket := range unresponsive {
-		_, ok := d.unresponsiveSockets[socket]
-		if !ok {
+		if _, ok := d.unresponsiveSockets[socket]; !ok {
 			d.unresponsiveSockets[socket] = now
 		}
 	}
@@ -211,7 +221,6 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 		diff := now - timeStamp
 
 		if diff > int64(d.watchdogTimeout) {
-
 			record, exists := GhostRecordGlobalStore.findBySocket(key)
 
 			if !exists {
@@ -222,16 +231,28 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
 				domain.ObjectMeta.UID = record.UID
 				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
+				deletionTime := metav1.Now()
+				domain.ObjectMeta.DeletionTimestamp = &deletionTime
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-
-				err := cmdclient.MarkSocketUnresponsive(key)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
-				}
+				pendingEvents = append(pendingEvents, staleDomainEvent{
+					event:  watch.Event{Type: watch.Modified, Object: domain},
+					socket: key,
+				})
 			}
+		}
+	}
+	d.watchDogLock.Unlock()
+
+	// Send events and mark sockets unresponsive outside the lock 
+	for _, pending := range pendingEvents {
+		select {
+		case d.eventChan <- pending.event:
+		case <-d.stopChan:
+			return nil
+		}
+
+		if err := cmdclient.MarkSocketUnresponsive(pending.socket); err != nil {
+			log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", pending.socket)
 		}
 	}
 
