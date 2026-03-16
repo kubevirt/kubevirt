@@ -92,7 +92,7 @@ func (c *virtualMachineInstances) SerialConsole(name string, options *SerialCons
 		}
 
 		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+			return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance: %v", err)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -110,7 +110,7 @@ func (c *virtualMachineInstances) VNC(name string, preserveSession bool) (Stream
 
 func (c *virtualMachineInstances) subresourceConnection(name, subresource string, queryParams url.Values) (StreamInterface, error) {
 	if c.clientConfig == nil {
-		return nil, fmt.Errorf("cannot connect to %q subresource without rest.Config", subresource)
+		return nil, fmt.Errorf("cannot connect to %q subresource for %s/%s without rest.Config", subresource, c.GetNamespace(), name)
 	}
 
 	return AsyncSubresourceHelper(c.clientConfig, "virtualmachineinstances", c.GetNamespace(), name, subresource, queryParams)
