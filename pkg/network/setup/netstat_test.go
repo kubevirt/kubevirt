@@ -952,7 +952,7 @@ var _ = Describe("netstat", func() {
 		})
 
 		DescribeTable("verify primary interface is always first in Status.Interfaces list", func(ifaceIndexArr []int) {
-			for index := range ifaceIndexArr {
+			for _, index := range ifaceIndexArr {
 				Expect(setup.addNetworkInterface(
 					vmiSpecIfaces[index],
 					vmiSpecNetworks[index],
@@ -961,7 +961,19 @@ var _ = Describe("netstat", func() {
 				)).To(Succeed())
 			}
 
+			// Simulate the virt-controller's output: bare primary + multus-only secondaries
+			setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: prNetworkName},
+				{Name: secNetworkName1, InfoSource: netvmispec.InfoSourceMultusStatus},
+				{Name: secNetworkName2, InfoSource: netvmispec.InfoSourceMultusStatus},
+			}
+
 			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			infoSourceDomainMultus := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain,
+				netvmispec.InfoSourceMultusStatus,
+			)
 
 			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 				{
@@ -978,7 +990,7 @@ var _ = Describe("netstat", func() {
 					IP:         podIP,
 					IPs:        []string{podIP},
 					MAC:        MAC1,
-					InfoSource: netvmispec.InfoSourceDomain,
+					InfoSource: infoSourceDomainMultus,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
 					LinkState:  linkStateUp,
 				},
@@ -987,7 +999,7 @@ var _ = Describe("netstat", func() {
 					IP:         podIP,
 					IPs:        []string{podIP},
 					MAC:        MAC2,
-					InfoSource: netvmispec.InfoSourceDomain,
+					InfoSource: infoSourceDomainMultus,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
 					LinkState:  linkStateUp,
 				},
