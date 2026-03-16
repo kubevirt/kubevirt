@@ -16,27 +16,27 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_handler
+package virt_api
 
 import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 var (
 	componentMetrics = []operatormetrics.Metric{
-		virtHandlerReady,
+		virtAPIReady,
 	}
 
-	virtHandlerReady = operatormetrics.NewGauge(
+	virtAPIReady = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_virt_handler_ready_status",
-			Help: "Indication for a virt-handler that is ready to serve requests.",
+			Name: "kubevirt_virt_api_ready_status",
+			Help: "Indication for a virt-api server that is ready to serve requests.",
 		},
 	)
 )
 
-func SetVirtHandlerReady() {
-	virtHandlerReady.Set(1)
+func SetVirtAPIReady() {
+	virtAPIReady.Set(1)
 }
 
-func SetVirtHandlerNotReady() {
-	virtHandlerReady.Set(0)
+func SetVirtAPINotReady() {
+	virtAPIReady.Set(0)
 }
