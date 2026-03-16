@@ -1468,6 +1468,9 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			addMigration(completedMigration)
+			// Ensure we execute against the completed migration instead of the running one
+			// It makes no sense but that's how the test ran before priority queues
+			controller.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: 99999}, completedMigration.Namespace+"/"+completedMigration.Name)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addPod(newTargetPodForVirtualMachine(vmi, completedMigration, k8sv1.PodRunning))
