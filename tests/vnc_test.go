@@ -55,8 +55,8 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	const vncWaitResponseTimeout = time.Second * 45
 	const vncConnectTimeout = time.Second * 5
 
-	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		BeforeEach(func() {
+	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", Ordered, decorators.OncePerOrderedCleanup, func() {
+		BeforeAll(func() {
 			var err error
 			vmi = libvmifact.NewGuestless(libvmi.WithAutoattachGraphicsDevice(true))
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
