@@ -931,11 +931,15 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	}
 	preferredSize = min(usableSize, preferredSize)
 
+	log.DefaultLogger().Infof("possibleGuestSize: source=%s backendSource=%s capacity=%d usableSize=%d filesystemOverhead=%f",
+		getSourceFile(disk), getBackendSource(disk), *disk.Capacity, usableSize, filesystemOverhead)
+
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
 	}
+	log.DefaultLogger().Infof("possibleGuestSize: source=%s result=%d", getSourceFile(disk), size)
 	return size, true
 }
 
@@ -952,6 +956,9 @@ func getUsableDiskSize(path string) (int64, error) {
 		return int64(-1), err
 	}
 	usableSize := diskInfo.ActualSize + availableSize
+
+	log.DefaultLogger().Infof("getUsableDiskSize: path=%s bavail=%d bsize=%d availableSize=%d actualSize=%d virtualSize=%d usableSize=%d",
+		path, statfs.Bavail, statfs.Bsize, availableSize, diskInfo.ActualSize, diskInfo.VirtualSize, usableSize)
 
 	return usableSize, nil
 }
@@ -1631,9 +1638,14 @@ func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
 	}
 
 	possibleGuestSize, ok := possibleGuestSize(disk)
+	source := getSourceFile(disk)
 	if !ok || possibleGuestSize <= int64(guestSize) {
+		log.DefaultLogger().Infof("shouldExpandOnline: source=%s guestSize=%d possibleGuestSize=%d ok=%v, skipping",
+			source, guestSize, possibleGuestSize, ok)
 		return false
 	}
+	log.DefaultLogger().Infof("shouldExpandOnline: source=%s guestSize=%d possibleGuestSize=%d, will expand",
+		source, guestSize, possibleGuestSize)
 	return true
 }
 
