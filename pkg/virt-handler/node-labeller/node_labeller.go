@@ -61,6 +61,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
 	kubevirtv1.SupportedMachineTypeLabel,
+	kubevirtv1.VMArchLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -307,6 +308,17 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 	if n.TDX.Supported == "yes" {
 		newLabels[kubevirtv1.TDXLabel] = "true"
+	}
+
+	nativeArch := n.arch.arch()
+	newLabels[kubevirtv1.VMArchLabel+nativeArch] = "true"
+	if n.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+		switch nativeArch {
+		case "amd64":
+			newLabels[kubevirtv1.VMArchLabel+"arm64"] = "true"
+		case "arm64":
+			newLabels[kubevirtv1.VMArchLabel+"amd64"] = "true"
+		}
 	}
 
 	return newLabels
