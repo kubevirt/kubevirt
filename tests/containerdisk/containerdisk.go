@@ -55,6 +55,10 @@ func ContainerDiskFor(name ContainerDisk) string {
 	return ContainerDiskFromRegistryFor(flags.KubeVirtUtilityRepoPrefix, name)
 }
 
+func ContainerDiskForArch(name ContainerDisk, guestArch string) string {
+	return fmt.Sprintf("%s-%s", ContainerDiskFor(name), guestArch)
+}
+
 func DataVolumeImportUrlForContainerDisk(name ContainerDisk) string {
 	return DataVolumeImportUrlFromRegistryForContainerDisk(flags.KubeVirtUtilityRepoPrefix, name)
 }
