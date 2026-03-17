@@ -1045,7 +1045,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 			compute.BalloonWithVirtioModel(virtioModel),
 		),
-		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
+		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests, c.AllowCrossArchEmulation),
 		compute.SoundDomainConfigurator{},
 		compute.NewHostDeviceDomainConfigurator(
 			c.GenericHostDevices,
@@ -1067,7 +1067,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithControllerDriver(controllerDriver),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
-		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
+		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation(), c.AllowCrossArchEmulation),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
 		compute.MemoryConfigurator{},
 	}
@@ -1076,7 +1076,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	case v1.HyperVDirectHypervisorName:
 		configurators = append(configurators, mshv.NewMshvDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
 	default:
-		configurators = append(configurators, kvm.NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
+		if c.AllowCrossArchEmulation {
+			configurators = append(configurators, kvm.NewKvmDomainConfiguratorWithCrossArch(c.AllowEmulation, c.HypervisorDeviceAvailable, c.AllowCrossArchEmulation, c.HostArchitecture))
+		} else {
+			configurators = append(configurators, kvm.NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
+		}
 	}
 
 	builder := convertertypes.NewDomainBuilder(configurators...)
