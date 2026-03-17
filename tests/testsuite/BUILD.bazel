@@ -14,7 +14,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
-        "//pkg/hypervisor:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
@@ -30,6 +29,7 @@ go_library(
         "//tests/framework/cleanup:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libhypervisor:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libnamespace:go_default_library",
         "//tests/libnode:go_default_library",
