@@ -119,6 +119,8 @@ var (
 	RequiresS390X = Label("requires-s390x")
 	RequiresARM64 = Label("requires-arm64")
 
+	RequiresCrossArchEmulation = Label("requires-cross-arch-emulation")
+
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
 
