@@ -68,4 +68,6 @@ type ConverterContext struct {
 	PCINUMAAwareTopologyEnabled     bool
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
+	AllowCrossArchEmulation         bool
+	HostArchitecture                string
 }
