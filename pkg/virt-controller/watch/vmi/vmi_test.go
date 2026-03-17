@@ -54,12 +54,15 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	velero "kubevirt.io/kubevirt/pkg/storage/velero"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -215,6 +218,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		storageClassStore = storageClassInformer.GetStore()
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		kubeVirtInformer, _ := testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
 		rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
@@ -238,9 +242,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			storageProfileInformer,
 			cdiInformer,
 			cdiConfigInformer,
+			kubeVirtInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 			stubNetworkAnnotationsGenerator{},
+			stubStorageAnnotationsGenerator{},
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
 			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
@@ -2326,6 +2332,104 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				),
 			)
+		})
+
+		Context("Velero backup hook annotations", func() {
+			It("should remove Velero annotations when skip annotation is added to VMI", func() {
+				controller.storageAnnotationsGenerator = storageannotations.NewGenerator(config)
+
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				// Start without skip annotation so Velero annotations are generated
+				delete(vmi.Annotations, velero.SkipHooksAnnotation)
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				// Start with Velero annotations on pod
+				pod.Annotations[velero.PreBackupHookContainerAnnotation] = "compute"
+				pod.Annotations[velero.PreBackupHookCommandAnnotation] = `["/usr/bin/virt-freezer", "--freeze", "--name", "testvmi", "--namespace", "default"]`
+				pod.Annotations[velero.PreBackupHookTimeoutAnnotation] = "60s"
+				pod.Annotations[velero.PostBackupHookContainerAnnotation] = "compute"
+				pod.Annotations[velero.PostBackupHookCommandAnnotation] = `["/usr/bin/virt-freezer", "--unfreeze", "--name", "testvmi", "--namespace", "default"]`
+				addVirtualMachine(vmi)
+				addActivePods(vmi, pod.UID, "")
+				addPod(pod)
+
+				// Add skip annotation to VMI
+				vmi.Annotations[velero.SkipHooksAnnotation] = "true"
+				controller.vmiIndexer.Update(vmi)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Annotations).ToNot(HaveKey(velero.PreBackupHookContainerAnnotation))
+				Expect(updatedPod.Annotations).ToNot(HaveKey(velero.PreBackupHookCommandAnnotation))
+				Expect(updatedPod.Annotations).ToNot(HaveKey(velero.PreBackupHookTimeoutAnnotation))
+				Expect(updatedPod.Annotations).ToNot(HaveKey(velero.PostBackupHookContainerAnnotation))
+				Expect(updatedPod.Annotations).ToNot(HaveKey(velero.PostBackupHookCommandAnnotation))
+				// Other annotations should remain
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue("kubevirt.io/domain", "testvmi"))
+			})
+
+			It("should add Velero annotations when skip annotation is removed from VMI", func() {
+				controller.storageAnnotationsGenerator = storageannotations.NewGenerator(config)
+
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Annotations[velero.SkipHooksAnnotation] = "true"
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+				addVirtualMachine(vmi)
+				addActivePods(vmi, pod.UID, "")
+				addPod(pod)
+
+				// Remove skip annotation from VMI
+				delete(vmi.Annotations, velero.SkipHooksAnnotation)
+				controller.vmiIndexer.Update(vmi)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue(velero.PreBackupHookContainerAnnotation, "compute"))
+				Expect(updatedPod.Annotations).To(HaveKey(velero.PreBackupHookCommandAnnotation))
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue(velero.PreBackupHookTimeoutAnnotation, "60s"))
+				Expect(updatedPod.Annotations).To(HaveKeyWithValue(velero.PostBackupHookContainerAnnotation, "compute"))
+				Expect(updatedPod.Annotations).To(HaveKey(velero.PostBackupHookCommandAnnotation))
+			})
+
+			It("should not patch pod when Velero annotations are already in sync", func() {
+				controller.storageAnnotationsGenerator = storageannotations.NewGenerator(config)
+
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				// Remove skip annotation so Velero annotations are generated
+				delete(vmi.Annotations, velero.SkipHooksAnnotation)
+
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				// Pod already has the expected Velero annotations
+				pod.Annotations[velero.PreBackupHookContainerAnnotation] = "compute"
+				pod.Annotations[velero.PreBackupHookCommandAnnotation] = `["/usr/bin/virt-freezer", "--freeze", "--name", "testvmi", "--namespace", "default"]`
+				pod.Annotations[velero.PreBackupHookTimeoutAnnotation] = "60s"
+				pod.Annotations[velero.PostBackupHookContainerAnnotation] = "compute"
+				pod.Annotations[velero.PostBackupHookCommandAnnotation] = `["/usr/bin/virt-freezer", "--unfreeze", "--name", "testvmi", "--namespace", "default"]`
+
+				addVirtualMachine(vmi)
+				addActivePods(vmi, pod.UID, "")
+				addPod(pod)
+
+				sanityExecute()
+
+				// Verify no patch action occurred
+				patchActions := 0
+				for _, action := range kubeClient.Actions() {
+					if action.GetVerb() == "patch" {
+						patchActions++
+					}
+				}
+				Expect(patchActions).To(Equal(0), "Expected no patch actions but found %d", patchActions)
+			})
 		})
 
 		Context("Descheduler annotations", func() {
@@ -4512,6 +4616,19 @@ type stubNetworkAnnotationsGenerator struct {
 
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
 	return s.annotations
+}
+
+type stubStorageAnnotationsGenerator struct {
+	annotations map[string]string
+	keys        []string
+}
+
+func (s stubStorageAnnotationsGenerator) Generate(_ *virtv1.VirtualMachineInstance) (map[string]string, error) {
+	return s.annotations, nil
+}
+
+func (s stubStorageAnnotationsGenerator) ManagedAnnotationKeys() []string {
+	return s.keys
 }
 
 func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
