@@ -137,6 +137,12 @@ func WithTDXSelector() NodeSelectorRendererOption {
 	}
 }
 
+func WithoutNativeArchSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		delete(renderer.podNodeSelectors, k8sv1.LabelArchStable)
+	}
+}
+
 func WithDedicatedCPU() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.hasDedicatedCPU = true
