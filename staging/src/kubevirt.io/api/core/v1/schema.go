@@ -370,6 +370,8 @@ type CPU struct {
 	Model string `json:"model,omitempty"`
 	// Features specifies the CPU features list inside the VMI.
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Features []CPUFeature `json:"features,omitempty"`
 	// DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node
 	// with enough dedicated pCPUs and pin the vCPUs to it.
