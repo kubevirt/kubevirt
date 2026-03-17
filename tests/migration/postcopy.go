@@ -219,7 +219,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				Expect(err).ToNot(HaveOccurred())
 
 				By("updating the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation")
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(5))
 				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
 				applyKubevirtCR()
 
@@ -229,7 +229,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, "350M")
+				runStressTest(vmi, "1G")
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)

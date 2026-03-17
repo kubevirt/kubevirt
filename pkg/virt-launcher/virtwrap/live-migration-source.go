@@ -1119,9 +1119,6 @@ func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shou
 	if options == nil {
 		return
 	}
-	if options.AllowPostCopy {
-		return
-	}
 	if options.ParallelMigrationThreads == nil {
 		return
 	}
