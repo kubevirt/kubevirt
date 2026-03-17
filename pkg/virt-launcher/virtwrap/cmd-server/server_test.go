@@ -68,7 +68,7 @@ var _ = Describe("Virt remote commands", func() {
 		socketPath := filepath.Join(shareDir, "server.sock")
 
 		allowEmulation = true
-		options = NewServerOptions(allowEmulation)
+		options = NewServerOptions(allowEmulation, false)
 		RunServer(socketPath, domainManager, stop, options)
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
