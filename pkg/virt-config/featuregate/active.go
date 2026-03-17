@@ -262,6 +262,16 @@ const (
 	//
 	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
 	MigrationStallDetection = "MigrationStallDetection"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.9.0
+	//
+	// CrossArchitectureVirtualization enables cross-architecture VM execution.
+	// When enabled, VMs can run on nodes with a different CPU architecture than
+	// the guest (e.g., ARM64 guests on AMD64 hosts) via software emulation or
+	// hardware-accelerated virtualization. Independent of useEmulation.
+	// See VEP #172.
+	CrossArchitectureVirtualization = "CrossArchitectureVirtualization"
 )
 
 func init() {
@@ -310,4 +320,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 }
