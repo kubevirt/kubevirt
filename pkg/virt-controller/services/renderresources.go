@@ -510,6 +510,7 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
+		//TODO @alayp: add proper validation for DRA GPUs in beta
 		for _, hostDev := range spec.Domain.Devices.GPUs {
 			if config.GPUsWithDRAGateEnabled() && hostDev.DeviceName == "" {
 				// DRA GPUs do not use permittedHostDevices configuration
