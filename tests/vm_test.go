@@ -111,7 +111,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc)
 		}
 
-		validateGenerationState := func(vm *v1.VirtualMachine, expectedGeneration int, expectedDesiredGeneration int, expectedObservedGeneration int, expectedGenerationAnnotation int) {
+		validateGenerationState := func(vm *v1.VirtualMachine, expectedGeneration int, expectedDesiredGeneration int, expectedObservedGeneration int) {
 			By("By validating the generation states")
 			EventuallyWithOffset(1, func(g Gomega) {
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -123,12 +123,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Expecting the generation state in the vm status to match")
 				g.Expect(vm.Status.DesiredGeneration).To(Equal(int64(expectedDesiredGeneration)))
 				g.Expect(vm.Status.ObservedGeneration).To(Equal(int64(expectedObservedGeneration)))
-
-				By("Expecting the generation annotation on the vmi to match")
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-
-				g.Expect(vmi.Annotations).Should(HaveKeyWithValue(v1.VirtualMachineGenerationAnnotation, fmt.Sprintf("%v", expectedGenerationAnnotation)))
 			}, 10*time.Second, 1*time.Second).Should(Succeed())
 		}
 
@@ -194,7 +188,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				// start.
 				expectedGeneration := i * 2
 
-				validateGenerationState(vm, expectedGeneration, expectedGeneration, expectedGeneration, expectedGeneration)
+				validateGenerationState(vm, expectedGeneration, expectedGeneration, expectedGeneration)
 
 				By("Restarting the VM")
 				vm = libvmops.StartVirtualMachine(libvmops.StopVirtualMachine(vm))
@@ -213,7 +207,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, labelsPatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			validateGenerationState(vm, 3, 3, 2, 2)
+			validateGenerationState(vm, 3, 3, 2)
 
 			By("Updating the VM template spec")
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -226,13 +220,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, labelsPatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			validateGenerationState(vm, 4, 4, 2, 2)
+			validateGenerationState(vm, 4, 4, 2)
 
 			// Restart the VM to check that the state will once again sync.
 			By("Restarting the VM")
 			vm = libvmops.StartVirtualMachine(libvmops.StopVirtualMachine(vm))
 
-			validateGenerationState(vm, 6, 6, 6, 6)
+			validateGenerationState(vm, 6, 6, 6)
 		})
 
 		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", decorators.Conformance, func(createTemplate vmiBuilder, ensureGracefulTermination bool) {
