@@ -177,9 +177,9 @@ var _ = Describe("Controller", func() {
 			vmi := &v1.VirtualMachineInstance{
 				Status: v1.VirtualMachineInstanceStatus{
 					MigrationState: &v1.VirtualMachineInstanceMigrationState{
-						SourceNode:         "other-node",
-						TargetNodeAddress:  "10.0.0.1",
-						Completed:          false,
+						SourceNode:        "other-node",
+						TargetNodeAddress: "10.0.0.1",
+						Completed:         false,
 					},
 				},
 			}

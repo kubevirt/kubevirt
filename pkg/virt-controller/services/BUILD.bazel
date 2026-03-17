@@ -66,6 +66,7 @@ go_test(
         "rendercontainer_test.go",
         "renderresources_test.go",
         "rendervolumes_test.go",
+        "serialconsolelog_test.go",
         "services_suite_test.go",
         "template_test.go",
         "virtiofs_test.go",
