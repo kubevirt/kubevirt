@@ -193,8 +193,11 @@ builder-build:
 builder-publish:
 	./hack/builder/publish.sh
 
-builder-build-cs10:
-	./hack/builder/build-cs10.sh
+builder-build-centos-stream-10:
+	./hack/builder/build-centos-stream-10.sh
+
+builder-publish-centos-stream-10:
+	./hack/builder/publish-centos-stream-10.sh
 
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
