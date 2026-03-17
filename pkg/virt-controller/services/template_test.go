@@ -262,6 +262,40 @@ var _ = Describe("Template", func() {
 				Expect(containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
 				Expect(containers[0].Command).To(ContainElements(allowEmulationOption))
 			})
+
+			It("should add the allow-cross-arch-emulation option when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"MultiArchitectureSoftwareEmulation"}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Command).To(ContainElements("--allow-cross-arch-emulation"))
+			})
+
+			It("should not add the allow-cross-arch-emulation option by default", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Command).NotTo(ContainElements("--allow-cross-arch-emulation"))
+			})
+
+			It("should not set kubernetes.io/arch node selector when MultiArchitectureSoftwareEmulation is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"MultiArchitectureSoftwareEmulation"}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithArchitecture("arm64"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.NodeSelector).NotTo(HaveKey(k8sv1.LabelArchStable))
+			})
 		})
 
 		It("should not set seccomp profile by default", func() {

@@ -431,6 +431,10 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--allow-emulation")
 	}
 
+	if t.clusterConfig.MultiArchitectureSoftwareEmulationEnabled() {
+		command = append(command, "--allow-cross-arch-emulation")
+	}
+
 	if checkForKeepLauncherAfterFailure(vmi) {
 		command = append(command, "--keep-after-failure")
 	}
@@ -733,6 +737,8 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithMachineType(machineType))
 	}
 
+	crossArchEmulation := t.clusterConfig.MultiArchitectureSoftwareEmulationEnabled()
+
 	if topology.IsManualTSCFrequencyRequired(vmi) {
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
@@ -765,10 +771,15 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTDXSelector())
 	}
 
+	architecture := vmi.Spec.Architecture
+	if crossArchEmulation {
+		architecture = ""
+	}
+
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
-		vmi.Spec.Architecture,
+		architecture,
 		opts...,
 	)
 }
