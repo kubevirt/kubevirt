@@ -98,7 +98,11 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 	} else {
 		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
 		// and we are sure that all VMIs include the MemoryOverhead status field
-		memlockSize = k.GetMemoryOverhead(vmi, runtime.GOARCH, config.AdditionalGuestMemoryOverheadRatio)
+		cpuArch := runtime.GOARCH
+		if vmi.Spec.Architecture != "" {
+			cpuArch = vmi.Spec.Architecture
+		}
+		memlockSize = k.GetMemoryOverhead(vmi, cpuArch, config.AdditionalGuestMemoryOverheadRatio)
 	}
 	// Add memory assigned to the VM
 	vmiBaseMemory := getVMIBaseMemory(vmi)
