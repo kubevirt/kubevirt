@@ -37,17 +37,26 @@ const (
 type GraphicsDomainConfigurator struct {
 	architecture         string
 	useBochsForEFIGuests bool
+	crossArchEmulation   bool
 }
 
-func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests bool) GraphicsDomainConfigurator {
+func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests, crossArchEmulation bool) GraphicsDomainConfigurator {
 	return GraphicsDomainConfigurator{
 		architecture:         architecture,
 		useBochsForEFIGuests: useBochsForEFIGuests,
+		crossArchEmulation:   crossArchEmulation,
 	}
 }
 
 func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
+		return nil
+	}
+
+	// Cross-architecture emulation uses a minimal QEMU binary that may not
+	// include video device support (e.g. virtio-gpu). Disable graphics to
+	// avoid libvirt validation errors; serial console remains available.
+	if g.crossArchEmulation {
 		return nil
 	}
 

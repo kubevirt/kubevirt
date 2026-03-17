@@ -41,7 +41,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			func(vmi *v1.VirtualMachineInstance, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation)
+				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
@@ -82,7 +82,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			func(vmi *v1.VirtualMachineInstance, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation)
+				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
@@ -127,7 +127,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation)
+			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -151,7 +151,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			func(vmi *v1.VirtualMachineInstance, requiresMPX bool, expectedDomain api.Domain) {
 				var domain api.Domain
 
-				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, requiresMPX)
+				configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, requiresMPX, false)
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(expectedDomain))
@@ -212,7 +212,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation)
+			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -235,7 +235,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation)
+			configurator := compute.NewCPUDomainConfigurator(!hotplugSupported, !requiresMPXCPUValidation, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -249,7 +249,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			vmi := libvmi.New(libvmi.WithCPUCount(1, 1, 2))
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation)
+			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
@@ -266,7 +266,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 			)
 			var domain api.Domain
 
-			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation)
+			configurator := compute.NewCPUDomainConfigurator(hotplugSupported, !requiresMPXCPUValidation, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{Spec: api.DomainSpec{
