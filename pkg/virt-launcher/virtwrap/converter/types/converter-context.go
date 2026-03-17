@@ -71,4 +71,6 @@ type ConverterContext struct {
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
 	IOMMUFDEnabled                  bool
+	AllowCrossArchEmulation         bool
+	HostArchitecture                string
 }

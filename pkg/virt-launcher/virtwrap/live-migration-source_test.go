@@ -104,6 +104,7 @@ var _ = Describe("Live migration source", func() {
 			nil,
 			"", false,
 			false, // firmware auto-selection
+			false,
 		)
 		libvirtDomainManager = manager.(*LibvirtDomainManager)
 		libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
@@ -195,6 +196,7 @@ var _ = Describe("Live migration source", func() {
 				nil,
 				"", false,
 				false, // firmware auto-selection
+				false,
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
