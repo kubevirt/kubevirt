@@ -228,6 +228,15 @@ const (
 	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.9.0
+	//
+	// MultiArchitectureSoftwareEmulation enables cross-architecture VM emulation
+	// using QEMU's TCG emulator. When enabled alongside useEmulation, VMs can run
+	// on nodes with a different CPU architecture than the guest (e.g., ARM64 guests
+	// on AMD64 hosts). See VEP #172.
+	MultiArchitectureSoftwareEmulation = "MultiArchitectureSoftwareEmulation"
 )
 
 func init() {
@@ -273,4 +282,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MultiArchitectureSoftwareEmulation, State: Alpha})
 }
