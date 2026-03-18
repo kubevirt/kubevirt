@@ -141,7 +141,11 @@
               "pageSize": "pageSizeValue"
             },
             "guest": "0",
-            "maxGuest": "0"
+            "maxGuest": "0",
+            "reservedOverhead": {
+              "addedOverhead": "0",
+              "memLock": "memLockValue"
+            }
           },
           "machine": {
             "type": "typeValue"
@@ -251,7 +255,13 @@
                 "enabled": true
               },
               "tlbflush": {
-                "enabled": true
+                "enabled": true,
+                "direct": {
+                  "enabled": true
+                },
+                "extended": {
+                  "enabled": true
+                }
               },
               "ipi": {
                 "enabled": true
@@ -331,6 +341,7 @@
                 "sriov": {},
                 "macvtap": {},
                 "passt": {},
+                "passtBinding": {},
                 "binding": {
                   "name": "nameValue"
                 },
@@ -452,7 +463,8 @@
             },
             "snp": {},
             "tdx": {}
-          }
+          },
+          "rebootPolicy": "rebootPolicyValue"
         },
         "nodeSelector": {
           "nodeSelectorKey": "nodeSelectorValue"
@@ -829,6 +841,10 @@
               "claimName": "claimNameValue",
               "readOnly": true,
               "hotpluggable": true
+            },
+            "containerPath": {
+              "path": "pathValue",
+              "readOnly": true
             }
           }
         ],
@@ -957,6 +973,14 @@
             "resourceClaimName": "resourceClaimNameValue",
             "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
           }
+        ],
+        "utilityVolumes": [
+          {
+            "name": "nameValue",
+            "claimName": "claimNameValue",
+            "readOnly": true,
+            "type": "typeValue"
+          }
         ]
       }
     },
@@ -1046,7 +1070,8 @@
               "url": "urlValue",
               "diskId": "diskIdValue",
               "secretRef": "secretRefValue",
-              "certConfigMap": "certConfigMapValue"
+              "certConfigMap": "certConfigMapValue",
+              "insecureSkipVerify": true
             },
             "vddk": {
               "url": "urlValue",
@@ -1319,7 +1344,24 @@
       }
     },
     "changedBlockTracking": {
-      "state": "stateValue"
+      "state": "stateValue",
+      "backupStatus": {
+        "backupName": "backupNameValue",
+        "startTimestamp": "1986-01-01T01:01:01Z",
+        "endTimestamp": "1988-01-01T01:01:01Z",
+        "completed": true,
+        "failed": true,
+        "backupMsg": "backupMsgValue",
+        "checkpointName": "checkpointNameValue",
+        "volumes": [
+          {
+            "volumeName": "volumeNameValue",
+            "diskTarget": "diskTargetValue",
+            "dataEndpoint": "dataEndpointValue",
+            "mapEndpoint": "mapEndpointValue"
+          }
+        ]
+      }
     },
     "instancetypeRef": {
       "name": "nameValue",

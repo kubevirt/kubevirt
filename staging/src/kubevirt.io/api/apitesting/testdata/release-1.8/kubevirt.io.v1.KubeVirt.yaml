@@ -113,6 +113,8 @@ spec:
     developerConfiguration:
       clusterProfiler: true
       cpuAllocationRatio: -18
+      disabledFeatureGates:
+      - disabledFeatureGatesValue
       diskVerification:
         memoryLimit: "0"
       featureGates:
@@ -142,6 +144,8 @@ spec:
           tokenBucketRateLimiter:
             burst: -5
             qps: -3
+    hypervisors:
+    - name: nameValue
     imagePullPolicy: imagePullPolicyValue
     instancetype:
       referencePolicy: referencePolicyValue
@@ -160,6 +164,7 @@ spec:
       maxHotplugRatio: 4294967281
     machineType: machineTypeValue
     mediatedDevicesConfiguration:
+      enabled: true
       mediatedDeviceTypes:
       - mediatedDeviceTypesValue
       mediatedDevicesTypes:
@@ -186,6 +191,7 @@ spec:
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
       unsafeMigrationOverride: true
+      utilityVolumesTimeout: -21
     minCPUModel: minCPUModelValue
     network:
       binding:
@@ -222,6 +228,7 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    roleAggregationStrategy: roleAggregationStrategyValue
     seccompConfiguration:
       virtualMachineInstanceProfile:
         customProfile:
@@ -247,6 +254,8 @@ spec:
       ciphers:
       - ciphersValue
       minTLSVersion: minTLSVersionValue
+    virtTemplateDeployment:
+      enabled: true
     virtualMachineInstancesPerNode: -30
     virtualMachineOptions:
       disableFreePageReporting: {}
