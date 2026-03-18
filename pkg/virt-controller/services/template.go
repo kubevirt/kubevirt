@@ -160,6 +160,34 @@ func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
 }
 
+func setPreferredArchitectureAffinity(architecture string, pod *k8sv1.Pod) {
+	if architecture == "" {
+		return
+	}
+	preferredTerm := k8sv1.PreferredSchedulingTerm{
+		Weight: 100,
+		Preference: k8sv1.NodeSelectorTerm{
+			MatchExpressions: []k8sv1.NodeSelectorRequirement{
+				{
+					Key:      k8sv1.LabelArchStable,
+					Operator: k8sv1.NodeSelectorOpIn,
+					Values:   []string{strings.ToLower(architecture)},
+				},
+			},
+		},
+	}
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		preferredTerm,
+	)
+}
+
 func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
 		pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.NodeHostModelIsObsoleteLabel)
@@ -691,6 +719,10 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	setNodeAffinityForPod(vmi, &pod)
+
+	if t.clusterConfig.MultiArchitectureSoftwareEmulationEnabled() {
+		setPreferredArchitectureAffinity(vmi.Spec.Architecture, &pod)
+	}
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
