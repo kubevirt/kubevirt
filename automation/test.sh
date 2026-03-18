@@ -119,6 +119,8 @@ case "$TARGET" in
     ;;
   *sig-compute*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+    export KUBEVIRT_PROFILE_ETCD=true
+    export KUBEVIRT_COLLECT_LOGS=true
     ;;
   *sig-operator*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
