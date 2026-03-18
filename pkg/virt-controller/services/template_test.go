@@ -284,7 +284,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Command).NotTo(ContainElements("--allow-cross-arch-emulation"))
 			})
 
-			It("should not set kubernetes.io/arch node selector when CrossArchitectureVirtualization is enabled", func() {
+			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when CrossArchitectureVirtualization is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
@@ -295,6 +295,20 @@ var _ = Describe("Template", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(pod.Spec.NodeSelector).NotTo(HaveKey(k8sv1.LabelArchStable))
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubevirt.io/vm-arch-arm64", "true"))
+
+				Expect(pod.Spec.Affinity).NotTo(BeNil())
+				Expect(pod.Spec.Affinity.NodeAffinity).NotTo(BeNil())
+				preferred := pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+				Expect(preferred).To(HaveLen(1))
+				Expect(preferred[0].Weight).To(Equal(int32(100)))
+				Expect(preferred[0].Preference.MatchExpressions).To(ConsistOf(
+					k8sv1.NodeSelectorRequirement{
+						Key:      k8sv1.LabelArchStable,
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"arm64"},
+					},
+				))
 			})
 		})
 
