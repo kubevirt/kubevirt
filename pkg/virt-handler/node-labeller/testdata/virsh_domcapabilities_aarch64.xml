@@ -1,0 +1,14 @@
+<domainCapabilities>
+    <path>/usr/bin/qemu-system-aarch64</path>
+    <domain>qemu</domain>
+    <machine>virt-9.2</machine>
+    <arch>aarch64</arch>
+    <cpu>
+        <mode name='host-passthrough' supported='no'/>
+        <mode name='host-model' supported='no'/>
+        <mode name='custom' supported='yes'>
+            <model usable='yes'>cortex-a57</model>
+            <model usable='yes'>cortex-a53</model>
+        </mode>
+    </cpu>
+</domainCapabilities>
