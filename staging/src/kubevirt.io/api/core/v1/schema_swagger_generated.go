@@ -4,11 +4,12 @@ package v1
 
 func (HostDisk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Represents a disk created on the cluster level",
-		"path":     "The path to HostDisk image located on the cluster",
-		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
-		"capacity": "Capacity of the sparse disk\n+optional",
-		"shared":   "Shared indicate whether the path is shared between nodes",
+		"":          "Represents a disk created on the cluster level",
+		"path":      "The path to HostDisk image located on the cluster",
+		"type":      "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
+		"capacity":  "Capacity of the sparse disk\n+optional",
+		"shared":    "Shared indicate whether the path is shared between nodes",
+		"claimName": "ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.\nThis is used when the HostDisk is dynamically provisioned or managed by a PVC.\n+optional",
 	}
 }
 

@@ -85,6 +85,11 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 	// Shared indicate whether the path is shared between nodes
 	Shared *bool `json:"shared,omitempty"`
+
+	// ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.
+	// This is used when the HostDisk is dynamically provisioned or managed by a PVC.
+	// +optional
+	ClaimName string `json:"claimName,omitempty"`
 }
 
 // ConfigMapVolumeSource adapts a ConfigMap into a volume.

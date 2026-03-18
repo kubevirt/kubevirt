@@ -25,6 +25,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("PVC type test", func() {
@@ -97,5 +99,53 @@ var _ = Describe("PVC type test", func() {
 			Expect(isBlock).To(BeTrue(), "Is blockdevice PVC")
 		})
 	})
+
+	DescribeTable("PVCNameFromVirtVolume", func(volume virtv1.Volume, expectedPVCName string) {
+		pvcName := PVCNameFromVirtVolume(&volume)
+		Expect(pvcName).To(Equal(expectedPVCName))
+	},
+		Entry("should get PVC name from DataVolume", virtv1.Volume{
+			VolumeSource: virtv1.VolumeSource{
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: "dv-name",
+				},
+			},
+		}, "dv-name"),
+		Entry("should get PVC name from PersistentVolumeClaim", virtv1.Volume{
+			VolumeSource: virtv1.VolumeSource{
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "pvc-name",
+					},
+				},
+			},
+		}, "pvc-name"),
+		Entry("should get PVC name from MemoryDump", virtv1.Volume{
+			VolumeSource: virtv1.VolumeSource{
+				MemoryDump: &virtv1.MemoryDumpVolumeSource{
+					PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "memory-dump-claim",
+						},
+					},
+				},
+			},
+		}, "memory-dump-claim"),
+		Entry("should get PVC name from HostDisk", virtv1.Volume{
+			VolumeSource: virtv1.VolumeSource{
+				HostDisk: &virtv1.HostDisk{
+					ClaimName: "host-disk-claim",
+				},
+			},
+		}, "host-disk-claim"),
+		Entry("should return empty string when HostDisk has no ClaimName", virtv1.Volume{
+			VolumeSource: virtv1.VolumeSource{
+				HostDisk: &virtv1.HostDisk{},
+			},
+		}, ""),
+		Entry("should return empty string if no PVC source is present", virtv1.Volume{
+			VolumeSource: virtv1.VolumeSource{},
+		}, ""),
+	)
 
 })

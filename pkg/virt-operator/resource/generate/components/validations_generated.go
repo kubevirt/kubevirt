@@ -8348,6 +8348,11 @@ var CRDsValidation map[string]string = map[string]string{
                             description: Capacity of the sparse disk
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
+                          claimName:
+                            description: |-
+                              ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.
+                              This is used when the HostDisk is dynamically provisioned or managed by a PVC.
+                            type: string
                           path:
                             description: The path to HostDisk image located on the
                               cluster
@@ -14400,6 +14405,11 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Capacity of the sparse disk
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                  claimName:
+                    description: |-
+                      ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.
+                      This is used when the HostDisk is dynamically provisioned or managed by a PVC.
+                    type: string
                   path:
                     description: The path to HostDisk image located on the cluster
                     type: string
@@ -20835,6 +20845,11 @@ var CRDsValidation map[string]string = map[string]string{
                             description: Capacity of the sparse disk
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
+                          claimName:
+                            description: |-
+                              ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.
+                              This is used when the HostDisk is dynamically provisioned or managed by a PVC.
+                            type: string
                           path:
                             description: The path to HostDisk image located on the
                               cluster
@@ -25959,6 +25974,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: Capacity of the sparse disk
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
+                                  claimName:
+                                    description: |-
+                                      ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.
+                                      This is used when the HostDisk is dynamically provisioned or managed by a PVC.
+                                    type: string
                                   path:
                                     description: The path to HostDisk image located
                                       on the cluster
@@ -31543,6 +31563,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: Capacity of the sparse disk
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
+                                      claimName:
+                                        description: |-
+                                          ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk.
+                                          This is used when the HostDisk is dynamically provisioned or managed by a PVC.
+                                        type: string
                                       path:
                                         description: The path to HostDisk image located
                                           on the cluster

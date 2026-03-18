@@ -116,6 +116,8 @@ func PVCNameFromVirtVolume(volume *virtv1.Volume) string {
 		return volume.PersistentVolumeClaim.ClaimName
 	} else if volume.MemoryDump != nil {
 		return volume.MemoryDump.ClaimName
+	} else if volume.HostDisk != nil {
+		return volume.HostDisk.ClaimName
 	}
 
 	return ""

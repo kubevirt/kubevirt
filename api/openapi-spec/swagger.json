@@ -15371,6 +15371,10 @@
       "description": "Capacity of the sparse disk",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
+     "claimName": {
+      "description": "ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk. This is used when the HostDisk is dynamically provisioned or managed by a PVC.",
+      "type": "string"
+     },
      "path": {
       "description": "The path to HostDisk image located on the cluster",
       "type": "string",
