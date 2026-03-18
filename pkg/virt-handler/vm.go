@@ -1520,6 +1520,15 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	c.downwardMetricsManager.StopServer(vmi)
 
+	// Close the launcher client and delete the ghost record unconditionally,
+	// regardless of whether subsequent cleanup steps succeed. The ghost record
+	// is checkpointed to disk and survives virt-handler restarts. If it is not
+	// deleted here, any future VMI with the same namespace/name will fail in
+	// GetLauncherClient when GhostRecordGlobalStore.Add rejects the new UID
+	// because an entry with a differing UID already exists, permanently
+	// blocking the new VMI from starting.
+	defer c.launcherClients.CloseLauncherClient(vmi)
+
 	// Unmount container disks and clean up remaining files
 	if err := c.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
@@ -1535,9 +1544,6 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	c.teardownNetwork(vmi)
 
 	c.sriovHotplugExecutorPool.Delete(vmi.UID)
-
-	// Watch dog file and command client must be the last things removed here
-	c.launcherClients.CloseLauncherClient(vmi)
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
