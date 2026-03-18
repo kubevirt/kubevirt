@@ -26,12 +26,14 @@ import (
 
 	"libvirt.org/go/libvirtxml"
 
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 )
 
-func UpgradeOrdinalNamingScheme(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+func UpgradeOrdinalNamingScheme(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	ordinalPattern := regexp.MustCompile(`^tap\d+$`)
 
 	hashedPodNamingScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)

@@ -51,7 +51,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 
 	It("should do nothing if there aren't any interfaces", func() {
 		domain := newDomainWithInterfaces(nil)
-		Expect(network.UpgradeOrdinalNamingScheme(libvmi.New(), &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(nil, libvmi.New(), &domain)).To(Succeed())
 		Expect(domain).To(Equal(newDomainWithInterfaces(nil)))
 	})
 
@@ -68,7 +68,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 		expectedIfaces := slices.Clone(existingIfaces)
 
 		domain := newDomainWithInterfaces(existingIfaces)
-		Expect(network.UpgradeOrdinalNamingScheme(vmi, &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(nil, vmi, &domain)).To(Succeed())
 
 		expectedDomain := newDomainWithInterfaces(expectedIfaces)
 		Expect(domain).To(Equal(expectedDomain))
@@ -93,7 +93,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 		expectedIfaces := slices.Clone(existingIfaces)
 
 		domain := newDomainWithInterfaces(existingIfaces)
-		Expect(network.UpgradeOrdinalNamingScheme(vmi, &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(nil, vmi, &domain)).To(Succeed())
 
 		expectedDomain := newDomainWithInterfaces(expectedIfaces)
 		Expect(domain).To(Equal(expectedDomain))
@@ -116,7 +116,7 @@ var _ = Describe("UpgradeOrdinalNamingScheme", func() {
 		}
 
 		domain := newDomainWithInterfaces(existingIfaces)
-		Expect(network.UpgradeOrdinalNamingScheme(vmi, &domain)).To(Succeed())
+		Expect(network.UpgradeOrdinalNamingScheme(nil, vmi, &domain)).To(Succeed())
 
 		expectedIfaces := []libvirtxml.DomainInterface{
 			newIface(primaryNetworkName, primaryTapName),

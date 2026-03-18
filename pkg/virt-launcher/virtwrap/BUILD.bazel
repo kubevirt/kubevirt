@@ -109,6 +109,7 @@ go_test(
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
