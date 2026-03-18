@@ -3767,7 +3767,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		DescribeTable("should accept supported video models per architecture", func(arch, videoType string) {
 			vmi.Spec.Domain.Devices.Video.Type = videoType
 			vmi.Spec.Architecture = arch
-			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty(), fmt.Sprintf("expected video type %s to be valid on arch %s", videoType, arch))
 		},
 			Entry("amd64 allows vga", "amd64", "vga"),
@@ -3785,7 +3785,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		DescribeTable("should reject unsupported video models per architecture", func(arch, videoType string) {
 			vmi.Spec.Domain.Devices.Video.Type = videoType
 			vmi.Spec.Architecture = arch
-			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).ToNot(BeEmpty(), fmt.Sprintf("expected video type %s to be invalid on arch %s", videoType, arch))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.video.type"))
 		},
@@ -3814,6 +3814,27 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("s390x rejects none", "s390x", "none"),
 			Entry("s390x rejects invalid model", "s390x", "invalidmodel"),
 		)
+	})
+
+	Context("with architecture validation", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+		})
+
+		It("should accept when architecture is empty (defaulted)", func() {
+			vmi.Spec.Architecture = ""
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept empty architecture when it can be defaulted")
+		})
+
+		It("should fail when architecture is unsupported", func() {
+			vmi.Spec.Architecture = "invalidarch"
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.architecture"))
+			Expect(causes[0].Message).To(ContainSubstring("unsupported architecture: invalidarch"))
+		})
 	})
 
 	Context("with RebootPolicy", func() {
