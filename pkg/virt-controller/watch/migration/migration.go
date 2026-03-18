@@ -97,6 +97,7 @@ const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 // period of time, so we want to make this timeout long enough that it doesn't
 // cause the migration to fail when it could have reasonably succeeded.
 const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
+const maxBackendStorageHandoffAttempts = 5
 
 // This controller is driven by a priority queue, so that proper attention is
 // given to active migrations. When a pending migration gets re-enqueued for
@@ -509,6 +510,40 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 	return true, nil
 }
 
+// clearVMIMigrationTargetState patches the VMI to mark the ongoing migration as
+// failed/completed and zeroes out the target-specific fields in MigrationState.
+func (c *Controller) clearVMIMigrationTargetState(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
+	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed {
+		return nil
+	}
+
+	vmiCopy := vmi.DeepCopy()
+	now := v1.Now()
+
+	if vmiCopy.Status.MigrationState.StartTimestamp == nil {
+		vmiCopy.Status.MigrationState.StartTimestamp = &now
+	}
+	vmiCopy.Status.MigrationState.EndTimestamp = &now
+	vmiCopy.Status.MigrationState.Failed = true
+	vmiCopy.Status.MigrationState.Completed = true
+	if vmiCopy.Status.MigrationState.FailureReason == "" {
+		vmiCopy.Status.MigrationState.FailureReason = "Backend storage PVC handoff failed after maximum retries"
+	}
+
+	vmiCopy.Status.MigrationState.TargetNode = ""
+	vmiCopy.Status.MigrationState.TargetNodeAddress = ""
+	vmiCopy.Status.MigrationState.TargetPod = ""
+	vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = nil
+	vmiCopy.Status.MigrationState.TargetNodeDomainDetected = false
+	vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = nil
+	vmiCopy.Status.MigrationState.TargetAttachmentPodUID = ""
+	vmiCopy.Status.MigrationState.TargetCPUSet = nil
+	vmiCopy.Status.MigrationState.TargetNodeTopology = ""
+	vmiCopy.Status.MigrationState.TargetMemoryOverhead = nil
+
+	return c.patchVMI(vmi, vmiCopy)
+}
+
 func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigration) error {
 	err := backendstorage.MigrationAbort(c.clientset, migration)
 	if err != nil {
@@ -829,8 +864,50 @@ func (c *Controller) processMigrationPhase(
 				if backendstorage.IsBackendStorageNeeded(vmi) {
 					err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
 					if err != nil {
+						// Track consecutive failures in a status condition so that a
+						// persistently broken PVC patch (quota, finalizer, missing PVC)
+						// cannot keep the migration stuck in Running forever.
+						failures := 1
+						if cond := conditionManager.GetCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationHandoffFailed); cond != nil {
+							if n, parseErr := strconv.Atoi(cond.Reason); parseErr == nil && n > 0 {
+								failures = n + 1
+							}
+						}
+
+						if failures >= maxBackendStorageHandoffAttempts {
+							log.Log.Object(migration).Errorf(
+								"Backend storage handoff failed %d/%d times; forcing migration to Failed: %v",
+								failures, maxBackendStorageHandoffAttempts, err)
+							c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason,
+								"Backend storage PVC handoff failed after %d attempts, migration cannot complete: %v",
+								failures, err)
+							if failErr := c.failMigration(migrationCopy); failErr != nil {
+								return failErr
+							}
+							if vmiErr := c.clearVMIMigrationTargetState(vmi, migration); vmiErr != nil {
+								log.Log.Object(vmi).Reason(vmiErr).Errorf(
+									"Failed to clear VMI migration target state after handoff exhaustion for migration %s/%s",
+									migration.Namespace, migration.Name)
+							}
+							return nil
+						}
+						conditionManager.UpdateCondition(migrationCopy, &virtv1.VirtualMachineInstanceMigrationCondition{
+							Type:               virtv1.VirtualMachineInstanceMigrationHandoffFailed,
+							Status:             k8sv1.ConditionTrue,
+							LastProbeTime:      v1.Now(),
+							LastTransitionTime: v1.Now(),
+							Reason:             strconv.Itoa(failures),
+							Message: fmt.Sprintf(
+								"Backend storage PVC handoff attempt %d/%d failed: %v",
+								failures, maxBackendStorageHandoffAttempts, err),
+						})
+						log.Log.Object(migration).Reason(err).Warningf(
+							"Backend storage handoff attempt %d/%d failed, will retry",
+							failures, maxBackendStorageHandoffAttempts)
 						return err
 					}
+					// Handoff succeeded 
+					conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationHandoffFailed)
 				}
 
 				patchBytes, err := patch.New(
