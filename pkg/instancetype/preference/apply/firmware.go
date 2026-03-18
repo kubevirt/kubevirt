@@ -1,4 +1,3 @@
-//nolint:gocyclo
 /*
  * This file is part of the KubeVirt project
  *
@@ -42,6 +41,11 @@ func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSp
 		vmiFirmware.Bootloader = &virtv1.Bootloader{}
 	}
 
+	applyBiosPreferences(firmware, vmiFirmware)
+	applyEfiPreferences(firmware, vmiFirmware)
+}
+
+func applyBiosPreferences(firmware *v1beta1.FirmwarePreferences, vmiFirmware *virtv1.Firmware) {
 	if firmware.PreferredUseBios != nil &&
 		*firmware.PreferredUseBios &&
 		vmiFirmware.Bootloader.BIOS == nil &&
@@ -52,7 +56,9 @@ func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSp
 	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
 		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
 	}
+}
 
+func applyEfiPreferences(firmware *v1beta1.FirmwarePreferences, vmiFirmware *virtv1.Firmware) {
 	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
 		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
 		// When using PreferredEfi return early to avoid applying DeprecatedPreferredUseEfi or DeprecatedPreferredUseSecureBoot below

@@ -1,4 +1,3 @@
-//nolint:gocyclo
 /*
  * This file is part of the KubeVirt project
  *
@@ -64,6 +63,12 @@ func applyHyperVFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePrefere
 		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
 	}
 
+	applyHyperVFeaturePreferencesPart1(preferenceSpec, vmiSpec)
+	applyHyperVFeaturePreferencesPart2(preferenceSpec, vmiSpec)
+	applyHyperVFeaturePreferencesPart3(preferenceSpec, vmiSpec)
+}
+
+func applyHyperVFeaturePreferencesPart1(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	// TODO clean this up with reflection?
 	if preferenceSpec.Features.PreferredHyperv.EVMCS != nil && vmiSpec.Domain.Features.Hyperv.EVMCS == nil {
 		vmiSpec.Domain.Features.Hyperv.EVMCS = preferenceSpec.Features.PreferredHyperv.EVMCS.DeepCopy()
@@ -84,7 +89,9 @@ func applyHyperVFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePrefere
 	if preferenceSpec.Features.PreferredHyperv.Relaxed != nil && vmiSpec.Domain.Features.Hyperv.Relaxed == nil {
 		vmiSpec.Domain.Features.Hyperv.Relaxed = preferenceSpec.Features.PreferredHyperv.Relaxed.DeepCopy()
 	}
+}
 
+func applyHyperVFeaturePreferencesPart2(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Features.PreferredHyperv.Reset != nil && vmiSpec.Domain.Features.Hyperv.Reset == nil {
 		vmiSpec.Domain.Features.Hyperv.Reset = preferenceSpec.Features.PreferredHyperv.Reset.DeepCopy()
 	}
@@ -104,7 +111,9 @@ func applyHyperVFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePrefere
 	if preferenceSpec.Features.PreferredHyperv.SyNICTimer != nil && vmiSpec.Domain.Features.Hyperv.SyNICTimer == nil {
 		vmiSpec.Domain.Features.Hyperv.SyNICTimer = preferenceSpec.Features.PreferredHyperv.SyNICTimer.DeepCopy()
 	}
+}
 
+func applyHyperVFeaturePreferencesPart3(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Features.PreferredHyperv.TLBFlush != nil && vmiSpec.Domain.Features.Hyperv.TLBFlush == nil {
 		vmiSpec.Domain.Features.Hyperv.TLBFlush = preferenceSpec.Features.PreferredHyperv.TLBFlush.DeepCopy()
 	}
