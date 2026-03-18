@@ -77,35 +77,36 @@ func NewKvmDomainConfiguratorWithCrossArch(allowEmulation, kvmAvailable, allowCr
 func (k KvmDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	crossArchEmulation := k.isCrossArchEmulation(vmi)
 
-	if !k.kvmAvailable || crossArchEmulation {
-		if !k.allowEmulation {
-			return fmt.Errorf("kvm not present or cross-architecture emulation requested, but emulation is not allowed")
-		}
-
-		if crossArchEmulation && !k.allowCrossArchEmulation {
+	if crossArchEmulation {
+		if !k.allowCrossArchEmulation {
 			return fmt.Errorf("cross-architecture emulation requires the MultiArchitectureSoftwareEmulation feature gate")
 		}
 
 		logger := log.DefaultLogger()
-		if crossArchEmulation {
-			logger.Infof("Cross-architecture emulation: host=%s, guest=%s. Using software emulation.",
-				k.hostArchitecture, vmi.Spec.Architecture)
-		} else {
-			logger.Infof("kvm not present. Using software emulation.")
-		}
+		logger.Infof("Cross-architecture emulation: host=%s, guest=%s. Using software emulation.",
+			k.hostArchitecture, vmi.Spec.Architecture)
 
 		domain.Spec.Type = "qemu"
 
-		if crossArchEmulation {
-			path := emulatorPath(vmi.Spec.Architecture)
-			if path == "" {
-				return fmt.Errorf("unsupported guest architecture for cross-architecture emulation: %s", vmi.Spec.Architecture)
-			}
-			if err := emulatorBinaryExists(path); err != nil {
-				return err
-			}
-			domain.Spec.Devices.Emulator = path
+		path := emulatorPath(vmi.Spec.Architecture)
+		if path == "" {
+			return fmt.Errorf("unsupported guest architecture for cross-architecture emulation: %s", vmi.Spec.Architecture)
 		}
+		if err := emulatorBinaryExists(path); err != nil {
+			return err
+		}
+		domain.Spec.Devices.Emulator = path
+
+		return nil
+	}
+
+	if !k.kvmAvailable {
+		if !k.allowEmulation {
+			return fmt.Errorf("kvm not present and emulation is not allowed")
+		}
+
+		log.DefaultLogger().Infof("kvm not present. Using software emulation.")
+		domain.Spec.Type = "qemu"
 	}
 
 	return nil
