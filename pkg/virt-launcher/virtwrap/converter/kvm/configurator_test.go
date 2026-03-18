@@ -69,7 +69,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			configurator := kvm.NewKvmDomainConfigurator(!emulationAllowed, !kvmEnabled)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("kvm not present"))
+			Expect(err.Error()).To(ContainSubstring("kvm not present and emulation is not allowed"))
 		})
 
 		It("Should set domain type to qemu when emulation is allowed", func() {
@@ -115,14 +115,14 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			Expect(err.Error()).To(ContainSubstring("CrossArchitectureVirtualization"))
 		})
 
-		It("Should return error when emulation is not allowed for cross-arch", func() {
+		It("Should succeed for cross-arch even when useEmulation is disabled", func() {
 			vmi.Spec.Architecture = "arm64"
 			configurator := kvm.NewKvmDomainConfiguratorWithCrossArch(
 				!emulationAllowed, kvmEnabled, crossArchAllowed, "amd64",
 			)
-			err := configurator.Configure(vmi, &domain)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("emulation is not allowed"))
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal("qemu"))
+			Expect(domain.Spec.Devices.Emulator).To(Equal("/usr/bin/qemu-system-aarch64"))
 		})
 
 		It("Should not trigger cross-arch when guest matches host", func() {
