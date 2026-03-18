@@ -22,6 +22,7 @@ package network_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -182,6 +183,70 @@ var _ = Describe("Network Domain Configurator", func() {
 		),
 	)
 
+	DescribeTable("configure bandwidth",
+		func(bandwidth *v1.Bandwidth, expectedBandwidth *api.BandWidth) {
+			ifaceWithBandwidth := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
+			ifaceWithBandwidth.Bandwidth = bandwidth
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(ifaceWithBandwidth),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
+			)
+
+			configurator := network.NewDomainConfigurator(
+				network.WithDomainAttachmentByInterfaceName(map[string]string{network1Name: string(v1.Tap)}),
+				network.WithUseLaunchSecuritySEV(false),
+				network.WithUseLaunchSecurityPV(false),
+				network.WithROMTuningSupport(false),
+				network.WithVirtioModel(virtioModel),
+			)
+
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedInterface := newDomainInterface(network1Name, virtioModel, withTypeEthernet(), withBandwidth(expectedBandwidth))
+			expectedDomain := newDomainWithIfaces([]api.Interface{expectedInterface})
+			Expect(domain).To(Equal(expectedDomain))
+		},
+		Entry(
+			"when inbound and outbound bandwidth limits are provided",
+			&v1.Bandwidth{
+				Inbound: &v1.BandwidthParams{
+					Average: pointer.P(resource.MustParse("1000Ki")), // 1000 * 1024 bytes
+					Peak:    pointer.P(resource.MustParse("5000Ki")),
+					Burst:   pointer.P(resource.MustParse("1024Ki")),
+				},
+				Outbound: &v1.BandwidthParams{
+					Average: pointer.P(resource.MustParse("128Ki")),
+				},
+			},
+			&api.BandWidth{
+				Inbound: &api.BandwidthParams{
+					Average: 1000,
+					Peak:    5000,
+					Burst:   1024,
+				},
+				Outbound: &api.BandwidthParams{
+					Average: 128,
+				},
+			},
+		),
+		Entry(
+			"when negative or dangerously large bandwidth limits are provided (clamps to safe values)",
+			&v1.Bandwidth{
+				Inbound: &v1.BandwidthParams{
+					Average: pointer.P(resource.MustParse("-1000Ki")),
+				},
+			},
+			&api.BandWidth{
+				Inbound: &api.BandwidthParams{
+					Average: 0,
+				},
+				Outbound: nil,
+			},
+		),
+	)
+
 	DescribeTable("multi-queue", func(model string, expectedInterface api.Interface) {
 		ifaceWithModel := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
 		ifaceWithModel.Model = model
@@ -265,5 +330,11 @@ func withVHostDriver(queues uint) option {
 func withLinkState(state string) option {
 	return func(iface *api.Interface) {
 		iface.LinkState = &api.LinkState{State: state}
+	}
+}
+
+func withBandwidth(bw *api.BandWidth) option {
+	return func(iface *api.Interface) {
+		iface.BandWidth = bw
 	}
 }
