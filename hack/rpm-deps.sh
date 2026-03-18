@@ -157,12 +157,17 @@ launcherbase_x86_64="
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
+  qemu-system-aarch64-core
+  edk2-aarch64
 "
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+  qemu-system-x86-core
+  edk2-ovmf
+  seabios
 "
 launcherbase_s390x="
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
