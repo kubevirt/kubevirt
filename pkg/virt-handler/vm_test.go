@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -3461,6 +3462,109 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}, true,
 			),
 		)
+	})
+
+	Context("updateSoftwareEmulationCondition", func() {
+		It("should be a no-op when the feature gate is disabled", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Architecture = "arm64"
+			domain := &api.Domain{}
+			domain.Spec.Type = "qemu"
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
+		})
+
+		It("should not set the condition when the guest architecture matches the host", func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+				},
+			})
+			controller.clusterConfig = config
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Architecture = runtime.GOARCH
+			domain := &api.Domain{}
+			domain.Spec.Type = "kvm"
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
+		})
+
+		It("should set the condition for cross-architecture emulation", func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+				},
+			})
+			controller.clusterConfig = config
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Architecture = "arm64"
+			if runtime.GOARCH == "arm64" {
+				vmi.Spec.Architecture = "amd64"
+			}
+			domain := &api.Domain{}
+			domain.Spec.Type = "qemu"
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeTrue())
+		})
+
+		It("should not duplicate the condition if already present", func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+				},
+			})
+			controller.clusterConfig = config
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Architecture = "arm64"
+			if runtime.GOARCH == "arm64" {
+				vmi.Spec.Architecture = "amd64"
+			}
+			domain := &api.Domain{}
+			domain.Spec.Type = "qemu"
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
+			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
+
+			count := 0
+			for _, c := range vmi.Status.Conditions {
+				if c.Type == v1.VirtualMachineInstanceSoftwareEmulation {
+					count++
+				}
+			}
+			Expect(count).To(Equal(1))
+		})
+
+		It("should remove the condition when no longer cross-arch", func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+				},
+			})
+			controller.clusterConfig = config
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Architecture = runtime.GOARCH
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceSoftwareEmulation,
+				Status: k8sv1.ConditionTrue,
+			})
+			domain := &api.Domain{}
+			domain.Spec.Type = "kvm"
+			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
+		})
 	})
 })
 

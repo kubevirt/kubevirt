@@ -65,3 +65,13 @@ if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "s390x" ]; then
 fi
 
 virsh capabilities > /var/lib/kubevirt-node-labeller/capabilities.xml
+
+# Detect cross-architecture emulation capabilities by probing for the
+# cross-arch QEMU emulator via virsh domcapabilities. The resulting XML
+# file is read by the node labeller to decide whether to advertise the
+# cross-arch vm-arch label.
+if [ "$ARCH" == "x86_64" ]; then
+  virsh domcapabilities --machine virt --arch aarch64 --virttype qemu > /var/lib/kubevirt-node-labeller/virsh_domcapabilities_aarch64.xml 2>/dev/null || true
+elif [ "$ARCH" == "aarch64" ]; then
+  virsh domcapabilities --machine q35 --arch x86_64 --virttype qemu > /var/lib/kubevirt-node-labeller/virsh_domcapabilities_x86_64.xml 2>/dev/null || true
+fi
