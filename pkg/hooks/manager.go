@@ -99,20 +99,22 @@ func (m *hookManager) Collect(numberOfRequestedHookSidecars uint, timeout time.D
 
 func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
 	callbacksPerHookPoint := make(map[string][]*callBackClient)
-	processedSockets := make(map[string]bool)
+	discoveredSockets := make(map[string]bool)
 
-	timeoutCh := time.After(timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	g, ctx := errgroup.WithContext(ctx)
+	var mu sync.Mutex
+
 	ticker := time.NewTicker(300 * time.Millisecond)
-	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
+	defer ticker.Stop()
+
+	for uint(len(discoveredSockets)) < numberOfRequestedHookSidecars {
 		entries, err := os.ReadDir(m.hookSocketSharedDirectory)
 		if err != nil {
 			return nil, err
 		}
-
-		var (
-			mu sync.Mutex
-			g  errgroup.Group
-		)
 
 		for _, entry := range entries {
 			if !entry.IsDir() {
@@ -130,45 +132,59 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 					continue
 				}
 
-				if _, processed := processedSockets[subEntry.Name()]; processed {
+				socketName := subEntry.Name()
+				if _, discovered := discoveredSockets[socketName]; discovered {
 					continue
 				}
 
-				socketName := subEntry.Name()
 				socketPath := filepath.Join(subPath, socketName)
+				discoveredSockets[socketName] = true
 
 				g.Go(func() error {
-					client, notReady, err := processSideCarSocket(socketPath)
-					if err != nil {
-						log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socketPath)
-						return err
-					}
+					retryTicker := time.NewTicker(300 * time.Millisecond)
+					defer retryTicker.Stop()
 
-					if notReady {
-						log.Log.Infof("Sidecar server might not be ready yet: %s", socketPath)
-						return nil
-					}
+					for {
+						client, notReady, err := processSideCarSocket(socketPath)
+						if err != nil {
+							log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socketPath)
+							return err
+						}
 
-					mu.Lock()
-					defer mu.Unlock()
-					processedSockets[socketName] = true
-					for _, hp := range client.subscribedHookPoints {
-						callbacksPerHookPoint[hp.GetName()] = append(callbacksPerHookPoint[hp.GetName()], client)
+						if !notReady {
+							mu.Lock()
+							for _, hp := range client.subscribedHookPoints {
+								callbacksPerHookPoint[hp.GetName()] = append(callbacksPerHookPoint[hp.GetName()], client)
+							}
+							mu.Unlock()
+							return nil
+						}
+
+						log.Log.Infof("Sidecar server might not be ready yet, retrying: %s", socketPath)
+
+						select {
+						case <-ctx.Done():
+							return fmt.Errorf("timeout waiting for sidecar socket: %s", socketPath)
+						case <-retryTicker.C:
+						}
 					}
-					return nil
 				})
 			}
 		}
 
-		if err := g.Wait(); err != nil {
-			return nil, err
+		if uint(len(discoveredSockets)) >= numberOfRequestedHookSidecars {
+			break
 		}
 
 		select {
-		case <-timeoutCh:
+		case <-ctx.Done():
 			return nil, fmt.Errorf("Failed to collect all expected sidecar hook sockets within given timeout")
 		case <-ticker.C:
 		}
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return callbacksPerHookPoint, nil
