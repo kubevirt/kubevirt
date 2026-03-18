@@ -20,16 +20,21 @@
 package tests_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -59,6 +64,9 @@ var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, d
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Type).To(Equal("qemu"))
 			Expect(domSpec.Devices.Emulator).To(Equal(expectedEmulator))
+
+			By("Verifying the VMI has the SoftwareEmulation condition")
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceSoftwareEmulation))
 
 			By("Verifying the virt-launcher pod has the cross-arch emulation flag")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
