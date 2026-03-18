@@ -229,6 +229,12 @@ const (
 	// Owner: SIG network
 	// Beta: v1.8
 	LiveUpdateNADRef = "LiveUpdateNADRef"
+
+	// Owner: @luckyh
+	// Alpha: v1.9.0
+	//
+	// HostDevIOMMUFD introduces the usage of the IOMMUFD user API for modern Host Devices Assignment.
+	HostDevIOMMUFDGate = "HostDevIOMMUFD"
 )
 
 func init() {
@@ -275,4 +281,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: HostDevIOMMUFDGate, State: Alpha})
 }

@@ -42,6 +42,7 @@ type HostDomCapabilities struct {
 	SecureExecution SecureExecutionConfiguration `xml:"features>s390-pv"`
 	TDX             TDXConfiguration             `xml:"features>tdx"`
 	LaunchSecurity  LaunchSecurityConfiguration  `xml:"features>launchSecurity"`
+	HostDev         HostDevConfiguration         `xml:"devices>hostdev"`
 }
 
 // CPU represents slice of cpu modes
@@ -110,11 +111,15 @@ type TDXConfiguration struct {
 }
 
 type LaunchSecurityConfiguration struct {
-	Supported string      `xml:"supported,attr"`
-	SecTypes  SecTypeEnum `xml:"enum"`
+	Supported string `xml:"supported,attr"`
+	SecTypes  Enum   `xml:"enum"`
 }
 
-type SecTypeEnum struct {
+type Enum struct {
 	Name   string   `xml:"name,attr"`
 	Values []string `xml:"value"`
+}
+
+type HostDevConfiguration struct {
+	Options []Enum `xml:"enum"`
 }

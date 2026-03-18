@@ -61,6 +61,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
 	kubevirtv1.SupportedMachineTypeLabel,
+	kubevirtv1.HostDevIOMMUFDLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -85,6 +86,7 @@ type NodeLabeller struct {
 	SecureExecution         SecureExecutionConfiguration
 	TDX                     TDXConfiguration
 	arch                    archLabeller
+	hostDevIOMMUFDSupported bool
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
@@ -307,6 +309,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 	if n.TDX.Supported == "yes" {
 		newLabels[kubevirtv1.TDXLabel] = "true"
+	}
+
+	if n.hostDevIOMMUFDSupported {
+		newLabels[kubevirtv1.HostDevIOMMUFDLabel] = "true"
 	}
 
 	return newLabels

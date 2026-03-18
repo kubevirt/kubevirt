@@ -29,6 +29,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	"libvirt.org/go/libvirt"
 
@@ -37,19 +38,38 @@ import (
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
 	netname1 = "net1"
 	netname2 = "net2"
+
+	sriovPCIAddress0 = "0000:81:01.0"
+	sriovPCIAddress1 = "0000:81:01.1"
+	sriovPCIAddress2 = "0000:81:02.0"
+	sriovPCIAddress3 = "0000:81:00.0"
 )
 
 var _ = Describe("SRIOV HostDevice", func() {
-	Context("creation", func() {
+	DescribeTableSubtree("creation", func(viaIOMMUFD bool) {
+		var vfioSpec vfio.VFIOSpec
+
+		BeforeEach(func() {
+			mockVFIOSpec := vfio.NewMockVFIOSpec(gomock.NewController(GinkgoT()))
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(sriovPCIAddress0).Return(viaIOMMUFD).AnyTimes()
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(sriovPCIAddress1).Return(viaIOMMUFD).AnyTimes()
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(sriovPCIAddress2).Return(viaIOMMUFD).AnyTimes()
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(sriovPCIAddress3).Return(viaIOMMUFD).AnyTimes()
+			mockVFIOSpec.EXPECT().IsPCIAssignableViaIOMMUFD(gomock.Any()).Times(0)
+			mockVFIOSpec.EXPECT().IsMDevAssignableViaIOMMUFD(gomock.Any()).Times(0)
+			vfioSpec = mockVFIOSpec
+		})
+
 		It("creates no device given no interfaces", func() {
 			vmi := &v1.VirtualMachineInstance{}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(sriov.CreateHostDevices(vmi, vfioSpec)).To(BeEmpty())
 		})
 
 		It("creates no device given no SRIOV interfaces", func() {
@@ -58,7 +78,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			vmi := &v1.VirtualMachineInstance{}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(sriov.CreateHostDevices(vmi, vfioSpec)).To(BeEmpty())
 		})
 
 		It("creates no device given SRIOV interface that has no status", func() {
@@ -66,7 +86,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			vmi := &v1.VirtualMachineInstance{}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(sriov.CreateHostDevices(vmi, vfioSpec)).To(BeEmpty())
 		})
 
 		It("creates no device given SRIOV interface without multus info source", func() {
@@ -79,7 +99,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				}},
 			}
 
-			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+			Expect(sriov.CreateHostDevices(vmi, vfioSpec)).To(BeEmpty())
 		})
 
 		It("fails to create device given no available host PCI", func() {
@@ -93,7 +113,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				}},
 			}
 
-			_, err := sriov.CreateHostDevices(vmi)
+			_, err := sriov.CreateHostDevices(vmi, vfioSpec)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -102,7 +122,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			ifaces := []v1.Interface{newSRIOVInterface("net1")}
 			pool := newPCIAddressPoolStub("0bad0pci0address0")
 
-			_, err := sriov.CreateHostDevicesFromIfacesAndPool(ifaces, pool)
+			_, err := sriov.CreateHostDevicesFromIfacesAndPool(ifaces, pool, vfioSpec)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -110,9 +130,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 		It("fails to create a device given bad guest PCI address", func() {
 			iface := newSRIOVInterface("net1")
 			iface.PciAddress = "0bad0pci0address0"
-			pool := newPCIAddressPoolStub("0000:81:01.0")
+			pool := newPCIAddressPoolStub(sriovPCIAddress0)
 
-			_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+			_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool, vfioSpec)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -120,9 +140,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 		It("fails to create a device given two interfaces but only one host PCI", func() {
 			iface1 := newSRIOVInterface(netname1)
 			iface2 := newSRIOVInterface(netname1)
-			pool := newPCIAddressPoolStub("0000:81:01.0")
+			pool := newPCIAddressPoolStub(sriovPCIAddress0)
 
-			_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+			_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool, vfioSpec)
 
 			Expect(err).To(HaveOccurred())
 		})
@@ -130,9 +150,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 		It("creates 2 devices that are connected to the same network", func() {
 			iface1 := newSRIOVInterface(netname1)
 			iface2 := newSRIOVInterface(netname1)
-			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:01.1")
+			pool := newPCIAddressPoolStub(sriovPCIAddress0, sriovPCIAddress1)
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool, vfioSpec)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
@@ -140,6 +160,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
+			}
+			if viaIOMMUFD {
+				expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 			}
 			hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
 			expectHostDevice2 := api.HostDevice{
@@ -148,15 +171,18 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Type:    api.HostDevicePCI,
 				Managed: "no",
 			}
+			if viaIOMMUFD {
+				expectHostDevice2.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
 		})
 
 		It("creates 2 devices that are connected to different networks", func() {
 			iface1 := newSRIOVInterface(netname1)
 			iface2 := newSRIOVInterface(netname2)
-			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
+			pool := newPCIAddressPoolStub(sriovPCIAddress0, sriovPCIAddress2)
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool, vfioSpec)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
@@ -165,6 +191,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Type:    api.HostDevicePCI,
 				Managed: "no",
 			}
+			if viaIOMMUFD {
+				expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+			}
 			hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x02", Function: "0x0"}
 			expectHostDevice2 := api.HostDevice{
 				Alias:   newSRIOVAlias(netname2),
@@ -172,15 +201,18 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Type:    api.HostDevicePCI,
 				Managed: "no",
 			}
+			if viaIOMMUFD {
+				expectHostDevice2.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
 		})
 
 		It("creates 1 device that includes guest PCI addresses", func() {
 			iface := newSRIOVInterface(netname1)
 			iface.PciAddress = "0000:01:01.0"
-			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
+			pool := newPCIAddressPoolStub(sriovPCIAddress0, sriovPCIAddress2)
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool, vfioSpec)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			guestPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x01", Slot: "0x01", Function: "0x0"}
@@ -190,6 +222,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Type:    api.HostDevicePCI,
 				Managed: "no",
 				Address: &guestPCIAddress1,
+			}
+			if viaIOMMUFD {
+				expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
@@ -210,11 +245,11 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 
-				pool := newPCIAddressPoolStub("0000:81:00.0", "0000:81:01.0")
+				pool := newPCIAddressPoolStub(sriovPCIAddress3, sriovPCIAddress0)
 				hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}
 				hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 
-				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool, vfioSpec)
 				Expect(err).NotTo(HaveOccurred())
 
 				expectHostDevice1 := api.HostDevice{
@@ -224,6 +259,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Type:    api.HostDevicePCI,
 					Managed: "no",
 				}
+				if viaIOMMUFD {
+					expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
 
 				expectHostDevice2 := api.HostDevice{
 					Alias:   newSRIOVAlias(netname2),
@@ -231,6 +269,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Address: expectedGuestPCIAddress2,
 					Type:    api.HostDevicePCI,
 					Managed: "no",
+				}
+				if viaIOMMUFD {
+					expectHostDevice2.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 				}
 
 				Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
@@ -253,9 +294,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 			iface := newSRIOVInterface(netname1)
 			val := uint(1)
 			iface.BootOrder = &val
-			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
+			pool := newPCIAddressPoolStub(sriovPCIAddress0, sriovPCIAddress2)
 
-			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool, vfioSpec)
 
 			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
@@ -264,6 +305,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Type:      api.HostDevicePCI,
 				Managed:   "no",
 				BootOrder: &api.BootOrder{Order: *iface.BootOrder},
+			}
+			if viaIOMMUFD {
+				expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 		})
@@ -281,11 +325,11 @@ var _ = Describe("SRIOV HostDevice", func() {
 					expectedBootOrder2 = &api.BootOrder{Order: *iface2.BootOrder}
 				}
 
-				pool := newPCIAddressPoolStub("0000:81:00.0", "0000:81:01.0")
+				pool := newPCIAddressPoolStub(sriovPCIAddress3, sriovPCIAddress0)
 				hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x00", Function: "0x0"}
 				hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 
-				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
+				devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool, vfioSpec)
 				Expect(err).NotTo(HaveOccurred())
 
 				expectHostDevice1 := api.HostDevice{
@@ -295,6 +339,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Managed:   "no",
 					BootOrder: expectedBootOrder1,
 				}
+				if viaIOMMUFD {
+					expectHostDevice1.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
 
 				expectHostDevice2 := api.HostDevice{
 					Alias:     newSRIOVAlias(netname2),
@@ -302,6 +349,9 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Type:      api.HostDevicePCI,
 					Managed:   "no",
 					BootOrder: expectedBootOrder2,
+				}
+				if viaIOMMUFD {
+					expectHostDevice2.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 				}
 
 				Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
@@ -319,7 +369,10 @@ var _ = Describe("SRIOV HostDevice", func() {
 				newSRIOVInterfaceWithBootOrder(netname2, 2),
 			),
 		)
-	})
+	},
+		Entry("via IOMMUFD", true),
+		Entry("via VFIO legacy", false),
+	)
 
 	Context("safe detachment", func() {
 		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.SRIOVAliasPrefix + "net1")}

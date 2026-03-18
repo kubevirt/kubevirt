@@ -21,6 +21,7 @@ package hardware
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -268,4 +269,29 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 		}
 	}
 	return results
+}
+
+// GetDeviceVFIOCDevName gets the name of the associated VFIO cdev for PCI and
+// Mediated devices if have
+// e.g. /sys/bus/pci/devices/0000\:65\:00.0/vfio-dev/vfio0 <-
+func GetDeviceVFIOCDevName(devPath string) (string, error) {
+	dirPath := filepath.Join(devPath, "vfio-dev")
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		if strings.HasPrefix(entry.Name(), "vfio") {
+			return entry.Name(), nil
+		}
+	}
+	return "", fmt.Errorf("no VFIO cdev found for device")
 }

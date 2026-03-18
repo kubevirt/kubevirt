@@ -104,6 +104,7 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
@@ -612,7 +613,9 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
+	// TODO: handle the hotplug case
+	vfioSpec := vfio.NewVFIOSpec(true)
+	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec, vfioSpec)
 	if err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
@@ -1099,8 +1102,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 	c.DisksInfo = l.disksInfo
 
+	vfioSpec := vfio.NewVFIOSpec(options.HostDevIOMMUFDCap)
 	if !isMigrationTarget {
-		sriovDevices, err := sriov.CreateHostDevices(vmi)
+		sriovDevices, err := sriov.CreateHostDevices(vmi, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
@@ -1108,25 +1112,25 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
 
-		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
+		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
 		c.GPUHostDevices = gpuHostDevices
 
-		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
 
-		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath, vfioSpec)
 		if err != nil {
 			return nil, err
 		}

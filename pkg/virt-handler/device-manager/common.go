@@ -24,6 +24,7 @@ package device_manager
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -38,8 +39,13 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+)
+
+const (
+	iommufdPath = "/dev/iommu"
 )
 
 type DeviceHandler interface {
@@ -47,10 +53,12 @@ type DeviceHandler interface {
 	GetDeviceDriver(basepath string, pciAddress string) (string, error)
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
+	GetDeviceVFIOCDevName(basepath string, deviceID string) (string, error)
 	GetMdevParentPCIAddr(mdevUUID string) (string, error)
 	CreateMDEVType(mdevType string, parentID string) error
 	RemoveMDEVType(mdevUUID string) error
 	ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error)
+	IOMMUFDExists(rootMount string) (bool, error)
 }
 
 type DeviceUtilsHandler struct{}
@@ -118,6 +126,11 @@ func (h *DeviceUtilsHandler) GetDevicePCIID(basepath string, pciAddress string) 
 		}
 	}
 	return "", fmt.Errorf("no pci_id is found")
+}
+
+func (h *DeviceUtilsHandler) GetDeviceVFIOCDevName(basepath string, deviceID string) (string, error) {
+	path := filepath.Join(basepath, deviceID)
+	return hardware.GetDeviceVFIOCDevName(path)
 }
 
 // /sys/class/mdev_bus/0000:00:03.0/53764d0e-85a0-42b4-af5c-2046b460b1dc
@@ -196,6 +209,17 @@ func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentI
 	return i, nil
 }
 
+func (h *DeviceUtilsHandler) IOMMUFDExists(rootMount string) (bool, error) {
+	path := filepath.Join(rootMount, iommufdPath)
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func waitForGRPCServer(socketPath string, timeout time.Duration) error {
 	conn, err := gRPCConnect(socketPath, timeout)
 	if err != nil {
@@ -250,6 +274,23 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
 		HostPath:      vfioDevice,
 		ContainerPath: vfioDevice,
+		Permissions:   "mrw",
+	})
+	return devSpecs
+}
+
+func formatVFIOCDevSpec(devName string) []*v1beta1.DeviceSpec {
+	devSpecs := make([]*v1beta1.DeviceSpec, 0)
+	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+		HostPath:      iommufdPath,
+		ContainerPath: iommufdPath,
+		Permissions:   "mrw",
+	})
+
+	vfioCDev := filepath.Join(vfioCDevBasePath, devName)
+	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+		HostPath:      vfioCDev,
+		ContainerPath: vfioCDev,
 		Permissions:   "mrw",
 	})
 	return devSpecs

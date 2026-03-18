@@ -28,6 +28,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 )
 
 // CreateDRAHostDevices creates host devices for HostDevices allocated via DRA.
-func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]api.HostDevice, error) {
+func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string, vfioSpec vfio.VFIOSpec) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasHostDevicesWithDRA(vmi) {
 		return hostDevices, nil
@@ -47,7 +48,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 			continue
 		}
 
-		hostDevice, err := createHostDeviceForHostDevice(hd, basePath, vmi.Spec)
+		hostDevice, err := createHostDeviceForHostDevice(hd, basePath, vmi.Spec, vfioSpec)
 		if err != nil {
 			return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 		}
@@ -63,7 +64,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 	return hostDevices, nil
 }
 
-func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v1.VirtualMachineInstanceSpec) (*api.HostDevice, error) {
+func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v1.VirtualMachineInstanceSpec, vfioSpec vfio.VFIOSpec) (*api.HostDevice, error) {
 	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || hd.ClaimRequest.RequestName == nil {
 		return nil, fmt.Errorf("HostDevice %s has incomplete ClaimRequest", hd.Name)
 	}
@@ -81,7 +82,7 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 		if vmiSpecs.Architecture == "s390x" {
 			model = "vfio-ap"
 		}
-		return &api.HostDevice{
+		hostDevice := api.HostDevice{
 			Alias: api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),
 			Source: api.HostDeviceSource{
 				Address: &api.Address{
@@ -91,7 +92,12 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 			Type:  api.HostDeviceMDev,
 			Mode:  "subsystem",
 			Model: model,
-		}, nil
+		}
+
+		if vfioSpec.IsMDevAssignableViaIOMMUFD(mdevUUID) {
+			hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+		}
+		return &hostDevice, nil
 	}
 
 	if pciAddr, err := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName); err == nil {
@@ -100,12 +106,17 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 		if err != nil {
 			return nil, fmt.Errorf("failed to create PCI device for %s: %v", hd.Name, err)
 		}
-		return &api.HostDevice{
+		hostDevice := api.HostDevice{
 			Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
-		}, nil
+		}
+
+		if vfioSpec.IsPCIAssignableViaIOMMUFD(pciAddr) {
+			hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+		}
+		return &hostDevice, nil
 	}
 
 	return nil, fmt.Errorf("HostDevice %s has no mdevUUID or pciBusID in metadata for claim %s request %s", hd.Name, claimName, requestName)

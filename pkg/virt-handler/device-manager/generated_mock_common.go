@@ -112,6 +112,21 @@ func (mr *MockDeviceHandlerMockRecorder) GetDevicePCIID(basepath, pciAddress any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDevicePCIID", reflect.TypeOf((*MockDeviceHandler)(nil).GetDevicePCIID), basepath, pciAddress)
 }
 
+// GetDeviceVFIOCDevName mocks base method.
+func (m *MockDeviceHandler) GetDeviceVFIOCDevName(basepath, deviceID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeviceVFIOCDevName", basepath, deviceID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeviceVFIOCDevName indicates an expected call of GetDeviceVFIOCDevName.
+func (mr *MockDeviceHandlerMockRecorder) GetDeviceVFIOCDevName(basepath, deviceID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceVFIOCDevName", reflect.TypeOf((*MockDeviceHandler)(nil).GetDeviceVFIOCDevName), basepath, deviceID)
+}
+
 // GetMdevParentPCIAddr mocks base method.
 func (m *MockDeviceHandler) GetMdevParentPCIAddr(mdevUUID string) (string, error) {
 	m.ctrl.T.Helper()
@@ -125,6 +140,21 @@ func (m *MockDeviceHandler) GetMdevParentPCIAddr(mdevUUID string) (string, error
 func (mr *MockDeviceHandlerMockRecorder) GetMdevParentPCIAddr(mdevUUID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMdevParentPCIAddr", reflect.TypeOf((*MockDeviceHandler)(nil).GetMdevParentPCIAddr), mdevUUID)
+}
+
+// IOMMUFDExists mocks base method.
+func (m *MockDeviceHandler) IOMMUFDExists(rootMount string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IOMMUFDExists", rootMount)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IOMMUFDExists indicates an expected call of IOMMUFDExists.
+func (mr *MockDeviceHandlerMockRecorder) IOMMUFDExists(rootMount any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IOMMUFDExists", reflect.TypeOf((*MockDeviceHandler)(nil).IOMMUFDExists), rootMount)
 }
 
 // ReadMDEVAvailableInstances mocks base method.
