@@ -1967,7 +1967,12 @@ var _ = Describe("Migration watcher", func() {
 				Failed:       false,
 				Completed:    true,
 			}
+			// Create the completed migration object but don't add it to the controller queue
+			_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(completedMigration.Namespace).Create(context.Background(), completedMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			runningMigration := newMigration("running-migration", vmi.Name, v1.MigrationRunning)
+			addMigration(runningMigration)
 
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:                   runningMigration.UID,
@@ -1975,18 +1980,12 @@ var _ = Describe("Migration watcher", func() {
 				SourceNode:                     "node02",
 				TargetNodeAddress:              "10.10.10.10:1234",
 				StartTimestamp:                 pointer.P(metav1.Now()),
-				EndTimestamp:                   pointer.P(metav1.Now()),
 				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
-				Failed:                         false,
-				Completed:                      true,
 			}
 
-			addMigration(completedMigration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
-			addPod(newTargetPodForVirtualMachine(vmi, completedMigration, k8sv1.PodRunning))
-
-			addMigration(runningMigration)
+			addPod(newTargetPodForVirtualMachine(vmi, runningMigration, k8sv1.PodRunning))
 
 			sanityExecute()
 
