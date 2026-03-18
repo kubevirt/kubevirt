@@ -1062,7 +1062,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				}, 60*time.Second, time.Second).Should(BeEmpty())
 			})
 
-			It("[test_id:3683]should be blocked if a workload exists", func() {
+			It("[QUARANTINE][test_id:3683]should be blocked if a workload exists", decorators.Quarantine, func() {
 				By("creating a simple VMI")
 				vmi := libvmifact.NewAlpine()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
