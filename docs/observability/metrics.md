@@ -1,5 +1,8 @@
 # KubeVirt metrics
 
+### cluster:kubevirt_non_schedulable_nodes:sum
+The number of non-schedulable nodes in the cluster. Type: Gauge.
+
 ### kubevirt_allocatable_nodes
 The number of allocatable nodes in the cluster. Type: Gauge.
 
