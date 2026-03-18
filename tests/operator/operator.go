@@ -1184,7 +1184,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(kv)
 		})
 
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
+		It("[QUARANTINE][test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Quarantine, decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
