@@ -103,14 +103,6 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 
 	timeoutCh := time.After(timeout)
 	ticker := time.NewTicker(300 * time.Millisecond)
-	defer ticker.Stop()
-
-	type socketResult struct {
-		socketName string
-		client     *callBackClient
-		notReady   bool
-	}
-
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
 		entries, err := os.ReadDir(m.hookSocketSharedDirectory)
 		if err != nil {
@@ -118,10 +110,9 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 		}
 
 		var (
-			mu      sync.Mutex
-			results []socketResult
+			mu sync.Mutex
+			g  errgroup.Group
 		)
-		var g errgroup.Group
 
 		for _, entry := range entries {
 			if !entry.IsDir() {
@@ -152,13 +143,18 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 						log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socketPath)
 						return err
 					}
+
+					if notReady {
+						log.Log.Infof("Sidecar server might not be ready yet: %s", socketPath)
+						return nil
+					}
+
 					mu.Lock()
-					results = append(results, socketResult{
-						socketName: socketName,
-						client:     client,
-						notReady:   notReady,
-					})
-					mu.Unlock()
+					defer mu.Unlock()
+					processedSockets[socketName] = true
+					for _, hp := range client.subscribedHookPoints {
+						callbacksPerHookPoint[hp.GetName()] = append(callbacksPerHookPoint[hp.GetName()], client)
+					}
 					return nil
 				})
 			}
@@ -166,17 +162,6 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 
 		if err := g.Wait(); err != nil {
 			return nil, err
-		}
-
-		for _, r := range results {
-			if r.notReady {
-				log.Log.Infof("Sidecar server might not be ready yet, will retry on next tick")
-				continue
-			}
-			processedSockets[r.socketName] = true
-			for _, hp := range r.client.subscribedHookPoints {
-				callbacksPerHookPoint[hp.GetName()] = append(callbacksPerHookPoint[hp.GetName()], r.client)
-			}
 		}
 
 		select {
