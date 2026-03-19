@@ -130,8 +130,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 	// We see that 10seconds for an initial boot is not enough
 	// At the same time it seems the OS is booted within 10sec
 	// We need to have a look on Running -> Booting time
-	const double = 2
-	expecter, _, err := NewExpecter(virtClient, vmi, double*connectionTimeout)
+	expecter, _, err := NewExpecter(virtClient, vmi, 1*time.Minute)
 	if err != nil {
 		return err
 	}
