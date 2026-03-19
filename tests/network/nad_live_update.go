@@ -49,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwoSchedulableNodes, decorators.Quarantine, Serial, func() {
+var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNodes, Serial, func() {
 	const (
 		vmName          = "migrating-vm"
 		vmIP            = "10.1.1.100"
