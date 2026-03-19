@@ -1131,6 +1131,14 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
 			}
 
+			// waits for GuestAgentConnected condition prior to calling console.LoginToFedora
+			loginToFedora := func(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
+				if err := console.WaitForGuestAgentConnected(vmi, virtClient); err != nil {
+					return err
+				}
+				return console.LoginToFedora(vmi, timeout...)
+			}
+
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
@@ -1395,14 +1403,8 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(pvcs.Items).To(HaveLen(1))
 				pvc := pvcs.Items[0]
 
-				loginFunc := func(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
-					// Wait for cloud init to finish and start the agent inside the vmi.
-					Eventually(matcher.ThisVMI(vmi)).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-					return console.LoginToFedora(vmi)
-				}
-
-				doRestoreNoVMStart("", loginFunc, onlineSnapshot, true, vm.Name)
-				startVMAfterRestore(vm.Name, "", true, loginFunc)
+				doRestoreNoVMStart("", loginToFedora, onlineSnapshot, true, vm.Name)
+				startVMAfterRestore(vm.Name, "", true, loginToFedora)
 				Expect(restore.Status.Restores).To(HaveLen(2))
 
 				By("Expect original backend PVC to be deleted")
@@ -1579,7 +1581,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
-				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", loginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				verifyRestore(restoreToNewVM, originalDVName)
 			},
 				Entry("[test_id:6836] to the same VM", false),
@@ -1660,7 +1662,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				By("Add persistent hotplug disk")
 				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm)
 
-				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", loginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(2))
 				if restoreToNewVM {
 					checkNewVMEquality()
@@ -1991,7 +1993,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				vm = libvmops.StartVirtualMachine(vm)
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 				Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyRerunOnFailure)))
-				doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, vm.Name)
+				doRestoreNoVMStart("", loginToFedora, onlineSnapshot, false, vm.Name)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2032,7 +2034,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 
-					doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, getTargetVMName(restoreToNewVM, newVmName))
+					doRestoreNoVMStart("", loginToFedora, onlineSnapshot, false, getTargetVMName(restoreToNewVM, newVmName))
 					Expect(restore.Status.Restores).To(HaveLen(1))
 					Expect(restore.Status.Restores[0].VolumeName).ToNot(Equal(memoryDumpPVCName))
 
@@ -2048,7 +2050,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					}
 					Expect(restorePVC.Spec.DataSource.Name).To(Equal(expectedSource))
 
-					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", false, console.LoginToFedora)
+					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", false, loginToFedora)
 
 					targetVM := getTargetVM(restoreToNewVM)
 					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
