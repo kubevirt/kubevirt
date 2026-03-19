@@ -339,6 +339,95 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
+			It("should successfully migrate a VM with a container disk after ejecting a CD-ROM volume", decorators.StorageReq, func() {
+				By("Creating a DataVolume to back the CD-ROM")
+				importURL := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+				cdromDV := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(importURL),
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(libstorage.Config.StorageRWXBlock),
+						libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importURL)),
+						libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					),
+				)
+				cdromDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), cdromDV, metav1.CreateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating a VM with the CD-ROM first, then the container disk")
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libnet.WithMasqueradeNetworking(),
+				)
+
+				cdromVolume := v1.Volume{
+					Name: "cdrom-0",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         cdromDV.Name,
+							Hotpluggable: true,
+						},
+					},
+				}
+
+				bootOrder := uint(3)
+				cdromDisk := v1.Disk{
+					Name: "cdrom-0",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							Bus: v1.DiskBusSATA,
+						},
+					},
+					BootOrder: &bootOrder,
+				}
+				vmi.Spec.Volumes = append([]v1.Volume{cdromVolume}, vmi.Spec.Volumes...)
+				vmi.Spec.Domain.Devices.Disks = append([]v1.Disk{cdromDisk}, vmi.Spec.Domain.Devices.Disks...)
+
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), vm, metav1.CreateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the VM to be ready")
+				Eventually(matcher.ThisVM(vm), 360*time.Second, 5*time.Second).Should(BeReady())
+
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(
+					context.Background(), vm.Name, metav1.GetOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Logging into the VM")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Ejecting the CD-ROM by removing it from the VM spec")
+				patchData, err := patch.New(
+					patch.WithRemove("/spec/template/spec/volumes/0"),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(
+					context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the CD-ROM eject to be reflected in the VMI")
+				Eventually(func() int {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(
+						context.Background(), vm.Name, metav1.GetOptions{},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					return len(vmi.Spec.Volumes)
+				}, 120*time.Second, 2*time.Second).Should(Equal(2))
+
+				By("Starting the migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				By("Confirming VMI post migration")
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			})
+
 			It("[test_id:2353]should migrate vmi with LiveMigrateIfPossible eviction strategy", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking(),
