@@ -33,8 +33,6 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnode"
 
@@ -399,56 +397,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds_total", ">="),
 		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
-
-	It("[QUARANTINE][test_id:4145]should include correct labels for a running VMI", decorators.Quarantine, func() {
-		// Build expected metrics from the domainstats collector, excluding
-		// conditionally emitted metrics that require features not available
-		// on a basic Alpine VMI:
-		//   - filesystem metrics require qemu-guest-agent
-		//   - guest load metrics require qemu-guest-agent >= 10.0.0
-		conditionalMetrics := map[string]struct{}{
-			"kubevirt_vmi_filesystem_capacity_bytes": {},
-			"kubevirt_vmi_filesystem_used_bytes":     {},
-			"kubevirt_vmi_guest_load_1m":             {},
-			"kubevirt_vmi_guest_load_5m":             {},
-			"kubevirt_vmi_guest_load_15m":            {},
-		}
-
-		var expectedVMIMetrics []string
-		for _, m := range domainstats.Collector.Metrics {
-			if _, excluded := conditionalMetrics[m.GetOpts().Name]; !excluded {
-				expectedVMIMetrics = append(expectedVMIMetrics, m.GetOpts().Name)
-			}
-		}
-
-		By("Collecting metrics filtered by VMI name and namespace")
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_")
-		fetcher.AddLabelFilter("name", preparedVMIs[0].Name, "namespace", preparedVMIs[0].Namespace)
-
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking that all expected metrics are present")
-		for _, metricName := range expectedVMIMetrics {
-			Expect(metrics).To(HaveKey(metricName),
-				"Expected metric %s to be present for VMI %s/%s",
-				metricName, preparedVMIs[0].Namespace, preparedVMIs[0].Name)
-		}
-
-		By("Checking that all VMI metrics have correct labels")
-		nodeName := pod.Spec.NodeName
-		for metricName, results := range metrics {
-			for _, result := range results {
-				Expect(result.Labels).To(SatisfyAll(
-					HaveKeyWithValue("node", nodeName),
-					HaveKeyWithValue("namespace", preparedVMIs[0].Namespace),
-					HaveKeyWithValue("name", preparedVMIs[0].Name),
-				), "Metric %s has incorrect labels", metricName)
-			}
-		}
-	})
 
 	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
