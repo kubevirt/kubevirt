@@ -56,11 +56,12 @@ import (
 )
 
 const (
-	sshAuthorizedKey     = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
-	fedoraPassword       = "fedora"
-	expectedUserDataFile = "cloud-init-userdata-executed"
-	testNetworkData      = "#Test networkData"
-	testUserData         = "#cloud-config"
+	sshAuthorizedKey           = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
+	fedoraPassword             = "fedora"
+	expectedUserDataFile       = "cloud-init-userdata-executed"
+	testNoCloudNetworkData     = "#Test networkData"
+	testConfigDriveNetworkData = `{"config":"test networkData"}`
+	testUserData               = "#cloud-config"
 
 	dataSourceNoCloudVolumeID     = "cidata"
 	dataSourceConfigDriveVolumeID = "config-2"
@@ -155,10 +156,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with cloudInitConfigDrive", func() {
 			It("[test_id:3178]should have cloud-init data from userDataBase64 source", decorators.Conformance, func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
+				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
 				By("Checking whether the user-data script had created the file")
@@ -238,13 +239,13 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with cloudInitNoCloud networkData", func() {
 			It("[test_id:3181]should have cloud-init network-config with NetworkData source", func() {
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudNetworkData(testNetworkData)),
+					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudNetworkData(testNoCloudNetworkData)),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -252,17 +253,17 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "network-config", testNetworkData)
+				checkCloudInitFile(vmi, "network-config", testNoCloudNetworkData)
 
 			})
 			It("[test_id:3182]should have cloud-init network-config with NetworkDataBase64 source", func() {
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedNetworkData(testNetworkData)),
+					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedNetworkData(testNoCloudNetworkData)),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -270,25 +271,25 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "network-config", testNetworkData)
+				checkCloudInitFile(vmi, "network-config", testNoCloudNetworkData)
 
 			})
 			It("[test_id:3183]should have cloud-init network-config from k8s secret", func() {
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudNetworkDataSecretName(secretID)),
 				)
 
 				By("Creating a secret with network data")
-				secret := libsecret.New(secretID, libsecret.DataString{"networkdata": testNetworkData})
+				secret := libsecret.New(secretID, libsecret.DataString{"networkdata": testNoCloudNetworkData})
 				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -296,7 +297,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "network-config", testNetworkData)
+				checkCloudInitFile(vmi, "network-config", testNoCloudNetworkData)
 
 				// Expect that the secret is not present on the vmi itself
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -313,9 +314,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with cloudInitConfigDrive networkData", func() {
 			It("[test_id:3184]should have cloud-init network-config with NetworkData source", func() {
-				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveNetworkData(testNetworkData)))
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveNetworkData(testConfigDriveNetworkData),
+						libcloudinit.WithConfigDriveUserData("#!/bin/bash\necho 'hello'\n")))
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -323,7 +326,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
+				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testConfigDriveNetworkData)
 			})
 			It("[test_id:4622]should have cloud-init meta_data with tagged devices", func() {
 				const (
@@ -333,7 +336,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				)
 				testInstancetype := "testInstancetype"
 				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveNetworkData(testNetworkData)),
+					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveNetworkData(testNoCloudNetworkData)),
 					libvmi.WithInterface(v1.Interface{
 						Name: "default",
 						Tag:  tag,
@@ -371,7 +374,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
+				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNoCloudNetworkData)
 
 				By("checking cloudinit meta-data")
 				const consoleCmd = `cat /mnt/openstack/latest/meta_data.json; printf "@@"`
@@ -384,23 +387,24 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(rawOutput).To(ContainSubstring(string(buf)))
 			})
 			It("[test_id:3185]should have cloud-init network-config with NetworkDataBase64 source", func() {
-				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveEncodedNetworkData(testNetworkData)),
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveEncodedNetworkData(testConfigDriveNetworkData),
+						libcloudinit.WithConfigDriveUserData("#!/bin/bash\necho 'hello'\n")),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 				By("mouting cloudinit iso")
 				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
+				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testConfigDriveNetworkData)
 
 			})
 			It("[test_id:3186]should have cloud-init network-config from k8s secret", func() {
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitConfigDrive(
 						libcloudinit.WithConfigDriveUserDataSecretName(secretID),
 						libcloudinit.WithConfigDriveNetworkDataSecretName(secretID),
@@ -411,14 +415,14 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating a secret with user and network data")
 				secret := libsecret.New(secretID, libsecret.DataString{
 					"userdata":    testUserData,
-					"networkdata": testNetworkData,
+					"networkdata": testConfigDriveNetworkData,
 				})
 
 				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -426,7 +430,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
+				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testConfigDriveNetworkData)
 				checkCloudInitFile(vmi, "openstack/latest/user_data", testUserData)
 
 				// Expect that the secret is not present on the vmi itself
@@ -450,7 +454,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				uSecretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 				nSecretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitConfigDrive(
 						libcloudinit.WithConfigDriveUserDataSecretName(uSecretID),
 						libcloudinit.WithConfigDriveNetworkDataSecretName(nSecretID),
@@ -466,13 +470,13 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a secret with network data")
-				nSecret := libsecret.New(nSecretID, libsecret.DataString{networkDataLabel: testNetworkData})
+				nSecret := libsecret.New(nSecretID, libsecret.DataString{networkDataLabel: testConfigDriveNetworkData})
 
 				_, err = virtClient.CoreV1().Secrets(ns).Create(context.Background(), nSecret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -480,7 +484,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
 
 				By("checking cloudinit network-config")
-				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
+				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testConfigDriveNetworkData)
 
 				By("checking cloudinit user-data")
 				checkCloudInitFile(vmi, "openstack/latest/user_data", testUserData)
