@@ -52,6 +52,7 @@ import (
 var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwoSchedulableNodes, decorators.Quarantine, Serial, func() {
 	const (
 		vmName          = "migrating-vm"
+		vmIP            = "10.1.1.100"
 		sourceNAD       = "nad-1"
 		targetNAD       = "nad-2"
 		pollingInterval = 2 * time.Second
@@ -122,11 +123,10 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 		Expect(err).ToNot(HaveOccurred())
 
 		var vmi *v1.VirtualMachineInstance
-		const ipBeforeChange = "10.1.1.100"
 		vmi, err = newVMIWithAffinity(
 			vmName,
 			sourceNAD,
-			ipBeforeChange+subnetMask,
+			vmIP+subnetMask,
 			sourceNodeName,
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -143,7 +143,7 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 
 		Expect(console.LoginToAlpine(staticVMI1)).To(Succeed())
 
-		Expect(libnet.PingFromVMConsole(staticVMI1, ipBeforeChange)).To(Succeed())
+		Expect(libnet.PingFromVMConsole(staticVMI1, vmIP)).To(Succeed())
 	})
 
 	It("should modify VM network", func() {
@@ -171,7 +171,7 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 		var staticVMI2 *v1.VirtualMachineInstance
 		const (
 			staticVMI2Name = "static-vmi-2"
-			staticVMI2IP   = "10.1.2.10"
+			staticVMI2IP   = "10.1.1.20"
 			subnetMask     = "/24"
 		)
 		staticVMI2, err = newVMIWithAffinity(
@@ -186,27 +186,14 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 			Create(context.Background(), staticVMI2, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		const ipAfterChange = "10.1.2.100"
-		Expect(console.LoginToAlpine(vmi)).To(Succeed())
-		err = configureIPInGuest(vmi, ipAfterChange+subnetMask)
-		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVMI(staticVMI2)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		Expect(console.LoginToAlpine(staticVMI2)).To(Succeed())
 
-		Expect(libnet.PingFromVMConsole(staticVMI2, ipAfterChange)).To(Succeed())
+		Expect(libnet.PingFromVMConsole(staticVMI2, vmIP)).To(Succeed())
 	})
 }))
-
-func configureIPInGuest(vmi *v1.VirtualMachineInstance, ip string) error {
-	const iface = "eth0"
-	err := libnet.AddIPAddress(vmi, iface, ip)
-	if err != nil {
-		return err
-	}
-	return libnet.SetInterfaceUp(vmi, iface)
-}
 
 func updateNADNameAndRemoveAffinityRules(vm *v1.VirtualMachine, targetNAD string) error {
 	patchData, err := patch.New(
