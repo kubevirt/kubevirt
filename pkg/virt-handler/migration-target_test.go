@@ -22,6 +22,7 @@ package virthandler
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"time"
 
 	"go.uber.org/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,6 +41,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/watch"
@@ -55,6 +58,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -76,6 +80,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		client         *cmdclient.MockLauncherClient
 		virtClient     *kubecli.MockKubevirtClient
 		virtfakeClient *kubevirtfake.Clientset
+		k8sfakeClient  *fake.Clientset
 		controller     *MigrationTargetController
 		mockQueue      *testutils.MockWorkQueue[string]
 
@@ -160,11 +165,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		k8sfakeClient := fake.NewSimpleClientset()
+		k8sfakeClient = fake.NewSimpleClientset()
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().AppsV1().Return(k8sfakeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -904,6 +910,109 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			Expect(migrationProxyKey(vmi)).To(Equal("local-uid"))
 		})
 	})
+
+	Describe("getContainerDiskVolumeIndices", func() {
+		const revisionName = "test-vm-revision"
+		const containerDiskName = "container-disk"
+		const nonExistentRevision = "nonexistent-revision"
+
+		buildCR := func(volumes []v1.Volume) *appsv1.ControllerRevision {
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{
+							Volumes: volumes,
+						},
+					},
+				},
+			}
+			data, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			return &appsv1.ControllerRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      revisionName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Data: k8sruntime.RawExtension{Raw: data},
+			}
+		}
+
+		It("should return the original container disk index from the CR", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				withVirtualMachineRevisionName(revisionName),
+			)
+
+			volumes := []v1.Volume{
+				{Name: "cdrom-vol", VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
+				}},
+				{Name: "disk-vol", VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
+				}},
+				{Name: containerDiskName, VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "test/image"},
+				}},
+			}
+			cr := buildCR(volumes)
+			_, err := k8sfakeClient.AppsV1().ControllerRevisions(metav1.NamespaceDefault).Create(
+				context.TODO(), cr, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			indices, err := controller.getContainerDiskVolumeIndices(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indices).To(HaveLen(1))
+			Expect(indices[containerDiskName]).To(Equal(uint32(2)))
+		})
+
+		It("should return nil when VMI has no VirtualMachineRevisionName", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("test-vmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+			)
+
+			indices, err := controller.getContainerDiskVolumeIndices(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indices).To(BeNil())
+		})
+
+		It("should return empty map when CR has no container disks", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("test-vmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				withVirtualMachineRevisionName(revisionName),
+			)
+
+			volumes := []v1.Volume{
+				{Name: "disk-vol", VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
+				}},
+			}
+			cr := buildCR(volumes)
+			_, err := k8sfakeClient.AppsV1().ControllerRevisions(metav1.NamespaceDefault).Create(
+				context.TODO(), cr, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			indices, err := controller.getContainerDiskVolumeIndices(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indices).To(BeEmpty())
+		})
+
+		It("should return nil when CR does not exist", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("test-vmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				withVirtualMachineRevisionName(nonExistentRevision),
+			)
+
+			indices, err := controller.getContainerDiskVolumeIndices(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indices).To(BeNil())
+		})
+	})
+
 })
 
 type stubTargetPasstRepairHandler struct {
@@ -913,4 +1022,10 @@ type stubTargetPasstRepairHandler struct {
 func (s *stubTargetPasstRepairHandler) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
 	s.isHandleMigrationTargetCalled = true
 	return nil
+}
+
+func withVirtualMachineRevisionName(revisionName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Status.VirtualMachineRevisionName = revisionName
+	}
 }

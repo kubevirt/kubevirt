@@ -63,6 +63,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/config:go_default_library",
+        "//pkg/container-disk:go_default_library",
         "//pkg/defaults:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk/fake:go_default_library",

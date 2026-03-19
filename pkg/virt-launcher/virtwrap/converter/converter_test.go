@@ -46,6 +46,7 @@ import (
 	kvapi "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
@@ -1244,6 +1245,45 @@ var _ = Describe("Converter", func() {
 				ReadOnly: &api.ReadOnly{},
 				Alias:    api.NewUserDefinedAlias(name),
 			}))
+		})
+
+		It("should use frozen container disk index from ContainerDiskVolumeIndices after CD-ROM eject", func() {
+			containerDiskName := "container-disk"
+			vmi = libvmi.New(
+				libvmi.WithContainerDisk(containerDiskName, "registry/image:latest"),
+			)
+			c.DisksInfo = map[string]*disk.DiskInfo{
+				containerDiskName: {Format: "qcow2"},
+			}
+			c.ContainerDiskVolumeIndices = map[string]uint{
+				containerDiskName: 2,
+			}
+
+			domain := vmiToDomain(vmi, c)
+			disk, err := getDiskByName(domain.Spec, containerDiskName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disk.BackingStore).ToNot(BeNil())
+			Expect(disk.BackingStore.Source.File).To(Equal(
+				containerdisk.GetDiskTargetPathFromLauncherView(2),
+			))
+		})
+
+		It("should fall back to current spec index when ContainerDiskVolumeIndices is not set", func() {
+			containerDiskName := "container-disk"
+			vmi = libvmi.New(
+				libvmi.WithContainerDisk(containerDiskName, "registry/image:latest"),
+			)
+			c.DisksInfo = map[string]*disk.DiskInfo{
+				containerDiskName: {Format: "qcow2"},
+			}
+
+			domain := vmiToDomain(vmi, c)
+			disk, err := getDiskByName(domain.Spec, containerDiskName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disk.BackingStore).ToNot(BeNil())
+			Expect(disk.BackingStore.Source.File).To(Equal(
+				containerdisk.GetDiskTargetPathFromLauncherView(0),
+			))
 		})
 
 		Context("with CBT volumes", func() {
