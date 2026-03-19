@@ -62,14 +62,19 @@ export CRI_BIN=${CRI_BIN:-$(detect_cri)}
     echo "Deploy latest nighly build Kubevirt"
     if [ "$(kubectl get kubevirts -n kubevirt kubevirt -ojsonpath='{.status.phase}')" != "Deployed" ]; then
       ${kubectl} apply -f "${nightly_build_base_url}/${latest}/kubevirt-operator.yaml"
-      ${kubectl} apply -f "${nightly_build_base_url}/${latest}/kubevirt-cr.yaml"
+
+      curl -sL "${nightly_build_base_url}/${latest}/kubevirt-cr.yaml" -o /tmp/kubevirt-cr.yaml
+      if [[ "$KUBEVIRT_PROVIDER" =~ "sriov" ]]; then
+        # SR-IOV requires CPUManager and ExternalNetResourceInjection feature gates
+        ${kubectl} patch --local -f /tmp/kubevirt-cr.yaml --type=merge -p '{}' -o json \
+          | jq '.spec.configuration.developerConfiguration.featureGates |= ((. // []) + ["CPUManager","ExternalNetResourceInjection"] | unique)' \
+          > /tmp/kubevirt-cr-patched.json
+        ${kubectl} apply -f /tmp/kubevirt-cr-patched.json
+      else
+        ${kubectl} apply -f /tmp/kubevirt-cr.yaml
+      fi
     fi
     ${kubectl} wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
-
-    if [[ "$KUBEVIRT_PROVIDER" =~ "sriov" ]]; then
-      # Some SR-IOV tests require Kubevirt CPUManager feature
-      ${kubectl} patch kubevirts -n kubevirt kubevirt --type=json -p='[{"op": "replace", "path": "/spec/configuration/developerConfiguration/featureGates","value": ["CPUManager"]}]'
-    fi
 
     echo "Run latest nighly build Kubevirt conformance tests"
     kubevirt_plugin="--plugin ${nightly_build_base_url}/${latest}/conformance.yaml"
