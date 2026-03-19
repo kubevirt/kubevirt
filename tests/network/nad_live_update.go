@@ -59,8 +59,9 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 		timeoutInterval = 5 * time.Minute
 	)
 	var (
-		testNamespace string
-		virtClient    kubecli.KubevirtClient
+		testNamespace  string
+		virtClient     kubecli.KubevirtClient
+		sourceNodeName string
 	)
 
 	BeforeEach(func() {
@@ -102,7 +103,7 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 		nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 		const minNoOfNodesNeeded = 2
 		Expect(len(nodes.Items)).To(BeNumerically(">=", minNoOfNodesNeeded))
-		sourceNodeName := nodes.Items[0].Name
+		sourceNodeName = nodes.Items[0].Name
 
 		const (
 			staticVMI1Name = "static-vmi-1"
@@ -164,8 +165,17 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 		Eventually(matcher.ThisVMI(vmi), timeoutInterval, pollingInterval).
 			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMigrationRequired))
 
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() (string, error) {
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
+			if err != nil {
+				return "", err
+			}
+			return vmi.Status.NodeName, nil
+		}, timeoutInterval, pollingInterval).Should(SatisfyAll(
+			Not(BeEmpty()),
+			Not(Equal(sourceNodeName)),
+		))
+
 		targetNode := vmi.Status.NodeName
 
 		var staticVMI2 *v1.VirtualMachineInstance
@@ -186,9 +196,9 @@ var _ = Describe(SIG("[QUARANTINE] NAD name live update", decorators.RequiresTwo
 			Create(context.Background(), staticVMI2, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-
 		Eventually(matcher.ThisVMI(staticVMI2)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
 		Expect(console.LoginToAlpine(staticVMI2)).To(Succeed())
 
 		Expect(libnet.PingFromVMConsole(staticVMI2, vmIP)).To(Succeed())
