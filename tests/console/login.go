@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	connectionTimeout = 10 * time.Second
-	promptTimeout     = 5 * time.Second
+	connectionTimeout   = 20 * time.Second
+	defaultLoginTimeout = 180 * time.Second
+	promptTimeout       = 5 * time.Second
 )
 
 // LoginToFunction represents any of the LoginTo* functions
@@ -55,7 +56,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	loginTimeout := 180 * time.Second
+	loginTimeout := defaultLoginTimeout
 	if len(timeout) > 0 {
 		loginTimeout = timeout[0]
 	}
@@ -105,7 +106,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	loginTimeout := 180 * time.Second
+	loginTimeout := defaultLoginTimeout
 	if len(timeout) > 0 {
 		loginTimeout = timeout[0]
 	}
@@ -126,12 +127,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 
-	// TODO: This is temporary workaround for issue seen in CI
-	// We see that 10seconds for an initial boot is not enough
-	// At the same time it seems the OS is booted within 10sec
-	// We need to have a look on Running -> Booting time
-	const double = 2
-	expecter, _, err := NewExpecter(virtClient, vmi, double*connectionTimeout)
+	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
 	if err != nil {
 		return err
 	}
@@ -188,7 +184,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 		&expect.BSnd{S: "sudo su\n"},
 		&expect.BExp{R: PromptExpression},
 	}
-	loginTimeout := 2 * time.Minute
+	loginTimeout := defaultLoginTimeout
 	if len(timeout) > 0 {
 		loginTimeout = timeout[0]
 	}
@@ -197,7 +193,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
 		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
 		if retryRes, retryErr := expecter.ExpectBatch(b, loginTimeout); retryErr != nil {
-			log.DefaultLogger().Object(vmi).Reason(retryErr).Errorf("Retried login attempt after two minutes failed: %+v", retryRes)
+			log.DefaultLogger().Object(vmi).Reason(retryErr).Errorf("Retried login attempt after three minutes failed: %+v", retryRes)
 			return retryErr
 		}
 	}

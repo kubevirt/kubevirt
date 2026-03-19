@@ -27,7 +27,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -47,6 +50,9 @@ const (
 	UTFPosEscape        = "\u001b\\[[0-9]+;[0-9]+H"
 
 	consoleConnectionTimeout = 30 * time.Second
+	sendTimeout              = 3 * time.Second
+	guestAgentTimeout        = 12 * time.Minute
+	guestAgentPollInterval   = 2 * time.Second
 )
 
 var (
@@ -216,7 +222,6 @@ func NewExpecter(
 				timeout.String(),
 			)
 	}
-	timeout -= serialConsoleCreateDuration
 
 	go func() {
 		resCh <- con.Stream(kvcorev1.StreamOptions{
@@ -225,7 +230,7 @@ func NewExpecter(
 		})
 	}()
 
-	opts = append(opts, expect.SendTimeout(timeout), expect.Verbose(true), expect.VerboseWriter(ginkgo.GinkgoWriter))
+	opts = append(opts, expect.SendTimeout(sendTimeout), expect.Verbose(true), expect.VerboseWriter(ginkgo.GinkgoWriter))
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
 		Out: expecterReader,
@@ -300,4 +305,9 @@ func RetValueWithPrompt(retcode string) string {
 
 func RetValue(retcode string) string {
 	return `[\r\n]` + retcode + CRLF
+}
+
+func WaitForGuestAgentConnected(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) {
+	Eventually(matcher.ThisVMI(vmi), guestAgentTimeout, guestAgentPollInterval).
+		Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 }
