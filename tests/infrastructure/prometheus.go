@@ -446,7 +446,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
 
-	It("[QUARANTINE][test_id:4145]should include correct labels for a running VMI", decorators.Quarantine, func() {
+	It("[test_id:4145]should include correct labels for a running VMI", func() {
 		// Build expected metrics from the domainstats collector, excluding
 		// conditionally emitted metrics that require features not available
 		// on a basic Alpine VMI:
