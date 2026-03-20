@@ -1002,8 +1002,8 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers).To(HaveLen(1))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(ContainElement(k8sv1.VolumeDevice{
-			Name:       controller.getExportPodVolumeName(testPVC),
-			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, controller.getExportPodVolumeName(testPVC)),
+			Name:       getExportPodVolumeName(testPVC),
+			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, getExportPodVolumeName(testPVC)),
 		}))
 		if len(pvcName) > validation.DNS1035LabelMaxLength {
 			Expect(len(pod.Spec.Containers[0].VolumeDevices[0].Name)).To(BeNumerically("<", 63))
