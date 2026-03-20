@@ -91,6 +91,10 @@ function _add_common_params() {
 
     params=" --dns-port $KUBEVIRT_DNS_HOST_PORT $params"
 
+    if [ "$KUBEVIRT_SECONDARY_NIC_BRIDGES" == "true" ]; then
+        params=" --enable-secondary-nic-bridges $params"
+    fi
+
     if [[ $TARGET =~ windows_sysprep.* ]] && [ -n "$WINDOWS_SYSPREP_NFS_DIR" ]; then
         params=" --nfs-data $WINDOWS_SYSPREP_NFS_DIR $params"
     elif [[ $TARGET =~ windows.* ]] && [ -n "$WINDOWS_NFS_DIR" ]; then
