@@ -34,9 +34,10 @@ import (
 )
 
 type EFIConfiguration struct {
-	EFICode      string
-	EFIVars      string
-	SecureLoader bool
+	EFICode                   string
+	EFIVars                   string
+	SecureLoader              bool
+	UsesFirmwareAutoSelection bool
 }
 
 type OSDomainConfigurator struct {
@@ -103,6 +104,17 @@ func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.Virtua
 
 func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if !vmi.IsBootloaderEFI() || o.efiConfiguration == nil {
+		return
+	}
+
+	if o.efiConfiguration.UsesFirmwareAutoSelection {
+		domain.Spec.OS.Firmware = "efi"
+		domain.Spec.OS.FirmwareInfo = &api.FirmwareInfo{
+			Features: []api.FirmwareFeature{
+				{Enabled: "yes", Name: "secure-boot"},
+				{Enabled: "yes", Name: "enrolled-keys"},
+			},
+		}
 		return
 	}
 

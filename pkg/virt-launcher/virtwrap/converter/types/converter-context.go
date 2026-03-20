@@ -32,9 +32,10 @@ import (
 )
 
 type EFIConfiguration struct {
-	EFICode      string
-	EFIVars      string
-	SecureLoader bool
+	EFICode                   string
+	EFIVars                   string
+	SecureLoader              bool
+	UsesFirmwareAutoSelection bool
 }
 
 type ConverterContext struct {

@@ -165,6 +165,29 @@ var _ = Describe("OS Domain Configurator", func() {
 			Entry("without secure boot", false),
 			Entry("with secure boot", true),
 		)
+
+		It("should use firmware auto-selection when enabled", func() {
+			vmi := libvmi.New(withEFIBootloader(true))
+			var domain api.Domain
+			autoSelectConfig := &compute.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+
+			Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, autoSelectConfig).Configure(vmi, &domain)).To(Succeed())
+
+			expectedOS := api.OS{
+				Firmware: "efi",
+				FirmwareInfo: &api.FirmwareInfo{
+					Features: []api.FirmwareFeature{
+						{Enabled: "yes", Name: "secure-boot"},
+						{Enabled: "yes", Name: "enrolled-keys"},
+					},
+				},
+			}
+			expectedDomain := newDomainWithOS(expectedOS)
+			Expect(domain).To(Equal(expectedDomain))
+		})
 	})
 
 	Context("ACPI configuration", func() {
