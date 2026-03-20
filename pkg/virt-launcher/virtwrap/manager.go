@@ -631,7 +631,40 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
+	if err == nil {
+		return nil
+	}
+	if isGuestAgentUnavailableError(err) && l.isLiveMigrationInProgress() {
+		log.Log.V(4).Infof("GuestPing for %s failed with %v but a live migration is in progress; suppressing probe error", domainName, err)
+		return nil
+	}
 	return err
+}
+
+// isGuestAgentUnavailableError returns true when the error from QemuAgentCommand
+// indicates that the guest agent is unreachable rather than a libvirt or
+// connection issue unrelated to the guest state.
+func isGuestAgentUnavailableError(err error) bool {
+	var libvirtErr libvirt.Error
+	if !errors.As(err, &libvirtErr) {
+		return false
+	}
+	switch libvirtErr.Code {
+	case libvirt.ERR_AGENT_UNRESPONSIVE, libvirt.ERR_NO_DOMAIN:
+		// ERR_AGENT_UNRESPONSIVE: guest agent not responding (pre-copy target,
+		// post-copy source).
+		// ERR_NO_DOMAIN: domain not yet present on the target before pages start
+		// flowing (prepareMigrationTarget has run but migration has not begun).
+		return true
+	}
+	return false
+}
+
+// isLiveMigrationInProgress returns true when migration metadata indicates a
+// live migration has been started but not yet completed on this pod.
+func (l *LibvirtDomainManager) isLiveMigrationInProgress() bool {
+	m, exists := l.metadataCache.Migration.Load()
+	return exists && m.StartTimestamp != nil && m.EndTimestamp == nil
 }
 
 func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {

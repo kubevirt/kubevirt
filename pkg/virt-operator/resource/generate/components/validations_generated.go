@@ -7367,8 +7367,13 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        During live migration the probe is suppressed on any pod where the guest
+                        is not actually running: the target pod in pre-copy phase (VM paused,
+                        receiving memory pages) and the source pod in post-copy phase (VM paused,
+                        execution handed off to target). Once migration completes those pods are
+                        terminated.
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -7565,8 +7570,13 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        During live migration the probe is suppressed on any pod where the guest
+                        is not actually running: the target pod in pre-copy phase (VM paused,
+                        receiving memory pages) and the source pod in post-copy phase (VM paused,
+                        execution handed off to target). Once migration completes those pods are
+                        terminated.
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -13430,8 +13440,13 @@ var CRDsValidation map[string]string = map[string]string{
               format: int32
               type: integer
             guestAgentPing:
-              description: GuestAgentPing contacts the qemu-guest-agent for availability
-                checks.
+              description: |-
+                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                During live migration the probe is suppressed on any pod where the guest
+                is not actually running: the target pod in pre-copy phase (VM paused,
+                receiving memory pages) and the source pod in post-copy phase (VM paused,
+                execution handed off to target). Once migration completes those pods are
+                terminated.
               type: object
             httpGet:
               description: HTTPGet specifies the http request to perform.
@@ -13627,8 +13642,13 @@ var CRDsValidation map[string]string = map[string]string{
               format: int32
               type: integer
             guestAgentPing:
-              description: GuestAgentPing contacts the qemu-guest-agent for availability
-                checks.
+              description: |-
+                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                During live migration the probe is suppressed on any pod where the guest
+                is not actually running: the target pod in pre-copy phase (VM paused,
+                receiving memory pages) and the source pod in post-copy phase (VM paused,
+                execution handed off to target). Once migration completes those pods are
+                terminated.
               type: object
             httpGet:
               description: HTTPGet specifies the http request to perform.
@@ -19854,8 +19874,13 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        During live migration the probe is suppressed on any pod where the guest
+                        is not actually running: the target pod in pre-copy phase (VM paused,
+                        receiving memory pages) and the source pod in post-copy phase (VM paused,
+                        execution handed off to target). Once migration completes those pods are
+                        terminated.
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -20052,8 +20077,13 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        During live migration the probe is suppressed on any pod where the guest
+                        is not actually running: the target pod in pre-copy phase (VM paused,
+                        receiving memory pages) and the source pod in post-copy phase (VM paused,
+                        execution handed off to target). Once migration completes those pods are
+                        terminated.
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -24968,8 +24998,13 @@ var CRDsValidation map[string]string = map[string]string{
                               format: int32
                               type: integer
                             guestAgentPing:
-                              description: GuestAgentPing contacts the qemu-guest-agent
-                                for availability checks.
+                              description: |-
+                                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                During live migration the probe is suppressed on any pod where the guest
+                                is not actually running: the target pod in pre-copy phase (VM paused,
+                                receiving memory pages) and the source pod in post-copy phase (VM paused,
+                                execution handed off to target). Once migration completes those pods are
+                                terminated.
                               type: object
                             httpGet:
                               description: HTTPGet specifies the http request to perform.
@@ -25166,8 +25201,13 @@ var CRDsValidation map[string]string = map[string]string{
                               format: int32
                               type: integer
                             guestAgentPing:
-                              description: GuestAgentPing contacts the qemu-guest-agent
-                                for availability checks.
+                              description: |-
+                                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                During live migration the probe is suppressed on any pod where the guest
+                                is not actually running: the target pod in pre-copy phase (VM paused,
+                                receiving memory pages) and the source pod in post-copy phase (VM paused,
+                                execution handed off to target). Once migration completes those pods are
+                                terminated.
                               type: object
                             httpGet:
                               description: HTTPGet specifies the http request to perform.
@@ -30541,8 +30581,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   format: int32
                                   type: integer
                                 guestAgentPing:
-                                  description: GuestAgentPing contacts the qemu-guest-agent
-                                    for availability checks.
+                                  description: |-
+                                    GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                    During live migration the probe is suppressed on any pod where the guest
+                                    is not actually running: the target pod in pre-copy phase (VM paused,
+                                    receiving memory pages) and the source pod in post-copy phase (VM paused,
+                                    execution handed off to target). Once migration completes those pods are
+                                    terminated.
                                   type: object
                                 httpGet:
                                   description: HTTPGet specifies the http request
@@ -30741,8 +30786,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   format: int32
                                   type: integer
                                 guestAgentPing:
-                                  description: GuestAgentPing contacts the qemu-guest-agent
-                                    for availability checks.
+                                  description: |-
+                                    GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                    During live migration the probe is suppressed on any pod where the guest
+                                    is not actually running: the target pod in pre-copy phase (VM paused,
+                                    receiving memory pages) and the source pod in post-copy phase (VM paused,
+                                    execution handed off to target). Once migration completes those pods are
+                                    terminated.
                                   type: object
                                 httpGet:
                                   description: HTTPGet specifies the http request

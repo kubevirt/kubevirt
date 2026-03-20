@@ -2695,6 +2695,113 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	Context("on GuestPing", func() {
+		const pingCmd = `{"execute":"guest-ping"}`
+
+		It("should succeed when guest-ping returns successfully", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+			Expect(manager.GuestPing(testDomainName)).To(Succeed())
+		})
+
+		It("should return error when guest-ping fails and no migration is in progress", func() {
+			pingErr := fmt.Errorf("guest agent not responding")
+			manager, _ := newLibvirtDomainManagerDefault()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", pingErr)
+			Expect(manager.GuestPing(testDomainName)).To(MatchError(pingErr))
+		})
+
+		// GuestAgentPing is implemented as a Kubernetes exec probe running virt-probe
+		// inside the compute container. Kubelet therefore executes the probe on both
+		// the source and the target pods simultaneously throughout the migration.
+		//
+		// Pre-copy phase: source VM is still running (probe succeeds); target VM is
+		// paused receiving memory pages (probe fails → must be suppressed).
+		//
+		// Post-copy phase: target VM is now running (probe succeeds); source VM has
+		// been handed off and is in a ghost/paused state (probe fails → must be
+		// suppressed).
+		//
+		// Suppression is gated on the error being a guest-agent-unavailable libvirt
+		// error (ERR_AGENT_UNRESPONSIVE or ERR_NO_DOMAIN) so that unrelated libvirt
+		// or connection errors are still surfaced even during migration.
+
+		Context("in pre-copy migration phase", func() {
+			BeforeEach(func() {
+				now := metav1.Now()
+				metadataCache.Migration.Store(api.MigrationMetadata{
+					UID:            "test-migration-uid",
+					StartTimestamp: &now,
+					Mode:           v1.MigrationPreCopy,
+				})
+			})
+
+			It("should not suppress a passing probe on the source pod (VM is running and reachable)", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should suppress ERR_AGENT_UNRESPONSIVE on the target pod (VM paused, receiving memory pages)", func() {
+				agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should suppress ERR_NO_DOMAIN on the target pod (domain not yet present)", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should still surface unrelated libvirt errors during migration", func() {
+				connErr := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", connErr)
+				Expect(manager.GuestPing(testDomainName)).To(MatchError(connErr))
+			})
+		})
+
+		Context("in post-copy migration phase", func() {
+			BeforeEach(func() {
+				now := metav1.Now()
+				metadataCache.Migration.Store(api.MigrationMetadata{
+					UID:            "test-migration-uid",
+					StartTimestamp: &now,
+					Mode:           v1.MigrationPostCopy,
+				})
+			})
+
+			It("should not suppress a passing probe on the target pod (VM is running and reachable)", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should suppress ERR_AGENT_UNRESPONSIVE on the source pod (VM handed off, no longer accessible)", func() {
+				agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+		})
+
+		It("should not suppress agent errors once the migration has completed", func() {
+			now := metav1.Now()
+			later := metav1.NewTime(now.Add(time.Second))
+			metadataCache.Migration.Store(api.MigrationMetadata{
+				UID:            "test-migration-uid",
+				StartTimestamp: &now,
+				EndTimestamp:   &later,
+			})
+			agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+			manager, _ := newLibvirtDomainManagerDefault()
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+			Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+		})
+	})
+
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 })
 

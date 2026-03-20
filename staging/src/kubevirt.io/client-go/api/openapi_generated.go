@@ -21679,7 +21679,7 @@ func schema_kubevirtio_api_core_v1_Handler(ref common.ReferenceCallback) common.
 					},
 					"guestAgentPing": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks. During live migration the probe is suppressed on any pod where the guest is not actually running: the target pod in pre-copy phase (VM paused, receiving memory pages) and the source pod in post-copy phase (VM paused, execution handed off to target). Once migration completes those pods are terminated.",
 							Ref:         ref("kubevirt.io/api/core/v1.GuestAgentPing"),
 						},
 					},
@@ -24919,7 +24919,7 @@ func schema_kubevirtio_api_core_v1_Probe(ref common.ReferenceCallback) common.Op
 					},
 					"guestAgentPing": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks. During live migration the probe is suppressed on any pod where the guest is not actually running: the target pod in pre-copy phase (VM paused, receiving memory pages) and the source pod in post-copy phase (VM paused, execution handed off to target). Once migration completes those pods are terminated.",
 							Ref:         ref("kubevirt.io/api/core/v1.GuestAgentPing"),
 						},
 					},
