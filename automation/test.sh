@@ -360,6 +360,10 @@ build --remote_download_toplevel
 build --noshow_progress
 EOF
 
+echo "=== ci.bazelrc ==="
+cat ci.bazelrc
+echo "=================="
+
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
