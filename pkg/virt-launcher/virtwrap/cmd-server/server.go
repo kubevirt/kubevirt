@@ -135,7 +135,7 @@ func (l *Launcher) CancelVirtualMachineMigration(_ context.Context, request *cmd
 		return response, nil
 	}
 
-	log.Log.Object(vmi).Info("Live migration as been aborted")
+	log.Log.Object(vmi).Info("Live migration has been aborted")
 	return response, nil
 
 }
