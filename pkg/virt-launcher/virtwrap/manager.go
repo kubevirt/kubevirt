@@ -628,7 +628,51 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 	return agent.GuestExec(l.virConn, domainName, command, args, timeoutSeconds)
 }
 
+// handleGuestPingDuringMigration checks if we're in an active migration and whether
+// the guest ping should be handled specially. During migration, the target pod may
+// not have the domain running yet, so we return success to prevent kubelet from
+// terminating the target pod.
+//
+// Returns:
+//   - handled: true if the ping was handled (caller should return immediately with the error)
+//   - err: the error to return (nil means success)
+func (l *LibvirtDomainManager) handleGuestPingDuringMigration(domainName string) (handled bool, err error) {
+	migrationMetadata, migrationExists := l.metadataCache.Migration.Load()
+	if !migrationExists || migrationMetadata.UID == "" || migrationMetadata.EndTimestamp != nil || migrationMetadata.Failed {
+		return false, nil
+	}
+
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			log.Log.V(4).Infof("Guest agent ping during migration - domain not found, returning success to prevent target pod termination")
+			return true, nil
+		}
+		log.Log.Reason(err).Warning("Guest agent ping during migration - unexpected error looking up domain, returning success to prevent target pod termination")
+		return true, nil
+	}
+	defer domain.Free()
+
+	state, _, err := domain.GetState()
+	if err != nil {
+		log.Log.Reason(err).Warning("Guest agent ping during migration - cannot get domain state, returning success to prevent target pod termination")
+		return true, nil
+	}
+
+	if state != libvirt.DOMAIN_RUNNING {
+		log.Log.V(4).Infof("Guest agent ping during migration - domain not running (state %d), returning success to prevent target pod termination", state)
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
+	if handled, err := l.handleGuestPingDuringMigration(domainName); handled {
+		return err
+	}
+
+	// Normal case: ping the guest agent
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
 	return err

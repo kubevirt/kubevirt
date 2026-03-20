@@ -3741,6 +3741,129 @@ var _ = Describe("Manager helper functions", func() {
 	})
 })
 
+var _ = Describe("GuestPing during migration", func() {
+	var mockLibvirt *testing.Libvirt
+	var ctrl *gomock.Controller
+	var testVirtShareDir string
+	var testEphemeralDiskDir string
+	var metadataCache *metadata.Cache
+	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
+	ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
+
+	newTestLibvirtManager := func() *LibvirtDomainManager {
+		agentStore := agentpoller.NewAsyncAgentStore()
+		manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, &agentStore, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, false, nil, v1.KvmHypervisorName)
+		Expect(err).ToNot(HaveOccurred())
+		return manager.(*LibvirtDomainManager)
+	}
+
+	storeActiveMigration := func() {
+		metadataCache.Migration.Store(api.MigrationMetadata{
+			UID:            types.UID("test-migration-uid"),
+			StartTimestamp: &metav1.Time{Time: time.Now()},
+		})
+	}
+
+	BeforeEach(func() {
+		testVirtShareDir = fmt.Sprintf("fake-virt-share-%d", GinkgoRandomSeed())
+		testEphemeralDiskDir = fmt.Sprintf("fake-ephemeral-disk-%d", GinkgoRandomSeed())
+		ctrl = gomock.NewController(GinkgoT())
+		mockLibvirt = testing.NewLibvirt(ctrl)
+		metadataCache = metadata.NewCache()
+	})
+
+	It("should return success when domain doesn't exist during active migration", func() {
+		storeActiveMigration()
+		mockLibvirt.VirtConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should return success when domain lookup fails with unexpected error during active migration", func() {
+		storeActiveMigration()
+		mockLibvirt.VirtConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR, Message: "connection reset"})
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should return success when domain is not running during active migration", func() {
+		storeActiveMigration()
+
+		mockDomain := mockLibvirt.Domain(testDomainName)
+		mockLibvirt.VirtConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
+		mockLibvirt.DomainEXPECT().Free()
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should ping guest agent when domain is running during active migration", func() {
+		storeActiveMigration()
+
+		mockDomain := mockLibvirt.Domain(testDomainName)
+		mockLibvirt.VirtConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+		mockLibvirt.DomainEXPECT().Free()
+
+		mockLibvirt.VirtConnectionEXPECT().QemuAgentCommand(`{"execute":"guest-ping"}`, testDomainName).Return("", nil)
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should propagate guest agent error when domain is running during active migration", func() {
+		storeActiveMigration()
+
+		mockDomain := mockLibvirt.Domain(testDomainName)
+		mockLibvirt.VirtConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+		mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+		mockLibvirt.DomainEXPECT().Free()
+
+		mockLibvirt.VirtConnectionEXPECT().QemuAgentCommand(`{"execute":"guest-ping"}`, testDomainName).Return("", fmt.Errorf("guest agent not responding"))
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("guest agent not responding"))
+	})
+
+	It("should ping guest agent normally when no active migration", func() {
+		mockLibvirt.VirtConnectionEXPECT().QemuAgentCommand(`{"execute":"guest-ping"}`, testDomainName).Return("", nil)
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should ping guest agent normally when migration has completed", func() {
+		metadataCache.Migration.Store(api.MigrationMetadata{
+			UID:            types.UID("test-migration-uid"),
+			StartTimestamp: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
+			EndTimestamp:   &metav1.Time{Time: time.Now()},
+		})
+
+		mockLibvirt.VirtConnectionEXPECT().QemuAgentCommand(`{"execute":"guest-ping"}`, testDomainName).Return("", nil)
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should ping guest agent normally when migration has failed", func() {
+		metadataCache.Migration.Store(api.MigrationMetadata{
+			UID:            types.UID("test-migration-uid"),
+			StartTimestamp: &metav1.Time{Time: time.Now().Add(-5 * time.Minute)},
+			Failed:         true,
+			FailureReason:  "test failure",
+		})
+
+		mockLibvirt.VirtConnectionEXPECT().QemuAgentCommand(`{"execute":"guest-ping"}`, testDomainName).Return("", nil)
+
+		err := newTestLibvirtManager().GuestPing(testDomainName)
+		Expect(err).ToNot(HaveOccurred())
+	})
+})
+
 var _ = Describe("calculateHotplugPortCount", func() {
 	const gb = 1024 * 1024 * 1024
 
