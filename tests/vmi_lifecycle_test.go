@@ -1418,6 +1418,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
+
+			Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Disable qemu-guest-agent service in the VMI to force ACPI mode reboot")
