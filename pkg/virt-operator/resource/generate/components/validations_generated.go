@@ -21335,6 +21335,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: boolean
             appendIndexToSecretRefs:
               type: boolean
+            setHostnameToVMName:
+              type: boolean
           type: object
         paused:
           description: Indicates that the pool is paused.

@@ -949,6 +949,9 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 			vm.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vm.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vm.Spec = *indexVMSpec(&pool.Spec, index)
+			if pool.Spec.NameGeneration != nil && pool.Spec.NameGeneration.SetHostnameToVMName != nil && *pool.Spec.NameGeneration.SetHostnameToVMName {
+				vm.Spec.Template.Spec.Hostname = name
+			}
 			vm = injectPoolRevisionLabelsIntoVM(vm, revisionName)
 			controller.AddFinalizer(vm, poolv1.VirtualMachinePoolControllerFinalizer)
 
@@ -1086,6 +1089,9 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 			vmCopy.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vmCopy.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vmCopy.Spec = *indexVMSpec(&pool.Spec, index)
+			if pool.Spec.NameGeneration != nil && pool.Spec.NameGeneration.SetHostnameToVMName != nil && *pool.Spec.NameGeneration.SetHostnameToVMName {
+				vmCopy.Spec.Template.Spec.Hostname = vmCopy.Name
+			}
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
 			// Preserve VM identity/specific fields that were set during VM creation
