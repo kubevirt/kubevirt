@@ -254,9 +254,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 		})
 
 		It("[test_id:1677]VMI condition should signal agent presence", func() {
-			getOptions := metav1.GetOptions{}
-
-			freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
+			freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 			Expect(freshVMI.Status.Conditions).To(
 				ContainElement(
@@ -264,17 +262,15 @@ var _ = Describe(SIG("GuestAgent info", func() {
 						IgnoreExtras,
 						Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
 				"agent should already be connected")
-
 		})
 
 		It("[test_id:4626]should have guestosinfo in status when agent is present", func() {
-			getOptions := metav1.GetOptions{}
 			var updatedVmi *v1.VirtualMachineInstance
 			var err error
 
 			By("Expecting the Guest VM information")
 			Eventually(func() bool {
-				updatedVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
+				updatedVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, metav1.GetOptions{})
 				if err != nil {
 					return false
 				}
@@ -361,8 +357,6 @@ var _ = Describe(SIG("GuestAgent info", func() {
 
 			By("Terminating guest agent and waiting for it to disappear.")
 			Expect(stopGuestAgent(agentVMI)).To(Succeed())
-
-			By("VMI has the guest agent connected condition")
 			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 		})
 
