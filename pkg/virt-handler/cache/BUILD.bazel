@@ -37,6 +37,7 @@ go_test(
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
