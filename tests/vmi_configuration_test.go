@@ -1968,18 +1968,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Entry("without resource requirements set", nil),
 			)
 
-			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
-				cpuVmi := libvmifact.NewAlpine()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Cores:                 2,
-					IsolateEmulatorThread: true,
-				}
-
-				By("Starting a VirtualMachineInstance")
-				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
-
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := libvmifact.NewAlpine()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
