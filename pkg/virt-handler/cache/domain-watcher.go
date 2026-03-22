@@ -40,6 +40,8 @@ import (
 
 const socketDialTimeout = 5
 
+type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error
+
 type domainWatcher struct {
 	lock                     sync.Mutex
 	wg                       sync.WaitGroup
@@ -51,6 +53,7 @@ type domainWatcher struct {
 	recorder                 record.EventRecorder
 	vmiStore                 cache.Store
 	resyncPeriod             time.Duration
+	runServer                runServerFunc
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
@@ -65,6 +68,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 		vmiStore:                 vmiStore,
 		unresponsiveSockets:      make(map[string]int64),
 		resyncPeriod:             resyncPeriod,
+		runServer:                notifyserver.RunServer,
 	}
 
 	return d
@@ -88,7 +92,7 @@ func (d *domainWatcher) worker() {
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
+		err := d.runServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
 		srvErr <- err
 	}()
 
