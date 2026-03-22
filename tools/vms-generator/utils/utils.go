@@ -128,7 +128,7 @@ const DRAResourceClaimName = "pgpu-resource-claim"
 const (
 	imageAlpine     = "alpine-container-disk-demo"
 	imageCirros     = "cirros-container-disk-demo"
-	imageFedora     = "fedora-with-test-tooling-container-disk"
+	imageFedora     = "quay.io/oshoval/fedora-with-test-tooling:latest"
 	imageKernelBoot = "alpine-ext-kernel-boot-demo"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
@@ -185,13 +185,13 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 }
 
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
+	addContainerDisk(spec, imageFedora, v1.DiskBusVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
 
 func initFedoraIsolated(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
+	addContainerDisk(spec, imageFedora, v1.DiskBusVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 
 	addDedicatedAndIsolatedCPU(spec)
@@ -444,7 +444,7 @@ func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
 func GetVMISecureBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiSecureBoot)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
+	addContainerDisk(&vmi.Spec, imageFedora, v1.DiskBusVirtio)
 
 	_true := true
 	vmi.Spec.Domain.Features = &v1.Features{
