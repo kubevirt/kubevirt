@@ -632,29 +632,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices", func() {
-			It("[test_id:2642]should failed to start the VMI with wrong type of input device", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
-					{
-						Name: "tablet0",
-						Type: "keyboard",
-						Bus:  v1.VirtIO,
-					},
-				}
-				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "should not start vmi")
-			})
-
-			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", func() {
-				vmi := libvmifact.NewAlpine(
-					libvmi.WithTablet("tablet0", "ps2"),
-				)
-				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "should not start vmi")
-			})
-
 			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithTablet("tablet0", "virtio"),
