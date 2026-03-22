@@ -19,6 +19,7 @@
 package cache
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -76,6 +77,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 
 func (d *domainWatcher) worker() {
 	defer d.wg.Done()
+	defer d.onWorkerExit()
 
 	resyncTicker := time.NewTicker(d.resyncPeriod)
 	resyncTickerChan := resyncTicker.C
@@ -104,13 +106,25 @@ func (d *domainWatcher) worker() {
 			d.handleStaleSocketConnections()
 		case err := <-srvErr:
 			if err != nil {
-				log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
+				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
+				d.eventChan <- watch.Event{
+					Type: watch.Error,
+					Object: &metav1.Status{
+						Status:  metav1.StatusFailure,
+						Message: fmt.Sprintf("domain notify server error: %v", err),
+					},
+				}
 			}
-
-			// server exitted so this goroutine is done.
 			return
 		}
 	}
+}
+
+func (d *domainWatcher) onWorkerExit() {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.backgroundWatcherStarted = false
+	close(d.eventChan)
 }
 
 func (d *domainWatcher) startBackground() error {
@@ -326,16 +340,22 @@ func (d *domainWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
 }
 
 func (d *domainWatcher) Stop() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if !d.backgroundWatcherStarted {
-		return
+	shouldWait := func() bool {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		if !d.backgroundWatcherStarted {
+			return false
+		}
+		select {
+		case <-d.stopChan:
+		default:
+			close(d.stopChan)
+		}
+		return true
+	}()
+	if shouldWait {
+		d.wg.Wait()
 	}
-	close(d.stopChan)
-	d.wg.Wait()
-	d.backgroundWatcherStarted = false
-	close(d.eventChan)
 }
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {
