@@ -20,12 +20,20 @@
 package cgroup
 
 import (
+	"os"
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"go.uber.org/mock/gomock"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 var _ = Describe("cgroup manager", func() {
@@ -194,4 +202,37 @@ var _ = Describe("cgroup manager", func() {
 			},
 		),
 	)
+})
+
+var _ = Describe("generateDeviceRulesForVMI", func() {
+	var (
+		ctrl    *gomock.Controller
+		tempDir string
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		tempDir = GinkgoT().TempDir()
+		Expect(os.MkdirAll(filepath.Join(tempDir, "dev"), 0755)).To(Succeed())
+	})
+
+	newMockIsolationWithMountRoot := func() isolation.IsolationResult {
+		mountRoot, err := safepath.NewPathNoFollow(tempDir)
+		Expect(err).ToNot(HaveOccurred())
+
+		mockIso := isolation.NewMockIsolationResult(ctrl)
+		mockIso.EXPECT().MountRoot().Return(mountRoot, nil)
+		return mockIso
+	}
+
+	It("should skip hypervisor device rule when emulation is allowed and device is missing", func() {
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(BeEmpty())
+	})
+
+	It("should fail when hypervisor device is missing and emulation is not allowed", func() {
+		_, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", false)
+		Expect(err).To(HaveOccurred())
+	})
 })
