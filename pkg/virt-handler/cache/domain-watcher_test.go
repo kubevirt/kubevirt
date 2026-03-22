@@ -51,6 +51,35 @@ var _ = Describe("Domain Watcher", func() {
 		})
 	})
 
+	Context("consecutive failure panic", func() {
+		It("should panic after reaching max consecutive failures", func() {
+			origMax := notifyServerMaxConsecutiveFails
+			origHealthy := notifyServerHealthyRunTime
+			defer func() {
+				notifyServerMaxConsecutiveFails = origMax
+				notifyServerHealthyRunTime = origHealthy
+			}()
+			notifyServerMaxConsecutiveFails = 1
+			notifyServerHealthyRunTime = 1 * time.Hour
+
+			d := &domainWatcher{
+				virtShareDir:        GinkgoT().TempDir(),
+				watchdogTimeout:     10,
+				unresponsiveSockets: make(map[string]int64),
+				resyncPeriod:        1 * time.Hour,
+				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store) error {
+					return fmt.Errorf("permanent failure")
+				},
+				eventChan: make(chan watch.Event, 100),
+				stopChan:  make(chan struct{}),
+			}
+			d.wg.Add(1)
+
+			Expect(d.worker).To(PanicWith(
+				ContainSubstring("domain notify server reached max consecutive failures")))
+		})
+	})
+
 	Context("Stop() idempotency", func() {
 		It("should not panic when Stop is called twice", func() {
 			d := &domainWatcher{
