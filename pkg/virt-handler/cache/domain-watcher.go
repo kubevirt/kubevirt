@@ -43,6 +43,11 @@ const socketDialTimeout = 5
 
 type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error
 
+var (
+	notifyServerMaxConsecutiveFails = 10
+	notifyServerHealthyRunTime     = 1 * time.Minute
+)
+
 type domainWatcher struct {
 	lock                     sync.Mutex
 	wg                       sync.WaitGroup
@@ -55,6 +60,7 @@ type domainWatcher struct {
 	vmiStore                 cache.Store
 	resyncPeriod             time.Duration
 	runServer                runServerFunc
+	consecutiveFails         int
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
@@ -91,6 +97,7 @@ func (d *domainWatcher) worker() {
 
 	expiredWatchdogTickerChan := expiredWatchdogTicker.C
 
+	startedAt := time.Now()
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
@@ -107,6 +114,7 @@ func (d *domainWatcher) worker() {
 		case err := <-srvErr:
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
+				d.panicOnConsecutiveFailures(err, startedAt)
 				d.eventChan <- watch.Event{
 					Type: watch.Error,
 					Object: &metav1.Status{
@@ -125,6 +133,20 @@ func (d *domainWatcher) onWorkerExit() {
 	defer d.lock.Unlock()
 	d.backgroundWatcherStarted = false
 	close(d.eventChan)
+}
+
+func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Time) {
+	if time.Since(startedAt) >= notifyServerHealthyRunTime {
+		d.consecutiveFails = 0
+	}
+	d.consecutiveFails++
+
+	if d.consecutiveFails >= notifyServerMaxConsecutiveFails {
+		log.Log.Reason(err).Criticalf("Domain notify server reached max consecutive failures (%d)",
+			notifyServerMaxConsecutiveFails)
+		panic(fmt.Sprintf("domain notify server reached max consecutive failures (%d): %v",
+			notifyServerMaxConsecutiveFails, err))
+	}
 }
 
 func (d *domainWatcher) startBackground() error {
