@@ -38,6 +38,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -339,6 +340,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             1 * time.Hour,
+				runServer:                notifyserver.RunServer,
 			}
 
 			err = d.startBackground()
@@ -382,6 +384,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             time.Duration(1) * time.Hour,
+				runServer:                notifyserver.RunServer,
 			}
 
 			err = d.startBackground()
