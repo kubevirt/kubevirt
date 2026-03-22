@@ -450,14 +450,14 @@ func (app *VirtOperatorApp) Run() {
 					if err := metrics.RegisterLeaderMetrics(); err != nil {
 						golog.Fatalf("failed to register leader metrics: %v", err)
 					}
-					metrics.SetLeader(true)
+					metrics.SetVirtOperatorLeading()
 					log.Log.Infof("Started leading")
 
 					// run app
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},
 				OnStoppedLeading: func() {
-					metrics.SetLeader(false)
+					metrics.SetVirtOperatorNotLeading()
 					log.Log.V(5).Info("stop monitoring the kubevirt-config configMap")
 					golog.Fatal("leaderelection lost")
 				},
@@ -467,7 +467,7 @@ func (app *VirtOperatorApp) Run() {
 		golog.Fatal(err)
 	}
 
-	metrics.SetReady(true)
+	metrics.SetVirtOperatorReady()
 	log.Log.Infof("Attempting to acquire leader status")
 	leaderElector.Run(app.ctx)
 
