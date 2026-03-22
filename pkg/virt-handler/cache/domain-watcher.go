@@ -21,9 +21,11 @@ package cache
 import (
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -45,7 +47,7 @@ type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watc
 
 var (
 	notifyServerMaxConsecutiveFails = 10
-	notifyServerHealthyRunTime     = 1 * time.Minute
+	notifyServerHealthyRunTime      = 1 * time.Minute
 )
 
 type domainWatcher struct {
@@ -141,12 +143,24 @@ func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Tim
 	}
 	d.consecutiveFails++
 
+	d.recordNotifyServerFailureEvent(err)
+
 	if d.consecutiveFails >= notifyServerMaxConsecutiveFails {
 		log.Log.Reason(err).Criticalf("Domain notify server reached max consecutive failures (%d)",
 			notifyServerMaxConsecutiveFails)
 		panic(fmt.Sprintf("domain notify server reached max consecutive failures (%d): %v",
 			notifyServerMaxConsecutiveFails, err))
 	}
+}
+
+func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
+	if d.recorder == nil {
+		return
+	}
+	hostname, _ := os.Hostname()
+	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
+	d.recorder.Eventf(node, k8sv1.EventTypeWarning, "NotifyServerFailure",
+		"Domain notify server exited unexpectedly: %v", err)
 }
 
 func (d *domainWatcher) startBackground() error {
