@@ -146,20 +146,23 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		os.Remove(sockFile)
 	}()
 
-	done := make(chan struct{})
+	serveErr := make(chan error, 1)
 	go func() {
-		defer close(done)
-		grpcServer.Serve(sock)
+		defer close(serveErr)
+		serveErr <- grpcServer.Serve(sock)
 	}()
 
-	// wait for either the server to exit or stopChan to signal
 	select {
-	case <-done:
+	case err := <-serveErr:
+		if err != nil {
+			log.Log.Reason(err).Error("notify server exited with error")
+			return err
+		}
 		log.Log.Info("notify server done")
+		return nil
 	case <-stopChan:
 		grpcServerStop(grpcServer)
 	}
-
 	return nil
 }
 
