@@ -3822,10 +3822,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 		})
 
-		It("should accept when architecture is empty (defaulted)", func() {
+		It("should fail when architecture is empty", func() {
 			vmi.Spec.Architecture = ""
 			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty(), "should accept empty architecture when it can be defaulted")
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.architecture"))
+			Expect(causes[0].Message).To(ContainSubstring("architecture is required but missing"))
 		})
 
 		It("should fail when architecture is unsupported", func() {

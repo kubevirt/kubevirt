@@ -154,7 +154,12 @@ func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.Virtua
 	var causes []metav1.StatusCause
 	arch := spec.Architecture
 	if arch == "" {
-		arch = config.GetDefaultArchitecture()
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "architecture is required but missing (should have been defaulted by mutation webhook)",
+			Field:   field.Child("architecture").String(),
+		})
+		return causes
 	}
 
 	switch arch {
@@ -770,7 +775,7 @@ func validateThreadCountOnArchitecture(field *k8sfield.Path, spec *v1.VirtualMac
 	var causes []metav1.StatusCause
 	arch := spec.Architecture
 	if arch == "" {
-		arch = config.GetDefaultArchitecture()
+		return causes
 	}
 
 	// Verify CPU thread count requested is 1 for ARM64 VMI architecture.
@@ -2106,7 +2111,7 @@ func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 
 	arch := spec.Architecture
 	if arch == "" {
-		arch = config.GetDefaultArchitecture()
+		return causes
 	}
 
 	if arch == "s390x" {
