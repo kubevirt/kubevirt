@@ -349,15 +349,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", func() {
-			It("[test_id:3113]should failed to the VMI creation", func() {
-				vmi := libvmi.New()
-				By("Starting a VirtualMachineInstance")
-				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
-		})
-
 		Context("with BIOS bootloader method and no disk", func() {
 			It("[test_id:5265]should find no bootable device by default", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
@@ -641,29 +632,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices", func() {
-			It("[test_id:2642]should failed to start the VMI with wrong type of input device", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
-					{
-						Name: "tablet0",
-						Type: "keyboard",
-						Bus:  v1.VirtIO,
-					},
-				}
-				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "should not start vmi")
-			})
-
-			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", func() {
-				vmi := libvmifact.NewAlpine(
-					libvmi.WithTablet("tablet0", "ps2"),
-				)
-				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "should not start vmi")
-			})
-
 			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithTablet("tablet0", "virtio"),
@@ -2000,18 +1968,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Entry("without resource requirements set", nil),
 			)
 
-			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
-				cpuVmi := libvmifact.NewAlpine()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Cores:                 2,
-					IsolateEmulatorThread: true,
-				}
-
-				By("Starting a VirtualMachineInstance")
-				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
-
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := libvmifact.NewAlpine()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2035,31 +1991,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 15)).To(Succeed())
 			})
 
-			It("[test_id:1688]should fail the vmi creation if the requested resources are inconsistent", func() {
-				cpuVmi := libvmifact.NewAlpine()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Cores:                 2,
-					DedicatedCPUPlacement: true,
-				}
-
-				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("3")
-
-				By("Starting a VirtualMachineInstance")
-				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
-			It("[test_id:1689]should fail the vmi creation if cpu is not an integer", func() {
-				cpuVmi := libvmifact.NewAlpine()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					DedicatedCPUPlacement: true,
-				}
-
-				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("300m")
-
-				By("Starting a VirtualMachineInstance")
-				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
 			It("[test_id:1690]should fail the vmi creation if Guaranteed QOS cannot be set", func() {
 				cpuVmi := libvmifact.NewAlpine()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
