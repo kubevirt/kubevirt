@@ -3586,6 +3586,31 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.NVRam).To(BeNil())
 		})
 
+		It("should use pflash for ARM64 EFI without Secure Boot", func() {
+			c.EFIConfiguration = &convertertypes.EFIConfiguration{
+				EFICode:      "AAVMF_CODE.fd",
+				EFIVars:      "AAVMF_VARS.fd",
+				SecureLoader: false,
+			}
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(false),
+					},
+				},
+			}
+			vmi.Status.RuntimeUser = 107
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.Firmware).To(BeEmpty())
+			Expect(domainSpec.OS.FirmwareInfo).To(BeNil())
+			Expect(domainSpec.OS.BootLoader).ToNot(BeNil())
+			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+			Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
+			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal("AAVMF_CODE.fd"))
+			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal("AAVMF_VARS.fd"))
+		})
+
 		DescribeTable("display device should be set to", func(arch string, bootloader v1.Bootloader, enableFG bool, expectedDevice string) {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{Bootloader: &bootloader}
 			c = &convertertypes.ConverterContext{
