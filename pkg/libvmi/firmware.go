@@ -24,7 +24,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-// WithUefi configures EFI bootloader and SecureBoot.
+// WithUefi configures EFI bootloader and SecureBoot. When secureBoot is
+// enabled, SMM is also enabled for amd64 guests as it is required to protect
+// UEFI variable writes. Other architectures do not use SMM.
+// Order-independent with WithArchitecture: WithArchitecture strips SMM
+// when setting a non-amd64 architecture.
 func WithUefi(secureBoot bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {

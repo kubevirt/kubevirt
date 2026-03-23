@@ -89,6 +89,9 @@ func WithNUMAGuestMappingPassthrough() Option {
 func WithArchitecture(arch string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Architecture = arch
+		if arch != "amd64" && vmi.Spec.Domain.Features != nil && vmi.Spec.Domain.Features.SMM != nil {
+			vmi.Spec.Domain.Features.SMM = nil
+		}
 	}
 }
 
