@@ -1026,19 +1026,30 @@ func (t *templateService) RenderMigrationHotplugAttachmentPodTemplate(volumes []
 	// delete non-migratable resource claims
 	deleteCandidates := make(map[string]struct{})
 	for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
-		if deviceStatus.DeviceResourceClaimStatus != nil && (!deviceStatus.DeviceResourceClaimStatus.AllowMultipleAllocations || deviceStatus.DeviceResourceClaimStatus.BindsToNode) {
+		// skip non-usb devices
+		if deviceStatus.DeviceResourceClaimStatus == nil || deviceStatus.DeviceResourceClaimStatus.Attributes == nil || deviceStatus.DeviceResourceClaimStatus.Attributes.USBAddress == nil {
+			continue
+		}
+
+		if !deviceStatus.DeviceResourceClaimStatus.AllowMultipleAllocations || deviceStatus.DeviceResourceClaimStatus.BindsToNode {
 			deleteCandidates[deviceStatus.Name] = struct{}{}
 		}
 	}
 
-	pod.Spec.ResourceClaims = slices.DeleteFunc(pod.Spec.ResourceClaims, func(rc k8sv1.PodResourceClaim) bool {
-		_, ok := deleteCandidates[rc.Name]
-		return ok
-	})
-	pod.Spec.Resources.Claims = slices.DeleteFunc(pod.Spec.Resources.Claims, func(rc k8sv1.ResourceClaim) bool {
-		_, ok := deleteCandidates[rc.Name]
-		return ok
-	})
+	if len(deleteCandidates) == 0 {
+		return pod, nil
+	}
+
+	if len(pod.Spec.ResourceClaims) > 0 {
+		pod.Spec.ResourceClaims = slices.DeleteFunc(pod.Spec.ResourceClaims, func(rc k8sv1.PodResourceClaim) bool {
+			_, ok := deleteCandidates[rc.Name]
+			return ok
+		})
+		pod.Spec.Containers[0].Resources.Claims = slices.DeleteFunc(pod.Spec.Containers[0].Resources.Claims, func(rc k8sv1.ResourceClaim) bool {
+			_, ok := deleteCandidates[rc.Name]
+			return ok
+		})
+	}
 
 	return pod, nil
 }

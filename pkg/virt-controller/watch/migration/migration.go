@@ -1612,7 +1612,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			}
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 		} else if controller.IsPodReady(pod) {
-			if controller.VMIHasHotplugVolumes(vmi) {
+			if needMigrationHotplug(vmi) {
 				attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 				if err != nil {
 					return fmt.Errorf(failedGetAttractionPodsFmt, err)
@@ -2453,4 +2453,36 @@ func setMigrationFailedConditionIfNotExists(migration *virtv1.VirtualMachineInst
 			})
 		}
 	}
+}
+
+func needMigrationHotplug(vmi *virtv1.VirtualMachineInstance) bool {
+	if controller.VMIHasHotplugVolumes(vmi) {
+		return true
+	}
+
+	strategy := virtv1.GetUSBMigrationStrategy(vmi)
+	if strategy == virtv1.USBMigrationStrategyPrevent {
+		return controller.VMIHasHotplugResourceClaims(vmi)
+	}
+
+	hotplugClaims := controller.GetHotplugResourceClaims(vmi)
+	hotplugClaimNames := make(map[string]struct{})
+	for _, claim := range hotplugClaims {
+		hotplugClaimNames[claim.Name] = struct{}{}
+	}
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			// skip non-usb devices
+			if deviceStatus.DeviceResourceClaimStatus == nil || deviceStatus.DeviceResourceClaimStatus.Attributes == nil || deviceStatus.DeviceResourceClaimStatus.Attributes.USBAddress == nil {
+				continue
+			}
+
+			if !deviceStatus.DeviceResourceClaimStatus.AllowMultipleAllocations || deviceStatus.DeviceResourceClaimStatus.BindsToNode {
+				delete(hotplugClaimNames, deviceStatus.Name)
+			}
+		}
+	}
+
+	return len(hotplugClaimNames) > 0
 }

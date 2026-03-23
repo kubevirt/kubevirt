@@ -644,6 +644,22 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
 	return hotplugVolumes
 }
 
+func VMIHasHotplugResourceClaims(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Status.DeviceStatus != nil {
+		for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			if deviceStatus.Hotplug != nil {
+				return true
+			}
+		}
+	}
+	for _, resourceClaim := range vmi.Spec.ResourceClaims {
+		if resourceClaim.Hotpluggable {
+			return true
+		}
+	}
+	return false
+}
+
 func GetHotplugResourceClaims(vmi *v1.VirtualMachineInstance) []*v1.ResourceClaim {
 	var hotplugResourceClaims []*v1.ResourceClaim
 	for _, resourceClaim := range vmi.Spec.ResourceClaims {
