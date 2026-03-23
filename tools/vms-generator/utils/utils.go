@@ -486,7 +486,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
 	vmi.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vmi.Spec)
-	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
+	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    routes:\n    - to: ::/0\n      via: fd10:0:2::1\n"
 	addNoCloudDiskWitUserDataNetworkData(
 		&vmi.Spec,
 		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
