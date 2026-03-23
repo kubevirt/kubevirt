@@ -13,7 +13,7 @@ This is obviously suboptimal:
 
 - It is not integrated with Kubernetes
 - It does not provide the VMI with connectivity to pods
-- It requires to specify host specific bits (the network device to use)
+- It requires specifying host-specific bits (the network device to use)
 
 The purpose of this document is to describe one approach of how we can provide
 a minimal integrated solution, with few workarounds.
@@ -57,7 +57,7 @@ Prerequisites:
   networking), as future Kubernetes multi-networking will work with pods,
   and as we do not want to mess with the hosts network namespace
 - A CNI proxy to allow pods to perform CNI actions in the context of the host
-  (this needs to be implemented, as part of this feature, or as an dependent
+  (this needs to be implemented, as part of this feature, or as a dependent
   one)
 
 Conceptually the implementation works by assuming that every vNIC will be
@@ -65,7 +65,7 @@ mapped to a _new_ pod interface. To achieve this, for every vNIC a _new_ pod
 interface is requested through CNI.
 Another crucial constraint for this design is that in Kubernetes IP addresses
 are getting assigned to pods, not interfaces. Thus this solution needs to
-achieve the same, and provide IP addresses to VMIs, not just a interface.
+achieve the same, and provide IP addresses to VMIs, not just an interface.
 
 During this document we call each of these _new_ pod interfaces _VMI interface_,
 in order to differentiate them from the originally-allocated pod interface
@@ -101,25 +101,25 @@ from the networking sub-system.
 
 ## Drawbacks & Limitations
 
-* Every virtual NIC can only use a single IP address (the one provided via
+- Every virtual NIC can only use a single IP address (the one provided via
   DHCP)
-* A new VMI interface is required for every vNIC.
-* Cleanup of the VMI interfaces in case of an uncontrolled pod shutdown is
+- A new VMI interface is required for every vNIC.
+- Cleanup of the VMI interfaces in case of an uncontrolled pod shutdown is
   currently not handled
 
 
 ## Benefits & Opportunities
 
-* Biggest plus is that this solution is using Kubernetes infrastructure for
+- Biggest plus is that this solution is using Kubernetes infrastructure for
   networking, is pretty much on the KubeVirt side (except for calling CNI on
   the host side), it is also reusing much of libvirt's network functionality.
-* If the CNI plugins are modified to signal if they can also provide L2
+- If the CNI plugins are modified to signal if they can also provide L2
   connectivity, then there is the chance, that a very similar mechanism can be
   used in future to provide L2 connectivity to VMIs (i.e. with the bridge or
   vxlan plugins).
 
 
-# Future development
+## Future development
 
 This approach is to provide initial, Kubernetes-friendly network connectivity
 for virtual machines.
