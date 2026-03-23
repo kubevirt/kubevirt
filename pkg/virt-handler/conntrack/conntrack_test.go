@@ -316,4 +316,3 @@ var _ = Describe("Conntrack Sync", func() {
 		})
 	})
 })
-

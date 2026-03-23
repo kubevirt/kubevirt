@@ -55,8 +55,10 @@ func getDRAUSBHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, []a
 
 func newUSBHostDevice(usbAddress *v1.USBAddress, name string, hotplug bool) api.HostDevice {
 	var alias *api.Alias
+	startupPolicy := "required"
 	if hotplug {
 		alias = api.NewUserDefinedAlias(DRAHotplugHostDeviceAliasPrefix + name)
+		startupPolicy = "optional"
 	} else {
 		alias = api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + name)
 	}
@@ -69,6 +71,7 @@ func newUSBHostDevice(usbAddress *v1.USBAddress, name string, hotplug bool) api.
 				Bus:    strconv.FormatInt(usbAddress.Bus, 10),
 				Device: strconv.FormatInt(usbAddress.DeviceNumber, 10),
 			},
+			StartupPolicy: startupPolicy,
 		},
 	}
 }

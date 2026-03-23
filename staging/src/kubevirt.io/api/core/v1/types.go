@@ -77,6 +77,27 @@ const (
 	StartStrategyPaused StartStrategy = "Paused"
 )
 
+type USBMigrationStrategy string
+
+const (
+	// USBMigrationStrategyAnn is the annotation key for USB migration strategy
+	// The value of the annotation can be one of the following:
+	USBMigrationStrategyAnn                          = "usb.virtualization.deckhouse.io/migrationStrategy"
+	USBMigrationStrategyPrevent USBMigrationStrategy = "Prevent"
+	USBMigrationStrategyDetach  USBMigrationStrategy = "Detach"
+	USBMigrationStrategyIgnore  USBMigrationStrategy = "Ignore"
+)
+
+func GetUSBMigrationStrategy(vmi *VirtualMachineInstance) USBMigrationStrategy {
+	if val, ok := vmi.Annotations[USBMigrationStrategyAnn]; ok {
+		switch USBMigrationStrategy(val) {
+		case USBMigrationStrategyPrevent, USBMigrationStrategyDetach, USBMigrationStrategyIgnore:
+			return USBMigrationStrategy(val)
+		}
+	}
+	return USBMigrationStrategyPrevent
+}
+
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 type VirtualMachineInstanceSpec struct {
 
@@ -367,6 +388,10 @@ type DeviceResourceClaimStatus struct {
 	// about the device, like pciAddress or mdevUUID
 	// +optional
 	Attributes *DeviceAttribute `json:"attributes,omitempty"`
+	// AllowMultipleAllocations is a flag to allow multiple allocations of the same device
+	AllowMultipleAllocations bool `json:"allowMultipleAllocations,omitempty"`
+	// BindsToNode is a flag to bind the device to the node
+	BindsToNode bool `json:"bindsToNode,omitempty"`
 }
 
 // DeviceAttribute must have exactly one field set.

@@ -19582,6 +19582,20 @@ func schema_kubevirtio_api_core_v1_DeviceResourceClaimStatus(ref common.Referenc
 							Ref:         ref("kubevirt.io/api/core/v1.DeviceAttribute"),
 						},
 					},
+					"allowMultipleAllocations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowMultipleAllocations is a flag to allow multiple allocations of the same device",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"bindsToNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BindsToNode is a flag to bind the device to the node",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

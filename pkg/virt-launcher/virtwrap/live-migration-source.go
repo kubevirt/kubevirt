@@ -49,6 +49,8 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
+	"slices"
+
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -123,7 +125,7 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 
 }
 
-func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
+func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain, hostDevicesForDetach map[string]struct{}) error {
 	domainSpec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		return err
@@ -132,13 +134,25 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	var hostDevices []api.HostDevice
 
 	sriovDevices := sriov.FilterSRIOVHostDevicesByAlias(domainSpec.Devices.HostDevices)
+	log.DefaultLogger().Infof("SRIOV devices will be detached %v", sriovDevices)
 	hostDevices = append(hostDevices, sriovDevices...)
 
 	usbDevices := dra.FilterUSBHostDevicesByAlias(domainSpec.Devices.HostDevices, true)
+	usbDevices = retainDevicesForDetach(usbDevices, hostDevicesForDetach)
+	log.DefaultLogger().Infof("USB devices will be detached %v", usbDevices)
 	hostDevices = append(hostDevices, usbDevices...)
 
 	err = safelyDetachHostDevices(hostDevices, virConn, dom)
 	return err
+}
+
+func retainDevicesForDetach(devices []api.HostDevice, hostDevicesForDetach map[string]struct{}) []api.HostDevice {
+	devices = slices.DeleteFunc(devices, func(device api.HostDevice) bool {
+		name := strings.TrimPrefix(device.Alias.GetName(), dra.DRAHotplugHostDeviceAliasPrefix)
+		_, ok := hostDevicesForDetach[name]
+		return !ok
+	})
+	return devices
 }
 
 func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
@@ -241,7 +255,14 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		}
 	}
 
-	return domcfg.Marshal()
+	xmlStr, err := domcfg.Marshal()
+	if err != nil {
+		return "", fmt.Errorf("marshalling domain xml failed: %w", err)
+	}
+
+	xmlStr = configureHotplugHostDevicesForMigrate(xmlStr, vmi)
+
+	return xmlStr, nil
 }
 
 func convertDisks(domSpec *api.DomainSpec, domcfg *libvirtxml.Domain) error {
@@ -1089,6 +1110,83 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 	return nil
 }
 
+// find all hotplug host devices in destination domain xml and add startupPolicy='optional' to them
+func configureHotplugHostDevicesForMigrate(data string, vmi *v1.VirtualMachineInstance) string {
+	if vmi == nil || vmi.Status.DeviceStatus == nil {
+		return data
+	}
+
+	if v1.GetUSBMigrationStrategy(vmi) != v1.USBMigrationStrategyIgnore {
+		return data
+	}
+
+	nonMigratableHostDevices := make(map[string]struct{})
+	for _, status := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+		if status.Hotplug != nil && status.DeviceResourceClaimStatus != nil {
+			if status.DeviceResourceClaimStatus.AllowMultipleAllocations && status.DeviceResourceClaimStatus.BindsToNode {
+				nonMigratableHostDevices[status.Name] = struct{}{}
+			}
+		}
+	}
+
+	prefix := api.UserAliasPrefix + dra.DRAHotplugHostDeviceAliasPrefix
+
+	parts := strings.Split(data, "<hostdev")
+	for i := range parts {
+		if i == 0 {
+			continue
+		}
+		endIdx := strings.Index(parts[i], "</hostdev>")
+		if endIdx == -1 {
+			continue
+		}
+		openTagEnd := strings.Index(parts[i], ">")
+		if openTagEnd == -1 || openTagEnd > endIdx {
+			continue
+		}
+
+		beforeContent := parts[i][:openTagEnd+1]
+		content := parts[i][openTagEnd+1 : endIdx]
+
+		name := ""
+		aliasIdx := strings.Index(content, "<alias")
+		if aliasIdx != -1 {
+			tagEnd := strings.Index(content[aliasIdx:], ">")
+			if tagEnd != -1 {
+				aliasTag := content[aliasIdx : aliasIdx+tagEnd]
+
+				nameIdx := strings.Index(aliasTag, "name=\"")
+				if nameIdx != -1 {
+					start := nameIdx + len("name='")
+					end := strings.Index(aliasTag[start:], "\"")
+					if end != -1 {
+						name = aliasTag[start : start+end]
+					}
+				}
+			}
+		}
+
+		if name == "" || !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		name = strings.TrimPrefix(name, prefix)
+		_, ok := nonMigratableHostDevices[name]
+		if !ok {
+			continue
+		}
+
+		afterContent := parts[i][endIdx:]
+
+		if strings.Contains(content, "<source>") {
+			content = strings.ReplaceAll(content, "<source>", "<source startupPolicy='optional'>")
+		}
+
+		parts[i] = beforeContent + content + afterContent
+	}
+
+	return strings.Join(parts, "<hostdev")
+}
+
 func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
 
 	var err error
@@ -1113,7 +1211,10 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		l.domainModifyLock.Lock()
 		defer l.domainModifyLock.Unlock()
 
-		if err := prepareDomainForMigration(l.virConn, dom); err != nil {
+		hostDevicesForDetach := getHostDevicesForDetach(vmi)
+		log.DefaultLogger().Infof("Host devices for detach %v", hostDevicesForDetach)
+
+		if err := prepareDomainForMigration(l.virConn, dom, hostDevicesForDetach); err != nil {
 			return fmt.Errorf("error encountered during preparing domain for migration: %v", err)
 		}
 		domSpec, err := l.getDomainSpec(dom)
@@ -1153,10 +1254,37 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	return nil
 }
 
+func getHostDevicesForDetach(vmi *v1.VirtualMachineInstance) map[string]struct{} {
+	switch v1.GetUSBMigrationStrategy(vmi) {
+	case v1.USBMigrationStrategyPrevent, v1.USBMigrationStrategyIgnore:
+		return nil
+	}
+
+	hostDevices := make(map[string]struct{})
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			if shouldBeDetachedHostDevice(deviceStatus) {
+				log.DefaultLogger().Infof("Device %s should be detached", deviceStatus.Name)
+				hostDevices[deviceStatus.Name] = struct{}{}
+			}
+		}
+	}
+
+	return hostDevices
+}
+
+func shouldBeDetachedHostDevice(info v1.DeviceStatusInfo) bool {
+	if info.Hotplug != nil && info.DeviceResourceClaimStatus != nil {
+		return info.DeviceResourceClaimStatus.AllowMultipleAllocations && info.DeviceResourceClaimStatus.BindsToNode
+	}
+	return false
+}
+
 // prepareDomainForMigration perform necessary operation
 // on the source domain just before migration
-func prepareDomainForMigration(virtConn cli.Connection, domain cli.VirDomain) error {
-	return hotUnplugHostDevices(virtConn, domain)
+func prepareDomainForMigration(virtConn cli.Connection, domain cli.VirDomain, hostDevicesForDetach map[string]struct{}) error {
+	return hotUnplugHostDevices(virtConn, domain, hostDevicesForDetach)
 }
 
 func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {

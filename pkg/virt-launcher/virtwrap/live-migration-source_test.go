@@ -21,6 +21,7 @@ package virtwrap
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -159,6 +162,132 @@ var _ = Describe("Live migration source", func() {
 					generated:      map[string]bool{},
 					localToMigrate: map[string]bool{vol: true},
 				})))
+		})
+	})
+
+	Context("configureHotplugHostDevicesForMigrate", func() {
+		// destXML is a minimal domain fragment based on real dest XML from migration log;
+		// contains USB hostdevs with ua-dra-hotplug-hostdevice-usb- alias prefix.
+		const destXMLFragment = `
+  <devices>
+    <hostdev mode="subsystem" type="usb" managed="no">
+      <source>
+        <address bus="3" device="78"></address>
+      </source>
+      <alias name="ua-dra-hotplug-hostdevice-usb-167d887762107078d08c7357589fb4cde76dc8fa"></alias>
+      <address type="usb" bus="0" port="2"></address>
+    </hostdev>
+    <hostdev mode="subsystem" type="usb" managed="no">
+      <source>
+        <address bus="3" device="79"></address>
+      </source>
+      <alias name="ua-dra-hotplug-hostdevice-usb-40c55f1de781563bf3eda3091dc1f1e688d30839"></alias>
+      <address type="usb" bus="0" port="3"></address>
+    </hostdev>
+  </devices>
+`
+
+		It("returns data unchanged when VMI is nil", func() {
+			data := "<domain><name>test</name>" + destXMLFragment + "</domain>"
+			Expect(configureHotplugHostDevicesForMigrate(data, nil)).To(Equal(data))
+		})
+
+		It("returns data unchanged when DeviceStatus is nil", func() {
+			data := "<domain><name>test</name>" + destXMLFragment + "</domain>"
+			vmi := &v1.VirtualMachineInstance{}
+			Expect(configureHotplugHostDevicesForMigrate(data, vmi)).To(Equal(data))
+		})
+
+		It("returns data unchanged when HostDeviceMigrationStrategy is not IgnoreOnTarget", func() {
+			data := "<domain><name>test</name>" + destXMLFragment + "</domain>"
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						v1.USBMigrationStrategyAnn: string(v1.USBMigrationStrategyPrevent),
+					},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					DeviceStatus: &v1.DeviceStatus{
+						HostDeviceStatuses: []v1.DeviceStatusInfo{
+							{
+								Name: "usb-167d887762107078d08c7357589fb4cde76dc8fa",
+								DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+									AllowMultipleAllocations: true,
+									BindsToNode:              true,
+								},
+								Hotplug: &v1.HotplugDeviceStatus{},
+							},
+						},
+					},
+				},
+			}
+			Expect(configureHotplugHostDevicesForMigrate(data, vmi)).To(Equal(data))
+		})
+
+		It("adds startupPolicy='optional' to source of non-migratable hotplug host devices when strategy is IgnoreOnTarget", func() {
+			data := "<domain><name>test</name>" + destXMLFragment + "</domain>"
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						v1.USBMigrationStrategyAnn: string(v1.USBMigrationStrategyIgnore),
+					},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					DeviceStatus: &v1.DeviceStatus{
+						HostDeviceStatuses: []v1.DeviceStatusInfo{
+							{
+								Name: "usb-167d887762107078d08c7357589fb4cde76dc8fa",
+								DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+									AllowMultipleAllocations: true,
+									BindsToNode:              true,
+								},
+								Hotplug: &v1.HotplugDeviceStatus{},
+							},
+							{
+								Name: "usb-40c55f1de781563bf3eda3091dc1f1e688d30839",
+								DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+									AllowMultipleAllocations: true,
+									BindsToNode:              true,
+								},
+								Hotplug: &v1.HotplugDeviceStatus{},
+							},
+						},
+					},
+				},
+			}
+			result := configureHotplugHostDevicesForMigrate(data, vmi)
+			Expect(result).ToNot(Equal(data))
+			fmt.Println(result)
+			Expect(strings.Count(result, "startupPolicy='optional'")).To(Equal(2))
+			Expect(result).To(ContainSubstring("<source startupPolicy='optional'>"))
+		})
+
+		It("does not add startupPolicy for hotplug host devices not in nonMigratable list", func() {
+			data := "<domain><name>test</name>" + destXMLFragment + "</domain>"
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						v1.USBMigrationStrategyAnn: string(v1.USBMigrationStrategyIgnore),
+					},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					DeviceStatus: &v1.DeviceStatus{
+						HostDeviceStatuses: []v1.DeviceStatusInfo{
+							{
+								Name: "usb-167d887762107078d08c7357589fb4cde76dc8fa",
+								DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+									AllowMultipleAllocations: false,
+									BindsToNode:              false,
+								},
+								Hotplug: &v1.HotplugDeviceStatus{},
+							},
+						},
+					},
+				},
+			}
+			result := configureHotplugHostDevicesForMigrate(data, vmi)
+			Expect(result).To(Equal(data))
+			Expect(result).ToNot(ContainSubstring("startupPolicy='optional'"))
 		})
 	})
 })

@@ -109,10 +109,12 @@ func (DeviceStatusInfo) SwaggerDoc() map[string]string {
 
 func (DeviceResourceClaimStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher",
-		"name":              "Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status\n+optional",
-		"resourceClaimName": "ResourceClaimName is the name of the resource claims object used to provision this resource\n+optional",
-		"attributes":        "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more\nabout the device, like pciAddress or mdevUUID\n+optional",
+		"":                         "DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher",
+		"name":                     "Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status\n+optional",
+		"resourceClaimName":        "ResourceClaimName is the name of the resource claims object used to provision this resource\n+optional",
+		"attributes":               "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more\nabout the device, like pciAddress or mdevUUID\n+optional",
+		"allowMultipleAllocations": "AllowMultipleAllocations is a flag to allow multiple allocations of the same device",
+		"bindsToNode":              "BindsToNode is a flag to bind the device to the node",
 	}
 }
 

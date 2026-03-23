@@ -36,6 +36,7 @@ go_library(
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/conntrack:go_default_library",
         "//pkg/virt-handler/dmetrics-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/launcher-clients:go_default_library",

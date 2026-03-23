@@ -1486,8 +1486,12 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
 
-	if vmiContainsPCIHostDevice(vmi) {
-		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+	if vmiContainsNonMigratableHostDevices(vmi) {
+		return newNonMigratableCondition("VMI uses non-migratable host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+	}
+
+	if vmiContainsNonMigratableGpuDevices(vmi) {
+		return newNonMigratableCondition("VMI uses non-migratable GPU devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
 	if util.IsSEVVMI(vmi) {
@@ -1520,8 +1524,53 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	}, isBlockMigration
 }
 
-func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
-	return len(vmi.Spec.Domain.Devices.HostDevices) > 0 || len(vmi.Spec.Domain.Devices.GPUs) > 0
+func vmiContainsNonMigratableHostDevices(vmi *v1.VirtualMachineInstance) bool {
+	if len(vmi.Spec.Domain.Devices.HostDevices) == 0 {
+		return false
+	}
+
+	// cannot migrate if host devices exist, but device status is not set
+	if vmi.Status.DeviceStatus == nil {
+		return true
+	}
+
+	hostDevicesSet := make(map[string]struct{}, len(vmi.Spec.Domain.Devices.HostDevices))
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		hostDevicesSet[hd.Name] = struct{}{}
+	}
+
+	strategy := v1.GetUSBMigrationStrategy(vmi)
+
+	for _, hd := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+		if !deviceResourceClaimIsMigratable(hd, strategy) {
+			return true
+		}
+		delete(hostDevicesSet, hd.Name)
+	}
+
+	return len(hostDevicesSet) > 0
+}
+
+func vmiContainsNonMigratableGpuDevices(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.GPUs) > 0
+}
+
+func deviceResourceClaimIsMigratable(hd v1.DeviceStatusInfo, strategy v1.USBMigrationStrategy) bool {
+	// only usb can be migrated
+	if hd.DeviceResourceClaimStatus == nil || hd.DeviceResourceClaimStatus.Attributes == nil || hd.DeviceResourceClaimStatus.Attributes.USBAddress == nil {
+		return false
+	}
+
+	switch strategy {
+	case v1.USBMigrationStrategyPrevent:
+	case v1.USBMigrationStrategyDetach, v1.USBMigrationStrategyIgnore:
+		if hd.Hotplug != nil {
+			return hd.DeviceResourceClaimStatus.AllowMultipleAllocations
+		}
+	}
+
+	return hd.DeviceResourceClaimStatus.AllowMultipleAllocations && !hd.DeviceResourceClaimStatus.BindsToNode
+
 }
 
 type multipleNonMigratableCondition struct {
@@ -1577,8 +1626,12 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUModeNotMigratable, err.Error())
 	}
 
-	if vmiContainsPCIHostDevice(vmi) {
-		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses a PCI host devices")
+	if vmiContainsNonMigratableHostDevices(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses non-migratable host devices")
+	}
+
+	if vmiContainsNonMigratableGpuDevices(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses non-migratable GPU devices")
 	}
 
 	if util.IsSEVVMI(vmi) {

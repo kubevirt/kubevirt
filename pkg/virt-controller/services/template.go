@@ -47,6 +47,8 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
+	"slices"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -158,6 +160,7 @@ type TemplateService interface {
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, resourceClaims []*v1.ResourceClaim, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
+	RenderMigrationHotplugAttachmentPodTemplate(volumes []*v1.Volume, resourceClaims []*v1.ResourceClaim, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
 	GetLauncherImage() string
@@ -270,8 +273,8 @@ func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, er
 		}, nil
 	}
 	errorStr := fmt.Sprintf("Sysprep must have Secret or ConfigMap reference set %v", sysprepVolume)
-	logger.Errorf(errorStr)
-	return k8sv1.VolumeSource{}, fmt.Errorf(errorStr)
+	logger.Errorf("%s", errorStr)
+	return k8sv1.VolumeSource{}, fmt.Errorf("%s", errorStr)
 }
 
 func (t *templateService) GetLauncherImage() string {
@@ -1002,6 +1005,42 @@ func (t *templateService) containerForHotplugContainerDisk(ctrName, volName stri
 			},
 		},
 	}
+}
+
+func (t *templateService) RenderMigrationHotplugAttachmentPodTemplate(volumes []*v1.Volume, resourceClaims []*v1.ResourceClaim, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
+	pod, err := t.RenderHotplugAttachmentPodTemplate(volumes, resourceClaims, ownerPod, vmi, claimMap)
+	if err != nil {
+		return nil, err
+	}
+
+	strategy := v1.GetUSBMigrationStrategy(vmi)
+
+	switch strategy {
+	case v1.USBMigrationStrategyPrevent:
+		return pod, nil
+	case v1.USBMigrationStrategyDetach, v1.USBMigrationStrategyIgnore:
+	default:
+		return nil, fmt.Errorf("unknown host device migration strategy %v", strategy)
+	}
+
+	// delete non-migratable resource claims
+	deleteCandidates := make(map[string]struct{})
+	for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+		if deviceStatus.DeviceResourceClaimStatus != nil && (!deviceStatus.DeviceResourceClaimStatus.AllowMultipleAllocations || deviceStatus.DeviceResourceClaimStatus.BindsToNode) {
+			deleteCandidates[deviceStatus.Name] = struct{}{}
+		}
+	}
+
+	pod.Spec.ResourceClaims = slices.DeleteFunc(pod.Spec.ResourceClaims, func(rc k8sv1.PodResourceClaim) bool {
+		_, ok := deleteCandidates[rc.Name]
+		return ok
+	})
+	pod.Spec.Resources.Claims = slices.DeleteFunc(pod.Spec.Resources.Claims, func(rc k8sv1.ResourceClaim) bool {
+		_, ok := deleteCandidates[rc.Name]
+		return ok
+	})
+
+	return pod, nil
 }
 
 func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, resourceClaims []*v1.ResourceClaim, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {

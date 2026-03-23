@@ -46,6 +46,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"k8s.io/utils/ptr"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	drautil "kubevirt.io/kubevirt/pkg/dra"
@@ -562,21 +564,23 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 	}
 
 	gpuStatus.DeviceResourceClaimStatus.Name = &device.Device
-	pciAddress, mDevUUID, _, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	info, err := c.getDeviceInfo(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return gpuStatus, err
 	}
-	if pciAddress == "" && mDevUUID == "" {
+	if info.pciAddress == "" && info.mdevUUID == "" {
 		return gpuStatus, fmt.Errorf("failed to get pciAddress or mdevUUID for gpu %s", gpuInfo.VMISpecClaimName)
 	}
 	attrs := v1.DeviceAttribute{}
-	if pciAddress != "" {
-		attrs.PCIAddress = &pciAddress
+	if info.pciAddress != "" {
+		attrs.PCIAddress = &info.pciAddress
 	}
-	if mDevUUID != "" {
-		attrs.MDevUUID = &mDevUUID
+	if info.mdevUUID != "" {
+		attrs.MDevUUID = &info.mdevUUID
 	}
 	gpuStatus.DeviceResourceClaimStatus.Attributes = &attrs
+	gpuStatus.DeviceResourceClaimStatus.AllowMultipleAllocations = info.allowMultipleAllocations
+	gpuStatus.DeviceResourceClaimStatus.BindsToNode = info.bindsToNode
 
 	return gpuStatus, nil
 }
@@ -628,46 +632,51 @@ func (c *DRAStatusController) getUSBDeviceAttributeFromClaim(claim *resourcev1.R
 	return getUsbDeckhouseVirtualizationDeviceInfos(claim, deviceName)
 }
 
-// getDeviceAttributes returns the pciAddress, mdevUUID, usbAddress of the device. It will return all if found, otherwise it will return empty strings or nil.
-func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, driverName string) (string, string, *v1.USBAddress, error) {
+type deviceInfo struct {
+	pciAddress               string
+	mdevUUID                 string
+	usbAddress               *v1.USBAddress
+	allowMultipleAllocations bool
+	bindsToNode              bool
+}
+
+// getDeviceInfo returns the pciAddress, mdevUUID, usbAddress of the device. It will return all if found, otherwise it will return empty strings or nil.
+func (c *DRAStatusController) getDeviceInfo(nodeName string, deviceName, driverName string) (deviceInfo, error) {
 	resourceSlices, err := c.getResourceSlices(nodeName)
 	if err != nil {
-		return "", "", nil, err
+		return deviceInfo{}, err
 	}
 
 	for _, rs := range resourceSlices {
 		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
 				if device.Name == deviceName {
-
-					var (
-						pciAddress string
-						mdevUUID   string
-						usbAddress *v1.USBAddress
-					)
+					info := deviceInfo{}
 
 					for key, value := range device.Attributes {
 						if string(key) == PCIAddressDeviceAttributeKey && value.StringValue != nil {
-							pciAddress = *value.StringValue
+							info.pciAddress = *value.StringValue
 						} else if string(key) == MDevUUIDDeviceAttributeKey && value.StringValue != nil {
-							mdevUUID = *value.StringValue
+							info.mdevUUID = *value.StringValue
 						} else if string(key) == USBAddressAttributeKey && value.StringValue != nil {
-							usbAddress, err = resolveUSBAddress(*value.StringValue)
+							info.usbAddress, err = resolveUSBAddress(*value.StringValue)
 							if err != nil {
-								return "", "", nil, err
+								return deviceInfo{}, err
 							}
 						}
 					}
-					if pciAddress == "" && mdevUUID == "" && usbAddress == nil {
-						return "", "", nil, fmt.Errorf("neither %s,%s or %s valid attribute found for device %s", PCIAddressDeviceAttributeKey, MDevUUIDDeviceAttributeKey, USBAddressAttributeKey, deviceName)
+					if info.pciAddress == "" && info.mdevUUID == "" && info.usbAddress == nil {
+						return deviceInfo{}, fmt.Errorf("neither %s,%s or %s valid attribute found for device %s", PCIAddressDeviceAttributeKey, MDevUUIDDeviceAttributeKey, USBAddressAttributeKey, deviceName)
 					}
+					info.allowMultipleAllocations = ptr.Deref(device.AllowMultipleAllocations, false)
+					info.bindsToNode = ptr.Deref(device.BindsToNode, false)
 
-					return pciAddress, mdevUUID, usbAddress, nil
+					return info, nil
 				}
 			}
 		}
 	}
-	return "", "", nil, nil
+	return deviceInfo{}, nil
 }
 
 func (c *DRAStatusController) getResourceSlices(nodeName string) ([]*resourcev1.ResourceSlice, error) {
@@ -854,26 +863,26 @@ func (c *DRAStatusController) fillResourceClaimStatus(vmi *v1.VirtualMachineInst
 
 	hostDeviceStatus.DeviceResourceClaimStatus.Name = &device.Device
 
-	pciAddress, mDevUUID, usbAddress, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	info, err := c.getDeviceInfo(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return hostDeviceStatus, err
 
 	}
 
 	attrs := v1.DeviceAttribute{}
-	if pciAddress != "" {
-		attrs.PCIAddress = &pciAddress
+	if info.pciAddress != "" {
+		attrs.PCIAddress = &info.pciAddress
 	}
-	if mDevUUID != "" {
-		attrs.MDevUUID = &mDevUUID
+	if info.mdevUUID != "" {
+		attrs.MDevUUID = &info.mdevUUID
 	}
-	if usbAddress != nil {
+	if info.usbAddress != nil {
 		// replace usbaddress from annotation
-		usbAddress, err = c.getUSBDeviceAttributeFromClaim(claim, device.Device)
+		info.usbAddress, err = c.getUSBDeviceAttributeFromClaim(claim, device.Device)
 		if err != nil {
 			return hostDeviceStatus, fmt.Errorf("failed to get usb address for host device %s: %w", device.Device, err)
 		}
-		if usbAddress == nil {
+		if info.usbAddress == nil {
 			key, err := controller.KeyFunc(vmi)
 			if err != nil {
 				log.Log.Object(vmi).Object(vmi).Reason(err).Error("Failed to extract key from VirtualMachineInstance.")
@@ -881,9 +890,11 @@ func (c *DRAStatusController) fillResourceClaimStatus(vmi *v1.VirtualMachineInst
 			}
 			c.queue.AddAfter(key, time.Second*5)
 		}
-		attrs.USBAddress = usbAddress
+		attrs.USBAddress = info.usbAddress
 	}
 	hostDeviceStatus.DeviceResourceClaimStatus.Attributes = &attrs
+	hostDeviceStatus.DeviceResourceClaimStatus.AllowMultipleAllocations = info.allowMultipleAllocations
+	hostDeviceStatus.DeviceResourceClaimStatus.BindsToNode = info.bindsToNode
 
 	return hostDeviceStatus, nil
 }

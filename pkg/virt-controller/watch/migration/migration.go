@@ -1342,7 +1342,7 @@ func (c *Controller) createAttachmentPod(migration *virtv1.VirtualMachineInstanc
 	// Reset the hotplug volume statuses to enforce mount
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.VolumeStatus = []virtv1.VolumeStatus{}
-	attachmentPodTemplate, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, resourceClaims, virtLauncherPod, vmiCopy, volumeNamesPVCMap)
+	attachmentPodTemplate, err := c.templateService.RenderMigrationHotplugAttachmentPodTemplate(volumes, resourceClaims, virtLauncherPod, vmiCopy, volumeNamesPVCMap)
 	if err != nil {
 		return fmt.Errorf("failed to render attachment pod template: %v", err)
 	}
