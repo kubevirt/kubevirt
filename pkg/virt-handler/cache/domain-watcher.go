@@ -37,13 +37,12 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const socketDialTimeout = 5
 
-type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error
+type runServerFunc func(stopChan chan struct{}, c chan watch.Event) error
 
 var (
 	notifyServerMaxConsecutiveFails = 10
@@ -56,10 +55,8 @@ type domainWatcher struct {
 	stopChan                 chan struct{}
 	eventChan                chan watch.Event
 	backgroundWatcherStarted bool
-	virtShareDir             string
 	watchdogTimeout          int
 	recorder                 record.EventRecorder
-	vmiStore                 cache.Store
 	resyncPeriod             time.Duration
 	runServer                runServerFunc
 	consecutiveFails         int
@@ -68,16 +65,14 @@ type domainWatcher struct {
 	unresponsiveSockets map[string]int64
 }
 
-func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
+func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder) cache.ListerWatcher {
 	d := &domainWatcher{
 		backgroundWatcherStarted: false,
-		virtShareDir:             virtShareDir,
 		watchdogTimeout:          watchdogTimeout,
 		recorder:                 recorder,
-		vmiStore:                 vmiStore,
 		unresponsiveSockets:      make(map[string]int64),
 		resyncPeriod:             resyncPeriod,
-		runServer:                notifyserver.RunServer,
+		runServer:                runNotifyServer,
 	}
 
 	return d
@@ -103,7 +98,7 @@ func (d *domainWatcher) worker() {
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := d.runServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
+		err := d.runServer(d.stopChan, d.eventChan)
 		srvErr <- err
 	}()
 

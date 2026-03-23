@@ -29,12 +29,15 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 )
 
 type IterableCheckpointManager interface {
@@ -220,6 +223,8 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
-	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
+	lw := newListWatchFromNotify(func(stopChan chan struct{}, c chan watch.Event) error {
+		return notifyserver.RunServer(virtShareDir, stopChan, c, recorder, vmiStore)
+	}, watchdogTimeout, resyncPeriod, recorder)
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }
