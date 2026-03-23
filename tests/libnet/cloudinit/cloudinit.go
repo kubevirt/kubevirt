@@ -97,7 +97,10 @@ func WithDHCP6Enabled() NetworkDataInterfaceOption {
 
 func WithGateway6(gateway6 string) NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		networkDataInterface.Gateway6 = gateway6
+		networkDataInterface.Routes = append(networkDataInterface.Routes, CloudInitRoute{
+			To:  "::/0",
+			Via: gateway6,
+		})
 		return nil
 	}
 }
