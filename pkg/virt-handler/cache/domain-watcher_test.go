@@ -26,8 +26,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/watch"
-	k8scache "k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 )
 
 var _ = Describe("Domain Watcher", func() {
@@ -63,11 +61,10 @@ var _ = Describe("Domain Watcher", func() {
 			notifyServerHealthyRunTime = 1 * time.Hour
 
 			d := &domainWatcher{
-				virtShareDir:        GinkgoT().TempDir(),
 				watchdogTimeout:     10,
 				unresponsiveSockets: make(map[string]int64),
 				resyncPeriod:        1 * time.Hour,
-				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store, ...time.Duration) error {
+				runServer: func(_ chan struct{}, _ chan watch.Event) error {
 					return fmt.Errorf("permanent failure")
 				},
 				eventChan: make(chan watch.Event, 100),
@@ -83,11 +80,10 @@ var _ = Describe("Domain Watcher", func() {
 	Context("Stop() idempotency", func() {
 		It("should not panic when Stop is called twice", func() {
 			d := &domainWatcher{
-				virtShareDir:        GinkgoT().TempDir(),
 				watchdogTimeout:     1,
 				unresponsiveSockets: make(map[string]int64),
 				resyncPeriod:        1 * time.Hour,
-				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store, ...time.Duration) error {
+				runServer: func(chan struct{}, chan watch.Event) error {
 					return fmt.Errorf("injected error")
 				},
 			}

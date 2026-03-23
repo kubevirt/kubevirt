@@ -227,7 +227,6 @@ var _ = Describe("Domain informer", func() {
 
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
 			}
 
 			listResults, err := d.listAllKnownDomains()
@@ -256,7 +255,6 @@ var _ = Describe("Domain informer", func() {
 
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
 			}
 
 			listResults, err := d.listAllKnownDomains()
@@ -336,11 +334,12 @@ var _ = Describe("Domain informer", func() {
 
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             1 * time.Hour,
-				runServer:                notifyserver.RunServer,
+				runServer: func(stopChan chan struct{}, c chan watch.Event) error {
+					return notifyserver.RunServer(shareDir, stopChan, c, nil, nil)
+				},
 			}
 
 			err = d.startBackground()
@@ -380,11 +379,12 @@ var _ = Describe("Domain informer", func() {
 
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             time.Duration(1) * time.Hour,
-				runServer:                notifyserver.RunServer,
+				runServer: func(stopChan chan struct{}, c chan watch.Event) error {
+					return notifyserver.RunServer(shareDir, stopChan, c, nil, nil)
+				},
 			}
 
 			err = d.startBackground()
