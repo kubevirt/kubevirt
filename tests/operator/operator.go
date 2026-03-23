@@ -1030,9 +1030,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
 			BeforeEach(func() {
-				allKvInfraPodsAreReady(originalKv)
-				sanityCheckDeploymentsExist()
-
 				By("setting the right uninstall strategy")
 				patchBytes, err := patch.New(patch.WithAdd("/spec/uninstallStrategy", v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist)).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
@@ -1042,6 +1039,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 					return kv.Spec.UninstallStrategy, err
 				}, 60*time.Second, time.Second).Should(Equal(v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
+
+				By("waiting for the operator to finish reconciling after the patch")
+				allKvInfraPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
 			})
 
 			AfterEach(func() {
@@ -1054,6 +1055,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 					return kv.Spec.UninstallStrategy, err
 				}, 60*time.Second, time.Second).Should(BeEmpty())
+
+				By("waiting for the operator to finish reconciling after the patch")
+				allKvInfraPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
 			})
 
 			It("[test_id:3683]should be blocked if a workload exists", func() {
