@@ -1819,24 +1819,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("with VMExport feature gate toggled", func() {
-
-		AfterEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.VMExportGate)
-			testsuite.WaitExportProxyReady()
-		})
-
-		It("should delete and recreate virt-exportproxy", func() {
-			testsuite.WaitExportProxyReady()
-			kvconfig.DisableFeatureGate(featuregate.VMExportGate)
-
-			Eventually(func() error {
-				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
-				return err
-			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-		})
-	})
-
 	Context("with ContainerPathVolumes feature gate toggled", func() {
 
 		AfterEach(func() {

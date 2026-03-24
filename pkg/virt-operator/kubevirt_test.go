@@ -3929,6 +3929,61 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 	})
 
+	Context("VMExport feature gate", func() {
+		var kvTestData *KubeVirtTestData
+
+		BeforeEach(func() {
+			kvTestData = &KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			DeferCleanup(kvTestData.AfterTest)
+		})
+
+		It("should delete virt-exportproxy deployment when VMExport is disabled after being enabled", func() {
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+			}
+			enableExportFeatureGate(kv)
+			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
+
+			newKv := kv.DeepCopy()
+			newKv.ObjectMeta.Generation = 2
+			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
+
+			kvTestData.deleteFromCache = true
+			kubecontroller.SetLatestApiVersionAnnotation(newKv)
+			kvTestData.addKubeVirt(newKv)
+			kvTestData.addInstallStrategy(newConfig)
+
+			kvTestData.addAll(config, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(config, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(newConfig, newKv)
+			kvTestData.addVirtHandler(newConfig, newKv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			_, exists, err := kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, "virt-exportproxy"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue(), "virt-exportproxy should exist when VMExport feature gate is enabled")
+
+			kvTestData.shouldExpectDeletions()
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(newKv)
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+
+			kvTestData.controller.Execute()
+
+			_, exists, err = kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, "virt-exportproxy"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse(), "virt-exportproxy should be deleted when VMExport feature gate is disabled")
+		})
+	})
+
 	Context("when the monitor namespace does not exist", func() {
 		It("should not create ServiceMonitor resources", func() {
 
