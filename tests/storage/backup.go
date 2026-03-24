@@ -1202,7 +1202,9 @@ var _ = Describe("Backup with migration", func() {
 				),
 			)
 
-			vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			vm = libvmi.NewVirtualMachine(
+				libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithMemoryRequest("512Mi")),
+				libvmi.WithDataVolumeTemplate(dv),
 				libvmi.WithLabels(cbt.CBTLabel),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
 			)
