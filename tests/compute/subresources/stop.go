@@ -81,7 +81,7 @@ var _ = Describe(compute.SIG("Stop subresource", func() {
 
 	It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
 		By("Creating VirtualMachine")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
+		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 			libvmi.WithAnnotation(v1.FuncTestLauncherFailFastAnnotation, ""),
 		), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
