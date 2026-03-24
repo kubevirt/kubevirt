@@ -67,7 +67,7 @@ var _ = Describe(SIG("Live Migration with addedNodeSelector", decorators.Require
 		}
 
 		By("starting a VM (with a node selector) on the source node")
-		vmi := libvmifact.NewFedora(
+		vmi := libvmifact.NewGuestless(
 			libnet.WithMasqueradeNetworking(),
 		)
 		vmi.Spec.NodeSelector = map[string]string{zoneLabelKey: vmiLabelValue}

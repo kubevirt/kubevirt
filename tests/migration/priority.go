@@ -76,7 +76,7 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 	It("with a live-migrate eviction strategy set", Serial, func() {
 		var vmis []*v1.VirtualMachineInstance
 		for i := 0; i < 5; i++ {
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewGuestless(
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
