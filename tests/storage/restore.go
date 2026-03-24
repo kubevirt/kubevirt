@@ -1382,7 +1382,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
-				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest("512Mi"))
 				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 				vm, vmi = createAndStartVM(vm)
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
