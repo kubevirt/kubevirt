@@ -1716,6 +1716,11 @@ func (in *EphemeralVolumeSource) DeepCopyInto(out *EphemeralVolumeSource) {
 		*out = new(corev1.PersistentVolumeClaimVolumeSource)
 		**out = **in
 	}
+	if in.Capacity != nil {
+		in, out := &in.Capacity, &out.Capacity
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	return
 }
 
