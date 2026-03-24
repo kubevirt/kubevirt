@@ -22,6 +22,7 @@ package cmdserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -31,12 +32,20 @@ import (
 	"go.uber.org/mock/gomock"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/record"
+
+	api2 "kubevirt.io/client-go/api"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -68,7 +77,7 @@ var _ = Describe("Virt remote commands", func() {
 		socketPath := filepath.Join(shareDir, "server.sock")
 
 		allowEmulation = true
-		options = NewServerOptions(allowEmulation)
+		options = NewServerOptions(allowEmulation, nil, nil)
 		RunServer(socketPath, domainManager, stop, options)
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -493,21 +502,116 @@ var _ = Describe("Virt remote commands", func() {
 				expectGuestPing().Times(1)
 				server.GuestPing(context.TODO(), guestPingRequest())
 			})
-			It("returns errors in the response", func() {
-				expectGuestPing().Times(1).Return(testGuestPingErr)
-				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
-				Expect(err).To(HaveOccurred())
-				Expect(resp.Response.Success).To(BeFalse())
-				Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
-			})
 			It("returns zero exit code", func() {
 				expectGuestPing().Times(1).Return(nil)
 				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
+			It("returns errors in the response when notifier is nil", func() {
+				expectGuestPing().Times(1).Return(testGuestPingErr)
+				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+				Expect(err).To(HaveOccurred())
+				Expect(resp.Response.Success).To(BeFalse())
+				Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+			})
+			Context("event handling", func() {
+				var (
+					notifyShareDir string
+					notifyStop     chan struct{}
+					recorder       *record.FakeRecorder
+					notifier       *notifyclient.Notifier
+					vmi            *v1.VirtualMachineInstance
+				)
 
+				BeforeEach(func() {
+					var err error
+					notifyShareDir, err = os.MkdirTemp("", "kubevirt-notify")
+					Expect(err).ToNot(HaveOccurred())
+
+					notifyStop = make(chan struct{})
+
+					eventChan := make(chan watch.Event, 100)
+					recorder = record.NewFakeRecorder(10)
+					recorder.IncludeObject = true
+					vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+					vmiStore := vmiInformer.GetStore()
+
+					go func() {
+						notifyserver.RunServer(notifyShareDir, notifyStop, eventChan, recorder, vmiStore)
+					}()
+
+					notifyServer := filepath.Join(notifyShareDir, "domain-notify.sock")
+					pipePath := filepath.Join(notifyShareDir, "domain-notify-pipe.sock")
+					Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
+
+					Eventually(func() bool {
+						_, err := os.Stat(filepath.Join(notifyShareDir, "domain-notify.sock"))
+						return err == nil
+					}).WithTimeout(5 * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
+
+					notifier = notifyclient.NewNotifier(notifyShareDir)
+
+					vmi = api2.NewMinimalVMI("testvmi")
+					vmi.UID = types.UID("1234")
+					vmiStore.Add(vmi)
+
+					server = &Launcher{
+						domainManager: domainManager,
+						notifier:      notifier,
+						vmi:           vmi,
+					}
+				})
+
+				AfterEach(func() {
+					notifier.Close()
+					close(notifyStop)
+					os.RemoveAll(notifyShareDir)
+				})
+
+				It("sends GuestAgentPingFailed event when guest ping fails", func() {
+					expectGuestPing().Times(1).Return(testGuestPingErr)
+					resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+					Expect(err).To(HaveOccurred())
+					Expect(resp.Response.Success).To(BeFalse())
+					Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+
+					var event string
+					Eventually(recorder.Events).Should(Receive(&event))
+					expectedMsg := fmt.Sprintf("GuestAgentPing probe failed for VMI %s: %v", vmi.Name, testGuestPingErr)
+					Expect(event).To(ContainSubstring("Warning"))
+					Expect(event).To(ContainSubstring("GuestAgentPingFailed"))
+					Expect(event).To(ContainSubstring(expectedMsg))
+				})
+
+				It("does not send event when guest ping succeeds", func() {
+					expectGuestPing().Times(1).Return(nil)
+					resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.Response.Success).To(BeTrue())
+					Consistently(recorder.Events).ShouldNot(Receive())
+				})
+			})
+		})
+	})
+
+	Describe("ServerOptions", func() {
+		It("should set notifier and vmi", func() {
+			notifier := notifyclient.NewNotifier("")
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			options := NewServerOptions(true, notifier, vmi)
+
+			Expect(options.allowEmulation).To(BeTrue())
+			Expect(options.notifier).To(Equal(notifier))
+			Expect(options.vmi).To(Equal(vmi))
 		})
 
+		It("should accept nil notifier and vmi", func() {
+			options := NewServerOptions(false, nil, nil)
+
+			Expect(options.allowEmulation).To(BeFalse())
+			Expect(options.notifier).To(BeNil())
+			Expect(options.vmi).To(BeNil())
+		})
 	})
 })
