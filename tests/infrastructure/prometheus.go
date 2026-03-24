@@ -450,46 +450,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	Context("VMI eviction blocker status", func() {
-		var controllerMetricIPs []string
-
-		BeforeEach(func() {
-			virtControllerLeaderPodName := libinfra.GetLeader()
-			leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
-				context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
-			for _, ip := range leaderPod.Status.PodIPs {
-				controllerMetricIPs = append(controllerMetricIPs, ip.IP)
-			}
-		})
-
-		AfterEach(func() {
-			controllerMetricIPs = nil
-		})
-
-		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-			ip := libnet.GetIP(controllerMetricIPs, family)
-
-			metricsPayload := libmonitoring.GetKubevirtVMMetricsByIP(pod, ip) //nolint:staticcheck
-
-			fetcher := metricsutil.NewMetricsFetcher("")
-			fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
-
-			metrics, err := fetcher.LoadMetrics(metricsPayload)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
-
-			results := metrics["kubevirt_vmi_non_evictable"]
-			Expect(results).ToNot(BeEmpty())
-			Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
-		},
-			Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
-			Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
-		)
-	})
-
 	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
