@@ -263,7 +263,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	const port = 4444
 
-	err := console.RunCommand(vmi, fmt.Sprintf("netcat-openbsd -vl %d > /usr/bin/example-guest-agent < /dev/null &", port), 60*time.Second)
+	err := console.RunCommand(vmi, fmt.Sprintf("nc -vl %d > /usr/bin/example-guest-agent < /dev/null &", port), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	file, err := os.Open(flags.KubeVirtExampleGuestAgentPath)
