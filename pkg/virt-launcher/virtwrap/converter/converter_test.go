@@ -1920,6 +1920,7 @@ var _ = Describe("Converter", func() {
 		Context("with PCINUMAAwareTopology feature gate enabled", func() {
 			BeforeEach(func() {
 				c.PCINUMAAwareTopologyEnabled = true
+				c.Architecture = archconverter.NewConverter(amd64)
 			})
 
 			It("should create PCIe controllers for NUMA-aligned devices", func() {
@@ -1966,6 +1967,29 @@ var _ = Describe("Converter", func() {
 					}
 				}
 				Expect(expanderBusCount).To(Equal(0), "expected no PCIe expander bus controllers when feature is disabled")
+			})
+		})
+
+		Context("with PCINUMAAwareTopology feature gate enabled for s390x architecture", func() {
+			BeforeEach(func() {
+				c.PCINUMAAwareTopologyEnabled = true
+				c.Architecture = archconverter.NewConverter(s390x)
+				vmiArchMutate(s390x, vmi, c)
+			})
+
+			It("should not create any PCIe controllers even with NUMA topology enabled", func() {
+				c = createContextWithDevices(vmi, c)
+				domain := vmiToDomain(vmi, c)
+
+				for _, controller := range domain.Spec.Devices.Controllers {
+					Expect(controller.Model).To(
+						And(
+							Not(Equal(api.ControllerModelPCIeExpanderBus)),
+							Not(Equal(api.ControllerModelPCIeRootPort)),
+						),
+						"s390x should not have pcie-expander-bus or pcie-root-port controllers",
+					)
+				}
 			})
 		})
 	})
