@@ -13,6 +13,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -38,13 +40,6 @@ const (
 	ENV_VAR_VIRTIOFSD_DEBUG_LOGS        = "VIRTIOFSD_DEBUG_LOGS"
 	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 )
-
-func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
-	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]
-
-	nonRoot := vmi.Status.RuntimeUser != 0
-	return ok || nonRoot
-}
 
 func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -221,7 +216,7 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 
 func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
 	swtpmPath := "/var/lib/libvirt/swtpm"
-	if IsNonRootVMI(vmi) {
+	if vmitrait.IsNonRoot(vmi) {
 		swtpmPath = filepath.Join(VirtPrivateDir, "libvirt", "qemu", "swtpm")
 	}
 
@@ -230,7 +225,7 @@ func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
 
 func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
 	localCaPath := "/var/lib/swtpm-localca"
-	if IsNonRootVMI(vmi) {
+	if vmitrait.IsNonRoot(vmi) {
 		localCaPath = filepath.Join(VirtPrivateDir, "var", "lib", "swtpm-localca")
 	}
 
@@ -239,7 +234,7 @@ func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
 
 func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	nvramPath := "/var/lib/libvirt/qemu/nvram"
-	if IsNonRootVMI(vmi) {
+	if vmitrait.IsNonRoot(vmi) {
 		nvramPath = filepath.Join(VirtPrivateDir, "libvirt", "qemu", "nvram")
 	}
 
