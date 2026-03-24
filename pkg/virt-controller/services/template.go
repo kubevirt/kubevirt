@@ -1013,6 +1013,10 @@ func (t *templateService) RenderMigrationHotplugAttachmentPodTemplate(volumes []
 		return nil, err
 	}
 
+	if vmi.Status.DeviceStatus == nil {
+		return pod, nil
+	}
+
 	strategy := v1.GetUSBMigrationStrategy(vmi)
 
 	switch strategy {

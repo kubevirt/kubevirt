@@ -95,7 +95,7 @@ func GetUSBMigrationStrategy(vmi *VirtualMachineInstance) USBMigrationStrategy {
 			return USBMigrationStrategy(val)
 		}
 	}
-	return USBMigrationStrategyPrevent
+	return USBMigrationStrategyIgnore
 }
 
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
