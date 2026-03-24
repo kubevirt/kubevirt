@@ -39,6 +39,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -218,6 +219,31 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 				WithPolling(1 * time.Second).
 				Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
 		})
+
+	})
+
+	It("emits GuestAgentPingFailed event when guest agent is stopped", func() {
+		// Use a short initialDelaySeconds so the probe fires quickly after the
+		// agent is stopped, and a high failureThreshold to prevent the VMI
+		// from being killed before the event assertion completes.
+		probe := &v1.Probe{
+			Handler:             v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}},
+			InitialDelaySeconds: 30,
+			PeriodSeconds:       5,
+			FailureThreshold:    20,
+		}
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(probe))
+		vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
+
+		By("Waiting for agent to connect")
+		Eventually(matcher.ThisVMI(vmi)).
+			WithTimeout(guestAgentConnectTimeout).
+			WithPolling(2 * time.Second).
+			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+		Expect(stopGuestAgent(vmi)).To(Succeed())
+		events.ExpectEvent(vmi, k8scorev1.EventTypeWarning, "GuestAgentPingFailed")
 	})
 
 	Context("Liveness probe with guest agent ping and user-paused VMI", func() {
