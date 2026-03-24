@@ -2242,7 +2242,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
 		})
 
-		It("should reject ephemeral volume with zero capacity", func() {
+		It("should accept ephemeral volume with zero capacity", func() {
 			capacity := resource.MustParse("0")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testdisk",
@@ -2260,8 +2260,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(ContainSubstring("capacity"))
+			Expect(causes).To(BeEmpty())
 		})
 
 		It("should reject ephemeral volume with negative capacity", func() {

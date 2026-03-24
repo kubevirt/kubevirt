@@ -153,7 +153,7 @@ func createBackingDisk(backingFile string, backingFormat string, imagePath strin
 		"-F", backingFormat,
 		imagePath,
 	}
-	if capacity != nil {
+	if capacity != nil && !capacity.IsZero() {
 		// Use decimal string representation to avoid int64 overflow for large capacities.
 		// qemu-img accepts decimal byte values as the size argument.
 		args = append(args, capacity.AsDec().String())
