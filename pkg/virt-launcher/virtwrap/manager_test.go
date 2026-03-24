@@ -2910,7 +2910,85 @@ var _ = Describe("Manager", func() {
 			agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
 			manager, _ := newLibvirtDomainManagerDefault()
 			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, int(libvirt.DOMAIN_RUNNING_UNKNOWN), nil)
 			Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+		})
+
+		// When no migration is in progress the probe suppression falls back to
+		// isPausedButHealthy: guest agent unavailability is expected whenever the
+		// domain is paused for an intentional/transient reason (user request,
+		// snapshot, save, …). It must NOT be suppressed when the domain is paused
+		// due to a fault (IO error, crash, postcopy failure).
+		Context("when the VM is paused but in a healthy state (no migration in progress)", func() {
+			var agentErr libvirt.Error
+
+			BeforeEach(func() {
+				agentErr = libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+			})
+
+			DescribeTable("should suppress ERR_AGENT_UNRESPONSIVE for healthy pause reasons",
+				func(pauseReason libvirt.DomainPausedReason) {
+					manager, _ := newLibvirtDomainManagerDefault()
+					mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+					mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+					mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(pauseReason), nil)
+					Expect(manager.GuestPing(testDomainName)).To(Succeed())
+				},
+				Entry("paused by user", libvirt.DOMAIN_PAUSED_USER),
+				Entry("paused for migration (pre-copy source)", libvirt.DOMAIN_PAUSED_MIGRATION),
+				Entry("paused for save", libvirt.DOMAIN_PAUSED_SAVE),
+				Entry("paused for dump", libvirt.DOMAIN_PAUSED_DUMP),
+				Entry("paused from snapshot", libvirt.DOMAIN_PAUSED_FROM_SNAPSHOT),
+				Entry("paused while shutting down", libvirt.DOMAIN_PAUSED_SHUTTING_DOWN),
+				Entry("paused for snapshot", libvirt.DOMAIN_PAUSED_SNAPSHOT),
+				Entry("paused while starting up", libvirt.DOMAIN_PAUSED_STARTING_UP),
+				Entry("paused for postcopy migration", libvirt.DOMAIN_PAUSED_POSTCOPY),
+			)
+
+			DescribeTable("should not suppress ERR_AGENT_UNRESPONSIVE for unhealthy pause reasons",
+				func(pauseReason libvirt.DomainPausedReason) {
+					manager, _ := newLibvirtDomainManagerDefault()
+					mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+					mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+					mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(pauseReason), nil)
+					Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+				},
+				Entry("paused due to IO error", libvirt.DOMAIN_PAUSED_IOERROR),
+				Entry("paused due to crash", libvirt.DOMAIN_PAUSED_CRASHED),
+				Entry("postcopy migration failed", libvirt.DOMAIN_PAUSED_POSTCOPY_FAILED),
+				Entry("unknown pause reason", libvirt.DOMAIN_PAUSED_UNKNOWN),
+			)
+
+			It("should not suppress ERR_AGENT_UNRESPONSIVE when the domain is running (not paused)", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+				Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+			})
+
+			It("should suppress ERR_AGENT_UNRESPONSIVE when domain is not found (target pod before domain creation)", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should not suppress ERR_AGENT_UNRESPONSIVE when LookupDomainByName fails with an unrelated error", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR})
+				Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+			})
+
+			It("should suppress ERR_AGENT_UNRESPONSIVE when GetState fails (domain terminated during probe)", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, 0, fmt.Errorf("domain gone"))
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
 		})
 	})
 

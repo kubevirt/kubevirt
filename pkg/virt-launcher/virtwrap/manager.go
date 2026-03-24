@@ -36,6 +36,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -642,8 +643,8 @@ func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 	if err == nil {
 		return nil
 	}
-	if isGuestAgentUnavailableError(err) && l.isLiveMigrationInProgress() {
-		log.Log.V(4).Infof("GuestPing for %s failed with %v but a live migration is in progress; suppressing probe error", domainName, err)
+	if isGuestAgentUnavailableError(err) && (l.isLiveMigrationInProgress() || l.isPausedButHealthy(domainName)) {
+		log.Log.V(4).Infof("GuestPing for %s failed with %v but the VM is healthy although paused on this pod; suppressing probe error", domainName, err)
 		return nil
 	}
 	return err
@@ -673,6 +674,41 @@ func isGuestAgentUnavailableError(err error) bool {
 func (l *LibvirtDomainManager) isLiveMigrationInProgress() bool {
 	m, exists := l.metadataCache.Migration.Load()
 	return exists && m.StartTimestamp != nil && m.EndTimestamp == nil
+}
+
+// isPausedButHealthy returns true when domain state indicates
+// that the VM is paused although in an healthy condition.
+func (l *LibvirtDomainManager) isPausedButHealthy(domainName string) bool {
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			// Domain not found at this stage is likely the target pod for a migration where the domain has still to be created
+			return true
+		}
+		return false
+	}
+	defer domain.Free()
+
+	state, reason, err := domain.GetState()
+	if err != nil {
+		// An error on GetState here likely means the domain terminated under our feet.
+		// Probably the last probe before declaring pod dead, but to let it die peacefully
+		return true
+	}
+
+	healthyPausedReasons := []api.StateChangeReason{
+		api.ReasonPausedUser,
+		api.ReasonPausedMigration,
+		api.ReasonPausedSave,
+		api.ReasonPausedDump,
+		api.ReasonPausedFromSnapshot,
+		api.ReasonPausedShuttingDown,
+		api.ReasonPausedSnapshot,
+		api.ReasonPausedStartingUp,
+		api.ReasonPausedPostcopy,
+	}
+
+	return state == libvirt.DOMAIN_PAUSED && slices.Contains(healthyPausedReasons, util.ConvReason(state, reason))
 }
 
 func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {
