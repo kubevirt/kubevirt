@@ -534,7 +534,7 @@ func newHotplugPod(virtLauncherPod *k8sv1.Pod) *k8sv1.Pod {
 		},
 	})
 	hotplugPod.SetLabels(map[string]string{
-		virtv1.AppLabel: "hotplug-disk",
+		virtv1.AppLabel: "d8v-hotplug-disk",
 	})
 
 	return hotplugPod

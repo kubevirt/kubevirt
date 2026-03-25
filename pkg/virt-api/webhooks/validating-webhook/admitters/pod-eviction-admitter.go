@@ -185,7 +185,7 @@ func isVirtLauncher(pod *k8scorev1.Pod) bool {
 }
 
 func isHotplugPod(pod *k8scorev1.Pod) bool {
-	return pod.Labels[virtv1.AppLabel] == "hotplug-disk" && len(pod.OwnerReferences) == 1
+	return pod.Labels[virtv1.AppLabel] == "d8v-hotplug-disk" && len(pod.OwnerReferences) == 1
 }
 
 func isCompleted(pod *k8scorev1.Pod) bool {
