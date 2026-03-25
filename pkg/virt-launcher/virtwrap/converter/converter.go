@@ -451,32 +451,32 @@ func IsPreAllocated(path string) bool {
 
 // Set optimal io mode automatically
 func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
-	var path string
+	if disk == nil {
+		return
+	}
+
+	ds := disksource.Resolve(*disk)
 
 	// If the user explicitly set the io mode do nothing
 	if disk.Driver.IO != "" {
 		return
 	}
 
-	if disk.Source.File != "" {
-		path = disk.Source.File
-	} else if disk.Source.Dev != "" {
-		path = disk.Source.Dev
-	} else {
+	if ds.BackendPath() == "" {
 		return
 	}
 
 	// O_DIRECT is needed for io="native"
 	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
-		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
+		if ds.BackendIsBlock() || isPreAllocated(ds.BackendPath()) {
 			disk.Driver.IO = v1.IONative
 		}
 	}
 	// For now we don't explicitly set io=threads even for sparse files as it's
 	// not clear it's better for all use-cases
 	if disk.Driver.IO != "" {
-		log.Log.Infof("Driver IO mode for %s set to %s", path, disk.Driver.IO)
+		log.Log.Infof("Driver IO mode for %s set to %s", ds.BackendPath(), disk.Driver.IO)
 	}
 }
 

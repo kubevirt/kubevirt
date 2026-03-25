@@ -4726,16 +4726,82 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 
 		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
 	})
-
 	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
 		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
 		Expect(disk.Driver.IO).To(Equal(expectedIO))
 	},
-		Entry("user-specified IO", &api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}}, v1.IOThreads, false),
-		Entry("sparse image", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}}, v1.DriverIO(""), false),
-		Entry("pre-allocated image with O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
-		Entry("pre-allocated image without O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}}, v1.DriverIO(""), true),
-		Entry("block device with O_DIRECT", &api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
+		Entry("user-specified IO",
+			&api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}},
+			v1.IOThreads, false,
+		),
+		Entry("sparse image",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}},
+			v1.DriverIO(""), false,
+		),
+		Entry("pre-allocated image with O_DIRECT",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
+			v1.IONative, true,
+		),
+		Entry("pre-allocated image without O_DIRECT",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}},
+			v1.DriverIO(""), true,
+		),
+		Entry("block device with O_DIRECT",
+			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
+			v1.IONative, true,
+		),
+		Entry("datastore block device with O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "block",
+						Source: &api.DiskSource{Dev: "/dev/vda"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			},
+			v1.IONative, false,
+		),
+		Entry("datastore block device without O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "block",
+						Source: &api.DiskSource{Dev: "/dev/vda"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)},
+			},
+			v1.DriverIO(""), false,
+		),
+		Entry("datastore file backend pre-allocated with O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "file",
+						Source: &api.DiskSource{File: "/disks/disk.img"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			},
+			v1.IONative, true,
+		),
+		Entry("datastore file backend sparse with O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "file",
+						Source: &api.DiskSource{File: "/disks/disk.img"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			},
+			v1.DriverIO(""), false,
+		),
 	)
 })
 
