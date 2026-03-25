@@ -76,6 +76,16 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     ;;
+  *emulated-igb*)
+    export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
+    export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
+    export KUBEVIRT_WITH_SRIOV=true
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_DEPLOY_CDI=false
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+    export KUBEVIRT_E2E_PARALLEL=false
+    export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
+    ;;
   *sig-storage*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
     export KUBEVIRT_STORAGE="rook-ceph-default"
@@ -440,7 +450,7 @@ done
 kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
-export KUBEVIRT_E2E_PARALLEL=true
+export KUBEVIRT_E2E_PARALLEL="${KUBEVIRT_E2E_PARALLEL:-true}"
 # arm64 e2e test lane use kind provider
 if [[ $TARGET =~ .*kind.* ]]; then
   # MSHV tests do not require serial execution
@@ -558,6 +568,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
       label_filter='(sig-operator)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
+    label_filter='(SRIOV)'
+  elif [[ $TARGET =~ emulated-igb ]]; then
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
