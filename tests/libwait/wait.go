@@ -152,9 +152,13 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 		objectEventWatcher.SetWarningsPolicy(*w.wp)
 	}
 
+	watcherCtx, watcherCancel := context.WithCancel(w.ctx)
+	defer watcherCancel()
+	watcherDone := make(chan struct{})
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		objectEventWatcher.WaitFor(w.ctx, watcher.NormalEvent, v1.Started)
+		defer close(watcherDone)
+		objectEventWatcher.WaitFor(watcherCtx, watcher.NormalEvent, v1.Started)
 	}()
 
 	var retrievedVMI *v1.VirtualMachineInstance
@@ -177,6 +181,9 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 		return retrievedVMI.Status.Phase
 	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(gomega.BeElementOf(w.phases),
 		fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, w.phases))
+
+	watcherCancel()
+	<-watcherDone
 
 	return retrievedVMI
 }
