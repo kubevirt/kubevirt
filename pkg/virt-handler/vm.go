@@ -56,6 +56,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -408,11 +409,16 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(key,
+	err = c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
 		domain,
 		domainExists)
+	_, localExists, _ := c.getVMIFromCache(key)
+	if !localExists {
+		metrics.ResetVMISync(key)
+	}
+	return err
 
 }
 
@@ -1097,6 +1103,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 	}
 
 	// Record an event on the VMI when the VMI's phase changes

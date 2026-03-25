@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -115,6 +116,10 @@ func SetupMetrics(
 	}
 
 	if err := workqueue.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := vmisync.SetupMetrics(); err != nil {
 		return err
 	}
 

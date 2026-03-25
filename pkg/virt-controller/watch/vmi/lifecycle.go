@@ -49,6 +49,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -583,6 +584,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if err != nil {
 			return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 
 		return nil
 	}
@@ -603,6 +605,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
+		metrics.VMISynced(vmiCopy.Namespace, vmiCopy.Name)
 	}
 
 	return nil
