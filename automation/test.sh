@@ -47,6 +47,11 @@ if [ -z $TARGET ]; then
   exit 1
 fi
 
+# WIP: redirect sig-network to emulated SR-IOV
+if [[ $TARGET =~ sig-network ]]; then
+  TARGET="kind-sriov"
+fi
+
 add_feature_gate() {
   if [ -z "$FEATURE_GATES" ]; then
     export FEATURE_GATES="$1"
@@ -148,6 +153,16 @@ case "$TARGET" in
   *secure-execution*)
     export KUBEVIRT_PROVIDER=${TARGET/-secure-execution}
     ;;
+  kind-sriov)
+    export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+    export KUBEVIRTCI_CONTAINER_ORG=oshoval
+    export KUBEVIRTCI_CONTAINER_SUFFIX=sriov
+    export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:sriov
+    export KUBEVIRT_PROVIDER=k8s-1.35
+    export KUBEVIRT_WITH_ETC_IN_MEMORY=true
+    export KUBEVIRT_WITH_ETC_CAPACITY=1G
+    export KUBEVIRTCI_CONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH:-$PWD/kubevirtci/_ci-configs}"
+    ;;
   *)
     export KUBEVIRT_PROVIDER=${TARGET}
     ;;
@@ -166,6 +181,7 @@ fi
 if [[ $TARGET =~ sriov.* ]]; then
   if [[ $TARGET =~ kind.* ]]; then
     export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
@@ -339,6 +355,19 @@ check_for_panics() {
     set -x
 }
 
+setup_kubevirtci_with_sriov_patch() {
+    if [ -f kubevirtci/.sriov-patched ]; then
+        echo "kubevirtci already patched for sriov, skipping."
+        return
+    fi
+
+    rm -rf kubevirtci
+    git clone https://github.com/kubevirt/kubevirtci kubevirtci
+    curl -fL "https://github.com/kubevirt/kubevirtci/pull/1600.patch" | \
+        git -C kubevirtci apply
+    touch kubevirtci/.sriov-patched
+}
+
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
@@ -367,11 +396,20 @@ echo "=================="
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+if [[ $TARGET == "kind-sriov" ]]; then
+  setup_kubevirtci_with_sriov_patch
+fi
 
 trap '{ collect_debug_logs; }' ERR
 make cluster-up
 trap - ERR
+
+if [[ $TARGET == "kind-sriov" ]]; then
+  export KUBECONFIG="${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/.kubeconfig"
+  kubevirtci/cluster-up/cluster/k8s-1.35/config_sriov_cluster.sh
+fi
+
+build_images
 
 # Wait for nodes to become ready
 set +e
