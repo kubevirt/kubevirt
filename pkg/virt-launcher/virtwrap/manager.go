@@ -1280,7 +1280,8 @@ func (l *LibvirtDomainManager) syncDisks(
 	}
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		allowAttach, err := checkIfDiskReadyToUse(getBackendSource(attachDisk))
+		ds := disksource.Resolve(attachDisk)
+		allowAttach, err := checkIfDiskReadyToUse(ds.BackendPath())
 		if err != nil {
 			return err
 		}
@@ -1308,7 +1309,8 @@ func (l *LibvirtDomainManager) syncDisks(
 	}
 	// Look up all the disks to UPDATE
 	for _, updateDisk := range getUpdatedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		sourceFile := getBackendSource(updateDisk)
+		ds := disksource.Resolve(updateDisk)
+		sourceFile := ds.BackendPath()
 		if sourceFile != "" {
 			allowUpdate, err := checkIfDiskReadyToUse(sourceFile)
 			if err != nil {
@@ -1444,24 +1446,6 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 	return dom, nil
 }
 
-func getSourceFile(disk api.Disk) string {
-	if disk.Source.File != "" {
-		return disk.Source.File
-	}
-	return disk.Source.Dev
-}
-
-func getBackendSource(disk api.Disk) string {
-	if storage.DiskHasDataStore(&disk) && disk.Source.DataStore.Source != nil {
-		source := *disk.Source.DataStore.Source
-		if source.File != "" {
-			return source.File
-		}
-		return source.Dev
-	}
-	return getSourceFile(disk)
-}
-
 var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
 
 func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
@@ -1495,10 +1479,6 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	return true, nil
 }
 
-func isHotplugDisk(disk api.Disk) bool {
-	return strings.HasPrefix(getBackendSource(disk), v1.HotplugDiskDir)
-}
-
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	newDiskMap := make(map[string]api.Disk)
 	for _, disk := range newDisks {
@@ -1506,7 +1486,8 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	}
 	res := make([]api.Disk, 0)
 	for _, oldDisk := range oldDisks {
-		if !isHotplugDisk(oldDisk) {
+		ds := disksource.Resolve(oldDisk)
+		if !ds.IsHotplugDisk() {
 			continue
 		}
 		if oldDisk.Target.Bus != "" && oldDisk.Target.Bus != v1.DiskBusVirtio && oldDisk.Target.Bus != v1.DiskBusSCSI {
@@ -1527,7 +1508,8 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	}
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
-		if !isHotplugDisk(newDisk) {
+		ds := disksource.Resolve(newDisk)
+		if !ds.IsHotplugDisk() {
 			continue
 		}
 
@@ -1542,10 +1524,6 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	return res
 }
 
-func isHotPlugDiskOrEmpty(disk api.Disk) bool {
-	return isHotplugDisk(disk) || getBackendSource(disk) == ""
-}
-
 func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	newDiskMap := make(map[string]api.Disk)
 	for _, disk := range newDisks {
@@ -1558,7 +1536,9 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		if oldDisk.Device != "cdrom" || (newDiskExists && newDisk.Device != "cdrom") {
 			continue
 		}
-		if !isHotPlugDiskOrEmpty(oldDisk) || (newDiskExists && !isHotPlugDiskOrEmpty(newDisk)) {
+		oldDs := disksource.Resolve(oldDisk)
+		newDs := disksource.Resolve(newDisk)
+		if !oldDs.IsHotplugOrEmpty() || (newDiskExists && !newDs.IsHotplugOrEmpty()) {
 			continue
 		}
 		if !newDiskExists {
@@ -1569,7 +1549,7 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 			continue
 		}
 		newDiskCpy := oldDisk.DeepCopy()
-		if getBackendSource(newDisk) == "" {
+		if newDs.BackendPath() == "" {
 			newDiskCpy.Source = api.DiskSource{}
 		} else {
 			newDiskCpy.Source = *newDisk.Source.DeepCopy()

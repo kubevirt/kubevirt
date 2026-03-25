@@ -20,6 +20,10 @@
 package disksource
 
 import (
+	"strings"
+
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -70,4 +74,12 @@ func (rds ResolvedDiskSource) BackendIsBlock() bool {
 
 func (rds ResolvedDiskSource) HasOverlay() bool {
 	return rds.hasOverlay
+}
+
+func (rds ResolvedDiskSource) IsHotplugDisk() bool {
+	return strings.HasPrefix(rds.backendPath, v1.HotplugDiskDir)
+}
+
+func (rds ResolvedDiskSource) IsHotplugOrEmpty() bool {
+	return rds.IsHotplugDisk() || rds.backendPath == ""
 }

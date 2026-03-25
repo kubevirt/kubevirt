@@ -20,8 +20,12 @@
 package disksource_test
 
 import (
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
@@ -106,6 +110,37 @@ var _ = Describe("DiskTopology", func() {
 			"/test/overlay.qcow2",
 			false,
 			false,
+		),
+	)
+
+	DescribeTable("should detect hotplug disks correctly",
+		func(disk api.Disk, expectedHotplug, expectedHotplugOrEmpty bool) {
+			ds := disksource.Resolve(disk)
+			Expect(ds.IsHotplugDisk()).To(Equal(expectedHotplug))
+			Expect(ds.IsHotplugOrEmpty()).To(Equal(expectedHotplugOrEmpty))
+		},
+		Entry("hotplug disk",
+			api.Disk{
+				Source: api.DiskSource{
+					File: filepath.Join(v1.HotplugDiskDir, "disk.img"),
+				},
+			},
+			true,
+			true,
+		),
+		Entry("non-hotplug disk",
+			api.Disk{
+				Source: api.DiskSource{
+					File: "/test/disk.img",
+				},
+			},
+			false,
+			false,
+		),
+		Entry("empty disk",
+			api.Disk{},
+			false,
+			true,
 		),
 	)
 })
