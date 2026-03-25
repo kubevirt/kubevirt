@@ -4579,6 +4579,36 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
 	)
 
+	It("should fail to set appropriate driver cache mode for a nil disk", func() {
+		Expect(SetDriverCacheMode(nil, nil)).To(MatchError("unable to set a driver cache mode, disk is nil"))
+	})
+
+	It("should check block device paths correctly", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{Dev: "/dev/vda"},
+			Driver: &api.DiskDriver{},
+		}
+		mockDirectIOChecker.EXPECT().CheckBlockDevice("/dev/vda").Return(true, nil)
+
+		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
+		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
+	})
+
+	It("should resolve datastore block dev over frontend file source", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{
+				File: "/test/overlay.qcow2",
+				DataStore: &api.DataStore{
+					Source: &api.DiskSource{Dev: "/dev/vda"},
+				},
+			},
+			Driver: &api.DiskDriver{},
+		}
+		mockDirectIOChecker.EXPECT().CheckBlockDevice("/dev/vda").Return(true, nil)
+
+		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
+	})
+
 	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
 		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
 		Expect(disk.Driver.IO).To(Equal(expectedIO))
