@@ -269,10 +269,15 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error 
 }
 
 func getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
-	if disk.Source.Dev != "" {
-		return getOptimalBlockIOForDevice(disk.Source.Dev)
-	} else if disk.Source.File != "" {
-		return getOptimalBlockIOForFile(disk.Source.File)
+	if disk == nil {
+		return nil, fmt.Errorf("disk is nil")
+	}
+
+	ds := disksource.Resolve(*disk)
+	if ds.BackendIsBlock() {
+		return getOptimalBlockIOForDevice(ds.BackendPath())
+	} else if ds.BackendPath() != "" {
+		return getOptimalBlockIOForFile(ds.BackendPath())
 	}
 	return nil, fmt.Errorf("disk is neither a block device nor a file")
 }
