@@ -48,6 +48,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -1414,6 +1415,107 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("with offline snapshot", false),
 				Entry("with online snapshot", true),
 			)
+
+			Context("With non-snapshottable backend storage", Serial, func() {
+				var noSnapshotSC string
+				var originalBackendSC string
+
+				BeforeEach(func() {
+					noSnapshotSC = libstorage.GetNoVolumeSnapshotStorageClass("")
+					if noSnapshotSC == "" {
+						Skip("No storage class without VolumeSnapshotClass support available")
+					}
+
+					// Patch kubevirt config to use non-snapshottable storage for backend
+					kv := libkubevirt.GetCurrentKv(virtClient)
+					originalBackendSC = kv.Spec.Configuration.VMStateStorageClass
+
+					patchData := fmt.Appendf(nil, `[{"op": "replace", "path": "/spec/configuration/vmStateStorageClass", "value": "%s"}]`, noSnapshotSC)
+					_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					Eventually(func() string {
+						kv := libkubevirt.GetCurrentKv(virtClient)
+						return kv.Spec.Configuration.VMStateStorageClass
+					}, 30*time.Second, 1*time.Second).Should(Equal(noSnapshotSC))
+				})
+
+				AfterEach(func() {
+					// Restore original VMStateStorageClass
+					kv := libkubevirt.GetCurrentKv(virtClient)
+					patchData := fmt.Appendf(nil, `[{"op": "replace", "path": "/spec/configuration/vmStateStorageClass", "value": "%s"}]`, originalBackendSC)
+					_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				DescribeTable("Should restore a VM when backend storage PVC was not included in snapshot", func(restoreToSameVM bool) {
+					vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+					vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+					vm, vmi = createAndStartVM(vm)
+					Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+
+					pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+						LabelSelector: "persistent-state-for=" + vmi.Name,
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pvcs.Items).To(HaveLen(1))
+					originalBackendPVC := pvcs.Items[0]
+
+					By(stoppingVM)
+					vm = libvmops.StopVirtualMachine(vm)
+
+					By(creatingSnapshot)
+					snapshot = createSnapshot(vm)
+
+					content, err := virtClient.VirtualMachineSnapshotContent(snapshot.Namespace).Get(
+						context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(content.Spec.VolumeBackups).To(HaveLen(1), "Only data volume should be in snapshot, not backend storage")
+
+					By("Restoring VM")
+					targetVMName := vm.Name
+					var targetVMUID *types.UID
+					if restoreToSameVM {
+						targetVMUID = &vm.UID
+					} else {
+						targetVMName = vm.Name + "-restored"
+						targetVMUID = nil
+					}
+
+					restore = createRestoreDef(targetVMName, snapshot.Name)
+					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					restore = waitRestoreComplete(restore, targetVMName, targetVMUID)
+					Expect(restore.Status.Restores).To(HaveLen(1), "Only data volume should be restored")
+
+					By("Starting VM")
+					restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), targetVMName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					restoredVM = libvmops.StartVirtualMachine(restoredVM)
+					Eventually(ThisVM(restoredVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+
+					By("Verifying new backend PVC was created")
+					Eventually(func() bool {
+						pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(restoredVM.Namespace).List(context.Background(), metav1.ListOptions{
+							LabelSelector: "persistent-state-for=" + targetVMName,
+						})
+						if err != nil || len(pvcs.Items) != 1 {
+							return false
+						}
+						pvc := pvcs.Items[0]
+						// For same VM: verify it has the same UID as the original backend PVC
+						// For different VM: verify it has different UID and that it doesn't have datasourceref
+						if restoreToSameVM {
+							return pvc.UID == originalBackendPVC.UID
+						}
+						return pvc.Spec.DataSource == nil && pvc.Spec.DataSourceRef == nil && pvc.UID != originalBackendPVC.UID
+					}, 60*time.Second, 2*time.Second).Should(BeTrue())
+				},
+					Entry("when restoring to the same VM", true),
+					//Entry("when restoring to a different VM", false), // Currently not supported, PR in progress
+				)
+			})
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))

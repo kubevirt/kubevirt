@@ -704,7 +704,33 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 		return true, nil
 	}
 
-	// Retrieve only the backend volume
+	// Check if the backend volume was actually included in the snapshot by looking at the snapshot content
+	vmSnapshot, err := t.controller.getVMSnapshot(t.vmRestore)
+	if err != nil {
+		return false, err
+	}
+
+	content, err := t.controller.getSnapshotContent(vmSnapshot)
+	if err != nil {
+		return false, err
+	}
+
+	backendVolumeName := storageutils.BackendPVCVolumeName(snapshotVM.Name)
+	backendIncludedInSnapshot := false
+	for _, vb := range content.Spec.VolumeBackups {
+		if vb.VolumeName == backendVolumeName {
+			backendIncludedInSnapshot = true
+			break
+		}
+	}
+
+	// If the backend volume was not included in the snapshot (e.g., due to missing VolumeSnapshotClass),
+	// skip reconciliation. VM will reuse the existing backend PVC.
+	if !backendIncludedInSnapshot {
+		log.Log.Object(t.vmRestore).Warningf("Backend storage volume %s not included in the snapshot, VMState StorageClass might not have snapshot support. A new empty backend storage volume will be created when the VM starts.", backendVolumeName)
+		return true, nil
+	}
+
 	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
 	if err != nil {
 		// Not checking for ErrNoBackendPVC, simply returning
@@ -1299,8 +1325,6 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 			BlockOwnerDeletion: pointer.P(true),
 		},
 	})
-
-	return
 }
 
 func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
