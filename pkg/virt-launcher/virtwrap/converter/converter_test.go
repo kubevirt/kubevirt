@@ -1878,6 +1878,17 @@ var _ = Describe("Converter", func() {
 				apiDisk := api.Disk{Source: api.DiskSource{}}
 				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
 			})
+
+			It("Should fail block size detection for a nil domain disk", func() {
+				const nilDiskErrorMessage = "disk is nil"
+				v1Disk := v1.Disk{
+					Name: "test",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+				}
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, nil)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
+			})
 		})
 	})
 
