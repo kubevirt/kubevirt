@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "domain-builder-factory.go",
         "hypervisorbackend.go",
         "realtime.go",
         "runtime.go",
@@ -19,8 +18,6 @@ go_library(
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter/mshv:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
