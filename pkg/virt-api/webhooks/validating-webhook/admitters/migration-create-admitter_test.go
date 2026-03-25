@@ -190,6 +190,75 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 		})
 
+		It("should allow decentralized migration for VMIs with non-migratable disks but otherwise migratable", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:    v1.VirtualMachineInstanceIsMigratable,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					Message: "cannot migrate VMI with shared and non-shared volumes",
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
+			migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+				MigrationID: "migrationID",
+				ConnectURL:  "1.1.1.1:12345",
+			}
+			enableFeatureGate(featuregate.DecentralizedLiveMigration)
+
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
+
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("should reject decentralized migration for VMIs that are not migratable for reasons other than storage", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:    v1.VirtualMachineInstanceIsMigratable,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+					Message: "interface is not migratable",
+				},
+				{
+					Type:    v1.VirtualMachineInstanceIsStorageLiveMigratable,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+					Message: "interface is not migratable",
+				},
+			}
+
+			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
+			migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+				MigrationID: "migrationID",
+				ConnectURL:  "1.1.1.1:12345",
+			}
+			enableFeatureGate(featuregate.DecentralizedLiveMigration)
+
+			virtClient := kubevirtfake.NewSimpleClientset(vmi)
+			migrationCreateAdmitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
+
+			ar, err := newAdmissionReviewForVMIMCreation(migration)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := migrationCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("interface is not migratable"))
+		})
+
 		DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 			input := map[string]interface{}{}
 			json.Unmarshal([]byte(data), &input)

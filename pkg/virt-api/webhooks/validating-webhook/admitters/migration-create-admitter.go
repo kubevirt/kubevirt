@@ -57,14 +57,22 @@ func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *vi
 }
 
 func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) error {
+	if vmi.IsMigratable() {
+		return nil
+	}
+
+	if migration.IsDecentralized() {
+		for _, c := range vmi.Status.Conditions {
+			if c.Type == v1.VirtualMachineInstanceIsStorageLiveMigratable &&
+				c.Status == k8sv1.ConditionTrue {
+				return nil
+			}
+		}
+	}
+
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
 			c.Status == k8sv1.ConditionFalse {
-			// Allow cross namespace/cluster migrations with non migratable disks.
-			// TODO: this is fragile since there could be other reasons for the VMI to be non migratable.
-			if c.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable && migration.IsDecentralized() {
-				continue
-			}
 			return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", c.Reason, c.Message)
 		}
 	}
