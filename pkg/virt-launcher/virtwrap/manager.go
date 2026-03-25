@@ -100,6 +100,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -866,12 +867,13 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
 		if shouldExpandOffline(disk) {
-			possibleGuestSize, ok := possibleGuestSize(disk)
+			ds := disksource.Resolve(disk)
+			possibleGuestSize, ok := possibleGuestSize(disk, ds)
 			if !ok {
 				logger.Errorf("Failed to get possible guest size from disk")
-				break
+				continue
 			}
-			err := expandDiskImageOffline(getBackendSource(disk), possibleGuestSize)
+			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize)
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -899,9 +901,17 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 	return nil
 }
 
-func possibleGuestSize(disk api.Disk) (int64, bool) {
-	if disk.Source.Dev != "" {
-		return 0, true
+func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, bool) {
+	if dt.BackendIsBlock() {
+		if !dt.HasOverlay() {
+			return 0, true
+		}
+		diskInfo, err := osdisk.GetDiskInfo(dt.BackendPath())
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
+			return 0, false
+		}
+		return diskInfo.VirtualSize, true
 	}
 
 	if disk.Capacity == nil {
@@ -924,7 +934,7 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	}
 
 	preferredSize := *disk.Capacity
-	usableSize, err := getUsableDiskSize(getBackendSource(disk))
+	usableSize, err := getUsableDiskSize(dt.BackendPath())
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
 		usableSize = preferredSize
@@ -957,16 +967,17 @@ func getUsableDiskSize(path string) (int64, error) {
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
-	if disk.Source.Dev != "" {
+	ds := disksource.Resolve(disk)
+	if ds.BackendIsBlock() {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := osdisk.GetDiskInfo(getBackendSource(disk))
+	diskInfo, err := osdisk.GetDiskInfo(ds.BackendPath())
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
 	}
-	possibleGuestSize, ok := possibleGuestSize(disk)
+	possibleGuestSize, ok := possibleGuestSize(disk, ds)
 	if !ok || possibleGuestSize <= diskInfo.VirtualSize {
 		return false
 	}
@@ -1325,17 +1336,18 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Resize and notify the VM about changed disks
 	for _, disk := range domain.Spec.Devices.Disks {
-		if shouldExpandOnline(dom, disk) {
-			possibleGuestSize, ok := possibleGuestSize(disk)
-			if !ok {
-				logger.Warningf("Failed to get possible guest size from disk %v", disk)
-				break
-			}
+		ds := disksource.Resolve(disk)
+		if ok, possibleGuestSize := shouldExpandOnline(dom, disk, ds); ok {
 			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
 			if possibleGuestSize == 0 {
+				if ds.HasOverlay() {
+					// https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainBlockResize
+					continue
+				}
 				flags |= libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY
 			}
-			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), flags)
+			logger.V(1).Infof("resizing disk %s with flags %d with size %d", disk.Alias.GetName(), flags, possibleGuestSize)
+			err := dom.BlockResize(ds.SourcePath(), uint64(possibleGuestSize), flags)
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
 			}
@@ -1618,23 +1630,37 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	return false, fmt.Errorf("error checking for block device: %v", err)
 }
 
-func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
-	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
+func shouldExpandOnline(dom cli.VirDomain, disk api.Disk, dt disksource.ResolvedDiskSource) (bool, int64) {
+	blockInfo, err := dom.GetBlockInfo(dt.SourcePath(), 0)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to get block info")
-		return false
+		return false, 0
 	}
-	guestSize := blockInfo.Capacity
+	if blockInfo.Capacity == 0 {
+		// A zero capacity indicates the source is not a valid disk
+		// image or that libvirt could not determine its size; skip
+		// expansion rather than risk incorrect resizing.
+		log.DefaultLogger().Warningf("domain disk %s returned capacity 0", disk.Alias.GetName())
+		return false, 0
+	}
 	// If block device, expand if capacity is lower than physical
-	if disk.Source.Dev != "" {
-		return guestSize < blockInfo.Physical
+	if dt.BackendIsBlock() && blockInfo.Capacity >= blockInfo.Physical {
+		return false, 0
 	}
 
-	possibleGuestSize, ok := possibleGuestSize(disk)
-	if !ok || possibleGuestSize <= int64(guestSize) {
-		return false
+	possibleGuestSize, ok := possibleGuestSize(disk, dt)
+	log.DefaultLogger().V(3).Infof("domain disk: %s, blockInfo reported size: %d, possibleGuestSize: %d",
+		disk.Alias.GetName(),
+		blockInfo.Capacity,
+		possibleGuestSize,
+	)
+	if !ok {
+		return false, 0
 	}
-	return true
+	if !dt.BackendIsBlock() && possibleGuestSize <= int64(blockInfo.Capacity) {
+		return false, 0
+	}
+	return true, possibleGuestSize
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {

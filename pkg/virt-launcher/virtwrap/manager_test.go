@@ -38,6 +38,7 @@ import (
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -1680,6 +1681,47 @@ var _ = Describe("Manager", func() {
 			})
 
 			Expect(actualGracePeriod).To(Equal(updatedGracePeriod))
+		})
+
+		It("should not resize a disk with overlay using DOMAIN_BLOCK_RESIZE_CAPACITY", func() {
+			localCtrl := gomock.NewController(GinkgoT())
+			localMockLibvirt := testing.NewLibvirt(localCtrl)
+
+			vmi := newVMI(testNamespace, testVmName)
+			domainSpec := expectedDomainFor(vmi)
+			domainSpec.Devices.Disks = append(domainSpec.Devices.Disks, api.Disk{
+				Device: "disk",
+				Type:   "file",
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "block",
+						Source: &api.DiskSource{Dev: "/dev/vda"},
+					},
+				},
+				Target: api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"},
+				Driver: &api.DiskDriver{Name: "qemu", Type: "qcow2"},
+				Alias:  api.NewUserDefinedAlias("test-disk"),
+			})
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
+
+			localMockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(func(_ string) (cli.VirDomain, error) {
+				localMockLibvirt.DomainEXPECT().Free()
+				return localMockLibvirt.VirtDomain, nil
+			})
+			localMockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			localMockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
+			localMockLibvirt.DomainEXPECT().GetBlockInfo(gomock.Any(), gomock.Any()).AnyTimes().Return(&libvirt.DomainBlockInfo{
+				Capacity: 10 * 1024 * 1024 * 1024,
+				Physical: 20 * 1024 * 1024 * 1024,
+			}, nil)
+
+			manager, err := NewLibvirtDomainManager(localMockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, false, nil, v1.KvmHypervisorName)
+			Expect(err).ToNot(HaveOccurred())
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newspec).ToNot(BeNil())
 		})
 	})
 
@@ -3493,21 +3535,68 @@ var _ = Describe("Manager helper functions", func() {
 			}
 		})
 
-		It("should return correct value", func() {
-			size, ok := possibleGuestSize(properDisk)
+		It("should return correct value for file backed disk", func() {
+			ds := disksource.Resolve(properDisk)
+			size, ok := possibleGuestSize(properDisk, ds)
 			Expect(ok).To(BeTrue())
-			capacity := properDisk.Capacity
-			Expect(capacity).ToNot(BeNil())
 
-			expectedSize := int64((1 - fakePercentFloat) * float64(*capacity))
-			// The size is expected to be 1MiB-aligned
+			expectedSize := int64((1 - fakePercentFloat) * float64(*properDisk.Capacity))
 			expectedSize = expectedSize - expectedSize%(1024*1024)
-
 			Expect(size).To(Equal(expectedSize))
 		})
 
-		DescribeTable("should return error when", func(createDisk func() api.Disk) {
-			_, ok := possibleGuestSize(createDisk())
+		It("should return (0, true) for a direct block device", func() {
+			disk := api.Disk{Source: api.DiskSource{Dev: "/dev/vda"}}
+			ds := disksource.Resolve(disk)
+			size, ok := possibleGuestSize(disk, ds)
+			Expect(ok).To(BeTrue())
+			Expect(size).To(Equal(int64(0)))
+		})
+
+		It("should return (0, false) for a datastore backed block device with unreachable backend", func() {
+			disk := api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "block",
+						Source: &api.DiskSource{Dev: "/dev/nonexistent"},
+					},
+				},
+			}
+			ds := disksource.Resolve(disk)
+			_, ok := possibleGuestSize(disk, ds)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("should apply filesystem overhead for datastore backed file", func() {
+			fakePercentFloat := 0.05
+			fakePercent := v1.Percent(fmt.Sprint(fakePercentFloat))
+			fakeCapacity := int64(100 * 1024 * 1024)
+			disk := api.Disk{
+				FilesystemOverhead: &fakePercent,
+				Capacity:           &fakeCapacity,
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "file",
+						Source: &api.DiskSource{File: "/test/disk.img"},
+					},
+				},
+			}
+			ds := disksource.Resolve(disk)
+			Expect(ds.BackendIsBlock()).To(BeFalse())
+			Expect(ds.HasOverlay()).To(BeTrue())
+			size, ok := possibleGuestSize(disk, ds)
+			Expect(ok).To(BeTrue())
+			expectedSize := int64((1 - fakePercentFloat) * float64(fakeCapacity))
+			expectedSize = expectedSize - expectedSize%(1024*1024)
+			Expect(size).To(Equal(expectedSize))
+		})
+
+		DescribeTable("should not be ok when", func(createDisk func() api.Disk) {
+			disk := createDisk()
+			ds := disksource.Resolve(disk)
+			_, ok := possibleGuestSize(disk, ds)
 			Expect(ok).To(BeFalse())
 		},
 			Entry("disk capacity is nil", func() api.Disk {
@@ -3532,8 +3621,18 @@ var _ = Describe("Manager helper functions", func() {
 				disk.FilesystemOverhead = &fakePercent
 				return disk
 			}),
+			Entry("dataStore backed block device with unreachable backend", func() api.Disk {
+				return api.Disk{
+					Source: api.DiskSource{
+						File: "/test/overlay.qcow2",
+						DataStore: &api.DataStore{
+							Type:   "block",
+							Source: &api.DiskSource{Dev: "/dev/nonexistent"},
+						},
+					},
+				}
+			}),
 		)
-
 	})
 
 	Context("configureLocalDiskToMigrate", func() {
@@ -3754,6 +3853,128 @@ var _ = Describe("calculateHotplugPortCount", func() {
 		Entry("with 3G memory and 12 ports in use", uint64(3*gb), 12, 6),
 		Entry("with 3G memory and 16 ports in use", uint64(3*gb), 16, 6),
 	)
+})
+
+var _ = Describe("shouldExpandOnline", func() {
+	var (
+		ctrl        *gomock.Controller
+		mockLibvirt *testing.Libvirt
+	)
+
+	const (
+		gb          = 1024 * 1024 * 1024
+		fakePercent = v1.Percent("0.05")
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockLibvirt = testing.NewLibvirt(ctrl)
+	})
+
+	DescribeTable("should determine expansion correctly",
+		func(disk api.Disk, blockInfo *libvirt.DomainBlockInfo, expectExpand bool, sizeMatcher OmegaMatcher) {
+			ds := disksource.Resolve(disk)
+			mockLibvirt.DomainEXPECT().GetBlockInfo(ds.SourcePath(), gomock.Any()).Return(blockInfo, nil)
+			expand, size := shouldExpandOnline(mockLibvirt.VirtDomain, disk, ds)
+			Expect(expand).To(Equal(expectExpand))
+			Expect(size).To(sizeMatcher)
+		},
+		Entry("not expand when capacity is 0",
+			api.Disk{
+				Source: api.DiskSource{File: "/disks/disk.img"},
+				Alias:  api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: 0},
+			false, Equal(int64(0)),
+		),
+		Entry("expand for direct block device where capacity < physical",
+			api.Disk{
+				Source: api.DiskSource{Dev: "/dev/vda"},
+				Alias:  api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: gb, Physical: 2 * gb},
+			true, Equal(int64(0)),
+		),
+		Entry("not expand for direct block device where capacity >= physical",
+			api.Disk{
+				Source: api.DiskSource{Dev: "/dev/vda"},
+				Alias:  api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: 2 * gb, Physical: 2 * gb},
+			false, Equal(int64(0)),
+		),
+		Entry("not expand for datastore block device where capacity >= physical",
+			api.Disk{
+				Source: api.DiskSource{
+					File:      "/test/overlay.qcow2",
+					DataStore: &api.DataStore{Type: "block", Source: &api.DiskSource{Dev: "/dev/vda"}},
+				},
+				Alias: api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: 2 * gb, Physical: 2 * gb},
+			false, Equal(int64(0)),
+		),
+		Entry("expand for fie backed disk where possibleGuestSize > capacity",
+			api.Disk{
+				FilesystemOverhead: virtpointer.P(fakePercent),
+				Capacity:           virtpointer.P(int64(2 * gb)),
+				Source:             api.DiskSource{File: "/disks/disk.img"},
+				Alias:              api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: gb},
+			true, BeNumerically(">", 0),
+		),
+		Entry("not expand for file backed disk where possibleGuestSize <= capacity",
+			api.Disk{
+				FilesystemOverhead: virtpointer.P(fakePercent),
+				Capacity:           virtpointer.P(int64(gb)),
+				Source:             api.DiskSource{File: "/disks/disk.img"},
+				Alias:              api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: 2 * gb},
+			false, Equal(int64(0)),
+		),
+		Entry("not expand for datastore block device when backend is unreachable",
+			api.Disk{
+				Source: api.DiskSource{
+					File:      "/test/overlay.qcow2",
+					DataStore: &api.DataStore{Type: "block", Source: &api.DiskSource{Dev: "/dev/vda"}},
+				},
+				Alias: api.NewUserDefinedAlias("test-disk"),
+			},
+			&libvirt.DomainBlockInfo{Capacity: gb, Physical: 2 * gb},
+			false, Equal(int64(0)),
+		),
+	)
+})
+
+var _ = Describe("shouldExpandOffline", func() {
+	It("should return false for a direct block device", func() {
+		disk := api.Disk{
+			Source: api.DiskSource{
+				Dev: "/dev/vda",
+			},
+		}
+		Expect(shouldExpandOffline(disk)).To(BeFalse())
+	})
+
+	It("should return false for a datastore backed block device", func() {
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/overlay.qcow2",
+				DataStore: &api.DataStore{
+					Type: "block",
+					Format: &api.DataStoreFormat{
+						Type: "raw",
+					},
+					Source: &api.DiskSource{
+						Dev: "/dev/vda",
+					},
+				},
+			},
+		}
+		Expect(shouldExpandOffline(disk)).To(BeFalse())
+	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
