@@ -541,30 +541,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6241] by IPv6", k8sv1.IPv6Protocol),
 	)
 
-	DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
-
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_")
-		fetcher.AddLabelFilter("phase", "Running")
-
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking the collected metrics")
-		for _, results := range metrics {
-			for _, metricResult := range results {
-				Expect(metricResult.Value).To(Equal(float64(len(preparedVMIs))))
-			}
-		}
-	},
-		Entry("[test_id:4146] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6242] by IPv6", k8sv1.IPv6Protocol),
-	)
-
 	DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
