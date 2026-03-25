@@ -56,6 +56,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -408,11 +409,17 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(key,
+	err = c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
 		domain,
 		domainExists)
+	if !vmiExists {
+		vmisync.DeleteVMISyncMetric(vmisync.VirtHandlerComponent, vmi.Namespace, vmi.Name)
+	} else if err == nil {
+		vmisync.IncVMISyncMetric(vmisync.VirtHandlerComponent, vmi.Namespace, vmi.Name)
+	}
+	return err
 
 }
 
@@ -2259,6 +2266,19 @@ func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
+
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return
+		}
+		vmi, ok = tombstone.Obj.(*v1.VirtualMachineInstance)
+		if !ok {
+			return
+		}
+	}
+	vmisync.DeleteVMISyncMetric(vmisync.VirtHandlerComponent, vmi.Namespace, vmi.Name)
 }
 
 func (c *VirtualMachineController) updateFunc(_, new interface{}) {
