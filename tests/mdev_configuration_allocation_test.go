@@ -1,11 +1,8 @@
 package tests_test
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -47,16 +44,17 @@ const (
 	mdevSupportedTypesDirName = "mdev_supported_types"
 )
 
-var (
-	nvMaxInstanceRE = regexp.MustCompile(`\bmax_instance=(\d+)\b`)
-)
-
 var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
+	var testNodeName string
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+		// There should be only one node in this lane
+		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
+		Expect(nodes).To(HaveLen(1))
+		testNodeName = nodes[0].Name
 	})
 
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
@@ -168,7 +166,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		}
 		BeforeEach(func() {
 			By("Determining the expected amount of mediated device instances used for the test")
-			expectedInstancesNum = getNumOfInstancesByMdevType(desiredMdevTypeName)
+			expectedInstancesNum = getNumOfInstancesOnNodeByMdevType(testNodeName, desiredMdevTypeName)
 
 			addMdevsConfiguration()
 
@@ -228,7 +226,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 		BeforeEach(func() {
 			By("Determining the expected amount of mediated device instances used for the test")
-			expectedInstancesNum = getNumOfInstancesByMdevType(desiredMdevTypeName)
+			expectedInstancesNum = getNumOfInstancesOnNodeByMdevType(testNodeName, desiredMdevTypeName)
 
 			By("Creating a configuration for mediated devices")
 			kv := util.GetCurrentKv(virtClient)
@@ -332,7 +330,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		It("Should override default mdev configuration on a specific node", func() {
 			By("Determining the expected amount of mediated device instances used for the test")
 			newDesiredMdevTypeName := "nvidia-223"
-			newExpectedInstancesNum := getNumOfInstancesByMdevType(newDesiredMdevTypeName)
+			newExpectedInstancesNum := getNumOfInstancesOnNodeByMdevType(testNodeName, newDesiredMdevTypeName)
 
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
@@ -350,9 +348,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
-			// There should be only one node in this lane
-			singleNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
+			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
@@ -385,13 +381,12 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		const mdevUUIDPathFmt = "/sys/class/mdev_bus/%s/%s"
 		const mdevTypePathFmt = "/sys/class/mdev_bus/%s/%s/mdev_type"
 
-		var node string
 		var driverPath string
 		var rootPCIId string
 
 		runBashCmd := func(cmd string) (string, string, error) {
 			args := []string{"bash", "-x", "-c", cmd}
-			stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node, args)
+			stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(testNodeName, args)
 			stdout = strings.TrimSpace(stdout)
 			stderr = strings.TrimSpace(stderr)
 			return stdout, stderr, err
@@ -422,9 +417,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 		BeforeEach(func() {
 			Skip("Unbinding older NVIDIA GPUs, such as the Tesla T4 found on vgpu lanes, doesn't work reliably")
-			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-			Expect(nodes).To(HaveLen(1))
-			node = nodes[0].Name
 			rootPCIId = "none"
 		})
 
@@ -521,63 +513,26 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 	})
 })
 
-// Note: this may not work for non-NVIDIA devices as it relies on `getMaxInstancesOfNVGpu`
-func getNumOfInstancesByMdevType(typeName string) (num uint) {
-	devIDs, err := getSupportedDevIDsByMdevType(typeName)
+// Note: this may not work for non-NVIDIA devices as it relies on `<type-id>/description` which is optional
+//
+//	NVIDIA driver implements the `max_instance` attribute via `description`
+//	$ cat /sys/class/mdev_bus/0000:ab:00.0/mdev_supported_types/nvidia-222/description
+//	num_heads=4, frl_config=45, framebuffer=1024M, max_resolution=5120x2880, max_instance=16
+func getNumOfInstancesOnNodeByMdevType(nodeName string, typeID string) uint {
+	cmd := fmt.Sprintf(`num=0
+	for dev in %s*/%[2]s/%[3]s; do
+	  ins=$(/usr/bin/grep -m1 -oPs '\bmax_instance=\K\d+\b' ${dev}/description)
+	  if [[ -n $ins ]]; then
+	    ((num+=$ins))
+	  fi
+	done
+	echo $num`, mdevBusPath, mdevSupportedTypesDirName, typeID)
+	args := []string{"bash", "-x", "-c", cmd}
+	stdout, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
 	Expect(err).ToNot(HaveOccurred())
 
-	for _, devID := range devIDs {
-		maxIns, err := getMaxInstancesOfNVGpu(devID, typeName)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(maxIns).To(BeNumerically(">", 0))
-		num += maxIns
-	}
-
+	num, err := strconv.ParseUint(strings.TrimSpace(stdout), 10, 0)
+	Expect(err).ToNot(HaveOccurred())
 	Expect(num).To(BeNumerically(">", 0))
-	return num
-}
-
-func getSupportedDevIDsByMdevType(typeName string) ([]string, error) {
-	var devIDs []string
-	devices, err := os.ReadDir(mdevBusPath)
-	if err != nil {
-		return devIDs, err
-	}
-
-	for _, device := range devices {
-		path := filepath.Join(mdevBusPath, device.Name(), mdevSupportedTypesDirName, typeName)
-		if _, err := os.Stat(path); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			return devIDs, err
-		}
-		devIDs = append(devIDs, device.Name())
-	}
-	return devIDs, nil
-}
-
-// NVIDIA driver implements the `max_instance` attribute via `description`
-// $ cat /sys/class/mdev_bus/0000:ab:00.0/mdev_supported_types/nvidia-222/description
-// num_heads=4, frl_config=45, framebuffer=1024M, max_resolution=5120x2880, max_instance=16
-func getMaxInstancesOfNVGpu(devID string, typeName string) (uint, error) {
-	path := filepath.Join(mdevBusPath, devID, mdevSupportedTypesDirName, typeName, "description")
-	f, err := os.Open(path)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if matches := nvMaxInstanceRE.FindStringSubmatch(line); matches != nil {
-			num, err := strconv.ParseUint(matches[1], 10, 0)
-			if err != nil {
-				return 0, err
-			}
-			return uint(num), nil
-		}
-	}
-	return 0, fmt.Errorf("no max_instance is found")
+	return uint(num)
 }
