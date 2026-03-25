@@ -30,7 +30,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtOperatorDown",
-			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_up:sum == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "All virt-operator servers are down.",
@@ -42,9 +42,13 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowVirtOperatorCount",
-			Expr: intstr.FromString(fmt.Sprintf(
-				"kubevirt_virt_operator_up / on() kube_deployment_spec_replicas{deployment='virt-operator', namespace='%s'} < 0.75", namespace,
-			)),
+			Expr: intstr.FromString(
+				fmt.Sprintf(
+					"cluster:kubevirt_virt_operator_up:sum / on() "+
+						"kube_deployment_spec_replicas{deployment='virt-operator', namespace='%s'} < 0.75",
+					namespace,
+				),
+			),
 			For: ptr.To(promv1.Duration("60m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Less than 75% of desired virt-operator pods are running.",
@@ -68,7 +72,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowReadyVirtOperatorsCount",
-			Expr:  intstr.FromString("kubevirt_virt_operator_ready < cluster:kubevirt_virt_operator_pods_running:count"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_ready:sum < cluster:kubevirt_virt_operator_pods_running:count"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Some virt-operators are running but not ready.",
@@ -80,7 +84,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtOperator",
-			Expr:  intstr.FromString("kubevirt_virt_operator_ready == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_ready:sum == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-operator was detected for the last 10 min.",
@@ -92,7 +96,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoLeadingVirtOperator",
-			Expr:  intstr.FromString("kubevirt_virt_operator_leading == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_leading:sum == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No leading virt-operator was detected for the last 10 min.",
