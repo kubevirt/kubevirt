@@ -29,6 +29,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -141,25 +142,35 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 		gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	}
 
-	const offset = 2
-	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(w.timeout+offset) * time.Second)
+	// When warning detection is enabled, spawn a goroutine that monitors
+	// events for unexpected warnings while Eventually polls for the desired
+	// VMI phase. The goroutine runs until the phase is reached and the
+	// context is canceled.
 	if w.wp.FailOnWarnings {
 		// let's ignore PSA events as kubernetes internally uses a namespace informer
 		// that might not be up to date after virt-controller relabeled the namespace
 		// to use a 'privileged' policy
 		// TODO: remove this when KubeVirt will be able to run VMs under the 'restricted' level
 		w.wp.WarningsIgnoreList = append(w.wp.WarningsIgnoreList, "violates PodSecurity")
+		objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion()
 		objectEventWatcher.SetWarningsPolicy(*w.wp)
-	}
 
-	watcherCtx, watcherCancel := context.WithCancel(w.ctx)
-	defer watcherCancel()
-	watcherDone := make(chan struct{})
-	go func() {
-		defer ginkgo.GinkgoRecover()
-		defer close(watcherDone)
-		objectEventWatcher.WaitFor(watcherCtx, watcher.NormalEvent, v1.Started)
-	}()
+		watcherCtx, watcherCancel := context.WithCancel(w.ctx)
+		watcherDone := make(chan struct{})
+		// The goroutine is stopped by context cancellation, so the process
+		// function never signals completion on its own.
+		neverDone := func(event *corev1.Event) bool { return false }
+		go func() {
+			defer ginkgo.GinkgoRecover()
+			defer close(watcherDone)
+			objectEventWatcher.Watch(watcherCtx, neverDone, "fail on warning for VMI "+vmi.Name)
+		}()
+		defer func() {
+			defer ginkgo.GinkgoRecover()
+			watcherCancel()
+			<-watcherDone
+		}()
+	}
 
 	var retrievedVMI *v1.VirtualMachineInstance
 	// FIXME the event order is wrong. First the document should be updated
@@ -181,9 +192,6 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 		return retrievedVMI.Status.Phase
 	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(gomega.BeElementOf(w.phases),
 		fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, w.phases))
-
-	watcherCancel()
-	<-watcherDone
 
 	return retrievedVMI
 }
