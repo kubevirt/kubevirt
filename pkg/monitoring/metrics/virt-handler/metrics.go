@@ -24,6 +24,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/migrationdomainstats"
@@ -38,6 +39,10 @@ func SetupMetrics(
 	}
 
 	if err := client.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := vmisync.SetupMetrics(); err != nil {
 		return err
 	}
 

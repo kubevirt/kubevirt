@@ -51,6 +51,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -555,6 +556,7 @@ func (c *MigrationTargetController) execute(key string) error {
 	if !vmiExists {
 		c.logger.V(4).Infof("vmi for key %v does not exists", key)
 		c.vmiExpectations.DeleteExpectations(key)
+		metrics.ResetVMISync(key)
 		return nil
 	}
 
@@ -605,7 +607,11 @@ func (c *MigrationTargetController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(vmi, domain)
+	err = c.sync(vmi, domain)
+	if err == nil {
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
+	}
+	return err
 }
 
 func migrationNeedsFinalization(migrationState *v1.VirtualMachineInstanceMigrationState) bool {
