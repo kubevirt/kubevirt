@@ -74,6 +74,7 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    export KUBEVIRT_NUM_SECONDARY_NICS=2
     ;;
   *sig-storage*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
