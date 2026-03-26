@@ -456,47 +456,6 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 	return true
 }
 
-func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain) *libvirt.DomainJobInfo {
-	logger := log.Log.Object(m.vmi)
-	// check if an ongoing migration has been completed before we could capture the outcome
-	if m.lastProgressUpdate > m.start {
-		logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
-		// at this point the migration is over, but we don't know the result.
-		// check if we were trying to cancel this job. In this case, finalize the migration.
-		migration, _ := m.l.metadataCache.Migration.Load()
-		if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
-			logger.Info("Migration job was canceled")
-			return &libvirt.DomainJobInfo{
-				Type:             libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining:    m.remainingData,
-				DataRemainingSet: true,
-			}
-		}
-
-		// If the domain is active, it means that the migration has failed.
-		domainState, _, err := dom.GetState()
-		if err != nil {
-			logger.Reason(err).Error("failed to get domain state")
-			if libvirtError, ok := err.(libvirt.Error); ok &&
-				(libvirtError.Code == libvirt.ERR_NO_DOMAIN ||
-					libvirtError.Code == libvirt.ERR_OPERATION_INVALID) {
-				logger.Info("domain is not running on this node")
-				return nil
-			}
-		}
-		if domainState == libvirt.DOMAIN_RUNNING {
-			logger.Info("Migration job failed")
-			return &libvirt.DomainJobInfo{
-				Type:             libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining:    m.remainingData,
-				DataRemainingSet: true,
-			}
-		}
-	}
-	logger.Info("Migration job didn't start yet")
-	return nil
-}
-
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
 	logger := log.Log.Object(m.vmi)
 
@@ -695,12 +654,7 @@ func (m *migrationMonitor) startMonitor() {
 			logMigrationInfo(logger, string(migrationUID), jobStats)
 			return
 		case libvirt.DOMAIN_JOB_NONE:
-			jobStats = m.determineNonRunningMigrationStatus(dom)
-			if jobStats != nil && jobStats.Type == libvirt.DOMAIN_JOB_CANCELLED {
-				logger.Info("Migration was canceled")
-				m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
-				return
-			}
+			logger.Info("Migration job is not active")
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
 			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
