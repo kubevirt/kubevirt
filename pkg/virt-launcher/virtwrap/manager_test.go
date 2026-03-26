@@ -2103,6 +2103,11 @@ var _ = Describe("Manager", func() {
 					DataRemainingSet: true,
 				}
 			}()
+			fake_jobinfo_cancelled := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type: libvirt.DOMAIN_JOB_CANCELLED,
+				}
+			}()
 
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:               resource.MustParse("64Mi"),
