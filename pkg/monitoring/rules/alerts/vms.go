@@ -61,7 +61,7 @@ var vmsAlerts = []promv1.Rule{
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			operatorHealthImpactLabelKey: "warning",
 		},
 	},
 	{
