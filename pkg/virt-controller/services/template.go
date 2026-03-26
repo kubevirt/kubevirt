@@ -83,8 +83,10 @@ const TunDevice = K8sDevicePrefix + "/tun"
 const VhostNetDevice = K8sDevicePrefix + "/vhost-net"
 const VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
 const PrDevice = K8sDevicePrefix + "/pr-helper"
+const SevESidsDeviceName = "sev-esids"
 const SevDeviceName = "sev"
 const TdxDeviceName = "tdx"
+const SevESidsDevice = K8sDevicePrefix + "/" + SevESidsDeviceName
 const SevDevice = K8sDevicePrefix + "/" + SevDeviceName
 const TdxDevice = K8sDevicePrefix + "/" + TdxDeviceName
 
@@ -1556,6 +1558,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
+			NewVMIResourceRule(util.IsSEVSNPVMI, WithSNPCapacity()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}
