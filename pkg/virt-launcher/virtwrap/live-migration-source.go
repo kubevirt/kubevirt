@@ -609,7 +609,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 }
 
 func (m *migrationMonitor) startMonitor() {
-	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
 
 	m.start = time.Now().UTC().UnixNano()
@@ -659,11 +658,15 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 
-		jobStats := completedJobInfo
-		if jobStats == nil {
-			jobStats, err = dom.GetJobStats(0)
+		var jobStats *libvirt.DomainJobInfo
+		jobStats, err = dom.GetJobStats(0)
+		if err != nil {
+			logger.Reason(err).Info("failed to get domain job info, checking for completed job")
+			jobStats, err = dom.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
 			if err != nil {
-				logger.Reason(err).Warning("failed to get domain job info, will retry")
+				// This could only happen when the domain is gone (successful migration) but there is lock contention in stats retrieval.
+				// In case of a sudden domain crash the migrationErr handling above takes care of it.
+				logger.Reason(err).Warning("failed to get completed job stats, will retry")
 				continue
 			}
 		}
@@ -688,8 +691,16 @@ func (m *migrationMonitor) startMonitor() {
 			if logInterval%monitorLogInterval == 0 {
 				logMigrationInfo(logger, string(migrationUID), jobStats)
 			}
+		case libvirt.DOMAIN_JOB_COMPLETED:
+			logMigrationInfo(logger, string(migrationUID), jobStats)
+			return
 		case libvirt.DOMAIN_JOB_NONE:
-			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
+			jobStats = m.determineNonRunningMigrationStatus(dom)
+			if jobStats != nil && jobStats.Type == libvirt.DOMAIN_JOB_CANCELLED {
+				logger.Info("Migration was canceled")
+				m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+				return
+			}
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
 			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
@@ -708,13 +719,19 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 		return bytes * 8 / 1000000
 	}
 
+	// For completed jobs, Downtime is the final downtime, DowntimeNet contains the actual network overhead during the cutover
+	downtimeInfo := fmt.Sprintf("ExpectedDowntime:%dms", info.Downtime)
+	if info.DowntimeNetSet && info.DowntimeNet > 0 {
+		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
-		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
+		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
 		`DiskMbps:%d`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
-		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
+		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
 		bpsToMbps(info.DiskBps),
 	))
 }
