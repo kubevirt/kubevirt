@@ -85,9 +85,15 @@ import (
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	netcontrollers "kubevirt.io/kubevirt/pkg/network/controllers"
+	netmigration "kubevirt.io/kubevirt/pkg/network/migration"
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/service"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -95,14 +101,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/registry"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
-
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	netcontrollers "kubevirt.io/kubevirt/pkg/network/controllers"
-	netmigration "kubevirt.io/kubevirt/pkg/network/migration"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
-	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
-	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
 const (
@@ -197,7 +197,7 @@ type VirtControllerApp struct {
 	caBackupConfigMapInformer    cache.SharedIndexInformer
 	exportRouteConfigMapInformer cache.SharedInformer
 	exportServiceInformer        cache.SharedIndexInformer
-	exportController             *export.VMExportController
+	storageControllers           []registry.RunnableController
 	snapshotController           *snapshot.VMSnapshotController
 	restoreController            *snapshot.VMRestoreController
 	vmExportInformer             cache.SharedIndexInformer
@@ -476,7 +476,6 @@ func Execute() {
 	); err != nil {
 		golog.Fatal(err)
 	}
-
 	app.initCommon()
 	app.initReplicaSet()
 	app.initPool()
@@ -485,7 +484,27 @@ func Execute() {
 	app.initEvacuationController()
 	app.initSnapshotController()
 	app.initRestoreController()
-	app.initExportController()
+	ctrlCtx := &registry.ControllerContext{
+		ClientSet:         app.clientSet,
+		InformerFactory:   app.informerFactory,
+		Recorder:          app.newRecorder(k8sv1.NamespaceAll, "storage-controllers"),
+		KubevirtNamespace: app.kubevirtNamespace,
+		TemplateService:   app.templateService,
+		IngressCache:      app.ingressCache,
+		RouteCache:        app.routeCache,
+	}
+	storageControllerInits := []registry.ControllerInitFunc{
+		func(ctx *registry.ControllerContext) (registry.RunnableController, error) {
+			return export.CreateVMExportController(ctx, app.snapshotController)
+		},
+	}
+	for _, initFn := range storageControllerInits {
+		ctrl, err := initFn(ctrlCtx)
+		if err != nil {
+			panic(err)
+		}
+		app.storageControllers = append(app.storageControllers, ctrl)
+	}
 	app.initWorkloadUpdaterController()
 	app.initCloneController()
 	app.initBackupController()
@@ -620,11 +639,13 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the restore controller: %v", err)
 			}
 		}()
-		go func() {
-			if err := vca.exportController.Run(vca.exportControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the export controller: %v", err)
-			}
-		}()
+		for _, ctrl := range vca.storageControllers {
+			go func(c registry.RunnableController) {
+				if err := c.Run(vca.exportControllerThreads, stop); err != nil {
+					log.Log.Warningf("error running storage controller %s: %v", c.Name(), err)
+				}
+			}(ctrl)
+		}
 		go vca.workloadUpdateController.Run(stop)
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
 		go func() {
@@ -908,43 +929,6 @@ func (vca *VirtControllerApp) initRestoreController() {
 		CRInformer:                vca.controllerRevisionInformer,
 	}
 	if err := vca.restoreController.Init(); err != nil {
-		panic(err)
-	}
-}
-
-func (vca *VirtControllerApp) initExportController() {
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
-	vca.exportController = &export.VMExportController{
-		ManifestRenderer:            vca.templateService,
-		Client:                      vca.clientSet,
-		VMExportInformer:            vca.vmExportInformer,
-		PVCInformer:                 vca.persistentVolumeClaimInformer,
-		PodInformer:                 vca.allPodInformer,
-		DataVolumeInformer:          vca.dataVolumeInformer,
-		ServiceInformer:             vca.exportServiceInformer,
-		Recorder:                    recorder,
-		ConfigMapInformer:           vca.caExportConfigMapInformer,
-		IngressCache:                vca.ingressCache,
-		RouteCache:                  vca.routeCache,
-		KubevirtNamespace:           vca.kubevirtNamespace,
-		RouteConfigMapInformer:      vca.exportRouteConfigMapInformer,
-		SecretInformer:              vca.unmanagedSecretInformer,
-		VolumeSnapshotProvider:      vca.snapshotController,
-		VMSnapshotInformer:          vca.vmSnapshotInformer,
-		VMSnapshotContentInformer:   vca.vmSnapshotContentInformer,
-		VMInformer:                  vca.vmInformer,
-		VMIInformer:                 vca.vmiInformer,
-		CRDInformer:                 vca.crdInformer,
-		KubeVirtInformer:            vca.kubeVirtInformer,
-		InstancetypeInformer:        vca.instancetypeInformer,
-		ClusterInstancetypeInformer: vca.clusterInstancetypeInformer,
-		PreferenceInformer:          vca.preferenceInformer,
-		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
-		ControllerRevisionInformer:  vca.controllerRevisionInformer,
-		VMBackupInformer:            vca.vmBackupInformer,
-		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
-	}
-	if err := vca.exportController.Init(); err != nil {
 		panic(err)
 	}
 }
