@@ -221,6 +221,21 @@ func (mr *MockLauncherClientMockRecorder) GetLaunchMeasurement(arg0 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLaunchMeasurement", reflect.TypeOf((*MockLauncherClient)(nil).GetLaunchMeasurement), arg0)
 }
 
+// GetMonitoringData mocks base method.
+func (m *MockLauncherClient) GetMonitoringData(request *v10.MonitoringRequest) (*v10.MonitoringResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMonitoringData", request)
+	ret0, _ := ret[0].(*v10.MonitoringResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMonitoringData indicates an expected call of GetMonitoringData.
+func (mr *MockLauncherClientMockRecorder) GetMonitoringData(request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMonitoringData", reflect.TypeOf((*MockLauncherClient)(nil).GetMonitoringData), request)
+}
+
 // GetQemuVersion mocks base method.
 func (m *MockLauncherClient) GetQemuVersion() (string, error) {
 	m.ctrl.T.Helper()

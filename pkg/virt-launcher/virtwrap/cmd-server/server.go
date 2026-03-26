@@ -60,6 +60,13 @@ type Launcher struct {
 	allowEmulation bool
 }
 
+func NewLauncher(domainManager virtwrap.DomainManager, allowEmulation bool) *Launcher {
+	return &Launcher{
+		domainManager:  domainManager,
+		allowEmulation: allowEmulation,
+	}
+}
+
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
 
 	response := &cmdv1.Response{

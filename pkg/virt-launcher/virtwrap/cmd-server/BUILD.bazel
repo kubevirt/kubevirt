@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "info.go",
+        "monitoring.go",
         "server.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server",
@@ -29,6 +30,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "cmd_server_suite_test.go",
+        "monitoring_test.go",
         "server_test.go",
     ],
     embed = [":go_default_library"],
