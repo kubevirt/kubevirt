@@ -31,8 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	builderv3 "k8s.io/kube-openapi/pkg/builder3"
-	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -56,8 +54,6 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
-
-	v12 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -105,13 +101,11 @@ type VirtApi interface {
 	Compose()
 	Run()
 	AddFlags()
-	ConfigureOpenAPIService()
 	Execute()
 }
 
 type virtAPIApp struct {
 	service.ServiceListen
-	SwaggerUI        string
 	SubresourcesOnly bool
 	virtCli          kubecli.KubevirtClient
 	aggregatorClient *aggregatorclient.Clientset
@@ -197,7 +191,6 @@ func (app *virtAPIApp) Execute() {
 
 	app.kubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(app.namespace)
 
-	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
 
 	app.Run()
@@ -227,7 +220,6 @@ func subresourceAPIGroup() metav1.APIGroup {
 }
 
 func (app *virtAPIApp) composeSubresources() {
-
 	var subwss []*restful.WebService
 
 	for _, version := range v1.SubresourceGroupVersions {
@@ -806,6 +798,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subwss = append(subwss, subws)
 	}
+
 	ws := new(restful.WebService)
 
 	// K8s needs the ability to query the root paths
@@ -874,6 +867,29 @@ func (app *virtAPIApp) composeSubresources() {
 			response.WriteAsJson(openapispec)
 		}))
 
+	openApiV3Spec, err := openapi.NewV3Spec(subwss)
+	if err != nil {
+		panic(fmt.Errorf("failed to prepare OpenAPI v3 specs: %w", err))
+	}
+
+	ws.Route(ws.GET("openapi/v3").
+		Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			openApiV3Spec.HandleDiscovery(response.ResponseWriter, request.Request)
+		}).Operation("getOpenAPIV3Discovery").
+		Doc("Get OpenAPI v3 discovery"))
+
+	for _, version := range v1.SubresourceGroupVersions {
+		ws.Route(ws.GET(fmt.Sprintf("openapi/v3/apis/%s/%s", version.Group, version.Version)).
+			Produces(restful.MIME_JSON).
+			To(func(request *restful.Request, response *restful.Response) {
+				openApiV3Spec.HandleGroupVersion(response.ResponseWriter, request.Request)
+			}).
+			Operation(fmt.Sprintf("getOpenAPIV3Spec_%s_%s", version.Group, version.Version)).
+			Doc(fmt.Sprintf("Get OpenAPI v3 specification for %s/%s", version.Group, version.Version)).
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, "Internal Server Error", ""))
+	}
 	restful.Add(ws)
 }
 
@@ -897,26 +913,6 @@ func (app *virtAPIApp) Compose() {
 		}
 		resp.WriteErrorString(http.StatusUnauthorized, reason)
 	})
-}
-
-func (app *virtAPIApp) ConfigureOpenAPIService() {
-	config := openapi.CreateV3Config()
-	config.GetDefinitions = v12.GetOpenAPIDefinitions
-	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
-	if err != nil {
-		panic(err)
-	}
-
-	ws := new(restful.WebService)
-	ws.Path("/swaggerapi")
-	ws.Produces(restful.MIME_JSON)
-	f := func(req *restful.Request, resp *restful.Response) {
-		resp.WriteAsJson(spec)
-	}
-	ws.Route(ws.GET("/").To(f))
-
-	restful.DefaultContainer.Add(ws)
-	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
 }
 
 func deserializeStrings(in string) ([]string, error) {
@@ -1296,8 +1292,6 @@ func (app *virtAPIApp) AddFlags() {
 
 	app.AddCommonFlags()
 
-	flag.StringVar(&app.SwaggerUI, "swagger-ui", "third_party/swagger-ui",
-		"swagger-ui location")
 	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,
 		"Only serve subresource endpoints")
 	flag.IntVar(&app.consoleServerPort, "console-server-port", DefaultConsoleServerPort,
