@@ -12,6 +12,8 @@ go_library(
         "intelrdt.go",
         "interface_priority_map.go",
         "mount.go",
+        "mount_linux.go",
+        "mount_unsupported.go",
         "namespaces.go",
         "namespaces_linux.go",
         "namespaces_syscall.go",
