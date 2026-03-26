@@ -86,6 +86,12 @@ case "$TARGET" in
     export KUBEVIRT_HUGEPAGES_2M=512
     export KUBEVIRT_REALTIME_SCHEDULER=true
     ;;
+  *sig-compute-parallel-wg-mshv-amd64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel-wg-mshv-amd64/}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    add_feature_gate "ConfigurableHypervisor"
+    export HYPERVISOR="hyperv-direct"
+    ;;
   *sig-compute-migrations-wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations-wg-arm64/}
     export KUBEVIRT_E2E_PARALLEL_NODES=3
@@ -135,12 +141,6 @@ case "$TARGET" in
   *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
-    ;;
-  *wg-mshv-amd64*)
-    export KUBEVIRT_PROVIDER=${TARGET/-wg-mshv-amd64/}
-    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
-    add_feature_gate "ConfigurableHypervisor"
-    export HYPERVISOR="hyperv-direct"
     ;;
   *sev*)
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
