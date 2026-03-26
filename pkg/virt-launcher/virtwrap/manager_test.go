@@ -2067,6 +2067,12 @@ var _ = Describe("Manager", func() {
 					DataRemainingSet: true,
 				}
 			}()
+			fake_jobinfo_none := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_NONE,
+					DataRemaining: uint64(0),
+				}
+			}()
 			fake_jobinfo_cancelled := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
 					Type: libvirt.DOMAIN_JOB_CANCELLED,
@@ -2098,7 +2104,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
 			gomock.InOrder(
 				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
-				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(nil, fmt.Errorf("domain not found")),
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_none, nil),
 				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(fake_jobinfo_cancelled, nil),
 			)
 
