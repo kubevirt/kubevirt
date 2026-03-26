@@ -130,7 +130,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
 
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewAlpine(), 60)
+			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewGuestless(), 60)
 
 			Eventually(func() k8sv1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -143,7 +143,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", decorators.Conformance, func() {
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithCPURequest("1"), libvmi.WithMemoryRequest("64M"),
 				libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("64M"),
 			)
@@ -160,7 +160,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", decorators.Conformance, func() {
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithCPULimit("1"), libvmi.WithMemoryLimit("128Mi"),
 			)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
