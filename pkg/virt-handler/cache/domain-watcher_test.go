@@ -65,20 +65,17 @@ var _ = Describe("Domain Watcher", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			d := &domainWatcher{
-				watchdogTimeout:     10,
 				unresponsiveSockets: make(map[string]int64),
-				resyncPeriod:        1 * time.Hour,
-				runServer: func(_ context.Context, _ chan watch.Event) error {
-					return fmt.Errorf("permanent failure")
-				},
-				consecutiveFails: new(int),
-				result:           make(chan watch.Event, 100),
-				ctx:              ctx,
-				cancel:           cancel,
+				consecutiveFails:    new(int),
+				result:              make(chan watch.Event, 100),
+				cancel:              cancel,
 			}
 			d.wg.Add(1)
 
-			Expect(d.worker).To(PanicWith(
+			runServer := func(_ context.Context, _ chan watch.Event) error {
+				return fmt.Errorf("permanent failure")
+			}
+			Expect(func() { d.worker(ctx, runServer, 1*time.Hour, 10) }).To(PanicWith(
 				ContainSubstring("domain notify server reached max consecutive failures")))
 		})
 	})
