@@ -344,7 +344,7 @@ var _ = Describe("Domain informer", func() {
 			// before our own timeout.
 			timeout := time.After(10 * time.Second)
 			select {
-			case event := <-d.eventChan:
+			case event := <-d.result:
 				Expect(event.Type).To(Equal(watch.Modified))
 				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
 			case <-timeout:
@@ -387,7 +387,7 @@ var _ = Describe("Domain informer", func() {
 			timedOut := false
 			timeout := time.After(5 * time.Second)
 			select {
-			case _ = <-d.eventChan:
+			case _ = <-d.result:
 				// fall through
 			case <-timeout:
 				timedOut = true
