@@ -101,19 +101,20 @@ var _ = Describe("Domain Watcher", func() {
 				nil,
 			)
 
-			// Simulate what SharedInformer does: call Watch(), drain the
-			// result channel, then call Watch() again on failure.
-			// Each Watch() creates a new domainWatcher; the counter
+			// Simulate what SharedInformer does: call WatchWithContext(),
+			// drain the result channel, then call it again on failure.
+			// Each call creates a new domainWatcher; the counter
 			// must persist across all of them.
+			ctx := context.Background()
 			for i := 0; i < failCount; i++ {
-				w, err := lw.Watch(metav1.ListOptions{})
+				w, err := lw.WatchWithContext(ctx, metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for range w.ResultChan() {
 				}
 			}
 
 			// Retrieve the shared counter from the next watcher.
-			w, err := lw.Watch(metav1.ListOptions{})
+			w, err := lw.WatchWithContext(ctx, metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			dw := w.(*domainWatcher)
 			// Wait for this watcher to also finish (it will fail too).
@@ -128,6 +129,7 @@ var _ = Describe("Domain Watcher", func() {
 	Context("Stop() idempotency", func() {
 		It("should not panic when Stop is called twice", func() {
 			d := newDomainWatcher(
+				context.Background(),
 				func(context.Context, chan watch.Event) error {
 					return fmt.Errorf("injected error")
 				},

@@ -326,6 +326,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(f.Close()).To(Succeed())
 
 			d := newDomainWatcher(
+				context.Background(),
 				func(ctx context.Context, c chan watch.Event) error {
 					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
 				},
@@ -368,6 +369,7 @@ var _ = Describe("Domain informer", func() {
 			}()
 
 			d := newDomainWatcher(
+				context.Background(),
 				func(ctx context.Context, c chan watch.Event) error {
 					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
 				},
