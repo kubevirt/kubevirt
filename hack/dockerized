@@ -91,8 +91,22 @@ function finish() {
     # avoid container cleanup affecting the exit code of the build
     local exit_code=$?
     set +e
-    $KUBEVIRT_CRI stop --time 1 ${RSYNC_CID} >/dev/null 2>&1
-    $KUBEVIRT_CRI rm -f ${RSYNC_CID} >/dev/null 2>&1
+
+    if [ -n "${RSYNC_CID}" ]; then
+        if ! output=$($KUBEVIRT_CRI stop --time 1 ${RSYNC_CID} 2>&1); then
+            echo "ERROR: Failed to stop container ${RSYNC_CID} with KUBEVIRT_CRI" >&2
+            echo "Command output: ${output}" >&2
+
+            echo "Container state for debugging:" >&2
+            $KUBEVIRT_CRI ps -a >&2 || true
+        fi
+
+        if ! rm_output=$($KUBEVIRT_CRI rm -f ${RSYNC_CID} 2>&1); then
+            echo "WARNING: Failed to remove container ${RSYNC_CID}" >&2
+            echo "Command output: ${rm_output}" >&2
+        fi
+    fi
+
     set -e
     return ${exit_code}
 }
