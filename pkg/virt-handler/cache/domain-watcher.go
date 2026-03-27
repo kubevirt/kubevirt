@@ -61,13 +61,14 @@ type domainWatcher struct {
 	recorder                 record.EventRecorder
 	resyncPeriod             time.Duration
 	runServer                runServerFunc
-	consecutiveFails         int
+	consecutiveFails         *int
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
 }
 
 func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder) cache.ListerWatcher {
+	consecutiveFails := new(int)
 	return &cache.ListWatch{
 		ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
 			log.Log.V(3).Info("Synchronizing domains")
@@ -91,6 +92,7 @@ func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, 
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             resyncPeriod,
 				runServer:                runNotifyServer,
+				consecutiveFails:         consecutiveFails,
 			}
 			err := d.startBackground()
 			if err != nil {
@@ -157,13 +159,13 @@ func (d *domainWatcher) onWorkerExit() {
 
 func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Time) {
 	if time.Since(startedAt) >= notifyServerHealthyRunTime {
-		d.consecutiveFails = 0
+		*d.consecutiveFails = 0
 	}
-	d.consecutiveFails++
+	*d.consecutiveFails++
 
 	d.recordNotifyServerFailureEvent(err)
 
-	if d.consecutiveFails >= notifyServerMaxConsecutiveFails {
+	if *d.consecutiveFails >= notifyServerMaxConsecutiveFails {
 		log.Log.Reason(err).Criticalf("Domain notify server reached max consecutive failures (%d)",
 			notifyServerMaxConsecutiveFails)
 		panic(fmt.Sprintf("domain notify server reached max consecutive failures (%d): %v",
