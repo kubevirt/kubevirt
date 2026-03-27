@@ -113,7 +113,11 @@ func (admitter *PodEvictionAdmitter) admitLauncherPod(ctx context.Context, ar *a
 
 	switch *evictionStrategy {
 	case virtv1.EvictionStrategyLiveMigrate:
-		if !vmi.IsMigratable() {
+		// In the deckhouse virtualization, we initiate the virtual machine evacuation ourselves.
+		// If the virtual machine has local disks, we will prepare them for it and migrate them to the new ones.
+		// Therefore, we consider the machine migratable based on the StorageLiveMigratable condition, not LiveMigratable.
+		// The best approach would be to use the External policy, but we will keep this and make the change here for backward compatibility.
+		if !isStorageLiveMigratable(vmi) {
 			return denied(fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
 		}
 		markForEviction = true
@@ -143,6 +147,15 @@ func (admitter *PodEvictionAdmitter) admitLauncherPod(ctx context.Context, ar *a
 		return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %v", err))
 	}
 	return denied(fmt.Sprintf(evictionFmt, vmi.Namespace, vmi.Name))
+}
+
+func isStorageLiveMigratable(vmi *virtv1.VirtualMachineInstance) bool {
+	for _, cond := range vmi.Status.Conditions {
+		if cond.Type == virtv1.VirtualMachineInstanceIsStorageLiveMigratable && cond.Status == k8scorev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 func (admitter *PodEvictionAdmitter) markVMI(ctx context.Context, vmiNamespace, vmiName, nodeName string, dryRun bool) error {
