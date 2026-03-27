@@ -90,8 +90,8 @@ var _ = Describe("Domain Watcher", func() {
 
 			Expect(d.startBackground()).To(Succeed())
 			Eventually(func() bool {
-				d.lock.Lock()
-				defer d.lock.Unlock()
+				d.Lock()
+				defer d.Unlock()
 				return !d.backgroundWatcherStarted
 			}, 5*time.Second).Should(BeTrue())
 
