@@ -2,12 +2,10 @@ package libmonitoring
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net"
 	"net/http"
 	"os/exec"
@@ -44,7 +42,6 @@ const (
 	defaultAlertTimeout     = 120 * time.Second
 	defaultAlertWaitTimeout = 5 * time.Minute
 	defaultMetricsPort      = 8443
-	portRangeMax            = 6000
 )
 
 type AlertRequestResult struct {
@@ -216,13 +213,10 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 		url := getPrometheusURLForOpenShift()
 		result = doHTTPRequest(url, endpoint, token)
 	} else {
-		randomPort, err := rand.Int(rand.Reader, big.NewInt(portRangeMax))
-		Expect(err).NotTo(HaveOccurred())
-		sourcePort := 4321 + int(randomPort.Int64())
-		targetPort := 9090
+		const targetPort = 9090
 		Eventually(func() error {
 			_, cmd, cmdErr := clientcmd.CreateCommandWithNS(monitoringNs, "kubectl",
-				"port-forward", "service/prometheus-k8s", fmt.Sprintf("%d:%d", sourcePort, targetPort))
+				"port-forward", "service/prometheus-k8s", fmt.Sprintf(":%d", targetPort))
 			if cmdErr != nil {
 				return cmdErr
 			}
@@ -233,7 +227,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 			if startErr := cmd.Start(); startErr != nil {
 				return startErr
 			}
-			WaitForPortForwardCmd(stdout, sourcePort, targetPort)
+			sourcePort := WaitForPortForwardCmd(stdout, targetPort)
 			defer func() { _ = KillPortForwardCommand(cmd) }()
 
 			url := fmt.Sprintf("http://localhost:%d", sourcePort)
@@ -331,16 +325,22 @@ func getMonitoringNs(cli kubecli.KubevirtClient) string {
 	return "monitoring"
 }
 
-func WaitForPortForwardCmd(stdout io.ReadCloser, src, dst int) {
-	Eventually(func() string {
+// WaitForPortForwardCmd reads kubectl's stdout until it sees the "Forwarding from"
+// readiness line, then returns the OS-assigned local port number.
+// kubectl prints "Forwarding from 127.0.0.1:<localPort> -> <dst>" once the tunnel is ready.
+func WaitForPortForwardCmd(stdout io.ReadCloser, dst int) int {
+	re := regexp.MustCompile(fmt.Sprintf(`Forwarding from 127\.0\.0\.1:(\d+) -> %d`, dst))
+	var m []string
+	Eventually(func() []string {
 		tmp := make([]byte, readBufferSize)
 		_, err := stdout.Read(tmp)
 		Expect(err).NotTo(HaveOccurred())
-
-		return string(tmp)
-	}, 30*time.Second, 1*time.Second).Should(
-		ContainSubstring(fmt.Sprintf("Forwarding from 127.0.0.1:%d -> %d", src, dst)),
-	)
+		m = re.FindStringSubmatch(string(tmp))
+		return m
+	}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+	port, err := strconv.Atoi(m[1])
+	Expect(err).NotTo(HaveOccurred())
+	return port
 }
 
 func KillPortForwardCommand(portForwardCmd *exec.Cmd) error {
