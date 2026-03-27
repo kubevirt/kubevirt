@@ -69,7 +69,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, memoryFlavor))
+		vmi = libvmifact.NewGuestless(libvmi.WithLabel(flavorKey, memoryFlavor))
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
 		memory = resource.MustParse("128M")
@@ -137,7 +137,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
-			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1]"))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
 		})
 	})
 
@@ -202,7 +202,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor))
+			vmi = libvmifact.NewGuestless(libvmi.WithLabel(flavorKey, cpuFlavor))
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -230,7 +230,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			// reset the label so it will not match
-			vmi = libvmifact.NewAlpine()
+			vmi = libvmifact.NewGuestless()
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -276,7 +276,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
-			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor), libvmi.WithAnnotation(exclusionMarking, "true"))
+			vmi = libvmifact.NewGuestless(libvmi.WithLabel(flavorKey, cpuFlavor), libvmi.WithAnnotation(exclusionMarking, "true"))
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

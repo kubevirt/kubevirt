@@ -106,7 +106,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 
 		Context("with existing VM", func() {
 			It("[test_id:TODO] should return unchanged VirtualMachine, if instancetype is not used", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -136,7 +136,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 
 		Context("with passed VM in request", func() {
 			It("[test_id:TODO] should return unchanged VirtualMachine, if instancetype is not used", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 
 				expandedVm, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -169,7 +169,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 			)
 
 			DescribeTable("[test_id:TODO] should fail, if instancetype expansion hits a conflict", func(matcherFn func() *v1.InstancetypeMatcher) {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.Instancetype = matcherFn()
 
 				_, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
@@ -181,7 +181,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 			)
 
 			DescribeTable("[test_id:TODO] should fail, if VM and endpoint namespace are different", func(matcherFn func() *v1.InstancetypeMatcher) {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.Instancetype = matcherFn()
 				vm.Namespace = "madethisup"
 
@@ -248,7 +248,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 
 		Context("with existing VM", func() {
 			It("[test_id:TODO] should return unchanged VirtualMachine, if preference is not used", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -260,7 +260,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 			})
 
 			DescribeTable("[test_id:TODO] should return VirtualMachine with preference expanded", func(matcherFn func() *v1.PreferenceMatcher) {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.Preference = matcherFn()
 
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -279,7 +279,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 
 		Context("with passed VM in request", func() {
 			It("[test_id:TODO] should return unchanged VirtualMachine, if preference is not used", func() {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 
 				expandedVm, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -287,7 +287,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 			})
 
 			DescribeTable("[test_id:TODO] should return VirtualMachine with preference expanded", func(matcherFn func() *v1.PreferenceMatcher) {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.Preference = matcherFn()
 
 				expandedVm, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
@@ -300,7 +300,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 			)
 
 			DescribeTable("[test_id:TODO] should fail, if referenced preference does not exist", func(matcher *v1.PreferenceMatcher) {
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.Preference = matcher
 
 				_, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)

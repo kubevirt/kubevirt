@@ -54,7 +54,7 @@ import (
 var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.RequiresTwoSchedulableNodes, func() {
 	Context("during evacuation", func() {
 		It("should add eviction-in-progress annotation to source virt-launcher pod", func() {
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -108,7 +108,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 		Context("when evacuating fails", func() {
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
-				vmi = libvmifact.NewAlpine(
+				vmi = libvmifact.NewGuestless(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
@@ -216,7 +216,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 		Context("VirtualMachineInstanceEvictionRequested condition", func() {
 			It("should set VirtualMachineInstanceEvictionRequested condition when VMI marked for eviction", func() {
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewGuestless(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -267,7 +267,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 				It("should keep VirtualMachineInstanceEvictionRequested condition when migration fails", func() {
 					By("Starting the VirtualMachineInstance")
-					vmi := libvmifact.NewCirros(
+					vmi := libvmifact.NewGuestless(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
