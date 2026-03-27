@@ -747,6 +747,41 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(expectedIfaces))
 		Expect(updatedVMI.Spec.Networks).To(Equal(expectedNets))
 	})
+
+	DescribeTable("sync preserves auto-injected Pod network", func(isFGEnabled bool) {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset, stubClusterConfigurer{isLiveUpdateNADRefEnabled: isFGEnabled})
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
+		vm := libvmi.NewVirtualMachine(
+			libvmi.New(),
+		)
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Networks).To(HaveLen(1), "auto-injected Pod network should not be removed")
+		Expect(updatedVMI.Spec.Networks[0].Name).To(Equal(defaultNetName))
+		Expect(updatedVMI.Spec.Networks[0].Pod).NotTo(BeNil())
+
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces[0].Name).To(Equal(defaultNetName))
+	},
+		Entry("when FG LiveUpdateNADRefEnabled is enabled", true),
+		Entry("when FG LiveUpdateNADRefEnabled is disabled", false),
+	)
 })
 
 type syncError interface {
