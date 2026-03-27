@@ -19,6 +19,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -42,7 +43,7 @@ import (
 
 const socketDialTimeout = 5
 
-type runServerFunc func(stopChan chan struct{}, c chan watch.Event) error
+type runServerFunc func(ctx context.Context, c chan watch.Event) error
 
 var (
 	notifyServerMaxConsecutiveFails = 10
@@ -52,7 +53,8 @@ var (
 type domainWatcher struct {
 	sync.Mutex
 	wg                       sync.WaitGroup
-	stopChan                 chan struct{}
+	ctx                      context.Context
+	cancel                   context.CancelFunc
 	eventChan                chan watch.Event
 	backgroundWatcherStarted bool
 	watchdogTimeout          int
@@ -119,7 +121,7 @@ func (d *domainWatcher) worker() {
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := d.runServer(d.stopChan, d.eventChan)
+		err := d.runServer(d.ctx, d.eventChan)
 		srvErr <- err
 	}()
 
@@ -187,7 +189,7 @@ func (d *domainWatcher) startBackground() error {
 		return nil
 	}
 
-	d.stopChan = make(chan struct{}, 1)
+	d.ctx, d.cancel = context.WithCancel(context.Background())
 	d.eventChan = make(chan watch.Event, 100)
 
 	d.wg.Add(1)
@@ -365,22 +367,14 @@ func listAllKnownDomains() ([]*api.Domain, error) {
 }
 
 func (d *domainWatcher) Stop() {
-	shouldWait := func() bool {
-		d.Lock()
-		defer d.Unlock()
-		if !d.backgroundWatcherStarted {
-			return false
-		}
-		select {
-		case <-d.stopChan:
-		default:
-			close(d.stopChan)
-		}
-		return true
-	}()
-	if shouldWait {
-		d.wg.Wait()
+	d.Lock()
+	if !d.backgroundWatcherStarted {
+		d.Unlock()
+		return
 	}
+	d.cancel()
+	d.Unlock()
+	d.wg.Wait()
 }
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {
