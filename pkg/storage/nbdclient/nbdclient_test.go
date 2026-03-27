@@ -17,7 +17,7 @@
  *
  */
 
-package storage
+package nbdclient
 
 import (
 	"errors"

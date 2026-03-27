@@ -17,19 +17,26 @@
  *
  */
 
-package storage
+package nbdclient
 
 import (
 	"fmt"
 	"sort"
 	"strings"
 
+	"google.golang.org/grpc"
 	"libguestfs.org/libnbd"
 
 	"kubevirt.io/client-go/log"
 
 	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
 )
+
+// RegisterNBDServer registers an NBDClient as the NBD gRPC server
+// implementation on the given gRPC server for the specified socket path.
+func RegisterNBDServer(srv *grpc.Server, socketPath string) {
+	nbdv1.RegisterNBDServer(srv, NewNBDClient(socketPath))
+}
 
 const (
 	maxReadChunkSize     uint64 = 256 * 1024
