@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials"
+	"kubevirt.io/kubevirt/pkg/virtctl/debug"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
@@ -155,6 +156,7 @@ func addVerbosityFlag(fs *pflag.FlagSet) {
 }
 
 func Execute() int {
+	debug.RegisterDebugHook()
 	log.InitializeLogging(programName)
 	cmd := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
