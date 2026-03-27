@@ -4178,7 +4178,7 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, nil, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
+			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(addUnschedulableToleration(vmi.Spec.Tolerations)))
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment trigger pods", func() {
