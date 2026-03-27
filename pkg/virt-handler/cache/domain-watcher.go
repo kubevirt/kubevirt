@@ -52,19 +52,36 @@ var (
 
 type domainWatcher struct {
 	sync.Mutex
-	wg                       sync.WaitGroup
-	ctx                      context.Context
-	cancel                   context.CancelFunc
-	result                   chan watch.Event
-	backgroundWatcherStarted bool
-	watchdogTimeout          int
-	recorder                 record.EventRecorder
-	resyncPeriod             time.Duration
-	runServer                runServerFunc
-	consecutiveFails         *int
+	wg               sync.WaitGroup
+	ctx              context.Context
+	cancel           context.CancelFunc
+	result           chan watch.Event
+	watchdogTimeout  int
+	recorder         record.EventRecorder
+	resyncPeriod     time.Duration
+	runServer        runServerFunc
+	consecutiveFails *int
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
+}
+
+func newDomainWatcher(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int) *domainWatcher {
+	ctx, cancel := context.WithCancel(context.Background())
+	d := &domainWatcher{
+		watchdogTimeout:     watchdogTimeout,
+		recorder:            recorder,
+		unresponsiveSockets: make(map[string]int64),
+		resyncPeriod:        resyncPeriod,
+		runServer:           runNotifyServer,
+		consecutiveFails:    consecutiveFails,
+		result:              make(chan watch.Event, 100),
+		ctx:                 ctx,
+		cancel:              cancel,
+	}
+	d.wg.Add(1)
+	go d.worker()
+	return d
 }
 
 func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder) cache.ListerWatcher {
@@ -85,27 +102,14 @@ func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, 
 			return &list, nil
 		},
 		WatchFunc: func(_ metav1.ListOptions) (watch.Interface, error) {
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				watchdogTimeout:          watchdogTimeout,
-				recorder:                 recorder,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             resyncPeriod,
-				runServer:                runNotifyServer,
-				consecutiveFails:         consecutiveFails,
-			}
-			err := d.startBackground()
-			if err != nil {
-				return nil, err
-			}
-			return d, nil
+			return newDomainWatcher(runNotifyServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
 		},
 	}
 }
 
 func (d *domainWatcher) worker() {
 	defer d.wg.Done()
-	defer d.onWorkerExit()
+	defer close(d.result)
 
 	resyncTicker := time.NewTicker(d.resyncPeriod)
 	resyncTickerChan := resyncTicker.C
@@ -150,13 +154,6 @@ func (d *domainWatcher) worker() {
 	}
 }
 
-func (d *domainWatcher) onWorkerExit() {
-	d.Lock()
-	defer d.Unlock()
-	d.backgroundWatcherStarted = false
-	close(d.result)
-}
-
 func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Time) {
 	if time.Since(startedAt) >= notifyServerHealthyRunTime {
 		*d.consecutiveFails = 0
@@ -181,24 +178,6 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
 	d.recorder.Eventf(node, k8sv1.EventTypeWarning, "NotifyServerFailure",
 		"Domain notify server exited unexpectedly: %v", err)
-}
-
-func (d *domainWatcher) startBackground() error {
-	d.Lock()
-	defer d.Unlock()
-
-	if d.backgroundWatcherStarted {
-		return nil
-	}
-
-	d.ctx, d.cancel = context.WithCancel(context.Background())
-	d.result = make(chan watch.Event, 100)
-
-	d.wg.Add(1)
-	go d.worker()
-
-	d.backgroundWatcherStarted = true
-	return nil
 }
 
 func (d *domainWatcher) handleResync() {
@@ -369,13 +348,7 @@ func listAllKnownDomains() ([]*api.Domain, error) {
 }
 
 func (d *domainWatcher) Stop() {
-	d.Lock()
-	if !d.backgroundWatcherStarted {
-		d.Unlock()
-		return
-	}
 	d.cancel()
-	d.Unlock()
 	d.wg.Wait()
 }
 
