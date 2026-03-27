@@ -20,6 +20,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -60,15 +61,18 @@ var _ = Describe("Domain Watcher", func() {
 			notifyServerMaxConsecutiveFails = 1
 			notifyServerHealthyRunTime = 1 * time.Hour
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			d := &domainWatcher{
 				watchdogTimeout:     10,
 				unresponsiveSockets: make(map[string]int64),
 				resyncPeriod:        1 * time.Hour,
-				runServer: func(_ chan struct{}, _ chan watch.Event) error {
+				runServer: func(_ context.Context, _ chan watch.Event) error {
 					return fmt.Errorf("permanent failure")
 				},
 				eventChan: make(chan watch.Event, 100),
-				stopChan:  make(chan struct{}),
+				ctx:       ctx,
+				cancel:    cancel,
 			}
 			d.wg.Add(1)
 
@@ -83,7 +87,7 @@ var _ = Describe("Domain Watcher", func() {
 				watchdogTimeout:     1,
 				unresponsiveSockets: make(map[string]int64),
 				resyncPeriod:        1 * time.Hour,
-				runServer: func(chan struct{}, chan watch.Event) error {
+				runServer: func(context.Context, chan watch.Event) error {
 					return fmt.Errorf("injected error")
 				},
 			}

@@ -20,6 +20,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -223,8 +224,8 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
-	lw := newListWatchFromNotify(func(stopChan chan struct{}, c chan watch.Event) error {
-		return notifyserver.RunServer(virtShareDir, stopChan, c, recorder, vmiStore)
+	lw := newListWatchFromNotify(func(ctx context.Context, c chan watch.Event) error {
+		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}, watchdogTimeout, resyncPeriod, recorder)
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }

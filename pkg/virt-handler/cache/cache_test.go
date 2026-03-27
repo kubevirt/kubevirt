@@ -20,6 +20,7 @@
 package cache
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"net"
@@ -329,8 +330,8 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             1 * time.Hour,
-				runServer: func(stopChan chan struct{}, c chan watch.Event) error {
-					return notifyserver.RunServer(shareDir, stopChan, c, nil, nil)
+				runServer: func(ctx context.Context, c chan watch.Event) error {
+					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
 				},
 			}
 
@@ -374,8 +375,8 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             time.Duration(1) * time.Hour,
-				runServer: func(stopChan chan struct{}, c chan watch.Event) error {
-					return notifyserver.RunServer(shareDir, stopChan, c, nil, nil)
+				runServer: func(ctx context.Context, c chan watch.Event) error {
+					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
 				},
 			}
 
