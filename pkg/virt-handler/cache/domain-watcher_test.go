@@ -70,9 +70,9 @@ var _ = Describe("Domain Watcher", func() {
 				runServer: func(_ context.Context, _ chan watch.Event) error {
 					return fmt.Errorf("permanent failure")
 				},
-				eventChan: make(chan watch.Event, 100),
-				ctx:       ctx,
-				cancel:    cancel,
+				result: make(chan watch.Event, 100),
+				ctx:    ctx,
+				cancel: cancel,
 			}
 			d.wg.Add(1)
 

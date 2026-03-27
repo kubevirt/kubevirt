@@ -55,7 +55,7 @@ type domainWatcher struct {
 	wg                       sync.WaitGroup
 	ctx                      context.Context
 	cancel                   context.CancelFunc
-	eventChan                chan watch.Event
+	result                   chan watch.Event
 	backgroundWatcherStarted bool
 	watchdogTimeout          int
 	recorder                 record.EventRecorder
@@ -121,7 +121,7 @@ func (d *domainWatcher) worker() {
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := d.runServer(d.ctx, d.eventChan)
+		err := d.runServer(d.ctx, d.result)
 		srvErr <- err
 	}()
 
@@ -135,7 +135,7 @@ func (d *domainWatcher) worker() {
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
 				d.panicOnConsecutiveFailures(err, startedAt)
-				d.eventChan <- watch.Event{
+				d.result <- watch.Event{
 					Type: watch.Error,
 					Object: &metav1.Status{
 						Status:  metav1.StatusFailure,
@@ -152,7 +152,7 @@ func (d *domainWatcher) onWorkerExit() {
 	d.Lock()
 	defer d.Unlock()
 	d.backgroundWatcherStarted = false
-	close(d.eventChan)
+	close(d.result)
 }
 
 func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Time) {
@@ -190,7 +190,7 @@ func (d *domainWatcher) startBackground() error {
 	}
 
 	d.ctx, d.cancel = context.WithCancel(context.Background())
-	d.eventChan = make(chan watch.Event, 100)
+	d.result = make(chan watch.Event, 100)
 
 	d.wg.Add(1)
 	go d.worker()
@@ -229,7 +229,7 @@ func (d *domainWatcher) handleResync() {
 			continue
 		}
 
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+		d.result <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 }
 
@@ -297,7 +297,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 				now := metav1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+				d.result <- watch.Event{Type: watch.Modified, Object: domain}
 
 				err := cmdclient.MarkSocketUnresponsive(key)
 				if err != nil {
@@ -378,7 +378,7 @@ func (d *domainWatcher) Stop() {
 }
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {
-	return d.eventChan
+	return d.result
 }
 
 func listSockets(ghostRecords []ghostRecord) ([]string, error) {
