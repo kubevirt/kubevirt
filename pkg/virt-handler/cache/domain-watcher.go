@@ -51,36 +51,25 @@ var (
 )
 
 type domainWatcher struct {
-	sync.Mutex
-	wg               sync.WaitGroup
-	ctx              context.Context
-	cancel           context.CancelFunc
-	result           chan watch.Event
-	watchdogTimeout  int
-	recorder         record.EventRecorder
-	resyncPeriod     time.Duration
-	runServer        runServerFunc
-	consecutiveFails *int
-
-	watchDogLock        sync.Mutex
+	wg                  sync.WaitGroup
+	cancel              context.CancelFunc
+	result              chan watch.Event
+	recorder            record.EventRecorder
+	consecutiveFails    *int
 	unresponsiveSockets map[string]int64
 }
 
 func newDomainWatcher(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int) *domainWatcher {
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &domainWatcher{
-		watchdogTimeout:     watchdogTimeout,
 		recorder:            recorder,
 		unresponsiveSockets: make(map[string]int64),
-		resyncPeriod:        resyncPeriod,
-		runServer:           runNotifyServer,
 		consecutiveFails:    consecutiveFails,
 		result:              make(chan watch.Event, 100),
-		ctx:                 ctx,
 		cancel:              cancel,
 	}
 	d.wg.Add(1)
-	go d.worker()
+	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
 	return d
 }
 
@@ -107,36 +96,32 @@ func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, 
 	}
 }
 
-func (d *domainWatcher) worker() {
+func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, resyncPeriod time.Duration, watchdogTimeout int) {
 	defer d.wg.Done()
 	defer close(d.result)
 
-	resyncTicker := time.NewTicker(d.resyncPeriod)
-	resyncTickerChan := resyncTicker.C
+	resyncTicker := time.NewTicker(resyncPeriod)
 	defer resyncTicker.Stop()
 
 	// Divide the watchdogTimeout by 3 for our ticker.
 	// This ensures we always have at least 2 response failures
 	// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
-	expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second)
+	expiredWatchdogTicker := time.NewTicker(time.Duration((watchdogTimeout/3)+1) * time.Second)
 	defer expiredWatchdogTicker.Stop()
-
-	expiredWatchdogTickerChan := expiredWatchdogTicker.C
 
 	startedAt := time.Now()
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := d.runServer(d.ctx, d.result)
-		srvErr <- err
+		srvErr <- runServer(ctx, d.result)
 	}()
 
 	for {
 		select {
-		case <-resyncTickerChan:
+		case <-resyncTicker.C:
 			d.handleResync()
-		case <-expiredWatchdogTickerChan:
-			d.handleStaleSocketConnections()
+		case <-expiredWatchdogTicker.C:
+			d.handleStaleSocketConnections(watchdogTimeout)
 		case err := <-srvErr:
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
@@ -214,7 +199,7 @@ func (d *domainWatcher) handleResync() {
 	}
 }
 
-func (d *domainWatcher) handleStaleSocketConnections() error {
+func (d *domainWatcher) handleStaleSocketConnections(watchdogTimeout int) error {
 	var unresponsive []string
 
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
@@ -232,9 +217,6 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 		}
 		unresponsive = append(unresponsive, socket)
 	}
-
-	d.watchDogLock.Lock()
-	defer d.watchDogLock.Unlock()
 
 	now := time.Now().UTC().Unix()
 
@@ -263,7 +245,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 
 		diff := now - timeStamp
 
-		if diff > int64(d.watchdogTimeout) {
+		if diff > int64(watchdogTimeout) {
 
 			record, exists := GhostRecordGlobalStore.findBySocket(key)
 
