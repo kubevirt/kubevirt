@@ -325,18 +325,15 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f.Close()).To(Succeed())
 
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             1 * time.Hour,
-				runServer: func(ctx context.Context, c chan watch.Event) error {
+			d := newDomainWatcher(
+				func(ctx context.Context, c chan watch.Event) error {
 					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
 				},
-			}
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
+				1,
+				1*time.Hour,
+				nil,
+				new(int),
+			)
 			defer d.Stop()
 
 			timedOut := false
@@ -370,18 +367,15 @@ var _ = Describe("Domain informer", func() {
 				}
 			}()
 
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             time.Duration(1) * time.Hour,
-				runServer: func(ctx context.Context, c chan watch.Event) error {
+			d := newDomainWatcher(
+				func(ctx context.Context, c chan watch.Event) error {
 					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
 				},
-			}
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
+				1,
+				1*time.Hour,
+				nil,
+				new(int),
+			)
 			defer d.Stop()
 
 			timedOut := false

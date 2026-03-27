@@ -130,22 +130,17 @@ var _ = Describe("Domain Watcher", func() {
 
 	Context("Stop() idempotency", func() {
 		It("should not panic when Stop is called twice", func() {
-			d := &domainWatcher{
-				watchdogTimeout:     1,
-				unresponsiveSockets: make(map[string]int64),
-				consecutiveFails:    new(int),
-				resyncPeriod:        1 * time.Hour,
-				runServer: func(context.Context, chan watch.Event) error {
+			d := newDomainWatcher(
+				func(context.Context, chan watch.Event) error {
 					return fmt.Errorf("injected error")
 				},
-			}
+				1,
+				1*time.Hour,
+				nil,
+				new(int),
+			)
 
-			Expect(d.startBackground()).To(Succeed())
-			Eventually(func() bool {
-				d.Lock()
-				defer d.Unlock()
-				return !d.backgroundWatcherStarted
-			}, 5*time.Second).Should(BeTrue())
+			Eventually(d.result).Should(BeClosed())
 
 			Expect(func() { d.Stop() }).ShouldNot(Panic())
 			Expect(func() { d.Stop() }).ShouldNot(Panic())
