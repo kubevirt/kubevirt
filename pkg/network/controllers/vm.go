@@ -195,6 +195,7 @@ func syncNetworks(vmNets, vmiNets []v1.Network) []v1.Network {
 	for _, vmiNet := range vmiNets {
 		vmNet, exists := vmIndexedNets[vmiNet.Name]
 		if !exists {
+			updatedVMINets = append(updatedVMINets, vmiNet)
 			continue
 		}
 		switch {
