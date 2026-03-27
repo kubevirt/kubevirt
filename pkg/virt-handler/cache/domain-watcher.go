@@ -66,16 +66,37 @@ type domainWatcher struct {
 }
 
 func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder) cache.ListerWatcher {
-	d := &domainWatcher{
-		backgroundWatcherStarted: false,
-		watchdogTimeout:          watchdogTimeout,
-		recorder:                 recorder,
-		unresponsiveSockets:      make(map[string]int64),
-		resyncPeriod:             resyncPeriod,
-		runServer:                runNotifyServer,
+	return &cache.ListWatch{
+		ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
+			log.Log.V(3).Info("Synchronizing domains")
+			domains, err := listAllKnownDomains()
+			if err != nil {
+				return nil, err
+			}
+			list := api.DomainList{
+				Items: []api.Domain{},
+			}
+			for _, domain := range domains {
+				list.Items = append(list.Items, *domain)
+			}
+			return &list, nil
+		},
+		WatchFunc: func(_ metav1.ListOptions) (watch.Interface, error) {
+			d := &domainWatcher{
+				backgroundWatcherStarted: false,
+				watchdogTimeout:          watchdogTimeout,
+				recorder:                 recorder,
+				unresponsiveSockets:      make(map[string]int64),
+				resyncPeriod:             resyncPeriod,
+				runServer:                runNotifyServer,
+			}
+			err := d.startBackground()
+			if err != nil {
+				return nil, err
+			}
+			return d, nil
+		},
 	}
-
-	return d
 }
 
 func (d *domainWatcher) worker() {
@@ -341,33 +362,6 @@ func listAllKnownDomains() ([]*api.Domain, error) {
 		}
 	}
 	return domains, nil
-}
-
-func (d *domainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
-
-	log.Log.V(3).Info("Synchronizing domains")
-	err := d.startBackground()
-	if err != nil {
-		return nil, err
-	}
-
-	domains, err := listAllKnownDomains()
-	if err != nil {
-		return nil, err
-	}
-
-	list := api.DomainList{
-		Items: []api.Domain{},
-	}
-
-	for _, domain := range domains {
-		list.Items = append(list.Items, *domain)
-	}
-	return &list, nil
-}
-
-func (d *domainWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
-	return d, nil
 }
 
 func (d *domainWatcher) Stop() {
