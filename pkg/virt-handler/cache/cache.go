@@ -29,6 +29,8 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
@@ -224,8 +226,28 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
-	lw := newListWatchFromNotify(func(ctx context.Context, c chan watch.Event) error {
+	consecutiveFails := new(int)
+	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
-	}, watchdogTimeout, resyncPeriod, recorder)
+	}
+	lw := &cache.ListWatch{
+		ListWithContextFunc: func(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+			log.Log.V(3).Info("Synchronizing domains")
+			domains, err := listAllKnownDomains()
+			if err != nil {
+				return nil, err
+			}
+			list := api.DomainList{
+				Items: []api.Domain{},
+			}
+			for _, domain := range domains {
+				list.Items = append(list.Items, *domain)
+			}
+			return &list, nil
+		},
+		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
+			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
+		},
+	}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }

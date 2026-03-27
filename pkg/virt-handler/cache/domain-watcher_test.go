@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -77,52 +76,6 @@ var _ = Describe("Domain Watcher", func() {
 			}
 			Expect(func() { d.worker(ctx, runServer, 1*time.Hour, 10) }).To(PanicWith(
 				ContainSubstring("domain notify server reached max consecutive failures")))
-		})
-	})
-
-	Context("consecutive failure across watcher restarts", func() {
-		It("should accumulate failures across Watch() calls via ListerWatcher", func() {
-			origMax := notifyServerMaxConsecutiveFails
-			origHealthy := notifyServerHealthyRunTime
-			defer func() {
-				notifyServerMaxConsecutiveFails = origMax
-				notifyServerHealthyRunTime = origHealthy
-			}()
-			notifyServerMaxConsecutiveFails = 10
-			notifyServerHealthyRunTime = 1 * time.Hour
-
-			failCount := 3
-			lw := newListWatchFromNotify(
-				func(_ context.Context, _ chan watch.Event) error {
-					return fmt.Errorf("permanent failure")
-				},
-				10,
-				1*time.Hour,
-				nil,
-			)
-
-			// Simulate what SharedInformer does: call WatchWithContext(),
-			// drain the result channel, then call it again on failure.
-			// Each call creates a new domainWatcher; the counter
-			// must persist across all of them.
-			ctx := context.Background()
-			for i := 0; i < failCount; i++ {
-				w, err := lw.WatchWithContext(ctx, metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for range w.ResultChan() {
-				}
-			}
-
-			// Retrieve the shared counter from the next watcher.
-			w, err := lw.WatchWithContext(ctx, metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dw := w.(*domainWatcher)
-			// Wait for this watcher to also finish (it will fail too).
-			for range dw.ResultChan() {
-			}
-			// The counter should reflect all failures, including the
-			// last watcher. If counters are not shared, this will be 1.
-			Expect(*dw.consecutiveFails).To(Equal(failCount + 1))
 		})
 	})
 

@@ -28,10 +28,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/client-go/log"
@@ -71,29 +68,6 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 	d.wg.Add(1)
 	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
 	return d
-}
-
-func newListWatchFromNotify(runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder) *cache.ListWatch {
-	consecutiveFails := new(int)
-	return &cache.ListWatch{
-		ListWithContextFunc: func(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
-			log.Log.V(3).Info("Synchronizing domains")
-			domains, err := listAllKnownDomains()
-			if err != nil {
-				return nil, err
-			}
-			list := api.DomainList{
-				Items: []api.Domain{},
-			}
-			for _, domain := range domains {
-				list.Items = append(list.Items, *domain)
-			}
-			return &list, nil
-		},
-		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-			return newDomainWatcher(ctx, runNotifyServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
-		},
-	}
 }
 
 func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, resyncPeriod time.Duration, watchdogTimeout int) {
