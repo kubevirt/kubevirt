@@ -128,6 +128,14 @@ const (
 	//
 	// ExpandDisksGate allows for expanding the storage available for in-use virtual machines.
 	ExpandDisksGate = "ExpandDisks"
+
+	// Owner: @varunrsekar
+	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	// GA: v1.8.0
+	//
+	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
+	PanicDevicesGate = "PanicDevices"
 )
 
 func init() {
@@ -164,4 +172,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 }
