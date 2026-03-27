@@ -46,6 +46,43 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 		serverVMILabels = map[string]string{"type": "test"}
 	})
 
+	Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", Ordered, decorators.OncePerOrderedCleanup, decorators.WgS390x, func() {
+		var serverVMI, clientVMI *v1.VirtualMachineInstance
+		var policy *networkv1.NetworkPolicy
+
+		BeforeAll(func() {
+			var err error
+			serverVMI, err = createServerVmi(virtClient, testsuite.NamespaceTestDefault, serverVMILabels)
+			Expect(err).ToNot(HaveOccurred())
+			assertIPsNotEmptyForVMI(serverVMI)
+
+			// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
+			policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
+			clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
+			Expect(err).ToNot(HaveOccurred())
+			assertIPsNotEmptyForVMI(clientVMI)
+		})
+
+		AfterAll(func() {
+			waitForNetworkPolicyDeletion(policy)
+		})
+
+		It("[test_id:1511] should fail to reach serverVMI from clientVMI", func() {
+			By("Connect serverVMI from clientVMI")
+			assertPingFail(clientVMI, serverVMI)
+		})
+
+		It("[test_id:1512] should fail to reach clientVMI from serverVMI", func() {
+			By("Connect clientVMI from serverVMI")
+			assertPingFail(serverVMI, clientVMI)
+		})
+
+		It("[test_id:369] should deny http traffic for ports 80/81 from clientVMI to serverVMI", func() {
+			assertHTTPPingFailed(clientVMI, serverVMI, 80)
+			assertHTTPPingFailed(clientVMI, serverVMI, 81)
+		})
+	})
+
 	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
@@ -54,37 +91,6 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			serverVMI, err = createServerVmi(virtClient, testsuite.NamespaceTestDefault, serverVMILabels)
 			Expect(err).ToNot(HaveOccurred())
 			assertIPsNotEmptyForVMI(serverVMI)
-		})
-
-		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", decorators.WgS390x, func() {
-			var policy *networkv1.NetworkPolicy
-
-			BeforeEach(func() {
-				var err error
-				// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
-				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
-				clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				assertIPsNotEmptyForVMI(clientVMI)
-			})
-
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-
-			It("[test_id:1511] should fail to reach serverVMI from clientVMI", func() {
-				By("Connect serverVMI from clientVMI")
-				assertPingFail(clientVMI, serverVMI)
-			})
-
-			It("[test_id:1512] should fail to reach clientVMI from serverVMI", func() {
-				By("Connect clientVMI from serverVMI")
-				assertPingFail(serverVMI, clientVMI)
-			})
-			It("[test_id:369] should deny http traffic for ports 80/81 from clientVMI to serverVMI", func() {
-				assertHTTPPingFailed(clientVMI, serverVMI, 80)
-				assertHTTPPingFailed(clientVMI, serverVMI, 81)
-			})
 		})
 
 		Context("and vms limited by allow same namespace networkpolicy", func() {
