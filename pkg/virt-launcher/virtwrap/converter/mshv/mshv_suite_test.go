@@ -17,15 +17,14 @@
  *
  */
 
-package kvm
+package mshv_test
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"testing"
 
-	"kubevirt.io/kubevirt/pkg/hypervisor/common"
-	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
+	"kubevirt.io/client-go/testutils"
 )
 
-func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) *convertertypes.DomainBuilder {
-	return common.MakeDomainBuilder(vmi, c, NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
+func TestMshv(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }

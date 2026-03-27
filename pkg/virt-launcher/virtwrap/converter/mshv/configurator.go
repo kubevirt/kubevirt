@@ -44,7 +44,7 @@ func NewMshvDomainConfigurator(allowEmulation bool, mshvAvailable bool) MshvDoma
 // Configure configures the domain hypervisor settings based on MSHV availability and emulation settings
 func (h MshvDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if h.mshvAvailable {
-		domain.Spec.Type = NewMshvHypervisorBackend().GetVirtType()
+		domain.Spec.Type = "hyperv"
 	} else {
 		if h.allowEmulation {
 			logger := log.DefaultLogger()
