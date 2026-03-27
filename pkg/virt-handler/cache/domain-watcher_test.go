@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -78,6 +79,49 @@ var _ = Describe("Domain Watcher", func() {
 
 			Expect(d.worker).To(PanicWith(
 				ContainSubstring("domain notify server reached max consecutive failures")))
+		})
+	})
+
+	Context("consecutive failure across watcher restarts", func() {
+		It("should accumulate failures across Watch() calls via ListerWatcher", func() {
+			origMax := notifyServerMaxConsecutiveFails
+			origHealthy := notifyServerHealthyRunTime
+			defer func() {
+				notifyServerMaxConsecutiveFails = origMax
+				notifyServerHealthyRunTime = origHealthy
+			}()
+			notifyServerMaxConsecutiveFails = 5
+			notifyServerHealthyRunTime = 1 * time.Hour
+
+			failCount := 3
+			lw := newListWatchFromNotify(
+				func(_ context.Context, _ chan watch.Event) error {
+					return fmt.Errorf("permanent failure")
+				},
+				10,
+				1*time.Hour,
+				nil,
+			)
+
+			// Simulate what SharedInformer does: call Watch(), drain the
+			// result channel, then call Watch() again on failure.
+			for range failCount {
+				w, err := lw.Watch(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				// Drain until channel closes (worker exited)
+				for range w.ResultChan() {
+				}
+			}
+
+			// After failCount Watch() restarts, the next watcher should
+			// have the accumulated counter. If each Watch() creates a
+			// fresh domainWatcher without sharing the counter, this
+			// will be 0 instead of failCount.
+			w, err := lw.Watch(metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			dw := w.(*domainWatcher)
+			Expect(dw.consecutiveFails).To(Equal(failCount))
+			dw.Stop()
 		})
 	})
 
