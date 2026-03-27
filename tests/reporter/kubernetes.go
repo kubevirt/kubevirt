@@ -1589,6 +1589,9 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 		}, 10)
 		if err != nil {
 			printError("Not collecting logs from %s (%v)", vmi.ObjectMeta.Name, err)
+			if strings.Contains(err.Error(), "timer expired") {
+				break
+			}
 			continue
 		}
 
@@ -1641,6 +1644,9 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 		}, 10)
 		if err != nil {
 			printError("failed console vmi %s/%s: %v", vmi.Namespace, vmi.Name, err)
+			if strings.Contains(err.Error(), "timer expired") {
+				break
+			}
 			continue
 		}
 
