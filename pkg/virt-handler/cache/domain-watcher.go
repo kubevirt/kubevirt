@@ -50,7 +50,7 @@ var (
 )
 
 type domainWatcher struct {
-	lock                     sync.Mutex
+	sync.Mutex
 	wg                       sync.WaitGroup
 	stopChan                 chan struct{}
 	eventChan                chan watch.Event
@@ -147,8 +147,8 @@ func (d *domainWatcher) worker() {
 }
 
 func (d *domainWatcher) onWorkerExit() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.Lock()
+	defer d.Unlock()
 	d.backgroundWatcherStarted = false
 	close(d.eventChan)
 }
@@ -180,8 +180,8 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 }
 
 func (d *domainWatcher) startBackground() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.Lock()
+	defer d.Unlock()
 
 	if d.backgroundWatcherStarted {
 		return nil
@@ -366,8 +366,8 @@ func listAllKnownDomains() ([]*api.Domain, error) {
 
 func (d *domainWatcher) Stop() {
 	shouldWait := func() bool {
-		d.lock.Lock()
-		defer d.lock.Unlock()
+		d.Lock()
+		defer d.Unlock()
 		if !d.backgroundWatcherStarted {
 			return false
 		}
