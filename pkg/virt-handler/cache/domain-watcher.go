@@ -287,7 +287,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 	return nil
 }
 
-func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
+func listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
@@ -351,7 +351,7 @@ func (d *domainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
 		return nil, err
 	}
 
-	domains, err := d.listAllKnownDomains()
+	domains, err := listAllKnownDomains()
 	if err != nil {
 		return nil, err
 	}
