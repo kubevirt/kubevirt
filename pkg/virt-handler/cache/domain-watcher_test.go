@@ -71,9 +71,10 @@ var _ = Describe("Domain Watcher", func() {
 				runServer: func(_ context.Context, _ chan watch.Event) error {
 					return fmt.Errorf("permanent failure")
 				},
-				result: make(chan watch.Event, 100),
-				ctx:    ctx,
-				cancel: cancel,
+				consecutiveFails: new(int),
+				result:           make(chan watch.Event, 100),
+				ctx:              ctx,
+				cancel:           cancel,
 			}
 			d.wg.Add(1)
 
@@ -90,7 +91,7 @@ var _ = Describe("Domain Watcher", func() {
 				notifyServerMaxConsecutiveFails = origMax
 				notifyServerHealthyRunTime = origHealthy
 			}()
-			notifyServerMaxConsecutiveFails = 5
+			notifyServerMaxConsecutiveFails = 10
 			notifyServerHealthyRunTime = 1 * time.Hour
 
 			failCount := 3
@@ -105,23 +106,25 @@ var _ = Describe("Domain Watcher", func() {
 
 			// Simulate what SharedInformer does: call Watch(), drain the
 			// result channel, then call Watch() again on failure.
+			// Each Watch() creates a new domainWatcher; the counter
+			// must persist across all of them.
 			for range failCount {
 				w, err := lw.Watch(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				// Drain until channel closes (worker exited)
 				for range w.ResultChan() {
 				}
 			}
 
-			// After failCount Watch() restarts, the next watcher should
-			// have the accumulated counter. If each Watch() creates a
-			// fresh domainWatcher without sharing the counter, this
-			// will be 0 instead of failCount.
+			// Retrieve the shared counter from the next watcher.
 			w, err := lw.Watch(metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			dw := w.(*domainWatcher)
-			Expect(dw.consecutiveFails).To(Equal(failCount))
-			dw.Stop()
+			// Wait for this watcher to also finish (it will fail too).
+			for range dw.ResultChan() {
+			}
+			// The counter should reflect all failures, including the
+			// last watcher. If counters are not shared, this will be 1.
+			Expect(*dw.consecutiveFails).To(Equal(failCount + 1))
 		})
 	})
 
@@ -130,6 +133,7 @@ var _ = Describe("Domain Watcher", func() {
 			d := &domainWatcher{
 				watchdogTimeout:     1,
 				unresponsiveSockets: make(map[string]int64),
+				consecutiveFails:    new(int),
 				resyncPeriod:        1 * time.Hour,
 				runServer: func(context.Context, chan watch.Event) error {
 					return fmt.Errorf("injected error")
