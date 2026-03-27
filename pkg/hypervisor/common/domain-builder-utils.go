@@ -45,8 +45,9 @@ func ConvertEFIConfiguration(input *converter_types.EFIConfiguration) *compute.E
 	}
 
 	return &compute.EFIConfiguration{
-		EFICode:      input.EFICode,
-		EFIVars:      input.EFIVars,
-		SecureLoader: input.SecureLoader,
+		EFICode:                   input.EFICode,
+		EFIVars:                   input.EFIVars,
+		SecureLoader:              input.SecureLoader,
+		UsesFirmwareAutoSelection: input.UsesFirmwareAutoSelection,
 	}
 }
