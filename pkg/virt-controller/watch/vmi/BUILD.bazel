@@ -62,6 +62,7 @@ go_test(
         "//pkg/controller/testing:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/pod/annotations:go_default_library",
         "//pkg/storage/types:go_default_library",
