@@ -51,15 +51,9 @@ const (
 
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
-	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
-	ReadIPAddressesFromLink(interfaceName string) (string, string, error)
-	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
-	LinkDel(link netlink.Link) error
-	ParseAddr(s string) (*netlink.Addr, error)
 	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
-	IsIpv4Primary() (bool, error)
 }
 
 type NetworkUtilsHandler struct{}
