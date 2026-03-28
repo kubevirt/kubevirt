@@ -47,8 +47,9 @@ import (
 )
 
 const (
-	PVCPrefix = "persistent-state-for"
-	PVCSize   = "10Mi"
+	PVCPrefix  = "persistent-state-for"
+	PVCSize    = "10Mi"
+	VolumeName = PVCPrefix + "-this-vm"
 
 	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
 	// to modify the PVC according to the storage profile.
@@ -262,9 +263,15 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 	}
 }
 
+func IsBackendStorageVolume(v corev1.VolumeStatus) bool {
+	// TODO https://github.com/kubevirt/kubevirt/issues/17369
+	// simplify to volume.Name == VolumeName
+	return strings.HasPrefix(v.Name, PVCPrefix)
+}
+
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 	for _, volume := range vmi.Status.VolumeStatus {
-		if strings.Contains(volume.Name, basePVC(vmi)) {
+		if IsBackendStorageVolume(volume) {
 			return volume.PersistentVolumeClaimInfo.ClaimName
 		}
 	}
@@ -470,7 +477,8 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
 	for i := range vmi.Status.VolumeStatus {
-		if vmi.Status.VolumeStatus[i].Name == pvc.Name {
+		if IsBackendStorageVolume(vmi.Status.VolumeStatus[i]) {
+			vmi.Status.VolumeStatus[i].Name = VolumeName
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}
@@ -480,7 +488,7 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 		}
 	}
 	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, corev1.VolumeStatus{
-		Name: pvc.Name,
+		Name: VolumeName,
 		PersistentVolumeClaimInfo: &corev1.PersistentVolumeClaimInfo{
 			ClaimName:   pvc.Name,
 			AccessModes: pvc.Spec.AccessModes,

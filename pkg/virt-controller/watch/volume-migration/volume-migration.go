@@ -463,13 +463,12 @@ func ValidateVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance, vm *virt
 	for _, v := range migVolsInfo {
 		volMigMap[v.VolumeName] = true
 	}
-	persistBackendVolName := backendstorage.CurrentPVCName(vmi)
 	for _, v := range vmi.Status.VolumeStatus {
 		if v.PersistentVolumeClaimInfo == nil {
 			continue
 		}
 		// Skip the check for the persistent VM state, this is handled differently then the other PVCs
-		if v.Name == persistBackendVolName {
+		if backendstorage.IsBackendStorageVolume(v) {
 			continue
 		}
 		_, ok := volMigMap[v.Name]
