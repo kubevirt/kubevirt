@@ -50,8 +50,9 @@ import (
 )
 
 const (
-	PVCPrefix = "persistent-state-for"
-	PVCSize   = "10Mi"
+	PVCPrefix  = "persistent-state-for"
+	PVCSize    = "10Mi"
+	VolumeName = PVCPrefix + "-this-vm"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -263,7 +264,7 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 	for _, volume := range vmi.Status.VolumeStatus {
-		if strings.Contains(volume.Name, basePVC(vmi)) {
+		if strings.HasPrefix(volume.Name, PVCPrefix) {
 			return volume.PersistentVolumeClaimInfo.ClaimName
 		}
 	}
@@ -484,7 +485,7 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
 	for i := range vmi.Status.VolumeStatus {
-		if vmi.Status.VolumeStatus[i].Name == pvc.Name {
+		if vmi.Status.VolumeStatus[i].Name == VolumeName {
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}
@@ -494,7 +495,7 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 		}
 	}
 	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, corev1.VolumeStatus{
-		Name: pvc.Name,
+		Name: VolumeName,
 		PersistentVolumeClaimInfo: &corev1.PersistentVolumeClaimInfo{
 			ClaimName:   pvc.Name,
 			AccessModes: pvc.Spec.AccessModes,
