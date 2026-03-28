@@ -3078,6 +3078,70 @@ var _ = Describe("Migration watcher", func() {
 			Expect(conditionManager.HasCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)).To(BeFalse(), "Condition should not be set when VMI does not have the condition")
 		})
 	})
+
+	Context("Decentralized migration sync phase timeout", func() {
+		It("should fail a WaitingForSync migration that has exceeded the sync timeout", func() {
+			vmi := newReceiverVirtualMachine("testvmi", v1.WaitingForSync, "testmigration")
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationWaitingForSync)
+			migration.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+				{
+					Phase:                    v1.MigrationWaitingForSync,
+					PhaseTransitionTimestamp: metav1.NewTime(time.Now().Add(-151 * time.Second)),
+				},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+		})
+
+		It("should fail a Synchronizing migration that has exceeded the sync timeout", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationSynchronizing)
+			migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+				MigrationID: "testmigration",
+			}
+			migration.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+				{
+					Phase:                    v1.MigrationSynchronizing,
+					PhaseTransitionTimestamp: metav1.NewTime(time.Now().Add(-151 * time.Second)),
+				},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+		})
+
+		It("should not fail a WaitingForSync migration within the sync timeout", func() {
+			vmi := newReceiverVirtualMachine("testvmi", v1.WaitingForSync, "testmigration")
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationWaitingForSync)
+			migration.Status.PhaseTransitionTimestamps = []v1.VirtualMachineInstanceMigrationPhaseTransitionTimestamp{
+				{
+					Phase:                    v1.MigrationWaitingForSync,
+					PhaseTransitionTimestamp: metav1.NewTime(time.Now().Add(-60 * time.Second)),
+				},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			// Migration should remain in WaitingForSync, not failed.
+			updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMIM.Status.Phase).NotTo(Equal(v1.MigrationFailed))
+		})
+	})
 })
 
 func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
