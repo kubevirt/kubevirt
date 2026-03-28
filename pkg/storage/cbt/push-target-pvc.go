@@ -38,11 +38,11 @@ import (
 )
 
 const (
-	backupTargetPVCPrefix = "backup-target-pvc"
+	backupTargetPVCSuffix = "backup-target-pvc"
 )
 
 func backupTargetVolumeName(backupName string) string {
-	return naming.GetName(backupName, backupTargetPVCPrefix, validation.DNS1035LabelMaxLength)
+	return naming.GetName(backupName, backupTargetPVCSuffix, validation.DNS1035LabelMaxLength)
 }
 
 var (
