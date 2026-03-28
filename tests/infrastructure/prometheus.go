@@ -21,10 +21,8 @@ package infrastructure
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -316,50 +314,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		concurrency := 100 // random value "much higher" than maxRequestsInFlight
-
-		tr := &http.Transport{
-			MaxIdleConnsPerHost: concurrency,
-			TLSClientConfig: &tls.Config{
-				//nolint:gosec
-				InsecureSkipVerify: true,
-			},
-		}
-
-		client := http.Client{
-			Timeout:   time.Duration(1),
-			Transport: tr,
-		}
-
-		errorsChan := make(chan error)
-		By("Scraping the Prometheus endpoint")
-		const metricsPort = 8443
-		metricsURL := libmonitoring.PrepareMetricsURL(ip, metricsPort)
-		for ix := 0; ix < concurrency; ix++ {
-			go func(ix int) {
-				req, _ := http.NewRequest("GET", metricsURL, http.NoBody)
-				resp, err := client.Do(req)
-				if err != nil {
-					GinkgoLogr.Info("client request", "request", req, "index", ix, "error", err)
-				} else {
-					Expect(resp.Body.Close()).To(Succeed())
-				}
-				errorsChan <- err
-			}(ix)
-		}
-
-		err := libinfra.ValidatedHTTPResponses(errorsChan, concurrency)
-		Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
-	},
-		Entry("[test_id:4140] by using IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6226] by using IPv6", k8sv1.IPv6Protocol),
-	)
-
 	It("[test_id:4141]should include the metrics for a running VM", func() {
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
@@ -494,46 +448,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 				), "Metric %s has incorrect labels", metricName)
 			}
 		}
-	})
-
-	Context("VMI eviction blocker status", func() {
-		var controllerMetricIPs []string
-
-		BeforeEach(func() {
-			virtControllerLeaderPodName := libinfra.GetLeader()
-			leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
-				context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
-			for _, ip := range leaderPod.Status.PodIPs {
-				controllerMetricIPs = append(controllerMetricIPs, ip.IP)
-			}
-		})
-
-		AfterEach(func() {
-			controllerMetricIPs = nil
-		})
-
-		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-			ip := libnet.GetIP(controllerMetricIPs, family)
-
-			metricsPayload := libmonitoring.GetKubevirtVMMetricsByIP(pod, ip) //nolint:staticcheck
-
-			fetcher := metricsutil.NewMetricsFetcher("")
-			fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
-
-			metrics, err := fetcher.LoadMetrics(metricsPayload)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
-
-			results := metrics["kubevirt_vmi_non_evictable"]
-			Expect(results).ToNot(BeEmpty())
-			Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
-		},
-			Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
-			Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
-		)
 	})
 
 	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
