@@ -85,7 +85,9 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
+		if defaults.SupportsPCIeHotplug(newVMI.Spec.Architecture) {
+			setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
+		}
 
 		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
 			_, emulatorThreadCompleteToEvenParityAnnotationExists := mutator.ClusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
