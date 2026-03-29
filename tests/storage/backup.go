@@ -1289,7 +1289,7 @@ var _ = Describe("Backup with migration", func() {
 			By("Verifying incremental backup size matches the amount of data written (not full disk size)")
 			verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 		},
-		Entry("[sig-compute-migrations] RWX backend storage", decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass,
+		Entry("[sig-compute-migrations] RWX backend storage", decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, decorators.NoFlakeCheck,
 			corev1.ReadWriteMany),
 		// TODO: Currently there is a bug in libvirt where the bitmap migration fails when using RWO block storage.
 		// Will remove the skip once the bug fix is released. (it passed locally with custom libvirt patch)
