@@ -388,6 +388,17 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+if [[ $TARGET =~ sev ]]; then
+  # virt-handler opens an inotify watcher per cert-manager; the default
+  # fs.inotify.max_user_instances (128) is exhausted in busy kind clusters,
+  # causing a fatal panic. Raise the limits on all kind node containers before
+  # deploying KubeVirt.
+  for node in $(docker ps --filter "label=io.x-k8s.kind.cluster=${KUBEVIRT_PROVIDER}" --format '{{.Names}}'); do
+    docker exec "$node" sysctl -w fs.inotify.max_user_instances=512
+    docker exec "$node" sysctl -w fs.inotify.max_user_watches=1048576
+  done
+fi
+
 ionice --class idle make cluster-sync
 
 # OpenShift is running important containers under default namespace
