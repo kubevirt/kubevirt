@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "mkdir.go",
+        "mkdir_purego.go",
+        "open.go",
+        "open_purego.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin/pathrs-lite",
+    importpath = "github.com/cyphar/filepath-securejoin/pathrs-lite",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gopathrs:go_default_library",
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gopathrs:go_default_library",
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
