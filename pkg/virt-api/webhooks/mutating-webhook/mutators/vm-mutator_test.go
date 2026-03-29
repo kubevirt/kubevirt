@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -185,6 +186,81 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("s390x", "s390x", "s390-ccw-virtio"),
 		Entry("amd64", "amd64", "q35"),
 	)
+
+	Context("default network interface", func() {
+		DescribeTable("should add the default network interface on VM creation when the cluster-wide default is",
+			func(defaultBinding string, isBridgeEnabledWithPodNet bool, expectedIface v1.Interface) {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							NetworkConfiguration: &v1.NetworkConfiguration{
+								NetworkInterface:                  defaultBinding,
+								PermitBridgeInterfaceOnPodNetwork: pointer.P(isBridgeEnabledWithPodNet),
+							},
+						},
+					},
+				})
+
+				vmSpec, _ := getVMSpecMetaFromResponseCreate()
+				Expect(vmSpec.Template.Spec.Domain.Devices.Interfaces).To(Equal([]v1.Interface{expectedIface}))
+				Expect(vmSpec.Template.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+			},
+			Entry("masquerade", string(v1.MasqueradeInterface), false, *v1.DefaultMasqueradeNetworkInterface()),
+			Entry("bridge", string(v1.BridgeInterface), true, *v1.DefaultBridgeNetworkInterface()),
+		)
+
+		DescribeTable("should not add default network interface on VM creation", func(mutateVM func(*v1.VirtualMachine), expectedIfaces []v1.Interface, expectedNets []v1.Network) {
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						NetworkConfiguration: &v1.NetworkConfiguration{
+							NetworkInterface: string(v1.MasqueradeInterface),
+						},
+					},
+				},
+			})
+
+			mutateVM(vm)
+			vmSpec, _ := getVMSpecMetaFromResponseCreate()
+			Expect(vmSpec.Template.Spec.Networks).To(Equal(expectedNets))
+			Expect(vmSpec.Template.Spec.Domain.Devices.Interfaces).To(Equal(expectedIfaces))
+		},
+			Entry("when autoattachPodInterface is false",
+				func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface = pointer.P(false)
+				},
+				nil,
+				nil,
+			),
+			Entry("when interfaces and networks already exist",
+				func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "mynet"}}
+					vm.Spec.Template.Spec.Networks = []v1.Network{{Name: "mynet"}}
+				},
+				[]v1.Interface{{Name: "mynet"}},
+				[]v1.Network{{Name: "mynet"}},
+			),
+		)
+
+		It("should not add default network interface on VM update", func() {
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						NetworkConfiguration: &v1.NetworkConfiguration{
+							NetworkInterface: string(v1.MasqueradeInterface),
+						},
+					},
+				},
+			})
+
+			oldVM := vm.DeepCopy()
+			resp := getResponseFromVMUpdate(oldVM, vm)
+			Expect(resp.Allowed).To(BeTrue())
+			vmSpec, _ := getVMSpecMetaFromResponse(resp)
+			Expect(vmSpec.Template.Spec.Networks).To(BeEmpty())
+			Expect(vmSpec.Template.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+		})
+	})
 
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, s390xMachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
