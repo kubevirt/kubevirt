@@ -55,23 +55,26 @@ func Dial(address string, tlsConfig *tls.Config) (*websocket.Conn, *http.Respons
 }
 
 func Copy(dst *websocket.Conn, src *websocket.Conn) (int64, error) {
-	return io.Copy(dst.UnderlyingConn(), src.UnderlyingConn())
+	buf := make([]byte, 4096)
+	return io.CopyBuffer(dst.UnderlyingConn(), src.UnderlyingConn(), buf)
 }
 
 func CopyFrom(dst io.Writer, src *websocket.Conn) (written int64, err error) {
-	return io.Copy(dst, &binaryReader{conn: src})
+	buf := make([]byte, 4096)
+	return io.CopyBuffer(dst, &binaryReader{conn: src}, buf)
 }
 
 func CopyTo(dst *websocket.Conn, src io.Reader) (written int64, err error) {
-	return io.Copy(&binaryWriter{conn: dst}, src)
+	buf := make([]byte, 4096)
+	return io.CopyBuffer(&BinaryWriter{Conn: dst}, src, buf)
 }
 
-type binaryWriter struct {
-	conn *websocket.Conn
+type BinaryWriter struct {
+	Conn *websocket.Conn
 }
 
-func (s *binaryWriter) Write(p []byte) (int, error) {
-	w, err := s.conn.NextWriter(websocket.BinaryMessage)
+func (s *BinaryWriter) Write(p []byte) (int, error) {
+	w, err := s.Conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return 0, convert(err)
 	}

@@ -62,7 +62,7 @@ var _ = ginkgo.Describe("Websocket", func() {
 			}
 
 			expectedDataHash := sha256.New()
-			writer := binaryWriter{conn: proxyCon}
+			writer := BinaryWriter{Conn: proxyCon}
 			for _, msg := range messages {
 				expectedDataHash.Write(msg)
 				_, err := writer.Write(msg)

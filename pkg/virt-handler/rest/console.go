@@ -352,7 +352,8 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	errCh := make(chan error, 2)
 	go func() {
-		_, err := kvcorev1.CopyTo(clientSocket, conn)
+		buf := make([]byte, 4096)
+		_, err := io.CopyBuffer(&kvcorev1.BinaryWriter{Conn: clientSocket}, conn, buf)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
 		errCh <- err
 	}()
