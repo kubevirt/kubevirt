@@ -113,16 +113,16 @@ func (ctrl *VMCloneController) execute(key string) error {
 
 	syncInfo, err := ctrl.sync(vmClone)
 	if err != nil {
-		return fmt.Errorf("sync error: %v", err)
+		return fmt.Errorf("sync error: %w", err)
 	}
 
 	err = ctrl.updateStatus(vmClone, syncInfo)
 	if err != nil {
-		return fmt.Errorf("error updating status: %v", err)
+		return fmt.Errorf("error updating status: %w", err)
 	}
 
 	if syncErr := syncInfo.err; syncErr != nil {
-		return fmt.Errorf("sync error: %v", syncErr)
+		return fmt.Errorf("sync error: %w", syncErr)
 	}
 
 	return nil
@@ -232,7 +232,7 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 		if vmClone.Status.RestoreName == nil {
 			vm, err := ctrl.getVmFromSnapshot(vmCloneInfo.snapshot)
 			if err != nil {
-				syncInfo.setError(fmt.Errorf("cannot get VM manifest from snapshot: %v", err))
+				syncInfo.setError(fmt.Errorf("cannot get VM manifest from snapshot: %w", err))
 				return syncInfo
 			}
 
