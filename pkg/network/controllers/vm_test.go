@@ -95,6 +95,63 @@ var _ = Describe("VM Network Controller", func() {
 		),
 	)
 
+	DescribeTable("sync should backfill default pod network from VMI to VM when",
+		func(expectedIface v1.Interface) {
+			c := controllers.NewVMController(fake.NewSimpleClientset(), stubClusterConfigurer{})
+			vm := newEmptyVM()
+			vmi := libvmi.New(
+				libvmi.WithInterface(expectedIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			updatedVM, err := c.Sync(vm, vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal([]v1.Interface{expectedIface}))
+			Expect(updatedVM.Spec.Template.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+		},
+		Entry("VMI has default masquerade interface", *v1.DefaultMasqueradeNetworkInterface()),
+		Entry("VMI has default bridge interface", *v1.DefaultBridgeNetworkInterface()),
+	)
+
+	DescribeTable("sync should not backfill default pod network when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+		c := controllers.NewVMController(fake.NewSimpleClientset(), stubClusterConfigurer{})
+		originalVM := vm.DeepCopy()
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal(originalVM.Spec.Template.Spec.Domain.Devices.Interfaces))
+		Expect(updatedVM.Spec.Template.Spec.Networks).To(Equal(originalVM.Spec.Template.Spec.Networks))
+	},
+		Entry("VMI is nil",
+			newEmptyVM(),
+			nil,
+		),
+		Entry("VM already has networks and interfaces",
+			libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)),
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			),
+		),
+		Entry("AutoattachPodInterface is false",
+			libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithAutoAttachPodInterface(false),
+			)),
+			libvmi.New(),
+		),
+		Entry("VMI has no pod network",
+			newEmptyVM(),
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
+			),
+		),
+	)
+
 	It("sync fails when VMI patch returns an error", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset, stubClusterConfigurer{})
