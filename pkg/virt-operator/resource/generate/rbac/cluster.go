@@ -44,6 +44,8 @@ const (
 	// ClusterRoleView is the name of the ClusterRole that aggregates to the default view role
 	ClusterRoleView = "kubevirt.io:view"
 
+	// clusterRoleMigrate is the name of the aggregated ClusterRole for migrate permissions
+	clusterRoleMigrate              = "kubevirt.io:migrate"
 	defaultClusterRoleName          = "kubevirt.io:default"
 	instancetypeViewClusterRoleName = "instancetype.kubevirt.io:view"
 
@@ -111,6 +113,7 @@ func GetAllCluster() []runtime.Object {
 		newInstancetypeViewClusterRole(),
 		newInstancetypeViewClusterRoleBinding(),
 		newMigrateClusterRole(),
+		newMigrateBaseClusterRole(),
 	}
 }
 
@@ -624,9 +627,34 @@ func newMigrateClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt.io:migrate",
+			Name: clusterRoleMigrate,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
+			},
+		},
+		AggregationRule: &rbacv1.AggregationRule{
+			ClusterRoleSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"rbac.kubevirt.io/aggregate-to-migrate": "true",
+					},
+				},
+			},
+		},
+	}
+}
+
+func newMigrateBaseClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: VersionNamev1,
+			Kind:       "ClusterRole",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubevirt.io:migrate-base",
+			Labels: map[string]string{
+				virtv1.AppLabel:                         "",
+				"rbac.kubevirt.io/aggregate-to-migrate": "true",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
