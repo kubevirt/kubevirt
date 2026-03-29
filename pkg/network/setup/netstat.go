@@ -328,6 +328,9 @@ func ifacesStatusFromGuestAgent(
 	guestAgentInterfaces []api.InterfaceStatus,
 	vmiInterfacesSpecByName map[string]v1.Interface,
 ) []v1.VirtualMachineInstanceNetworkInterface {
+	const guestOnlyInterfaceLimit = 10
+	var guestOnlyInterfaceCount int
+
 	for _, guestAgentInterface := range guestAgentInterfaces {
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
 			vmiIfaceSpec := vmiInterfacesSpecByName[vmiIfaceStatus.Name]
@@ -343,6 +346,11 @@ func ifacesStatusFromGuestAgent(
 				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
 			}
 		} else {
+			if guestOnlyInterfaceCount >= guestOnlyInterfaceLimit {
+				continue
+			}
+			guestOnlyInterfaceCount++
+
 			newVMIIfaceStatus := newVMIIfaceStatusFromGuestAgentData(guestAgentInterface)
 			newVMIIfaceStatus.InfoSource = netvmispec.InfoSourceGuestAgent
 			vmiIfacesStatus = append(vmiIfacesStatus, newVMIIfaceStatus)
