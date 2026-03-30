@@ -41,6 +41,7 @@ import (
 
 	kubevirtcore "kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
@@ -79,6 +80,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1beta1()
 		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeInstancetypeClients.VirtualMachineClusterInstancetypes()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeInstancetypeClients.VirtualMachineClusterPreferences()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstancetype(vmNamespace).Return(fakeInstancetypeClients.VirtualMachineInstancetypes(vmNamespace)).AnyTimes()
+		virtClient.EXPECT().VirtualMachinePreference(vmNamespace).Return(fakeInstancetypeClients.VirtualMachinePreferences(vmNamespace)).AnyTimes()
 
 		kv := &v1.KubeVirt{
 			ObjectMeta: k8smetav1.ObjectMeta{
@@ -134,27 +137,37 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			Expect(responseVm).To(Equal(vm))
 		})
 
-		It("should fail if VM points to nonexistent instancetype", func() {
+		DescribeTable("should fail if VM points to nonexistent instancetype", func(kind string) {
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: "nonexistent-instancetype",
+				Kind: kind,
 			}
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
 			Expect(statusErr.Status().Message).To(ContainSubstring("not found"))
-		})
+		},
+			Entry("default (empty kind)", ""),
+			Entry("singular kind", instancetypeapi.ClusterSingularResourceName),
+			Entry("plural kind", instancetypeapi.ClusterPluralResourceName),
+		)
 
-		It("should fail if VM points to nonexistent preference", func() {
+		DescribeTable("should fail if VM points to nonexistent preference", func(kind string) {
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: "nonexistent-preference",
+				Kind: kind,
 			}
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
 			Expect(statusErr.Status().Message).To(ContainSubstring("not found"))
-		})
+		},
+			Entry("default (empty kind)", ""),
+			Entry("singular kind", instancetypeapi.ClusterSingularPreferenceResourceName),
+			Entry("plural kind", instancetypeapi.ClusterPluralPreferenceResourceName),
+		)
 
-		It("should expand instancetype and preference within VM", func() {
+		DescribeTable("should expand instancetype and preference within VM", func(instancetypeKind, preferenceKind string) {
 			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "VirtualMachineClusterInstancetype",
@@ -177,6 +190,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: clusterInstancetype.Name,
+				Kind: instancetypeKind,
 			}
 
 			clusterPreference := &instancetypev1beta1.VirtualMachineClusterPreference{
@@ -202,6 +216,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			vm.Spec.Preference = &v1.PreferenceMatcher{
 				Name: clusterPreference.Name,
+				Kind: preferenceKind,
 			}
 
 			recorder := callExpandSpecApi(vm)
@@ -222,9 +237,13 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusVirtio))
 			Expect(responseVm.Spec.Template.Spec.Networks).To(HaveLen(1))
 			Expect(responseVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
-		})
+		},
+			Entry("default (empty kind)", "", ""),
+			Entry("singular kind", instancetypeapi.ClusterSingularResourceName, instancetypeapi.ClusterSingularPreferenceResourceName),
+			Entry("plural kind", instancetypeapi.ClusterPluralResourceName, instancetypeapi.ClusterPluralPreferenceResourceName),
+		)
 
-		It("should fail, if there is a conflict when applying instancetype", func() {
+		DescribeTable("should fail, if there is a conflict when applying instancetype", func(kind string) {
 			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "VirtualMachineClusterInstancetype",
@@ -247,6 +266,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: clusterInstancetype.Name,
+				Kind: kind,
 			}
 			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 				Sockets: 4,
@@ -255,7 +275,151 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
 			Expect(statusErr.Status().Message).To(ContainSubstring(conflict.New("spec.template.spec.domain.cpu.sockets").Error()))
-		})
+		},
+			Entry("default (empty kind)", ""),
+			Entry("singular kind", instancetypeapi.ClusterSingularResourceName),
+			Entry("plural kind", instancetypeapi.ClusterPluralResourceName),
+		)
+
+		DescribeTable("should fail if VM points to nonexistent namespace-scoped instancetype", func(kind string) {
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: "nonexistent-instancetype",
+				Kind: kind,
+			}
+
+			recorder := callExpandSpecApi(vm)
+			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			Expect(statusErr.Status().Message).To(ContainSubstring("not found"))
+		},
+			Entry("singular kind", instancetypeapi.SingularResourceName),
+			Entry("plural kind", instancetypeapi.PluralResourceName),
+		)
+
+		DescribeTable("should fail if VM points to nonexistent namespace-scoped preference", func(kind string) {
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: "nonexistent-preference",
+				Kind: kind,
+			}
+
+			recorder := callExpandSpecApi(vm)
+			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			Expect(statusErr.Status().Message).To(ContainSubstring("not found"))
+		},
+			Entry("singular kind", instancetypeapi.SingularPreferenceResourceName),
+			Entry("plural kind", instancetypeapi.PluralPreferenceResourceName),
+		)
+
+		DescribeTable("should expand namespace-scoped instancetype and preference within VM", func(instancetypeKind, preferenceKind string) {
+			namespacedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachineInstancetype",
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-instancetype",
+					Namespace: vmNamespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
+			}
+			_, err := virtClient.VirtualMachineInstancetype(vmNamespace).Create(context.Background(), namespacedInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: namespacedInstancetype.Name,
+				Kind: instancetypeKind,
+			}
+
+			namespacedPreference := &instancetypev1beta1.VirtualMachinePreference{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachinePreference",
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-preference",
+					Namespace: vmNamespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+					},
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredDiskBus: v1.DiskBusVirtio,
+					},
+				},
+			}
+			_, err = virtClient.VirtualMachinePreference(vmNamespace).Create(context.Background(), namespacedPreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: namespacedPreference.Name,
+				Kind: preferenceKind,
+			}
+
+			recorder := callExpandSpecApi(vm)
+			Expect(recorder.Code).To(Equal(http.StatusOK))
+			responseVm := &v1.VirtualMachine{}
+			Expect(json.NewDecoder(recorder.Body).Decode(responseVm)).To(Succeed())
+
+			Expect(responseVm.Spec.Instancetype).To(BeNil())
+			Expect(responseVm.Spec.Preference).To(BeNil())
+			Expect(responseVm.Spec.Template.ObjectMeta.Annotations).To(Equal(namespacedInstancetype.Spec.Annotations))
+			Expect(responseVm.Spec.Template.Spec.Domain.CPU.Cores).To(Equal(namespacedInstancetype.Spec.CPU.Guest))
+			Expect(responseVm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(namespacedInstancetype.Spec.Memory.Guest.Value()))
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volumeName))
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].DiskDevice.Disk).ToNot(BeNil())
+			Expect(responseVm.Spec.Template.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusVirtio))
+			Expect(responseVm.Spec.Template.Spec.Networks).To(HaveLen(1))
+			Expect(responseVm.Spec.Template.Spec.Networks[0].Name).To(Equal("default"))
+		},
+			Entry("singular kind", instancetypeapi.SingularResourceName, instancetypeapi.SingularPreferenceResourceName),
+			Entry("plural kind", instancetypeapi.PluralResourceName, instancetypeapi.PluralPreferenceResourceName),
+		)
+
+		DescribeTable("should fail, if there is a conflict when applying namespace-scoped instancetype", func(kind string) {
+			namespacedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachineInstancetype",
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-instancetype",
+					Namespace: vmNamespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
+			}
+			_, err := virtClient.VirtualMachineInstancetype(vmNamespace).Create(context.Background(), namespacedInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: namespacedInstancetype.Name,
+				Kind: kind,
+			}
+			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+				Sockets: 4,
+			}
+
+			recorder := callExpandSpecApi(vm)
+			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
+			Expect(statusErr.Status().Message).To(ContainSubstring(conflict.New("spec.template.spec.domain.cpu.sockets").Error()))
+		},
+			Entry("singular kind", instancetypeapi.SingularResourceName),
+			Entry("plural kind", instancetypeapi.PluralResourceName),
+		)
 	}
 
 	Context("VirtualMachine expand-spec endpoint", func() {
