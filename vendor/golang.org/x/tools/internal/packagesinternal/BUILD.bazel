@@ -6,5 +6,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/internal/packagesinternal",
     importpath = "golang.org/x/tools/internal/packagesinternal",
     visibility = ["//vendor/golang.org/x/tools:__subpackages__"],
-    deps = ["//vendor/golang.org/x/tools/internal/gocommand:go_default_library"],
 )
