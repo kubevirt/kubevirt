@@ -103,7 +103,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		*/
 
 		By("creating a VMI in a user defined namespace")
-		vmi := libvmifact.NewAlpine()
+		vmi := libvmifact.NewGuestless()
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 		startVMI(vmi)
 

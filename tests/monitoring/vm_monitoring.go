@@ -420,7 +420,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Migrating VMIs")
@@ -452,7 +452,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			const migrationPollInterval = 5 * time.Second
 
 			By("Creating VMIs")
-			vmi := libvmifact.NewFedora(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
@@ -529,7 +529,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.ReduceAlertPendingTime(virtClient)
 
 			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
-			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
+			vmi := libvmifact.NewGuestless(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
 
 			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(
 				context.Background(), vmi, metav1.CreateOptions{},

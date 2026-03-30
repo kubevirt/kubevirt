@@ -147,7 +147,7 @@ var _ = Describe("[sig-monitoring]Monitoring", decorators.SigMonitoring, func() 
 		It("KubeVirtDeprecatedAPIRequested should be triggered when a deprecated API is requested", func() {
 			By("Creating a VMI")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
-				Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+				Create(context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Requesting the VMI using the deprecated API version")
