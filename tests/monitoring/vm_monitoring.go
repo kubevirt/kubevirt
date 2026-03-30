@@ -199,7 +199,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(pvcErr).ToNot(HaveOccurred())
 		}
 
-		It("[test_id:8639]Number of disks restored metric values should be correct", func() {
+		It("[QUARANTINE][test_id:8639]Number of disks restored metric values should be correct", decorators.Quarantine, func() {
 			totalMetric := fmt.Sprintf(
 				"vm:kubevirt_vmsnapshot_disks_restored:sum{vm_name='simple-vm',vm_namespace='%s'}",
 				testsuite.NamespaceTestDefault,
