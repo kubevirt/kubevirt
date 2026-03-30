@@ -502,6 +502,20 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Expect(in).To(BeTrue())
 		Expect(out).To(BeTrue())
 	})
+
+	It("should include pipe metrics", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+
+		fetcher := metricsutil.NewMetricsFetcher("")
+		fetcher.AddNameFilter("kubevirt_active_pipe")
+
+		metrics, err := fetcher.LoadMetrics(metricsPayload)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
+
+		Expect(metrics).To(HaveKey(ContainSubstring("pipe_proxies")))
+		Expect(metrics).To(HaveKey(ContainSubstring("pipes")))
+	})
 }))
 
 func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
