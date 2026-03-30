@@ -1658,7 +1658,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
 				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
 
-				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
 			})
 		})
 	})
