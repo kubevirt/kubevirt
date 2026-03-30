@@ -341,11 +341,6 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
-		devAliasMap, err := l.GetDeviceAliasMap(domStat.Domain)
-		if err != nil {
-			return list, err
-		}
-
 		domInfo, err := domStat.Domain.GetInfo()
 		if err != nil {
 			return list, err
@@ -354,7 +349,7 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		dirtyRateInfo := domStat.DirtyRate
 
 		stat := &stats.DomainStats{}
-		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, domInfo, devAliasMap, migrateJobInfo, dirtyRateInfo, stat)
+		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, domInfo, migrateJobInfo, dirtyRateInfo, stat)
 		if err != nil {
 			return list, err
 		}
