@@ -58,7 +58,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			Expect(out.Name).To(Equal("testName"))
@@ -75,7 +75,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			// very very basic sanity check
@@ -97,7 +97,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, &inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			loaded := new(bytes.Buffer)
