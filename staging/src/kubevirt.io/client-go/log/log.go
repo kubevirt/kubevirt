@@ -345,6 +345,10 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		return
 	}
 
+	if strings.Contains(line, "Unable to open /dev/kvm: Permission denied") {
+		return
+	}
+
 	fragments := strings.SplitN(line, ": ", 5)
 	if len(fragments) < 4 {
 		now := time.Now()
