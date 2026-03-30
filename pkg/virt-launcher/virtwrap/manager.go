@@ -2058,7 +2058,7 @@ func (l *LibvirtDomainManager) refreshDeviceAliasMap(dom cli.VirDomain) {
 		}
 	}
 	for _, disk := range domSpec.Devices.Disks {
-		if disk.Alias != nil {
+		if disk.Target.Device != "" && disk.Alias != nil {
 			newMap[disk.Target.Device] = disk.Alias.GetName()
 		}
 	}

@@ -58,11 +58,34 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			Expect(out.Name).To(Equal("testName"))
 			Expect(out.UUID).To(Equal("testUUID"))
+			Expect(out.Memory.TotalSet).To(BeFalse())
+		})
+
+		It("should derive memory total from balloon current", func() {
+			in := &libvirt.DomainStats{
+				Balloon: &libvirt.DomainStatsBalloon{
+					CurrentSet: true,
+					Current:    4194304, // 4 GiB in KiB
+				},
+			}
+			inMem := []libvirt.DomainMemoryStat{}
+			inJobInfo := &stats.DomainJobInfo{}
+			out := stats.DomainStats{}
+			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
+			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
+			ident := DomainIdentifier(mockDomainIdent)
+			dirtyRate := &libvirt.DomainStatsDirtyRate{}
+
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
+				To(Succeed())
+
+			Expect(out.Memory.TotalSet).To(BeTrue())
+			Expect(out.Memory.Total).To(Equal(uint64(4194304)))
 		})
 
 		It("should handle valid input", func() {
@@ -75,7 +98,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			// very very basic sanity check
@@ -97,7 +120,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, &inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			loaded := new(bytes.Buffer)
