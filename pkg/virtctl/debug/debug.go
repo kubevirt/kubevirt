@@ -14,24 +14,25 @@ func RegisterDebugHook() {
 }
 
 func addDebugLogging(config *rest.Config) {
+	if !klog.V(9).Enabled() {
+		return
+	}
+
 	config.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		// chain wrapper safely
-		return &DebugRoundTripper{rt: rt}
+		return &debugRoundTripper{rt: rt}
 	})
 }
 
-type DebugRoundTripper struct {
+type debugRoundTripper struct {
 	rt http.RoundTripper
 }
 
-func (d *DebugRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if klog.V(9).Enabled() {
-		klog.Infof("Request: %s %s", req.Method, req.URL)
-	}
+func (d *debugRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	klog.Infof("Request: %s %s", req.Method, req.URL)
 
 	resp, err := d.rt.RoundTrip(req)
 
-	if err == nil && klog.V(9).Enabled() {
+	if err == nil {
 		klog.Infof("Response: %s", resp.Status)
 	}
 
