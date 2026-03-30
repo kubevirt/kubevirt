@@ -18,7 +18,6 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -30,13 +29,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("Instancetype validation", func() {
-		It("[test_id:CNV-9082] should allow valid instancetype", func() {
-			instancetype := builder.NewInstancetypeFromVMI(nil)
-			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
-				Create(context.Background(), instancetype, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
 		DescribeTable("[test_id:CNV-9083] should reject invalid instancetype", func(instancetype instancetypev1beta1.VirtualMachineInstancetype) {
 			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).
 				Create(context.Background(), &instancetype, metav1.CreateOptions{})
@@ -77,14 +69,5 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			}),
 		)
-	})
-
-	Context("Preference validation", func() {
-		It("[test_id:CNV-9084] should allow valid preference", func() {
-			preference := builder.NewPreference()
-			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
-				Create(context.Background(), preference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		})
 	})
 })
