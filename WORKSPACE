@@ -9379,11 +9379,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-client-0__11.9.0-1.el9.aarch64",
-    sha256 = "cbdd67bf9c4cc0c3d962c56b352d228901e8a833934f82eae835d9f2a8a49398",
+    name = "libvirt-client-0__12.1.0-1.el9.aarch64",
+    sha256 = "95a86d7321b0bdf36bacbe19282ad6985e0e1668e1ce9edd786638e6b167687a",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-client-11.9.0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/cbdd67bf9c4cc0c3d962c56b352d228901e8a833934f82eae835d9f2a8a49398",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10184967-libvirt/libvirt-client-12.1.0-1.el9.aarch64.rpm",
     ],
 )
 
@@ -9397,18 +9396,19 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-client-0__11.9.0-1.el9.x86_64",
-    sha256 = "86a5c27f9b4f446760465836ed354761de714a6b08a75d2ea7a7c706a331ab86",
+    name = "libvirt-client-0__12.1.0-1.el9.x86_64",
+    sha256 = "1beb23b59a5fe2f2a3d6d186c636b1eef786c2a2755a3aaa75a8a6491335992f",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-client-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/86a5c27f9b4f446760465836ed354761de714a6b08a75d2ea7a7c706a331ab86",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-client-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__10.10.0-7.el9.x86_64",
-    sha256 = "ce303675dd62e81a3d946c15e2938373be0988d9d64e62e620ef846a98be87af",
-    urls = ["https://storage.googleapis.com/builddeps/ce303675dd62e81a3d946c15e2938373be0988d9d64e62e620ef846a98be87af"],
+    name = "libvirt-daemon-common-0__12.1.0-1.el9.x86_64",
+    sha256 = "5180fc7a261400388a4c1dec5292a319910d9610d41880fba9fd9f4f6c59a78c",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-common-12.1.0-1.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -9439,11 +9439,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__11.9.0-1.el9.aarch64",
-    sha256 = "e55036abe63905c336e4ab2a81ecb49c98ce83397dab4ed3a177487ba13e7fb4",
+    name = "libvirt-daemon-common-0__12.1.0-1.el9.aarch64",
+    sha256 = "1748bca04883c55b81fee6e7ef3db4e51820bb059f96049fd21542f05631e25d",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-11.9.0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/e55036abe63905c336e4ab2a81ecb49c98ce83397dab4ed3a177487ba13e7fb4",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10184967-libvirt/libvirt-daemon-common-12.1.0-1.el9.aarch64.rpm",
     ],
 )
 
@@ -9457,18 +9456,19 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__11.9.0-1.el9.x86_64",
-    sha256 = "bc470fd7f29bb48410c65f12500681d27ee3adbc73e59cc7dd9fbb45a3ead2de",
+    name = "libvirt-daemon-common-0__12.1.0-1.el9.x86_64",
+    sha256 = "5180fc7a261400388a4c1dec5292a319910d9610d41880fba9fd9f4f6c59a78c",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-common-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/bc470fd7f29bb48410c65f12500681d27ee3adbc73e59cc7dd9fbb45a3ead2de",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-common-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__10.10.0-7.el9.x86_64",
-    sha256 = "13031a6b2bae44c50808b89b820e47879ef6b7884e21e2a0c0e8aba52accd0b1",
-    urls = ["https://storage.googleapis.com/builddeps/13031a6b2bae44c50808b89b820e47879ef6b7884e21e2a0c0e8aba52accd0b1"],
+    name = "libvirt-daemon-driver-qemu-0__12.1.0-1.el9.x86_64",
+    sha256 = "21179e96fafb492f8125c5fda675eed650e9e05cdb5ac57a118af66dc4bb7c96",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-driver-qemu-12.1.0-1.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -9499,11 +9499,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__11.9.0-1.el9.aarch64",
-    sha256 = "19fa15b5fd2bec4cfd6470e9595320be9c2c01ea5320a4dc4f2b3df1be87c5b0",
+    name = "libvirt-daemon-driver-qemu-0__12.1.0-1.el9.aarch64",
+    sha256 = "d1b1edf74888f6439f3ed820945a25a59efde99d1113d3691cedfcb84b2aab65",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-11.9.0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/19fa15b5fd2bec4cfd6470e9595320be9c2c01ea5320a4dc4f2b3df1be87c5b0",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10184967-libvirt/libvirt-daemon-driver-qemu-12.1.0-1.el9.aarch64.rpm",
     ],
 )
 
@@ -9517,18 +9516,19 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__11.9.0-1.el9.x86_64",
-    sha256 = "fc357ad81e321752e136a0252bf93fcc4c51705fdad5fe152e8b458c1bd7c804",
+    name = "libvirt-daemon-driver-qemu-0__12.1.0-1.el9.x86_64",
+    sha256 = "21179e96fafb492f8125c5fda675eed650e9e05cdb5ac57a118af66dc4bb7c96",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-qemu-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/fc357ad81e321752e136a0252bf93fcc4c51705fdad5fe152e8b458c1bd7c804",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-driver-qemu-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-secret-0__10.10.0-7.el9.x86_64",
-    sha256 = "8d6d2229cde16e57787fd0125ca75dca31d89008446ff344d577ef3eaefcd0f3",
-    urls = ["https://storage.googleapis.com/builddeps/8d6d2229cde16e57787fd0125ca75dca31d89008446ff344d577ef3eaefcd0f3"],
+    name = "libvirt-daemon-driver-secret-0__12.1.0-1.el9.x86_64",
+    sha256 = "c46b670d29beb1f47385a711389346ac5412fc3ec2afde7ec718ee3168a21ee6",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-driver-secret-12.1.0-1.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -9559,18 +9559,19 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-secret-0__11.9.0-1.el9.x86_64",
-    sha256 = "9f7ad76f1918935dd25157f6f37930706b81449392e6bb720db1b4e7f9df9619",
+    name = "libvirt-daemon-driver-secret-0__12.1.0-1.el9.x86_64",
+    sha256 = "c46b670d29beb1f47385a711389346ac5412fc3ec2afde7ec718ee3168a21ee6",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-secret-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9f7ad76f1918935dd25157f6f37930706b81449392e6bb720db1b4e7f9df9619",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-driver-secret-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-storage-core-0__10.10.0-7.el9.x86_64",
-    sha256 = "a95615f05b0ca4349c571b5a25c2e7151ae7a2d6e7205b5e5c3be26c89a98067",
-    urls = ["https://storage.googleapis.com/builddeps/a95615f05b0ca4349c571b5a25c2e7151ae7a2d6e7205b5e5c3be26c89a98067"],
+    name = "libvirt-daemon-driver-storage-core-0__12.1.0-1.el9.x86_64",
+    sha256 = "e7c573541fca6678506f7641c9973d4879b378cc55a8912490c06aa40e372830",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-driver-storage-core-12.1.0-1.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -9601,18 +9602,19 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-storage-core-0__11.9.0-1.el9.x86_64",
-    sha256 = "9066ad1b758b950809a2761abc99ee8d96aab03d9150f24c3038f61e76180e32",
+    name = "libvirt-daemon-driver-storage-core-0__12.1.0-1.el9.x86_64",
+    sha256 = "e7c573541fca6678506f7641c9973d4879b378cc55a8912490c06aa40e372830",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-storage-core-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9066ad1b758b950809a2761abc99ee8d96aab03d9150f24c3038f61e76180e32",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-driver-storage-core-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__10.10.0-7.el9.x86_64",
-    sha256 = "7fa94e83fcae83614c5c4c95a92f4cb3f0065d8971f4a4025c9fd262e68cddff",
-    urls = ["https://storage.googleapis.com/builddeps/7fa94e83fcae83614c5c4c95a92f4cb3f0065d8971f4a4025c9fd262e68cddff"],
+    name = "libvirt-daemon-log-0__12.1.0-1.el9.x86_64",
+    sha256 = "a0723c955ab28aa585b66c8a5cf45f1f9fe307e4a19a0bacc35cfa7b1fd95fe0",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-log-12.1.0-1.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -9643,11 +9645,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__11.9.0-1.el9.aarch64",
-    sha256 = "a4fd6a282bf09969d6e11f2a7a68577d9c87fc529e5af76c64a94c0683f88bb7",
+    name = "libvirt-daemon-log-0__12.1.0-1.el9.aarch64",
+    sha256 = "ce73c1af8e652032f5743e1494b4efec92af399fa5248e377833ae1de8d924cd",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-11.9.0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/a4fd6a282bf09969d6e11f2a7a68577d9c87fc529e5af76c64a94c0683f88bb7",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10184967-libvirt/libvirt-daemon-log-12.1.0-1.el9.aarch64.rpm",
     ],
 )
 
@@ -9661,11 +9662,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__11.9.0-1.el9.x86_64",
-    sha256 = "4e499cd2d4331c986b80249cabbbfa5c991b2a98ae301ff539a5ca201301400b",
+    name = "libvirt-daemon-log-0__12.1.0-1.el9.x86_64",
+    sha256 = "a0723c955ab28aa585b66c8a5cf45f1f9fe307e4a19a0bacc35cfa7b1fd95fe0",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-log-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/4e499cd2d4331c986b80249cabbbfa5c991b2a98ae301ff539a5ca201301400b",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-daemon-log-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
@@ -9697,11 +9697,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-devel-0__11.9.0-1.el9.aarch64",
-    sha256 = "b4e5f496902c96280d2717b215e2365759c5e535210af6a8c0b7847e1c912be7",
+    name = "libvirt-devel-0__12.1.0-1.el9.aarch64",
+    sha256 = "3eca2874f4040fba7c0f099182a9989977287d3bdfce5ca9a8c30af8ce6cd7ec",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/libvirt-devel-11.9.0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/b4e5f496902c96280d2717b215e2365759c5e535210af6a8c0b7847e1c912be7",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10184967-libvirt/libvirt-devel-12.1.0-1.el9.aarch64.rpm",
     ],
 )
 
@@ -9715,18 +9714,19 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-devel-0__11.9.0-1.el9.x86_64",
-    sha256 = "37a170292e19a69bbbfcae3197a226dce84be287f4b5a53037880835b03c0d85",
+    name = "libvirt-devel-0__12.1.0-1.el9.x86_64",
+    sha256 = "36330cdc6f5cae55e8b5ddde96d6f6d164f518b3ae994546180455794f3b5a59",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/libvirt-devel-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/37a170292e19a69bbbfcae3197a226dce84be287f4b5a53037880835b03c0d85",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-devel-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-libs-0__10.10.0-7.el9.x86_64",
-    sha256 = "72e64da467f4afbff2c96b6e46c779fa3abfaba2ddaf85ad0de6087c3d5ccc39",
-    urls = ["https://storage.googleapis.com/builddeps/72e64da467f4afbff2c96b6e46c779fa3abfaba2ddaf85ad0de6087c3d5ccc39"],
+    name = "libvirt-libs-0__12.1.0-1.el9.x86_64",
+    sha256 = "fa8c846f1c450118cf3c0bca84141c874af93f4f38ea1da3aa30086a6b4ff640",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-libs-12.1.0-1.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -9757,11 +9757,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-libs-0__11.9.0-1.el9.aarch64",
-    sha256 = "5c189b32115edc2a71f73ab70e1964272ec6ee08d3c259c5104486683bc6d301",
+    name = "libvirt-libs-0__12.1.0-1.el9.aarch64",
+    sha256 = "fe1aaff1412e7423719f9fcddad82e056ef72363748dfc8b31dadbd5aa5f3dbd",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-libs-11.9.0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/5c189b32115edc2a71f73ab70e1964272ec6ee08d3c259c5104486683bc6d301",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10184967-libvirt/libvirt-libs-12.1.0-1.el9.aarch64.rpm",
     ],
 )
 
@@ -9775,11 +9774,10 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-libs-0__11.9.0-1.el9.x86_64",
-    sha256 = "00e7d11d7515ad4343e73bfe2b01c3917bda350ba072fda3b0ee8ee5cddddb43",
+    name = "libvirt-libs-0__12.1.0-1.el9.x86_64",
+    sha256 = "fa8c846f1c450118cf3c0bca84141c874af93f4f38ea1da3aa30086a6b4ff640",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-libs-11.9.0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/00e7d11d7515ad4343e73bfe2b01c3917bda350ba072fda3b0ee8ee5cddddb43",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10184967-libvirt/libvirt-libs-12.1.0-1.el9.x86_64.rpm",
     ],
 )
 
@@ -13018,11 +13016,10 @@ rpm(
 )
 
 rpm(
-    name = "qemu-img-17__10.1.0-10.el9.aarch64",
-    sha256 = "b3c671a12649fcba7d3874ac0e0c0afc270a3faeef9c1a790c97befd38a30872",
+    name = "qemu-img-2__10.2.1-2.el9.aarch64",
+    sha256 = "bfee2956a6d266498cc69c2b616336e47fc0c5c537784aeb723d110b807d28d4",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-img-10.1.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/b3c671a12649fcba7d3874ac0e0c0afc270a3faeef9c1a790c97befd38a30872",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10253312-qemu/qemu-img-10.2.1-2.el9.aarch64.rpm",
     ],
 )
 
@@ -13036,18 +13033,19 @@ rpm(
 )
 
 rpm(
-    name = "qemu-img-17__10.1.0-10.el9.x86_64",
-    sha256 = "020472c00f3160f8bcc5b13cfdacc46d5e65676b40e5758a6b7f64de168fac79",
+    name = "qemu-img-2__10.2.1-2.el9.x86_64",
+    sha256 = "10bbcb2919ece53a91895d44ea0c2dea325d428894b05ac7097dd6d42569ea4a",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-img-10.1.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/020472c00f3160f8bcc5b13cfdacc46d5e65676b40e5758a6b7f64de168fac79",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10253312-qemu/qemu-img-10.2.1-2.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-img-17__9.1.0-15.el9.x86_64",
-    sha256 = "6149224d6968142db7c12330dd4d9f6882af2ad73a97e591214a3869603b663f",
-    urls = ["https://storage.googleapis.com/builddeps/6149224d6968142db7c12330dd4d9f6882af2ad73a97e591214a3869603b663f"],
+    name = "qemu-img-2__10.2.1-2.el9.x86_64",
+    sha256 = "10bbcb2919ece53a91895d44ea0c2dea325d428894b05ac7097dd6d42569ea4a",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10253312-qemu/qemu-img-10.2.1-2.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -13138,11 +13136,10 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-core-17__10.1.0-10.el9.aarch64",
-    sha256 = "2b27d861d1f8019b3db06ba1ddfc6e4278ec5df2e6eca20251367465e39258f7",
+    name = "qemu-kvm-core-2__10.2.1-2.el9.aarch64",
+    sha256 = "c335b8ff1cae49179eedc7423aca0d614a49b4f069d877cf7105179d10d6e327",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-core-10.1.0-10.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/2b27d861d1f8019b3db06ba1ddfc6e4278ec5df2e6eca20251367465e39258f7",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10253312-qemu/qemu-kvm-core-10.2.1-2.el9.aarch64.rpm",
     ],
 )
 
@@ -13156,18 +13153,19 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-core-17__10.1.0-10.el9.x86_64",
-    sha256 = "e24d2e3154b71618031cdd3314e7de9d6d68b032531a2098bf3d6cbcc0d9f4ef",
+    name = "qemu-kvm-core-2__10.2.1-2.el9.x86_64",
+    sha256 = "23a474b6bb3f0b249c9df8a91ef8974d32e00564cc7b5bde072596b487763841",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-core-10.1.0-10.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e24d2e3154b71618031cdd3314e7de9d6d68b032531a2098bf3d6cbcc0d9f4ef",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10253312-qemu/qemu-kvm-core-10.2.1-2.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-core-17__9.1.0-15.el9.x86_64",
-    sha256 = "aa36521b947a78d2d06d90e1a8f5d74bab5ffbbb6d8ca8d939497477c4878565",
-    urls = ["https://storage.googleapis.com/builddeps/aa36521b947a78d2d06d90e1a8f5d74bab5ffbbb6d8ca8d939497477c4878565"],
+    name = "qemu-kvm-core-2__10.2.1-2.el9.x86_64",
+    sha256 = "23a474b6bb3f0b249c9df8a91ef8974d32e00564cc7b5bde072596b487763841",
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10253312-qemu/qemu-kvm-core-10.2.1-2.el9.x86_64.rpm",
+    ],
 )
 
 rpm(
@@ -13414,20 +13412,18 @@ rpm(
 )
 
 rpm(
-    name = "qemu-pr-helper-17__10.1.0-15.el9.aarch64",
-    sha256 = "2c68929bd29043b4d4bd7c0ce54e0211d79b749f97566969205bc21a3688175c",
+    name = "qemu-pr-helper-2__10.2.1-2.el9.aarch64",
+    sha256 = "fbc68ca4e34e29a0c21d70de9ecb54899f82b021f3868b58519ebaff3c78d984",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-pr-helper-10.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/2c68929bd29043b4d4bd7c0ce54e0211d79b749f97566969205bc21a3688175c",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/10253312-qemu/qemu-pr-helper-10.2.1-2.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-pr-helper-17__10.1.0-15.el9.x86_64",
-    sha256 = "be9a047ef2ceac6889fabca2d5c76b21dae0defd6ae6da1bb9d632d3a0a9517a",
+    name = "qemu-pr-helper-2__10.2.1-2.el9.x86_64",
+    sha256 = "b34adb8f3279e3901ba9ea7e40ca5465e47295c792ff8049a08aac51390d2034",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-pr-helper-10.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/be9a047ef2ceac6889fabca2d5c76b21dae0defd6ae6da1bb9d632d3a0a9517a",
+        "https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/10253312-qemu/qemu-pr-helper-10.2.1-2.el9.x86_64.rpm",
     ],
 )
 
