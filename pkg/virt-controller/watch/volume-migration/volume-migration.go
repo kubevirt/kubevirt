@@ -479,7 +479,7 @@ func ValidateVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance, vm *virt
 		if v.PersistentVolumeClaimInfo == nil {
 			continue
 		}
-		// Skip the check for the persistent VM state, this is handled differently then the other PVCs
+		// Skip the check for the persistent VM state, this is handled differently than the other PVCs
 		if backendstorage.IsBackendStorageVolume(v) {
 			continue
 		}
