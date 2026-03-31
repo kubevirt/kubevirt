@@ -142,8 +142,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
-			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
+			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should be carried to the pod")
+			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should be carried to the pod")
 			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
 
 		})
