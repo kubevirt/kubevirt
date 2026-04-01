@@ -24,6 +24,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -71,6 +72,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -974,6 +976,42 @@ var _ = Describe("Export controller", func() {
 			},
 			4),
 	)
+
+	It("should set TLS env vars when TLSConfiguration is set", func() {
+		ciphers := []string{"TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256"}
+		kvObj, _, _ := kvInformer.GetStore().GetByKey(controller.KubevirtNamespace + "/kv")
+		kv := kvObj.(*virtv1.KubeVirt)
+		kv.Spec.Configuration.TLSConfiguration = &virtv1.TLSConfiguration{
+			MinTLSVersion: virtv1.VersionTLS13,
+			Ciphers:       ciphers,
+		}
+		Expect(kvInformer.GetStore().Update(kv)).To(Succeed())
+
+		expectedCipherJSON, err := json.Marshal(kvtls.CipherSuiteIds(ciphers))
+		Expect(err).ToNot(HaveOccurred())
+
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).To(ContainElements(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Name":  Equal("TLS_MIN_VERSION"),
+				"Value": Equal(strconv.FormatUint(uint64(kvtls.TLSVersion(virtv1.VersionTLS13)), 10)),
+			}),
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Name":  Equal("TLS_CIPHER_SUITES"),
+				"Value": Equal(string(expectedCipherJSON)),
+			}),
+		))
+	})
+
+	It("should not set TLS env vars when TLSConfiguration is nil", func() {
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).ToNot(ContainElements(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_MIN_VERSION")}),
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("TLS_CIPHER_SUITES")}),
+		))
+	})
 
 	DescribeTable("Volumemount names should be trimmed depending on the PVC name", func(pvcName string) {
 		testVMExport := createPVCVMExportWithName(pvcName)
