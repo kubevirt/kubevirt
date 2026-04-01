@@ -38,6 +38,7 @@
 | Vendor | Deckhouse | 2022 | [link](https://deckhouse.io/) | Deckhouse is a No-Ops Kubernetes Platform by [Flant](https://flant.com/) which provides out-of-box solution to run any type of production-grade workloads. It includes monitoring, storage, and virtual machines based on KubeVirt. |
 | Vendor | EQUINIX | | [link](https://metal.equinix.com/) | |
 | Vendor | H3C | 2019 | [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites. |
+| Vendor | Kube-DC | 2023 | [link](https://kube-dc.com/platform) | As a platform for sovereign and neo-cloud infrastructures, we are using KubeVirt for VM management and nested Kubernetes clusters as isolated workers. |
 | Vendor | KUBERMATIC | 2019 | [link](https://www.kubermatic.com/products/kubevirt/) | As a distributor we are running KubeVirt to enable VM workload on Kubermatic Virtualization. |
 | Vendor | KUBESPHERE | 2020 | [link](https://kubesphere.cloud/en/ksv/) | KubeSphere Virtualization (KSV) provides lightweight VM management capability based on KubeVirt. |
 | Vendor | Microsoft | 2023 | [link](https://www.microsoft.com/) | Microsoft is leveraging KubeVirt to host VM workloads as part of the [Azure Operator Nexus](https://azure.microsoft.com/en-us/products/operator-nexus) platform. |
