@@ -75,7 +75,6 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-sync-controller/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-sync-controller/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-sync-controller/servercertificates/tls.key"
-	noSrvCertMessage          = "No server certificate, server is not yet ready to receive traffic"
 
 	defaultGracefulShutdownSeconds = 30
 	maxRetryCount                  = 10
@@ -278,7 +277,7 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 		panic(err)
 	}
 
-	tlsConfig := SetupTLS(app.servercertmanager)
+	tlsConfig := kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", app.healthzHandler)
 
@@ -419,18 +418,4 @@ func main() {
 	service.Setup(app)
 	app.Run()
 	log.Log.Info("successfully shutdown")
-}
-
-func SetupTLS(certManager certificate.Manager) *tls.Config {
-	tlsConfig := &tls.Config{
-		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
-			cert := certManager.Current()
-			if cert == nil {
-				return nil, fmt.Errorf(noSrvCertMessage)
-			}
-			return cert, nil
-		},
-	}
-	tlsConfig.BuildNameToCertificate()
-	return tlsConfig
 }
