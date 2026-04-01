@@ -42,7 +42,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
@@ -321,7 +321,7 @@ var _ = Describe("Backup Controller", func() {
 		virtClient.EXPECT().VirtualMachineBackup(testNamespace).
 			Return(kubevirtClient.BackupV1alpha1().VirtualMachineBackups(testNamespace)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(kubevirtClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(kubevirtClient.ExportV1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		k8sClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()

@@ -391,8 +391,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
-	exportProxyEnabled := r.exportProxyEnabled()
-	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	virtTemplateDeploymentEnabled := r.virtTemplateDeploymentEnabled()
@@ -597,16 +596,12 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		if r.exportProxyEnabled() {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
-			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
-			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
+		deployment, err := r.syncDeployment(deployment)
+		if err != nil {
+			return false, err
+		}
+		err = r.syncPodDisruptionBudgetForDeployment(deployment)
+		if err != nil {
 			return false, err
 		}
 	}
@@ -1245,10 +1240,6 @@ func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 	}
 
 	return false
-}
-
-func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(featuregate.VMExportGate)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {

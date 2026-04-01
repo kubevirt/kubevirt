@@ -39,7 +39,7 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
@@ -66,7 +66,7 @@ var (
 	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1beta1.SchemeGroupVersion.Group
-	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
+	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
 	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
@@ -617,20 +617,22 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: exportv1beta1.SchemeGroupVersion.Group,
+		Group: exportv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    exportv1alpha1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
+				Name:               exportv1beta1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("export.kubevirt.io/v1beta1 VirtualMachineExport is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
 			},
 			{
-				Name:    exportv1beta1.SchemeGroupVersion.Version,
+				Name:    exportv1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{

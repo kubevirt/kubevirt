@@ -9,7 +9,7 @@ go_library(
         "types.go",
         "types_swagger_generated.go",
     ],
-    importpath = "kubevirt.io/api/export/v1alpha1",
+    importpath = "kubevirt.io/api/export/v1",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/api/export:go_default_library",
