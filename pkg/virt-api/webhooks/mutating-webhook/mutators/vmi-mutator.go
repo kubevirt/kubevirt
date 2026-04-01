@@ -57,7 +57,9 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 		return err
 	}
 
-	setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
+	if defaults.SupportsPCIeHotplug(newVMI.Spec.Architecture) {
+		setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
+	}
 
 	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
 		_, emulatorThreadCompleteToEvenParityAnnotationExists := clusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
