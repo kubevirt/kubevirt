@@ -99,12 +99,12 @@ func listPods(labelSelectors ...string) []k8sv1.Pod {
 
 func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.CipherSuite) {
 	for i := range pods {
-		func(i int, pod *k8sv1.Pod) {
+		func(pod *k8sv1.Pod) {
 			stopChan := make(chan struct{})
 			defer close(stopChan)
 			const expectTimeout = 10 * time.Second
-			localPort := 8440 + i
-			Expect(libpod.ForwardPorts(pod, []string{fmt.Sprintf("%d:%d", localPort, containerPort)}, stopChan, expectTimeout)).To(Succeed())
+			localPort, fwErr := libpod.ForwardPorts(pod, []string{fmt.Sprintf("0:%d", containerPort)}, stopChan, expectTimeout)
+			Expect(fwErr).ToNot(HaveOccurred())
 
 			acceptedTLSConfig := &tls.Config{
 				//nolint:gosec
@@ -131,6 +131,6 @@ func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.Ciphe
 				// The error message changed with the golang 1.19 update
 				BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
 			))
-		}(i, &pods[i])
+		}(&pods[i])
 	}
 }
