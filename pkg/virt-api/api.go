@@ -1317,6 +1317,7 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 		kv := app.clusterConfig.GetConfigFromKubeVirtCR()
 		if kv == nil {
 			error_guestfs(fmt.Errorf("Failed getting KubeVirt config"), response)
+			return
 		}
 		err := json.Unmarshal([]byte(kv.Status.ObservedDeploymentConfig), &kvConfig)
 		if err != nil {
@@ -1329,12 +1330,18 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 			ImagePrefix: kvConfig.GetImagePrefix(),
 			GsImage:     kvConfig.GsImage,
 		})
-		return
 	}
 }
 
 func error_guestfs(err error, response *restful.Response) {
-	res := map[string]interface{}{}
-	res["guestfs"] = map[string]interface{}{"status": "failed", "error": fmt.Sprintf("%v", err)}
+	res := struct {
+		kubecli.GuestfsInfo
+		Status string `json:"status"`
+		Error  string `json:"error"`
+	}{
+		GuestfsInfo: kubecli.GuestfsInfo{},
+		Status:      "failed",
+		Error:       fmt.Sprintf("%v", err),
+	}
 	response.WriteHeaderAndJson(http.StatusInternalServerError, res, restful.MIME_JSON)
 }
