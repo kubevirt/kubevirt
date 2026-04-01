@@ -88,13 +88,18 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// race conditions with the VM controller.
 	if ar.Request.Operation == admissionv1.Create {
 		setFirmwareDefaultsIfEmpty(vm)
-		setDefaultPciTopologyVersion(&vm.Spec.Template.ObjectMeta)
 	}
 
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
 	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, mutator.virtClient)
+
+	if ar.Request.Operation == admissionv1.Create {
+		if defaults.SupportsPCIeHotplug(vm.Spec.Template.Spec.Architecture) {
+			setDefaultPciTopologyVersion(&vm.Spec.Template.ObjectMeta)
+		}
+	}
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),
