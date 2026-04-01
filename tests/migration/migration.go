@@ -1346,21 +1346,20 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					var wg sync.WaitGroup
 					wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 
-					i := 0
 					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
 						portI, _ := strconv.Atoi(port)
-						go func(i int, port int) {
+						go func(port int) {
 							defer GinkgoRecover()
 							defer wg.Done()
 							stopChan := make(chan struct{})
 							defer close(stopChan)
-							Expect(libpod.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-							_, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+							localPort, fwErr := libpod.ForwardPorts(handler, []string{fmt.Sprintf("0:%d", port)}, stopChan, 10*time.Second)
+							Expect(fwErr).ToNot(HaveOccurred())
+							_, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), tlsConfig)
 							Expect(err).To(HaveOccurred())
 							errors <- err
-						}(i, portI)
-						i++
+						}(portI)
 					}
 					wg.Wait()
 					close(errors)
@@ -1425,25 +1424,24 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					var wg sync.WaitGroup
 					wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 
-					i := 0
 					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
 						portI, _ := strconv.Atoi(port)
-						go func(i int, port int) {
+						go func(port int) {
 							defer GinkgoRecover()
 							defer wg.Done()
 							stopChan := make(chan struct{})
 							defer close(stopChan)
-							Expect(libpod.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-							conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+							localPort, fwErr := libpod.ForwardPorts(handler, []string{fmt.Sprintf("0:%d", port)}, stopChan, 10*time.Second)
+							Expect(fwErr).ToNot(HaveOccurred())
+							conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), tlsConfig)
 							if conn != nil {
 								b := make([]byte, 1)
 								_, err = conn.Read(b)
 							}
 							Expect(err).To(HaveOccurred())
 							errors <- err
-						}(i, portI)
-						i++
+						}(portI)
 					}
 					wg.Wait()
 					close(errors)
