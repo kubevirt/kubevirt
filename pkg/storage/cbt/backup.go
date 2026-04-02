@@ -723,6 +723,10 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 	if syncInfo != nil {
 		return syncInfo
 	}
+	if vmExport.Status == nil || vmExport.Status.ServiceName == "" {
+		// Service name not yet set by export controller, retry later
+		return nil
+	}
 	ca, err := ctrl.exportCaManager.GetCurrentRaw()
 	if err != nil {
 		return syncInfoError(err)
@@ -731,7 +735,7 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 	if err != nil {
 		return syncInfoError(err)
 	}
-	exportAddr := fmt.Sprintf("virt-export-%s.%s.svc", vmExport.Name, vmExport.Namespace)
+	exportAddr := fmt.Sprintf("%s.%s.svc", vmExport.Status.ServiceName, vmExport.Namespace)
 	serverName := fmt.Sprintf("%s.cluster.local", exportAddr)
 	backupOptions := &backupv1.BackupOptions{
 		BackupName:       backup.Name,
