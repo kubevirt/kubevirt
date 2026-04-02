@@ -244,3 +244,7 @@ func (config *ClusterConfig) GraceIOVirtualizationEnabled() bool {
 func (config *ClusterConfig) IOMMUFDEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IOMMUFDGate)
 }
+
+func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
+}
