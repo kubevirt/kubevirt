@@ -48,16 +48,21 @@ const (
 )
 
 type ServerOptions struct {
-	allowEmulation bool
+	allowEmulation          bool
+	allowCrossArchEmulation bool
 }
 
-func NewServerOptions(allowEmulation bool) *ServerOptions {
-	return &ServerOptions{allowEmulation: allowEmulation}
+func NewServerOptions(allowEmulation, allowCrossArchEmulation bool) *ServerOptions {
+	return &ServerOptions{
+		allowEmulation:          allowEmulation,
+		allowCrossArchEmulation: allowCrossArchEmulation,
+	}
 }
 
 type Launcher struct {
-	domainManager  virtwrap.DomainManager
-	allowEmulation bool
+	domainManager           virtwrap.DomainManager
+	allowEmulation          bool
+	allowCrossArchEmulation bool
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -624,14 +629,17 @@ func RunServer(socketPath string,
 	options *ServerOptions) (chan struct{}, error) {
 
 	allowEmulation := false
+	allowCrossArchEmulation := false
 	if options != nil {
 		allowEmulation = options.allowEmulation
+		allowCrossArchEmulation = options.allowCrossArchEmulation
 	}
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	server := &Launcher{
-		domainManager:  domainManager,
-		allowEmulation: allowEmulation,
+		domainManager:           domainManager,
+		allowEmulation:          allowEmulation,
+		allowCrossArchEmulation: allowCrossArchEmulation,
 	}
 	registerInfoServer(grpcServer)
 

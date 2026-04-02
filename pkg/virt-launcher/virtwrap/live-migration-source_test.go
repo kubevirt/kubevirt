@@ -73,6 +73,7 @@ var _ = Describe("Live migration source", func() {
 				false, // libvirt hooks server and client enabled
 				nil,
 				v1.KvmHypervisorName,
+				false, // allow cross-arch emulation
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)

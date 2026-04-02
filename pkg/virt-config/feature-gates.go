@@ -137,6 +137,10 @@ func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
 
+func (config *ClusterConfig) MultiArchitectureSoftwareEmulationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MultiArchitectureSoftwareEmulation)
+}
+
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.AlignCPUsGate)
 }

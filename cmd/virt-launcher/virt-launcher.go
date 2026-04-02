@@ -352,6 +352,7 @@ func main() {
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vmi process")
 	allowEmulation := pflag.Bool("allow-emulation", false, "Allow use of software emulation as fallback")
+	allowCrossArchEmulation := pflag.Bool("allow-cross-arch-emulation", false, "Allow cross-architecture software emulation via QEMU TCG")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
 	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
@@ -455,7 +456,7 @@ func main() {
 		stopChan,
 		hookFuncs...,
 	)
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer, *hypervisor)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer, *hypervisor, *allowCrossArchEmulation)
 	if err != nil {
 		panic(err)
 	}
@@ -470,7 +471,7 @@ func main() {
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
-	options := cmdserver.NewServerOptions(*allowEmulation)
+	options := cmdserver.NewServerOptions(*allowEmulation, *allowCrossArchEmulation)
 	cmdclient.SetBaseDir(*virtShareDir)
 	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 

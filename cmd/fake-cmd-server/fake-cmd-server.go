@@ -24,7 +24,7 @@ func main() {
 	log.InitializeLogging("fake-cmd-server")
 
 	stopChan := make(chan struct{})
-	options := cmdserver.NewServerOptions(true)
+	options := cmdserver.NewServerOptions(true, false)
 
 	domainManager := virtwrap.NewMockDomainManager(gomock.NewController(nil))
 	domainManager.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
