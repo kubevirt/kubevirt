@@ -51,7 +51,6 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle empty input", func() {
 			in := &libvirt.DomainStats{}
 			inMem := []libvirt.DomainMemoryStat{}
-			devAliasMap := make(map[string]string)
 			inJobInfo := &stats.DomainJobInfo{MemDirtyRate: 123}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
@@ -59,7 +58,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			Expect(out.Name).To(Equal("testName"))
@@ -69,7 +68,6 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
-			devAliasMap := make(map[string]string)
 			inJobInfo := &stats.DomainJobInfo{}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
@@ -77,7 +75,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			// very very basic sanity check
@@ -92,7 +90,6 @@ var _ = Describe("StatsConverter", func() {
 		It("should convert valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
-			devAliasMap := make(map[string]string)
 			inJobInfo := stats.DomainJobInfo{}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
@@ -100,7 +97,7 @@ var _ = Describe("StatsConverter", func() {
 			ident := DomainIdentifier(mockDomainIdent)
 			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &inJobInfo, dirtyRate, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			loaded := new(bytes.Buffer)

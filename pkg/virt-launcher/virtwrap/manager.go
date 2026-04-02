@@ -199,6 +199,10 @@ type LibvirtDomainManager struct {
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 
+	// Device aliasas are updated only through hotplug events and SyncVMI
+	devAliasMap  map[string]string
+	devAliasLock sync.RWMutex
+
 	cpuSetGetter                       func() ([]int, error)
 	imageVolumeFeatureGateEnabled      bool
 	libvirtHooksServerAndClientEnabled bool
@@ -623,6 +627,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("%s: %v", errMsgPrefix, hostdevice.AttachHostDevices(domain, sriovHostDevices))
 	}
 
+	l.refreshDeviceAliasMap(domain)
 	return nil
 }
 
@@ -1256,6 +1261,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	l.refreshDeviceAliasMap(dom)
 	l.syncGracePeriod(vmi)
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
@@ -2033,6 +2039,34 @@ func (l *LibvirtDomainManager) GetDomainDirtyRateStats(calculationDuration time.
 	return dirtyRateStats, nil
 }
 
+func (l *LibvirtDomainManager) refreshDeviceAliasMap(dom cli.VirDomain) {
+	domSpec, err := util.GetDomainSpecWithFlags(dom, 0)
+	if err != nil {
+		log.Log.Reason(err).Warning("failed to refresh device alias map")
+		return
+	}
+	newMap := make(map[string]string)
+	for _, iface := range domSpec.Devices.Interfaces {
+		if iface.Target != nil && iface.Alias != nil {
+			newMap[iface.Target.Device] = iface.Alias.GetName()
+		}
+	}
+	for _, disk := range domSpec.Devices.Disks {
+		if disk.Alias != nil {
+			newMap[disk.Target.Device] = disk.Alias.GetName()
+		}
+	}
+	l.devAliasLock.Lock()
+	l.devAliasMap = newMap
+	l.devAliasLock.Unlock()
+}
+
+func (l *LibvirtDomainManager) getDeviceAliasMap() map[string]string {
+	l.devAliasLock.RLock()
+	defer l.devAliasLock.RUnlock()
+	return l.devAliasMap
+}
+
 func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
@@ -2042,8 +2076,24 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 		return nil, fmt.Errorf("failed to get domain stats: %v", err)
 	}
 
-	if l.agentData != nil {
-		for _, ds := range domstats {
+	aliasMap := l.getDeviceAliasMap()
+	for _, ds := range domstats {
+		for i, net := range ds.Net {
+			if net.NameSet {
+				if alias, ok := aliasMap[net.Name]; ok {
+					ds.Net[i].AliasSet = true
+					ds.Net[i].Alias = alias
+				}
+			}
+		}
+		for i, blk := range ds.Block {
+			if blk.NameSet {
+				if alias, ok := aliasMap[blk.Name]; ok {
+					ds.Block[i].Alias = alias
+				}
+			}
+		}
+		if l.agentData != nil {
 			ds.Load = l.agentData.GetLoad()
 		}
 	}
