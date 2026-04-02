@@ -54,6 +54,7 @@ var _ = Describe("Backup Tunnel", func() {
 				"key",
 				"test-backup",
 				&startTime,
+				nil,
 			)
 			Expect(m).ToNot(BeNil())
 			Expect(m.targetAddr).To(Equal("127.0.0.1:443"))
@@ -130,6 +131,7 @@ var _ = Describe("Backup Tunnel", func() {
 				"key",
 				"test-backup",
 				nil,
+				nil,
 			)
 			_, err := m.prepareTLSConfig()
 			Expect(err).To(HaveOccurred())
@@ -145,6 +147,7 @@ var _ = Describe("Backup Tunnel", func() {
 				"cert",
 				"key",
 				"test-backup",
+				nil,
 				nil,
 			)
 			_, err := m.prepareTLSConfig()
@@ -163,6 +166,7 @@ var _ = Describe("Backup Tunnel", func() {
 				"not-a-key",
 				"test-backup",
 				nil,
+				nil,
 			)
 			_, err := m.prepareTLSConfig()
 			Expect(err).To(HaveOccurred())
@@ -179,6 +183,7 @@ var _ = Describe("Backup Tunnel", func() {
 				clientCert,
 				clientKey,
 				"test-backup",
+				nil,
 				nil,
 			)
 			cfg, err := m.prepareTLSConfig()
