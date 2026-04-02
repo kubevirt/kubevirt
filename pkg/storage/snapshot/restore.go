@@ -1277,7 +1277,7 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 	newDataVolume.Annotations[cdiv1.AnnPrePopulated] = "true"
 
 	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(restoredVM.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{}); err != nil {
-		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
+		t.controller.Recorder.Eventf(t.vmRestore, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
 		return false, fmt.Errorf("Failed to create restore DataVolume: %v", err)
 	}
 
