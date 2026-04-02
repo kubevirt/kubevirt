@@ -58,6 +58,8 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 		return err
 	}
 
+	setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
+
 	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
 		_, emulatorThreadCompleteToEvenParityAnnotationExists := clusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
 		if emulatorThreadCompleteToEvenParityAnnotationExists && clusterConfig.AlignCPUsEnabled() {
@@ -179,4 +181,16 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 func markAsNonroot(vmi *v1.VirtualMachineInstance) {
 	vmi.Status.RuntimeUser = 107
+}
+
+// setDefaultPciTopologyVersion sets the PCI topology version annotation to v3
+// if not already present. Used by both VMI and VM mutating webhooks on CREATE.
+func setDefaultPciTopologyVersion(meta *metav1.ObjectMeta) {
+	if _, exists := meta.Annotations[v1.PciTopologyVersionAnnotation]; exists {
+		return
+	}
+	if meta.Annotations == nil {
+		meta.Annotations = map[string]string{}
+	}
+	meta.Annotations[v1.PciTopologyVersionAnnotation] = v1.PciTopologyVersionV3
 }
