@@ -375,7 +375,8 @@ type ClusterConfig struct {
 	BochsDisplayForEFIGuests    bool `protobuf:"varint,3,opt,name=BochsDisplayForEFIGuests" json:"BochsDisplayForEFIGuests,omitempty"`
 	SerialConsoleLogDisabled    bool `protobuf:"varint,4,opt,name=SerialConsoleLogDisabled" json:"SerialConsoleLogDisabled,omitempty"`
 	PCINUMAAwareTopologyEnabled bool `protobuf:"varint,5,opt,name=PCINUMAAwareTopologyEnabled" json:"PCINUMAAwareTopologyEnabled,omitempty"`
-	VGPULiveMigrationEnabled    bool `protobuf:"varint,6,opt,name=VGPULiveMigrationEnabled" json:"VGPULiveMigrationEnabled,omitempty"`
+	VGPULiveMigrationEnabled     bool `protobuf:"varint,6,opt,name=VGPULiveMigrationEnabled" json:"VGPULiveMigrationEnabled,omitempty"`
+	FirmwareAutoSelectionEnabled bool `protobuf:"varint,7,opt,name=FirmwareAutoSelectionEnabled" json:"FirmwareAutoSelectionEnabled,omitempty"`
 }
 
 func (m *ClusterConfig) Reset()                    { *m = ClusterConfig{} }
@@ -421,6 +422,13 @@ func (m *ClusterConfig) GetPCINUMAAwareTopologyEnabled() bool {
 func (m *ClusterConfig) GetVGPULiveMigrationEnabled() bool {
 	if m != nil {
 		return m.VGPULiveMigrationEnabled
+	}
+	return false
+}
+
+func (m *ClusterConfig) GetFirmwareAutoSelectionEnabled() bool {
+	if m != nil {
+		return m.FirmwareAutoSelectionEnabled
 	}
 	return false
 }
