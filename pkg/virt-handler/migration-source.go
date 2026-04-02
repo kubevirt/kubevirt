@@ -53,6 +53,7 @@ import (
 	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var errWaitingForTargetPorts = errors.New("waiting for target to publish migration ports")
@@ -194,6 +195,39 @@ func domainMigrated(domain *api.Domain) bool {
 	return domain != nil && domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonMigrated
 }
 
+func setMigrationTransferCounters(state *v1.VirtualMachineInstanceMigrationState, jobInfo *stats.DomainJobInfo) {
+	if state == nil || jobInfo == nil {
+		return
+	}
+
+	if jobInfo.DataTotalSet {
+		state.DataTotalBytes = pointer.P(jobInfo.DataTotal)
+	}
+	if jobInfo.DataProcessedSet {
+		state.DataProcessedBytes = pointer.P(jobInfo.DataProcessed)
+	}
+	if jobInfo.DataRemainingSet {
+		state.DataRemainingBytes = pointer.P(jobInfo.DataRemaining)
+	}
+}
+
+func (c *MigrationSourceController) setMigrationTransferStatus(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) {
+	if vmi.Status.MigrationState == nil || client == nil || !c.isMigrationSource(vmi) || isMigrationDone(vmi.Status.MigrationState) {
+		return
+	}
+
+	domainStats, exists, err := client.GetDomainStats()
+	if err != nil {
+		log.Log.Object(vmi).V(4).Reason(err).Info("Failed to get domain stats for migration progress")
+		return
+	}
+	if !exists || domainStats == nil || domainStats.MigrateDomainJobInfo == nil {
+		return
+	}
+
+	setMigrationTransferCounters(vmi.Status.MigrationState, domainStats.MigrateDomainJobInfo)
+}
+
 func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
@@ -226,6 +260,14 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 
 func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	c.setMigrationProgressStatus(vmi, domain)
+	if vmi.Status.MigrationState != nil && c.isMigrationSource(vmi) && !isMigrationDone(vmi.Status.MigrationState) {
+		client, err := c.launcherClients.GetLauncherClient(vmi)
+		if err != nil {
+			log.Log.Object(vmi).V(4).Reason(err).Info("Failed to get launcher client for migration progress")
+		} else {
+			c.setMigrationTransferStatus(vmi, client)
+		}
+	}
 
 	// handle migrations differently than normal status updates.
 	//

@@ -1078,6 +1078,12 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// DataTotalBytes is the total amount of migration data reported by the source runtime.
+	DataTotalBytes *uint64 `json:"dataTotalBytes,omitempty"`
+	// DataProcessedBytes is the amount of migration data already processed by the source runtime.
+	DataProcessedBytes *uint64 `json:"dataProcessedBytes,omitempty"`
+	// DataRemainingBytes is the amount of migration data still remaining on the source runtime.
+	DataRemainingBytes *uint64 `json:"dataRemainingBytes,omitempty"`
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply

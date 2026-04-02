@@ -66,6 +66,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var _ = Describe("VirtualMachineInstance migration target", func() {
@@ -328,6 +329,54 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				d.Spec.Metadata.KubeVirt.Migration.AbortStatus)))
 			Expect(vmi.Status.MigrationState.FailureReason).To(Equal(d.Spec.Metadata.KubeVirt.Migration.FailureReason))
 			testutils.ExpectEvent(recorder, v1.Migrated.String())
+		})
+	})
+
+	Context("setMigrationTransferStatus", func() {
+		It("should map transfer counters from domain job stats", func() {
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					MigrationUID:      "1234",
+					SourceNode:        host,
+					TargetNodeAddress: "othernode",
+				}),
+				libvmistatus.WithNodeName(host),
+			)))
+			client.EXPECT().GetDomainStats().Return(&stats.DomainStats{MigrateDomainJobInfo: &stats.DomainJobInfo{
+				DataTotalSet:     true,
+				DataTotal:        1024,
+				DataProcessedSet: true,
+				DataProcessed:    768,
+				DataRemainingSet: true,
+				DataRemaining:    256,
+			}}, true, nil)
+
+			controller.setMigrationTransferStatus(vmi, client)
+
+			Expect(vmi.Status.MigrationState.DataTotalBytes).To(PointTo(BeEquivalentTo(1024)))
+			Expect(vmi.Status.MigrationState.DataProcessedBytes).To(PointTo(BeEquivalentTo(768)))
+			Expect(vmi.Status.MigrationState.DataRemainingBytes).To(PointTo(BeEquivalentTo(256)))
+		})
+
+		It("should preserve existing counters when job stats are absent", func() {
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					MigrationUID:       "1234",
+					SourceNode:         host,
+					TargetNodeAddress:  "othernode",
+					DataTotalBytes:     pointer.P[uint64](1024),
+					DataProcessedBytes: pointer.P[uint64](768),
+					DataRemainingBytes: pointer.P[uint64](256),
+				}),
+				libvmistatus.WithNodeName(host),
+			)))
+			client.EXPECT().GetDomainStats().Return(&stats.DomainStats{MigrateDomainJobInfo: &stats.DomainJobInfo{}}, true, nil)
+
+			controller.setMigrationTransferStatus(vmi, client)
+
+			Expect(vmi.Status.MigrationState.DataTotalBytes).To(PointTo(BeEquivalentTo(1024)))
+			Expect(vmi.Status.MigrationState.DataProcessedBytes).To(PointTo(BeEquivalentTo(768)))
+			Expect(vmi.Status.MigrationState.DataRemainingBytes).To(PointTo(BeEquivalentTo(256)))
 		})
 	})
 
