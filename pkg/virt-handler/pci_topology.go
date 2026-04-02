@@ -33,6 +33,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -42,6 +43,10 @@ import (
 // accordingly. This is only needed during the upgrade window.
 func (c *VirtualMachineController) detectPCITopologyAndAnnotate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain == nil {
+		return nil
+	}
+
+	if !defaults.SupportsPCIeHotplug(vmi.Spec.Architecture) {
 		return nil
 	}
 

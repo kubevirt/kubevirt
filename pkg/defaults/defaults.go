@@ -377,3 +377,16 @@ func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfi
 		return
 	}
 }
+
+// SupportsPCIeHotplug reports whether the architecture uses PCIe bus
+// topology and requires pcie-root-port controllers for hotplug capacity.
+// Architectures like s390x (CCW) and ppc64le (SPAPR) use flat bus
+// topologies and do not support pcie-root-port controllers.
+func SupportsPCIeHotplug(arch string) bool {
+	switch arch {
+	case "amd64", "arm64", "":
+		return true
+	default:
+		return false
+	}
+}
