@@ -263,6 +263,13 @@ const (
 	// clusters where target nodes and virt-launcher images provide compatible
 	// kernel, libvirt, and QEMU support.
 	IOMMUFDGate = "IOMMUFD"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.9.0
+	//
+	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
+	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
+	FirmwareAutoSelection = "FirmwareAutoSelection"
 )
 
 func init() {
@@ -311,4 +318,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 }
