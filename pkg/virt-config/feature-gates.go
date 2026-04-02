@@ -236,3 +236,7 @@ func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
 }
+
+func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
+}

@@ -223,6 +223,13 @@ const (
 	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
+
+	// Owner: @lyarwood
+	// Alpha: v1.9.0
+	//
+	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
+	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
+	FirmwareAutoSelection = "FirmwareAutoSelection"
 )
 
 func init() {
@@ -267,4 +274,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 }
