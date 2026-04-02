@@ -526,7 +526,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 					By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
 					linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
-					libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
+					linuxBridgeInterfaceWithCustomMac = libvmi.InterfaceWithMac(linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
 
 					networkData, err := cloudinit.NewNetworkData(
 						cloudinit.WithEthernet(linuxBridgeInterfaceWithCustomMac.Name,
