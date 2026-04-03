@@ -62,7 +62,7 @@ func getKubevirtControllerClient(virtCli kubecli.KubevirtClient, namespace strin
 	}
 
 	client, err := kubecli.GetKubevirtClientFromRESTConfig(impersonationConfig)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to get KubeVirt client")
 	return client
 }
 
@@ -143,11 +143,11 @@ var _ = Describe(SIG("Utility Volumes", func() {
 
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", testNamespace, vm.Name)
 		})
 
 		It("should successfully hotplug and unhotplug a utility volume", func() {
@@ -156,9 +156,9 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			verifyUtilityVolumeInVMISpec(virtClient, vmi, utilityVolumeName)
 			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.HotplugVolumeMounted, "", false, utilityVolumeName)
 			vmi, err := virtClient.VirtualMachineInstance(testNamespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", testNamespace, vmi.Name)
 			attachmentPodName := libstorage.AttachmentPodName(vmi)
-			Expect(attachmentPodName).ToNot(BeEmpty())
+			Expect(attachmentPodName).ToNot(BeEmpty(), "expected attachment pod name to not be empty")
 			removeUtilityVolume(vmi.Name, testNamespace)
 			verifyUtilityVolumeRemovedFromVMI(virtClient, vmi, utilityVolumeName)
 			Eventually(matcher.ThisPodWith(vmi.Namespace, attachmentPodName), 90*time.Second, 1*time.Second).Should(matcher.BeGone())
@@ -187,11 +187,11 @@ var _ = Describe(SIG("Utility Volumes", func() {
 
 			vm := libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", testNamespace, vm.Name)
 		})
 
 		It("should wait utility volumes detach before scheduling migration", func() {
@@ -208,14 +208,14 @@ var _ = Describe(SIG("Utility Volumes", func() {
 
 			Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
 				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstanceMigration")
 				return migration.Status.Phase
 			}, 30*time.Second, 1*time.Second).Should(Equal(v1.MigrationPending))
 
 			// Verify condition is set to indicate utility volumes are blocking
 			Eventually(func() bool {
 				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstanceMigration")
 				for _, condition := range migration.Status.Conditions {
 					if condition.Type == v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes &&
 						condition.Status == k8sv1.ConditionTrue {
@@ -234,7 +234,7 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			// Verify condition is removed after utility volumes are detached
 			Eventually(func() bool {
 				migration, err = virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstanceMigration")
 				for _, condition := range migration.Status.Conditions {
 					if condition.Type == v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes {
 						return false
@@ -246,13 +246,13 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			// Wait for migration to succeed
 			Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
 				migration, err := virtClient.VirtualMachineInstanceMigration(testNamespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstanceMigration")
 				return migration.Status.Phase
 			}, 240*time.Second, 1*time.Second).Should(Equal(v1.MigrationSucceeded))
 
 			// Verify VM migrated to a different node
 			vmi, err = virtClient.VirtualMachineInstance(testNamespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", testNamespace, vmi.Name)
 			targetNode := vmi.Status.NodeName
 			Expect(targetNode).ToNot(Equal(sourceNode))
 
@@ -260,7 +260,7 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			pods, err := virtClient.CoreV1().Pods(testNamespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("kubevirt.io/created-by=%s", vmi.UID),
 			})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to list Pods")
 
 			for _, pod := range pods.Items {
 				if pod.Spec.NodeName == targetNode {
@@ -303,7 +303,7 @@ func verifyUtilityVolumeInVMISpec(virtClient kubecli.KubevirtClient, vmi *v1.Vir
 func verifyUtilityVolumeRemovedFromVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, utilityVolumeName string) {
 	Eventually(func() bool {
 		currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
 
 		for _, utilityVolume := range currentVMI.Spec.UtilityVolumes {
 			if utilityVolume.Name == utilityVolumeName {
@@ -315,7 +315,7 @@ func verifyUtilityVolumeRemovedFromVMI(virtClient kubecli.KubevirtClient, vmi *v
 
 	Eventually(func() bool {
 		currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
 
 		for _, volumeStatus := range currentVMI.Status.VolumeStatus {
 			if volumeStatus.Name == utilityVolumeName {
