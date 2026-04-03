@@ -1338,7 +1338,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						} else {
 							Expect(pvc.OwnerReferences).To(BeEmpty())
 						}
-						Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
 						Expect(pvc.Annotations).ToNot(HaveKey("restore.kubevirt.io/owned-by-vm"))
 					}
 				}
@@ -1456,9 +1455,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 									Path:      &whPath,
 								},
 							},
-							ObjectSelector: &metav1.LabelSelector{
+							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"restore.kubevirt.io/source-vm-name": vm.Name,
+									"kubernetes.io/metadata.name": vm.Namespace,
 								},
 							},
 						},

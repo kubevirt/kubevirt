@@ -64,10 +64,6 @@ const (
 
 	lastRestoreAnnotation = "restore.kubevirt.io/lastRestoreUID"
 
-	restoreSourceNameLabel = "restore.kubevirt.io/source-vm-name"
-
-	restoreSourceNamespaceLabel = "restore.kubevirt.io/source-vm-namespace"
-
 	restoreCleanupBackendPVCLabel = "restore.kubevirt.io/cleanup-backend-pvc"
 
 	restoreCompleteEvent = "VirtualMachineRestoreComplete"
@@ -1665,8 +1661,6 @@ func CreateRestorePVCDefFromVMRestore(vmRestore *snapshotv1.VirtualMachineRestor
 		pvc.Annotations = make(map[string]string)
 	}
 
-	pvc.Labels[restoreSourceNameLabel] = sourceVmName
-	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
 	pvc.Annotations[RestoreNameAnnotation] = vmRestore.Name
 
 	// Mark the ID of the restore job on the PVC
