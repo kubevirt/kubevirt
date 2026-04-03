@@ -28,6 +28,8 @@ type debugRoundTripper struct {
 }
 
 func (d *debugRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	klog.Infof("DEBUG HIT BEFORE REQUEST") // 👈 ADD THIS
+
 	klog.Infof("Request: %s %s", req.Method, req.URL)
 
 	resp, err := d.rt.RoundTrip(req)

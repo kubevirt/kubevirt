@@ -156,9 +156,10 @@ func addVerbosityFlag(fs *pflag.FlagSet) {
 }
 
 func Execute() int {
-	debug.RegisterDebugHook()
-	log.InitializeLogging(programName)
 	cmd := NewVirtctlCommand()
+	log.InitializeLogging(programName)
+	debug.RegisterDebugHook()
+	
 	if err := cmd.Execute(); err != nil {
 		if versionErr := checkClientServerVersion(cmd.Context()); versionErr != nil {
 			cmd.PrintErrln(versionErr)
