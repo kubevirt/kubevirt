@@ -326,7 +326,7 @@ var _ = Describe("vmexport", func() {
 				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 				setFlag(vmexport.RETRY_FLAG, "2"),
 			)
-			Expect(err).To(MatchError("retry count reached, exiting unsuccesfully"))
+			Expect(err).To(MatchError("retry count reached, exiting unsuccessfully"))
 		})
 
 		It("VirtualMachineExport succeeds after retrying due to bad status", func() {
@@ -429,7 +429,7 @@ var _ = Describe("vmexport", func() {
 			Expect(runDeleteCmd()).To(Succeed())
 		})
 
-		It("Succesfully download from an already existing VirtualMachineExport", func() {
+		It("Successfully download from an already existing VirtualMachineExport", func() {
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
 				Name: volumeName,
 				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
@@ -451,7 +451,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("Succesfully create and download a VirtualMachineExport in different steps", func(expected bool, extraArgs ...string) {
+		DescribeTable("Successfully create and download a VirtualMachineExport in different steps", func(expected bool, extraArgs ...string) {
 			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
 			Expect(err).ToNot(HaveOccurred())
 
@@ -581,7 +581,7 @@ var _ = Describe("vmexport", func() {
 			})
 		})
 
-		It("Succesfully download a VirtualMachineExport with just 'raw' links", func() {
+		It("Successfully download a VirtualMachineExport with just 'raw' links", func() {
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
 				Name: volumeName,
 				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
@@ -644,7 +644,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully create VirtualMachineExport with TTL", func() {
+		It("Successfully create VirtualMachineExport with TTL", func() {
 			ttl := metav1.Duration{Duration: 2 * time.Minute}
 			err := runCreateCmd(
 				setFlag(vmexport.PVC_FLAG, pvcName),
@@ -657,7 +657,7 @@ var _ = Describe("vmexport", func() {
 			Expect(*vme.Spec.TTLDuration).To(Equal(ttl))
 		})
 
-		It("Succesfully create VirtualMachineExport with custom labels and annotations", func() {
+		It("Successfully create VirtualMachineExport with custom labels and annotations", func() {
 			const (
 				labelKey        = "label-key"
 				labelValue      = "label-value"
@@ -802,7 +802,7 @@ var _ = Describe("vmexport", func() {
 				vmexport.MANIFEST_FLAG,
 				setFlag(vmexport.VM_FLAG, "test"),
 			)
-			Expect(err).To(MatchError("retry count reached, exiting unsuccesfully"))
+			Expect(err).To(MatchError("retry count reached, exiting unsuccessfully"))
 		})
 	})
 
