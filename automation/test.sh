@@ -18,6 +18,11 @@
 #
 
 set -ex
+readonly TEST_SH_START_TIME_SECONDS="$(date +%s)"
+readonly TEST_SH_DIR="$(
+  cd "$(dirname "${BASH_SOURCE[0]}")"
+  pwd
+)"
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
@@ -27,6 +32,7 @@ export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
+readonly NODE_IMAGE_PULL_LOGGER_SCRIPT="${TEST_SH_DIR}/node-image-pull-logger.sh"
 
 source hack/config-default.sh
 
@@ -342,7 +348,7 @@ check_for_panics() {
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; check_for_panics; "${NODE_IMAGE_PULL_LOGGER_SCRIPT}" collect --artifacts-path "${ARTIFACTS_PATH}" || true; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
@@ -388,7 +394,11 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+"${NODE_IMAGE_PULL_LOGGER_SCRIPT}" start || true
+
 ionice --class idle make cluster-sync
+cluster_sync_elapsed_seconds="$(( $(date +%s) - TEST_SH_START_TIME_SECONDS ))"
+echo "Benchmark: elapsed time from test.sh start through cluster-sync: ${cluster_sync_elapsed_seconds}s"
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
