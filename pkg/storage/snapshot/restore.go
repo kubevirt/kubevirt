@@ -776,37 +776,13 @@ func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.P
 				return false, err
 			}
 
-			// This means the restore PVC is already updated
+			// This means the restore PVC is already in the desired state
+			// No label manipulation needed - VMI status will be populated by reconciliation
 			if restorePVC.Name == originalPVC.Name {
 				return true, nil
 			}
-
-			// Patch restore PVC with backend label
-			patchSet := patch.New()
-			if restorePVC.Labels == nil {
-				patchSet.AddOption(patch.WithAdd("/metadata/labels", map[string]string{
-					backendstorage.PVCPrefix: t.vmRestore.Spec.Target.Name,
-				}))
-			} else {
-				updatedLabels := make(map[string]string, len(restorePVC.Labels))
-				for k, v := range restorePVC.Labels {
-					updatedLabels[k] = v
-				}
-				updatedLabels[backendstorage.PVCPrefix] = t.vmRestore.Spec.Target.Name
-
-				patchSet.AddOption(
-					patch.WithTest("/metadata/labels", restorePVC.Labels),
-					patch.WithReplace("/metadata/labels", updatedLabels),
-				)
-			}
-			patchBytes, err := patchSet.GeneratePayload()
-			if err != nil {
-				return false, err
-			}
-			_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(restorePVC.Namespace).Patch(context.Background(), restorePVC.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			if err != nil {
-				return false, err
-			}
+			// Restore PVC exists, no update needed (status will be populated by VMI reconciliation)
+			return true, nil
 		}
 	}
 	return false, nil
