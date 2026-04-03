@@ -222,14 +222,14 @@ var _ = Describe("Backend Storage", func() {
 				},
 			}
 		})
-		It("Should label the target PVC and remove the source PVC on migration success", func() {
+		It("Should remove source PVC on migration success (no label manipulation)", func() {
 			err := MigrationHandoff(virtClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			targetPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(targetPVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
+			Expect(targetPVC.Labels).NotTo(HaveKey("persistent-state-for"))
 		})
 		It("Should remove the target PVC on migration failure", func() {
 			err := MigrationAbort(virtClient, migration)
@@ -319,19 +319,29 @@ var _ = Describe("Backend Storage", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("Should get labelled by CreatePVCForVMI when called with a KubeVirt client", func() {
+		It("Should create PVC without VMI name label", func() {
 			vmi := &virtv1.VirtualMachineInstance{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      vmiName,
 					Namespace: nsName,
 				},
 			}
+
+			sc := storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "sc",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+				},
+			}
+			err := storageClassStore.Add(&sc)
+			Expect(err).NotTo(HaveOccurred())
+
 			pvc, err := backendStorage.CreatePVCForVMI(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc).NotTo(BeNil())
 			pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), pvcName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pvc.Labels).To(HaveKeyWithValue(PVCPrefix, vmiName))
+			Expect(pvc.Labels).NotTo(HaveKey(PVCPrefix))
 		})
 	})
 	Context("IsBackendStorageNeeded", func() {
@@ -426,5 +436,215 @@ var _ = Describe("Backend Storage", func() {
 				snapshotVM.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
 			}),
 		)
+	})
+
+	Context("PVCForVMI", func() {
+		var (
+			vmi       *virtv1.VirtualMachineInstance
+			vm        *virtv1.VirtualMachine
+			pvc       *v1.PersistentVolumeClaim
+			namespace string
+		)
+
+		BeforeEach(func() {
+			namespace = "test-namespace"
+			vm = &virtv1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: namespace,
+					UID:       "vm-uid-123",
+				},
+			}
+			vmi = &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: namespace,
+					UID:       "vmi-uid-456",
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+			pvc = &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-state-for-test-vmi-abc123",
+					Namespace: namespace,
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+		})
+
+		It("Should return PVC from status lookup when VMI status is populated", func() {
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				{
+					Name: "backend-storage",
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName: pvc.Name,
+					},
+				},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			result := PVCForVMI(pvcStore, vmi)
+
+			Expect(result).NotTo(BeNil())
+			Expect(result.Name).To(Equal(pvc.Name))
+		})
+
+		It("Should return PVC from owner reference scan when VMI status is empty", func() {
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			result := PVCForVMI(pvcStore, vmi)
+
+			Expect(result).NotTo(BeNil())
+			Expect(result.Name).To(Equal(pvc.Name))
+		})
+
+		It("Should return nil when VMI status is empty and no matching PVC exists", func() {
+			result := PVCForVMI(pvcStore, vmi)
+
+			Expect(result).To(BeNil())
+		})
+
+		It("Should find PVC owned by VMI itself for standalone VMI", func() {
+			standaloneVMI := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:            "standalone-vmi",
+					Namespace:       namespace,
+					UID:             "standalone-vmi-uid",
+					OwnerReferences: []k8smetav1.OwnerReference{},
+				},
+			}
+			standalonePVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-state-for-standalone-vmi-xyz",
+					Namespace: namespace,
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+							Name:       standaloneVMI.Name,
+							UID:        standaloneVMI.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+			Expect(pvcStore.Add(standalonePVC)).To(Succeed())
+
+			result := PVCForVMI(pvcStore, standaloneVMI)
+
+			Expect(result).NotTo(BeNil())
+			Expect(result.Name).To(Equal(standalonePVC.Name))
+		})
+
+		It("Should find PVC owned by VM for VM-owned VMI", func() {
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			result := PVCForVMI(pvcStore, vmi)
+
+			Expect(result).NotTo(BeNil())
+			Expect(result.Name).To(Equal(pvc.Name))
+		})
+
+		It("Should skip migration target PVC and return source PVC during failed migration", func() {
+			sourcePVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-state-for-test-vmi-source",
+					Namespace: namespace,
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+			targetPVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-state-for-test-vmi-target",
+					Namespace: namespace,
+					Labels: map[string]string{
+						virtv1.MigrationNameLabel: "test-migration",
+					},
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+			Expect(pvcStore.Add(sourcePVC)).To(Succeed())
+			Expect(pvcStore.Add(targetPVC)).To(Succeed())
+
+			result := PVCForVMI(pvcStore, vmi)
+
+			Expect(result).NotTo(BeNil())
+			Expect(result.Name).To(Equal(sourcePVC.Name))
+		})
+
+		It("Should return PVC without migration label when multiple PVCs have same owner", func() {
+			pvcWithoutLabel := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-state-for-test-vmi-without-label",
+					Namespace: namespace,
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+			pvcWithLabel := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-state-for-test-vmi-with-label",
+					Namespace: namespace,
+					Labels: map[string]string{
+						virtv1.MigrationNameLabel: "test-migration",
+					},
+					OwnerReferences: []k8smetav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+			Expect(pvcStore.Add(pvcWithoutLabel)).To(Succeed())
+			Expect(pvcStore.Add(pvcWithLabel)).To(Succeed())
+
+			result := PVCForVMI(pvcStore, vmi)
+
+			Expect(result).NotTo(BeNil())
+			Expect(result.Name).To(Equal(pvcWithoutLabel.Name))
+		})
 	})
 })
