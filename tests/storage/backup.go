@@ -1207,11 +1207,23 @@ var _ = Describe("Backup with migration", func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to Fedora VM")
 
 			By("Ensuring backend storage has expected access mode")
-			pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
-				LabelSelector: backendstorage.PVCPrefix + "=" + vm.Name,
-			})
+			allPVCs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pvcs.Items).To(HaveLen(1))
+			// Filter by name prefix and owner reference (label no longer exists)
+			var backendPVCs []corev1.PersistentVolumeClaim
+			for _, pvc := range allPVCs.Items {
+				if !strings.HasPrefix(pvc.Name, backendstorage.PVCPrefix+"-") {
+					continue
+				}
+				for _, ownerRef := range pvc.OwnerReferences {
+					if ownerRef.UID == vm.UID {
+						backendPVCs = append(backendPVCs, pvc)
+						break
+					}
+				}
+			}
+			Expect(backendPVCs).To(HaveLen(1))
+			pvcs := &corev1.PersistentVolumeClaimList{Items: backendPVCs}
 			Expect(pvcs.Items[0].Status.AccessModes).To(HaveLen(1))
 			Expect(pvcs.Items[0].Status.AccessModes[0]).To(Equal(backendStorageAccessMode),
 				"Expected backend storage access mode to be %s", backendStorageAccessMode)
