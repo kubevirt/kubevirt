@@ -444,7 +444,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Namespace)
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -471,7 +471,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Namespace)
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}
 
@@ -1041,7 +1041,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
-							Expect(vs.Labels["snapshot.kubevirt.io/source-vm-name"]).Should(Equal(vm.Name))
 							Expect(vs.Status.Error).To(BeNil())
 							Expect(*vs.Status.ReadyToUse).To(BeTrue())
 						}
@@ -1207,7 +1206,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6838]snapshot should fail when deadline exceeded due to volume snapshots failure", func() {
-				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Namespace)
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}
 
@@ -1287,7 +1286,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			)
 
 			By("Create Snapshot before source VM")
-			webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+			webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Namespace)
 			snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 
 			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -1660,7 +1659,7 @@ func clearConditionsTimestamps(conditions []snapshotv1.Condition) {
 	}
 }
 
-func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vmName string) *admissionregistrationv1.ValidatingWebhookConfiguration {
+func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vmNamespace string) *admissionregistrationv1.ValidatingWebhookConfiguration {
 	fp := admissionregistrationv1.Fail
 	sideEffectNone := admissionregistrationv1.SideEffectClassNone
 	whPath := "/foobar"
@@ -1692,9 +1691,9 @@ func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vm
 						Path:      &whPath,
 					},
 				},
-				ObjectSelector: &metav1.LabelSelector{
+				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"snapshot.kubevirt.io/source-vm-name": vmName,
+						"kubernetes.io/metadata.name": vmNamespace,
 					},
 				},
 			},
