@@ -459,7 +459,7 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return err
 	}
 
-	printToOutput("VirtualMachineExport '%s/%s' created succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	printToOutput("VirtualMachineExport '%s/%s' created successfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -473,7 +473,7 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return nil
 	}
 
-	printToOutput("VirtualMachineExport '%s/%s' deleted succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	printToOutput("VirtualMachineExport '%s/%s' deleted successfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -492,7 +492,7 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 			time.Sleep(2 * time.Second)
 		}
 	}
-	return fmt.Errorf("retry count reached, exiting unsuccesfully")
+	return fmt.Errorf("retry count reached, exiting unsuccessfully")
 }
 
 func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (bool, error) {
@@ -606,7 +606,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 		return false, err
 	}
 
-	printToOutput("Download finished succesfully\n")
+	printToOutput("Download finished successfully\n")
 
 	return true, nil
 }
