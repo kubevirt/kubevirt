@@ -38,8 +38,7 @@ type archLabeller interface {
 	defaultVendor() string
 	requirePolicy(policy string) bool
 	hasHostSupportedFeatures() bool
-	supportsHostModel() bool
-	supportsNamedModels() bool
+	supportsCPUModels() bool
 	arch() string
 }
 
@@ -70,11 +69,7 @@ func (defaultArchLabeller) hasHostSupportedFeatures() bool {
 	return false
 }
 
-func (defaultArchLabeller) supportsHostModel() bool {
-	return false
-}
-
-func (defaultArchLabeller) supportsNamedModels() bool {
+func (defaultArchLabeller) supportsCPUModels() bool {
 	return false
 }
 
