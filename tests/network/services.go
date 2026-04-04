@@ -154,7 +154,6 @@ var _ = Describe(SIG("Services", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)
-			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -163,6 +162,7 @@ var _ = Describe(SIG("Services", func() {
 				serviceName := "myservice"
 
 				libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+				startFedoraTCPServerWithNcat(inboundVMI, servicePort, ipFamily)
 
 				By("setting up resources to expose the VMI via a service")
 				if ipFamily == k8sv1.IPv6Protocol {
@@ -178,7 +178,7 @@ var _ = Describe(SIG("Services", func() {
 				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 
 				By("checking connectivity the exposed service")
-				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
+				tcpJob, err := createFedoraServiceConnectivityJobWithNcat(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
@@ -190,7 +190,7 @@ var _ = Describe(SIG("Services", func() {
 
 		Context("*without* a service matching the vmi exposed", func() {
 			It("should fail to reach the vmi", func() {
-				tcpJob, err := createServiceConnectivityJob("missingservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
+				tcpJob, err := createFedoraServiceConnectivityJobWithNcat("missingservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = job.WaitForJobToFail(tcpJob, 90*time.Second)
@@ -205,6 +205,25 @@ func createServiceConnectivityJob(serviceName, namespace string, servicePort int
 
 	By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s, on port %d", serviceFQDN, servicePort))
 	tcpJob := job.NewHelloWorldJobTCP(serviceFQDN, strconv.Itoa(servicePort))
+	tcpJob.Spec.BackoffLimit = &retries
+	return kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
+}
+
+func startFedoraTCPServerWithNcat(vmi *v1.VirtualMachineInstance, port int, ipFamily k8sv1.IPFamily) {
+	familyFlag := "-4"
+	if ipFamily == k8sv1.IPv6Protocol {
+		familyFlag = "-6"
+	}
+	serverCommand := fmt.Sprintf("ncat %s -lk %d --sh-exec 'printf \"Hello World\"' &", familyFlag, port)
+	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
+}
+
+func createFedoraServiceConnectivityJobWithNcat(serviceName, namespace string, servicePort int, retries int32) (*batchv1.Job, error) {
+	serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
+	By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s, on port %d", serviceFQDN, servicePort))
+	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(ncat %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; \
+	  if [ "$x" = "Hello World" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, serviceFQDN, strconv.Itoa(servicePort))
+	tcpJob := job.NewHelloWorldJob(check)
 	tcpJob.Spec.BackoffLimit = &retries
 	return kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 }

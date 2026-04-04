@@ -42,7 +42,7 @@ jobs:
       replicas: 1
       inputVars:
         name: kubevirt-density
-        image: quay.io/kubevirt/fedora-with-test-tooling-container-disk:v0.48.1
+        image: quay.io/oshoval/fedora-with-test-tooling:latest
         OS: fedora27
         cpuCores: 1
         cpu: 100m
