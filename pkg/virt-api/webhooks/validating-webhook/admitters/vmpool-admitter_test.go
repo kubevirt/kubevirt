@@ -286,6 +286,53 @@ var _ = Describe("Validating Pool Admitter", func() {
 			"spec.scaleInStrategy",
 		}),
 	)
+	Context("on Update", func() {
+		It("should reject selector change as immutable", func() {
+			pool := newValidVMPool()
+			pool.Spec.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{"new": "label"},
+			}
+			poolBytes, _ := json.Marshal(pool)
+
+			oldPool := newValidVMPool()
+			oldPoolBytes, _ := json.Marshal(oldPool)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource:  webhooks.VirtualMachinePoolGroupVersionResource,
+					Operation: admissionv1.Update,
+					Object:    runtime.RawExtension{Raw: poolBytes},
+					OldObject: runtime.RawExtension{Raw: oldPoolBytes},
+				},
+			}
+
+			resp := poolAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.selector"))
+		})
+
+		It("should reject and stop validation when old object cannot be unmarshalled", func() {
+			pool := newValidVMPool()
+			poolBytes, _ := json.Marshal(pool)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource:  webhooks.VirtualMachinePoolGroupVersionResource,
+					Operation: admissionv1.Update,
+					Object:    runtime.RawExtension{Raw: poolBytes},
+					OldObject: runtime.RawExtension{Raw: []byte("invalid-json{{{")},
+				},
+			}
+
+			resp := poolAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			// code fell through to the DeepEqual check against a zero-value struct.
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeUnexpectedServerResponse))
+		})
+	})
+
 	It("should accept valid vm spec", func() {
 		pool := newValidVMPool()
 		pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
