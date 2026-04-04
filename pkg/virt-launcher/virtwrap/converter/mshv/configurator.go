@@ -20,8 +20,6 @@
 package mshv
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -29,30 +27,23 @@ import (
 )
 
 type MshvDomainConfigurator struct {
-	allowEmulation bool
-	mshvAvailable  bool
+	useEmulation bool
 }
 
 // NewMshvDomainConfigurator creates a new MSHV domain configurator
-func NewMshvDomainConfigurator(allowEmulation bool, mshvAvailable bool) MshvDomainConfigurator {
+func NewMshvDomainConfigurator(useEmulation bool) MshvDomainConfigurator {
 	return MshvDomainConfigurator{
-		allowEmulation: allowEmulation,
-		mshvAvailable:  mshvAvailable,
+		useEmulation: useEmulation,
 	}
 }
 
 // Configure configures the domain hypervisor settings based on MSHV availability and emulation settings
 func (h MshvDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if h.mshvAvailable {
-		domain.Spec.Type = "hyperv"
-	} else {
-		if h.allowEmulation {
-			logger := log.DefaultLogger()
-			logger.Infof("MSHV not present. Using software emulation.")
-			domain.Spec.Type = "qemu"
-		} else {
-			return fmt.Errorf("MSHV not present")
-		}
+	domain.Spec.Type = "hyperv"
+	if h.useEmulation {
+		logger := log.DefaultLogger()
+		logger.Infof("Using software emulation.")
+		domain.Spec.Type = "qemu"
 	}
 
 	return nil

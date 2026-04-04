@@ -36,8 +36,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		domain api.Domain
 	)
 	const (
-		kvmEnabled       = true
-		emulationAllowed = true
+		useEmulation = true
 	)
 
 	BeforeEach(func() {
@@ -45,35 +44,22 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		domain = api.Domain{}
 	})
 
-	Context("When KVM is available", func() {
-		It("Should not modify domain type", func() {
-			configurator := kvm.NewKvmDomainConfigurator(!emulationAllowed, kvmEnabled)
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-			Expect(domain.Spec.Type).To(Equal(""))
-			Expect(domain).To(Equal(api.Domain{}))
-
-		})
-
-		It("Should not modify domain type even when emulation is allowed", func() {
-			configurator := kvm.NewKvmDomainConfigurator(emulationAllowed, kvmEnabled)
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-			Expect(domain.Spec.Type).To(Equal(""))
-			Expect(domain).To(Equal(api.Domain{}))
-		})
-	})
-
-	Context("When KVM is not available", func() {
-		It("Should return error when emulation is not allowed", func() {
-			configurator := kvm.NewKvmDomainConfigurator(!emulationAllowed, !kvmEnabled)
-			err := configurator.Configure(vmi, &domain)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("kvm not present"))
-		})
-
-		It("Should set domain type to qemu when emulation is allowed", func() {
-			configurator := kvm.NewKvmDomainConfigurator(emulationAllowed, !kvmEnabled)
+	Context("When emulation should be used", func() {
+		It("Should modify domain type", func() {
+			configurator := kvm.NewKvmDomainConfigurator(useEmulation)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
+		})
+
+	})
+
+	Context("When emulation should not be used", func() {
+		It("Should not modify domain type", func() {
+			configurator := kvm.NewKvmDomainConfigurator(!useEmulation)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain.Spec.Type).To(Equal(""))
+			Expect(domain).To(Equal(api.Domain{}))
+
 		})
 	})
 })
