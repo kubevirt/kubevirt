@@ -52,7 +52,6 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
-	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
 const (
@@ -987,9 +986,6 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 	newVM.Spec.DataVolumeTemplates = newTemplates
 	newVM.Spec.Template.Spec.Volumes = newVolumes
 	setLastRestoreAnnotation(t.vmRestore, newVM)
-	if snapshotVM.Name == newVM.Name {
-		setLegacyFirmwareUUID(newVM)
-	}
 
 	return newVM, nil
 }
@@ -1791,13 +1787,4 @@ func isVolumeOwnershipPolicyNone(vmRestore *snapshotv1.VirtualMachineRestore) bo
 	}
 
 	return *vmRestore.Spec.VolumeOwnershipPolicy == snapshotv1.VolumeOwnershipPolicyNone
-}
-
-func setLegacyFirmwareUUID(vm *kubevirtv1.VirtualMachine) {
-	if vm.Spec.Template.Spec.Domain.Firmware == nil {
-		vm.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{}
-	}
-	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
-		vm.Spec.Template.Spec.Domain.Firmware.UUID = firmware.CalculateLegacyUUID(vm.Name)
-	}
 }
