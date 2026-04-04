@@ -42,9 +42,9 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
     if [[ -z "$CI_GIT_NO_DOCS_CHANGES" ]]; then
         echo "Aborting as there were only none-code related changes detected."
         exit 0
-    fi
-    RPM_CHANGES=$(echo "$CI_GIT_ALL_CHANGES" | grep -E '^(rpm/|WORKSPACE)' || :)
  fi
+    RPM_CHANGES=$(echo "$CI_GIT_ALL_CHANGES" | grep -E '^(rpm/|WORKSPACE)' || :)
+fi
 
 if [ -z $TARGET ]; then
   echo "FATAL: TARGET must be non empty"
@@ -212,6 +212,54 @@ detect_centos_stream_version
 # CS10 ARM64 images support the firmware and variable store used by Secure Boot.
 if [[ $TARGET =~ wg-arm64 && ${KUBEVIRT_CENTOS_STREAM_VERSION} == "10" ]]; then
   export KUBEVIRT_ARM64_SECURE_BOOT="${KUBEVIRT_ARM64_SECURE_BOOT:-true}"
+fi
+
+readonly BASE_PUSH_TARGETS="virt-api virt-controller virt-handler virt-launcher virt-operator virt-synchronization-controller vm-killer"
+
+set_lane_push_targets() {
+  if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*arm64.* ]]; then
+    echo "Skipping lane-specific PUSH_TARGETS on kind/arm64 lane ${TARGET}"
+    return
+  fi
+
+  case "$TARGET" in
+    *windows*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} disks-images-provider virt-exportproxy winrmcli"
+      ;;
+    *sig-network-smoke*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-with-test-tooling-container-disk fedora-with-test-tooling-container-disk virt-exportproxy"
+      ;;
+    *sig-network*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo fedora-with-test-tooling-container-disk network-passt-binding network-passt-binding-cni test-network-vhostuser-dra-binding test-helpers virt-exportproxy"
+      ;;
+    *sig-compute-migrations*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-ext-kernel-boot-demo alpine-with-test-tooling-container-disk disks-images-provider fedora-with-test-tooling-container-disk virt-exportproxy"
+      ;;
+    *sig-compute-serial*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo disks-images-provider example-hook-sidecar example-node-hook-plugin fedora-with-test-tooling-container-disk test-launcher-hook-sidecar virt-exportproxy"
+      ;;
+    *sig-compute*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-ext-kernel-boot-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo cirros-custom-container-disk-demo disks-images-provider example-cloudinit-hook-sidecar example-hook-sidecar fedora-with-test-tooling-container-disk sidecar-shim virt-exportproxy virtio-container-disk"
+      ;;
+    *sig-operator*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo disks-images-provider virt-exportproxy"
+      ;;
+    *sig-storage*)
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo disks-images-provider example-disk-mutation-hook-sidecar fedora-with-test-tooling-container-disk libguestfs-tools pr-helper test-helpers virt-exportproxy virt-exportserver virtio-container-disk"
+      ;;
+  esac
+
+  if [[ -n "${PUSH_TARGETS:-}" ]]; then
+    echo "Using lane-specific PUSH_TARGETS for ${TARGET}: ${PUSH_TARGETS}"
+  fi
+}
+
+set_lane_push_targets
+
+# devel_alt is only needed on sig-operator lanes according to observed pulls.
+if [[ ! $TARGET =~ .*sig-operator.* ]]; then
+  export DOCKER_TAG_ALT=""
+  echo "Disabling DOCKER_TAG_ALT for non-sig-operator lane ${TARGET}"
 fi
 
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
@@ -430,7 +478,11 @@ echo "=================="
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+if [[ -n "${PUSH_TARGETS:-}" ]]; then
+  echo "Skipping bazel-build-images because lane-specific PUSH_TARGETS are set"
+else
+  build_images
+fi
 
 trap '{ collect_debug_logs; }' ERR
 make cluster-up
