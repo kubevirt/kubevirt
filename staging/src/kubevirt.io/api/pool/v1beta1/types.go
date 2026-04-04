@@ -161,6 +161,7 @@ type VirtualMachinePoolAutohealingStrategy struct {
 type VirtualMachinePoolNameGeneration struct {
 	AppendIndexToConfigMapRefs *bool `json:"appendIndexToConfigMapRefs,omitempty"`
 	AppendIndexToSecretRefs    *bool `json:"appendIndexToSecretRefs,omitempty"`
+	SetHostnameToVMName        *bool `json:"setHostnameToVMName,omitempty"`
 }
 
 // VirtualMachinePoolList is a list of VirtualMachinePool resources.

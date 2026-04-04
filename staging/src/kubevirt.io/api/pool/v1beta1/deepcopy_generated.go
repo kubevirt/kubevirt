@@ -164,6 +164,11 @@ func (in *VirtualMachinePoolNameGeneration) DeepCopyInto(out *VirtualMachinePool
 		*out = new(bool)
 		**out = **in
 	}
+	if in.SetHostnameToVMName != nil {
+		in, out := &in.SetHostnameToVMName, &out.SetHostnameToVMName
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
