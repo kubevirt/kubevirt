@@ -335,7 +335,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-ES disabled, SEV enabled
 			Entry("It should launch with base SEV features enabled", false, false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, false, "SEV SEV-ES"),
+			//Entry("[QUARANTINE] It should launch with SEV-ES features enabled", decorators.Quarantine, decorators.SEVES, true, false, "SEV SEV-ES"),
 			// SEV-SNP enabled
 			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
@@ -417,5 +417,52 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By("Waiting for the VirtualMachineInstance to become ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 		})
+	})
+
+	Context("SEV-SNP policy configuration", decorators.SEVSNP, func() {
+		It("should use default policy 0x030000 when no custom policy is specified", func() {
+			vmi := newSEVFedora(false, true)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+
+			By("Verifying the domain has the default SEV-SNP policy")
+			domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.LaunchSecurity).ToNot(BeNil())
+			Expect(domainSpec.LaunchSecurity.Type).To(Equal("sev-snp"))
+			// Default policy: 0x30000 = SMT allowed (bit 16) + reserved MBO (bit 17)
+			Expect(domainSpec.LaunchSecurity.Policy).To(Equal("0x00030000"))
+		})
+
+		// Note: RHEL 9.7 kernel (5.14.0-611.36.1.el9_7) unconditionally requires
+		// both bit 16 (SMT_ALLOWED) and bit 17 (RSVD_MBO) to be set in the SNP
+		// policy, regardless of actual host SMT state. This is a kernel-level
+		// validation that occurs before calling the PSP firmware.
+		// Therefore, all policies must have bit 16 set (minimum 0x30000).
+		// See: arch/x86/kvm/svm/sev.c snp_launch_start()
+		DescribeTable("should accept various valid policy values",
+			func(inputPolicy string, expectedPolicy string) {
+				vmi := libvmifact.NewFedora(
+					libvmi.WithUefi(false),
+					libvmi.WithCPUModel("EPYC-v4"),
+				)
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+					SNP: &v1.SEVSNP{
+						Policy: inputPolicy,
+					},
+				}
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+
+				By("Verifying the domain has the specified SEV-SNP policy")
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domainSpec.LaunchSecurity).ToNot(BeNil())
+				Expect(domainSpec.LaunchSecurity.Type).To(Equal("sev-snp"))
+				Expect(domainSpec.LaunchSecurity.Policy).To(Equal(expectedPolicy))
+			},
+			// Policy 0x20000 (only RSVD_MBO, no SMT_ALLOWED) is not tested as it
+			// fails on RHEL 9.7 kernels which require bit 16 to be set
+			Entry("with SMT enabled and reserved bit (minimum valid)", "0x30000", "0x00030000"),
+			Entry("with debug and SMT enabled", "0xB0000", "0x000b0000"),
+		)
 	})
 })

@@ -46,7 +46,7 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 
 	switch l.architecture {
 	case "amd64":
-		domain.Spec.LaunchSecurity = amd64LaunchSecurity(vmi)
+		domain.Spec.LaunchSecurity = Amd64LaunchSecurity(vmi)
 	case "arm64":
 		domain.Spec.LaunchSecurity = nil
 	case "s390x":
@@ -59,29 +59,33 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 	return nil
 }
 
-func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
-	launchSec := vmi.Spec.Domain.LaunchSecurity
-	if launchSec.SEV == nil && launchSec.SNP != nil {
-		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
-		domain := &api.LaunchSecurity{
-			Type: "sev-snp",
-		}
-		// Use Default Policy
-		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-		return domain
-	} else if launchSec.SEV != nil {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
-		domain := &api.LaunchSecurity{
-			Type:   "sev",
+func ConfigureSEVSNPLaunchSecurity(snpConfig *v1.SEVSNP) *api.LaunchSecurity {
+	return launchsecurity.ConfigureSEVSNPLaunchSecurity(snpConfig)
+}
+
+func ConfigureSEVLaunchSecurity(sevConfig *v1.SEV) *api.LaunchSecurity {
+	sevPolicyBits := launchsecurity.SEVPolicyToBits(sevConfig.Policy)
+	domain := &api.LaunchSecurity{
+		Type: "sev",
+		LaunchSecuritySEVCommon: api.LaunchSecuritySEVCommon{
 			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-		}
-		if launchSec.SEV.DHCert != "" {
-			domain.DHCert = launchSec.SEV.DHCert
-		}
-		if launchSec.SEV.Session != "" {
-			domain.Session = launchSec.SEV.Session
-		}
-		return domain
+		},
+	}
+	if sevConfig.DHCert != "" {
+		domain.LaunchSecuritySEV.DHCert = sevConfig.DHCert
+	}
+	if sevConfig.Session != "" {
+		domain.LaunchSecuritySEV.Session = sevConfig.Session
+	}
+	return domain
+}
+
+func Amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	launchSec := vmi.Spec.Domain.LaunchSecurity
+	if launchSec.SNP != nil {
+		return launchsecurity.ConfigureSEVSNPLaunchSecurity(launchSec.SNP)
+	} else if launchSec.SEV != nil {
+		return ConfigureSEVLaunchSecurity(launchSec.SEV)
 	} else if launchSec.TDX != nil {
 		qgsSocketPath := vmi.Annotations[v1.QGSSocketPathAnnotation]
 		return &api.LaunchSecurity{
