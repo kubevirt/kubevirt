@@ -461,6 +461,7 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 		m.logger.Reason(err).Error("unable to create outbound leg of proxy to host")
 		return
 	}
+	defer conn.Close()
 
 	go func() {
 		//from outbound connection to proxy
