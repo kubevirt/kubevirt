@@ -1057,15 +1057,26 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		} else if tdx {
 			vmType = efi.TDX
 		}
-		if !l.efiEnvironment.Bootable(secureBoot, vmType) {
-			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-		}
 
-		efiConf = &convertertypes.EFIConfiguration{
-			EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
-			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
-			SecureLoader: secureBoot,
+		if secureBoot && vmType == efi.None && options.GetClusterConfig().GetFirmwareAutoSelectionEnabled() {
+			// Standard secure boot uses libvirt firmware auto-selection.
+			// Libvirt resolves the correct firmware from JSON descriptor
+			// files shipped by the edk2-ovmf package.
+			efiConf = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+		} else {
+			if !l.efiEnvironment.Bootable(secureBoot, vmType) {
+				log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+				return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+			}
+
+			efiConf = &convertertypes.EFIConfiguration{
+				EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
+				EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
+				SecureLoader: secureBoot,
+			}
 		}
 	}
 

@@ -106,6 +106,7 @@ message ClusterConfig{
   bool SerialConsoleLogDisabled = 4;
   bool PCINUMAAwareTopologyEnabled = 5;
   bool VGPULiveMigrationEnabled = 6;
+  bool FirmwareAutoSelectionEnabled = 7;
 }
 
 message InterfaceBindingMigration{

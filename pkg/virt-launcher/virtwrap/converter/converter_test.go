@@ -3599,6 +3599,30 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		})
 
+		It("should use firmware auto-selection for EFI Secure Boot", func() {
+			c.EFIConfiguration = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+					},
+				},
+			}
+			vmi.Status.RuntimeUser = 107
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.Firmware).To(Equal("efi"))
+			Expect(domainSpec.OS.FirmwareInfo).ToNot(BeNil())
+			Expect(domainSpec.OS.FirmwareInfo.Features).To(HaveLen(2))
+			Expect(domainSpec.OS.FirmwareInfo.Features[0]).To(Equal(api.FirmwareFeature{Enabled: "yes", Name: "secure-boot"}))
+			Expect(domainSpec.OS.FirmwareInfo.Features[1]).To(Equal(api.FirmwareFeature{Enabled: "yes", Name: "enrolled-keys"}))
+			Expect(domainSpec.OS.BootLoader).To(BeNil())
+			Expect(domainSpec.OS.NVRam).To(BeNil())
+		})
+
 		DescribeTable("display device should be set to", func(arch string, bootloader v1.Bootloader, enableFG bool, expectedDevice string) {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{Bootloader: &bootloader}
 			c = &convertertypes.ConverterContext{

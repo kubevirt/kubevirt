@@ -1111,17 +1111,28 @@ func (alias *Alias) UnmarshalJSON(data []byte) error {
 //BEGIN OS --------------------
 
 type OS struct {
-	Type       OSType    `xml:"type"`
-	ACPI       *OSACPI   `xml:"acpi,omitempty"`
-	SMBios     *SMBios   `xml:"smbios,omitempty"`
-	BootOrder  []Boot    `xml:"boot"`
-	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
-	BIOS       *BIOS     `xml:"bios,omitempty"`
-	BootLoader *Loader   `xml:"loader,omitempty"`
-	NVRam      *NVRam    `xml:"nvram,omitempty"`
-	Kernel     string    `xml:"kernel,omitempty"`
-	Initrd     string    `xml:"initrd,omitempty"`
-	KernelArgs string    `xml:"cmdline,omitempty"`
+	Firmware     string        `xml:"firmware,attr,omitempty"`
+	FirmwareInfo *FirmwareInfo `xml:"firmware,omitempty"`
+	Type         OSType        `xml:"type"`
+	ACPI         *OSACPI       `xml:"acpi,omitempty"`
+	SMBios       *SMBios       `xml:"smbios,omitempty"`
+	BootOrder    []Boot        `xml:"boot"`
+	BootMenu     *BootMenu     `xml:"bootmenu,omitempty"`
+	BIOS         *BIOS         `xml:"bios,omitempty"`
+	BootLoader   *Loader       `xml:"loader,omitempty"`
+	NVRam        *NVRam        `xml:"nvram,omitempty"`
+	Kernel       string        `xml:"kernel,omitempty"`
+	Initrd       string        `xml:"initrd,omitempty"`
+	KernelArgs   string        `xml:"cmdline,omitempty"`
+}
+
+type FirmwareInfo struct {
+	Features []FirmwareFeature `xml:"feature,omitempty"`
+}
+
+type FirmwareFeature struct {
+	Enabled string `xml:"enabled,attr"`
+	Name    string `xml:"name,attr"`
 }
 
 type OSType struct {
