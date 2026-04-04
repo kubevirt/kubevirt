@@ -1521,11 +1521,24 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 				By("Expecting the creation of a backend storage PVC with the right storage class")
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: "persistent-state-for=" + vmi.Name,
-				})
+				allPVCs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pvcs.Items).To(HaveLen(1))
+				var backendPVCs []corev1.PersistentVolumeClaim
+				for _, p := range allPVCs.Items {
+					if hasPrefix := len(p.Name) > 20 && p.Name[:21] == "persistent-state-for-"; !hasPrefix {
+						continue
+					}
+					// VMI is owned by VM, so check if PVC is owned by the same VM
+					for _, vmiOwnerRef := range vmi.OwnerReferences {
+						for _, pvcOwnerRef := range p.OwnerReferences {
+							if pvcOwnerRef.UID == vmiOwnerRef.UID {
+								backendPVCs = append(backendPVCs, p)
+								break
+							}
+						}
+					}
+				}
+				Expect(backendPVCs).To(HaveLen(1))
 
 				By("Create Snapshot")
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)

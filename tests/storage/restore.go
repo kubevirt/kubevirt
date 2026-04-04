@@ -1388,12 +1388,25 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 				By("Expecting the creation of a backend storage PVC with the right storage class")
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: "persistent-state-for=" + vmi.Name,
-				})
+				allPVCs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pvcs.Items).To(HaveLen(1))
-				pvc := pvcs.Items[0]
+				var backendPVCs []corev1.PersistentVolumeClaim
+				for _, p := range allPVCs.Items {
+					if hasPrefix := len(p.Name) > 20 && p.Name[:21] == "persistent-state-for-"; !hasPrefix {
+						continue
+					}
+					// VMI is owned by VM, so check if PVC is owned by the same VM
+					for _, vmiOwnerRef := range vmi.OwnerReferences {
+						for _, pvcOwnerRef := range p.OwnerReferences {
+							if pvcOwnerRef.UID == vmiOwnerRef.UID {
+								backendPVCs = append(backendPVCs, p)
+								break
+							}
+						}
+					}
+				}
+				Expect(backendPVCs).To(HaveLen(1))
+				pvc := backendPVCs[0]
 
 				loginFunc := func(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 					// Wait for cloud init to finish and start the agent inside the vmi.
