@@ -109,6 +109,10 @@ func ValidateLiveUpdateMemory(vmSpec *v1.VirtualMachineInstanceSpec, maxGuest *r
 func BuildMemoryDevice(vmi *v1.VirtualMachineInstance) (*api.MemoryDevice, error) {
 	domain := vmi.Spec.Domain
 
+	if vmi.Status.Memory == nil || vmi.Status.Memory.GuestAtBoot == nil {
+		return nil, fmt.Errorf("VMI memory status is not initialized, cannot build memory device")
+	}
+
 	pluggableMemory := domain.Memory.MaxGuest.DeepCopy()
 	pluggableMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
 	pluggableMemorySize, err := vcpu.QuantityToByte(pluggableMemory)

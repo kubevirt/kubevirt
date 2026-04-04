@@ -86,6 +86,28 @@ var _ = Describe("LiveUpdate Memory", func() {
 
 		Context("virtio-mem device", func() {
 
+			DescribeTable("should return an error when VMI memory status is uninitialized",
+				func(status *v1.VirtualMachineInstanceStatus) {
+					vmi := libvmi.New(
+						libvmi.WithArchitecture("amd64"),
+						libvmi.WithGuestMemory("128Mi"),
+						libvmi.WithMaxGuest("256Mi"),
+					)
+					if status != nil {
+						vmi.Status = *status
+					}
+					_, err := memory.BuildMemoryDevice(vmi)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("VMI memory status is not initialized"))
+				},
+				Entry("when Status.Memory is nil", nil),
+				Entry("when Status.Memory is set but GuestAtBoot is nil",
+					&v1.VirtualMachineInstanceStatus{
+						Memory: &v1.MemoryStatus{},
+					},
+				),
+			)
+
 			DescribeTable("should be correctly built", func(opts ...libvmi.Option) {
 				currentGuestMemory := resource.MustParse("64Mi")
 
