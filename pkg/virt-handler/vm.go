@@ -1339,6 +1339,10 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonTDXNotMigratable, "VMI uses TDX")
 	}
 
+	if util.IsSecureExecutionVMI(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable, "VMI uses Secure Execution")
+	}
+
 	if reservation.HasVMIPersistentReservation(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonPRNotMigratable, "VMI uses SCSI persistent reservation")
 	}
