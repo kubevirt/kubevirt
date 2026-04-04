@@ -31,7 +31,12 @@ const (
 var _ = Describe("virt-handler", func() {
 	Context("findMigrationIp", func() {
 		It("Should return the IP passed to it when no migration0 interface exists", func() {
-			newIp, err := FindMigrationIP(originalIP)
+			newIp, err := FindMigrationIP(originalIP, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newIp).To(Equal(originalIP))
+		})
+		It("Should return the IP passed to it when no migration0 interface exists and allowFallback is true", func() {
+			newIp, err := FindMigrationIP(originalIP, true)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newIp).To(Equal(originalIP))
 		})
