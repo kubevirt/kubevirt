@@ -36,7 +36,7 @@ func SetupMetrics() error {
 	}
 
 	return operatormetrics.RegisterMetrics(
-		operatorMetrics,
+		componentMetrics,
 	)
 }
 

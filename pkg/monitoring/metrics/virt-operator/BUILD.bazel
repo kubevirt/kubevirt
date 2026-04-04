@@ -3,9 +3,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "component_metrics.go",
         "leader_metrics.go",
         "metrics.go",
-        "operator_metrics.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator",
     visibility = ["//visibility:public"],
