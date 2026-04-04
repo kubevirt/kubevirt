@@ -21,11 +21,9 @@ package find_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestFind(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Find Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
