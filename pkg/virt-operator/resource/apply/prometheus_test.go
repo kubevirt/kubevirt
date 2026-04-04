@@ -77,7 +77,7 @@ var _ = Describe("Apply Prometheus", func() {
 		r := &Reconciler{
 			kv:           kv,
 			stores:       stores,
-			clientset:    clientset,
+			virtClient:   clientset,
 			expectations: expectations,
 		}
 
@@ -95,7 +95,7 @@ var _ = Describe("Apply Prometheus", func() {
 		r := &Reconciler{
 			kv:           kv,
 			stores:       stores,
-			clientset:    clientset,
+			virtClient:   clientset,
 			expectations: expectations,
 		}
 
@@ -145,7 +145,7 @@ var _ = Describe("Apply Prometheus", func() {
 		r := &Reconciler{
 			kv:           kv,
 			stores:       stores,
-			clientset:    clientset,
+			virtClient:   clientset,
 			expectations: expectations,
 		}
 
@@ -165,7 +165,7 @@ var _ = Describe("Apply Prometheus", func() {
 		r := &Reconciler{
 			kv:           kv,
 			stores:       stores,
-			clientset:    clientset,
+			virtClient:   clientset,
 			expectations: expectations,
 		}
 
@@ -213,7 +213,7 @@ var _ = Describe("Apply Prometheus", func() {
 		r := &Reconciler{
 			kv:           kv,
 			stores:       stores,
-			clientset:    clientset,
+			virtClient:   clientset,
 			expectations: expectations,
 			config:       util.OperatorConfig{PrometheusRulesEnabled: false},
 		}

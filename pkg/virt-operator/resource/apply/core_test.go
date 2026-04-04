@@ -173,7 +173,6 @@ var _ = Describe("Apply", func() {
 
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-			clientset.EXPECT().CoreV1().Return(coreclientset.CoreV1()).AnyTimes()
 
 			kv = &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -209,7 +208,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 
@@ -238,7 +238,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 
@@ -294,7 +295,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 
@@ -322,7 +324,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 			created := false
@@ -379,7 +382,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 			externalCACerts := r.getRemotePublicCas()
@@ -434,7 +438,6 @@ var _ = Describe("Apply", func() {
 
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-			clientset.EXPECT().CoreV1().Return(coreclientset.CoreV1()).AnyTimes()
 
 			kv = &v1.KubeVirt{}
 		})
@@ -451,7 +454,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 
@@ -468,7 +472,8 @@ var _ = Describe("Apply", func() {
 			r := &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    clientset,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
 				expectations: expectations,
 			}
 
@@ -898,13 +903,12 @@ var _ = Describe("Apply", func() {
 
 			kubevirtClient = kubecli.NewMockKubevirtClient(ctrl)
 			kubevirtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-			kubevirtClient.EXPECT().CoreV1().Return(clientset.CoreV1()).AnyTimes()
-			kubevirtClient.EXPECT().CoordinationV1().Return(clientset.CoordinationV1()).AnyTimes()
 
 			reconciler = &Reconciler{
 				kv:           kv,
 				stores:       stores,
-				clientset:    kubevirtClient,
+				virtClient:   kubevirtClient,
+				k8sClient:    clientset,
 				expectations: expectations,
 			}
 		})
