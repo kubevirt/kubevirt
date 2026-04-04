@@ -39,6 +39,7 @@ service Cmd {
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
   rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
   rpc RedefineCheckpoint(RedefineCheckpointRequest) returns (RedefineCheckpointResponse) {}
+  rpc GetMonitoringData(MonitoringRequest) returns (MonitoringResponse) {}
 }
 
 message QemuVersionResponse {
@@ -238,4 +239,21 @@ message RedefineCheckpointRequest {
 message RedefineCheckpointResponse {
   Response response = 1;
   bool checkpointInvalid = 2;
+}
+
+message MonitoringRequest {
+  bool domainStats              = 1;
+  bool dirtyRateStats           = 2;
+
+  repeated string agentData     = 3;
+}
+
+message MonitoringResponse {
+  Response response             = 1;
+
+  string domainStats            = 2;
+  string dirtyRateStats         = 3;
+
+  string guestAgentVersion      = 4;
+  map<string, string> agentData = 5;
 }

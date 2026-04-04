@@ -281,6 +281,26 @@ func (mr *MockCmdClientMockRecorder) GetLaunchMeasurement(ctx, in any, opts ...a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLaunchMeasurement", reflect.TypeOf((*MockCmdClient)(nil).GetLaunchMeasurement), varargs...)
 }
 
+// GetMonitoringData mocks base method.
+func (m *MockCmdClient) GetMonitoringData(ctx context.Context, in *MonitoringRequest, opts ...grpc.CallOption) (*MonitoringResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetMonitoringData", varargs...)
+	ret0, _ := ret[0].(*MonitoringResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMonitoringData indicates an expected call of GetMonitoringData.
+func (mr *MockCmdClientMockRecorder) GetMonitoringData(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMonitoringData", reflect.TypeOf((*MockCmdClient)(nil).GetMonitoringData), varargs...)
+}
+
 // GetQemuVersion mocks base method.
 func (m *MockCmdClient) GetQemuVersion(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*QemuVersionResponse, error) {
 	m.ctrl.T.Helper()
@@ -943,6 +963,21 @@ func (m *MockCmdServer) GetLaunchMeasurement(arg0 context.Context, arg1 *VMIRequ
 func (mr *MockCmdServerMockRecorder) GetLaunchMeasurement(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLaunchMeasurement", reflect.TypeOf((*MockCmdServer)(nil).GetLaunchMeasurement), arg0, arg1)
+}
+
+// GetMonitoringData mocks base method.
+func (m *MockCmdServer) GetMonitoringData(arg0 context.Context, arg1 *MonitoringRequest) (*MonitoringResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMonitoringData", arg0, arg1)
+	ret0, _ := ret[0].(*MonitoringResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMonitoringData indicates an expected call of GetMonitoringData.
+func (mr *MockCmdServerMockRecorder) GetMonitoringData(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMonitoringData", reflect.TypeOf((*MockCmdServer)(nil).GetMonitoringData), arg0, arg1)
 }
 
 // GetQemuVersion mocks base method.

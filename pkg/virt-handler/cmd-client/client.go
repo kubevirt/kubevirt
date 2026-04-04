@@ -114,6 +114,7 @@ type LauncherClient interface {
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
 	RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
+	GetMonitoringData(request *cmdv1.MonitoringRequest) (*cmdv1.MonitoringResponse, error)
 }
 
 type VirtLauncherClient struct {
@@ -483,6 +484,13 @@ func (c *VirtLauncherClient) GetDomainDirtyRateStats() (dirtyRateMbps int64, err
 	}
 
 	return domainDirtyRateStatsResponse.DirtyRateMbs, nil
+}
+
+func (c *VirtLauncherClient) GetMonitoringData(request *cmdv1.MonitoringRequest) (*cmdv1.MonitoringResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	return c.v1client.GetMonitoringData(ctx, request)
 }
 
 func (c *VirtLauncherClient) GetQemuVersion() (string, error) {
