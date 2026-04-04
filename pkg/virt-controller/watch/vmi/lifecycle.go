@@ -1159,7 +1159,7 @@ func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineIn
 		return
 	}
 
-	result := c.netMigrationEvaluator.Evaluate(vmi, pod)
+	result, reason := c.netMigrationEvaluator.Evaluate(vmi, pod)
 
 	cm := controller.NewVirtualMachineInstanceConditionManager()
 	existingCondition := cm.GetCondition(vmi, virtv1.VirtualMachineInstanceMigrationRequired)
@@ -1176,7 +1176,7 @@ func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineIn
 		return
 	}
 
-	cm.UpdateCondition(vmi, newMigrationRequiredCondition(result))
+	cm.UpdateCondition(vmi, newMigrationRequiredCondition(result, reason))
 
 	if result == k8sv1.ConditionTrue {
 		return
@@ -1189,7 +1189,7 @@ func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineIn
 	c.Queue.AddAfter(key, pendingMigrationReEvalPeriod)
 }
 
-func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.VirtualMachineInstanceCondition {
+func newMigrationRequiredCondition(status k8sv1.ConditionStatus, message string) *virtv1.VirtualMachineInstanceCondition {
 	reason := virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate
 	if status == k8sv1.ConditionFalse {
 		reason = virtv1.VirtualMachineInstanceReasonAutoMigrationPending
@@ -1201,6 +1201,6 @@ func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.Virtual
 		LastProbeTime:      v1.Time{},
 		LastTransitionTime: v1.Now(),
 		Reason:             reason,
-		Message:            "",
+		Message:            message,
 	}
 }
