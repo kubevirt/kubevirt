@@ -15,4 +15,6 @@ filters:
       - sig-buildsystem-approvers
     labels:
       - sig/buildsystem
-  
+  ".*_test\\.go$":
+    approvers:
+      - sig-test-approvers
