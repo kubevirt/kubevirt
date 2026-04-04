@@ -2057,20 +2057,25 @@ var _ = Describe("Manager", func() {
 			manager, _ := newLibvirtDomainManagerDefault()
 			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
 		})
-		It("migration cancellation should be finilized even if we missed status update", func() {
+		It("migration cancellation should be finalized even if we missed status update", func() {
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
-			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_NONE,
-					DataRemaining: uint64(0),
-				}
-			}()
 			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(32479827777),
 					DataRemainingSet: true,
+				}
+			}()
+			fake_jobinfo_none := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_NONE,
+					DataRemaining: uint64(0),
+				}
+			}()
+			fake_jobinfo_cancelled := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type: libvirt.DOMAIN_JOB_CANCELLED,
 				}
 			}()
 
@@ -2097,10 +2102,10 @@ var _ = Describe("Manager", func() {
 			}
 
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			gomock.InOrder(
 				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
-				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_none, nil),
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(fake_jobinfo_cancelled, nil),
 			)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
