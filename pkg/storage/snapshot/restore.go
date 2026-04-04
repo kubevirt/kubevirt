@@ -28,9 +28,11 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/google/uuid"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/openshift/library-go/pkg/build/naming"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -41,17 +43,21 @@ import (
 	validation "k8s.io/apimachinery/pkg/util/validation"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/efi"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	"kubevirt.io/kubevirt/pkg/tpm"
+	"kubevirt.io/kubevirt/pkg/util"
 	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
@@ -81,6 +87,10 @@ const (
 	restoreOwnedByVMLabel = "restore.kubevirt.io/owned-by-vm"
 
 	defaultPvcRestorePrefix = "restore"
+
+	tpmMountPath = "/mnt/swtpm"
+
+	nvramMountPath = "/mnt/nvram"
 
 	waitEventuallyMessage = "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"
 	stopTargetMessage     = "Automatically stopping restore target for restore operation"
@@ -720,13 +730,14 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 		}
 
 		// Step 1: Remove backend label from the original backend PVC
+		// when restoring to the same VM
 		updated, err := t.removeBackendLabelFromPVC(pvc, snapshotVM.Name)
 		if err != nil {
 			return false, err
 		}
 
 		// Step 2: Update the restore PVC with backend labels
-		isRestorePVCUpdated, err = t.updateRestorePVCWithBackendLabel(pvc)
+		isRestorePVCUpdated, err = t.updateRestorePVCWithBackendLabel(pvc.Name, snapshotVM.Name)
 		if err != nil {
 			return false, err
 		}
@@ -772,17 +783,19 @@ func (t *vmRestoreTarget) removeBackendLabelFromPVC(pvc *corev1.PersistentVolume
 	return false, nil
 }
 
-func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.PersistentVolumeClaim) (bool, error) {
+func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVCName, snapshotVMName string) (bool, error) {
+	var updated bool
 	for _, vr := range t.vmRestore.Status.Restores {
-		if vr.VolumeName == storageutils.BackendPVCVolumeName(t.vmRestore.Spec.Target.Name) {
+		if vr.VolumeName == storageutils.BackendPVCVolumeName(snapshotVMName) {
 			restorePVC, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
 			if err != nil {
 				return false, err
 			}
 
 			// This means the restore PVC is already updated
-			if restorePVC.Name == originalPVC.Name {
-				return true, nil
+			if restorePVC.Name == originalPVCName {
+				updated = true
+				break
 			}
 
 			// Patch restore PVC with backend label
@@ -813,7 +826,8 @@ func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.P
 			}
 		}
 	}
-	return false, nil
+
+	return updated || snapshotVMName != t.vmRestore.Spec.Target.Name, nil
 }
 
 func getCleanupLabelValue(vmRestore *snapshotv1.VirtualMachineRestore) string {
@@ -1007,6 +1021,12 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 		if err != nil {
 			return false, fmt.Errorf("error patching VM %s: %v", restoredVM.Name, err)
 		}
+
+		// Handle VM state cloning for cross-VM restores
+		if done, err := t.handleVMStateClone(restoredVM); !done || err != nil {
+			return false, err
+		}
+
 		restoredVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), restoredVM, metav1.CreateOptions{})
 	} else {
 		restoredVM, err = t.controller.Client.VirtualMachine(restoredVM.Namespace).Update(context.Background(), restoredVM, metav1.UpdateOptions{})
@@ -1026,6 +1046,219 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 	}
 
 	return true, nil
+}
+
+// initializeFirmware creates an UUID based on the VMRestore UID and VM name
+// to ensure consistency across reconciles. This is required for VM State cloning.
+func (t *vmRestoreTarget) initializeFirmware(restoredVM *kubevirtv1.VirtualMachine) error {
+	if restoredVM.Spec.Template.Spec.Domain.Firmware == nil {
+		restoredVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+
+	firmware := restoredVM.Spec.Template.Spec.Domain.Firmware
+
+	if firmware.UUID == "" {
+		seed := string(t.vmRestore.UID) + restoredVM.Name
+		generatedUUID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed))
+		firmware.UUID = types.UID(generatedUUID.String())
+	}
+
+	if firmware.Serial == "" {
+		firmware.Serial = uuid.New().String()
+	}
+
+	return nil
+}
+
+// handleVMStateClone handles the cloning of VM state (TPM, EFI vars) when restoring
+// to a different VM. It creates and monitors a job that renames the appropriate state files so they work on the restored VM.
+func (t *vmRestoreTarget) handleVMStateClone(restoredVM *kubevirtv1.VirtualMachine) (bool, error) {
+	if !backendstorage.IsBackendStorageNeeded(restoredVM) {
+		return true, nil
+	}
+	snapshotVM, err := t.getSnapshotVM()
+	if err != nil {
+		return false, err
+	}
+
+	// Initialize firmware configuration for the restored VM
+	// This is required for the TPM clone
+	if err = t.initializeFirmware(restoredVM); err != nil {
+		return false, err
+	}
+
+	backendVolumeName := storageutils.BackendPVCVolumeName(snapshotVM.Name)
+	backendPVCName := ""
+	for _, vr := range t.vmRestore.Status.Restores {
+		if vr.VolumeName == backendVolumeName {
+			backendPVCName = vr.PersistentVolumeClaimName
+			break
+		}
+	}
+
+	if backendPVCName == "" {
+		return false, fmt.Errorf("backend PVC for volume %s not found in restore status", backendVolumeName)
+	}
+
+	jobName := naming.GetName("vm-state-clone", restoredVM.Name, validation.DNS1035LabelMaxLength)
+	job, err := t.controller.Client.BatchV1().Jobs(restoredVM.Namespace).Get(context.Background(), jobName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return t.createVMStateCloneJob(restoredVM, snapshotVM, jobName, backendPVCName)
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get VM state clone job: %v", err)
+	}
+
+	return t.checkJobStatus(job)
+}
+
+func (t *vmRestoreTarget) createVMStateCloneJob(restoredVM *v1.VirtualMachine, snapshotVM *snapshotv1.VirtualMachine, jobName, backendPVCName string) (bool, error) {
+	job := t.vmStateCloneJob(restoredVM, snapshotVM, jobName, backendPVCName)
+
+	_, err := t.controller.Client.BatchV1().Jobs(restoredVM.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to create VM state clone job: %v", err)
+	}
+
+	log.Log.Object(t.vmRestore).Infof("Created VM state clone job %s for restoring %s from %s", jobName, restoredVM.Name, snapshotVM.Name)
+	return false, nil
+}
+
+func (t *vmRestoreTarget) checkJobStatus(job *batchv1.Job) (bool, error) {
+	for _, condition := range job.Status.Conditions {
+		if condition.Type == batchv1.JobComplete && condition.Status == corev1.ConditionTrue {
+			log.Log.Object(t.vmRestore).Infof("VM state clone job %s completed successfully", job.Name)
+			return true, nil
+		}
+
+		if condition.Type == batchv1.JobFailed && condition.Status == corev1.ConditionTrue {
+			// Job failed, delete it to allow retry
+			_ = t.controller.Client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
+				PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+			})
+			return false, fmt.Errorf("VM state clone job failed: %s", condition.Message)
+		}
+	}
+
+	log.Log.Object(t.vmRestore).V(3).Infof("VM state clone job %s in progress", job.Name)
+	return false, nil
+}
+
+func (t *vmRestoreTarget) vmStateCloneJob(restoredVM *kubevirtv1.VirtualMachine, snapshotVM *snapshotv1.VirtualMachine, jobName, backendPVCName string) *batchv1.Job {
+	sourceUUID := ""
+	targetUUID := ""
+	sourceVMName := ""
+	targetVMName := ""
+
+	if tpm.HasPersistentDevice(&restoredVM.Spec.Template.Spec) {
+		if snapshotVM.Spec.Template.Spec.Domain.Firmware != nil {
+			sourceUUID = string(snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID)
+		}
+		targetUUID = string(restoredVM.Spec.Template.Spec.Domain.Firmware.UUID)
+	}
+
+	if efi.HasPersistentDevice(&restoredVM.Spec.Template.Spec) {
+		sourceVMName = snapshotVM.Name
+		targetVMName = restoredVM.Name
+	}
+
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: jobName,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(t.vmRestore, snapshotv1.SchemeGroupVersion.WithKind("VirtualMachineRestore")),
+			},
+		},
+		Spec: batchv1.JobSpec{
+			ActiveDeadlineSeconds:   pointer.P(int64(30)),
+			BackoffLimit:            pointer.P(int32(0)),
+			TTLSecondsAfterFinished: pointer.P(int32(40)),
+			PodFailurePolicy: &batchv1.PodFailurePolicy{
+				Rules: []batchv1.PodFailurePolicyRule{{
+					Action: batchv1.PodFailurePolicyActionFailJob,
+					OnExitCodes: &batchv1.PodFailurePolicyOnExitCodesRequirement{
+						ContainerName: pointer.P("container"),
+						Operator:      "In",
+						Values:        []int32{42},
+					},
+				}},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "vm-state-cloner-",
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyNever,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: pointer.P(true),
+						RunAsUser:    pointer.P(int64(util.NonRootUID)),
+						RunAsGroup:   pointer.P(int64(util.NonRootUID)),
+						FSGroup:      pointer.P(int64(util.NonRootUID)),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					Containers: []corev1.Container{{
+						Name: "container",
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: pointer.P(false),
+							Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+						},
+						Image:   t.controller.TemplateService.GetLauncherImage(),
+						Command: []string{"vm-state-clone-handler.sh"},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "OLD_UUID",
+								Value: sourceUUID,
+							},
+							{
+								Name:  "NEW_UUID",
+								Value: targetUUID,
+							},
+							{
+								Name:  "OLD_VM_NAME",
+								Value: sourceVMName,
+							},
+							{
+								Name:  "NEW_VM_NAME",
+								Value: targetVMName,
+							},
+							{
+								Name:  "TPM_BASE",
+								Value: tpmMountPath,
+							},
+							{
+								Name:  "NVRAM_BASE",
+								Value: nvramMountPath,
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "backend-storage",
+								MountPath: tpmMountPath,
+								SubPath:   "swtpm",
+								ReadOnly:  false,
+							},
+							{
+								Name:      "backend-storage",
+								MountPath: nvramMountPath,
+								SubPath:   "nvram",
+								ReadOnly:  false,
+							},
+						},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "backend-storage",
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: backendPVCName,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
 }
 
 func (t *vmRestoreTarget) updateRestorePVCOwnership() error {
