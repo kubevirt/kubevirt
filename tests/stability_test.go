@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega/gmeasure"
 
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
@@ -19,7 +20,7 @@ var _ = PDescribe("Ensure stable functionality", func() {
 
 		experiment.Sample(func(idx int) {
 			experiment.MeasureDuration("Create VM", func() {
-				libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), libvmops.StartupTimeoutSecondsTiny)
+				libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), flags.StartupTimeoutSecondsTiny())
 			})
 		}, gmeasure.SamplingConfig{N: 15, Duration: 10 * time.Minute})
 	})

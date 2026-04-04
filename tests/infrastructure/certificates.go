@@ -52,7 +52,6 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
 	)
-	const vmiLaunchTimeOut = libvmops.StartupTimeoutSecondsSmall
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
@@ -129,7 +128,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 
 		By("checking that we can still start virtual machines and connect to the VMI")
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeOut)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	})
 
@@ -146,7 +145,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 		By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 		Eventually(func() (rotated bool) {
 			vmi := libvmifact.NewAlpine()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeOut)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
