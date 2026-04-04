@@ -160,7 +160,7 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 	return pvc.Name, nil
 }
 
-func (c *Controller) processHotplugVolumeStatus(
+func (c *Controller) processUtilityVolumeStatus(
 	vmi *virtv1.VirtualMachineInstance,
 	volumeName string,
 	pvcName string,
@@ -212,6 +212,52 @@ func (c *Controller) processHotplugVolumeStatus(
 		log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volumeName)
 		statusCopy.Message = message
 		statusCopy.Reason = reason
+	}
+
+	*status = *statusCopy
+}
+
+func (c *Controller) processHotplugVolumeStatus(
+	vmi *virtv1.VirtualMachineInstance,
+	volume virtv1.Volume,
+	pvcName string,
+	status *virtv1.VolumeStatus,
+	attachmentPod *k8sv1.Pod,
+) {
+	volumeName := volume.Name
+	statusCopy := status.DeepCopy()
+
+	if statusCopy.HotplugVolume == nil {
+		statusCopy.HotplugVolume = &virtv1.HotplugVolumeStatus{}
+	}
+
+	if attachmentPod == nil {
+		if !c.volumeReady(statusCopy.Phase) {
+			statusCopy.HotplugVolume.AttachPodUID = ""
+			// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
+			phase, reason, message := c.getVolumePhaseMessageReason(pvcName, vmi.Namespace)
+			statusCopy.Phase = phase
+			log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volumeName)
+			statusCopy.Message = message
+			statusCopy.Reason = reason
+		}
+	} else {
+		if podHasVolume(attachmentPod, &volume) {
+			statusCopy.HotplugVolume.AttachPodName = attachmentPod.Name
+			if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
+				statusCopy.HotplugVolume.AttachPodUID = attachmentPod.UID
+			} else {
+				// Remove UID of old pod if a new one is available, but not yet ready
+				statusCopy.HotplugVolume.AttachPodUID = ""
+			}
+			if canMoveToAttachedPhase(status.Phase) {
+				statusCopy.Phase = virtv1.HotplugVolumeAttachedToNode
+				log.Log.V(3).Infof("Setting phase %s for volume %s", statusCopy.Phase, volume.Name)
+				statusCopy.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
+				statusCopy.Reason = controller.SuccessfulCreatePodReason
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, statusCopy.Reason, status.Message)
+			}
+		}
 	}
 
 	*status = *statusCopy
@@ -272,7 +318,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return err
 	}
 
-	attachmentPod, _ := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+	attachmentPod := getLatestAttachmentPod(attachmentPods)
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
@@ -310,7 +356,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
-			c.processHotplugVolumeStatus(vmi, volume.Name, pvcName, &status, attachmentPod)
+			c.processHotplugVolumeStatus(vmi, volume, pvcName, &status, attachmentPod)
 		}
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 			err = c.processPVCInfo(&status, pvcName, vmi.Namespace, false)
@@ -331,7 +377,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		}
 		// Remove from map so we can detect volumes removed from spec
 		delete(oldStatusMap, utilityVolume.Name)
-		c.processHotplugVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, &status, attachmentPod)
+		c.processUtilityVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, &status, attachmentPod)
 		err = c.processPVCInfo(&status, utilityVolume.ClaimName, vmi.Namespace, true)
 		if err != nil {
 			return err

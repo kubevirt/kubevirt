@@ -38,6 +38,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
+const attachmentPodTimeout = time.Second * 60
+
 func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
 	if len(hotplugAttachmentPods) > 1 {
 		return true
@@ -49,10 +51,36 @@ func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8
 	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
 }
 
-func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+// getLatestAttachmentPod returns the newest running pod.
+func getLatestAttachmentPod(attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
+	pods := make([]*k8sv1.Pod, 0, len(attachmentPods))
+	for _, pod := range attachmentPods {
+		if pod.DeletionTimestamp == nil {
+			pods = append(pods, pod)
+		}
+	}
+	// Sort, newest first.
+	sort.Slice(pods, func(i, j int) bool {
+		return pods[i].CreationTimestamp.After(pods[j].CreationTimestamp.Time)
+	})
+
+	for _, pod := range pods {
+		if pod.Status.Phase == k8sv1.PodRunning {
+			return pod
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
 	var currentPod *k8sv1.Pod
 	oldPods := make([]*k8sv1.Pod, 0)
 	for _, attachmentPod := range hotplugAttachmentPods {
+		if trigger, _ := c.templateService.AttachmentPodIsTrigger(attachmentPod); trigger {
+			// This is a trigger pod... ignore
+			continue
+		}
 		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
 			oldPods = append(oldPods, attachmentPod)
 		} else {
@@ -63,21 +91,23 @@ func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAtta
 		}
 	}
 	sort.Slice(oldPods, func(i, j int) bool {
-		return oldPods[i].CreationTimestamp.Time.After(oldPods[j].CreationTimestamp.Time)
+		return oldPods[i].CreationTimestamp.After(oldPods[j].CreationTimestamp.Time)
 	})
 	return currentPod, oldPods
 }
 
-// cleanupAttachmentPods deletes all old attachment pods when the following is true
-// 1. There is a currentPod that is running. (not nil and phase.Status == Running)
-// 2. There are no readyVolumes (numReadyVolumes == 0)
-// 3. The newest oldPod is not running and not marked for deletion.
-// If any of those are true, it will not delete the newest oldPod, since that one is the latest
-// pod that is closest to the desired state.
+// cleanupAttachmentPods deletes all unused attachment pods. If there is no
+// running current pod, then the most recent running old pod is kept as it
+// holds the most recent set of mounted volumes.
+//
+// Further, a pod is protected from deletion if it has volumes which have not
+// yet been unmounted inside the guest.
+//
+// The provided list of oldPods must be sorted by most recent pod.
 func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, numReadyVolumes int) common.SyncError {
 	foundRunning := false
 
-	var statusMap = make(map[string]v1.VolumeStatus)
+	statusMap := make(map[string]v1.VolumeStatus)
 	for _, vs := range vmi.Status.VolumeStatus {
 		if vs.HotplugVolume != nil {
 			statusMap[vs.Name] = vs
@@ -92,6 +122,9 @@ func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8s
 
 	currentPodIsNotRunning := currentPod == nil || currentPod.Status.Phase != k8sv1.PodRunning
 	for _, attachmentPod := range oldPods {
+		if ephemeral, _ := c.templateService.AttachmentPodIsTrigger(attachmentPod); ephemeral {
+			continue
+		}
 		if !foundRunning &&
 			attachmentPod.Status.Phase == k8sv1.PodRunning && attachmentPod.DeletionTimestamp == nil &&
 			numReadyVolumes > 0 &&
@@ -132,6 +165,41 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 	return true
 }
 
+// settleDuration calculates a reasonable time to allow the attacher pod to
+// settle before it can be replaced by another pod.
+func settleDuration(numVolumes int) time.Duration {
+	return time.Duration(5+float64(numVolumes)/10) * time.Second
+}
+
+func (c *Controller) alreadyTriggered(attachmentPods []*k8sv1.Pod, volumeName string) bool {
+	for _, pod := range attachmentPods {
+		trigger, target := c.templateService.AttachmentPodIsTrigger(pod)
+		if trigger && target == volumeName {
+			return true
+		}
+	}
+	return false
+}
+
+// mostRecentPendingPodAge returns the most recent pending pod and its age.
+//
+// This relies on the pods being in a newest first order.
+func (c *Controller) mostRecentPendingPodAge(pods []*k8sv1.Pod) (*k8sv1.Pod, time.Duration) {
+	for _, pod := range pods {
+		if ephemeral, _ := c.templateService.AttachmentPodIsTrigger(pod); ephemeral {
+			continue
+		}
+
+		if pod.Status.Phase == k8sv1.PodRunning {
+			continue
+		}
+
+		return pod, time.Since(pod.CreationTimestamp.Time)
+	}
+
+	return nil, 0
+}
+
 func (c *Controller) isUtilityVolumeWithBlockPVC(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (bool, error) {
 	isUtilityVolume := false
 	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
@@ -159,22 +227,18 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	readyHotplugVolumes := make([]*v1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
-		isUtilityVolumeWithBlockPVC, err := c.isUtilityVolumeWithBlockPVC(vmi, volume)
-		if err != nil {
-			return common.NewSyncError(err, controller.PVCNotReadyReason)
-		}
-		if isUtilityVolumeWithBlockPVC {
-			logger.V(3).Infof("Skipping utility volume %s: configured with block volume mode PVC, utility volumes require filesystem volume mode", volume.Name)
-			continue
-		}
-
+		var err error
 		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
 		if wffc {
+			if c.alreadyTriggered(hotplugAttachmentPods, volume.Name) {
+				logger.V(5).Infof("De-bounce trigger pod creation for WaitForFirstConsumer: %s/%s", vmi.Namespace, volume.Name)
+				continue
+			}
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
-			logger.V(1).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
+			logger.V(1).Infof("Volume %s/%s is in WaitForFirstConsumer, triggering population", vmi.Namespace, volume.Name)
 			syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
 			if syncError != nil {
 				return syncError
@@ -189,23 +253,46 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
 
-	currentPod, oldPods := getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
-	if currentPod == nil && !hasPendingPods(oldPods) && len(readyHotplugVolumes) > 0 {
-		if rateLimited, waitTime := c.requeueAfter(oldPods, time.Duration(len(readyHotplugVolumes)/-10)); rateLimited {
-			key, err := controller.KeyFunc(vmi)
-			if err != nil {
-				logger.Object(vmi).Reason(err).Error("failed to extract key from virtualmachine.")
-				return common.NewSyncError(fmt.Errorf("failed to extract key from virtualmachine. %v", err), controller.FailedHotplugSyncReason)
+	currentPod, oldPods := c.getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
+	if currentPod == nil && len(readyHotplugVolumes) > 0 {
+		logger.V(5).Infof("Hotplug: work do do...")
+
+		if !hasPendingPods(oldPods) {
+			if rateLimited, waitTime := c.requeueAfter(oldPods, settleDuration(len(readyHotplugVolumes))); rateLimited {
+				logger.V(4).Infof("Hotplug: attachment pod creation delayed... allow the existing pod to settle: %v", waitTime)
+				key, err := controller.KeyFunc(vmi)
+				if err != nil {
+					logger.Object(vmi).Reason(err).Error("failed to extract key from virtualmachine.")
+					return common.NewSyncError(fmt.Errorf("failed to extract key from virtualmachine. %v", err), controller.FailedHotplugSyncReason)
+				}
+				c.Queue.AddAfter(key, waitTime)
+				return nil
 			}
-			c.Queue.AddAfter(key, waitTime)
-		} else {
+			logger.V(3).Infof("Hotplug: creating new attachment pod")
 			if newPod, err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
 				return err
 			} else {
-				currentPod = newPod
+				if newPod == nil {
+					logger.V(3).Infof("Hotplug: new pod not created (unknown reason)")
+					return nil
+				}
+				logger.V(3).Infof("Hotplug: created attachment pod %s (%d volumes)", newPod.Name, len(readyHotplugVolumes))
+				return nil
 			}
+		} else {
+			pendingPod, age := c.mostRecentPendingPodAge(oldPods)
+			if pendingPod != nil && age < attachmentPodTimeout {
+				logger.V(3).Infof("Hotplug: waiting for existing pending attached pod")
+				return nil
+			}
+
+			logger.V(3).Infof("Hotplug: pending pod %s, too old: %s, cleaning up", pendingPod.Name, age)
+			// Fall through to cleanup
 		}
 	}
+	// else: No work to do (there is either a current pod, or no volumes to attach). Fall through the cleanup
+
+	logger.V(3).Infof("Hotplug: cleaning up any outstanding attachment pods")
 	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
 		return err
 	}
@@ -280,7 +367,7 @@ func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance,
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
 	}
 	for volumeName, pvc := range volumeNamesPVCMap {
-		//Verify the PVC is ready to be used.
+		// Verify the PVC is ready to be used.
 		populated, err := cdiv1.IsSucceededOrPendingPopulation(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
 			dv, exists, _ := c.dataVolumeIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 			if !exists {
@@ -391,6 +478,19 @@ func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachm
 	return nil
 }
 
+// podHasVolume checks to see if the provided volume is defined on this attachment pod.
+func podHasVolume(pod *k8sv1.Pod, volume *v1.Volume) bool {
+	for _, specVolume := range pod.Spec.Volumes {
+		if specVolume.PersistentVolumeClaim != nil {
+			if specVolume.Name == volume.Name {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volume) bool {
 	// -2 for empty dir and token
 	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
@@ -418,8 +518,12 @@ func hasPendingPods(pods []*k8sv1.Pod) bool {
 	return false
 }
 
+// requeueAfter determines if we should and how long to delay subsequent work
+// until the oldest oldPod (the first) is threshold age.
+//
+// Note: oldPods needs to be sorted with the oldest pod first.
 func (c *Controller) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
-	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*threshold)) {
+	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.After(time.Now().Add(-1*threshold)) {
 		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
 	}
 	return false, 0
