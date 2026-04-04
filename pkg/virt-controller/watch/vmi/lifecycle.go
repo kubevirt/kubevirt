@@ -252,19 +252,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 }
 
 func (c *Controller) getOwnerVM(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
-	controllerRef := v1.GetControllerOf(vmi)
-	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
-		return nil
-	}
-	obj, exists, _ := c.vmStore.GetByKey(controller.NamespacedKey(vmi.Namespace, controllerRef.Name))
-	if !exists {
-		return nil
-	}
-	ownerVM := obj.(*virtv1.VirtualMachine)
-	if controllerRef.UID == ownerVM.UID {
-		return ownerVM.DeepCopy()
-	}
-	return nil
+	return controller.GetOwnerVM(vmi, c.vmStore)
 }
 
 // updateStatus handles the VMI's lifecycle status updates.

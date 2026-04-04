@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -223,7 +224,7 @@ var _ = Describe("Backend Storage", func() {
 			}
 		})
 		It("Should label the target PVC and remove the source PVC on migration success", func() {
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			err := backendStorage.MigrationHandoff(migration, nil)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
@@ -232,7 +233,7 @@ var _ = Describe("Backend Storage", func() {
 			Expect(targetPVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 		It("Should remove the target PVC on migration failure", func() {
-			err := MigrationAbort(virtClient, migration)
+			err := backendStorage.MigrationAbort(migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -242,7 +243,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration success", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			err := backendStorage.MigrationHandoff(migration, nil)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -250,7 +251,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration failure", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationAbort(virtClient, migration)
+			err := backendStorage.MigrationAbort(migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -334,6 +335,210 @@ var _ = Describe("Backend Storage", func() {
 			Expect(pvc.Labels).To(HaveKeyWithValue(PVCPrefix, vmiName))
 		})
 	})
+	Context("UpdatePersistentStateVolume", func() {
+		var virtFakeClient *kubevirtfake.Clientset
+		const (
+			nsName  = "testns"
+			vmName  = "testvm"
+			pvcName = "test-pvc"
+		)
+
+		BeforeEach(func() {
+			virtFakeClient = kubevirtfake.NewSimpleClientset()
+			virtClient.EXPECT().VirtualMachine(nsName).Return(virtFakeClient.KubevirtV1().VirtualMachines(nsName)).AnyTimes()
+		})
+
+		It("Should add persistentStateVolume when not previously set", func() {
+			vm := &virtv1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmName,
+					Namespace: nsName,
+				},
+			}
+			_, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			pvc := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: nsName,
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				},
+			}
+
+			err = backendStorage.UpdatePersistentStateVolume(vm, pvc)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedVM, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Get(context.Background(), vmName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVM.Status.PersistentStateVolume).NotTo(BeNil())
+			Expect(updatedVM.Status.PersistentStateVolume.Name).To(Equal(pvcName))
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo).NotTo(BeNil())
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal(pvcName))
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.AccessModes).To(Equal([]v1.PersistentVolumeAccessMode{v1.ReadWriteOnce}))
+		})
+
+		It("Should replace persistentStateVolume when already set", func() {
+			oldPVCName := "old-pvc"
+			vm := &virtv1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmName,
+					Namespace: nsName,
+				},
+				Status: virtv1.VirtualMachineStatus{
+					PersistentStateVolume: &virtv1.VolumeStatus{
+						Name: oldPVCName,
+						PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+							ClaimName:   oldPVCName,
+							AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+						},
+					},
+				},
+			}
+			_, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			newPVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: nsName,
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				},
+			}
+
+			err = backendStorage.UpdatePersistentStateVolume(vm, newPVC)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedVM, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Get(context.Background(), vmName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVM.Status.PersistentStateVolume).NotTo(BeNil())
+			Expect(updatedVM.Status.PersistentStateVolume.Name).To(Equal(pvcName))
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal(pvcName))
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.AccessModes).To(Equal([]v1.PersistentVolumeAccessMode{v1.ReadWriteOnce}))
+		})
+	})
+
+	Context("Migration with PersistentStateVolume", func() {
+		var k8sClient *k8sfake.Clientset
+		var virtFakeClient *kubevirtfake.Clientset
+		var migration *virtv1.VirtualMachineInstanceMigration
+		const (
+			nsName        = "testns"
+			vmiName       = "testvmi"
+			vmName        = "testvm"
+			sourcePVCName = "sourcepvc"
+			targetPVCName = "targetpvc"
+			migrationName = "migration"
+		)
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtFakeClient = kubevirtfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			virtClient.EXPECT().VirtualMachine(nsName).Return(virtFakeClient.KubevirtV1().VirtualMachines(nsName)).AnyTimes()
+
+			sourcePVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:   sourcePVCName,
+					Labels: map[string]string{"persistent-state-for": vmiName},
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				},
+			}
+			targetPVC := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:   targetPVCName,
+					Labels: map[string]string{"kubevirt.io/migrationName": migrationName},
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				},
+			}
+			pvc, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), sourcePVC, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			err = pvcStore.Add(pvc)
+			Expect(err).NotTo(HaveOccurred())
+			pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Create(context.TODO(), targetPVC, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			err = pvcStore.Add(pvc)
+			Expect(err).NotTo(HaveOccurred())
+
+			migration = &virtv1.VirtualMachineInstanceMigration{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      migrationName,
+					Namespace: nsName,
+				},
+				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+					VMIName: vmiName,
+				},
+				Status: virtv1.VirtualMachineInstanceMigrationStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+						SourcePersistentStatePVCName: sourcePVCName,
+						TargetPersistentStatePVCName: targetPVCName,
+					},
+				},
+			}
+		})
+
+		It("Should update VM persistentStateVolume on successful migration handoff", func() {
+			vm := &virtv1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmName,
+					Namespace: nsName,
+				},
+			}
+			_, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			err = backendStorage.MigrationHandoff(migration, vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedVM, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Get(context.Background(), vmName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVM.Status.PersistentStateVolume).NotTo(BeNil())
+			Expect(updatedVM.Status.PersistentStateVolume.Name).To(Equal(targetPVCName))
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal(targetPVCName))
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.AccessModes).To(Equal([]v1.PersistentVolumeAccessMode{v1.ReadWriteOnce}))
+		})
+
+		It("Should not fail when VM is nil on migration handoff", func() {
+			err := backendStorage.MigrationHandoff(migration, nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should update VM persistentStateVolume with RWX PVC on successful migration", func() {
+			targetPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), targetPVCName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			targetPVC.Spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.ReadWriteMany}
+			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Update(context.TODO(), targetPVC, k8smetav1.UpdateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			err = pvcStore.Update(targetPVC)
+			Expect(err).NotTo(HaveOccurred())
+
+			vm := &virtv1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmName,
+					Namespace: nsName,
+				},
+			}
+			_, err = virtFakeClient.KubevirtV1().VirtualMachines(nsName).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			err = backendStorage.MigrationHandoff(migration, vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			updatedVM, err := virtFakeClient.KubevirtV1().VirtualMachines(nsName).Get(context.Background(), vmName, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVM.Status.PersistentStateVolume).NotTo(BeNil())
+			Expect(updatedVM.Status.PersistentStateVolume.PersistentVolumeClaimInfo.AccessModes).To(Equal([]v1.PersistentVolumeAccessMode{v1.ReadWriteMany}))
+		})
+	})
+
 	Context("IsBackendStorageNeeded", func() {
 		var vm *virtv1.VirtualMachine
 		var vmi *virtv1.VirtualMachineInstance
