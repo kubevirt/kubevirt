@@ -1712,8 +1712,6 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
-	setupStableFirmwareUUID(vm, vmi)
-
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
 	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
@@ -1755,25 +1753,6 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	return stateChange.Action == virtv1.StopRequest &&
 		stateChange.UID != nil &&
 		*stateChange.UID == vmi.UID
-}
-
-// setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
-// The UUID is 'stable' if doesn't change across reboots.
-func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-
-	logger := log.Log.Object(vm)
-
-	if vmi.Spec.Domain.Firmware == nil {
-		vmi.Spec.Domain.Firmware = &virtv1.Firmware{}
-	}
-
-	existingUUID := vmi.Spec.Domain.Firmware.UUID
-	if existingUUID != "" {
-		logger.V(4).Infof("Using existing UUID '%s'", existingUUID)
-		return
-	}
-
-	vmi.Spec.Domain.Firmware.UUID = CalculateLegacyUUID(vmi.Name)
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines

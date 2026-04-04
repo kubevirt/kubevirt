@@ -2395,21 +2395,6 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Ready).To(BeTrue())
 		})
 
-		It("should have stable firmware UUIDs", func() {
-			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi1 := SetupVMIFromVM(vm1)
-
-			// intentionally use the same names
-			vm2, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi2 := SetupVMIFromVM(vm2)
-			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
-
-			// now we want different names
-			vm3, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
-			vmi3 := SetupVMIFromVM(vm3)
-			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
-		})
-
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewString()
 			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
