@@ -35,7 +35,7 @@ import (
 type MigrationPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              MigrationPolicySpec `json:"spec" valid:"required"`
+	Spec              MigrationPolicySpec `json:"spec"`
 	// +nullable
 	Status MigrationPolicyStatus `json:"status,omitempty"`
 }
