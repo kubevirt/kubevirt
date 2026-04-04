@@ -189,6 +189,15 @@ type CloudInitNoCloudSource struct {
 	// NetworkData contains NoCloud inline cloud-init networkdata.
 	// + optional
 	NetworkData string `json:"networkData,omitempty"`
+	// VendorDataSecretRef references a k8s secret that contains NoCloud vendordata.
+	// + optional
+	VendorDataSecretRef *v1.LocalObjectReference `json:"vendorDataSecretRef,omitempty"`
+	// VendorDataBase64 contains NoCloud cloud-init vendordata as a base64 encoded string.
+	// + optional
+	VendorDataBase64 string `json:"vendorDataBase64,omitempty"`
+	// VendorData contains NoCloud inline cloud-init vendordata.
+	// + optional
+	VendorData string `json:"vendorData,omitempty"`
 }
 
 // Represents a cloud-init config drive user data source.
@@ -212,6 +221,15 @@ type CloudInitConfigDriveSource struct {
 	// NetworkData contains config drive inline cloud-init networkdata.
 	// + optional
 	NetworkData string `json:"networkData,omitempty"`
+	// VendorDataSecretRef references a k8s secret that contains config drive vendordata.
+	// + optional
+	VendorDataSecretRef *v1.LocalObjectReference `json:"vendorDataSecretRef,omitempty"`
+	// VendorDataBase64 contains config drive cloud-init vendordata as a base64 encoded string.
+	// + optional
+	VendorDataBase64 string `json:"vendorDataBase64,omitempty"`
+	// VendorData contains config drive inline cloud-init vendordata.
+	// + optional
+	VendorData string `json:"vendorData,omitempty"`
 }
 
 type DomainSpec struct {
