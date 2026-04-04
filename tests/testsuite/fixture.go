@@ -106,6 +106,10 @@ func SynchronizedBeforeTestSetup() []byte {
 	}
 
 	if flags.DeployTestingInfrastructureFlag {
+		manifests := GetListOfManifests()
+		Expect(manifests).NotTo(BeEmpty(),
+			fmt.Sprintf("-deploy-testing-infra: no *.yaml found (resolved from -path-to-testing-infra-manifests=%q; see testsuite/manifest.go)",
+				flags.PathToTestingInfrastrucureManifests))
 		WipeTestingInfrastructure()
 		DeployTestingInfrastructure()
 	}
@@ -375,7 +379,7 @@ func getKWOKNodeCount() int {
 
 func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
 	// Deploy / delete test infrastructure / dependencies
-	manifests := GetListOfManifests(flags.PathToTestingInfrastrucureManifests)
+	manifests := GetListOfManifests()
 	for _, manifest := range manifests {
 		objects := ReadManifestYamlFile(manifest)
 		for _, obj := range objects {
