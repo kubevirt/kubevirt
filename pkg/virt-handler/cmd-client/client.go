@@ -204,7 +204,7 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance, socketDirFunc func(string)
 // Finds exactly one socket on a host based on the hostname.
 // A empty hostname is wildcard.
 // Returns error otherwise.
-func FindSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, error) {
+func findSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, error) {
 	socketsFound := 0
 	foundSocket := ""
 	// It is possible for multiple pods to be active on a single VMI
@@ -236,8 +236,13 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, erro
 // Finds exactly one socket on a host based on the NODE_NAME env. Returns error otherwise.
 func FindSocket(vmi *v1.VirtualMachineInstance) (string, error) {
 	host, _ := os.LookupEnv("NODE_NAME")
-	return FindSocketOnHost(vmi, host)
+	return findSocketOnHost(vmi, host)
 }
+
+// Do not use this low level function unless you know what you are doing.
+// Particularly testing is challenging as you need to instance a fully functional GRPC server.
+//
+// It is also not wise to have unbound number of clients to the launcher, or duplicate implementation of caching or  future recognition of source/target client(in case of same node migration).
 func NewClient(socketPath string) (LauncherClient, error) {
 	// dial socket
 	conn, err := grpcutil.DialSocket(socketPath)
@@ -248,10 +253,10 @@ func NewClient(socketPath string) (LauncherClient, error) {
 
 	// create info client and find cmd version to use
 	infoClient := info.NewCmdInfoClient(conn)
-	return NewClientWithInfoClient(infoClient, conn)
+	return newClientWithInfoClient(infoClient, conn)
 }
 
-func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
+func newClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
