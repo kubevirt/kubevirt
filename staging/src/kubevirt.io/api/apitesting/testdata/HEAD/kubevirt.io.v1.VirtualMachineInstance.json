@@ -687,7 +687,8 @@
           "path": "pathValue",
           "type": "typeValue",
           "capacity": "0",
-          "shared": true
+          "shared": true,
+          "claimName": "claimNameValue"
         },
         "persistentVolumeClaim": {
           "claimName": "claimNameValue",

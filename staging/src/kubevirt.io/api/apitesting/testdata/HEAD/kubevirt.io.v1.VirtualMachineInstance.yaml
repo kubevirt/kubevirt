@@ -591,6 +591,7 @@ spec:
         readOnly: true
     hostDisk:
       capacity: "0"
+      claimName: claimNameValue
       path: pathValue
       shared: true
       type: typeValue

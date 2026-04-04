@@ -21789,6 +21789,13 @@ func schema_kubevirtio_api_core_v1_HostDisk(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the PersistentVolumeClaim that provides the backing storage for the HostDisk. This is used when the HostDisk is dynamically provisioned or managed by a PVC.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"path", "type"},
 			},
