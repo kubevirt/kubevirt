@@ -360,7 +360,6 @@ func buildVMController(
 		virtClient,
 		clusterConfig,
 		&noopSynchronizer{},
-		&noopSynchronizer{},
 		instancetypevmcontroller.NewControllerStub(),
 		nil,
 		nil,
