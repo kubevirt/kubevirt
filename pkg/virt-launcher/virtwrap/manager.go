@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -1411,6 +1412,11 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 	domainSpec *api.DomainSpec,
 ) (cli.VirDomain, error) {
 	logger := log.Log.Object(vmi)
+
+	if !defaults.SupportsPCIeHotplug(vmi.Spec.Architecture) {
+		logger.Infof("Skipping hotplug port allocation: architecture %s does not use PCIe topology", vmi.Spec.Architecture)
+		return l.setDomainSpecWithHooks(vmi, domainSpec)
+	}
 
 	placeholderCount, err := calculatePlaceholderCount(vmi)
 	if err != nil {
