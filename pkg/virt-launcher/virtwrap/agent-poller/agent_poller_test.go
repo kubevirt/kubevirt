@@ -34,7 +34,6 @@ import (
 
 var _ = Describe("Qemu agent poller", func() {
 	var fakeInterfaces []api.InterfaceStatus
-	var fakeFSFreezeStatus api.FSFreeze
 	var fakeInfo api.GuestOSInfo
 	var agentStore AsyncAgentStore
 	var ctrl *gomock.Controller
@@ -45,9 +44,6 @@ var _ = Describe("Qemu agent poller", func() {
 			{
 				Mac: "00:00:00:00:00:01",
 			},
-		}
-		fakeFSFreezeStatus = api.FSFreeze{
-			Status: "frozen",
 		}
 		fakeInfo = api.GuestOSInfo{
 			Name:          "TestGuestOSName",
@@ -103,44 +99,51 @@ var _ = Describe("Qemu agent poller", func() {
 			users := agentStore.GetUsers(1)
 			Expect(users[0].Name).To(Equal("admin"))
 		})
+
+		It("should fetch and store filesystem info from guest agent", func() {
+			guestInfo := &libvirt.DomainGuestInfo{
+				FileSystems: []libvirt.DomainGuestInfoFileSystem{
+					{
+						Name:       "main",
+						MountPoint: "/",
+						FSType:     "ext4",
+						TotalBytes: 99999,
+						UsedBytes:  33333,
+						Disks: []libvirt.DomainGuestInfoFileSystemDisk{
+							{
+								Serial: "testserial-1234",
+								Alias:  "scsi0-0-0-0",
+							},
+						},
+					},
+				},
+			}
+			agentPoller := &AgentPoller{
+				Connection: mockLibvirt.VirtConnection,
+				domainName: "fake",
+				agentStore: &agentStore,
+			}
+			libvirtTypes := libvirt.DOMAIN_GUEST_INFO_FILESYSTEM
+
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
+
+			fetchAndStoreGuestInfo(libvirtTypes, agentPoller)
+
+			fsInfo := agentStore.GetFS(-1)
+			Expect(fsInfo).To(HaveLen(1))
+			Expect(fsInfo[0].Name).To(Equal("main"))
+			Expect(fsInfo[0].Mountpoint).To(Equal("/"))
+			Expect(fsInfo[0].Type).To(Equal("ext4"))
+			Expect(fsInfo[0].TotalBytes).To(Equal(99999))
+			Expect(fsInfo[0].UsedBytes).To(Equal(33333))
+			Expect(fsInfo[0].Disk).To(HaveLen(1))
+			Expect(fsInfo[0].Disk[0].Serial).To(Equal("testserial-1234"))
+			Expect(fsInfo[0].Disk[0].BusType).To(Equal("scsi0-0-0-0"))
+		})
 	})
 
 	Context("with AsyncAgentStore", func() {
-		It("should store and load the data", func() {
-			agentVersion := AgentInfo{Version: "4.1"}
-			agentStore.Store(GetAgent, agentVersion)
-			agent := agentStore.GetGA()
-
-			Expect(agent).To(Equal(agentVersion))
-		})
-
-		It("should fire an event for new fsfreezestatus", func() {
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
-
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     nil,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-					OSInfo:         nil,
-				},
-			})))
-		})
-
-		It("should not fire an event for the same fsfreezestatus", func() {
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
-
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     nil,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-					OSInfo:         nil,
-				},
-			})))
-
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
-			Expect(agentStore.AgentUpdated).ToNot(Receive())
-		})
-
 		It("should fire an event for new sysinfo data", func() {
 			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
@@ -166,20 +169,11 @@ var _ = Describe("Qemu agent poller", func() {
 				},
 			})))
 
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     fakeInterfaces,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-				},
-			})))
-
 			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     fakeInterfaces,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-					OSInfo:         &fakeInfo,
+					Interfaces: fakeInterfaces,
+					OSInfo:     &fakeInfo,
 				},
 			})))
 		})
@@ -389,10 +383,8 @@ var _ = Describe("Qemu agent poller", func() {
 // The timeout needs to be large enough to allow the expected executions to occur and to accommodate the
 // inaccuracy of the go-routine execution.
 func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout, initialInterval time.Duration) int {
-	const fakeAgentCommandName = "foo"
 	w := PollerWorker{
-		CallTick:      time.Duration(interval),
-		AgentCommands: []AgentCommand{fakeAgentCommandName},
+		CallTick: time.Duration(interval),
 	}
 	// Closing the c channel assures go-routine termination.
 	// The done channel is a receiver, therefore left to the gc for collection.
