@@ -24,6 +24,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -83,4 +84,27 @@ func Admit(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admission
 func AdmitStatus(virtClient kubecli.KubevirtClient, ctx context.Context, ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) []metav1.StatusCause {
 	storageAdmitter := NewAdmitter(virtClient, ctx, ar, vm, clusterConfig)
 	return storageAdmitter.AdmitStatus()
+}
+
+
+func Validate(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	causes = append(causes, ValidateContainerDisks(field, vmiSpec)...)
+	causes = append(causes, ValidateUtilityVolumesNotPresentOnCreation(field, vmiSpec)...)
+	causes = append(causes, ValidateDisks(field.Child("domain", "devices", "disks"), vmiSpec.Domain.Devices.Disks)...)
+
+	if vmiSpec.Domain.Firmware != nil && vmiSpec.Domain.Firmware.KernelBoot != nil && vmiSpec.Domain.Firmware.KernelBoot.Container != nil {
+		container := vmiSpec.Domain.Firmware.KernelBoot.Container
+		containerField := field.Child("domain", "firmware", "kernelBoot", "container")
+
+		if container.KernelPath != "" {
+			causes = append(causes, ValidatePath(containerField.Child("kernelPath"), container.KernelPath)...)
+		}
+		if container.InitrdPath != "" {
+			causes = append(causes, ValidatePath(containerField.Child("initrdPath"), container.InitrdPath)...)
+		}
+	}
+
+	return causes
 }
