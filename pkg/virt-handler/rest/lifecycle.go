@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 
@@ -87,6 +88,11 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 	err = client.UnpauseVirtualMachine(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to unpause VMI")
+		if strings.Contains(err.Error(), "LibvirtError(Code=55") {
+			response.WriteError(http.StatusConflict, fmt.Errorf("Cannot unpause VM during migration"))
+			return
+		}
+
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -165,6 +171,11 @@ func (lh *LifecycleHandler) ResetHandler(request *restful.Request, response *res
 	err = client.ResetVirtualMachine(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to reset VMI")
+		if strings.Contains(err.Error(), "LibvirtError(Code=55") {
+			response.WriteError(http.StatusConflict, fmt.Errorf("Cannot reset VM during migration"))
+			return
+		}
+
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
