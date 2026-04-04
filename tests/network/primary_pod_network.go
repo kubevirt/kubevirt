@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -50,6 +51,27 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+	})
+
+	It("should persist default network interface on VM spec", func() {
+		vmiSpec := libvmifact.NewAlpine()
+		vm := libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+		var err error
+		vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		expectedBinding := defaultInterfaceBinding(libkubevirt.GetCurrentKv(virtClient))
+
+		Expect(vm.Spec.Template.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+		Expect(vm.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal([]v1.Interface{
+			{Name: v1.DefaultPodNetwork().Name, InterfaceBindingMethod: expectedBinding},
+		}))
 	})
 
 	Describe("Status", func() {
@@ -166,6 +188,14 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 	return vmi
+}
+
+func defaultInterfaceBinding(kv *v1.KubeVirt) v1.InterfaceBindingMethod {
+	if kv.Spec.Configuration.NetworkConfiguration != nil &&
+		v1.NetworkInterfaceType(kv.Spec.Configuration.NetworkConfiguration.NetworkInterface) == v1.MasqueradeInterface {
+		return v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}
+	}
+	return v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}
 }
 
 func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
