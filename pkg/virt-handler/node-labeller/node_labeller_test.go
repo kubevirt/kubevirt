@@ -152,11 +152,26 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should add SEVES label", func() {
+		// Use a fixture with SEV-ES but no SEV-SNP so the CVE-2025-48514 guard
+		nlController.domCapabilitiesFileName = "domcapabilities_sev.xml"
+		Expect(nlController.loadAll()).Should(Succeed())
+
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
+		Expect(node.Labels).ToNot(HaveKey(v1.SEVSNPLabel))
+	})
+
+	It("should not add SEV-ES label on SEV-SNP host (CVE-2025-48514)", func() {
+		// The default virsh_domcapabilities.xml advertises SEV-SNP.
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.SEVESLabel)))
+		Expect(node.Labels).To(HaveKey(v1.SEVSNPLabel))
 	})
 
 	It("should not add SecureExecution label", func() {
