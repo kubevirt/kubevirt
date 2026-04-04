@@ -382,14 +382,15 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 func getVMIMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceMigration {
 	var migration *v1.VirtualMachineInstanceMigration
 	EventuallyWithOffset(1, func() bool {
-		listOpts := k8smetav1.ListOptions{
-			LabelSelector: fmt.Sprintf("kubevirt.io/vmi-name=%s", vmi.Name),
-		}
-		migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), listOpts)
+		// List all migrations and filter by Spec.VMIName
+		allMigrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), k8smetav1.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		if len(migrations.Items) > 0 {
-			migration = migrations.Items[0].DeepCopy()
-			return true
+
+		for _, mig := range allMigrations.Items {
+			if mig.Spec.VMIName == vmi.Name {
+				migration = mig.DeepCopy()
+				return true
+			}
 		}
 		return false
 	}, 30*time.Second, time.Second).Should(BeTrue(), "A migration should be created")

@@ -157,7 +157,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 		})
 
-		Context("Should trigger event if the nodes doesn't contain MigrationSelectorLabel for the vmi host-model type", Serial, func() {
+		Context("Should trigger event if the nodes doesn't contain supported host model labels for the vmi host-model type", Serial, func() {
 			var (
 				vmi   *v1.VirtualMachineInstance
 				nodes []k8sv1.Node

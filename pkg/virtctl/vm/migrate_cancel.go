@@ -65,12 +65,16 @@ func migrateCancelRun(cmd *cobra.Command, args []string) error {
 }
 
 func migrateCancel(ctx context.Context, virtClient kubecli.KubevirtClient, vmiName string, namespace string) error {
-	// get a list of migrations for vmiName (use LabelSelector filter)
-	labelSelector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)
-	migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector})
+	allMigrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("Error fetching virtual machine instance migration list  %v", err)
+	}
+
+	var migrations v1.VirtualMachineInstanceMigrationList
+	for _, mig := range allMigrations.Items {
+		if mig.Spec.VMIName == vmiName {
+			migrations.Items = append(migrations.Items, mig)
+		}
 	}
 
 	deleteOpts := metav1.DeleteOptions{

@@ -2048,7 +2048,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					Consistently(matcher.ThisMigration(migration), 60*time.Second, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationScheduling))
 
 					By("Finding VMI's pod and expecting one to be running and the other to be pending")
-					labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.GetUID())))
+					labelSelector, err := labels.Parse(fmt.Sprintf("%s=virt-launcher,%s=%s", v1.AppLabel, v1.CreatedByLabel, string(vmi.GetUID())))
 					Expect(err).ShouldNot(HaveOccurred())
 
 					vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
@@ -2647,22 +2647,21 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Checking that there always is at most one migration running")
-			labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
-			Expect(err).ToNot(HaveOccurred())
-			listOptions := metav1.ListOptions{
-				LabelSelector: labelSelector.String(),
-			}
 			Consistently(func() int {
 				vmim := libmigration.New(vmi.Name, vmi.Namespace)
 				// not checking err as the migration creation will be blocked immediately by virt-api's validating webhook
 				// if another one is currently running
 				vmim, _ = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).List(context.Background(), listOptions)
+				// List all migrations and filter by Spec.VMIName
+				allMigrations, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				activeMigrations := 0
-				for _, migration := range migrations.Items {
+				for _, migration := range allMigrations.Items {
+					if migration.Spec.VMIName != vmi.Name {
+						continue
+					}
 					switch migration.Status.Phase {
 					case v1.MigrationScheduled, v1.MigrationPreparingTarget, v1.MigrationTargetReady, v1.MigrationRunning:
 						activeMigrations += 1
