@@ -43,6 +43,7 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
@@ -1514,6 +1515,11 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 	domainSpec *api.DomainSpec,
 ) (cli.VirDomain, error) {
 	logger := log.Log.Object(vmi)
+
+	if !defaults.SupportsPCIeHotplug(vmi.Spec.Architecture) {
+		logger.Infof("Skipping hotplug port allocation: architecture %s does not use PCIe topology", vmi.Spec.Architecture)
+		return l.setDomainSpecWithHooks(vmi, domainSpec)
+	}
 
 	placeholderCount, err := calculatePlaceholderCount(vmi)
 	if err != nil {
