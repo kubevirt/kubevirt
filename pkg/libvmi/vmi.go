@@ -20,8 +20,11 @@
 package libvmi
 
 import (
+	"strings"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -48,9 +51,14 @@ func RegisterDefaultOption(opt Option) {
 }
 
 // randName returns a random name for a virtual machine
+// the name is made long in order to tickle would-be bugs that are related to
+// long names. Use a long xxxxxxxxx suffix for a lesser disturbance to human
+// log viewers.
 func randName() string {
 	const randomPostfixLen = 5
-	return "testvmi" + "-" + rand.String(randomPostfixLen)
+	const prefix = "testvmi-"
+	const xLen = validation.DNS1035LabelMaxLength - randomPostfixLen - len(prefix) - 1
+	return prefix + rand.String(randomPostfixLen) + "-" + strings.Repeat("x", xLen)
 }
 
 func baseVmi(name string) *v1.VirtualMachineInstance {

@@ -1071,7 +1071,6 @@ func translateServicePortToTargetPort(localPort string, remotePort string, svc k
 // waitForExportServiceToBeReady waits until the vmexport service is ready for port-forwarding
 func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
 	service := &k8sv1.Service{}
-	serviceName := fmt.Sprintf("virt-export-%s", vmeInfo.Name)
 	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil || vmexport == nil {
@@ -1080,6 +1079,12 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 
 		if vmexport.Status == nil || vmexport.Status.Phase != exportv1.Ready {
 			printToOutput("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
+			return false, nil
+		}
+
+		serviceName := vmexport.Status.ServiceName
+		if serviceName == "" {
+			printToOutput("waiting for VM Export %s service name to be set...\n", vmeInfo.Name)
 			return false, nil
 		}
 
