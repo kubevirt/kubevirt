@@ -71,26 +71,143 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
 fi
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
+KUBEVIRT_PUSH_PARALLELISM=${KUBEVIRT_PUSH_PARALLELISM:-1}
 
-for tag in ${docker_tag} ${docker_tag_alt}; do
-    for target in ${PUSH_TARGETS[@]}; do
+if ! [[ "${KUBEVIRT_PUSH_PARALLELISM}" =~ ^[0-9]+$ ]] || [[ "${KUBEVIRT_PUSH_PARALLELISM}" -lt 1 ]]; then
+    echo "KUBEVIRT_PUSH_PARALLELISM must be a positive integer, got '${KUBEVIRT_PUSH_PARALLELISM}'"
+    exit 1
+fi
 
-        bazel run \
-            --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
-            //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
+function push_image() {
+    local target=$1
+    local repository=$2
+    local tag=$3
 
+    bazel run \
+        --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
+        //:push-${target} -- --repository ${repository} --tag ${tag}
+}
+
+function push_images_sequentially() {
+    for tag in ${docker_tag} ${docker_tag_alt}; do
+        for target in ${PUSH_TARGETS[@]}; do
+            push_image ${target} ${docker_prefix}/${image_prefix}${target} ${tag}
+        done
     done
-done
 
-# for the imagePrefix operator test
-if [[ $image_prefix_alt ]]; then
-    for target in ${PUSH_TARGETS[@]}; do
+    # for the imagePrefix operator test
+    if [[ $image_prefix_alt ]]; then
+        for target in ${PUSH_TARGETS[@]}; do
+            push_image ${target} ${docker_prefix}/${image_prefix_alt}${target} ${docker_tag}
+        done
+    fi
+}
 
-        bazel run \
-            --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
-            //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${docker_tag}
+function push_images_in_parallel() {
+    local log_dir
+    log_dir=$(mktemp -d)
+    trap 'rm -rf "${log_dir}"' EXIT
 
+    local -a task_targets=()
+    local -a task_repositories=()
+    local -a task_tags=()
+    local -a task_logs=()
+    local -a task_statuses=()
+
+    local task_count=0
+
+    function enqueue_task() {
+        local target=$1
+        local repository=$2
+        local tag=$3
+
+        task_targets[${task_count}]="${target}"
+        task_repositories[${task_count}]="${repository}"
+        task_tags[${task_count}]="${tag}"
+        task_logs[${task_count}]="${log_dir}/${task_count}-${target}-${tag}.log"
+        task_statuses[${task_count}]="1"
+        task_count=$((task_count + 1))
+    }
+
+    for tag in ${docker_tag} ${docker_tag_alt}; do
+        for target in ${PUSH_TARGETS[@]}; do
+            enqueue_task ${target} ${docker_prefix}/${image_prefix}${target} ${tag}
+        done
     done
+
+    # for the imagePrefix operator test
+    if [[ $image_prefix_alt ]]; then
+        for target in ${PUSH_TARGETS[@]}; do
+            enqueue_task ${target} ${docker_prefix}/${image_prefix_alt}${target} ${docker_tag}
+        done
+    fi
+
+    local -a running_pids=()
+    local -a running_task_ids=()
+
+    function wait_for_task() {
+        local pid=$1
+        local task_id=$2
+
+        if wait ${pid}; then
+            task_statuses[${task_id}]="0"
+        else
+            task_statuses[${task_id}]="$?"
+        fi
+    }
+
+    function wait_for_oldest_running_task() {
+        wait_for_task ${running_pids[0]} ${running_task_ids[0]}
+        running_pids=("${running_pids[@]:1}")
+        running_task_ids=("${running_task_ids[@]:1}")
+    }
+
+    local task_id
+    for ((task_id = 0; task_id < task_count; task_id++)); do
+        push_image \
+            "${task_targets[${task_id}]}" \
+            "${task_repositories[${task_id}]}" \
+            "${task_tags[${task_id}]}" \
+            >"${task_logs[${task_id}]}" 2>&1 &
+
+        running_pids+=("$!")
+        running_task_ids+=("${task_id}")
+
+        if [[ ${#running_pids[@]} -ge ${KUBEVIRT_PUSH_PARALLELISM} ]]; then
+            wait_for_oldest_running_task
+        fi
+    done
+
+    while [[ ${#running_pids[@]} -gt 0 ]]; do
+        wait_for_oldest_running_task
+    done
+
+    local failures=0
+    for ((task_id = 0; task_id < task_count; task_id++)); do
+        local target=${task_targets[${task_id}]}
+        local repository=${task_repositories[${task_id}]}
+        local tag=${task_tags[${task_id}]}
+        local status=${task_statuses[${task_id}]}
+
+        echo "[PUSH][${task_id}/${task_count}] ${repository}:${tag} (target=${target})"
+        cat "${task_logs[${task_id}]}"
+
+        if [[ ${status} != "0" ]]; then
+            echo "[PUSH][FAILED] ${repository}:${tag} (target=${target}, exit=${status})"
+            failures=$((failures + 1))
+        fi
+    done
+
+    if [[ ${failures} -gt 0 ]]; then
+        echo "${failures} image push task(s) failed"
+        exit 1
+    fi
+}
+
+if [[ ${KUBEVIRT_PUSH_PARALLELISM} -eq 1 ]]; then
+    push_images_sequentially
+else
+    push_images_in_parallel
 fi
 
 rm -rf ${DIGESTS_DIR}/${ARCHITECTURE}
