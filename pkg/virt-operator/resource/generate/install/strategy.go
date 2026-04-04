@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -351,18 +352,55 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 }
 
 func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, potentionalMonitorNamespaces []string, monitorServiceAccount string) (namespace string, err error) {
-	for _, ns := range potentionalMonitorNamespaces {
-		if nsExists, err := isNamespaceExist(clientset, ns); nsExists {
-			// the monitoring service account must be in the monitoring namespace otherwise
-			// we won't be able to create roleBinding for prometheus operator pods
-			if saExists, err := isServiceAccountExist(clientset, ns, monitorServiceAccount); saExists {
-				return ns, nil
-			} else if err != nil {
-				return "", err
-			}
-		} else if err != nil {
-			return "", err
+	// Use retry logic with reasonable defaults to handle race conditions during upgrades
+	return getMonitorNamespaceWithRetry(clientset, potentionalMonitorNamespaces, monitorServiceAccount, 3, 1*time.Second)
+}
+
+// getMonitorNamespaceWithRetry attempts to find the monitoring namespace with retry logic
+// to handle race conditions during upgrades when ServiceAccounts might be temporarily unavailable
+func getMonitorNamespaceWithRetry(clientset k8coresv1.CoreV1Interface, potentionalMonitorNamespaces []string, monitorServiceAccount string, maxRetries int, initialBackoff time.Duration) (namespace string, err error) {
+	backoff := initialBackoff
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			log.Log.Infof("Retry attempt %d/%d to find monitoring ServiceAccount %s, waiting %v", attempt-1, maxRetries-1, monitorServiceAccount, backoff)
+			time.Sleep(backoff)
+			backoff *= 2 // Exponential backoff
 		}
+
+		for _, ns := range potentionalMonitorNamespaces {
+			nsExists, err := isNamespaceExist(clientset, ns)
+			if err != nil && !errors.IsNotFound(err) {
+				// Non-NotFound errors should be returned immediately
+				return "", fmt.Errorf("error checking if namespace %s exists: %v", ns, err)
+			}
+
+			if nsExists {
+				// the monitoring service account must be in the monitoring namespace otherwise
+				// we won't be able to create roleBinding for prometheus operator pods
+				saExists, err := isServiceAccountExist(clientset, ns, monitorServiceAccount)
+				if err != nil && !errors.IsNotFound(err) {
+					// Non-NotFound errors should be returned immediately
+					return "", fmt.Errorf("error checking if ServiceAccount %s exists in namespace %s: %v", monitorServiceAccount, ns, err)
+				}
+
+				if saExists {
+					if attempt > 1 {
+						log.Log.Infof("Successfully found monitoring ServiceAccount %s in namespace %s after %d attempts", monitorServiceAccount, ns, attempt)
+					}
+					return ns, nil
+				}
+
+				lastErr = fmt.Errorf("ServiceAccount %s not found in namespace %s", monitorServiceAccount, ns)
+			}
+		}
+	}
+
+	// All retries exhausted
+	if lastErr != nil {
+		log.Log.Warningf("Failed to find monitoring ServiceAccount %s after %d attempts in namespaces %v: %v", 
+			monitorServiceAccount, maxRetries, potentionalMonitorNamespaces, lastErr)
 	}
 	return "", nil
 }
@@ -518,12 +556,25 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllSynchronizationController(config.GetNamespace())...)
 
 	monitorServiceAccount := config.GetMonitorServiceAccountName()
+	// Check if ServiceMonitorNamespace is explicitly configured in KubeVirt CR
+	// This takes precedence to ensure monitoring isn't accidentally disabled during upgrades
+	explicitServiceMonitorNs := config.GetServiceMonitorNamespace()
 	isServiceAccountFound := monitorNamespace != ""
-
-	if isServiceAccountFound {
-		serviceMonitorNamespace := config.GetServiceMonitorNamespace()
+	
+	// If ServiceMonitorNamespace is explicitly configured, always create monitoring resources
+	// even if we couldn't verify the ServiceAccount (it might be a temporary timing issue)
+	if explicitServiceMonitorNs != "" || isServiceAccountFound {
+		serviceMonitorNamespace := explicitServiceMonitorNs
 		if serviceMonitorNamespace == "" {
 			serviceMonitorNamespace = monitorNamespace
+		}
+
+		// If we have an explicit config but couldn't find the ServiceAccount, warn but proceed
+		if explicitServiceMonitorNs != "" && !isServiceAccountFound {
+			log.Log.Warningf("ServiceMonitorNamespace is explicitly configured as %s, but ServiceAccount %s was not found in monitoring namespaces %v. Creating ServiceMonitor anyway to avoid disabling monitoring during upgrades. If this is incorrect, monitoring may not work until the ServiceAccount is created.",
+				explicitServiceMonitorNs, monitorServiceAccount, config.GetPotentialMonitorNamespaces())
+			// Use the explicit ServiceMonitor namespace for RBAC to keep them in sync
+			monitorNamespace = explicitServiceMonitorNs
 		}
 
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
