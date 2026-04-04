@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["version.go"],
+    importpath = "kubevirt.io/kubevirt/tests/operator/version",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/coreos/go-semver/semver:go_default_library",
+        "//vendor/github.com/google/go-github/v32/github:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "version_suite_test.go",
+        "version_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/google/go-github/v32/github:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)
