@@ -772,6 +772,9 @@ const (
 	VirtualMachineInstanceDecentralizedMigrationBlocked VirtualMachineInstanceMigrationConditionType = "decentralizedMigrationBlocked"
 	// VirtualMachineInstanceMigrationBlockedByBackup indicates that migration is waiting for backup to complete or abort
 	VirtualMachineInstanceMigrationBlockedByBackup VirtualMachineInstanceMigrationConditionType = "migrationBlockedByBackup"
+	// VirtualMachineInstanceMigrationHandoffFailed indicates that the backend-storage PVC
+	// handoff step has failed at least once.
+	VirtualMachineInstanceMigrationHandoffFailed VirtualMachineInstanceMigrationConditionType = "migrationHandoffFailed"
 )
 
 type VirtualMachineInstanceCondition struct {
