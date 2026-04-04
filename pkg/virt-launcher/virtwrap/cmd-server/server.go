@@ -28,6 +28,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -37,6 +38,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -49,15 +51,23 @@ const (
 
 type ServerOptions struct {
 	allowEmulation bool
+	notifier       *notifyclient.Notifier
+	vmi            *v1.VirtualMachineInstance
 }
 
-func NewServerOptions(allowEmulation bool) *ServerOptions {
-	return &ServerOptions{allowEmulation: allowEmulation}
+func NewServerOptions(allowEmulation bool, notifier *notifyclient.Notifier, vmi *v1.VirtualMachineInstance) *ServerOptions {
+	return &ServerOptions{
+		allowEmulation: allowEmulation,
+		notifier:       notifier,
+		vmi:            vmi,
+	}
 }
 
 type Launcher struct {
 	domainManager  virtwrap.DomainManager
 	allowEmulation bool
+	notifier       *notifyclient.Notifier
+	vmi            *v1.VirtualMachineInstance
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -613,6 +623,13 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 	if err != nil {
 		resp.Response.Success = false
 		resp.Response.Message = err.Error()
+		if l.notifier != nil && l.vmi != nil {
+			eventMsg := fmt.Sprintf("GuestAgentPing probe failed for VMI %s: %v", l.vmi.Name, err)
+			if sendErr := l.notifier.SendK8sEvent(l.vmi, k8sv1.EventTypeWarning, "GuestAgentPingFailed", eventMsg); sendErr != nil {
+				log.Log.Reason(sendErr).Warning("Failed to send GuestAgentPingFailed event")
+			}
+		}
+
 		return resp, err
 	}
 	return resp, nil
@@ -622,17 +639,17 @@ func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
 	options *ServerOptions) (chan struct{}, error) {
-
-	allowEmulation := false
-	if options != nil {
-		allowEmulation = options.allowEmulation
-	}
-
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	server := &Launcher{
-		domainManager:  domainManager,
-		allowEmulation: allowEmulation,
+		domainManager: domainManager,
 	}
+
+	if options != nil {
+		server.allowEmulation = options.allowEmulation
+		server.notifier = options.notifier
+		server.vmi = options.vmi
+	}
+
 	registerInfoServer(grpcServer)
 
 	// register more versions as soon as needed
