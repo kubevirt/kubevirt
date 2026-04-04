@@ -20,9 +20,16 @@
 package libstorage
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/errorhandling"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -71,4 +78,90 @@ func LoadConfig() (*KubeVirtTestsConfiguration, error) {
 	err = json.Unmarshal(byteValue, config)
 
 	return config, err
+}
+
+// DiscoverStorageCapabilitiesFromSC queries the CDI StorageProfile for the given storage class
+// and populates the test configuration based on its capabilities.
+func DiscoverStorageCapabilitiesFromSC(virtClient kubecli.KubevirtClient, storageClassName string) error {
+	if storageClassName == "" {
+		return fmt.Errorf("storage class name cannot be empty")
+	}
+
+	fmt.Printf("Auto-discovering storage capabilities from StorageClass: %s\n", storageClassName)
+
+	sp, err := virtClient.CdiClient().CdiV1beta1().StorageProfiles().Get(
+		context.Background(), storageClassName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get StorageProfile for %s: %w", storageClassName, err)
+	}
+
+	// Parse capabilities from StorageProfile
+	var rwxFilesystem, rwxBlock, rwoFilesystem, rwoBlock bool
+	for _, propSet := range sp.Status.ClaimPropertySets {
+		if propSet.VolumeMode == nil {
+			continue
+		}
+		for _, accessMode := range propSet.AccessModes {
+			switch {
+			case *propSet.VolumeMode == k8sv1.PersistentVolumeFilesystem && accessMode == k8sv1.ReadWriteOnce:
+				rwoFilesystem = true
+			case *propSet.VolumeMode == k8sv1.PersistentVolumeFilesystem && accessMode == k8sv1.ReadWriteMany:
+				rwxFilesystem = true
+			case *propSet.VolumeMode == k8sv1.PersistentVolumeBlock && accessMode == k8sv1.ReadWriteOnce:
+				rwoBlock = true
+			case *propSet.VolumeMode == k8sv1.PersistentVolumeBlock && accessMode == k8sv1.ReadWriteMany:
+				rwxBlock = true
+			}
+		}
+	}
+	hasSnapshot := sp.Status.SnapshotClass != nil && *sp.Status.SnapshotClass != ""
+	hasCSI := sp.Status.Provisioner != nil && *sp.Status.Provisioner != ""
+
+	// Clear existing config and apply only what this storage class supports
+	*Config = KubeVirtTestsConfiguration{}
+
+	if rwoFilesystem {
+		Config.StorageRWOFileSystem = storageClassName
+		Config.StorageVMState = storageClassName
+	}
+	if rwoBlock {
+		Config.StorageRWOBlock = storageClassName
+	}
+	if rwxFilesystem {
+		Config.StorageRWXFileSystem = storageClassName
+	}
+	if rwxBlock {
+		Config.StorageRWXBlock = storageClassName
+	}
+	if hasSnapshot {
+		Config.StorageSnapshot = storageClassName
+	}
+	if hasCSI {
+		Config.StorageClassCSI = storageClassName
+	}
+	if rwoBlock || rwoFilesystem {
+		Config.StorageClassRhel = storageClassName
+		Config.StorageClassWindows = storageClassName
+	}
+
+	// Print discovered configuration
+	fmt.Println("Discovered storage configuration:")
+	fmt.Printf("  StorageRWOFileSystem: %s\n", valueOrNotAvailable(Config.StorageRWOFileSystem))
+	fmt.Printf("  StorageRWOBlock: %s\n", valueOrNotAvailable(Config.StorageRWOBlock))
+	fmt.Printf("  StorageRWXFileSystem: %s\n", valueOrNotAvailable(Config.StorageRWXFileSystem))
+	fmt.Printf("  StorageRWXBlock: %s\n", valueOrNotAvailable(Config.StorageRWXBlock))
+	fmt.Printf("  StorageSnapshot: %s\n", valueOrNotAvailable(Config.StorageSnapshot))
+	fmt.Printf("  StorageClassCSI: %s\n", valueOrNotAvailable(Config.StorageClassCSI))
+	fmt.Printf("  StorageVMState: %s\n", valueOrNotAvailable(Config.StorageVMState))
+	fmt.Printf("  StorageClassRhel: %s\n", valueOrNotAvailable(Config.StorageClassRhel))
+	fmt.Printf("  StorageClassWindows: %s\n", valueOrNotAvailable(Config.StorageClassWindows))
+
+	return nil
+}
+
+func valueOrNotAvailable(s string) string {
+	if s == "" {
+		return "(not available)"
+	}
+	return s
 }
