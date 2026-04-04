@@ -56,14 +56,14 @@ func (ws *wsStreamer) AsConn() net.Conn {
 	return &wsConn{
 		Conn:         ws.conn,
 		binaryReader: &binaryReader{conn: ws.conn},
-		binaryWriter: &binaryWriter{conn: ws.conn},
+		BinaryWriter: &BinaryWriter{Conn: ws.conn},
 	}
 }
 
 type wsConn struct {
 	*websocket.Conn
 	*binaryReader
-	*binaryWriter
+	*BinaryWriter
 }
 
 func (c *wsConn) SetDeadline(t time.Time) error {
