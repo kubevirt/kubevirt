@@ -28,7 +28,6 @@ import (
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
-	virtutil "kubevirt.io/kubevirt/pkg/util"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -36,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -293,7 +293,7 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 	}
 
 	domainName := util.DomainFromNamespaceName(vmi.Namespace, vmi.Name)
-	nonRoot := virtutil.IsNonRootVMI(vmi)
+	nonRoot := vmitrait.IsNonRoot(vmi)
 	logPath := util.GetQemuLogPath(domainName, nonRoot)
 
 	panicInfo, err := util.ReadPanicInfoFromLog(logPath)
