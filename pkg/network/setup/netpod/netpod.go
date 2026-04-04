@@ -346,7 +346,10 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
-	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	podIfaceAlternativeName, err := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	if err != nil {
+		return nil, err
+	}
 	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
 	if !exist {
 		podStatusIface = ifaceStatusByName[podIfaceName]
@@ -474,7 +477,10 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
 	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
-	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	podIfaceAlternativeName, err := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	if err != nil {
+		return nil, err
+	}
 	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
 	if !exist {
 		podStatusIface = ifaceStatusByName[podIfaceName]
