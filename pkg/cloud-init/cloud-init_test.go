@@ -40,7 +40,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("CloudInit", func() {
+const (
+	customMetaAppKey         = "app_name"
+	customMetaAppVal         = "my-app"
+	customMetaAppLargeVal    = "my-application"
+	customMetaEnvironmentKey = "environment"
+	customMetaEnvironmentVal = "production"
+	customMetaCostCenterKey  = "cost_center"
+	customMetaCostCenterVal  = "12345"
+	customMetaTeamKey        = "team"
+	customMetaTeamVal        = "platform-engineering"
+)
+
+var _ = Describe("Cloud-Init", func() {
 
 	var (
 		isoCreationFunc IsoCreationFunc
@@ -448,12 +460,66 @@ var _ = Describe("CloudInit", func() {
 						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
 					})
 
-					It("should fail if both userdata and network data does not exist", func() {
-						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
+					DescribeTable("should fail if no cloud-init data-source exists",
+						func(cloudInitVolumeType string,
+							volumeFunc func(name, secret string) *v1.Volume,
+							resolveFunc func(*v1.VirtualMachineInstance, string) (map[string]string, error)) {
+							testVolume := volumeFunc("test-volume", "test-secret")
+							vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+							_, err := resolveFunc(vmi, tmpDir)
+							Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
+							Expect(err).To(MatchError("no cloud-init data-source found at volume: test-volume"))
+						},
+						Entry("for NoCloud", "NoCloud", func(name, secret string) *v1.Volume {
+							return &v1.Volume{
+								Name: name,
+								VolumeSource: v1.VolumeSource{
+									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+										UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: secret},
+										NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: secret},
+										MetaDataSecretRef:    &k8sv1.LocalObjectReference{Name: secret},
+									},
+								},
+							}
+						}, resolveNoCloudSecrets),
+						Entry("for ConfigDrive", "ConfigDrive", func(name, secret string) *v1.Volume {
+							return &v1.Volume{
+								Name: name,
+								VolumeSource: v1.VolumeSource{
+									CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+										UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: secret},
+										NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: secret},
+										MetaDataSecretRef:    &k8sv1.LocalObjectReference{Name: secret},
+									},
+								},
+							}
+						}, resolveConfigDriveSecrets),
+					)
+
+					It("should resolve MetaDataSecretRef from volume", func() {
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						fakeVolumeMountDir("test-volume", map[string]string{
+							customMetaAppKey:         customMetaAppVal,
+							customMetaEnvironmentKey: customMetaEnvironmentVal,
+						})
+
 						_, err := resolveNoCloudSecrets(vmi, tmpDir)
-						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
-						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitNoCloud.MetaData).To(Equal(map[string]string{
+							customMetaAppKey:         customMetaAppVal,
+							customMetaEnvironmentKey: customMetaEnvironmentVal,
+						}))
 					})
 				})
 			})
@@ -505,7 +571,7 @@ var _ = Describe("CloudInit", func() {
 						UserDataBase64: "#######garbage******",
 					}
 					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
+					Expect(err).To(MatchError("illegal base64 data at input byte 0"))
 				})
 
 				It("should fail to verify bad cloudInitNoCloud NetworkDataBase64", func() {
@@ -514,7 +580,7 @@ var _ = Describe("CloudInit", func() {
 						NetworkDataBase64: "#######garbage******",
 					}
 					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
+					Expect(err).To(MatchError("illegal base64 data at input byte 0"))
 				})
 
 				Context("with secretRefs", func() {
@@ -575,14 +641,30 @@ var _ = Describe("CloudInit", func() {
 						Expect(keys).To(BeEmpty())
 					})
 
-					It("should fail if both userdata and network data does not exist", func() {
-						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
+					It("should resolve MetaDataSecretRef from volume", func() {
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
-						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
-						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
-						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
-						Expect(keys).To(BeEmpty())
 
+						fakeVolumeMountDir("test-volume", map[string]string{
+							customMetaAppKey:         customMetaAppVal,
+							customMetaEnvironmentKey: customMetaEnvironmentVal,
+						})
+
+						_, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitConfigDrive.MetaData).To(Equal(map[string]string{
+							customMetaAppKey:         customMetaAppVal,
+							customMetaEnvironmentKey: customMetaEnvironmentVal,
+						}))
 					})
 				})
 			})
@@ -609,6 +691,90 @@ var _ = Describe("CloudInit", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = GenerateLocalData(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should include custom metadata in NoCloud metadata", func() {
+			instancetype := "fake-instancetype"
+			userData := "fake\nuser\ndata\n"
+			customMetaData := map[string]string{
+				customMetaAppKey:         customMetaAppLargeVal,
+				customMetaEnvironmentKey: customMetaEnvironmentVal,
+				customMetaCostCenterKey:  customMetaCostCenterVal,
+				customMetaTeamKey:        customMetaTeamVal,
+			}
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "fake-domain",
+					Namespace: "fake-namespace",
+				},
+			}
+			source := &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+				MetaData:       customMetaData,
+			}
+			cloudInitData, err := readCloudInitNoCloudSource(source)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cloudInitData.NoCloudMetaData).NotTo(BeNil())
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata).NotTo(BeNil())
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaAppKey]).To(Equal(customMetaAppLargeVal))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaEnvironmentKey]).To(Equal(customMetaEnvironmentVal))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaCostCenterKey]).To(Equal(customMetaCostCenterVal))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaTeamKey]).To(Equal(customMetaTeamVal))
+
+			err = GenerateLocalData(vmi, instancetype, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+
+			isoFile := filepath.Join(tmpDir, "fake-namespace", "fake-domain", "noCloud.iso")
+			_, err = os.Stat(isoFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaAppKey]).To(Equal(customMetaAppLargeVal))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaEnvironmentKey]).To(Equal(customMetaEnvironmentVal))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaCostCenterKey]).To(Equal(customMetaCostCenterVal))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata[customMetaTeamKey]).To(Equal(customMetaTeamVal))
+		})
+
+		It("should include custom metadata in ConfigDrive metadata", func() {
+			instancetype := "fake-instancetype"
+			userData := "fake\nuser\ndata\n"
+			customMetaData := map[string]string{
+				customMetaAppKey:         customMetaAppLargeVal,
+				customMetaEnvironmentKey: customMetaEnvironmentVal,
+				customMetaCostCenterKey:  customMetaCostCenterVal,
+				customMetaTeamKey:        customMetaTeamVal,
+			}
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "fake-domain",
+					Namespace: "fake-namespace",
+				},
+			}
+			source := &v1.CloudInitConfigDriveSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+				MetaData:       customMetaData,
+			}
+			cloudInitData, err := readCloudInitConfigDriveSource(source)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cloudInitData.ConfigDriveMetaData).NotTo(BeNil())
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata).NotTo(BeNil())
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaAppKey]).To(Equal(customMetaAppLargeVal))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaEnvironmentKey]).To(Equal(customMetaEnvironmentVal))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaCostCenterKey]).To(Equal(customMetaCostCenterVal))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaTeamKey]).To(Equal(customMetaTeamVal))
+
+			err = GenerateLocalData(vmi, instancetype, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+
+			isoFile := filepath.Join(tmpDir, "fake-namespace", "fake-domain", "configdrive.iso")
+			_, err = os.Stat(isoFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaAppKey]).To(Equal(customMetaAppLargeVal))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaEnvironmentKey]).To(Equal(customMetaEnvironmentVal))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaCostCenterKey]).To(Equal(customMetaCostCenterVal))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata[customMetaTeamKey]).To(Equal(customMetaTeamVal))
 		})
 	})
 
