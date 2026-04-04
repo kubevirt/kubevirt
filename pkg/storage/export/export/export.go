@@ -64,6 +64,7 @@ import (
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/registry"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -140,6 +141,49 @@ const (
 	// ReadinessPath is the endpoint used to check the readiness probe
 	ReadinessPath = "/exportready"
 )
+
+func CreateVMExportController(ctx *registry.ControllerContext, volumeSnapshotProvider *snapshot.VMSnapshotController) (registry.RunnableController, error) {
+	exportController := &VMExportController{
+		ManifestRenderer:            ctx.TemplateService,
+		Client:                      ctx.ClientSet,
+		VMExportInformer:            ctx.InformerFactory.VirtualMachineExport(),
+		PVCInformer:                 ctx.InformerFactory.PersistentVolumeClaim(),
+		PodInformer:                 ctx.InformerFactory.Pod(),
+		DataVolumeInformer:          ctx.InformerFactory.DataVolume(),
+		ServiceInformer:             ctx.InformerFactory.ExportService(),
+		Recorder:                    ctx.Recorder,
+		ConfigMapInformer:           ctx.InformerFactory.KubeVirtExportCAConfigMap(),
+		IngressCache:                ctx.IngressCache,
+		RouteCache:                  ctx.RouteCache,
+		KubevirtNamespace:           ctx.KubevirtNamespace,
+		RouteConfigMapInformer:      ctx.InformerFactory.ExportRouteConfigMap(),
+		SecretInformer:              ctx.InformerFactory.UnmanagedSecrets(),
+		VolumeSnapshotProvider:      volumeSnapshotProvider,
+		VMSnapshotInformer:          ctx.InformerFactory.VirtualMachineSnapshot(),
+		VMSnapshotContentInformer:   ctx.InformerFactory.VirtualMachineSnapshotContent(),
+		VMInformer:                  ctx.InformerFactory.VirtualMachine(),
+		VMIInformer:                 ctx.InformerFactory.VMI(),
+		CRDInformer:                 ctx.InformerFactory.CRD(),
+		KubeVirtInformer:            ctx.InformerFactory.KubeVirt(),
+		InstancetypeInformer:        ctx.InformerFactory.VirtualMachineInstancetype(),
+		ClusterInstancetypeInformer: ctx.InformerFactory.VirtualMachineClusterInstancetype(),
+		PreferenceInformer:          ctx.InformerFactory.VirtualMachinePreference(),
+		ClusterPreferenceInformer:   ctx.InformerFactory.VirtualMachineClusterPreference(),
+		ControllerRevisionInformer:  ctx.InformerFactory.ControllerRevision(),
+		VMBackupInformer:            ctx.InformerFactory.VirtualMachineBackup(),
+		BackupCAConfigMapInformer:   ctx.InformerFactory.KubeVirtBackupCAConfigMap(),
+	}
+
+	if err := exportController.Init(); err != nil {
+		return nil, err
+	}
+
+	return exportController, nil
+}
+
+func (c *VMExportController) Name() string {
+	return "VMExportController"
+}
 
 // variable so can be overridden in tests
 var currentTime = func() *metav1.Time {
