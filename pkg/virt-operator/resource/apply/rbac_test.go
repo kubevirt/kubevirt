@@ -304,6 +304,33 @@ var _ = Describe("RBAC test", func() {
 			Entry("ClusterRole resource where resource had not changed", clusterRoleType, false),
 		)
 
+		DescribeTable("Check reconciliation of AggregationRule for ClusterRole", func(changeExisting bool) {
+			existing := newEmptyResource(clusterRoleType)
+			required := newEmptyResource(clusterRoleType)
+
+			getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
+			addToCache(existing)
+
+			if changeExisting {
+				required.(*rbacv1.ClusterRole).AggregationRule = &rbacv1.AggregationRule{
+					ClusterRoleSelectors: []metav1.LabelSelector{
+						{
+							MatchLabels: map[string]string{
+								"rbac.kubevirt.io/aggregate-to-migrate": "true",
+							},
+						},
+					},
+				}
+				expectRbacUpdate(required)
+			}
+
+			err := updateResource(required)
+			Expect(err).ShouldNot(HaveOccurred())
+		},
+			Entry("where AggregationRule had changed", true),
+			Entry("where AggregationRule had not changed", false),
+		)
+
 		DescribeTable("Check reconciliation of Subjects and RoleRef for", func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
 
 			Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))

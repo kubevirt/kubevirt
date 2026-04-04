@@ -323,6 +323,10 @@ func changeRbacExistingByRequired(existing runtime.Object, required runtime.Obje
 		existingClusterRole := existing.(*rbacv1.ClusterRole)
 		requiredClusterRole := required.(*rbacv1.ClusterRole)
 		modified = changeExistingPolicyRulesByRequired(&existingClusterRole.Rules, &requiredClusterRole.Rules)
+		if existingClusterRole.AggregationRule == nil && requiredClusterRole.AggregationRule != nil {
+			existingClusterRole.AggregationRule = requiredClusterRole.AggregationRule
+			modified = true
+		}
 	case *rbacv1.RoleBinding:
 		existingRoleBinding := existing.(*rbacv1.RoleBinding)
 		requiredRoleBinding := required.(*rbacv1.RoleBinding)

@@ -221,8 +221,27 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 
 		Context("migrate cluster role", func() {
 
+			It("should be an aggregated cluster role", func() {
+				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), clusterRoleMigrate).(*rbacv1.ClusterRole)
+				Expect(clusterRole).ToNot(BeNil())
+				Expect(clusterRole.AggregationRule).ToNot(BeNil())
+				Expect(clusterRole.AggregationRule.ClusterRoleSelectors).To(HaveLen(1))
+				Expect(clusterRole.AggregationRule.ClusterRoleSelectors[0].MatchLabels).To(
+					HaveKeyWithValue("rbac.kubevirt.io/aggregate-to-migrate", "true"),
+				)
+			})
+		})
+
+		Context("migrate base cluster role", func() {
+
+			It("should have the aggregate-to-migrate label", func() {
+				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:migrate-base").(*rbacv1.ClusterRole)
+				Expect(clusterRole).ToNot(BeNil())
+				Expect(clusterRole.Labels).To(HaveKeyWithValue("rbac.kubevirt.io/aggregate-to-migrate", "true"))
+			})
+
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
-				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:migrate").(*rbacv1.ClusterRole)
+				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:migrate-base").(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
 				expectExactRuleExists(clusterRole.Rules, apiGroup, resource, verbs...)
 			},
