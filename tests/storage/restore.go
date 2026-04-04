@@ -285,9 +285,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
-			vm.Labels = map[string]string{
-				"kubevirt.io/dummy-webhook-identifier": vm.Name,
-			}
 		})
 
 		AfterEach(func() {
@@ -315,6 +312,11 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			BeforeEach(func() {
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Labels = map[string]string{
+					"kubevirt.io/dummy-webhook-identifier": string(vm.UID),
+				}
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
@@ -401,7 +403,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							},
 							ObjectSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"kubevirt.io/dummy-webhook-identifier": vm.Name,
+									"kubevirt.io/dummy-webhook-identifier": string(vm.UID),
 								},
 							},
 						},
