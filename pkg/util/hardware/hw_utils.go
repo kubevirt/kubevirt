@@ -116,8 +116,9 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 }
 
 var (
-	PciBasePath  = "/sys/bus/pci/devices"
-	NodeBasePath = "/sys/bus/node/devices"
+	PciBasePath     = "/sys/bus/pci/devices"
+	NodeBasePath    = "/sys/bus/node/devices"
+	DevicesBasePath = "/sys/devices"
 )
 
 func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
@@ -194,6 +195,70 @@ func PCIAddressToString(pciBusID *api.Address) string {
 		strings.TrimPrefix(pciBusID.Bus, prefix),
 		strings.TrimPrefix(pciBusID.Slot, prefix),
 		strings.TrimPrefix(pciBusID.Function, prefix))
+}
+
+// LookupPCIeRootByPCIBusID retrieves the PCIe Root Complex for a given PCI Bus ID
+// in BDF (Bus-Device-Function) format, e.g., "0123:45:1e.7".
+//
+// It returns a string with the PCIe Root Complex information ("pci<domain>:<bus>")
+// or an error if the PCI Bus ID is invalid or the root complex cannot be determined.
+//
+// ref: https://wiki.xenproject.org/wiki/Bus:Device.Function_(BDF)_Notation
+func LookupPCIeRootByPCIBusID(pciBusID *api.Address) (string, error) {
+	if pciBusID == nil {
+		return "", fmt.Errorf("PCI Bus ID cannot be nil")
+	}
+
+	pciAddress := PCIAddressToString(pciBusID)
+
+	bdfRegexp := regexp.MustCompile(`^([0-9a-f]{4}):([0-9a-f]{2}):([0-9a-f]{2})\.([0-9a-f]{1})$`)
+	if !bdfRegexp.MatchString(pciAddress) {
+		return "", fmt.Errorf("invalid PCI Bus ID format: %s", pciAddress)
+	}
+
+	pcieRoot, err := resolvePCIeRoot(pciBusID)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve PCIe Root Complex for PCI Bus ID %s: %w", pciAddress, err)
+	}
+
+	return pcieRoot, nil
+}
+
+// resolvePCIeRoot resolves the PCIe Root for a given PCI Bus ID
+// in BDF (Bus-Device-Function) format, e.g., "0123:45:1e.7",
+// by inspecting sysfs (/sys/devices).
+//
+// /sys/bus/pci/devices/<address> is a symlink to the actual device path in /sys/devices.
+// For example, /sys/bus/pci/devices/0000:00:1f.0 points to
+// /sys/devices/pci0000:01/...<intermediate PCI devices>.../0000:00:1f.0,
+// where "pci0000:01" is the PCIe Root.
+//
+// ref: https://wiki.xenproject.org/wiki/Bus:Device.Function_(BDF)_Notation
+func resolvePCIeRoot(pciBusID *api.Address) (string, error) {
+	pciAddress := PCIAddressToString(pciBusID)
+
+	sysBusPath := filepath.Join(PciBasePath, pciAddress)
+
+	target, err := os.Readlink(sysBusPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read symlink for PCI Bus ID %s: %w", sysBusPath, err)
+	}
+
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(sysBusPath), target)
+	}
+
+	devicePathPrefix := DevicesBasePath + "/pci"
+	if !strings.HasPrefix(target, devicePathPrefix) {
+		return "", fmt.Errorf("symlink target for PCI Bus ID %s is invalid: it must start with %s: %s", pciAddress, devicePathPrefix, target)
+	}
+	if filepath.Base(target) != pciAddress {
+		return "", fmt.Errorf("symlink target for PCI Bus ID %s is invalid: it must end with %s: %s", pciAddress, pciAddress, target)
+	}
+
+	pcieRootPart := strings.Split(strings.TrimPrefix(target, DevicesBasePath+"/"), "/")[0]
+
+	return pcieRootPart, nil
 }
 
 // LookupDevicesNumaNodes looks up the NUMA nodes of multiple devices based on
