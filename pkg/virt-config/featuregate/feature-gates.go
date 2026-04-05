@@ -21,6 +21,8 @@ package featuregate
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -32,7 +34,7 @@ const (
 	// The feature is disabled by default and can be enabled explicitly through the FG.
 	Alpha State = "Alpha"
 	// Beta represents features that are under evaluation.
-	// The feature is disabled by default and can be enabled explicitly through the FG.
+	// The feature is enabled by default and can be disabled explicitly through DisabledFeatureGates.
 	Beta State = "Beta"
 	// GA represents features that reached General Availability.
 	// GA features are considered feature-gate enabled, with no option to disable them by an FG.
@@ -77,4 +79,34 @@ func FeatureGateInfo(featureGate string) *FeatureGate {
 		return &fg
 	}
 	return nil
+}
+
+// GetRegisteredFeatureGates returns a copy of all registered feature gates.
+func GetRegisteredFeatureGates() map[string]FeatureGate {
+	return maps.Clone(featureGates)
+}
+
+// IsEnabled evaluates whether a feature gate is active.
+// Precedence: GA (always on) > explicit enable > explicit disable > Beta (on by default) > off.
+func IsEnabled(gate string, devConfig *v1.DeveloperConfiguration) bool {
+	fg := FeatureGateInfo(gate)
+	if fg == nil {
+		return false
+	}
+
+	if fg.State == GA {
+		return true
+	}
+
+	if devConfig != nil {
+		if slices.Contains(devConfig.FeatureGates, gate) {
+			return true
+		}
+
+		if slices.Contains(devConfig.DisabledFeatureGates, gate) {
+			return false
+		}
+	}
+
+	return fg.State == Beta
 }
