@@ -46,20 +46,20 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 		serverVMILabels = map[string]string{"type": "test"}
 	})
 
-	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
+	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			var err error
 			serverVMI, err = createServerVmi(virtClient, testsuite.NamespaceTestDefault, serverVMILabels)
 			Expect(err).ToNot(HaveOccurred())
 			assertIPsNotEmptyForVMI(serverVMI)
 		})
 
-		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", decorators.WgS390x, func() {
+		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", Ordered, decorators.WgS390x, func() {
 			var policy *networkv1.NetworkPolicy
 
-			BeforeEach(func() {
+			BeforeAll(func() {
 				var err error
 				// deny-by-default networkpolicy will deny all the traffic to the vms in the namespace
 				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-default", metav1.LabelSelector{}, []networkv1.NetworkPolicyIngressRule{})
@@ -68,7 +68,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				assertIPsNotEmptyForVMI(clientVMI)
 			})
 
-			AfterEach(func() {
+			AfterAll(func() {
 				waitForNetworkPolicyDeletion(policy)
 			})
 
@@ -145,18 +145,6 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			BeforeEach(func() {
 				// deny-by-label networkpolicy will deny the traffic for the vm which have the same label
 				By("Create deny-by-label networkpolicy")
-				policy = &networkv1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: serverVMI.Namespace,
-						Name:      "deny-by-label",
-					},
-					Spec: networkv1.NetworkPolicySpec{
-						PodSelector: metav1.LabelSelector{
-							MatchLabels: serverVMILabels,
-						},
-						Ingress: []networkv1.NetworkPolicyIngressRule{},
-					},
-				}
 				policy = createNetworkPolicy(serverVMI.Namespace, "deny-by-label", metav1.LabelSelector{MatchLabels: serverVMILabels}, []networkv1.NetworkPolicyIngressRule{})
 			})
 
