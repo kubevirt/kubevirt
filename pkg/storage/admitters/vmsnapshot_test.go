@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
@@ -50,8 +51,18 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-	Context("Without feature gate enabled", func() {
+	Context("With a disabled feature gate", func() {
 		It("should reject anything", func() {
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							DisabledFeatureGates: []string{featuregate.SnapshotGate},
+						},
+					},
+				},
+			})
+
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			}
@@ -80,7 +91,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: make([]string, 0),
+							FeatureGates:         make([]string, 0),
+							DisabledFeatureGates: []string{featuregate.SnapshotGate},
 						},
 					},
 				},

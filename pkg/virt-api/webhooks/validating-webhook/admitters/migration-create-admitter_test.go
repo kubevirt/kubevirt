@@ -292,7 +292,9 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	Context("handling priority field", func() {
 		When("MigrationPriorityQueue feature gate is disabled", func() {
 			BeforeEach(func() {
-				disableFeatureGates()
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.MigrationPriorityQueue}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			})
 
 			DescribeTable("should reject the", func(user string) {

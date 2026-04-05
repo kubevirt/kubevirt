@@ -114,8 +114,10 @@ var _ = Describe("Template", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+	disableFeatureGate := func(featureGates ...string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = featureGates
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
 	BeforeEach(func() {
@@ -190,7 +192,7 @@ var _ = Describe("Template", func() {
 	})
 
 	AfterEach(func() {
-		disableFeatureGates()
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	})
 
 	Describe("Rendering", func() {
@@ -442,6 +444,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should work", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -972,6 +975,7 @@ var _ = Describe("Template", func() {
 
 			It("should add init containers to inject binary and pre-pull container disks", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk1",
@@ -1063,6 +1067,7 @@ var _ = Describe("Template", func() {
 		Context("with node selectors", func() {
 			DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
 
 				nodeSelector := map[string]string{
 					k8sv1.LabelHostname: "master",
@@ -2411,6 +2416,7 @@ var _ = Describe("Template", func() {
 		Context("with hugepages constraints", func() {
 			DescribeTable("should add to the template constraints ", func(arch, pagesize string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2486,6 +2492,7 @@ var _ = Describe("Template", func() {
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume)
 				guestMem := resource.MustParse("64M")
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2566,6 +2573,7 @@ var _ = Describe("Template", func() {
 		Context("with file mode pvc source", func() {
 			It("should add volume to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				namespace := "testns"
 				pvcName := "pvcFile"
 				pvc := k8sv1.PersistentVolumeClaim{
@@ -2621,6 +2629,7 @@ var _ = Describe("Template", func() {
 		Context("with blockdevice mode pvc source", func() {
 			It("should add device to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				namespace := "testns"
 				pvcName := "pvcDevice"
 				mode := k8sv1.PersistentVolumeBlock
@@ -2862,6 +2871,7 @@ var _ = Describe("Template", func() {
 
 			It("should have compute as first container in the pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -3171,6 +3181,7 @@ var _ = Describe("Template", func() {
 
 			It("Should add an empytDir backed by Memory", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				vmi.Spec.Volumes = []v1.Volume{
 					{
 						Name: "downardMetrics",
@@ -3224,6 +3235,7 @@ var _ = Describe("Template", func() {
 		Context("with a configMap volume source", func() {
 			It("Should add the ConfigMap to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "configmap-volume",
@@ -3267,6 +3279,7 @@ var _ = Describe("Template", func() {
 			Context("with a ConfigMap", func() {
 				It("Should add the Sysprep ConfigMap to template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
+					disableFeatureGate(featuregate.ImageVolume)
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
@@ -3304,6 +3317,7 @@ var _ = Describe("Template", func() {
 			Context("with a Secret", func() {
 				It("Should add the Sysprep SecretRef to template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
+					disableFeatureGate(featuregate.ImageVolume)
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
@@ -3344,6 +3358,7 @@ var _ = Describe("Template", func() {
 		Context("with a secret volume source", func() {
 			It("should add the Secret to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "secret-volume",
@@ -3830,6 +3845,7 @@ var _ = Describe("Template", func() {
 
 			It("should define containers and volumes properly", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				vmi := utils.GetVMIKernelBootWithRandName()
 				vmi.ObjectMeta = metav1.ObjectMeta{
 					Name: "testvmi-kernel-boot", Namespace: "default", UID: "1234",
