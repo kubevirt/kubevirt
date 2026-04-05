@@ -39,6 +39,7 @@ go_library(
         "//tests/flags:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libhypervisor:go_default_library",
         "//tests/libinfra:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
