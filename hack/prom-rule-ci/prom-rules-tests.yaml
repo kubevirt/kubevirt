@@ -1072,28 +1072,41 @@ tests:
       # VMs that SHOULD alert (in problematic states with VMI)
       - series: 'kubevirt_vm_info{name="vm-stuck-starting", namespace="test-ns", status="starting", status_group="starting"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-stuck-starting", namespace="test-ns", node="worker-node-1"}'
+      - series: 'kubevirt_vmi_info{name="vm-stuck-starting", namespace="test-ns", node="worker-node-1", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-image-error", namespace="test-ns", status="ErrImagePull", status_group="error"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-image-error", namespace="test-ns", node="worker-node-2"}'
+      - series: 'kubevirt_vmi_info{name="vm-image-error", namespace="test-ns", node="worker-node-2", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-stuck-stopping", namespace="test-ns", status="stopping", status_group="non_running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-stuck-stopping", namespace="test-ns", node="worker-node-3"}'
+      - series: 'kubevirt_vmi_info{name="vm-stuck-stopping", namespace="test-ns", node="worker-node-3", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-terminating-with-vmi", namespace="test-ns", status="terminating", status_group="non_running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-terminating-with-vmi", namespace="test-ns", node="worker-node-4"}'
+      - series: 'kubevirt_vmi_info{name="vm-terminating-with-vmi", namespace="test-ns", node="worker-node-4", phase="scheduled"}'
         values: "1x11"
       # VMs that should NOT alert (in healthy states with VMI)
       - series: 'kubevirt_vm_info{name="vm-running", namespace="test-ns", status="running", status_group="running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-running", namespace="test-ns", node="worker-node-5"}'
+      - series: 'kubevirt_vmi_info{name="vm-running", namespace="test-ns", node="worker-node-5", phase="running"}'
         values: "1x11"
       - series: 'kubevirt_vm_info{name="vm-paused", namespace="test-ns", status="paused", status_group="running"}'
         values: "1x11"
-      - series: 'kubevirt_vmi_info{name="vm-paused", namespace="test-ns", node="worker-node-6"}'
+      - series: 'kubevirt_vmi_info{name="vm-paused", namespace="test-ns", node="worker-node-6", phase="scheduled"}'
+        values: "1x11"
+      # VMs that should NOT alert (problematic status but no VMI)
+      - series: 'kubevirt_vm_info{name="vm-starting-no-vmi", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      # VMs that should NOT alert (problematic status but VMI in non-matching phase)
+      - series: 'kubevirt_vm_info{name="vm-starting-pending-vmi", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-starting-pending-vmi", namespace="test-ns", node="worker-node-11", phase="pending"}'
+        values: "1x11"
+      # VMs that should NOT alert (error status but VMI in non-matching phase)
+      - series: 'kubevirt_vm_info{name="vm-error-failed-vmi", namespace="test-ns", status="CrashLoopBackOff", status_group="error"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-error-failed-vmi", namespace="test-ns", node="worker-node-12", phase="failed"}'
         values: "1x11"
 
     alert_rule_test:
@@ -1157,6 +1170,83 @@ tests:
               namespace: "test-ns"
               status: "terminating"
               node: "worker-node-4"
+
+  # VirtualMachineStuckOnNode - duplicate VMI series regression tests
+  # Verifies topk-based dedup prevents many-to-many matching errors
+  # during VMI phase transitions and live migrations.
+  - interval: 1m
+    input_series:
+      # Phase transition: scheduling + running VMI coexist for same VM
+      - series: 'kubevirt_vm_info{name="vm-phase-overlap", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-phase-overlap", namespace="test-ns", phase="scheduling"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-phase-overlap", namespace="test-ns", phase="running", node="worker-node-7"}'
+        values: "1x11"
+      # Scheduled phase: VMI bound to node but domain not yet started
+      - series: 'kubevirt_vm_info{name="vm-stuck-scheduled", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-stuck-scheduled", namespace="test-ns", phase="scheduled", node="worker-node-8"}'
+        values: "1x11"
+      # Scheduled + running overlap: both phases match filter, topk must dedup
+      - series: 'kubevirt_vm_info{name="vm-sched-run-overlap", namespace="test-ns", status="starting", status_group="starting"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-sched-run-overlap", namespace="test-ns", phase="scheduled", node="worker-node-9"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-sched-run-overlap", namespace="test-ns", phase="running", node="worker-node-10"}'
+        values: "1x11"
+      # Migration: two running VMIs on different nodes for same VM
+      - series: 'kubevirt_vm_info{name="vm-migration-overlap", namespace="test-ns", status="stopping", status_group="non_running"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-migration-overlap", namespace="test-ns", phase="running", node="source-node"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-migration-overlap", namespace="test-ns", phase="running", node="target-node"}'
+        values: "1x11"
+      # Error with migration overlap: tests inner and + outer group_left
+      - series: 'kubevirt_vm_info{name="vm-error-migration", namespace="test-ns", status="ErrImagePull", status_group="error"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-error-migration", namespace="test-ns", phase="running", node="source-node-2"}'
+        values: "1x11"
+      - series: 'kubevirt_vmi_info{name="vm-error-migration", namespace="test-ns", phase="running", node="target-node-2"}'
+        values: "1x11"
+
+    promql_expr_test:
+      - expr: 'count by (name, namespace, status, node) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name="vm-phase-overlap", namespace="test-ns"})'
+        eval_time: 4m
+        exp_samples: []
+      - expr: 'count by (name, namespace, status, node) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name="vm-phase-overlap", namespace="test-ns"})'
+        eval_time: 5m
+        exp_samples:
+          - labels: '{name="vm-phase-overlap", namespace="test-ns", node="worker-node-7", status="starting"}'
+            value: 1
+      - expr: 'count by (name, namespace, status, node) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name="vm-stuck-scheduled", namespace="test-ns"})'
+        eval_time: 4m
+        exp_samples: []
+      - expr: 'count by (name, namespace, status, node) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name="vm-stuck-scheduled", namespace="test-ns"})'
+        eval_time: 5m
+        exp_samples:
+          - labels: '{name="vm-stuck-scheduled", namespace="test-ns", node="worker-node-8", status="starting"}'
+            value: 1
+      - expr: 'count by (name, namespace, status) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name="vm-sched-run-overlap", namespace="test-ns"})'
+        eval_time: 4m
+        exp_samples: []
+      - expr: 'count by (name, namespace, status) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name="vm-sched-run-overlap", namespace="test-ns"})'
+        eval_time: 5m
+        exp_samples:
+          - labels: '{name="vm-sched-run-overlap", namespace="test-ns", status="starting"}'
+            value: 1
+      - expr: 'count by (name, namespace, status) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name=~"vm-(phase-overlap|migration-overlap|error-migration)", namespace="test-ns"})'
+        eval_time: 4m
+        exp_samples: []
+      - expr: 'count by (name, namespace, status) (ALERTS{alertname="VirtualMachineStuckOnNode", alertstate="firing", name=~"vm-(phase-overlap|migration-overlap|error-migration)", namespace="test-ns"})'
+        eval_time: 5m
+        exp_samples:
+          - labels: '{name="vm-error-migration", namespace="test-ns", status="ErrImagePull"}'
+            value: 1
+          - labels: '{name="vm-migration-overlap", namespace="test-ns", status="stopping"}'
+            value: 1
+          - labels: '{name="vm-phase-overlap", namespace="test-ns", status="starting"}'
+            value: 1
 
   # GuestFilesystemAlmostOutOfSpace - Warning (85% usage)
   - interval: 1m
