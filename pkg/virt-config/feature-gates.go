@@ -20,8 +20,6 @@
 package virtconfig
 
 import (
-	"slices"
-
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -29,20 +27,8 @@ import (
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
-func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
-		return true
-	}
-
-	if isExplicitlyEnabled := slices.Contains(config.GetConfig().DeveloperConfiguration.FeatureGates, featureGate); isExplicitlyEnabled {
-		return true
-	}
-
-	if isExplicitlyDisabled := slices.Contains(config.GetConfig().DeveloperConfiguration.DisabledFeatureGates, featureGate); isExplicitlyDisabled {
-		return false
-	}
-
-	return false
+func (config *ClusterConfig) isFeatureGateEnabled(fg string) bool {
+	return featuregate.IsEnabled(fg, config.GetConfig().DeveloperConfiguration)
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
