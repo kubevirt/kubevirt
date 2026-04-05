@@ -1128,6 +1128,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	volumes := map[string]*v1.Volume{}
 	for i, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
+		if volume.ContainerDisk != nil {
+			if frozenIdx, ok := c.ContainerDiskVolumeIndices[volume.Name]; ok {
+				volumeIndices[volume.Name] = int(frozenIdx)
+				continue
+			}
+		}
 		volumeIndices[volume.Name] = i
 	}
 
