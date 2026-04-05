@@ -370,7 +370,19 @@
                 },
                 "tag": "tagValue",
                 "acpiIndex": -9,
-                "state": "stateValue"
+                "state": "stateValue",
+                "bandwidth": {
+                  "inbound": {
+                    "average": "0",
+                    "peak": "0",
+                    "burst": "0"
+                  },
+                  "outbound": {
+                    "average": "0",
+                    "peak": "0",
+                    "burst": "0"
+                  }
+                }
               }
             ],
             "inputs": [

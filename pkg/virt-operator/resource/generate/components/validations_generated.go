@@ -6517,6 +6517,59 @@ var CRDsValidation map[string]string = map[string]string{
                                   in PCI addresses assigned to the device.
                                   This value is required to be unique across all devices and be between 1 and (16*1024-1).
                                 type: integer
+                              bandwidth:
+                                description: Bandwidth allows setting QoS limits for
+                                  the interface
+                                properties:
+                                  inbound:
+                                    properties:
+                                      average:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Average rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      burst:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Burst size in bytes
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      peak:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Peak rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  outbound:
+                                    properties:
+                                      average:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Average rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      burst:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Burst size in bytes
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      peak:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Peak rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
                               binding:
                                 description: |-
                                   Binding specifies the binding plugin that will be used to connect the interface to the guest.
@@ -12591,6 +12644,58 @@ var CRDsValidation map[string]string = map[string]string{
                           in PCI addresses assigned to the device.
                           This value is required to be unique across all devices and be between 1 and (16*1024-1).
                         type: integer
+                      bandwidth:
+                        description: Bandwidth allows setting QoS limits for the interface
+                        properties:
+                          inbound:
+                            properties:
+                              average:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Average rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              burst:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Burst size in bytes
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              peak:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Peak rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                          outbound:
+                            properties:
+                              average:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Average rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              burst:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Burst size in bytes
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              peak:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Peak rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
                       binding:
                         description: |-
                           Binding specifies the binding plugin that will be used to connect the interface to the guest.
@@ -16448,6 +16553,58 @@ var CRDsValidation map[string]string = map[string]string{
                           in PCI addresses assigned to the device.
                           This value is required to be unique across all devices and be between 1 and (16*1024-1).
                         type: integer
+                      bandwidth:
+                        description: Bandwidth allows setting QoS limits for the interface
+                        properties:
+                          inbound:
+                            properties:
+                              average:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Average rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              burst:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Burst size in bytes
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              peak:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Peak rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                          outbound:
+                            properties:
+                              average:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Average rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              burst:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Burst size in bytes
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              peak:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: Peak rate in bytes/sec
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
                       binding:
                         description: |-
                           Binding specifies the binding plugin that will be used to connect the interface to the guest.
@@ -19004,6 +19161,59 @@ var CRDsValidation map[string]string = map[string]string{
                                   in PCI addresses assigned to the device.
                                   This value is required to be unique across all devices and be between 1 and (16*1024-1).
                                 type: integer
+                              bandwidth:
+                                description: Bandwidth allows setting QoS limits for
+                                  the interface
+                                properties:
+                                  inbound:
+                                    properties:
+                                      average:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Average rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      burst:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Burst size in bytes
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      peak:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Peak rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  outbound:
+                                    properties:
+                                      average:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Average rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      burst:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Burst size in bytes
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      peak:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: Peak rate in bytes/sec
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
                               binding:
                                 description: |-
                                   Binding specifies the binding plugin that will be used to connect the interface to the guest.
@@ -24099,6 +24309,59 @@ var CRDsValidation map[string]string = map[string]string{
                                           in PCI addresses assigned to the device.
                                           This value is required to be unique across all devices and be between 1 and (16*1024-1).
                                         type: integer
+                                      bandwidth:
+                                        description: Bandwidth allows setting QoS
+                                          limits for the interface
+                                        properties:
+                                          inbound:
+                                            properties:
+                                              average:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                description: Average rate in bytes/sec
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              burst:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                description: Burst size in bytes
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              peak:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                description: Peak rate in bytes/sec
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                          outbound:
+                                            properties:
+                                              average:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                description: Average rate in bytes/sec
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              burst:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                description: Burst size in bytes
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              peak:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                description: Peak rate in bytes/sec
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                        type: object
                                       binding:
                                         description: |-
                                           Binding specifies the binding plugin that will be used to connect the interface to the guest.
@@ -29669,6 +29932,59 @@ var CRDsValidation map[string]string = map[string]string{
                                               in PCI addresses assigned to the device.
                                               This value is required to be unique across all devices and be between 1 and (16*1024-1).
                                             type: integer
+                                          bandwidth:
+                                            description: Bandwidth allows setting
+                                              QoS limits for the interface
+                                            properties:
+                                              inbound:
+                                                properties:
+                                                  average:
+                                                    anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                    description: Average rate in bytes/sec
+                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                    x-kubernetes-int-or-string: true
+                                                  burst:
+                                                    anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                    description: Burst size in bytes
+                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                    x-kubernetes-int-or-string: true
+                                                  peak:
+                                                    anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                    description: Peak rate in bytes/sec
+                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                    x-kubernetes-int-or-string: true
+                                                type: object
+                                              outbound:
+                                                properties:
+                                                  average:
+                                                    anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                    description: Average rate in bytes/sec
+                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                    x-kubernetes-int-or-string: true
+                                                  burst:
+                                                    anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                    description: Burst size in bytes
+                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                    x-kubernetes-int-or-string: true
+                                                  peak:
+                                                    anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                    description: Peak rate in bytes/sec
+                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                    x-kubernetes-int-or-string: true
+                                                type: object
+                                            type: object
                                           binding:
                                             description: |-
                                               Binding specifies the binding plugin that will be used to connect the interface to the guest.

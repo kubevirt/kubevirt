@@ -101,3 +101,9 @@ func withPortForward(portForward []api.InterfacePortForward) builderOption {
 		iface.PortForward = portForward
 	}
 }
+
+func withBandwidth(bandwidth *api.BandWidth) builderOption {
+	return func(iface *api.Interface) {
+		iface.BandWidth = bandwidth
+	}
+}
