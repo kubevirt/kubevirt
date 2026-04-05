@@ -20,6 +20,7 @@
 package cache
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"net"
@@ -33,6 +34,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -225,12 +227,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-			}
-
-			listResults, err := d.listAllKnownDomains()
+			listResults, err := listAllKnownDomains()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(listResults).To(HaveLen(1))
@@ -254,12 +251,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-			}
-
-			listResults, err := d.listAllKnownDomains()
+			listResults, err := listAllKnownDomains()
 			Expect(err).ToNot(HaveOccurred())
 
 			// includes both the domain with an active socket and the ghost record with deleted socket
@@ -334,17 +326,16 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f.Close()).To(Succeed())
 
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             1 * time.Hour,
-				runServer:                notifyserver.RunServer,
-			}
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
+			d := newDomainWatcher(
+				context.Background(),
+				func(ctx context.Context, c chan watch.Event) error {
+					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
+				},
+				1,
+				1*time.Hour,
+				nil,
+				new(int),
+			)
 			defer d.Stop()
 
 			timedOut := false
@@ -352,7 +343,7 @@ var _ = Describe("Domain informer", func() {
 			// before our own timeout.
 			timeout := time.After(10 * time.Second)
 			select {
-			case event := <-d.eventChan:
+			case event := <-d.result:
 				Expect(event.Type).To(Equal(watch.Modified))
 				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
 			case <-timeout:
@@ -378,23 +369,22 @@ var _ = Describe("Domain informer", func() {
 				}
 			}()
 
-			d := &domainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             time.Duration(1) * time.Hour,
-				runServer:                notifyserver.RunServer,
-			}
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
+			d := newDomainWatcher(
+				context.Background(),
+				func(ctx context.Context, c chan watch.Event) error {
+					return notifyserver.RunServer(shareDir, ctx.Done(), c, nil, nil)
+				},
+				1,
+				1*time.Hour,
+				nil,
+				new(int),
+			)
 			defer d.Stop()
 
 			timedOut := false
 			timeout := time.After(5 * time.Second)
 			select {
-			case _ = <-d.eventChan:
+			case _ = <-d.result:
 				// fall through
 			case <-timeout:
 				timedOut = true
@@ -449,6 +439,55 @@ var _ = Describe("Domain informer", func() {
 			err = client.SendDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", nil, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
+		})
+	})
+})
+
+var _ = Describe("Domain watcher ListerWatcher", func() {
+	Context("consecutive failure across watcher restarts", func() {
+		It("should accumulate failures across Watch() calls via ListerWatcher", func() {
+			origMax := notifyServerMaxConsecutiveFails
+			origHealthy := notifyServerHealthyRunTime
+			defer func() {
+				notifyServerMaxConsecutiveFails = origMax
+				notifyServerHealthyRunTime = origHealthy
+			}()
+			notifyServerMaxConsecutiveFails = 10
+			notifyServerHealthyRunTime = 1 * time.Hour
+
+			failCount := 3
+			consecutiveFails := new(int)
+			runServer := func(_ context.Context, _ chan watch.Event) error {
+				return fmt.Errorf("permanent failure")
+			}
+			lw := &cache.ListWatch{
+				WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
+					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails), nil
+				},
+			}
+
+			// Simulate what SharedInformer does: call WatchWithContext(),
+			// drain the result channel, then call it again on failure.
+			// Each call creates a new domainWatcher; the counter
+			// must persist across all of them.
+			ctx := context.Background()
+			for i := 0; i < failCount; i++ {
+				w, err := lw.WatchWithContext(ctx, metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for range w.ResultChan() {
+				}
+			}
+
+			// Retrieve the shared counter from the next watcher.
+			w, err := lw.WatchWithContext(ctx, metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			dw := w.(*domainWatcher)
+			// Wait for this watcher to also finish (it will fail too).
+			for range dw.ResultChan() {
+			}
+			// The counter should reflect all failures, including the
+			// last watcher. If counters are not shared, this will be 1.
+			Expect(*dw.consecutiveFails).To(Equal(failCount + 1))
 		})
 	})
 })
