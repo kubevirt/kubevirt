@@ -203,6 +203,26 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			Eventually(func() []testing.PromResult {
 				return fetchPrometheusKubevirtMetrics(virtClient).Data.Result
 			}, 3*time.Minute, 10*time.Second).Should(ContainElement(gomegaContainsMetricMatcher(metric, nil)))
+
+			By("Waiting until vmi sync metrics are removed for virt-controller")
+			Eventually(func() error {
+				_, err := libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_sync_total", map[string]string{
+					"controller": "virt-controller",
+					"namespace":  vmiRef.Namespace,
+					"name":       vmiRef.Name,
+				})
+				return err
+			}, 3*time.Minute, 10*time.Second).Should(HaveOccurred())
+
+			By("Waiting until vmi sync metrics are removed for virt-handler")
+			Eventually(func() error {
+				_, err := libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_sync_total", map[string]string{
+					"controller": "virt-handler",
+					"namespace":  vmiRef.Namespace,
+					"name":       vmiRef.Name,
+				})
+				return err
+			}, 3*time.Minute, 10*time.Second).Should(HaveOccurred())
 		})
 	})
 

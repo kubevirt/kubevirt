@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
@@ -316,6 +317,9 @@ func (c *Controller) execute(key string) error {
 		c.podExpectations.DeleteExpectations(key)
 		c.vmiExpectations.DeleteExpectations(key)
 		c.cidsMap.Remove(key)
+		if namespace, name, parseErr := cache.SplitMetaNamespaceKey(key); parseErr == nil {
+			vmisync.DeleteVMISyncMetric(vmisync.VirtControllerComponent, namespace, name)
+		}
 		return nil
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
@@ -370,6 +374,7 @@ func (c *Controller) execute(key string) error {
 		return syncErr
 	}
 
+	vmisync.IncVMISyncMetric(vmisync.VirtControllerComponent, vmi.Namespace, vmi.Name)
 	return nil
 }
 
@@ -499,6 +504,7 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 	}
 	c.lowerVMIExpectation(vmi)
 	c.enqueueVirtualMachine(vmi)
+	vmisync.DeleteVMISyncMetric(vmisync.VirtControllerComponent, vmi.Namespace, vmi.Name)
 }
 
 func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
