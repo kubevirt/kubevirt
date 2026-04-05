@@ -142,7 +142,6 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
-	firmwareSynchronizer synchronizer,
 	instancetypeController instancetypeHandler,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
@@ -171,7 +170,6 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		},
 		clusterConfig:                     clusterConfig,
 		netSynchronizer:                   netSynchronizer,
-		firmwareSynchronizer:              firmwareSynchronizer,
 		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
 		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
 	}
@@ -297,8 +295,7 @@ type Controller struct {
 	clusterConfig          *virtconfig.ClusterConfig
 	hasSynced              func() bool
 
-	netSynchronizer      synchronizer
-	firmwareSynchronizer synchronizer
+	netSynchronizer synchronizer
 
 	additionalLauncherAnnotationsSync []string
 	additionalLauncherLabelsSync      []string
@@ -1715,8 +1712,6 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
-	setupStableFirmwareUUID(vm, vmi)
-
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
 	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
@@ -1758,25 +1753,6 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	return stateChange.Action == virtv1.StopRequest &&
 		stateChange.UID != nil &&
 		*stateChange.UID == vmi.UID
-}
-
-// setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
-// The UUID is 'stable' if doesn't change across reboots.
-func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-
-	logger := log.Log.Object(vm)
-
-	if vmi.Spec.Domain.Firmware == nil {
-		vmi.Spec.Domain.Firmware = &virtv1.Firmware{}
-	}
-
-	existingUUID := vmi.Spec.Domain.Firmware.UUID
-	if existingUUID != "" {
-		logger.V(4).Infof("Using existing UUID '%s'", existingUUID)
-		return
-	}
-
-	vmi.Spec.Domain.Firmware.UUID = CalculateLegacyUUID(vmi.Name)
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -2838,24 +2814,12 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}
 
-	// Neutralize firmware UUID changes if the VMI's UUID matches the VM's UUID.
-	// This happens when the firmware synchronizer persists the UUID to a VM that didn't have one.
-	if vmi != nil && vmi.Spec.Domain.Firmware != nil && currentVM.Spec.Template.Spec.Domain.Firmware != nil &&
-		vmi.Spec.Domain.Firmware.UUID == currentVM.Spec.Template.Spec.Domain.Firmware.UUID {
-		if lastSeenVM.Spec.Template.Spec.Domain.Firmware == nil {
-			lastSeenVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
-		}
-		lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
-	}
-
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
 	}
 
-	// If no restart is needed, remove any existing RestartRequired condition.
-	// This handles cases where a previous condition was set but is no longer valid,
-	// such as when the firmware UUID synchronizer persisted a UUID that matches the VMI's UUID.
+	// If no restart is needed, remove any existing RestartRequired condition that is no longer valid.
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
@@ -3043,15 +3007,6 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if c.netSynchronizer != nil {
 		syncedVM, err := c.netSynchronizer.Sync(vmCopy, vmi)
-		if err != nil {
-			return vm, vmi, handleSynchronizerErr(err), nil
-		}
-		vmCopy.ObjectMeta = syncedVM.ObjectMeta
-		vmCopy.Spec = syncedVM.Spec
-	}
-
-	if c.firmwareSynchronizer != nil {
-		syncedVM, err := c.firmwareSynchronizer.Sync(vmCopy, vmi)
 		if err != nil {
 			return vm, vmi, handleSynchronizerErr(err), nil
 		}

@@ -799,7 +799,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clientSet.GeneratedKubeVirtClient(),
 			vca.clusterConfig,
 		),
-		vm.NewFirmwareController(vca.clientSet.GeneratedKubeVirtClient()),
 		instancetypecontroller.New(
 			vca.instancetypeInformer.GetStore(),
 			vca.clusterInstancetypeInformer.GetStore(),
