@@ -2739,7 +2739,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.SecureExecution}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.SecureExecution)))
@@ -3729,7 +3731,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-			disableFeatureGates()
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.VideoConfig}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))

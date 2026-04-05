@@ -219,6 +219,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		})
 
 		DescribeTable("with Node Restriction feature gate disabled should allow different handler", func(migrationState *v1.VirtualMachineInstanceMigrationState) {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.NodeRestrictionGate}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "got"
 			vmi.Status.MigrationState = migrationState
@@ -337,6 +340,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	DescribeTable(
 		"Should allow VMI upon modification of kubevirt.io/ labels by kubevirt internal service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string, serviceAccount string) {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.NodeRestrictionGate}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
