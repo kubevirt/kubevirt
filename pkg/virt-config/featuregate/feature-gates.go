@@ -21,6 +21,7 @@ package featuregate
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -78,6 +79,11 @@ func FeatureGateInfo(featureGate string) *FeatureGate {
 		return &fg
 	}
 	return nil
+}
+
+// GetRegisteredFeatureGates returns a copy of all registered feature gates.
+func GetRegisteredFeatureGates() map[string]FeatureGate {
+	return maps.Clone(featureGates)
 }
 
 // IsFeatureGateEnabled evaluates whether a feature gate is active.
