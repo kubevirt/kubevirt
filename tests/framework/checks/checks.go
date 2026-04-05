@@ -1,6 +1,8 @@
 package checks
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -9,10 +11,13 @@ import (
 	"github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -51,19 +56,26 @@ func Has2MiHugepages(node *k8sv1.Node) bool {
 func HasFeature(feature string) bool {
 	virtClient := kubevirt.Client()
 
-	var featureGates []string
 	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		featureGates = kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	}
+	return featuregate.IsFeatureGateEnabled(feature, kv.Spec.Configuration.DeveloperConfiguration)
+}
 
-	for _, fg := range featureGates {
-		if fg == feature {
-			return true
-		}
+func GetKubernetesVersion() (string, error) {
+	var info k8sversion.Info
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return "", err
 	}
-
-	return false
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw(context.Background())
+	if err != nil {
+		return "", err
+	}
+	if err := json.Unmarshal(response, &info); err != nil {
+		return "", err
+	}
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+	return curVersion, nil
 }
 
 func IsSEVCapable(node *k8sv1.Node, sevLabel string) bool {
