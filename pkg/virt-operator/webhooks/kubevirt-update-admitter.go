@@ -528,7 +528,7 @@ func validateFeatureGates(devConfig *v1.DeveloperConfiguration) (causes []metav1
 }
 
 func hasFeatureGateEnabled(config *v1.KubeVirtConfiguration, gate string) bool {
-	return config.DeveloperConfiguration != nil && slices.Contains(config.DeveloperConfiguration.FeatureGates, gate)
+	return featuregate.IsFeatureGateEnabled(gate, config.DeveloperConfiguration)
 }
 
 func validateVirtTemplateDeployment(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
