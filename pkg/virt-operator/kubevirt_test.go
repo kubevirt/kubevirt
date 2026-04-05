@@ -1244,31 +1244,19 @@ func enableContainerPathVolumesFeatureGate(kv *v1.KubeVirt) {
 }
 
 func containerPathVolumesEnabled(kv *v1.KubeVirt) bool {
-	return isFeatureGateEnabled(kv, featuregate.ContainerPathVolumesGate)
+	return featuregate.IsEnabled(featuregate.ContainerPathVolumesGate, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func synchronizationControllerEnabled(kv *v1.KubeVirt) bool {
-	return isFeatureGateEnabled(kv, featuregate.DecentralizedLiveMigration)
+	return featuregate.IsEnabled(featuregate.DecentralizedLiveMigration, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func virtTemplateDeploymentEnabled(kv *v1.KubeVirt) bool {
-	if !isFeatureGateEnabled(kv, featuregate.Template) {
+	if !featuregate.IsEnabled(featuregate.Template, kv.Spec.Configuration.DeveloperConfiguration) {
 		return false
 	}
 	virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
 	return virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || *virtTemplateDeployment.Enabled
-}
-
-func isFeatureGateEnabled(kv *v1.KubeVirt, fg string) bool {
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		return false
-	}
-	for _, enabledFg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		if enabledFg == fg {
-			return true
-		}
-	}
-	return false
 }
 
 func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt, exclusionMap map[string]bool) {
