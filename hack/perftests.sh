@@ -51,6 +51,19 @@ mkdir -p ${TESTS_OUT_DIR}/performance
 echo 'ARTIFACTS ' ${ARTIFACTS}
 echo 'TESTS_OUT_DIR ' ${TESTS_OUT_DIR}
 
+# ImageVolume requires kubelet support (k8s 1.35+). Disable on older clusters
+# before the test binary starts so virt-operator reconciliation completes
+# well before any tests run.
+k8s_minor=$(${kubectl} --kubeconfig "${kubeconfig}" version -o json | sed -n 's/.*"minor": "\([^"]*\)".*/\1/p' | tail -1 | tr -d '+')
+if [ "${k8s_minor}" -lt 35 ]; then
+    echo "Disabling ImageVolume feature gate (k8s ${k8s_minor} < 1.35)"
+    ${kubectl} --kubeconfig "${kubeconfig}" patch kv kubevirt -n kubevirt --type=merge \
+        -p '{"spec":{"configuration":{"developerConfiguration":{"disabledFeatureGates":["ImageVolume"]}}}}'
+    ${kubectl} --kubeconfig "${kubeconfig}" wait kv kubevirt -n kubevirt --for condition=Available --timeout 5m
+    trap '${kubectl} --kubeconfig "${kubeconfig}" patch kv kubevirt -n kubevirt --type=merge \
+      -p '"'"'{"spec":{"configuration":{"developerConfiguration":{"disabledFeatureGates":[]}}}}'"'"' 2>/dev/null || true' EXIT
+fi
+
 function perftest() {
     _out/tests/ginkgo -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${perftest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
 }
