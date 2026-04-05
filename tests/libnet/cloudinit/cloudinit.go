@@ -22,6 +22,8 @@ package cloudinit
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libnet/dns"
 
 	"sigs.k8s.io/yaml"
@@ -81,16 +83,28 @@ func WithAddresses(addresses ...string) NetworkDataInterfaceOption {
 
 func WithDHCP4Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		enabled := true
-		networkDataInterface.DHCP4 = &enabled
+		networkDataInterface.DHCP4 = pointer.P(true)
 		return nil
 	}
 }
 
 func WithDHCP6Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		enabled := true
-		networkDataInterface.DHCP6 = &enabled
+		networkDataInterface.DHCP6 = pointer.P(true)
+		return nil
+	}
+}
+
+func WithDHCP4Disabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.DHCP4 = pointer.P(false)
+		return nil
+	}
+}
+
+func WithDHCP6Disabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.DHCP6 = pointer.P(false)
 		return nil
 	}
 }
@@ -192,6 +206,36 @@ func CreateDefaultCloudInitNetworkData() string {
 		panic(err)
 	}
 	return data
+}
+
+// NetworkDataMatchingClusterIPFamilies returns cloud-init v2 network-config for eth0. Guest config is aligned
+// with cluster IPv4/IPv6 from virt-handler PodIPs (cluster.SupportsIpv4 / SupportsIpv6): dual-stack matches
+// CreateDefaultCloudInitNetworkData; IPv4-only uses DHCPv4 only; IPv6-only uses static IPv6 and a default IPv6
+// route via WithGateway6 (no DHCPv4). If either probe fails, returns the dual-stack default (same as historical tests).
+func NetworkDataMatchingClusterIPFamilies() (string, error) {
+	supportsIPv4, errV4 := cluster.SupportsIpv4()
+	supportsIPv6, errV6 := cluster.SupportsIpv6()
+	if errV4 != nil || errV6 != nil {
+		return CreateDefaultCloudInitNetworkData(), nil
+	}
+	if supportsIPv4 && supportsIPv6 {
+		return CreateDefaultCloudInitNetworkData(), nil
+	}
+	if supportsIPv4 && !supportsIPv6 {
+		return NewNetworkData(
+			WithEthernet("eth0",
+				WithDHCP4Enabled(),
+				WithDHCP6Disabled(),
+				WithNameserverFromCluster(),
+			))
+	}
+	return NewNetworkData(
+		WithEthernet("eth0",
+			WithDHCP4Disabled(),
+			WithAddresses(DefaultIPv6CIDR),
+			WithGateway6(DefaultIPv6Gateway),
+			WithNameserverFromCluster(),
+		))
 }
 
 func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {

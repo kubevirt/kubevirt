@@ -56,8 +56,18 @@ func (s server) composeServerCommand(port int, extraArgs ...string) string {
 }
 
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.LoginToFunction) {
+	StartTCPServerWithIPFamily(vmi, port, k8sv1.IPv4Protocol, loginTo)
+}
+
+// StartTCPServerWithIPFamily starts netcat on the VMI. IPv6 listeners must use -6 so IPv6-only
+// Kubernetes Services (single-stack ClusterIP) can reach the guest; plain "nc -l" binds IPv4 only.
+func StartTCPServerWithIPFamily(vmi *v1.VirtualMachineInstance, port int, ipFamily k8sv1.IPFamily, loginTo console.LoginToFunction) {
 	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
-	TCPServer.Start(vmi, port)
+	var extra []string
+	if ipFamily == k8sv1.IPv6Protocol {
+		extra = []string{"-6"}
+	}
+	TCPServer.Start(vmi, port, extra...)
 }
 
 func StartHTTPServerWithSourceIP(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {

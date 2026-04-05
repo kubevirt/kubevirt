@@ -84,8 +84,18 @@ fi`,
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
 func NewHelloWorldJobTCP(host, port string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; \
-	  if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)
+	return NewHelloWorldJobTCPWithIPFamily(host, port, k8sv1.IPv4Protocol)
+}
+
+// NewHelloWorldJobTCPWithIPFamily is like NewHelloWorldJobTCP but forces IPv6 on the client when
+// connecting to single-stack IPv6 Services (some nc implementations otherwise prefer IPv4).
+func NewHelloWorldJobTCPWithIPFamily(host, port string, ipFamily k8sv1.IPFamily) *batchv1.Job {
+	ncLeading := ""
+	if ipFamily == k8sv1.IPv6Protocol {
+		ncLeading = "-6 "
+	}
+	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s%s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; \
+	  if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, ncLeading, host, port)
 	return NewHelloWorldJob(check)
 }
 
