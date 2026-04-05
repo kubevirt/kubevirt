@@ -21,8 +21,11 @@ package eventsserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"google.golang.org/grpc"
@@ -41,6 +44,8 @@ import (
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+var socketCheckInterval = 5 * time.Second
 
 type Notify struct {
 	EventChan chan watch.Event
@@ -142,11 +147,19 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 
 	defer sock.Close()
 
+	originalIno, err := socketInode(sockFile)
+	if err != nil {
+		return fmt.Errorf("failed to stat socket file after creation: %w", err)
+	}
+
 	serveErr := make(chan error, 1)
 	go func() {
 		defer close(serveErr)
 		serveErr <- grpcServer.Serve(sock)
 	}()
+
+	socketGone := make(chan struct{})
+	go watchSocketFile(sockFile, originalIno, stopChan, socketGone)
 
 	select {
 	case err := <-serveErr:
@@ -156,10 +169,43 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		}
 		log.Log.Info("notify server done")
 		return nil
+	case <-socketGone:
+		log.Log.Warningf("socket file %s was removed or replaced, stopping notify server", sockFile)
+		grpcServer.Stop()
+		return fmt.Errorf("socket file %s was removed or replaced externally", sockFile)
 	case <-stopChan:
 		grpcServerStop(grpcServer)
 	}
 	return nil
+}
+
+func watchSocketFile(sockFile string, originalIno uint64, stopChan chan struct{}, socketGone chan struct{}) {
+	t := time.NewTicker(socketCheckInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-stopChan:
+			return
+		case <-t.C:
+			ino, err := socketInode(sockFile)
+			if err != nil || ino != originalIno {
+				close(socketGone)
+				return
+			}
+		}
+	}
+}
+
+func socketInode(path string) (uint64, error) {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return 0, err
+	}
+	stat, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, errors.New("failed to get syscall.Stat_t from FileInfo")
+	}
+	return stat.Ino, nil
 }
 
 func grpcServerStop(grpcServer *grpc.Server) {
