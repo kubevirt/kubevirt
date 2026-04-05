@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -152,13 +153,13 @@ func runOverlayQMPSession(ctx context.Context, stdin io.WriteCloser, stdout io.R
 	quit := `{"execute": "quit"}`
 
 	var outputBuf bytes.Buffer
-	var jobErr, scanErr error
 	concludedChan := make(chan struct{})
-	scanDone := make(chan struct{})
-	go func() {
-		defer close(scanDone)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdout)
 		concluded := false
+		var jobErr error
 		for scanner.Scan() {
 			line := scanner.Text()
 			outputBuf.WriteString(line + "\n")
@@ -166,37 +167,46 @@ func runOverlayQMPSession(ctx context.Context, stdin io.WriteCloser, stdout io.R
 			if !concluded && resp.isJobConcluded() {
 				close(concludedChan)
 				concluded = true
+				continue
 			}
 			if concluded && jobErr == nil {
 				jobErr = resp.jobError()
 			}
 		}
-		scanErr = scanner.Err()
-	}()
+
+		var errs []error
+		if scanner.Err() != nil {
+			errs = append(errs, fmt.Errorf("error reading qemu-storage-daemon output for overlay %s: %w", overlayPath, scanner.Err()))
+		}
+		if !concluded {
+			errs = append(errs, fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath))
+		}
+		if jobErr != nil {
+			errs = append(errs, fmt.Errorf("blockdev-create job failed for overlay %s: %w", overlayPath, jobErr))
+		}
+		return errors.Join(errs...)
+	})
 
 	fmt.Fprintf(stdin, "%s\n%s\n", qmpCapabilities, blockdevCreate)
 
-	var err error
 	select {
 	case <-concludedChan:
 		fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
-	case <-scanDone:
-		err = fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath)
-	case <-ctx.Done():
-		err = fmt.Errorf("timed out waiting for qemu-storage-daemon to create overlay %s", overlayPath)
+	case <-egCtx.Done():
+		select {
+		case <-concludedChan:
+			fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
+		default:
+		}
 	}
 
 	stdin.Close()
-	<-scanDone
+	egErr := eg.Wait()
 
-	if scanErr != nil {
-		err = errors.Join(err, fmt.Errorf("error reading qemu-storage-daemon output for overlay %s: %w", overlayPath, scanErr))
+	if ctx.Err() != nil {
+		return outputBuf.String(), fmt.Errorf("timed out waiting for qemu-storage-daemon to create overlay %s", overlayPath)
 	}
-	if jobErr != nil {
-		err = errors.Join(err, fmt.Errorf("blockdev-create job failed for overlay %s: %w", overlayPath, jobErr))
-	}
-
-	return outputBuf.String(), err
+	return outputBuf.String(), egErr
 }
 
 type jobInfo struct {
