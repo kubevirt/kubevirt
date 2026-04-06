@@ -732,6 +732,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					updatedFeatureGates = append(updatedFeatureGates, fg)
 				}
 			}
+			// Old releases don't support Beta-on-by-default, so Snapshot must be
+			// explicitly listed for the previous release's webhook to accept
+			// snapshot creation.
+			updatedFeatureGates = append(updatedFeatureGates, featuregate.SnapshotGate)
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = updatedFeatureGates
 			// Now create the kubevirt CR
 			createKv(kv)
