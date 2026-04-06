@@ -50,10 +50,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -505,7 +507,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			),
 		)
 
-		It("[test_id:6869]should report an error status when image pull error occurs", decorators.Conformance, func() {
+		It("[test_id:6869]should report an error status when image pull error occurs", Serial, decorators.Conformance, func() {
+			if checks.HasFeature(featuregate.ImageVolume) {
+				config.DisableFeatureGate(featuregate.ImageVolume)
+				DeferCleanup(config.EnableFeatureGate, featuregate.ImageVolume)
+			}
+
 			vmi := libvmi.New(
 				libvmi.WithContainerDisk("disk0", "no-such-image"),
 				libvmi.WithMemoryRequest("128Mi"),
