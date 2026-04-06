@@ -43,6 +43,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/google/go-github/v83/github"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
@@ -751,7 +752,24 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					updatedFeatureGates = append(updatedFeatureGates, fg)
 				}
 			}
+			// Old releases don't support Beta-on-by-default, so Snapshot must be
+			// explicitly listed for the previous release's webhook to accept
+			// snapshot creation.
+			updatedFeatureGates = append(updatedFeatureGates, featuregate.SnapshotGate)
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = updatedFeatureGates
+
+			// ImageVolume requires k8s 1.35+ (kubelet image volume support).
+			// Disable it on older clusters so the new virt-launcher doesn't
+			// panic looking for image-volume paths after the upgrade.
+			k8sVersion, err := checks.GetKubernetesVersion()
+			Expect(err).ToNot(HaveOccurred())
+			if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
+				kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
+					kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
+					featuregate.ImageVolume,
+				)
+			}
+
 			// Now create the kubevirt CR
 			createKv(kv)
 
