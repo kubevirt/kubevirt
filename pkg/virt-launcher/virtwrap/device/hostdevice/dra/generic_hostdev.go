@@ -64,7 +64,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 }
 
 func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v1.VirtualMachineInstanceSpec) (*api.HostDevice, error) {
-	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || hd.ClaimRequest.RequestName == nil {
+	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || *hd.ClaimRequest.ClaimName == "" || hd.ClaimRequest.RequestName == nil || *hd.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("HostDevice %s has incomplete ClaimRequest", hd.Name)
 	}
 
@@ -75,7 +75,8 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
 	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating
 	// it as PCI passthrough would be incorrect.
-	if mdevUUID, err := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName); err == nil {
+	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName)
+	if mdevErr == nil {
 		log.Log.V(2).Infof("Adding DRA MDEV HostDevice for %s", hd.Name)
 		model := "vfio-pci"
 		if vmiSpecs.Architecture == "s390x" {
@@ -94,7 +95,8 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 		}, nil
 	}
 
-	if pciAddr, err := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName); err == nil {
+	pciAddr, pciErr := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName)
+	if pciErr == nil {
 		log.Log.V(2).Infof("Adding DRA PCI HostDevice for %s", hd.Name)
 		hostAddr, err := device.NewPciAddressField(pciAddr)
 		if err != nil {
@@ -108,7 +110,7 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 		}, nil
 	}
 
-	return nil, fmt.Errorf("HostDevice %s has no mdevUUID or pciBusID in metadata for claim %s request %s", hd.Name, claimName, requestName)
+	return nil, fmt.Errorf("HostDevice %s has no mdevUUID or pciBusID in metadata for claim %s request %s (mdev: %v, pci: %v)", hd.Name, claimName, requestName, mdevErr, pciErr)
 }
 
 func validateCreationOfDRAHostDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
