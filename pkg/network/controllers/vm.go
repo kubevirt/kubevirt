@@ -114,6 +114,10 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 	vmCopy.Spec.Template.Spec.Networks = networks
 
+	if v.clusterConfigurer.VMPersistentMACsEnabled() {
+		persistMACsToVMSpec(vmCopy, vmiIfacesByName)
+	}
+
 	return vmCopy, nil
 }
 
@@ -209,6 +213,18 @@ func syncNetworks(vmNets, vmiNets []v1.Network) []v1.Network {
 		}
 	}
 	return updatedVMINets
+}
+
+func persistMACsToVMSpec(vm *v1.VirtualMachine, vmiIfacesByName map[string]v1.Interface) {
+	for i := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		vmIface := &vm.Spec.Template.Spec.Domain.Devices.Interfaces[i]
+		if vmIface.MacAddress != "" {
+			continue
+		}
+		if vmiIface, exists := vmiIfacesByName[vmIface.Name]; exists && vmiIface.MacAddress != "" {
+			vmIface.MacAddress = vmiIface.MacAddress
+		}
+	}
 }
 
 func persistMACsToVMISpec(

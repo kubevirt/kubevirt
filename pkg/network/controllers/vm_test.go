@@ -794,6 +794,45 @@ var _ = Describe("VM Network Controller", func() {
 			true, "", "", ""),
 	)
 
+	DescribeTable("MAC address persistence to VM spec", func(
+		fgEnabled bool,
+		existingSpecMAC, ifaceStatusMAC, expectedVMSpecMAC string,
+	) {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset, stubClusterConfigurer{isVMPersistentMACsEnabled: fgEnabled})
+
+		iface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+		iface.MacAddress = existingSpecMAC
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(iface),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					Name: defaultNetName, MAC: ifaceStatusMAC,
+				}),
+			)),
+		)
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress).To(Equal(expectedVMSpecMAC))
+	},
+		Entry("persists MAC from VMI spec when VM spec is empty",
+			true, "", statusMAC, statusMAC),
+		Entry("does not overwrite user-specified MAC on VM spec",
+			true, userMAC, statusMAC, userMAC),
+		Entry("does not persist when feature gate is disabled",
+			false, "", statusMAC, ""),
+		Entry("does not persist when VMI has no MAC",
+			true, "", "", ""),
+	)
+
 	It("sync preserves auto-injected Pod network", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset, stubClusterConfigurer{isLiveUpdateNADRefEnabled: true})
