@@ -573,6 +573,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationStatus":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTarget":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTarget(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState":                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTransferStatus":                           schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTransferStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface":                                  schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp":                          schema_kubevirtio_api_core_v1_VirtualMachineInstancePhaseTransitionTimestamp(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstancePreset":                                            schema_kubevirtio_api_core_v1_VirtualMachineInstancePreset(ref),
@@ -27245,6 +27246,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"transferStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TransferStatus contains migration transfer details reported by the source runtime.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTransferStatus"),
+						},
+					},
 					"migrationPolicyName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Name of the migration policy. If string is empty, no policy is matched",
@@ -27322,7 +27329,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSourceState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSourceState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTransferStatus"},
 	}
 }
 
@@ -27570,6 +27577,53 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(re
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTransferStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"dataTotalBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataTotalBytes is the total amount of migration data reported by the source runtime.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"dataProcessedBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataProcessedBytes is the amount of migration data already processed by the source runtime.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"dataRemainingBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataRemainingBytes is the amount of migration data still remaining on the source runtime.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"iteration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Iteration is the current migration iteration reported by the source runtime.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"autoConvergeThrottle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoConvergeThrottle is the current auto-converge throttle reported by the source runtime.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

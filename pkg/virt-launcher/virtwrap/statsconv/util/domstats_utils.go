@@ -201,7 +201,11 @@ var Testdataexpected = `{
      "MemDirtyRate": 0,
      "MemDirtyRateSet": false,
      "MemoryBpsSet": false,
-     "MemoryBps": 0
+     "MemoryBps": 0,
+     "IterationSet": false,
+     "Iteration": 0,
+     "AutoConvergeThrottleSet": false,
+     "AutoConvergeThrottle": 0
    },
    "Name": "testName", 
    "Net": [

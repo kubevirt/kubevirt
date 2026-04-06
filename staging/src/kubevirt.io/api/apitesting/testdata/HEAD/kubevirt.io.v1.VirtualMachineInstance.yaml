@@ -782,6 +782,12 @@ status:
       selinuxContext: selinuxContextValue
       syncAddress: syncAddressValue
       virtualMachineInstanceUID: virtualMachineInstanceUIDValue
+    transferStatus:
+      autoConvergeThrottle: 4294967276
+      dataProcessedBytes: 18446744073709551598
+      dataRemainingBytes: 18446744073709551598
+      dataTotalBytes: 18446744073709551602
+      iteration: 4294967287
   migrationTransport: migrationTransportValue
   nodeName: nodeNameValue
   phase: phaseValue

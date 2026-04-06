@@ -491,12 +491,11 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 	// - Fail if any obvious failure is found
 	// - Interrupt if something unexpectedly disappeared
 	// - Begin progressing migration state based on VMI's MigrationState status.
-	if migration.IsFinal() {
-		if vmi.IsMigrationSynchronized(migration) && migration.UID == vmi.Status.MigrationState.MigrationUID {
-			// Store the finalized migration state data from the VMI status in the migration object
-			migrationCopy.Status.MigrationState = vmi.Status.MigrationState
-		}
+	if vmi != nil && vmi.Status.MigrationState != nil && vmi.IsMigrationSynchronized(migration) && migration.UID == vmi.Status.MigrationState.MigrationUID {
+		migrationCopy.Status.MigrationState = vmi.Status.MigrationState
+	}
 
+	if migration.IsFinal() {
 		// Remove the finalizer and conditions if the migration has already completed
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
 	} else if vmi == nil {

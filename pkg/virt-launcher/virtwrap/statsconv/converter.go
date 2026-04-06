@@ -223,16 +223,20 @@ func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJo
 	}
 
 	return &stats.DomainJobInfo{
-		DataTotalSet:     info.DataTotalSet,
-		DataTotal:        info.DataTotal,
-		DataProcessedSet: info.DataProcessedSet,
-		DataProcessed:    info.DataProcessed,
-		MemoryBpsSet:     info.MemBpsSet,
-		MemoryBps:        info.MemBps,
-		DataRemainingSet: info.DataRemainingSet,
-		DataRemaining:    info.DataRemaining,
-		MemDirtyRateSet:  info.MemDirtyRateSet && info.MemPageSizeSet,
-		MemDirtyRate:     info.MemDirtyRate * info.MemPageSize,
+		DataTotalSet:            info.DataTotalSet,
+		DataTotal:               info.DataTotal,
+		DataProcessedSet:        info.DataProcessedSet,
+		DataProcessed:           info.DataProcessed,
+		MemoryBpsSet:            info.MemBpsSet,
+		MemoryBps:               info.MemBps,
+		DataRemainingSet:        info.DataRemainingSet,
+		DataRemaining:           info.DataRemaining,
+		MemDirtyRateSet:         info.MemDirtyRateSet && info.MemPageSizeSet,
+		MemDirtyRate:            info.MemDirtyRate * info.MemPageSize,
+		IterationSet:            info.MemIterationSet,
+		Iteration:               uint32(info.MemIteration),
+		AutoConvergeThrottleSet: info.AutoConvergeThrottleSet,
+		AutoConvergeThrottle:    uint32(info.AutoConvergeThrottle),
 	}
 }
 

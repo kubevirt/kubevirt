@@ -14496,6 +14496,36 @@ var CRDsValidation map[string]string = map[string]string{
                     virtual machine instance
                   type: string
               type: object
+            transferStatus:
+              description: TransferStatus contains migration transfer details reported
+                by the source runtime.
+              properties:
+                autoConvergeThrottle:
+                  description: AutoConvergeThrottle is the current auto-converge throttle
+                    reported by the source runtime.
+                  format: int32
+                  type: integer
+                dataProcessedBytes:
+                  description: DataProcessedBytes is the amount of migration data
+                    already processed by the source runtime.
+                  format: int64
+                  type: integer
+                dataRemainingBytes:
+                  description: DataRemainingBytes is the amount of migration data
+                    still remaining on the source runtime.
+                  format: int64
+                  type: integer
+                dataTotalBytes:
+                  description: DataTotalBytes is the total amount of migration data
+                    reported by the source runtime.
+                  format: int64
+                  type: integer
+                iteration:
+                  description: Iteration is the current migration iteration reported
+                    by the source runtime.
+                  format: int32
+                  type: integer
+              type: object
           type: object
         migrationTransport:
           description: This represents the migration transport
@@ -15077,6 +15107,36 @@ var CRDsValidation map[string]string = map[string]string{
                   description: VirtualMachineInstanceUID is the UID of the target
                     virtual machine instance
                   type: string
+              type: object
+            transferStatus:
+              description: TransferStatus contains migration transfer details reported
+                by the source runtime.
+              properties:
+                autoConvergeThrottle:
+                  description: AutoConvergeThrottle is the current auto-converge throttle
+                    reported by the source runtime.
+                  format: int32
+                  type: integer
+                dataProcessedBytes:
+                  description: DataProcessedBytes is the amount of migration data
+                    already processed by the source runtime.
+                  format: int64
+                  type: integer
+                dataRemainingBytes:
+                  description: DataRemainingBytes is the amount of migration data
+                    still remaining on the source runtime.
+                  format: int64
+                  type: integer
+                dataTotalBytes:
+                  description: DataTotalBytes is the total amount of migration data
+                    reported by the source runtime.
+                  format: int64
+                  type: integer
+                iteration:
+                  description: Iteration is the current migration iteration reported
+                    by the source runtime.
+                  format: int32
+                  type: integer
               type: object
           type: object
         phase:

@@ -115,6 +115,20 @@ var _ = Describe("StatsConverter", func() {
 			}
 			Expect(equal).To(BeTrue())
 		})
+
+		It("should convert migration iteration and auto converge throttle", func() {
+			out := Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(&libvirt.DomainJobInfo{
+				MemIterationSet:         true,
+				MemIteration:            10,
+				AutoConvergeThrottleSet: true,
+				AutoConvergeThrottle:    50,
+			})
+
+			Expect(out.IterationSet).To(BeTrue())
+			Expect(out.Iteration).To(Equal(uint32(10)))
+			Expect(out.AutoConvergeThrottleSet).To(BeTrue())
+			Expect(out.AutoConvergeThrottle).To(Equal(uint32(50)))
+		})
 	})
 })
 

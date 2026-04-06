@@ -18261,6 +18261,10 @@
      "targetState": {
       "description": "TargetState contains migration state managed by the target virt handler",
       "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationTargetState"
+     },
+     "transferStatus": {
+      "description": "TransferStatus contains migration transfer details reported by the source runtime.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationTransferStatus"
      }
     }
    },
@@ -18393,6 +18397,36 @@
      "virtualMachineInstanceUID": {
       "description": "VirtualMachineInstanceUID is the UID of the target virtual machine instance",
       "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceMigrationTransferStatus": {
+    "type": "object",
+    "properties": {
+     "autoConvergeThrottle": {
+      "description": "AutoConvergeThrottle is the current auto-converge throttle reported by the source runtime.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "dataProcessedBytes": {
+      "description": "DataProcessedBytes is the amount of migration data already processed by the source runtime.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "dataRemainingBytes": {
+      "description": "DataRemainingBytes is the amount of migration data still remaining on the source runtime.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "dataTotalBytes": {
+      "description": "DataTotalBytes is the total amount of migration data reported by the source runtime.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "iteration": {
+      "description": "Iteration is the current migration iteration reported by the source runtime.",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },

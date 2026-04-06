@@ -301,6 +301,17 @@ func (VirtualMachineInstanceMigrationTargetState) SwaggerDoc() map[string]string
 	}
 }
 
+func (VirtualMachineInstanceMigrationTransferStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                     "+k8s:openapi-gen=true",
+		"dataTotalBytes":       "DataTotalBytes is the total amount of migration data reported by the source runtime.",
+		"dataProcessedBytes":   "DataProcessedBytes is the amount of migration data already processed by the source runtime.",
+		"dataRemainingBytes":   "DataRemainingBytes is the amount of migration data still remaining on the source runtime.",
+		"iteration":            "Iteration is the current migration iteration reported by the source runtime.",
+		"autoConvergeThrottle": "AutoConvergeThrottle is the current auto-converge throttle reported by the source runtime.",
+	}
+}
+
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                               "+k8s:openapi-gen=true",
@@ -321,6 +332,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"failureReason":                  "Contains the reason why the migration failed",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
+		"transferStatus":                 "TransferStatus contains migration transfer details reported by the source runtime.",
 		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
 		"migrationConfiguration":         "Migration configurations to apply",
 		"targetCPUSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",

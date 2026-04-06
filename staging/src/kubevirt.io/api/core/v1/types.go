@@ -1037,6 +1037,20 @@ type VirtualMachineInstanceMigrationTargetState struct {
 type MigrationConfigSource string
 
 // +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationTransferStatus struct {
+	// DataTotalBytes is the total amount of migration data reported by the source runtime.
+	DataTotalBytes *uint64 `json:"dataTotalBytes,omitempty"`
+	// DataProcessedBytes is the amount of migration data already processed by the source runtime.
+	DataProcessedBytes *uint64 `json:"dataProcessedBytes,omitempty"`
+	// DataRemainingBytes is the amount of migration data still remaining on the source runtime.
+	DataRemainingBytes *uint64 `json:"dataRemainingBytes,omitempty"`
+	// Iteration is the current migration iteration reported by the source runtime.
+	Iteration *uint32 `json:"iteration,omitempty"`
+	// AutoConvergeThrottle is the current auto-converge throttle reported by the source runtime.
+	AutoConvergeThrottle *uint32 `json:"autoConvergeThrottle,omitempty"`
+}
+
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
 	// +nullable
@@ -1078,6 +1092,8 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
+	// TransferStatus contains migration transfer details reported by the source runtime.
+	TransferStatus *VirtualMachineInstanceMigrationTransferStatus `json:"transferStatus,omitempty"`
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
