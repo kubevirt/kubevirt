@@ -52,6 +52,8 @@ var _ = Describe("VM Network Controller", func() {
 		nadName3          = "foonet-nad3"
 		updatedNADName1   = "new-nad1"
 		updatedNADName2   = "new-nad2"
+		statusMAC         = "0A:00:00:00:00:01"
+		userMAC           = "AA:BB:CC:DD:EE:FF"
 	)
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 		c := controllers.NewVMController(fake.NewSimpleClientset(), stubClusterConfigurer{})
@@ -748,6 +750,50 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Networks).To(Equal(expectedNets))
 	})
 
+	DescribeTable("MAC address persistence to VMI spec", func(
+		fgEnabled bool,
+		existingSpecMAC, ifaceStatusMAC, expectedVMISpecMAC string,
+	) {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset, stubClusterConfigurer{isVMPersistentMACsEnabled: fgEnabled})
+
+		iface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+		iface.MacAddress = existingSpecMAC
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(iface),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+					Name: defaultNetName, MAC: ifaceStatusMAC,
+				}),
+			)),
+		)
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces[0].MacAddress).To(Equal(expectedVMISpecMAC))
+	},
+		Entry("persists MAC from VMI status when spec is empty",
+			true, "", statusMAC, statusMAC),
+		Entry("does not overwrite existing MAC on VMI spec",
+			true, userMAC, statusMAC, userMAC),
+		Entry("does not persist when feature gate is disabled",
+			false, "", statusMAC, ""),
+		Entry("does not persist when VMI status has no MAC",
+			true, "", "", ""),
+	)
+
 	It("sync preserves auto-injected Pod network", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset, stubClusterConfigurer{isLiveUpdateNADRefEnabled: true})
@@ -823,8 +869,13 @@ func newEmptyVM() *v1.VirtualMachine {
 
 type stubClusterConfigurer struct {
 	isLiveUpdateNADRefEnabled bool
+	isVMPersistentMACsEnabled bool
 }
 
 func (s stubClusterConfigurer) LiveUpdateNADRefEnabled() bool {
 	return s.isLiveUpdateNADRefEnabled
+}
+
+func (s stubClusterConfigurer) VMPersistentMACsEnabled() bool {
+	return s.isVMPersistentMACsEnabled
 }
