@@ -46,6 +46,13 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	vmReadyTimeout           = 6 * time.Minute
+	migrationRequiredTimeout = 1 * time.Minute
+	interfaceChangeTimeout   = 30 * time.Second
+	pollingInterval          = 2 * time.Second
+)
+
 var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 	sriovResourceName := readSRIOVResourceName()
 
@@ -53,7 +60,6 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 		// Check if the hardware supports SRIOV
 		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
 			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
-
 	})
 
 	BeforeEach(func() {
@@ -93,10 +99,21 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			)
 			hotPluggedVM = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			var err error
-			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
+			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				hotPluggedVM,
+				metav1.CreateOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
+			Eventually(matcher.ThisVM(hotPluggedVM)).
+				WithTimeout(vmReadyTimeout).
+				WithPolling(pollingInterval).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(
+				context.Background(),
+				hotPluggedVM.Name,
+				metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
 
@@ -113,7 +130,10 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			virtClient := kubevirt.Client()
 
 			By("Waiting for MigrationRequired condition to appear")
-			Eventually(matcher.ThisVMI(hotPluggedVMI), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+			Eventually(matcher.ThisVMI(hotPluggedVMI)).
+				WithTimeout(migrationRequiredTimeout).
+				WithPolling(pollingInterval).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
@@ -128,7 +148,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 					}
 				}
 				return nil
-			}).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(Not(BeNil()))
+			}).WithTimeout(interfaceChangeTimeout).WithPolling(time.Second).Should(Not(BeNil()))
 
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migration)
@@ -138,14 +158,22 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			const guestSecondaryIfaceName = "eth1"
 			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
-			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
+			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(
+				context.Background(),
+				hotPluggedVM.Name,
+				metav1.GetOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
 			vmIfaceSpec := vmispec.LookupInterfaceByName(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces, ifaceName)
 			Expect(vmIfaceSpec).NotTo(BeNil(), "VM spec should contain the new interface")
 			Expect(vmIfaceSpec.MacAddress).NotTo(BeEmpty(), "VM iface spec should have MAC address")
 
 			Eventually(func(g Gomega) {
-				updatedVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(context.Background(), hotPluggedVMI.Name, metav1.GetOptions{})
+				updatedVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(
+					context.Background(),
+					hotPluggedVMI.Name,
+					metav1.GetOptions{},
+				)
 				Expect(err).NotTo(HaveOccurred())
 
 				vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(updatedVMI.Status.Interfaces, ifaceName)
@@ -153,7 +181,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 
 				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
 					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
-			}, time.Second*30, time.Second*3).Should(Succeed())
+			}).WithTimeout(interfaceChangeTimeout).WithPolling(pollingInterval).Should(Succeed())
 		})
 	})
 }))
@@ -193,5 +221,5 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	const queueCount = 0
-	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, 30*time.Second, time.Second)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, interfaceChangeTimeout, time.Second)
 }
