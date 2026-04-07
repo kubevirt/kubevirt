@@ -51,10 +51,14 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		nadName                  = "bridge-nad"
 	)
 	const (
-		waitForGAConnectedTimout        = 6 * time.Minute
-		waitForGAConnectedRetryInterval = 3 * time.Second
+		waitForGAConnectedTimout            = 6 * time.Minute
+		waitForGAConnectedRetryInterval     = 3 * time.Second
+		waitForExpectedIfaceStatusesTimeout = 60 * time.Second
+		restartRequiredConsistentlyTimeout  = 15 * time.Second
+		restartRequiredConsistentlyPolling  = 1 * time.Second
+		linkStateAssertionShortTimeout      = 5 * time.Second
+		linkStateAssertionLongTimeout       = 30 * time.Second
 	)
-	const waitForExpectedIfaceStatusesTimeout = 60 * time.Second
 	BeforeEach(func() {
 		testNamespace := testsuite.GetTestNamespace(nil)
 		_, err := libnet.CreateNetAttachDef(context.Background(), testNamespace,
@@ -108,24 +112,27 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
-		timeout := 5 * time.Second
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkUp), linkStateAssertionShortTimeout,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
+		)).To(Succeed())
 
 		By("flipping the state of both interfaces")
 
 		Expect(patchToggleVMInterfacesStates(vm)).To(Succeed())
 
 		Consistently(matcher.ThisVM(vm)).
-			WithTimeout(15 * time.Second).
-			WithPolling(1 * time.Second).
+			WithTimeout(restartRequiredConsistentlyTimeout).
+			WithPolling(restartRequiredConsistentlyPolling).
 			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 
 		expectedIfaceStatuses = []v1.VirtualMachineInstanceNetworkInterface{
@@ -134,16 +141,19 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
-		timeout = 30 * time.Second
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), linkStateAssertionLongTimeout,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkUp), linkStateAssertionLongTimeout,
+		)).To(Succeed())
 	})
 
 	It("status and guest should show iface is down when vm with ifaces down is migrated", func() {
@@ -192,16 +202,19 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
-		timeout := 5 * time.Second
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
+		)).To(Succeed())
 
 		By("migrating the vmi")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -212,16 +225,19 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
 		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
 
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
+		)).To(Succeed())
 	})
 }))
 
