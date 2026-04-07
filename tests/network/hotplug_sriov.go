@@ -148,7 +148,10 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 					}
 				}
 				return nil
-			}).WithTimeout(interfaceChangeTimeout).WithPolling(time.Second).Should(Not(BeNil()))
+			}).
+				WithTimeout(interfaceChangeTimeout).
+				WithPolling(time.Second).
+				Should(Not(BeNil()))
 
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migration)
@@ -181,7 +184,10 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 
 				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
 					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
-			}).WithTimeout(interfaceChangeTimeout).WithPolling(pollingInterval).Should(Succeed())
+			}).
+				WithTimeout(interfaceChangeTimeout).
+				WithPolling(pollingInterval).
+				Should(Succeed())
 		})
 	})
 }))
