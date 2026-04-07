@@ -51,10 +51,11 @@ import (
 )
 
 const (
-	linuxBridgeName            = "supadupabr"
-	vmReadyTimeout             = 6 * time.Minute
-	migrationRequiredTimeout   = 1 * time.Minute
-	pollingInterval            = 2 * time.Second
+	linuxBridgeName          = "supadupabr"
+	vmReadyTimeout           = 6 * time.Minute
+	migrationRequiredTimeout = 1 * time.Minute
+	interfaceChangeTimeout   = 30 * time.Second
+	pollingInterval          = 2 * time.Second
 )
 
 type hotplugMethod string
@@ -160,7 +161,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 
 				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
 					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
-			}, time.Second*30, time.Second*3).Should(Succeed())
+			}).WithTimeout(interfaceChangeTimeout).WithPolling(pollingInterval).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -280,7 +281,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 				)
 				Expect(err).NotTo(HaveOccurred())
 				return hotPluggedVMI.Spec.Networks
-			}, 30*time.Second).Should(
+			}).WithTimeout(interfaceChangeTimeout).Should(
 				ConsistOf(
 					*v1.DefaultPodNetwork(),
 					v1.Network{
@@ -395,7 +396,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 				Expect(err).NotTo(HaveOccurred())
 				iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
 				return iface == nil || iface.State == v1.InterfaceStateAbsent
-			}, 30*time.Second).Should(BeTrue())
+			}).WithTimeout(interfaceChangeTimeout).Should(BeTrue())
 
 			By("verify unplugged interface is not reported in the VMI status")
 			vmi = verifyBridgeDynamicInterfaceChange(vmi, plugMethod)
@@ -473,7 +474,9 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 
 	if plugMethod == migrationBased {
 		By("Waiting for MigrationRequired condition to appear")
-		Eventually(matcher.ThisVMI(vmi), migrationRequiredTimeout, pollingInterval).
+		Eventually(matcher.ThisVMI(vmi)).
+			WithTimeout(migrationRequiredTimeout).
+			WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
 		operationCompletionTimeout = 5 * time.Minute
@@ -492,14 +495,14 @@ func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) 
 		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVMI(g, vmi, netName)
-	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())
+	}).WithTimeout(interfaceChangeTimeout).WithPolling(pollingInterval).WithOffset(1).Should(Succeed())
 
 	var vm *v1.VirtualMachine
 	Eventually(func(g Gomega) {
 		vm, err = kubevirt.Client().VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVM(g, vm, netName)
-	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())
+	}).WithTimeout(interfaceChangeTimeout).WithPolling(pollingInterval).WithOffset(1).Should(Succeed())
 
 	return vm, vmi
 }
