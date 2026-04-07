@@ -101,6 +101,9 @@ const (
 	annContentType = "cdi.kubevirt.io/storage.contentType"
 	// annCertParams stores "current" cert rotation params in pod in order to detect changes
 	annCertParams = "kubevirt.io/export.certParameters"
+	// annVolumePVCMap is a JSON string that maps pvcs and volumes
+	// example: '{"vol-ovidkvnd":"tpl-vol-ovidkvnd","vol-data":"pvc-data-01"}'
+	annVolumePVCMap = "export.kubevirt.io/volume-pvc-map"
 
 	caDefaultPath = "/etc/virt-controller/exportca"
 	caCertFile    = caDefaultPath + "/tls.crt"

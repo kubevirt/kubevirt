@@ -334,6 +334,20 @@ var _ = Describe("PVC source", func() {
 		return vm
 	}
 
+	createVMWithHostDisk := func() *virtv1.VirtualMachine {
+		vm := createVMWithoutVolumes()
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+			Name: "hostdisk-volume",
+			VolumeSource: virtv1.VolumeSource{
+				HostDisk: &virtv1.HostDisk{
+					Path: "/tmp/hostdisk-volume.img",
+					Type: virtv1.HostDiskExists,
+				},
+			},
+		})
+		return vm
+	}
+
 	createVMIWithDataVolumes := func() *virtv1.VirtualMachineInstance {
 		return &virtv1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -347,6 +361,39 @@ var _ = Describe("PVC source", func() {
 						VolumeSource: virtv1.VolumeSource{
 							DataVolume: &virtv1.DataVolumeSource{
 								Name: "volume1",
+							},
+						},
+					},
+					{
+						Name: "volume2",
+						VolumeSource: virtv1.VolumeSource{
+							DataVolume: &virtv1.DataVolumeSource{
+								Name: "volume2",
+							},
+						},
+					},
+				},
+			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				Phase: virtv1.Running,
+			},
+		}
+	}
+
+	createVMIWithHostDisk := func() *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testVmName,
+				Namespace: testNamespace,
+			},
+			Spec: virtv1.VirtualMachineInstanceSpec{
+				Volumes: []virtv1.Volume{
+					{
+						Name: "hostdisk-volume",
+						VolumeSource: virtv1.VolumeSource{
+							HostDisk: &virtv1.HostDisk{
+								Path: "/tmp/hostdisk-volume.img",
+								Type: virtv1.HostDiskExists,
 							},
 						},
 					},
@@ -448,6 +495,95 @@ var _ = Describe("PVC source", func() {
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 	})
 
+	It("Should create VM export, when HostDisk volume is mapped by annotation", func() {
+		testVMExport := createVMVMExport()
+		vm := createVMWithHostDisk()
+		vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+			annVolumePVCMap: `{"hostdisk-volume":"mapped-pvc"}`,
+		}
+		controller.VMInformer.GetStore().Add(vm)
+		controller.PVCInformer.GetStore().Add(createPVC("mapped-pvc", "kubevirt"))
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyKubevirtInternal(vmExport, vmExport.Name, testNamespace, "mapped-pvc")
+			for _, condition := range vmExport.Status.Conditions {
+				if condition.Type == exportv1.ConditionReady {
+					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+					Expect(condition.Reason).To(Equal(podReadyReason))
+				}
+			}
+			return true, vmExport, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+		testutils.ExpectEvent(recorder, serviceCreatedEvent)
+	})
+
+	It("Should create VM export, when annotation map is invalid and fallback to volume resolution", func() {
+		testVMExport := createVMVMExport()
+		vm := createVMWithPVCs()
+		vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+			annVolumePVCMap: `{`,
+		}
+		controller.VMInformer.GetStore().Add(vm)
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyKubevirtInternal(vmExport, vmExport.Name, testNamespace, "volume1", "volume2")
+			for _, condition := range vmExport.Status.Conditions {
+				if condition.Type == exportv1.ConditionReady {
+					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+					Expect(condition.Reason).To(Equal(podReadyReason))
+				}
+			}
+			return true, vmExport, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+		testutils.ExpectEvent(recorder, serviceCreatedEvent)
+	})
+
+	It("Should prefer annotation mapping over default VM volume resolution", func() {
+		testVMExport := createVMVMExport()
+		vm := createVMWithPVCs()
+		vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+			annVolumePVCMap: `{"volume1":"mapped-pvc"}`,
+		}
+		controller.VMInformer.GetStore().Add(vm)
+		controller.PVCInformer.GetStore().Add(createPVC("mapped-pvc", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyKubevirtInternal(vmExport, vmExport.Name, testNamespace, "mapped-pvc", "volume2")
+			for _, condition := range vmExport.Status.Conditions {
+				if condition.Type == exportv1.ConditionReady {
+					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+					Expect(condition.Reason).To(Equal(podReadyReason))
+				}
+			}
+			return true, vmExport, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+		testutils.ExpectEvent(recorder, serviceCreatedEvent)
+	})
+
 	DescribeTable("Should create VM export, when VM is stopped, but VMI exists", func(vmiPhase virtv1.VirtualMachineInstancePhase) {
 		testVMExport := createVMVMExport()
 		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
@@ -479,6 +615,42 @@ var _ = Describe("PVC source", func() {
 		Entry("with succeeded phase", virtv1.Succeeded),
 		Entry("with failed phase", virtv1.Failed),
 	)
+
+	It("Should use annotation map when resolving PVCs from VMI", func() {
+		vmi := createVMIWithHostDisk()
+		vmi.Annotations = map[string]string{
+			annVolumePVCMap: `{"hostdisk-volume":"mapped-pvc"}`,
+		}
+
+		controller.PVCInformer.GetStore().Add(createPVC("mapped-pvc", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+
+		pvcs := controller.getPVCsFromVMI(vmi)
+		pvcNames := make([]string, 0, len(pvcs))
+		for _, pvc := range pvcs {
+			pvcNames = append(pvcNames, pvc.Name)
+		}
+
+		Expect(pvcNames).To(ConsistOf("mapped-pvc", "volume2"))
+	})
+
+	It("Should prefer annotation mapping over default VMI volume resolution", func() {
+		vmi := createVMIWithDataVolumes()
+		vmi.Annotations = map[string]string{
+			annVolumePVCMap: `{"volume1":"mapped-pvc"}`,
+		}
+
+		controller.PVCInformer.GetStore().Add(createPVC("mapped-pvc", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+
+		pvcs := controller.getPVCsFromVMI(vmi)
+		pvcNames := make([]string, 0, len(pvcs))
+		for _, pvc := range pvcs {
+			pvcNames = append(pvcNames, pvc.Name)
+		}
+
+		Expect(pvcNames).To(ConsistOf("mapped-pvc", "volume2"))
+	})
 
 	It("Should NOT create VM export, when VM is started", func() {
 		testVMExport := createVMVMExport()
