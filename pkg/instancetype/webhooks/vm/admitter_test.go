@@ -167,6 +167,58 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			))
 		})
 
+		It("should reject if instancetype and VM define CPU sockets, cores and threads", func() {
+			vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 1, Cores: 1, Threads: 1}
+
+			instancetypeSpec, preferenceSpec, causes := admitter.ApplyToVM(vm)
+			Expect(instancetypeSpec).To(BeNil())
+			Expect(preferenceSpec).To(BeNil())
+			Expect(causes).To(ConsistOf(
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "VM field(s) spec.template.spec.domain.cpu.sockets conflicts with selected instance type",
+					Field:   "spec.template.spec.domain.cpu.sockets",
+				},
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "VM field(s) spec.template.spec.domain.cpu.cores conflicts with selected instance type",
+					Field:   "spec.template.spec.domain.cpu.cores",
+				},
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "VM field(s) spec.template.spec.domain.cpu.threads conflicts with selected instance type",
+					Field:   "spec.template.spec.domain.cpu.threads",
+				},
+			))
+		})
+
+		DescribeTable("should reject if instancetype and VM define conflicting resources",
+			func(resources virtv1.ResourceRequirements, expectedField string) {
+				vm.Spec.Template.Spec.Domain.Resources = resources
+
+				instancetypeSpec, preferenceSpec, causes := admitter.ApplyToVM(vm)
+				Expect(instancetypeSpec).To(BeNil())
+				Expect(preferenceSpec).To(BeNil())
+				Expect(causes).To(ConsistOf(metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("VM field(s) %s conflicts with selected instance type", expectedField),
+					Field:   expectedField,
+				}))
+			},
+			Entry("CPU resource requests", virtv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("1")},
+			}, "spec.template.spec.domain.resources.requests.cpu"),
+			Entry("CPU resource limits", virtv1.ResourceRequirements{
+				Limits: k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("1")},
+			}, "spec.template.spec.domain.resources.limits.cpu"),
+			Entry("Memory resource requests", virtv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("128Mi")},
+			}, "spec.template.spec.domain.resources.requests.memory"),
+			Entry("Memory resource limits", virtv1.ResourceRequirements{
+				Limits: k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("128Mi")},
+			}, "spec.template.spec.domain.resources.limits.memory"),
+		)
+
 		It("should reject if preference requirements are not met", func() {
 			testPreference, err := virtClient.VirtualMachinePreference(
 				metav1.NamespaceDefault).Get(context.Background(), preferenceName, metav1.GetOptions{})

@@ -3,22 +3,17 @@ package instancetype
 
 import (
 	"context"
-	goerrors "errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -124,10 +119,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Instancetype and preference application", func() {
 		var vmi *virtv1.VirtualMachineInstance
-		const (
-			preferredTerminationGracePeriodSeconds = 15
-			expectedCausesLength                   = 3
-		)
+		const preferredTerminationGracePeriodSeconds = 15
+
 		BeforeEach(func() {
 			vmi = libvmifact.NewGuestless()
 		})
@@ -252,83 +245,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
-
-		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
-			instancetype := builder.NewInstancetypeFromVMI(vmi)
-			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
-				Create(context.Background(), instancetype, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
-			vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 1, Cores: 1, Threads: 1}
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(expectedCausesLength))
-
-			baseCPUConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
-
-			cause0 := apiStatus.Status().Details.Causes[0]
-			Expect(cause0.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			socketsConflict := baseCPUConflict.NewChild("sockets")
-			Expect(cause0.Message).To(Equal(socketsConflict.Error()))
-			Expect(cause0.Field).To(Equal(socketsConflict.String()))
-
-			cause1 := apiStatus.Status().Details.Causes[1]
-			Expect(cause1.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			coresConflict := baseCPUConflict.NewChild("cores")
-			Expect(cause1.Message).To(Equal(coresConflict.Error()))
-			Expect(cause1.Field).To(Equal(coresConflict.String()))
-
-			cause2 := apiStatus.Status().Details.Causes[2]
-			Expect(cause2.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			threadsConflict := baseCPUConflict.NewChild("threads")
-			Expect(cause2.Message).To(Equal(threadsConflict.Error()))
-			Expect(cause2.Field).To(Equal(threadsConflict.String()))
-		})
-
-		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedConflict *conflict.Conflict) {
-			instancetype := builder.NewInstancetypeFromVMI(vmi)
-			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
-				Create(context.Background(), instancetype, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
-			vm.Spec.Template.Spec.Domain.Resources = resources
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause.Message).To(Equal(expectedConflict.Error()))
-			Expect(cause.Field).To(Equal(expectedConflict.String()))
-		},
-			Entry("CPU resource requests", virtv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceCPU: resource.MustParse("1"),
-				},
-			}, conflict.New("spec.template.spec.domain.resources.requests.cpu")),
-			Entry("CPU resource limits", virtv1.ResourceRequirements{
-				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceCPU: resource.MustParse("1"),
-				},
-			}, conflict.New("spec.template.spec.domain.resources.limits.cpu")),
-			Entry("Memory resource requests", virtv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-				},
-			}, conflict.New("spec.template.spec.domain.resources.requests.memory")),
-			Entry("Memory resource limits", virtv1.ResourceRequirements{
-				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-				},
-			}, conflict.New("spec.template.spec.domain.resources.limits.memory")),
-		)
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
 			clusterPreference := builder.NewClusterPreference()

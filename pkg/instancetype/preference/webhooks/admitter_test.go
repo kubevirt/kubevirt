@@ -56,6 +56,15 @@ var _ = Describe("Validating Preference Admitter", func() {
 		}
 	})
 
+	DescribeTable("should accept valid preference", func(version string) {
+		ar := createPreferenceAdmissionReview(preferenceObj, version)
+		response := admitter.Admit(context.Background(), ar)
+
+		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
+	},
+		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
+	)
+
 	It("should reject unsupported PreferredCPUTopolgy value", func() {
 		unsupportedTopology := instancetypev1beta1.PreferredCPUTopology("foo")
 		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
