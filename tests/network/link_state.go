@@ -117,7 +117,9 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(waitForExpectedIfaceStatusesTimeout).
+			Should(ConsistOf(expectedIfaceStatuses))
 
 		Expect(console.RunCommand(
 			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkUp), linkStateAssertionShortTimeout,
@@ -146,7 +148,9 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(waitForExpectedIfaceStatusesTimeout).
+			Should(ConsistOf(expectedIfaceStatuses))
 
 		Expect(console.RunCommand(
 			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), linkStateAssertionLongTimeout,
@@ -207,7 +211,9 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(waitForExpectedIfaceStatusesTimeout).
+			Should(ConsistOf(expectedIfaceStatuses))
 
 		Expect(console.RunCommand(
 			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
@@ -230,7 +236,9 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(waitForExpectedIfaceStatusesTimeout).
+			Should(ConsistOf(expectedIfaceStatuses))
 
 		Expect(console.RunCommand(
 			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), linkStateAssertionShortTimeout,
