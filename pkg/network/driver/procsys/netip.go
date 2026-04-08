@@ -25,7 +25,7 @@ import (
 	"os"
 	"strconv"
 
-	"kubevirt.io/kubevirt/pkg/util/sysctl"
+	"kubevirt.io/kubevirt/pkg/network/sysctl"
 )
 
 type ProcSys struct{}

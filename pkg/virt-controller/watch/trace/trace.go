@@ -39,10 +39,9 @@ func (t *Tracer) StopTrace(key string) {
 }
 
 // A trace Step adds a new step with a specific message.
-// Call StepTrace after an execution step to record how long it took.
+
 func (t *Tracer) StepTrace(key string, name string, field ...trace.Field) {
-	// Trace shouldn't be making noise unless the Trace is slow.
-	// Fail silently on errors like empty or incorrect keys.
+
 	if key == "" {
 		return
 	}

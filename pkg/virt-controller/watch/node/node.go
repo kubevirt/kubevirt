@@ -22,7 +22,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/lookup"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node/lookup"
 )
 
 const (

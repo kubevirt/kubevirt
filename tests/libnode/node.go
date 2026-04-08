@@ -41,7 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
-	"kubevirt.io/kubevirt/pkg/util/nodes"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"

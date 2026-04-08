@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["lookup.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/util/lookup",
+    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/node/lookup",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
