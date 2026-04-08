@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
+var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", decorators.WgS390x, func() {
 	var (
 		virtClient      kubecli.KubevirtClient
 		serverVMILabels map[string]string
