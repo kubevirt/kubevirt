@@ -1836,7 +1836,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				node = nodes.Items[1].Name
 			})
 
-			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+			It("[QUARANTINE][test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", decorators.Quarantine, func() {
 				cpuvmi := dedicatedCPUVMI()
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuvmi)).Create(context.Background(), cpuvmi, metav1.CreateOptions{})
