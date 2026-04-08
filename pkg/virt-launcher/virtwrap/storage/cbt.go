@@ -181,7 +181,12 @@ func runOverlayQMPSession(ctx context.Context, stdin io.WriteCloser, stdout io.R
 	case <-concludedChan:
 		fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
 	case <-scanDone:
-		err = fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath)
+		select {
+		case <-concludedChan:
+			fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
+		default:
+			err = fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath)
+		}
 	case <-ctx.Done():
 		err = fmt.Errorf("timed out waiting for qemu-storage-daemon to create overlay %s", overlayPath)
 	}
