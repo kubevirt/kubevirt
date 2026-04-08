@@ -95,14 +95,7 @@ var _ = Describe(SIG("CPU", func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			var computeContainer *k8sv1.Container
-			for _, container := range readyPod.Spec.Containers {
-				if container.Name == "compute" {
-					computeContainer = &container
-					break
-				}
-			}
-			Expect(computeContainer).ToNot(BeNil(), "could not find the compute container")
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
 		})
 
@@ -237,14 +230,7 @@ var _ = Describe(SIG("CPU", func() {
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			var computeContainer *k8sv1.Container
-			for _, container := range readyPod.Spec.Containers {
-				if container.Name == "compute" {
-					computeContainer = &container
-					break
-				}
-			}
-			Expect(computeContainer).ToNot(BeNil(), "could not find the computer container")
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			Expect(computeContainer.Resources.Requests.Cpu().String()).To(Equal("600m"))
 		})
 	})
