@@ -154,12 +154,12 @@ var _ = Describe("Balloon Domain Configurator", func() {
 	})
 
 	Context("with AutoattachMemBalloon false", func() {
-		DescribeTable("should configure memballoon with model none", func(arch string) {
+		DescribeTable("should configure memballoon with model none", func(model string) {
 			vmi := libvmi.New(libvmi.WithAutoattachMemBalloon(false))
 			var domain api.Domain
 
 			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithArchitecture(arch),
+				compute.BalloonWithVirtioModel(model),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -175,9 +175,9 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			}
 			Expect(domain).To(Equal(expectedDomain))
 		},
-			Entry("for amd64", "amd64"),
-			Entry("for arm64", "arm64"),
-			Entry("for s390x", "s390x"),
+			Entry("for amd64", "virtio-non-transitional"),
+			Entry("for arm64", "virtio-non-transitional"),
+			Entry("for s390x", "virtio"),
 		)
 	})
 })
