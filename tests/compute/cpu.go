@@ -34,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -194,17 +193,12 @@ var _ = Describe(SIG("CPU", func() {
 		})
 
 		It("[test_id:1665]should map cores to virtio net queues", func() {
-			vmi := libvmifact.NewAlpine()
-			_true := true
 			_false := false
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-					k8sv1.ResourceCPU:    resource.MustParse("3"),
-				},
-			}
-
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("128Mi"),
+				libvmi.WithCPURequest("3"),
+				libvmi.WithNetworkInterfaceMultiQueue(true),
+			)
 			vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
 
 			By("Starting a VirtualMachineInstance")
