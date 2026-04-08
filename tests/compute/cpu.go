@@ -231,16 +231,10 @@ var _ = Describe(SIG("CPU", func() {
 
 	Context("[rfe_id:989]test cpu_allocation_ratio", func() {
 		It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
-			vmi := libvmifact.NewAlpine()
-			guestMemory := resource.MustParse("256Mi")
-			vmi.Spec.Domain.Memory = &v1.Memory{
-				Guest: &guestMemory,
-			}
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Threads: 1,
-				Sockets: 1,
-				Cores:   6,
-			}
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithGuestMemory("256Mi"),
+				libvmi.WithCPUCount(6, 1, 1),
+			)
 
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
