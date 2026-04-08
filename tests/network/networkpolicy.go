@@ -83,10 +83,10 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 		})
 	})
 
-	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
+	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			var err error
 			serverVMI, err = createServerVmi(virtClient, testsuite.NamespaceTestDefault, serverVMILabels)
 			Expect(err).ToNot(HaveOccurred())
@@ -124,6 +124,10 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
 
+				AfterEach(func() {
+					Expect(deleteVMI(clientVMI)).To(Succeed())
+				})
+
 				It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", decorators.Conformance, func() {
 					assertPingSucceed(clientVMI, serverVMI)
 				})
@@ -137,6 +141,10 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					clientVMIAlternativeNamespace, err = createClientVmi(testsuite.NamespaceTestAlternative, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+				})
+
+				AfterEach(func() {
+					Expect(deleteVMI(clientVMIAlternativeNamespace)).To(Succeed())
 				})
 
 				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
@@ -168,6 +176,10 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
 
+				AfterEach(func() {
+					Expect(deleteVMI(clientVMIAlternativeNamespace)).To(Succeed())
+				})
+
 				It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
 					By("Connect serverVMI from clientVMIAlternativeNamespace")
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
@@ -180,6 +192,10 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
 					Expect(err).ToNot(HaveOccurred())
 					assertIPsNotEmptyForVMI(clientVMI)
+				})
+
+				AfterEach(func() {
+					Expect(deleteVMI(clientVMI)).To(Succeed())
 				})
 
 				It("[test_id:1515] should fail to reach serverVMI from clientVMI", func() {
@@ -195,6 +211,10 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 						clientVMIAlternativeNamespace, err = createClientVmi(testsuite.NamespaceTestAlternative, virtClient)
 						Expect(err).ToNot(HaveOccurred())
 						assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+					})
+
+					AfterEach(func() {
+						Expect(deleteVMI(clientVMIAlternativeNamespace)).To(Succeed())
 					})
 
 					It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", decorators.WgS390x, func() {
@@ -229,6 +249,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				assertIPsNotEmptyForVMI(clientVMI)
 			})
 			AfterEach(func() {
+				Expect(deleteVMI(clientVMI)).To(Succeed())
 				waitForNetworkPolicyDeletion(policy)
 			})
 			It("[test_id:2774] should allow http traffic for ports 80 and 81 from clientVMI to serverVMI", func() {
@@ -258,6 +279,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				assertIPsNotEmptyForVMI(clientVMI)
 			})
 			AfterEach(func() {
+				Expect(deleteVMI(clientVMI)).To(Succeed())
 				waitForNetworkPolicyDeletion(policy)
 			})
 			It("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", func() {
