@@ -328,10 +328,10 @@ var _ = Describe(SIG("CPU", func() {
 				Expect(console.LoginToAlpine(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
-				console.SafeExpectBatch(cpuVmi, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", niceName)},
 					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
-				}, 10)
+				}, 10)).To(Succeed())
 			})
 		})
 
