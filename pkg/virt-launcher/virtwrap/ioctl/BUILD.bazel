@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "generated_mock_ioctl.go",
+        "ioctl.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/ioctl",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
+)

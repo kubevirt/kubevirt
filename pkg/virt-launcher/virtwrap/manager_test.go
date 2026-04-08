@@ -32,21 +32,26 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/ioctl"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/log"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -3543,8 +3548,10 @@ var _ = Describe("Manager helper functions", func() {
 
 		var properDisk api.Disk
 		var fakePercentFloat float64
+		var manager *LibvirtDomainManager
 
 		BeforeEach(func() {
+			manager = &LibvirtDomainManager{}
 			fakePercentFloat = 0.7648
 			fakePercent := v1.Percent(fmt.Sprint(fakePercentFloat))
 			fakeCapacity := int64(2345 * 3456) // We need (1-0.7648)*fakeCapacity to be > 1MiB and misaligned
@@ -3556,7 +3563,7 @@ var _ = Describe("Manager helper functions", func() {
 		})
 
 		It("should return correct value", func() {
-			size, ok := possibleGuestSize(properDisk)
+			size, ok := manager.possibleGuestSize(properDisk)
 			Expect(ok).To(BeTrue())
 			capacity := properDisk.Capacity
 			Expect(capacity).ToNot(BeNil())
@@ -3569,7 +3576,7 @@ var _ = Describe("Manager helper functions", func() {
 		})
 
 		DescribeTable("should return error when", func(createDisk func() api.Disk) {
-			_, ok := possibleGuestSize(createDisk())
+			_, ok := manager.possibleGuestSize(createDisk())
 			Expect(ok).To(BeFalse())
 		},
 			Entry("disk capacity is nil", func() api.Disk {
@@ -3596,6 +3603,52 @@ var _ = Describe("Manager helper functions", func() {
 			}),
 		)
 
+		Context("when disk is a block device", func() {
+			var (
+				mockFactory     *ioctl.MockFactory
+				mockIoctlHelper *ioctl.MockHelper
+				ctrl            *gomock.Controller
+			)
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				mockIoctlHelper = ioctl.NewMockHelper(ctrl)
+				mockFactory = ioctl.NewMockFactory(ctrl)
+				manager.ioctlFactory = mockFactory
+			})
+
+			It("should return block device size if ioctl succeeds", func() {
+				disk := api.Disk{
+					Source: api.DiskSource{
+						Dev: "/dev/dummy-device",
+					},
+				}
+				expectedSize := 100 * 1024 * 1024 // 100MiB
+
+				mockFactory.EXPECT().New(disk.Source.Dev).Return(mockIoctlHelper, nil)
+				mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(expectedSize, nil)
+				mockIoctlHelper.EXPECT().Close().Return(nil)
+
+				size, ok := manager.possibleGuestSize(disk)
+				Expect(ok).To(BeTrue())
+				Expect(size).To(Equal(int64(expectedSize)))
+			})
+
+			It("should return error if ioctl fails", func() {
+				disk := api.Disk{
+					Source: api.DiskSource{
+						Dev: "/dev/dummy-device",
+					},
+				}
+
+				mockFactory.EXPECT().New(disk.Source.Dev).Return(mockIoctlHelper, nil)
+				mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(0, fmt.Errorf("ioctl failed"))
+				mockIoctlHelper.EXPECT().Close().Return(nil)
+
+				_, ok := manager.possibleGuestSize(disk)
+				Expect(ok).To(BeFalse())
+			})
+		})
 	})
 
 	Context("configureLocalDiskToMigrate", func() {
@@ -3814,6 +3867,319 @@ var _ = Describe("calculateHotplugPortCount", func() {
 		Entry("with 3G memory and 12 ports in use", uint64(3*gb), 12, 6),
 		Entry("with 3G memory and 16 ports in use", uint64(3*gb), 16, 6),
 	)
+})
+
+var _ = Describe("syncDiskExpansion", func() {
+	var (
+		ctrl       *gomock.Controller
+		mockDomain *cli.MockVirDomain
+		manager    *LibvirtDomainManager
+		domain     *api.Domain
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockDomain = cli.NewMockVirDomain(ctrl)
+		manager = &LibvirtDomainManager{
+			diskGuestSizeCache: make(map[string]uint64),
+		}
+		domain = &api.Domain{
+			Spec: api.DomainSpec{},
+		}
+	})
+
+	It("should set the guest size cache if not exists, and later use it if exists", func() {
+		guestSize := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			Capacity:           &guestSize,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: uint64(guestSize),
+		}, nil).Times(1)
+
+		// First time should call GetBlockInfo and set cache
+		err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.diskGuestSizeCache[disk.Source.File]).To(Equal(uint64(guestSize)))
+
+		// Second time should use cache
+		err = manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not expand disk if guest size is equal to possible size", func() {
+		capacity := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(capacity)
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not expand disk if guest size is greater than possible size", func() {
+		capacity := int64(10 * 1024 * 1024) // 10MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(20 * 1024 * 1024) // 20MiB
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should expand disk if guest size is smaller than possible size and set cache to new size", func() {
+		capacity := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(10 * 1024 * 1024) // 10MiB, less than possibleGuestSize
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		mockDomain.EXPECT().BlockResize(disk.Source.File, uint64(capacity), libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Return(nil)
+
+		err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.diskGuestSizeCache[disk.Source.File]).To(Equal(uint64(capacity)))
+	})
+
+	It("should not set cache to new size if BlockResize fails", func() {
+		capacity := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(10 * 1024 * 1024) // 10MiB, less than possibleGuestSize
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		mockDomain.EXPECT().BlockResize(disk.Source.File, uint64(capacity), libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Return(fmt.Errorf("resize failed"))
+
+		err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.diskGuestSizeCache[disk.Source.File]).To(Equal(uint64(guestSize)))
+	})
+
+	It("should not expand disk if possibleGuestSize returns an error", func() {
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			// Missing Capacity to make possibleGuestSize fail
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		// Mock shouldExpandOnline dependencies
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: 10 * 1024 * 1024, // 10MiB, less than possibleGuestSize
+		}, nil)
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	Context("when disk is a block device", func() {
+		var (
+			mockFactory     *ioctl.MockFactory
+			mockIoctlHelper *ioctl.MockHelper
+		)
+
+		BeforeEach(func() {
+			mockIoctlHelper = ioctl.NewMockHelper(ctrl)
+			mockFactory = ioctl.NewMockFactory(ctrl)
+			manager.ioctlFactory = mockFactory
+		})
+
+		It("should expand disk online if possible size is greater than current size", func() {
+			devicePath := "/dev/dummy-device"
+			disk := api.Disk{
+				Source: api.DiskSource{
+					Dev: devicePath,
+				},
+			}
+			domain.Spec.Devices.Disks = []api.Disk{disk}
+
+			currentSize := uint64(10 * 1024 * 1024) // 10MiB
+			newSize := 20 * 1024 * 1024             // 20MiB
+
+			// shouldExpandOnline will call GetBlockInfo if not in cache
+			mockDomain.EXPECT().GetBlockInfo(devicePath, uint32(0)).Return(&libvirt.DomainBlockInfo{
+				Capacity: currentSize,
+			}, nil)
+
+			// possibleGuestSize called in shouldExpandOnline
+			mockFactory.EXPECT().New(devicePath).Return(mockIoctlHelper, nil)
+			mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(newSize, nil)
+			mockIoctlHelper.EXPECT().Close().Return(nil)
+
+			// possibleGuestSize called in syncDiskExpansion again
+			mockFactory.EXPECT().New(devicePath).Return(mockIoctlHelper, nil)
+			mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(newSize, nil)
+			mockIoctlHelper.EXPECT().Close().Return(nil)
+
+			// BlockResize should be called
+			mockDomain.EXPECT().BlockResize(devicePath, uint64(newSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Return(nil)
+
+			err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(manager.diskGuestSizeCache[devicePath]).To(Equal(uint64(newSize)))
+		})
+
+		It("should continue processing other disks if one disk does not have capacity (i.e. non-PVC/DV disks)", func() {
+			// Disk 1: File-backed, not expandable (no capacity)
+			disk1 := api.Disk{
+				Source: api.DiskSource{
+					File: "/var/run/kubevirt-private/service-account-disk/service-account.iso",
+				},
+				// Capacity is nil
+			}
+
+			// Disk 2: Block device, expandable
+			disk2 := api.Disk{
+				Source: api.DiskSource{
+					Dev: "/dev/dummy-device",
+				},
+			}
+
+			domain.Spec.Devices.Disks = []api.Disk{disk1, disk2}
+
+			currentSize := uint64(10 * 1024 * 1024) // 10MiB
+			newSize := 20 * 1024 * 1024             // 20MiB
+
+			// Expectations for Disk 1:
+			// shouldExpandOnline will call GetBlockInfo
+			mockDomain.EXPECT().GetBlockInfo(disk1.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+				Capacity: currentSize,
+			}, nil)
+			// possibleGuestSize will return ok=false because Capacity is nil.
+			// shouldExpandOnline returns false. So syncDiskExpansion continues to next disk.
+
+			// Expectations for Disk 2:
+			// shouldExpandOnline will call GetBlockInfo
+			mockDomain.EXPECT().GetBlockInfo(disk2.Source.Dev, uint32(0)).Return(&libvirt.DomainBlockInfo{
+				Capacity: currentSize,
+			}, nil)
+
+			// possibleGuestSize called in shouldExpandOnline for disk2
+			mockFactory.EXPECT().New(disk2.Source.Dev).Return(mockIoctlHelper, nil)
+			mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(newSize, nil)
+			mockIoctlHelper.EXPECT().Close().Return(nil)
+
+			// possibleGuestSize called in syncDiskExpansion again for disk2
+			mockFactory.EXPECT().New(disk2.Source.Dev).Return(mockIoctlHelper, nil)
+			mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(newSize, nil)
+			mockIoctlHelper.EXPECT().Close().Return(nil)
+
+			// BlockResize should be called for disk2
+			mockDomain.EXPECT().BlockResize(disk2.Source.Dev, uint64(newSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Return(nil)
+
+			err := manager.syncDiskExpansion(domain, mockDomain, log.DefaultLogger())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(manager.diskGuestSizeCache[disk2.Source.Dev]).To(Equal(uint64(newSize)))
+			Expect(manager.diskGuestSizeCache).To(HaveLen(2))
+			Expect(manager.diskGuestSizeCache[disk1.Source.File]).To(Equal(currentSize))
+		})
+	})
+})
+
+var _ = Describe("getBlockDeviceSize", func() {
+	var (
+		testManager     *LibvirtDomainManager
+		mockIoctlHelper *ioctl.MockHelper
+		mockFactory     *ioctl.MockFactory
+		ctrl            *gomock.Controller
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+
+		mockIoctlHelper = ioctl.NewMockHelper(ctrl)
+		mockFactory = ioctl.NewMockFactory(ctrl)
+		testManager = &LibvirtDomainManager{
+			ioctlFactory: mockFactory,
+		}
+	})
+
+	It("should return size if ioctl succeeds", func() {
+		expectedSize := 100 * 1024 * 1024 // 100MiB
+		devicePath := "/dev/dummy-device"
+
+		mockFactory.EXPECT().New(devicePath).Return(mockIoctlHelper, nil)
+		mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(expectedSize, nil)
+		mockIoctlHelper.EXPECT().Close().Return(nil)
+
+		size, err := testManager.getBlockDeviceSize(devicePath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(size).To(Equal(expectedSize))
+	})
+
+	It("should return error if ioctl fails", func() {
+		devicePath := "/dev/dummy-device"
+
+		mockFactory.EXPECT().New(devicePath).Return(mockIoctlHelper, nil)
+		mockIoctlHelper.EXPECT().IoctlGetInt(uint(unix.BLKGETSIZE64)).Return(0, fmt.Errorf("ioctl failed"))
+		mockIoctlHelper.EXPECT().Close().Return(nil)
+
+		_, err := testManager.getBlockDeviceSize(devicePath)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("ioctl BLKGETSIZE64 failed"))
+	})
+
+	It("should return error if file not found", func() {
+		mockFactory.EXPECT().New("/non/existing/file").Return(nil, fmt.Errorf("no such file or directory"))
+
+		_, err := testManager.getBlockDeviceSize("/non/existing/file")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to open device"))
+	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
