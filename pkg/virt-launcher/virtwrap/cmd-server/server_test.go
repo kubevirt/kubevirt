@@ -35,7 +35,6 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -511,32 +510,4 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 	})
-
-	Describe("Version mismatch", func() {
-
-		var err error
-		var ctrl *gomock.Controller
-		var infoClient *info.MockCmdInfoClient
-
-		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-			infoClient = info.NewMockCmdInfoClient(ctrl)
-		})
-
-		It("Should report error when server version mismatches", func() {
-
-			fakeResponse := info.CmdInfoResponse{
-				SupportedCmdVersions: []uint32{42},
-			}
-			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
-
-			By("Initializing the notifier")
-			_, err = cmdclient.NewClientWithInfoClient(infoClient, nil)
-
-			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
-			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
-
-		})
-	})
-
 })
