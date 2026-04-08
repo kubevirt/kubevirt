@@ -83,7 +83,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 		})
 	})
 
-	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", Ordered, decorators.OncePerOrderedCleanup, func() {
+	Context("when an HTTP serverVMI with default networking runs on ports 80 and 81", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
 		BeforeAll(func() {
