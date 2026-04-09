@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -87,7 +86,7 @@ var _ = Describe(SIG("Services", func() {
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToAlpine)
 		})
 
-		Context("with a service matching the vmi exposed", func() {
+		Context("with a service matching the vmi exposed", decorators.WgS390x, func() {
 			const serviceName = "myservice"
 
 			BeforeEach(func() {
@@ -99,14 +98,14 @@ var _ = Describe(SIG("Services", func() {
 			})
 
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
-				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
+				tcpJob, err := createServiceConnectivityJob(fmt.Sprintf("%s.%s", serviceName, inboundVMI.Namespace), inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
-				tcpJob, err := createServiceConnectivityJob("wrongservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
+				tcpJob, err := createServiceConnectivityJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = job.WaitForJobToFail(tcpJob, 90*time.Second)
@@ -182,7 +181,7 @@ var _ = Describe(SIG("Services", func() {
 				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 
 				By("checking connectivity the exposed service")
-				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
+				tcpJob, err := createServiceConnectivityJob(fmt.Sprintf("%s.%s", serviceName, inboundVMI.Namespace), inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
@@ -194,7 +193,7 @@ var _ = Describe(SIG("Services", func() {
 
 		Context("*without* a service matching the vmi exposed", func() {
 			It("should fail to reach the vmi", func() {
-				tcpJob, err := createServiceConnectivityJob("missingservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
+				tcpJob, err := createServiceConnectivityJob(fmt.Sprintf("%s.%s", "missingservice", inboundVMI.Namespace), inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				err = job.WaitForJobToFail(tcpJob, 90*time.Second)
@@ -204,13 +203,8 @@ var _ = Describe(SIG("Services", func() {
 	})
 }))
 
-// createServiceConnectivityJob runs a TCP hello-world Job against host service.namespace, or the full host string
-// when serviceName contains a dot (e.g. headless pod FQDN).
-func createServiceConnectivityJob(serviceName, namespace string, servicePort int, retries int32) (*batchv1.Job, error) {
-	host := fmt.Sprintf("%s.%s", serviceName, namespace)
-	if strings.Contains(serviceName, ".") {
-		host = serviceName
-	}
+// createServiceConnectivityJob runs a TCP hello-world Job against the given host (e.g. myservice.namespace or a pod FQDN).
+func createServiceConnectivityJob(host, namespace string, servicePort int, retries int32) (*batchv1.Job, error) {
 	By(fmt.Sprintf("starting a job which tries to reach the VMI via %s on port %d", host, servicePort))
 	tcpJob := job.NewHelloWorldJobTCP(host, strconv.Itoa(servicePort))
 	tcpJob.Spec.BackoffLimit = &retries
