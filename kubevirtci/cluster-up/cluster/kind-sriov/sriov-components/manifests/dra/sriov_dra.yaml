@@ -9,26 +9,29 @@ metadata:
     app.kubernetes.io/name: dra-driver-sriov-chart
     app.kubernetes.io/instance: sriov-dra
 ---
-# Source: dra-driver-sriov-chart/templates/sriovnetwork.k8snetworkplumbingwg.io_sriovresourcefilters.yaml
+# Source: dra-driver-sriov-chart/templates/sriovnetwork.k8snetworkplumbingwg.io_deviceattributes.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
-  name: sriovresourcefilters.sriovnetwork.k8snetworkplumbingwg.io
+    controller-gen.kubebuilder.io/version: v0.20.0
+  name: deviceattributes.sriovnetwork.k8snetworkplumbingwg.io
 spec:
   group: sriovnetwork.k8snetworkplumbingwg.io
   names:
-    kind: SriovResourceFilter
-    listKind: SriovResourceFilterList
-    plural: sriovresourcefilters
-    singular: sriovresourcefilter
+    kind: DeviceAttributes
+    listKind: DeviceAttributesList
+    plural: deviceattributes
+    singular: deviceattributes
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: SriovResourceFilter is a filter for SR-IOV resources
+        description: |-
+          DeviceAttributes defines a set of arbitrary attributes that can be applied
+          to devices selected by a SriovResourcePolicy. Policies reference
+          DeviceAttributes objects via label selectors.
         properties:
           apiVersion:
             description: |-
@@ -48,11 +51,139 @@ spec:
           metadata:
             type: object
           spec:
-            description: SriovResourceFilterSpec is the spec for a SriovResourceFilter
+            description: DeviceAttributesSpec holds the attributes to apply to devices.
+            properties:
+              attributes:
+                additionalProperties:
+                  description: DeviceAttribute must have exactly one field set.
+                  properties:
+                    bool:
+                      description: BoolValue is a true/false value.
+                      type: boolean
+                    int:
+                      description: IntValue is a number.
+                      format: int64
+                      type: integer
+                    string:
+                      description: StringValue is a string. Must not be longer than
+                        64 characters.
+                      type: string
+                    version:
+                      description: |-
+                        VersionValue is a semantic version according to semver.org spec 2.0.0.
+                        Must not be longer than 64 characters.
+                      type: string
+                  type: object
+                description: |-
+                  Attributes is a map of qualified attribute name to value.
+                  Keys should be fully qualified (e.g. "k8s.cni.cncf.io/resourceName").
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+---
+# Source: dra-driver-sriov-chart/templates/sriovnetwork.k8snetworkplumbingwg.io_sriovresourcepolicies.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.0
+  name: sriovresourcepolicies.sriovnetwork.k8snetworkplumbingwg.io
+spec:
+  group: sriovnetwork.k8snetworkplumbingwg.io
+  names:
+    kind: SriovResourcePolicy
+    listKind: SriovResourcePolicyList
+    plural: sriovresourcepolicies
+    singular: sriovresourcepolicy
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          SriovResourcePolicy defines a policy for advertising SR-IOV devices as Kubernetes resources.
+          Devices matching the policy's resource filters are advertised in the ResourceSlice.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SriovResourcePolicySpec is the spec for a SriovResourcePolicy
             properties:
               configs:
                 items:
+                  description: |-
+                    Config pairs a device selection (ResourceFilters) with an optional set of
+                    extra attributes to apply (DeviceAttributesSelector). Devices matching the
+                    filters are advertised regardless of whether a DeviceAttributesSelector is set.
                   properties:
+                    deviceAttributesSelector:
+                      description: |-
+                        DeviceAttributesSelector selects DeviceAttributes objects by label.
+                        Attributes from all matching DeviceAttributes are merged and applied
+                        to devices selected by ResourceFilters. Optional.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     resourceFilters:
                       items:
                         description: ResourceFilter is a filter for a resource
@@ -65,10 +196,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          numaNodes:
-                            items:
-                              type: string
-                            type: array
                           pciAddresses:
                             items:
                               type: string
@@ -77,7 +204,7 @@ spec:
                             items:
                               type: string
                             type: array
-                          rootDevices:
+                          pfPciAddresses:
                             items:
                               type: string
                             type: array
@@ -87,14 +214,99 @@ spec:
                             type: array
                         type: object
                       type: array
-                    resourceName:
-                      type: string
                   type: object
                 type: array
               nodeSelector:
-                additionalProperties:
-                  type: string
+                description: |-
+                  A node selector represents the union of the results of one or more label queries
+                  over a set of nodes; that is, it represents the OR of the selectors represented
+                  by the node selector terms.
+                properties:
+                  nodeSelectorTerms:
+                    description: Required. A list of node selector terms. The terms
+                      are ORed.
+                    items:
+                      description: |-
+                        A null or empty node selector term matches no objects. The requirements of
+                        them are ANDed.
+                        The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.
+                      properties:
+                        matchExpressions:
+                          description: A list of node selector requirements by node's
+                            labels.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        matchFields:
+                          description: A list of node selector requirements by node's
+                            fields.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - nodeSelectorTerms
                 type: object
+                x-kubernetes-map-type: atomic
             type: object
         required:
         - spec
@@ -128,8 +340,11 @@ rules:
   resources: ["network-attachment-definitions"]
   verbs: ["get"]
 - apiGroups: ["sriovnetwork.k8snetworkplumbingwg.io"]
-  resources: ["sriovresourcefilters"]
-  verbs: ["get", "list", "watch"]  # SriovResourceFilter resources
+  resources: ["sriovresourcepolicies"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["sriovnetwork.k8snetworkplumbingwg.io"]
+  resources: ["deviceattributes"]
+  verbs: ["get", "list", "watch"]
 ---
 # Source: dra-driver-sriov-chart/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -202,7 +417,7 @@ spec:
       - name: plugin
         securityContext:
           privileged: true
-        image: quay.io/oshoval/dra-driver-sriov:mac
+        image: quay.io/oshoval/dra-driver-sriov:dapimac
         imagePullPolicy: Always
         command:
           # - dlv
@@ -228,6 +443,8 @@ spec:
           value: "42"
         - name: DEFAULT_INTERFACE_PREFIX
           value: "vfnet"
+        - name: ENABLE_DEVICE_METADATA
+          value: "true"
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -298,3 +515,13 @@ spec:
   selectors:
   - cel: 
       expression: "device.driver == 'sriovnetwork.k8snetworkplumbingwg.io'"
+---
+# Default policy for kind-sriov: advertise all discovered SR-IOV devices.
+apiVersion: sriovnetwork.k8snetworkplumbingwg.io/v1alpha1
+kind: SriovResourcePolicy
+metadata:
+  name: default-policy
+  namespace: dra-driver-sriov
+spec:
+  configs:
+  - {}
