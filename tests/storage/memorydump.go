@@ -83,8 +83,9 @@ var _ = Describe(SIG("Memory dump", func() {
 	createAndStartVM := func() *v1.VirtualMachine {
 		By("Creating VirtualMachine")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vmName := vm.Name
 		vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine %s", vm.Name)
+		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine %s", vmName)
 		Eventually(func() bool {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {

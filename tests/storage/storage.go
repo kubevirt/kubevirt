@@ -742,7 +742,7 @@ var _ = Describe(SIG("Storage", func() {
 						Expect(err).ToNot(HaveOccurred(), "failed to find disk.img in empty PVC for VMI %s", vmi.Name)
 
 						By("Checking if a disk image for PVC has been created")
-						Expect(strings.Contains(output, diskImgName)).To(BeTrue(), "expected disk.img to be present in PVC for VMI %s", vmi.Name)
+						Expect(output).To(ContainSubstring(diskImgName), "expected disk.img to be present in PVC for VMI %s", vmi.Name)
 					}
 				})
 			})
@@ -822,7 +822,7 @@ var _ = Describe(SIG("Storage", func() {
 					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred(), "failed to create VMI with non-existing PVC")
+					Expect(err).ToNot(HaveOccurred(), "failed to create hostDisk-backed VMI %s/%s (host disk too small / toleration scenario)", vmi.Namespace, vmi.Name)
 
 					By("Checking events")
 					objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
