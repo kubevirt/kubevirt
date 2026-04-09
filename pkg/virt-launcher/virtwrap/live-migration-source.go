@@ -32,6 +32,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -305,11 +306,8 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 
 func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
-	migrationUID := vmi.Status.MigrationState.MigrationUID
-	if vmi.Status.MigrationState.SourceState != nil {
-		migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
-	}
-	if exists && migrationMetadata.UID == migrationUID {
+	uid := MigrationUID(vmi)
+	if exists && migrationMetadata.UID == uid {
 		if migrationMetadata.EndTimestamp == nil {
 			// don't stop on currently executing migrations
 			return true, nil
@@ -323,7 +321,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 
 	now := metav1.Now()
 	m := api.MigrationMetadata{
-		UID:            migrationUID,
+		UID:            uid,
 		StartTimestamp: &now,
 		Mode:           migrationMode,
 	}
@@ -635,10 +633,7 @@ func (m *migrationMonitor) startMonitor() {
 			m.remainingData = jobStats.DataRemaining
 		}
 
-		migrationUID := vmi.Status.MigrationState.MigrationUID
-		if vmi.Status.MigrationState.SourceState != nil {
-			migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
-		}
+		uid := MigrationUID(vmi)
 		switch jobStats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
 			aborted := m.processInflightMigration(dom, jobStats)
@@ -649,10 +644,10 @@ func (m *migrationMonitor) startMonitor() {
 			}
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				logMigrationInfo(logger, string(migrationUID), jobStats)
+				logMigrationInfo(logger, uid, jobStats)
 			}
 		case libvirt.DOMAIN_JOB_COMPLETED:
-			logMigrationInfo(logger, string(migrationUID), jobStats)
+			logMigrationInfo(logger, uid, jobStats)
 			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
@@ -664,8 +659,18 @@ func (m *migrationMonitor) startMonitor() {
 	}
 }
 
+func MigrationUID(vmi *v1.VirtualMachineInstance) types.UID {
+	if s := vmi.Status.MigrationState; s != nil {
+		if s.SourceState != nil {
+			return s.SourceState.MigrationUID
+		}
+		return s.MigrationUID
+	}
+	return ""
+}
+
 // logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
-func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
+func logMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo) {
 	bToMiB := func(bytes uint64) uint64 {
 		return bytes / 1024 / 1024
 	}
