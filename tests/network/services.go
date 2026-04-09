@@ -87,7 +87,7 @@ var _ = Describe(SIG("Services", func() {
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToAlpine)
 		})
 
-		Context("with a service matching the vmi exposed", func() {
+		Context("with a service matching the vmi exposed", decorators.WgS390x, func() {
 			const serviceName = "myservice"
 
 			BeforeEach(func() {
@@ -105,7 +105,7 @@ var _ = Describe(SIG("Services", func() {
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
 			})
 
-			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", decorators.WgS390x, func() {
+			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
 				tcpJob, err := createServiceConnectivityJob("wrongservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
 

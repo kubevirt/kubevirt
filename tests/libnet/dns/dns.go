@@ -36,8 +36,7 @@ const (
 )
 
 // PodFQDNForHostnameSubdomain returns the in-cluster FQDN for a Pod with spec.hostname and spec.subdomain
-// set, when a headless Service named subdomain exists in namespace. Format:
-// <hostname>.<subdomain>.<namespace>.svc.cluster.local
+// Format: <hostname>.<subdomain>.<namespace>.svc.cluster.local
 // Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-hostname-and-subdomain-fields
 func PodFQDNForHostnameSubdomain(hostname, subdomain, namespace string) string {
 	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", hostname, subdomain, namespace)
