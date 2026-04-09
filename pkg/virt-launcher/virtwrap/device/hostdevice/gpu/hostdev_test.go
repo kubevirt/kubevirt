@@ -78,6 +78,7 @@ var _ = Describe("GPU HostDevice", func() {
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
+			Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 		}
 
 		hostMDEVAddress := api.Address{UUID: gpuMDEVAddress1}

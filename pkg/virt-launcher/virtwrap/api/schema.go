@@ -720,18 +720,27 @@ type Input struct {
 }
 
 // BEGIN HostDevice -----------------------------
+const (
+	DriverVFIOPCI = "vfio"
+)
+
 type HostDevice struct {
-	XMLName   xml.Name         `xml:"hostdev"`
-	Source    HostDeviceSource `xml:"source"`
-	Type      string           `xml:"type,attr"`
-	BootOrder *BootOrder       `xml:"boot,omitempty"`
-	Managed   string           `xml:"managed,attr,omitempty"`
-	Mode      string           `xml:"mode,attr,omitempty"`
-	Model     string           `xml:"model,attr,omitempty"`
-	Address   *Address         `xml:"address,omitempty"`
-	Alias     *Alias           `xml:"alias,omitempty"`
-	Display   string           `xml:"display,attr,omitempty"`
-	RamFB     string           `xml:"ramfb,attr,omitempty"`
+	XMLName   xml.Name          `xml:"hostdev"`
+	Source    HostDeviceSource  `xml:"source"`
+	Type      string            `xml:"type,attr"`
+	BootOrder *BootOrder        `xml:"boot,omitempty"`
+	Managed   string            `xml:"managed,attr,omitempty"`
+	Mode      string            `xml:"mode,attr,omitempty"`
+	Model     string            `xml:"model,attr,omitempty"`
+	Driver    *HostDeviceDriver `xml:"driver,omitempty"`
+	Address   *Address          `xml:"address,omitempty"`
+	Alias     *Alias            `xml:"alias,omitempty"`
+	Display   string            `xml:"display,attr,omitempty"`
+	RamFB     string            `xml:"ramfb,attr,omitempty"`
+}
+
+type HostDeviceDriver struct {
+	Name string `xml:"name,attr,omitempty"`
 }
 
 type HostDeviceSource struct {
