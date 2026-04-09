@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/dns"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
@@ -69,7 +71,7 @@ var _ = Describe(SIG("Services", func() {
 		BeforeEach(func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 
-			inboundVMI = libvmifact.NewCirros(
+			inboundVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
@@ -80,8 +82,9 @@ var _ = Describe(SIG("Services", func() {
 			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
+			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToAlpine)
+			libnet.WaitUntilDefaultPodNetworkIfaceReportedByGuestAgent(inboundVMI)
+			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToAlpine)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -123,9 +126,10 @@ var _ = Describe(SIG("Services", func() {
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
 				var err error
-				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
+				podFQDN := dns.PodFQDNForHostnameSubdomain(
+					inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace)
 
-				tcpJob, err := createServiceConnectivityJob(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort, jobSuccessRetry)
+				tcpJob, err := createServiceConnectivityJob(podFQDN, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
@@ -200,11 +204,15 @@ var _ = Describe(SIG("Services", func() {
 	})
 }))
 
+// createServiceConnectivityJob runs a TCP hello-world Job against host service.namespace, or the full host string
+// when serviceName contains a dot (e.g. headless pod FQDN).
 func createServiceConnectivityJob(serviceName, namespace string, servicePort int, retries int32) (*batchv1.Job, error) {
-	serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
-
-	By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s, on port %d", serviceFQDN, servicePort))
-	tcpJob := job.NewHelloWorldJobTCP(serviceFQDN, strconv.Itoa(servicePort))
+	host := fmt.Sprintf("%s.%s", serviceName, namespace)
+	if strings.Contains(serviceName, ".") {
+		host = serviceName
+	}
+	By(fmt.Sprintf("starting a job which tries to reach the VMI via %s on port %d", host, servicePort))
+	tcpJob := job.NewHelloWorldJobTCP(host, strconv.Itoa(servicePort))
 	tcpJob.Spec.BackoffLimit = &retries
 	return kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 }
