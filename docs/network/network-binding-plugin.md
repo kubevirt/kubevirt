@@ -1,5 +1,6 @@
 # Network Binding Plugin
 [v1.4.0, Beta feature]
+[v1.5.0, GA feature]
 
 A modular plugin framework which integrates with Kubevirt to implement a
 network binding.
