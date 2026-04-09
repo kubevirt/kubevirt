@@ -1825,15 +1825,13 @@ var _ = Describe("Manager", func() {
 		})
 		It("migration should switch to PostCopy", func() {
 			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and send a different event otherwise this
+				// stop decreasing data and close the channel otherwise this
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
-					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_CANCELLED,
-					}
+					close(migrationErrorChan)
+					return &libvirt.DomainJobInfo{}
 				}
 
 				migrationData -= 125
@@ -1876,15 +1874,13 @@ var _ = Describe("Manager", func() {
 
 		It("migration should switch to PostCopy eventually", func() {
 			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and send a different event otherwise this
+				// stop decreasing data and close the channel otherwise this
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
-					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_CANCELLED,
-					}
+					close(migrationErrorChan)
+					return &libvirt.DomainJobInfo{}
 				}
 
 				migrationData -= 125
@@ -1940,15 +1936,13 @@ var _ = Describe("Manager", func() {
 		})
 		It("migration should switch to Paused if AllowWorkloadDisruption is allowed and PostCopy is not", func() {
 			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and send a different event otherwise this
+				// stop decreasing data and close the channel otherwise this
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
-					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_CANCELLED,
-					}
+					close(migrationErrorChan)
+					return &libvirt.DomainJobInfo{}
 				}
 
 				migrationData -= 125
