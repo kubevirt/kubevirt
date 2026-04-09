@@ -1,59 +1,26 @@
 # Commit message guidelines
 
-KubeVirt follows commit message guidelines based on the [Kubernetes Pull Request
-Process guide](https://www.kubernetes.dev/docs/guide/pull-requests/#commit-message-guidelines).
-For a general commit message convention, see [Conventional Commits](https://www.conventionalcommits.org/).
+KubeVirt follows the [Commit Message Guidelines](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#commit-message-guidelines) in the Kubernetes contributor guide. Use the links below for the full explanation of each rule.
 
-## Subject line
+- [Try to keep the subject line to 50 characters or less; do not exceed 72 characters](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#try-to-keep-the-subject-line-to-50-characters-or-less-do-not-exceed-72-characters)
+- [The first word in the commit message subject should be capitalized unless it starts with a lowercase symbol or other identifier](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#the-first-word-in-the-commit-message-subject-should-be-capitalized-unless-it-starts-with-a-lowercase-symbol-or-other-identifier)
+- [Do not end the commit message subject with a period](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#do-not-end-the-commit-message-subject-with-a-period)
+- [Use imperative mood in your commit message subject](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#use-imperative-mood-in-your-commit-message-subject)
+- [Add a single blank line before the commit message body](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#add-a-single-blank-line-before-the-commit-message-body)
+- [Wrap the commit message body at 72 characters](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#wrap-the-commit-message-body-at-72-characters)
+- [Do not use GitHub keywords or (@)mentions within your commit message](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#do-not-use-github-keywords-or-mentions-within-your-commit-message)
+- [Use the commit message body to explain the what and why of the commit](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#use-the-commit-message-body-to-explain-the-what-and-why-of-the-commit)
 
-- **Length**: Try to keep the subject line to 50 characters or less; do not exceed 72 characters
-- **Mood**: Use imperative mood (e.g., "Add", "Fix", "Update", "Remove", "Refactor")
-- **Capitalization**: The first word should be capitalized unless it starts with a lowercase symbol or other identifier
-- **Punctuation**: Do not end the subject line with a period
+Optional subject prefixes (area) are described in [Providing additional context](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#providing-additional-context).
 
-### Commit prefix conventions
-
-Use a hybrid approach: start with the **intent** (type), followed by an **optional
-scope** (the SIG or area it belongs to) in parentheses. Format: `type(scope): description`.
-
-**Intent (required):**
-
-- `docs` - documentation changes
-- `fix` - bug fixes
-- `feat` - new features
-- `test` or `tests` - test changes
-- `build` - build system changes
-- `refactor` - code refactoring
-
-**Scope (optional):** Add the SIG or area in parentheses, e.g. `network`, `storage`,
-`virt-operator`, `backup`.
-
-**Examples:**
-
-- `fix(network): resolve SR-IOV interface binding issue`
-- `feat(storage): add pull mode support`
-- `docs: add commit message guidelines`
-
-## Commit message body
-
-- **Blank line**: Add a single blank line before the commit message body
-- **Length**: Wrap the commit message body at 72 characters
-- **Content**: Use the commit message body to explain the what and why of the commit
-- **GitHub keywords**: Do not use GitHub keywords (like "Fixes #xxxx") or (@)mentions
-  within your commit message. Place these in the **PR title or description**
-  instead, where they will properly trigger GitHub's issue linking and automation.
-
-## DCO compliance
-
-All commits must include a `Signed-off-by` line for [DCO compliance](../CONTRIBUTING.md#contributor-compliance-with-developer-certificate-of-origin-dco).
-See the [Contributing guide](../CONTRIBUTING.md#contributor-compliance-with-developer-certificate-of-origin-dco) for details.
+All commits need a `Signed-off-by` line for [DCO compliance](../CONTRIBUTING.md#contributor-compliance-with-developer-certificate-of-origin-dco).
 
 ## Examples
 
-### Good example
+### Prefer
 
 ```
-feat(network): Add support for SR-IOV interfaces
+net, vmi: Add support for SR-IOV interfaces
 
 This change introduces support for SR-IOV network interfaces in
 KubeVirt, allowing VMs to directly access SR-IOV virtual functions
@@ -62,7 +29,7 @@ for improved network performance.
 Signed-off-by: John Doe <jdoe@example.org>
 ```
 
-### Bad example
+### Avoid
 
 ```
 Fixing network stuff
@@ -73,17 +40,10 @@ the issue we were having.
 Fixes #123
 ```
 
-Issues with the bad example:
+Issues with this example:
 
-- Subject uses past tense ("Fixing") instead of imperative mood
+- Subject uses past tense ("Fixing") instead of [imperative mood](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#use-imperative-mood-in-your-commit-message-subject)
 - Subject is too vague ("network stuff")
-- Body uses GitHub keywords ("Fixes #123") — use the PR title or description instead
-- Body doesn't explain the what and why clearly
-- Missing Signed-off-by line (required for DCO compliance)
-
-## Additional resources
-
-The [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) spec
-provides a similar structure with type prefixes (feat, fix, docs, etc.) and can
-enhance commit display in tools like Refined GitHub. While not required for
-KubeVirt, you may find it helpful for categorization.
+- Body does not clearly explain the what and why of the change
+- Body uses GitHub keyword `Fixes #123`—put issue links in the [PR title or description](https://github.com/kubernetes/community/blob/main/contributors/guide/pull-requests.md#do-not-use-github-keywords-or-mentions-within-your-commit-message) instead
+- Missing `Signed-off-by` line ([DCO](../CONTRIBUTING.md#contributor-compliance-with-developer-certificate-of-origin-dco))
