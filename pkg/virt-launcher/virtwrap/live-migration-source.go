@@ -32,6 +32,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -304,11 +305,8 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 
 func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
-	migrationUID := vmi.Status.MigrationState.MigrationUID
-	if vmi.Status.MigrationState.SourceState != nil {
-		migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
-	}
-	if exists && migrationMetadata.UID == migrationUID {
+	uid := migrationUID(vmi)
+	if exists && migrationMetadata.UID == uid {
 		if migrationMetadata.EndTimestamp == nil {
 			// don't stop on currently executing migrations
 			return true, nil
@@ -322,7 +320,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 
 	now := metav1.Now()
 	m := api.MigrationMetadata{
-		UID:            migrationUID,
+		UID:            uid,
 		StartTimestamp: &now,
 		Mode:           migrationMode,
 	}
@@ -634,10 +632,7 @@ func (m *migrationMonitor) startMonitor() {
 			m.remainingData = jobStats.DataRemaining
 		}
 
-		migrationUID := vmi.Status.MigrationState.MigrationUID
-		if vmi.Status.MigrationState.SourceState != nil {
-			migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
-		}
+		uid := migrationUID(vmi)
 		switch jobStats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
 			aborted := m.processInflightMigration(dom, jobStats)
@@ -648,10 +643,10 @@ func (m *migrationMonitor) startMonitor() {
 			}
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				logMigrationInfo(logger, string(migrationUID), jobStats)
+				logMigrationInfo(logger, uid, jobStats)
 			}
 		case libvirt.DOMAIN_JOB_COMPLETED:
-			logMigrationInfo(logger, string(migrationUID), jobStats)
+			logMigrationInfo(logger, uid, jobStats)
 			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
@@ -663,8 +658,18 @@ func (m *migrationMonitor) startMonitor() {
 	}
 }
 
+func migrationUID(vmi *v1.VirtualMachineInstance) types.UID {
+	if s := vmi.Status.MigrationState; s != nil {
+		if s.SourceState != nil {
+			return s.SourceState.MigrationUID
+		}
+		return s.MigrationUID
+	}
+	return ""
+}
+
 // logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
-func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
+func logMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo) {
 	bToMiB := func(bytes uint64) uint64 {
 		return bytes / 1024 / 1024
 	}
@@ -673,13 +678,18 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 		return bytes * 8 / 1000000
 	}
 
+	downtimeInfo := fmt.Sprintf("ExpectedDowntime:%dms", info.Downtime)
+	if info.DowntimeNetSet && info.DowntimeNet > 0 {
+		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
-		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
+		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
 		`DiskMbps:%d`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
-		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
+		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
 		bpsToMbps(info.DiskBps),
 	))
 }
