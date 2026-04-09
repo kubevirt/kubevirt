@@ -1101,7 +1101,6 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	}
 
 	migrationErrorChan := make(chan error, 1)
-	defer close(migrationErrorChan)
 
 	log.Log.Object(vmi).Infof("Initiating live migration.")
 	if options.UnsafeMigration {
@@ -1118,9 +1117,11 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 		migrationErrorChan <- err
+		close(migrationErrorChan)
 		return
 	}
 
+	close(migrationErrorChan)
 	l.retrieveCompletedStats(vmi)
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
 }
