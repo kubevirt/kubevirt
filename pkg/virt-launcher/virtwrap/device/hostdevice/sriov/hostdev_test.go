@@ -21,7 +21,12 @@ package sriov_test
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -319,6 +324,88 @@ var _ = Describe("SRIOV HostDevice", func() {
 				newSRIOVInterfaceWithBootOrder(netname2, 2),
 			),
 		)
+	})
+
+	Context("DRA SR-IOV creation", func() {
+		writeMetadataFile := func(basePath, claimSubdir, claimName, requestName, pciAddress string) {
+			dir := filepath.Join(basePath, claimSubdir, claimName, requestName)
+			Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+
+			metadataJSON := fmt.Sprintf(`{"apiVersion":"metadata.resource.k8s.io/v1alpha1","kind":"DeviceMetadata","metadata":{"name":"%s"},"requests":[{"name":"%s","devices":[{"driver":"sriovnetwork.k8snetworkplumbingwg.io","pool":"pool0","name":"dev0","attributes":{"resource.kubernetes.io/pciBusID":{"string":"%s"}}}]}]}`,
+				claimName, requestName, pciAddress,
+			)
+			Expect(os.WriteFile(filepath.Join(dir, "sriovnetwork.k8snetworkplumbingwg.io-metadata.json"), []byte(metadataJSON), 0644)).To(Succeed())
+		}
+
+		newDRAVMI := func(claimRefName, requestName string) *v1.VirtualMachineInstance {
+			iface := newSRIOVInterface(netname1)
+			iface.PciAddress = "0000:20:00.0"
+
+			return &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Interfaces: []v1.Interface{iface},
+						},
+					},
+					Networks: []v1.Network{{
+						Name: netname1,
+						NetworkSource: v1.NetworkSource{
+							ResourceClaim: &v1.ResourceClaimNetworkSource{
+								ClaimName:   claimRefName,
+								RequestName: requestName,
+							},
+						},
+					}},
+				},
+			}
+		}
+
+		It("uses metadata file path for direct ResourceClaim", func() {
+			tempDir, err := os.MkdirTemp("", "sriov-dra-")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tempDir)
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.3")
+
+			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(HaveLen(1))
+
+			expectedHostAddr, err := device.NewPciAddressField("0000:65:0a.3")
+			Expect(err).ToNot(HaveOccurred())
+			expectedGuestAddr, err := device.NewPciAddressField("0000:20:00.0")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(devices[0].Alias.GetName()).To(Equal(netsriov.SRIOVAliasPrefix + netname1))
+			Expect(devices[0].Source.Address).To(Equal(expectedHostAddr))
+			Expect(devices[0].Address).To(Equal(expectedGuestAddr))
+		})
+
+		It("uses metadata file path for ResourceClaimTemplate-backed pod claim", func() {
+			tempDir, err := os.MkdirTemp("", "sriov-dra-template-")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tempDir)
+
+			vmi := newDRAVMI("generated-claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name: "generated-claim-ref",
+			}}
+			writeMetadataFile(tempDir, "resourceclaimtemplates", "generated-claim-ref", "vf", "0000:65:0a.4")
+
+			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(HaveLen(1))
+
+			expectedHostAddr, err := device.NewPciAddressField("0000:65:0a.4")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices[0].Source.Address).To(Equal(expectedHostAddr))
+		})
 	})
 
 	Context("safe detachment", func() {
