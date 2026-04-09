@@ -637,7 +637,7 @@ func (m *migrationMonitor) startMonitor() {
 				LogMigrationInfo(logger, uid, jobStats)
 			}
 		case libvirt.DOMAIN_JOB_COMPLETED:
-			logMigrationInfo(logger, string(migrationUID), jobStats)
+			logMigrationInfo(logger, uid, jobStats)
 			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
