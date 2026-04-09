@@ -7,6 +7,7 @@ source $(dirname "$0")/config.sh
 
 # generate clients
 CLIENT_GEN_BASE=kubevirt.io/client-go
+APPLYCONFIG_PKG=kubevirt.io/client-go/applyconfigurations
 
 # KubeVirt stuff
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
@@ -83,6 +84,24 @@ else
     diff ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule-violations-known.list
     exit 2
 fi
+
+applyconfiguration-gen \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
+    --output-dir "${KUBEVIRT_DIR}/staging/src/${APPLYCONFIG_PKG}" \
+    --external-applyconfigurations k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource:k8s.io/client-go/applyconfigurations/core/v1,k8s.io/api/core/v1.LocalObjectReference:k8s.io/client-go/applyconfigurations/core/v1 \
+    --output-pkg "${APPLYCONFIG_PKG}" \
+    kubevirt.io/api/core/v1 \
+    kubevirt.io/api/export/v1beta1 \
+    kubevirt.io/api/export/v1 \
+    kubevirt.io/api/snapshot/v1alpha1 \
+    kubevirt.io/api/snapshot/v1beta1 \
+    kubevirt.io/api/instancetype/v1beta1 \
+    kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/pool/v1beta1 \
+    kubevirt.io/api/migrations/v1alpha1 \
+    kubevirt.io/api/clone/v1alpha1 \
+    kubevirt.io/api/clone/v1beta1 \
+    kubevirt.io/api/backup/v1alpha1
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
