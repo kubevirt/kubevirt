@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "guestagent.go",
         "hotplug.go",
         "interface.go",
         "ipaddress.go",
@@ -24,6 +25,7 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//tests/console:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
+        "//tests/framework/matcher:go_default_library",
         "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnet/cluster:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
