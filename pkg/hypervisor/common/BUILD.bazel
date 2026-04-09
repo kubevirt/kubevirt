@@ -21,6 +21,7 @@ go_test(
     srcs = [
         "common_suite_test.go",
         "process_test.go",
+        "vcpu_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
