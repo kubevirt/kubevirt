@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
-	backupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
+	backupv1alpha1 "kubevirt.io/client-go/applyconfigurations/backup/v1alpha1"
+	typedbackupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
 )
 
 // fakeVirtualMachineBackups implements VirtualMachineBackupInterface
 type fakeVirtualMachineBackups struct {
-	*gentype.FakeClientWithList[*v1alpha1.VirtualMachineBackup, *v1alpha1.VirtualMachineBackupList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.VirtualMachineBackup, *v1alpha1.VirtualMachineBackupList, *backupv1alpha1.VirtualMachineBackupApplyConfiguration]
 	Fake *FakeBackupV1alpha1
 }
 
-func newFakeVirtualMachineBackups(fake *FakeBackupV1alpha1, namespace string) backupv1alpha1.VirtualMachineBackupInterface {
+func newFakeVirtualMachineBackups(fake *FakeBackupV1alpha1, namespace string) typedbackupv1alpha1.VirtualMachineBackupInterface {
 	return &fakeVirtualMachineBackups{
-		gentype.NewFakeClientWithList[*v1alpha1.VirtualMachineBackup, *v1alpha1.VirtualMachineBackupList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.VirtualMachineBackup, *v1alpha1.VirtualMachineBackupList, *backupv1alpha1.VirtualMachineBackupApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("virtualmachinebackups"),

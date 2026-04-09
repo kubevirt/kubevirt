@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	applyconfigurationsbackupv1alpha1 "kubevirt.io/client-go/applyconfigurations/backup/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineBackupTrackerInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*backupv1alpha1.VirtualMachineBackupTrackerList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *backupv1alpha1.VirtualMachineBackupTracker, err error)
+	Apply(ctx context.Context, virtualMachineBackupTracker *applyconfigurationsbackupv1alpha1.VirtualMachineBackupTrackerApplyConfiguration, opts v1.ApplyOptions) (result *backupv1alpha1.VirtualMachineBackupTracker, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineBackupTracker *applyconfigurationsbackupv1alpha1.VirtualMachineBackupTrackerApplyConfiguration, opts v1.ApplyOptions) (result *backupv1alpha1.VirtualMachineBackupTracker, err error)
 	VirtualMachineBackupTrackerExpansion
 }
 
 // virtualMachineBackupTrackers implements VirtualMachineBackupTrackerInterface
 type virtualMachineBackupTrackers struct {
-	*gentype.ClientWithList[*backupv1alpha1.VirtualMachineBackupTracker, *backupv1alpha1.VirtualMachineBackupTrackerList]
+	*gentype.ClientWithListAndApply[*backupv1alpha1.VirtualMachineBackupTracker, *backupv1alpha1.VirtualMachineBackupTrackerList, *applyconfigurationsbackupv1alpha1.VirtualMachineBackupTrackerApplyConfiguration]
 }
 
 // newVirtualMachineBackupTrackers returns a VirtualMachineBackupTrackers
 func newVirtualMachineBackupTrackers(c *BackupV1alpha1Client, namespace string) *virtualMachineBackupTrackers {
 	return &virtualMachineBackupTrackers{
-		gentype.NewClientWithList[*backupv1alpha1.VirtualMachineBackupTracker, *backupv1alpha1.VirtualMachineBackupTrackerList](
+		gentype.NewClientWithListAndApply[*backupv1alpha1.VirtualMachineBackupTracker, *backupv1alpha1.VirtualMachineBackupTrackerList, *applyconfigurationsbackupv1alpha1.VirtualMachineBackupTrackerApplyConfiguration](
 			"virtualmachinebackuptrackers",
 			c.RESTClient(),
 			scheme.ParameterCodec,

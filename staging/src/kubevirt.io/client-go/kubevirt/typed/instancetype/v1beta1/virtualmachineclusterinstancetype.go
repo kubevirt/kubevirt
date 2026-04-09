@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	applyconfigurationsinstancetypev1beta1 "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -47,18 +48,19 @@ type VirtualMachineClusterInstancetypeInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachineClusterInstancetypeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachineClusterInstancetype, err error)
+	Apply(ctx context.Context, virtualMachineClusterInstancetype *applyconfigurationsinstancetypev1beta1.VirtualMachineClusterInstancetypeApplyConfiguration, opts v1.ApplyOptions) (result *instancetypev1beta1.VirtualMachineClusterInstancetype, err error)
 	VirtualMachineClusterInstancetypeExpansion
 }
 
 // virtualMachineClusterInstancetypes implements VirtualMachineClusterInstancetypeInterface
 type virtualMachineClusterInstancetypes struct {
-	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetypeList]
+	*gentype.ClientWithListAndApply[*instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetypeList, *applyconfigurationsinstancetypev1beta1.VirtualMachineClusterInstancetypeApplyConfiguration]
 }
 
 // newVirtualMachineClusterInstancetypes returns a VirtualMachineClusterInstancetypes
 func newVirtualMachineClusterInstancetypes(c *InstancetypeV1beta1Client) *virtualMachineClusterInstancetypes {
 	return &virtualMachineClusterInstancetypes{
-		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetypeList](
+		gentype.NewClientWithListAndApply[*instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetypeList, *applyconfigurationsinstancetypev1beta1.VirtualMachineClusterInstancetypeApplyConfiguration](
 			"virtualmachineclusterinstancetypes",
 			c.RESTClient(),
 			scheme.ParameterCodec,

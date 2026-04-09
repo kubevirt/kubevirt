@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1 "kubevirt.io/api/core/v1"
-	corev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	corev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
+	typedcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
 // fakeKubeVirts implements KubeVirtInterface
 type fakeKubeVirts struct {
-	*gentype.FakeClientWithList[*v1.KubeVirt, *v1.KubeVirtList]
+	*gentype.FakeClientWithListAndApply[*v1.KubeVirt, *v1.KubeVirtList, *corev1.KubeVirtApplyConfiguration]
 	Fake *FakeKubevirtV1
 }
 
-func newFakeKubeVirts(fake *FakeKubevirtV1, namespace string) corev1.KubeVirtInterface {
+func newFakeKubeVirts(fake *FakeKubevirtV1, namespace string) typedcorev1.KubeVirtInterface {
 	return &fakeKubeVirts{
-		gentype.NewFakeClientWithList[*v1.KubeVirt, *v1.KubeVirtList](
+		gentype.NewFakeClientWithListAndApply[*v1.KubeVirt, *v1.KubeVirtList, *corev1.KubeVirtApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1.SchemeGroupVersion.WithResource("kubevirts"),

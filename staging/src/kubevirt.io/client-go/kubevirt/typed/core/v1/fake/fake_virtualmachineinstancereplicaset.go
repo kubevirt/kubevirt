@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1 "kubevirt.io/api/core/v1"
-	corev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	corev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
+	typedcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
 // fakeVirtualMachineInstanceReplicaSets implements VirtualMachineInstanceReplicaSetInterface
 type fakeVirtualMachineInstanceReplicaSets struct {
-	*gentype.FakeClientWithList[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList]
+	*gentype.FakeClientWithListAndApply[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList, *corev1.VirtualMachineInstanceReplicaSetApplyConfiguration]
 	Fake *FakeKubevirtV1
 }
 
-func newFakeVirtualMachineInstanceReplicaSets(fake *FakeKubevirtV1, namespace string) corev1.VirtualMachineInstanceReplicaSetInterface {
+func newFakeVirtualMachineInstanceReplicaSets(fake *FakeKubevirtV1, namespace string) typedcorev1.VirtualMachineInstanceReplicaSetInterface {
 	return &fakeVirtualMachineInstanceReplicaSets{
-		gentype.NewFakeClientWithList[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList](
+		gentype.NewFakeClientWithListAndApply[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList, *corev1.VirtualMachineInstanceReplicaSetApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1.SchemeGroupVersion.WithResource("virtualmachineinstancereplicasets"),

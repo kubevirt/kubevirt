@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	migrationsv1alpha1 "kubevirt.io/api/migrations/v1alpha1"
+	applyconfigurationsmigrationsv1alpha1 "kubevirt.io/client-go/applyconfigurations/migrations/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type MigrationPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*migrationsv1alpha1.MigrationPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *migrationsv1alpha1.MigrationPolicy, err error)
+	Apply(ctx context.Context, migrationPolicy *applyconfigurationsmigrationsv1alpha1.MigrationPolicyApplyConfiguration, opts v1.ApplyOptions) (result *migrationsv1alpha1.MigrationPolicy, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, migrationPolicy *applyconfigurationsmigrationsv1alpha1.MigrationPolicyApplyConfiguration, opts v1.ApplyOptions) (result *migrationsv1alpha1.MigrationPolicy, err error)
 	MigrationPolicyExpansion
 }
 
 // migrationPolicies implements MigrationPolicyInterface
 type migrationPolicies struct {
-	*gentype.ClientWithList[*migrationsv1alpha1.MigrationPolicy, *migrationsv1alpha1.MigrationPolicyList]
+	*gentype.ClientWithListAndApply[*migrationsv1alpha1.MigrationPolicy, *migrationsv1alpha1.MigrationPolicyList, *applyconfigurationsmigrationsv1alpha1.MigrationPolicyApplyConfiguration]
 }
 
 // newMigrationPolicies returns a MigrationPolicies
 func newMigrationPolicies(c *MigrationsV1alpha1Client) *migrationPolicies {
 	return &migrationPolicies{
-		gentype.NewClientWithList[*migrationsv1alpha1.MigrationPolicy, *migrationsv1alpha1.MigrationPolicyList](
+		gentype.NewClientWithListAndApply[*migrationsv1alpha1.MigrationPolicy, *migrationsv1alpha1.MigrationPolicyList, *applyconfigurationsmigrationsv1alpha1.MigrationPolicyApplyConfiguration](
 			"migrationpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
+	applyconfigurationssnapshotv1beta1 "kubevirt.io/client-go/applyconfigurations/snapshot/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineRestoreInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*snapshotv1beta1.VirtualMachineRestoreList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *snapshotv1beta1.VirtualMachineRestore, err error)
+	Apply(ctx context.Context, virtualMachineRestore *applyconfigurationssnapshotv1beta1.VirtualMachineRestoreApplyConfiguration, opts v1.ApplyOptions) (result *snapshotv1beta1.VirtualMachineRestore, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineRestore *applyconfigurationssnapshotv1beta1.VirtualMachineRestoreApplyConfiguration, opts v1.ApplyOptions) (result *snapshotv1beta1.VirtualMachineRestore, err error)
 	VirtualMachineRestoreExpansion
 }
 
 // virtualMachineRestores implements VirtualMachineRestoreInterface
 type virtualMachineRestores struct {
-	*gentype.ClientWithList[*snapshotv1beta1.VirtualMachineRestore, *snapshotv1beta1.VirtualMachineRestoreList]
+	*gentype.ClientWithListAndApply[*snapshotv1beta1.VirtualMachineRestore, *snapshotv1beta1.VirtualMachineRestoreList, *applyconfigurationssnapshotv1beta1.VirtualMachineRestoreApplyConfiguration]
 }
 
 // newVirtualMachineRestores returns a VirtualMachineRestores
 func newVirtualMachineRestores(c *SnapshotV1beta1Client, namespace string) *virtualMachineRestores {
 	return &virtualMachineRestores{
-		gentype.NewClientWithList[*snapshotv1beta1.VirtualMachineRestore, *snapshotv1beta1.VirtualMachineRestoreList](
+		gentype.NewClientWithListAndApply[*snapshotv1beta1.VirtualMachineRestore, *snapshotv1beta1.VirtualMachineRestoreList, *applyconfigurationssnapshotv1beta1.VirtualMachineRestoreApplyConfiguration](
 			"virtualmachinerestores",
 			c.RESTClient(),
 			scheme.ParameterCodec,

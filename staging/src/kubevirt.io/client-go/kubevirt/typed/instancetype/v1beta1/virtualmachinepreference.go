@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	applyconfigurationsinstancetypev1beta1 "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -47,18 +48,19 @@ type VirtualMachinePreferenceInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachinePreferenceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachinePreference, err error)
+	Apply(ctx context.Context, virtualMachinePreference *applyconfigurationsinstancetypev1beta1.VirtualMachinePreferenceApplyConfiguration, opts v1.ApplyOptions) (result *instancetypev1beta1.VirtualMachinePreference, err error)
 	VirtualMachinePreferenceExpansion
 }
 
 // virtualMachinePreferences implements VirtualMachinePreferenceInterface
 type virtualMachinePreferences struct {
-	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachinePreferenceList]
+	*gentype.ClientWithListAndApply[*instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachinePreferenceList, *applyconfigurationsinstancetypev1beta1.VirtualMachinePreferenceApplyConfiguration]
 }
 
 // newVirtualMachinePreferences returns a VirtualMachinePreferences
 func newVirtualMachinePreferences(c *InstancetypeV1beta1Client, namespace string) *virtualMachinePreferences {
 	return &virtualMachinePreferences{
-		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachinePreferenceList](
+		gentype.NewClientWithListAndApply[*instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachinePreferenceList, *applyconfigurationsinstancetypev1beta1.VirtualMachinePreferenceApplyConfiguration](
 			"virtualmachinepreferences",
 			c.RESTClient(),
 			scheme.ParameterCodec,
