@@ -20,6 +20,7 @@
 package virtwrap
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -37,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
@@ -636,13 +638,41 @@ func (m *migrationMonitor) startMonitor() {
 			if logInterval%monitorLogInterval == 0 {
 				LogMigrationInfo(logger, uid, jobStats)
 			}
-		case libvirt.DOMAIN_JOB_COMPLETED:
-			logMigrationInfo(logger, uid, jobStats)
-			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
 		}
 	}
+}
+
+// Attempts reading the completed stats for the job that just finished. Needs to be called right after the migration before the source pod is destroyed.
+// It retries due to possible contention in libvirt calls but not for too long to avoid blocking the migration completion.
+func (l *LibvirtDomainManager) retrieveCompletedStats(vmi *v1.VirtualMachineInstance) {
+	logger := log.Log.Object(vmi)
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		logger.Reason(err).Warning("failed to look up domain for completed migration stats")
+		return
+	}
+	defer dom.Free()
+
+	var jobStats *libvirt.DomainJobInfo
+	err = virtwait.PollImmediately(200*time.Millisecond, 2*time.Second, func(_ context.Context) (bool, error) {
+		var getErr error
+		jobStats, getErr = dom.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED)
+		if getErr != nil {
+			logger.Reason(getErr).V(3).Info("completed migration stats not yet available, retrying")
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		logger.Warning("timed out retrieving completed migration job stats")
+		return
+	}
+
+	logMigrationInfo(logger, migrationUID(vmi), jobStats)
 }
 
 func MigrationUID(vmi *v1.VirtualMachineInstance) types.UID {
@@ -1091,6 +1121,7 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		return
 	}
 
+	l.retrieveCompletedStats(vmi)
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
 }
 
