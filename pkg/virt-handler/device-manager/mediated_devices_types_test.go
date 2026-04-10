@@ -150,7 +150,12 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&kubev1.Node{})
 		fakeNodeStore = fakeNodeInformer.GetStore()
 		mockMDEV := NewMockDeviceHandler(gomock.NewController(GinkgoT()))
+
+		oldHandler := handler
 		handler = mockMDEV
+		DeferCleanup(func() {
+			handler = oldHandler
+		})
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
 
 		mockMDEV.EXPECT().CreateMDEVType(gomock.Any(), gomock.Any()).DoAndReturn(func(mdevType string, parentID string) error {
