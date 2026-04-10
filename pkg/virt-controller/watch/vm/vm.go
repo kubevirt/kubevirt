@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -1540,9 +1541,29 @@ func (c *Controller) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		return vm, nil
 	}
 
+	var gracePeriod *int64
+	if vmi != nil && vmi.Annotations != nil {
+		if overrideStr, exists := vmi.Annotations[controller.GracePeriodOverrideAnnotation]; exists {
+			if parsed, err := strconv.ParseInt(overrideStr, 10, 64); err == nil {
+				gracePeriod = &parsed
+			}
+
+			// Clean up the annotation immediately so it doesn't linger
+			patchData := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}}}`, controller.GracePeriodOverrideAnnotation))
+			_, patchErr := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			if patchErr != nil && !k8serrors.IsNotFound(patchErr) {
+				log.Log.Object(vm).Reason(patchErr).Errorf("Failed to clear grace period annotation on VMI")
+			}
+		}
+	}
+
+	deleteOptions := metav1.DeleteOptions{
+		GracePeriodSeconds: gracePeriod,
+	}
+
 	// stop it
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
-	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, deleteOptions)
 
 	// Don't log an error if it is already deleted
 	if err != nil {
