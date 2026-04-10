@@ -1447,6 +1447,84 @@ var _ = Describe(SIG("Export", func() {
 		verifyKubevirtInternal(export, export.Name, export.Namespace, restoreName)
 	})
 
+	It("should export a restored VM disk as raw image, not archive", decorators.RequiresSnapshotStorageClass, func() {
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		Expect(err).ToNot(HaveOccurred())
+		if sc == "" {
+			Fail("Fail test when storage with snapshot is not present")
+		}
+
+		By("Creating a DataVolume to populate a PVC with a bootable disk")
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+				libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem)),
+			libdv.WithForceBindAnnotation(),
+		)
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libstorage.EventuallyDV(dv, 180, HaveSucceeded())
+
+		By("Creating a VM that references the PVC directly")
+		vmi := libvmi.New(
+			libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
+			libvmi.WithMemoryRequest("128Mi"),
+		)
+		vm := libvmi.NewVirtualMachine(vmi)
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating a snapshot of the stopped VM")
+		snapshot := newSnapshot(vm)
+		_, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		waitSnapshotReady(snapshot)
+		defer deleteSnapshot(snapshot)
+
+		By("Restoring the VM from the snapshot")
+		restore := &snapshotv1.VirtualMachineRestore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "restore-" + vm.Name,
+			},
+			Spec: snapshotv1.VirtualMachineRestoreSpec{
+				Target: k8sv1.TypedLocalObjectReference{
+					APIGroup: virtpointer.P("kubevirt.io"),
+					Kind:     "VirtualMachine",
+					Name:     vm.Name,
+				},
+				VirtualMachineSnapshotName: snapshot.Name,
+			},
+		}
+		restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() bool {
+			restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return restore.Status != nil && restore.Status.Complete != nil && *restore.Status.Complete
+		}, 180*time.Second, time.Second).Should(BeTrue())
+
+		By("Getting the restored PVC name from the VM spec")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vm.Spec.Template.Spec.Volumes).ToNot(BeEmpty())
+		restoredPVCName := vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName
+
+		By("Verifying the restored PVC should have the contentType annotation")
+		restoredPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restoredPVCName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(restoredPVC.Annotations).To(HaveKey(annContentType))
+
+		By("Exporting the restored VM and verifying kubevirt content type format")
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		export = waitForReadyExport(export)
+		verifyKubevirtInternal(export, export.Name, export.Namespace, restoredPVCName)
+	})
+
 	addDataVolumeDisk := func(vm *v1.VirtualMachine, diskName, dataVolumeName string) *v1.VirtualMachine {
 		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: diskName,
