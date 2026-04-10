@@ -173,19 +173,22 @@ func SetConditionTimestamps(kvOrig *virtv1.KubeVirt, kvUpdated *virtv1.KubeVirt)
 	}
 }
 
-func AddFinalizer(kv *virtv1.KubeVirt) {
-	if !hasFinalizer(kv) {
-		kv.Finalizers = append(kv.Finalizers, KubeVirtFinalizer)
-	}
+func SetFinalizer(kv *virtv1.KubeVirt) {
+	kv.Finalizers = append(withoutKubeVirtFinalizers(kv.Finalizers), KubeVirtFinalizer)
 }
 
-func hasFinalizer(kv *virtv1.KubeVirt) bool {
-	for _, f := range kv.GetFinalizers() {
-		if f == KubeVirtFinalizer {
-			return true
+func UnsetFinalizer(kv *virtv1.KubeVirt) {
+	kv.Finalizers = withoutKubeVirtFinalizers(kv.Finalizers)
+}
+
+func withoutKubeVirtFinalizers(finalizers []string) []string {
+	var result []string
+	for _, f := range finalizers {
+		if f != KubeVirtFinalizer {
+			result = append(result, f)
 		}
 	}
-	return false
+	return result
 }
 
 func SetOperatorVersion(kv *virtv1.KubeVirt) {
