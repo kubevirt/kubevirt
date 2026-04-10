@@ -225,8 +225,10 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			secondIfaceMac, err := libnet.GenerateRandomMac()
 			Expect(err).NotTo(HaveOccurred())
 
-			secondHotpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding(secondHotpluggedIfaceName)
-			secondHotpluggedIface.MacAddress = secondIfaceMac.String()
+			secondHotpluggedIface := libvmi.InterfaceWithMac(
+				libvmi.InterfaceDeviceWithBridgeBinding(secondHotpluggedIfaceName),
+				secondIfaceMac.String(),
+			)
 			secondHotpluggedIface.State = v1.InterfaceStateLinkDown
 
 			Expect(

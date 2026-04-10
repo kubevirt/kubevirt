@@ -94,9 +94,10 @@ var _ = Describe(
 			It("should apply the interface configuration", func() {
 				const testMACAddr = "02:02:02:02:02:02"
 				const testPCIAddr = "0000:01:00.0"
-				passtIface := libvmi.InterfaceWithPasstBindingPlugin()
-				passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
-				passtIface.MacAddress = testMACAddr
+				passtIface := libvmi.InterfaceWithMac(
+					libvmi.InterfaceWithPasstBindingPlugin(v1.Port{Port: 1234, Protocol: "TCP"}),
+					testMACAddr,
+				)
 				passtIface.PciAddress = testPCIAddr
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithInterface(passtIface),

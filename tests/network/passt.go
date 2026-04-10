@@ -66,8 +66,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 	It("should apply the interface configuration", func() {
 		const testMACAddr = "02:02:02:02:02:02"
 		const testPCIAddr = "0000:01:00.0"
-		passtIface := passtBindingInterfaceWithPort(tcp, port1234)
-		passtIface.MacAddress = testMACAddr
+		passtIface := libvmi.InterfaceWithMac(passtBindingInterfaceWithPort(tcp, port1234), testMACAddr)
 		passtIface.PciAddress = testPCIAddr
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(passtIface),
