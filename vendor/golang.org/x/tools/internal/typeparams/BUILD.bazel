@@ -13,4 +13,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/internal/typeparams",
     importpath = "golang.org/x/tools/internal/typeparams",
     visibility = ["//vendor/golang.org/x/tools:__subpackages__"],
+    deps = ["//vendor/golang.org/x/tools/internal/aliases:go_default_library"],
 )
