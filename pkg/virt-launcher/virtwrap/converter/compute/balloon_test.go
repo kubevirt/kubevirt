@@ -65,7 +65,7 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 	Context("s390x with LaunchSecurity", func() {
 		It("Should set IOMMU attribute of the MemBalloonDriver", func() {
-			vmi := libvmi.New(withLaunchSecurity(v1.LaunchSecurity{SEV: &v1.SEV{}}))
+			vmi := libvmi.New()
 			var domain api.Domain
 
 			configurator := compute.NewBalloonDomainConfigurator(
