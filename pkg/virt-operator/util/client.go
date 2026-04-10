@@ -36,7 +36,10 @@ import (
 )
 
 const (
-	KubeVirtFinalizer string = "foregroundDeleteKubeVirt"
+	KubeVirtFinalizer string = "kubevirt.io/foregroundDeleteKubeVirt"
+	// TODO drop the code handling the deprecated finalizer after release
+	// of kubevirt-1.11
+	deprecatedKubeVirtFinalizer string = "foregroundDeleteKubeVirt"
 
 	ConditionReasonDeploymentFailedExisting = "ExistingDeployment"
 	ConditionReasonDeploymentFailedError    = "DeploymentFailed"
@@ -184,7 +187,7 @@ func UnsetFinalizer(kv *virtv1.KubeVirt) {
 func withoutKubeVirtFinalizers(finalizers []string) []string {
 	var result []string
 	for _, f := range finalizers {
-		if f != KubeVirtFinalizer {
+		if f != KubeVirtFinalizer && f != deprecatedKubeVirtFinalizer {
 			result = append(result, f)
 		}
 	}
