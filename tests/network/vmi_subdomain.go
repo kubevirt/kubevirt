@@ -74,22 +74,25 @@ var _ = Describe(SIG("Subdomain", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("VMI should have the expected FQDN", decorators.WgS390x, func(f func() *v1.VirtualMachineInstance, subdom, hostname string) {
-			vmiSpec := f()
-			var expectedFQDN, domain string
+		DescribeTable("VMI should have the expected FQDN", decorators.WgS390x, func(f func(...libvmi.Option) *v1.VirtualMachineInstance, subdom, hostname string) {
+			opts := []libvmi.Option{libvmi.WithLabel(selectorLabelKey, selectorLabelValue)}
 			if subdom != "" {
-				vmiSpec.Spec.Subdomain = subdom
+				opts = append(opts, libvmi.WithSubdomain(subdom))
 				if hostname != "" {
-					domain = hostname
-					vmiSpec.Spec.Hostname = domain
-				} else {
+					opts = append(opts, libvmi.WithHostname(hostname))
+				}
+			}
+			vmiSpec := f(opts...)
+			var expectedFQDN string
+			if subdom != "" {
+				domain := hostname
+				if domain == "" {
 					domain = vmiSpec.Name
 				}
 				expectedFQDN = fmt.Sprintf("%s.%s.%s.svc.cluster.local", domain, subdom, testsuite.NamespaceTestDefault)
 			} else {
 				expectedFQDN = vmiSpec.Name
 			}
-			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -130,10 +133,11 @@ var _ = Describe(SIG("Subdomain", func() {
 	})
 
 	It("VMI with custom DNSPolicy, a subdomain and no service entry, should not include the subdomain in the searchlist", func() {
-		vmiSpec := fedoraBridgeBindingVMI()
-		vmiSpec.Spec.Subdomain = subdomain
+		vmiSpec := fedoraBridgeBindingVMI(
+			libvmi.WithSubdomain(subdomain),
+			libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+		)
 		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
-		vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
 		dnsServerIP, err := dns.ClusterDNSServiceIP()
 		Expect(err).ToNot(HaveOccurred())
@@ -153,16 +157,18 @@ var _ = Describe(SIG("Subdomain", func() {
 	})
 }))
 
-func fedoraMasqueradeVMI() *v1.VirtualMachineInstance {
-	return libvmifact.NewFedora(
+func fedoraMasqueradeVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	return libvmifact.NewFedora(append([]libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}, opts...)...)
 }
 
-func fedoraBridgeBindingVMI() *v1.VirtualMachineInstance {
-	return libvmifact.NewFedora(
+func fedoraBridgeBindingVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	return libvmifact.NewFedora(append([]libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}, opts...)...)
 }
 
 func assertFQDNinGuest(vmi *v1.VirtualMachineInstance, expectedFQDN string) error {
