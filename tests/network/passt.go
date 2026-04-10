@@ -65,9 +65,11 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 	It("should apply the interface configuration", func() {
 		const testMACAddr = "02:02:02:02:02:02"
 		const testPCIAddr = "0000:01:00.0"
-		passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+		passtIface := libvmi.InterfaceWithMac(
+			libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name),
+			testMACAddr,
+		)
 		passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
-		passtIface.MacAddress = testMACAddr
 		passtIface.PciAddress = testPCIAddr
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(passtIface),
