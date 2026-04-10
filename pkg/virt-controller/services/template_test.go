@@ -5329,7 +5329,7 @@ var _ = Describe("Template", func() {
 			})
 
 			Context("when the creation namespace have a resource quota without memory limits associated to it", func() {
-				It("should not set memory limits", func() {
+				It("should set memory limits to requests", func() {
 					vmi := v1.VirtualMachineInstance{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "testvmi",
@@ -5348,7 +5348,8 @@ var _ = Describe("Template", func() {
 					pod, err := svc.RenderLaunchManifest(&vmi)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pod.Spec.Containers[0].Name).To(Equal("d8v-compute"))
-					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeZero())
+					expectedValue := pod.Spec.Containers[0].Resources.Requests.Memory().Value()
+					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedValue))
 				})
 			})
 		})

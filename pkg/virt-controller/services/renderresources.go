@@ -305,6 +305,25 @@ func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) Resource
 	}
 }
 
+// EnsureMemoryLimits sets resources limits equal to requests with exception if
+// limits already set to greater value then requests.
+func EnsureMemoryLimits() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
+		if memoryLimit, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
+			if memoryLimit.Cmp(memoryRequest) == 1 {
+				return
+			}
+		}
+		if memoryLimit, ok := renderer.calculatedLimits[k8sv1.ResourceMemory]; ok {
+			if memoryLimit.Cmp(memoryRequest) == 1 {
+				return
+			}
+		}
+		renderer.vmLimits[k8sv1.ResourceMemory] = renderer.vmRequests[k8sv1.ResourceMemory]
+	}
+}
+
 func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]string, additionalCPUs uint32) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		cpu := vmi.Spec.Domain.CPU
