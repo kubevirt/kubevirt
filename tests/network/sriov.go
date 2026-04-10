@@ -111,11 +111,11 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
-			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())))
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 4,
-				DedicatedCPUPlacement: true,
-			}
+			vmi := newSRIOVVmi([]string{sriovnet1},
+				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
+				libvmi.WithCPUCount(4, 0, 0),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
 
 			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
 				if iface.Name == sriovnet1 {
@@ -195,10 +195,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
-			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
-			vmi.Annotations = map[string]string{
-				v1.PlacePCIDevicesOnRootComplex: "true",
-			}
+			vmi := newSRIOVVmi([]string{sriovnet1},
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
+				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"),
+			)
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
@@ -217,11 +217,11 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
-			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 2,
-				DedicatedCPUPlacement: true,
-			}
+			vmi := newSRIOVVmi([]string{sriovnet1},
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
+				libvmi.WithCPUCount(2, 0, 0),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
@@ -351,11 +351,9 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				)
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithGuestMemory(initialGuestMemory),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName)),
+					libvmi.WithInterface(libvmi.InterfaceWithMac(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName), mac)),
 					libvmi.WithNetwork(libvmi.MultusNetwork(sriovNetworkLogicalName, sriovnet1)),
 				)
-
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
 				vmi.Spec.Domain.Resources.Requests = nil
 
 				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
