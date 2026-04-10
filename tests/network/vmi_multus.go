@@ -275,55 +275,72 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				return "", fmt.Errorf("couldn't find iface %s on vmi %s", networkName, vmiName)
 			}
 
-			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface,
-				networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
-				if staticIPVm2 == "" || staticIPVm1 == "" {
-					ipam := map[string]string{"type": "host-local", "subnet": ptpSubnet}
-					Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
-				}
-
+			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName string) {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
 				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
-				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, staticIPVm1)).To(Succeed())
+				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
 				Expect(libnet.InterfaceExists(vmiOne, ifaceName)).To(Succeed())
 
-				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
+				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, ptpSubnetIP2+ptpSubnetMask)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
 				Expect(libnet.InterfaceExists(vmiTwo, ifaceName)).To(Succeed())
-				ipAddr := ""
-				if staticIPVm2 != "" {
-					ipAddr, err = libnet.CidrToIP(staticIPVm2)
-				} else {
-					const secondaryNetworkIndex = 1
-					ipAddr, err = getIfaceIPByNetworkName(vmiTwo.Name, networks[secondaryNetworkIndex].Name)
-				}
+
+				ipAddr, err := libnet.CidrToIP(ptpSubnetIP2 + ptpSubnetMask)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ipAddr).ToNot(BeEmpty())
 
 				By("ping between virtual machines")
 				Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
 			},
-				Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
+				Entry("[test_id:1577]with secondary network only",
+					[]v1.Interface{linuxBridgeInterface},
+					[]v1.Network{linuxBridgeNetwork},
+					"eth0",
+				),
 				Entry("[test_id:1578]with default network and secondary network", decorators.WgS390x,
 					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterface},
 					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeNetwork},
 					"eth1",
-					ptpSubnetIP1+ptpSubnetMask,
-					ptpSubnetIP2+ptpSubnetMask,
-				),
-				Entry("with default network and secondary network with IPAM",
-					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterfaceWithIPAM},
-					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeWithIPAMNetwork},
-					"eth1",
-					"",
-					"",
 				),
 			)
+
+			It("should be able to ping between two vms via IPAM-assigned addresses", func() {
+				ipam := map[string]string{"type": "host-local", "subnet": ptpSubnet}
+				Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
+
+				const ifaceName = "eth1"
+				vmiOne := createVMIOnNode(
+					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterfaceWithIPAM},
+					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeWithIPAMNetwork},
+				)
+				vmiTwo := createVMIOnNode(
+					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterfaceWithIPAM},
+					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeWithIPAMNetwork},
+				)
+
+				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
+
+				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, "")).To(Succeed())
+				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
+				Expect(libnet.InterfaceExists(vmiOne, ifaceName)).To(Succeed())
+
+				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, "")).To(Succeed())
+				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
+				Expect(libnet.InterfaceExists(vmiTwo, ifaceName)).To(Succeed())
+
+				ipAddr, err := getIfaceIPByNetworkName(vmiTwo.Name, linuxBridgeWithIPAMNetwork.Name)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ipAddr).ToNot(BeEmpty())
+
+				By("ping between virtual machines")
+				Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
+			})
 		})
 
 		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
