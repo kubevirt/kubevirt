@@ -1348,7 +1348,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-						portI, _ := strconv.Atoi(port)
+						portI, err := strconv.Atoi(port)
+						Expect(err).ToNot(HaveOccurred())
 						go func(port int) {
 							defer GinkgoRecover()
 							defer wg.Done()
@@ -1426,7 +1427,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-						portI, _ := strconv.Atoi(port)
+						portI, err := strconv.Atoi(port)
+						Expect(err).ToNot(HaveOccurred())
 						go func(port int) {
 							defer GinkgoRecover()
 							defer wg.Done()
