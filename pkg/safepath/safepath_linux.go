@@ -101,3 +101,7 @@ func open(path string) (fd int, err error) {
 func path(fd int) string {
 	return fmt.Sprintf("/proc/self/fd/%d", fd)
 }
+
+func getxattr(path string, attr string, ret []byte) (size int, err error) {
+	return syscall.Getxattr(path, attr, ret)
+}

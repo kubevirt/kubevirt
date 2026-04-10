@@ -40,8 +40,6 @@ import (
 
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 
-	"golang.org/x/sys/unix"
-
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -277,12 +275,12 @@ func (c *directIOChecker) CheckFile(path string) (bool, error) {
 // based on https://gitlab.com/qemu-project/qemu/-/blob/master/util/osdep.c#L344
 func (c *directIOChecker) check(path string, flags int) (bool, error) {
 	// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, 0600)
+	f, err := os.OpenFile(path, flags|SYSCALL_O_DIRECT, 0600)
 	if err != nil {
 		// EINVAL is returned if the filesystem does not support the O_DIRECT flag
 		if err, ok := err.(*os.PathError); ok && err.Err == syscall.EINVAL {
 			// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-			f, err := os.OpenFile(path, flags & ^syscall.O_DIRECT, 0600)
+			f, err := os.OpenFile(path, flags & ^SYSCALL_O_DIRECT, 0600)
 			if err == nil {
 				defer util.CloseIOAndCheckErr(f, nil)
 				return false, nil
@@ -331,13 +329,9 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 	}
 	defer util.CloseIOAndCheckErr(f, nil)
 
-	logicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKSSZGET)
+	logicalSize, physicalSize, err := getBlockIOSizes(path, f)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get logical block size from device %v: %v", path, err)
-	}
-	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKBSZGET)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get physical block size from device %v: %v", path, err)
+		return nil, err
 	}
 
 	log.Log.Infof("Detected logical size of %d and physical size of %d for device %v", logicalSize, physicalSize, path)
@@ -1294,13 +1288,13 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
 		if kb.Container.KernelPath != "" {
 			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
-			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: " + kernelPath)
+			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: %s", kernelPath)
 			domain.Spec.OS.Kernel = kernelPath
 		}
 
 		if kb.Container.InitrdPath != "" {
 			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
-			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: " + initrdPath)
+			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: %s", initrdPath)
 			domain.Spec.OS.Initrd = initrdPath
 		}
 
@@ -1308,7 +1302,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 
 	// Define custom command-line arguments even if kernel-boot container is not defined
 	if firmware.KernelBoot != nil {
-		log.Log.Object(vmi).Infof("setting custom kernel arguments: " + firmware.KernelBoot.KernelArgs)
+		log.Log.Object(vmi).Infof("setting custom kernel arguments: %s", firmware.KernelBoot.KernelArgs)
 		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
 	}
 
@@ -1525,14 +1519,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
 	// set the maximum number of sockets here to allow hot-plug CPUs
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
-		domainVCPUTopologyForHotplug(vmi, domain)
+		if _, ok := vmi.Annotations[v1.VCPUTopologyDynamicCoresAnnotation]; ok {
+			// "Dynamic cores" considers that user can change cores number instead of sockets.
+			domainVCPUTopologyForHotplugDynamicCores(vmi, domain)
+		} else {
+			domainVCPUTopologyForHotplug(vmi, domain)
+		}
+	} else {
+		domain.Spec.CPU.Topology = cpuTopology
+		domain.Spec.VCPU = &api.VCPU{
+			Placement: "static",
+			CPUs:      cpuCount,
+		}
 	}
 
 	kvmPath := "/dev/kvm"
@@ -2235,5 +2235,72 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+// domainVCPUTopologyForHotplugDynamicCores implements "dynamic cores" strategy for CPU hotplug.
+// This strategy considers that user can change cores number instead of sockets.
+// To accomplish this without huge refactoring we change vmi domain fields meaning:
+// 1) cores(-per-socket) field is used as a sockets number.
+// 2) sockets field is used as a dynamic cores-per-socket number.
+// 3) maxSockets field meaning is "max cores-per-socket".
+//
+// Also, sparse VCPUs array is used to distribute cores by sockets.
+// Example:
+// cores: 2, sockets: 9, maxSockets: 16
+// It becomes: 2 sockets, 9 cores per socket, max 16 cores per socket.
+// VCPUs array:
+// 0-15 - cores for socket 1
+// 16-31 - cores for socket 2.
+// For each socket first 9 cores are enabled, other 7 cores are disabled.
+// First 2 cores are non-hotpluggabled, others are hotpluggable.
+//
+// Note: It is not possible to have non-hotpluggable cores for each socket,
+// as QEMU expects non-hotpluggable VCPUs first and then hotpluggable VCPUs, so
+// we end up with simpler approach: make at least "sockets" count of VCPUs non-hotpluggable
+// for the first socket.
+func domainVCPUTopologyForHotplugDynamicCores(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	// Convert "dynamic sockets" topology to "dynamic cores": swap cores and sockets.
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	coresPerSocket := cpuTopology.Sockets
+	sockets := cpuTopology.Cores
+	cpuTopology.Cores = coresPerSocket
+	cpuTopology.Sockets = sockets
+	enabledCoresTotal := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	// Set cores to maximum limit to enable hotplug. (Max cores per socket value is passed as MaxSockets to bypass validation).
+	cpuTopology.Cores = vmi.Spec.Domain.CPU.MaxSockets
+	maxCoresTotal := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	// At least 1 core per socket should be non-hotpluggable.
+	nonHotpluggableCores := sockets
+	// Count vCPUs per socket.
+	enabledCoresPerSocket := enabledCoresTotal / sockets
+	maxCoresPerSocket := maxCoresTotal / sockets
+
+	VCPUs := &api.VCPUs{}
+	for sockId := uint32(0); sockId < sockets; sockId++ {
+		for coreId := uint32(0); coreId < maxCoresPerSocket; coreId++ {
+			vcpuId := maxCoresPerSocket*sockId + coreId
+			// First nonHotpluggableCores vcpus in socket 0 will be non-hotpluggable.
+			isHotpluggable := vcpuId >= nonHotpluggableCores
+			// Enable requested number of vCPUs per socket.
+			isEnabled := coreId < enabledCoresPerSocket
+
+			vcpu := api.VCPUsVCPU{
+				ID:           vcpuId,
+				Enabled:      boolToYesNo(&isEnabled, true),
+				Hotpluggable: boolToYesNo(&isHotpluggable, false),
+				Order:        coreId*sockets + sockId + 1, // Order should be greater than 0.
+			}
+			VCPUs.VCPU = append(VCPUs.VCPU, vcpu)
+		}
+	}
+
+	domain.Spec.VCPUs = VCPUs
+	domain.Spec.CPU.Topology = cpuTopology
+	domain.Spec.VCPU = &api.VCPU{
+		Placement: "static",
+		CPUs:      maxCoresTotal,
 	}
 }

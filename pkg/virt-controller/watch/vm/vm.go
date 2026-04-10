@@ -641,7 +641,9 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 		return nil
 	}
 
-	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets < vmi.Spec.Domain.CPU.Sockets {
+	// Allows CPU cores number reduction if "dynamic cores" strategy is enabled.
+	_, isDynamicCoresHotplug := vmCopyWithInstancetype.Annotations[virtv1.VCPUTopologyDynamicCoresAnnotation]
+	if !isDynamicCoresHotplug && vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets < vmi.Spec.Domain.CPU.Sockets {
 		setRestartRequired(vm, "Reduction of CPU socket count requires a restart")
 		return nil
 	}

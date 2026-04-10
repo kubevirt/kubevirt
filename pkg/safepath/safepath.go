@@ -222,12 +222,12 @@ func GetxattrNoFollow(path *Path, attr string) ([]byte, error) {
 		return nil, err
 	}
 	defer pathFd.Close()
-	size, err := syscall.Getxattr(pathFd.SafePath(), attr, ret)
+	size, err := getxattr(pathFd.SafePath(), attr, ret)
 	if err != nil {
 		return nil, err
 	}
 	ret = make([]byte, size)
-	_, err = syscall.Getxattr(pathFd.SafePath(), attr, ret)
+	_, err = getxattr(pathFd.SafePath(), attr, ret)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -54,6 +55,14 @@ func NewVMIResourceRule(p resourcePredicate, option ResourceRendererOption) VMIR
 
 func doesVMIRequireDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.IsCPUDedicated()
+}
+
+func withoutDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
+	return !doesVMIRequireDedicatedCPU(vmi) && !doesVMIRequireFractionCPU(vmi)
+}
+
+func doesVMIRequireFractionCPU(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.IsCPUFractioned()
 }
 
 func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
@@ -145,6 +154,56 @@ func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int,
 				renderer.calculatedLimits[k8sv1.ResourceCPU] = resource.MustParse(strconv.FormatInt(totalCPUs, 10))
 			}
 		}
+	}
+}
+
+// WithCPUFractionRequests sets cpu requests as a fraction percent of a total cpu count.
+func WithCPUFractionRequests(vmi *v1.VirtualMachineInstance, cpuFraction int) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		cpu := vmi.Spec.Domain.CPU
+		vcpus := calcVCPUs(cpu)
+		ioThreadCPUs := getIOThreadsCount(vmi) // Get IO thread count
+		totalCPUs := vcpus + ioThreadCPUs      // Include IO threads
+		if totalCPUs != 0 {
+			requestsFraction := CalculateCPURequestsFraction(totalCPUs, cpuFraction)
+
+			renderer.calculatedRequests[k8sv1.ResourceCPU] = resource.MustParse(requestsFraction)
+			renderer.calculatedLimits[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.DecimalSI)
+		}
+	}
+}
+
+// CalculateCPURequestsFraction returns scaled totalCPUs in milli quantity if fraction is lower than 100.
+// Fraction is a percent of totalCPUs.
+// It returns totalCPUs number as a string if fraction is 100 or lower than 1.
+//
+// See GetScaledValueFromIntOrPercent from "k8s.io/apimachinery/pkg/util/intstr" package.
+func CalculateCPURequestsFraction(totalCPUs int64, cpuFraction int) string {
+	if cpuFraction <= 0 || cpuFraction > 100 {
+		cpuFraction = 100
+	}
+	if cpuFraction == 100 {
+		return fmt.Sprintf("%d", totalCPUs)
+	}
+
+	// Use multiplier to calculate fraction of millis.
+	total := totalCPUs * 1000
+	// Round up, to always return integer number of millis.
+	value := int64(math.Ceil(float64(cpuFraction) * (float64(total)) / 100))
+	return fmt.Sprintf("%dm", value)
+}
+
+// EnsureCPULimits sets CPU resources limits equal to requests with exception if
+// limits already set to greater value then requests.
+func EnsureCPULimits(vmi *v1.VirtualMachineInstance) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		memoryRequest := renderer.vmRequests[k8sv1.ResourceCPU]
+		if memoryLimit, ok := renderer.vmLimits[k8sv1.ResourceCPU]; ok {
+			if memoryLimit.Cmp(memoryRequest) == 1 {
+				return
+			}
+		}
+		renderer.vmLimits[k8sv1.ResourceCPU] = renderer.vmRequests[k8sv1.ResourceCPU]
 	}
 }
 
@@ -640,6 +699,18 @@ func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRende
 	return func(renderer *ResourceRenderer) {
 		copyResources(virtResources, renderer.vmLimits)
 	}
+}
+
+func parseCPUFraction(vmi *v1.VirtualMachineInstance) (int, error) {
+	cpuFractionStr, hasAnnotation := vmi.Annotations[v1.CPUResourcesRequestsFraction]
+	if !hasAnnotation || cpuFractionStr == "" {
+		return 0, nil
+	}
+	intVal, err := strconv.Atoi(cpuFractionStr)
+	if err != nil {
+		return 0, fmt.Errorf("parse CPU fraction: %w", err)
+	}
+	return intVal, nil
 }
 
 func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {

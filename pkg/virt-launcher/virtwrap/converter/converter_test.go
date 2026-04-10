@@ -1037,6 +1037,111 @@ var _ = Describe("Converter", func() {
 				Entry("on s390x", s390x),
 			)
 
+			DescribeTable("should define hotplugable distributed topology", func(arch string) {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmiCopy := vmi.DeepCopy()
+				// 2 sockets, max 4 cores per socket, 3 cores are enabled for each socket.
+				vmiCopy.Spec.Domain.CPU = &v1.CPU{
+					Cores:      2,
+					MaxSockets: 4,
+					Sockets:    3,
+				}
+				if vmiCopy.Annotations == nil {
+					vmiCopy.Annotations = map[string]string{}
+				}
+				vmiCopy.Annotations[v1.VCPUTopologyDynamicCoresAnnotation] = ""
+
+				c.Architecture = archconverter.NewConverter(arch)
+				domainSpec := vmiToDomainXMLToDomainSpec(vmiCopy, c)
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(4)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(2)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(8)), "Expect vcpus")
+				Expect(domainSpec.VCPUs).ToNot(BeNil(), "Expecting topology for hotplug")
+				Expect(domainSpec.VCPUs.VCPU).To(HaveLen(8), "Expecting topology for hotplug")
+				Expect(domainSpec.VCPUs.VCPU[0].Hotpluggable).To(Equal("no"), "Expecting the 1st vcpu to be stable")
+				Expect(domainSpec.VCPUs.VCPU[1].Hotpluggable).To(Equal("no"), "Expecting the 2nd vcpu to be stable")
+				Expect(domainSpec.VCPUs.VCPU[2].Hotpluggable).To(Equal("yes"), "Expecting the 3rd vcpu to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[3].Hotpluggable).To(Equal("yes"), "Expecting the 4th vcpu to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[4].Hotpluggable).To(Equal("yes"), "Expecting the 5th vcpu to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[5].Hotpluggable).To(Equal("yes"), "Expecting the 6th vcpu to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[6].Hotpluggable).To(Equal("yes"), "Expecting the 7th vcpu to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[7].Hotpluggable).To(Equal("yes"), "Expecting the 8th vcpu to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[0].Enabled).To(Equal("yes"), "Expecting the 1st vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[1].Enabled).To(Equal("yes"), "Expecting the 2nd vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[2].Enabled).To(Equal("yes"), "Expecting the 3rd vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[3].Enabled).To(Equal("no"), "Expecting the 4th vcpu to be disabled")
+				Expect(domainSpec.VCPUs.VCPU[4].Enabled).To(Equal("yes"), "Expecting the 5th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[5].Enabled).To(Equal("yes"), "Expecting the 6th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[6].Enabled).To(Equal("yes"), "Expecting the 7th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[7].Enabled).To(Equal("no"), "Expecting the 8th vcpu to be disabled")
+				Expect(domainSpec.VCPUs.VCPU[0].ID).To(BeEquivalentTo(0))
+				Expect(domainSpec.VCPUs.VCPU[1].ID).To(BeEquivalentTo(1))
+				Expect(domainSpec.VCPUs.VCPU[2].ID).To(BeEquivalentTo(2))
+				Expect(domainSpec.VCPUs.VCPU[3].ID).To(BeEquivalentTo(3))
+				Expect(domainSpec.VCPUs.VCPU[4].ID).To(BeEquivalentTo(4))
+				Expect(domainSpec.VCPUs.VCPU[5].ID).To(BeEquivalentTo(5))
+				Expect(domainSpec.VCPUs.VCPU[6].ID).To(BeEquivalentTo(6))
+				Expect(domainSpec.VCPUs.VCPU[7].ID).To(BeEquivalentTo(7))
+			},
+				Entry("on amd64", amd64),
+				Entry("on ppc64le", ppc64le),
+				Entry("on s390x", s390x),
+			)
+
+			DescribeTable("should define hotplugable distributed topology", func(arch string) {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmiCopy := vmi.DeepCopy()
+				// 2 sockets, max 4 cores per socket, 3 cores are enabled for each socket.
+				vmiCopy.Spec.Domain.CPU = &v1.CPU{
+					Cores:      2,
+					MaxSockets: 16,
+					Sockets:    14,
+				}
+				if vmiCopy.Annotations == nil {
+					vmiCopy.Annotations = map[string]string{}
+				}
+				vmiCopy.Annotations[v1.VCPUTopologyDynamicCoresAnnotation] = ""
+
+				c.Architecture = archconverter.NewConverter(arch)
+				domainSpec := vmiToDomainXMLToDomainSpec(vmiCopy, c)
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(16)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(2)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(16*2)), "Expect vcpus")
+				Expect(domainSpec.VCPUs).ToNot(BeNil(), "Expecting topology for hotplug")
+				Expect(domainSpec.VCPUs.VCPU).To(HaveLen(16*2), "Expecting topology for hotplug")
+				Expect(domainSpec.VCPUs.VCPU[0].Hotpluggable).To(Equal("no"), "Expecting the 1st vcpu to be stable")
+				Expect(domainSpec.VCPUs.VCPU[1].Hotpluggable).To(Equal("no"), "Expecting the 2nd vcpu to be stable")
+				Expect(domainSpec.VCPUs.VCPU[2].Hotpluggable).To(Equal("yes"), "Expecting the 3rd vcpu to be hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[15].Hotpluggable).To(Equal("yes"), "Expecting the 4th vcpu to be hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[16].Hotpluggable).To(Equal("yes"), "Expecting the 5th vcpu to be hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[17].Hotpluggable).To(Equal("yes"), "Expecting the 6th vcpu to be hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[30].Hotpluggable).To(Equal("yes"), "Expecting the 7th vcpu to be hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[31].Hotpluggable).To(Equal("yes"), "Expecting the 8th vcpu to be hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[0].Enabled).To(Equal("yes"), "Expecting the 1st vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[1].Enabled).To(Equal("yes"), "Expecting the 2nd vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[13].Enabled).To(Equal("yes"), "Expecting the 13th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[14].Enabled).To(Equal("no"), "Expecting the 14th vcpu to be disabled")
+				Expect(domainSpec.VCPUs.VCPU[15].Enabled).To(Equal("no"), "Expecting the 15th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[0+16].Enabled).To(Equal("yes"), "Expecting the 16th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[1+16].Enabled).To(Equal("yes"), "Expecting the 17th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[13+16].Enabled).To(Equal("yes"), "Expecting the 29th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[14+16].Enabled).To(Equal("no"), "Expecting the 30th vcpu to be disabled")
+				Expect(domainSpec.VCPUs.VCPU[15+16].Enabled).To(Equal("no"), "Expecting the 31th vcpu to be enabled")
+				Expect(domainSpec.VCPUs.VCPU[0].ID).To(BeEquivalentTo(0))
+				Expect(domainSpec.VCPUs.VCPU[1].ID).To(BeEquivalentTo(1))
+				Expect(domainSpec.VCPUs.VCPU[15].ID).To(BeEquivalentTo(15))
+				Expect(domainSpec.VCPUs.VCPU[16].ID).To(BeEquivalentTo(16))
+				Expect(domainSpec.VCPUs.VCPU[17].ID).To(BeEquivalentTo(17))
+				Expect(domainSpec.VCPUs.VCPU[30].ID).To(BeEquivalentTo(30))
+				Expect(domainSpec.VCPUs.VCPU[31].ID).To(BeEquivalentTo(31))
+			},
+				Entry("on amd64", amd64),
+				Entry("on ppc64le", ppc64le),
+				Entry("on s390x", s390x),
+			)
+
 			It("should not define hotplugable topology for ARM64", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Architecture = arm64
