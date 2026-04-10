@@ -65,7 +65,7 @@ const (
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 	DefaultSELinuxLauncherType                      = ""
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
-	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
+	DefaultARCHOVMFPath                             = "/usr/share/edk2/ovmf"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultS390xOVMFPath                            = ""
 	DefaultMemBalloonStatsPeriod             uint32 = 10
