@@ -469,7 +469,7 @@ var _ = Describe("MemoryDump", func() {
 			Expect(outputData).To(HaveLen(length))
 		})
 
-		It("should call download memory dump and decompress succesfully", func() {
+		It("should call download memory dump and decompress successfully", func() {
 			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, err := w.Write([]byte{
 					0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
@@ -529,7 +529,7 @@ var _ = Describe("MemoryDump", func() {
 			Entry("with port-forward specifying default number on local port", setFlag(memorydump.LocalPortFlag, "0")),
 		)
 
-		It("should fail download memory dump if not completed succesfully", func() {
+		It("should fail download memory dump if not completed successfully", func() {
 			const errMsg = "memory dump failed: test err"
 			memorydump.WaitForMemoryDumpCompleteFn = func(_ kubecli.KubevirtClient, _, _ string, _, _ time.Duration) (string, error) {
 				return pvcName, errors.New(errMsg)
