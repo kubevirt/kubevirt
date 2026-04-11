@@ -167,13 +167,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("ptp")),
+					libvmi.WithNetwork(libvmi.MultusNetwork("ptp", fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, ptpConf2))),
 				)
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-				detachedVMI.Spec.Networks = []v1.Network{
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, ptpConf2)},
-					}},
-				}
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -227,16 +223,17 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(err).NotTo(HaveOccurred())
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-				)
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-				detachedVMI.Spec.Networks = []v1.Network{
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: fmt.Sprintf("%s/%s", testsuite.GetTestNamespace(nil), ptpConf1),
-							Default:     true,
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("ptp")),
+					libvmi.WithNetwork(&v1.Network{
+						Name: "ptp",
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{
+								NetworkName: fmt.Sprintf("%s/%s", testsuite.GetTestNamespace(nil), ptpConf1),
+								Default:     true,
+							},
 						},
-					}},
-				}
+					}),
+				)
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
