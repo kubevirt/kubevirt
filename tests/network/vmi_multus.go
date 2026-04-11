@@ -93,19 +93,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	var nodes *k8sv1.NodeList
 
-	linuxBridgeInterface := v1.Interface{
-		Name: linuxBridgeIfaceName,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Bridge: &v1.InterfaceBridge{},
-		},
-	}
-
-	linuxBridgeInterfaceWithIPAM := v1.Interface{
-		Name: linuxBridgeWithIPAMIfaceName,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			Bridge: &v1.InterfaceBridge{},
-		},
-	}
+	linuxBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName)
+	linuxBridgeInterfaceWithIPAM := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithIPAMIfaceName)
 
 	linuxBridgeNetwork := v1.Network{
 		Name: linuxBridgeIfaceName,
