@@ -24,12 +24,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 )
 
 var _ = Describe("Backup Tunnel", func() {
@@ -266,51 +266,6 @@ var _ = Describe("Backup Tunnel", func() {
 		})
 	})
 
-	Context("watchSocket", func() {
-		var (
-			manager  *backupTunnelManager
-			sockPath string
-		)
-
-		BeforeEach(func() {
-			tmpDir := GinkgoT().TempDir()
-			sockPath = filepath.Join(tmpDir, "nbd.sock")
-			manager = &backupTunnelManager{nbdSocket: sockPath}
-		})
-
-		It("should return a channel that is closed when the socket is removed", func() {
-			f, err := os.Create(sockPath)
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			ch, err := manager.watchSocket(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(os.Remove(sockPath)).To(Succeed())
-			Eventually(ch, 5*time.Second).Should(BeClosed())
-		})
-
-		It("should return a channel that is closed when context is cancelled", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-
-			ch, err := manager.watchSocket(ctx)
-			Expect(err).ToNot(HaveOccurred())
-			cancel()
-			Eventually(ch, 3*time.Second).Should(BeClosed())
-		})
-
-		It("should return an error if the socket directory does not exist", func() {
-			manager.nbdSocket = "/doesnotexist/nbd.sock"
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			_, err := manager.watchSocket(ctx)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to watch directory"))
-		})
-	})
-
 	Context("openConnectTunnel", func() {
 		var (
 			srv       *httptest.Server
@@ -382,4 +337,160 @@ var _ = Describe("Backup Tunnel", func() {
 			Expect(conn).To(BeNil())
 		})
 	})
+
+	Context("run", func() {
+		var (
+			watcher *fakeSocketWatcher
+			manager *backupTunnelManager
+		)
+
+		BeforeEach(func() {
+			watcher = newFakeSocketWatcher()
+			manager = &backupTunnelManager{
+				nbdSocket:   "/test/nbd.sock",
+				sockWatcher: watcher,
+				establishAndServe: func(ctx context.Context) error {
+					<-ctx.Done()
+					return ctx.Err()
+				},
+			}
+		})
+
+		It("should exit when a socket Remove event is received", func() {
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(context.Background())
+			}()
+
+			watcher.events <- filewatcher.Remove
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("should exit when the parent context is cancelled", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(ctx)
+			}()
+
+			cancel()
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("should exit when the events channel is closed", func() {
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(context.Background())
+			}()
+
+			close(watcher.events)
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("should exit when watcher error is received and socket is not accessible", func() {
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(context.Background())
+			}()
+
+			watcher.errors <- fmt.Errorf("test error")
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("should not exit when watcher error is received but socket is accessible", func() {
+			manager.nbdSocket = "/dev/null"
+
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(ctx)
+			}()
+
+			watcher.errors <- fmt.Errorf("transient error")
+			Consistently(done, 200*time.Millisecond).ShouldNot(BeClosed())
+
+			cancel()
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("should call establishAndServe", func() {
+			called := make(chan struct{})
+			manager.establishAndServe = func(ctx context.Context) error {
+				close(called)
+				<-ctx.Done()
+				return ctx.Err()
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(ctx)
+			}()
+
+			Eventually(called).Should(BeClosed())
+			cancel()
+			Eventually(done).Should(BeClosed())
+		})
+
+		It("should close the socket watcher on exit", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(ctx)
+			}()
+
+			cancel()
+			Eventually(done).Should(BeClosed())
+			Expect(watcher.closed).To(BeTrue())
+		})
+
+		It("should retry establishAndServe after failure", func() {
+			calls := make(chan struct{}, 10)
+			manager.establishAndServe = func(ctx context.Context) error {
+				calls <- struct{}{}
+				return fmt.Errorf("connection failed")
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				manager.run(ctx)
+			}()
+
+			Eventually(calls).Should(Receive())
+			Eventually(calls, 5*time.Second).Should(Receive())
+
+			cancel()
+			Eventually(done).Should(BeClosed())
+		})
+	})
+
 })
+
+type fakeSocketWatcher struct {
+	events chan filewatcher.Event
+	errors chan error
+	closed bool
+}
+
+func newFakeSocketWatcher() *fakeSocketWatcher {
+	return &fakeSocketWatcher{
+		events: make(chan filewatcher.Event, 10),
+		errors: make(chan error, 10),
+	}
+}
+
+func (f *fakeSocketWatcher) Run()                             {}
+func (f *fakeSocketWatcher) Close()                           { f.closed = true }
+func (f *fakeSocketWatcher) Events() <-chan filewatcher.Event { return f.events }
+func (f *fakeSocketWatcher) Errors() <-chan error             { return f.errors }
