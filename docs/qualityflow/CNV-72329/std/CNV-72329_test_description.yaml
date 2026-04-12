@@ -1,0 +1,2242 @@
+---
+# Software Test Description (STD) - v2.1-enhanced
+# Generated from STP: outputs/stp/CNV-72329/CNV-72329_test_plan.md
+# Jira: CNV-72329 - Live Update NAD Reference on Running VM
+
+document_metadata:
+  std_version: "2.1-enhanced"
+  generated_date: "2026-03-05"
+  jira_issue: "CNV-72329"
+  jira_summary: "Support changing the VM attached network NAD ref using hotplug"
+  source_bugs: []
+  stp_reference:
+    file: "outputs/stp/CNV-72329/CNV-72329_test_plan.md"
+    version: "v1"
+    sections_covered: "Section III - Requirements-to-Tests Mapping"
+
+  related_prs:
+    - repo: "kubevirt/kubevirt"
+      pr_number: 16412
+      url: "https://github.com/kubevirt/kubevirt/pull/16412"
+      title: "Live update NAD reference on running VM"
+      merged: false
+
+  owning_sig: "sig-network"
+  participating_sigs:
+    - "sig-network"
+
+  total_scenarios: 14
+  tier_1_count: 11
+  tier_2_count: 3
+  p0_count: 5
+  p1_count: 6
+  p2_count: 3
+
+code_generation_config:
+  std_version: "2.1-enhanced"
+  framework: "ginkgo-v2"
+  assertion_library: "gomega"
+  language: "go"
+  package_name: "network"
+
+  context_init:
+    - statement: "ctx := context.Background()"
+      variable: "ctx"
+      type: "context.Context"
+    - statement: "namespace := testsuite.GetTestNamespace(nil)"
+      variable: "namespace"
+      type: "string"
+
+  imports:
+    dot_imports:
+      - "github.com/onsi/ginkgo/v2"
+      - "github.com/onsi/gomega"
+    standard:
+      - "context"
+      - "time"
+    k8s_core:
+      - path: "k8s.io/api/core/v1"
+        alias: "k8sv1"
+      - path: "k8s.io/apimachinery/pkg/apis/meta/v1"
+        alias: "metav1"
+    kubevirt_base:
+      - "kubevirt.io/kubevirt/tests/decorators"
+      - "kubevirt.io/kubevirt/tests/framework/kubevirt"
+      - "kubevirt.io/kubevirt/tests/testsuite"
+      - "kubevirt.io/kubevirt/tests/libvmi"
+    kubevirt_api:
+      - path: "kubevirt.io/api/core/v1"
+        alias: "v1"
+    network:
+      - path: "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+        alias: "networkv1"
+
+  timeout_constants:
+    tiny: "StartupTimeoutSecondsTiny"
+    small: "StartupTimeoutSecondsSmall"
+    medium: "StartupTimeoutSecondsMedium"
+    large: "StartupTimeoutSecondsLarge"
+    xlarge: "StartupTimeoutSecondsXLarge"
+    huge: "StartupTimeoutSecondsHuge"
+    xhuge: "StartupTimeoutSecondsXHuge"
+
+  migration_timeout: "MigrationWaitTime"
+
+  helper_library_imports:
+    libvmifact: "kubevirt.io/kubevirt/tests/libvmifact"
+    libnet: "kubevirt.io/kubevirt/tests/libnet"
+    libwait: "kubevirt.io/kubevirt/tests/libwait"
+    libpod: "kubevirt.io/kubevirt/tests/libpod"
+    libvmops: "kubevirt.io/kubevirt/tests/libvmops"
+    libmigration: "kubevirt.io/kubevirt/tests/libmigration"
+    libstorage: "kubevirt.io/kubevirt/tests/libstorage"
+    console: "kubevirt.io/kubevirt/tests/console"
+    matcher: "kubevirt.io/kubevirt/tests/framework/matcher"
+
+common_preconditions:
+  infrastructure:
+    - name: "OpenShift cluster"
+      requirement: "OCP 4.22+ with OVN-Kubernetes"
+      validation: "oc version"
+
+    - name: "OpenShift Virtualization"
+      requirement: "CNV 4.22+"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+    - name: "Multi-node cluster"
+      requirement: "At least 2 schedulable worker nodes for live migration"
+      validation: "oc get nodes -l node-role.kubernetes.io/worker --no-headers | wc -l"
+
+    - name: "Shared storage"
+      requirement: "RWX PVCs or LiveMigrate-compatible storage (OCS/ODF, NFS, or iSCSI)"
+      validation: "oc get storageclass"
+
+    - name: "Bridge-based NADs"
+      requirement: "Two bridge-based NetworkAttachmentDefinitions deployed on each worker node (nad1, nad2)"
+      validation: "oc get net-attach-def -A"
+
+  operators:
+    - name: "OpenShift Virtualization operator"
+      namespace: "openshift-cnv"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+    - name: "Multus CNI"
+      namespace: "openshift-multus"
+      validation: "oc get pods -n openshift-multus"
+
+  cluster_configuration:
+    topology: "Multi-node"
+    cpu_virtualization: "Standard (Intel VT-x or AMD-V enabled)"
+    storage: "RWX-capable StorageClass for live migration"
+    network: "OVN-Kubernetes with Multus CNI, two bridge NADs (br-1, br-2)"
+
+  feature_gates:
+    - name: "LiveUpdateNADRef"
+      required: true
+      configuration: "HyperConverged CR spec.featureGates.LiveUpdateNADRef: true"
+
+    - name: "WorkloadUpdateMethods"
+      required: true
+      configuration: "HyperConverged CR spec.workloadUpdateStrategy.workloadUpdateMethods: [LiveMigrate]"
+
+    - name: "VMRolloutStrategy"
+      required: true
+      configuration: "HyperConverged CR spec.vmRolloutStrategy: LiveUpdate"
+
+  rbac_requirements:
+    - permission: "patch on virtualmachines"
+      scope: "Namespace"
+      validation: "oc auth can-i patch virtualmachines"
+
+    - permission: "get on virtualmachineinstances"
+      scope: "Namespace"
+      validation: "oc auth can-i get virtualmachineinstances"
+
+scenarios:
+  # ============================================================
+  # TIER 1 SCENARIOS (10 scenarios) - Go/Ginkgo
+  # ============================================================
+
+  - scenario_id: "001"
+    test_id: "TS-CNV72329-001"
+    tier: "Tier 1"
+    priority: "P0"
+    mvp: true
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want to change the NAD on a running VM and connect to the new network"
+
+    patterns:
+      primary: "network-connectivity-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI with bridge interface"
+        - name: "libnet"
+          functions: ["CreateNetworkAttachmentDefinition"]
+          purpose: "Create bridge NADs"
+        - name: "libwait"
+          functions: ["WaitUntilVMIReady"]
+          purpose: "Wait for VMI readiness after NAD change"
+        - name: "libvmi"
+          functions: ["WithInterface", "WithNetwork"]
+          purpose: "Configure VMI with secondary bridge interface"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+        - name: "vm"
+          type: "*v1.VirtualMachine"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "VM under test"
+        - name: "vmi"
+          type: "*v1.VirtualMachineInstance"
+          initialized_in: "BeforeAll"
+          used_in: ["It"]
+          comment: "VMI for connectivity checks"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when changing NAD reference on a running VM"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should connect to the new network"
+        test_id_format: "[test_id:TS-CNV72329-001]"
+
+    code_structure: |
+      Context("when changing NAD reference on a running VM", Ordered, decorators.OncePerOrderedCleanup) {
+        BeforeAll(func() {
+          // Create VM with secondary bridge interface on nad1
+          // Verify VM is running and connected to nad1
+        })
+        It("[test_id:TS-CNV72329-001]should connect to the new network", func() {
+          // Patch VM spec to change NAD reference from nad1 to nad2
+          // Wait for update to complete
+          // Verify VM is reachable on new network (nad2)
+        })
+      }
+
+    test_objective:
+      title: "Verify VM is reachable on new network"
+      what: |
+        Tests that after patching the VM spec to change the NAD reference from nad1 to nad2,
+        the VM becomes reachable on the new network. This validates the core functionality of
+        live NAD reference update without VM restart.
+      why: |
+        This is the primary use case for the feature - a VM admin changing the network
+        attachment on a running VM. If this fails, the entire feature is non-functional.
+      acceptance_criteria:
+        - "VM spec patched to reference nad2 instead of nad1"
+        - "VM remains running (no restart triggered)"
+        - "VM is reachable on nad2 network"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions:
+      - name: "Running VM with secondary bridge interface"
+        requirement: "VM created with secondary interface on nad1"
+        validation: "kubectl get vmi -o jsonpath='{.spec.networks}'"
+
+    test_data:
+      resource_definitions:
+        - name: "nad1"
+          type: "NetworkAttachmentDefinition"
+          yaml: |
+            apiVersion: k8s.cni.cncf.io/v1
+            kind: NetworkAttachmentDefinition
+            metadata:
+              name: nad1
+            spec:
+              config: '{"cniVersion":"0.3.1","name":"nad1","type":"bridge","bridge":"br-1","ipam":{}}'
+
+        - name: "nad2"
+          type: "NetworkAttachmentDefinition"
+          yaml: |
+            apiVersion: k8s.cni.cncf.io/v1
+            kind: NetworkAttachmentDefinition
+            metadata:
+              name: nad2
+            spec:
+              config: '{"cniVersion":"0.3.1","name":"nad2","type":"bridge","bridge":"br-2","ipam":{}}'
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create two bridge-based NADs (nad1, nad2)"
+          command: "kubectl apply -f nad1.yaml && kubectl apply -f nad2.yaml"
+          validation: "Both NADs created successfully"
+          pattern_id: "network-nad-001"
+          code_template: |
+            nad1 = libnet.CreateNetworkAttachmentDefinition(namespace, "nad1", "bridge", "br-1")
+            nad2 = libnet.CreateNetworkAttachmentDefinition(namespace, "nad2", "bridge", "br-2")
+
+        - step_id: "SETUP-02"
+          action: "Create and start VM with secondary bridge interface on nad1"
+          command: "kubectl apply -f vm.yaml"
+          validation: "VM is Running with secondary interface on nad1"
+          pattern_id: "factory-001"
+          code_template: |
+            vmi = libvmifact.NewFedora(
+                libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("secondary")),
+                libvmi.WithNetwork(v1.MultusNetwork("secondary", "nad1")),
+            )
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference from nad1 to nad2"
+          command: "kubectl patch vm <name> --type merge -p '{\"spec\":{\"template\":{\"spec\":{\"networks\":[{\"name\":\"secondary\",\"multus\":{\"networkName\":\"nad2\"}}]}}}}'"
+          validation: "Patch applied successfully"
+          pattern_id: "network-connectivity-001"
+
+        - step_id: "TEST-02"
+          action: "Wait for NAD change to take effect"
+          command: "kubectl wait --for=condition=Ready vmi/<name>"
+          validation: "VMI is ready on nad2"
+          pattern_id: "wait-002"
+
+        - step_id: "TEST-03"
+          action: "Verify VM is reachable on new network"
+          command: "ping from VM console"
+          validation: "VM responds on nad2 network"
+          pattern_id: "network-connectivity-001"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and NADs"
+          command: "kubectl delete vm <name> && kubectl delete net-attach-def nad1 nad2"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "VM is reachable on new network after NAD change"
+        condition: "Network connectivity test to VM on nad2 succeeds"
+        failure_impact: "Core feature is broken - NAD change does not take effect"
+
+    dependencies:
+      kubernetes_resources:
+        - "NetworkAttachmentDefinition: nad1, nad2"
+        - "VirtualMachine: test-vm"
+      external_tools:
+        - "bridge-utils on worker nodes"
+      scenario_specific_rbac:
+        - "patch on virtualmachines"
+
+  - scenario_id: "002"
+    test_id: "TS-CNV72329-002"
+    tier: "Tier 2"
+    priority: "P0"
+    mvp: true
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want to change the NAD on a running VM and connect to the new network"
+
+    patterns:
+      primary: "network-connectivity-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "network-ping-001"
+        - "wait-002"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "running_vm"]
+          purpose: "Create and manage VM lifecycle"
+        - name: "network_nad"
+          functions: ["create"]
+          purpose: "Create bridge NADs"
+        - name: "assert_ping_successful"
+          functions: ["ping"]
+          purpose: "Validate network connectivity"
+      decorators:
+        - "pytest.mark.tier2"
+        - "pytest.mark.p0"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM under test with secondary bridge interface"
+        - name: "peer_vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "Peer VM on nad2 for connectivity verification"
+        - name: "nad1"
+          type: "NetworkAttachmentDefinition"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "First bridge NAD"
+        - name: "nad2"
+          type: "NetworkAttachmentDefinition"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "Second bridge NAD"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestNADLiveUpdateE2E"
+        decorators:
+          - "pytest.mark.tier2"
+      context:
+        description: "test_e2e_nad_change_connectivity"
+        decorators: []
+      it:
+        description: "Test that a VM gains connectivity on the new network after NAD change"
+        test_id_format: "[TS-CNV72329-002]"
+
+    code_structure: |
+      class TestNADLiveUpdateE2E:
+          def test_e2e_nad_change_connectivity(self):
+              # Precondition: No connectivity to peer VM on nad2 (baseline)
+              # Step 1: Patch VM spec to change NAD reference from nad1 to nad2
+              # Step 2: Wait for update to complete
+              # Assert: Ping from VM to peer VM on nad2 succeeds with 0% packet loss
+
+    test_objective:
+      title: "Verify VM has connectivity on new network and loses connectivity on old network"
+      what: |
+        End-to-end test that verifies a VM gains connectivity on the new network after
+        changing the NAD reference. Uses a peer VM on nad2 to verify bidirectional connectivity.
+        Validates the baseline (no connectivity to nad2 before change) and the result
+        (connectivity to nad2 after change).
+      why: |
+        E2E connectivity validation ensures the NAD change results in actual network
+        connectivity, not just a spec update. The peer VM validates real traffic flows.
+      acceptance_criteria:
+        - "Baseline: No connectivity to peer VM on nad2 before NAD change"
+        - "Patch VM spec to change NAD reference from nad1 to nad2"
+        - "Ping from VM to peer VM on nad2 succeeds with 0% packet loss"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "Peer VM on nad2"
+        requirement: "A second VM running on nad2 to serve as ping target"
+        validation: "kubectl get vmi peer-vm -o jsonpath='{.status.interfaces}'"
+      - name: "No baseline connectivity"
+        requirement: "VM on nad1 cannot reach peer VM on nad2 before NAD change"
+        validation: "Ping from VM to peer VM fails"
+
+    test_data:
+      resource_definitions:
+        - name: "vm-under-test"
+          type: "VirtualMachine"
+          yaml: |
+            VM with secondary bridge interface on nad1
+        - name: "peer-vm"
+          type: "VirtualMachine"
+          yaml: |
+            VM with secondary bridge interface on nad2
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create two bridge-based NADs (nad1, nad2) on worker nodes"
+          command: "Create NADs via fixtures"
+          validation: "Both NADs created and available"
+          pattern_id: "network-nad-001"
+
+        - step_id: "SETUP-02"
+          action: "Create and start VM with secondary bridge interface on nad1"
+          command: "Create VM via VirtualMachineForTests"
+          validation: "VM is Running with secondary interface on nad1"
+          pattern_id: "factory-001"
+
+        - step_id: "SETUP-03"
+          action: "Create and start peer VM on nad2"
+          command: "Create peer VM via VirtualMachineForTests"
+          validation: "Peer VM is Running on nad2"
+          pattern_id: "factory-001"
+
+        - step_id: "SETUP-04"
+          action: "Record MAC address and interface name of secondary interface"
+          command: "Get interface details from VMI status"
+          validation: "MAC address and interface name recorded"
+
+        - step_id: "SETUP-05"
+          action: "Verify no baseline connectivity to peer VM on nad2"
+          command: "Ping from VM to peer VM on nad2"
+          validation: "Ping fails (no connectivity before NAD change)"
+          pattern_id: "network-ping-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference from nad1 to nad2"
+          command: "Patch VM spec via API"
+          validation: "Patch applied successfully"
+
+        - step_id: "TEST-02"
+          action: "Wait for NAD change to take effect"
+          command: "Wait for VM update to complete"
+          validation: "VM is running and connected to nad2"
+          pattern_id: "wait-002"
+
+        - step_id: "TEST-03"
+          action: "Verify connectivity to peer VM on nad2"
+          command: "Ping from VM to peer VM on nad2"
+          validation: "Ping succeeds with 0% packet loss"
+          pattern_id: "network-ping-001"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VMs and NADs"
+          command: "Cleanup via context managers"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "Ping from VM to peer VM on nad2 succeeds after NAD change"
+        condition: "Ping succeeds with 0% packet loss"
+        failure_impact: "NAD change does not result in actual network connectivity"
+
+    dependencies:
+      kubernetes_resources:
+        - "NetworkAttachmentDefinition: nad1, nad2"
+        - "VirtualMachine: test-vm, peer-vm"
+      external_tools: []
+      scenario_specific_rbac:
+        - "patch on virtualmachines"
+
+  - scenario_id: "003"
+    test_id: "TS-CNV72329-003"
+    tier: "Tier 1"
+    priority: "P0"
+    mvp: true
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want the feature gate to control whether NAD changes are applied live"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libvmi"
+          functions: ["WithInterface", "WithNetwork"]
+          purpose: "Configure VMI networking"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+        - name: "vm"
+          type: "*v1.VirtualMachine"
+          initialized_in: "BeforeAll"
+          used_in: ["It"]
+          comment: "VM under test"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when feature gate is disabled"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should require restart for NAD change"
+        test_id_format: "[test_id:TS-CNV72329-003]"
+
+    code_structure: |
+      Context("when LiveUpdateNADRef feature gate is disabled", Ordered) {
+        BeforeAll(func() {
+          // Ensure LiveUpdateNADRef feature gate is disabled
+          // Create VM with secondary bridge interface on nad1
+        })
+        It("[test_id:TS-CNV72329-003]should require restart for NAD change", func() {
+          // Patch VM spec to change NAD reference from nad1 to nad2
+          // Verify RestartRequired condition is set on VM
+          // Verify VM is NOT automatically migrated
+        })
+      }
+
+    test_objective:
+      title: "Verify NAD change requires restart when feature gate is disabled"
+      what: |
+        Tests that when the LiveUpdateNADRef feature gate is disabled, changing the NAD
+        reference on a running VM sets a RestartRequired condition instead of applying
+        the change live. This validates the feature gate controls the behavior.
+      why: |
+        Feature gate control is essential for safe rollout. Admins must be able to disable
+        the feature and revert to restart-required behavior.
+      acceptance_criteria:
+        - "LiveUpdateNADRef feature gate is disabled"
+        - "NAD reference change sets RestartRequired condition"
+        - "VM is NOT automatically migrated"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions:
+      - name: "Feature gate disabled"
+        requirement: "LiveUpdateNADRef feature gate must be disabled"
+        validation: "kubectl get kubevirt -o jsonpath='{.spec.configuration.developerConfiguration.featureGates}'"
+
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Ensure LiveUpdateNADRef feature gate is disabled"
+          command: "Patch KubeVirt CR to disable feature gate"
+          validation: "Feature gate is not in the enabled list"
+
+        - step_id: "SETUP-02"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM via libvmifact"
+          validation: "VM is Running on nad1"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference from nad1 to nad2"
+          command: "kubectl patch vm"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Verify RestartRequired condition is set"
+          command: "kubectl get vm -o jsonpath='{.status.conditions}'"
+          validation: "RestartRequired condition present"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Re-enable feature gate and delete VM"
+          command: "Restore feature gate, delete VM"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "NAD change requires restart when feature gate is disabled"
+        condition: "RestartRequired condition is set on VM status"
+        failure_impact: "Feature gate does not control behavior - live update happens regardless"
+
+    dependencies:
+      kubernetes_resources:
+        - "KubeVirt CR: kubevirt"
+        - "VirtualMachine: test-vm"
+      external_tools: []
+      scenario_specific_rbac:
+        - "patch on kubevirt"
+
+  - scenario_id: "004"
+    test_id: "TS-CNV72329-004"
+    tier: "Tier 1"
+    priority: "P0"
+    mvp: true
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want the feature gate to control whether NAD changes are applied live"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libvmi"
+          functions: ["WithInterface", "WithNetwork"]
+          purpose: "Configure VMI networking"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+        - name: "vm"
+          type: "*v1.VirtualMachine"
+          initialized_in: "BeforeAll"
+          used_in: ["It"]
+          comment: "VM under test"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when feature gate is disabled and VM is restarted"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should connect to new network only after manual restart"
+        test_id_format: "[test_id:TS-CNV72329-004]"
+
+    code_structure: |
+      Context("when feature gate is disabled and VM is restarted", Ordered) {
+        BeforeAll(func() {
+          // Ensure LiveUpdateNADRef feature gate is disabled
+          // Create VM with secondary bridge interface on nad1
+        })
+        It("[test_id:TS-CNV72329-004]should connect to new network only after manual restart", func() {
+          // Patch VM spec to change NAD reference
+          // Verify RestartRequired condition
+          // Manually restart VM
+          // Verify VM connects to nad2 after restart
+        })
+      }
+
+    test_objective:
+      title: "Verify NAD change requires VM restart end-to-end when feature gate is disabled"
+      what: |
+        Tests that when the feature gate is disabled, a NAD reference change requires
+        a manual VM restart. After the restart, the VM connects to the new network.
+        This validates the complete backward-compatible workflow.
+      why: |
+        Validates backward compatibility when the feature gate is disabled. Ensures the
+        restart-required workflow still functions correctly end-to-end.
+      acceptance_criteria:
+        - "Feature gate disabled"
+        - "NAD change sets RestartRequired condition"
+        - "VM connects to new network only after manual restart"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions:
+      - name: "Feature gate disabled"
+        requirement: "LiveUpdateNADRef feature gate must be disabled for this test"
+        validation: "kubectl get kubevirt -o jsonpath='{.spec.configuration.developerConfiguration.featureGates}'"
+
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Disable LiveUpdateNADRef feature gate"
+          command: "Patch KubeVirt CR"
+          validation: "Feature gate disabled"
+
+        - step_id: "SETUP-02"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM via libvmifact"
+          validation: "VM is Running on nad1"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference from nad1 to nad2"
+          command: "kubectl patch vm"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Verify RestartRequired condition and no automatic migration"
+          command: "kubectl get vm -o jsonpath='{.status.conditions}'"
+          validation: "RestartRequired condition present"
+
+        - step_id: "TEST-03"
+          action: "Manually restart VM"
+          command: "virtctl restart vm"
+          validation: "VM restarts and connects to nad2"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Re-enable feature gate and delete VM"
+          command: "Restore feature gate, cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "VM connects to new network only after manual restart"
+        condition: "RestartRequired before restart; connected to nad2 after restart"
+        failure_impact: "Feature gate backward compatibility is broken"
+
+    dependencies:
+      kubernetes_resources:
+        - "KubeVirt CR: kubevirt"
+        - "VirtualMachine: test-vm"
+      external_tools: []
+      scenario_specific_rbac:
+        - "patch on kubevirt"
+
+  - scenario_id: "005"
+    test_id: "TS-CNV72329-005"
+    tier: "Tier 1"
+    priority: "P0"
+    mvp: true
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want guest interface properties preserved after NAD change"
+
+    patterns:
+      primary: "network-connectivity-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libnet"
+          functions: ["GetVmiPrimaryIPByFamily"]
+          purpose: "Get VMI IP address"
+        - name: "libwait"
+          functions: ["WaitUntilVMIReady"]
+          purpose: "Wait for VMI readiness"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+        - name: "originalMAC"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["It"]
+          comment: "MAC address before NAD change"
+        - name: "originalIfaceName"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["It"]
+          comment: "Interface name before NAD change"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when NAD reference is changed"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should preserve MAC address and interface name"
+        test_id_format: "[test_id:TS-CNV72329-005]"
+
+    code_structure: |
+      Context("when NAD reference is changed", Ordered) {
+        BeforeAll(func() {
+          // Create VM with secondary bridge interface on nad1
+          // Record MAC address and interface name
+        })
+        It("[test_id:TS-CNV72329-005]should preserve MAC address and interface name", func() {
+          // Patch VM spec to change NAD reference from nad1 to nad2
+          // Wait for update to complete
+          // Verify MAC address is unchanged
+          // Verify interface name is unchanged
+        })
+      }
+
+    test_objective:
+      title: "Verify MAC address and interface name are preserved"
+      what: |
+        Tests that after changing the NAD reference on a running VM, the guest interface
+        properties (MAC address and interface name) remain unchanged. This ensures the
+        feature preserves guest-visible network identity.
+      why: |
+        Preserving MAC and interface name is critical for guest applications that bind to
+        specific interfaces or rely on MAC-based configuration. Breaking these would
+        disrupt workloads.
+      acceptance_criteria:
+        - "MAC address is identical before and after NAD change"
+        - "Interface name is identical before and after NAD change"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM via libvmifact"
+          validation: "VM is Running on nad1"
+          pattern_id: "factory-001"
+
+        - step_id: "SETUP-02"
+          action: "Record MAC address and interface name of secondary interface"
+          command: "kubectl get vmi -o jsonpath='{.status.interfaces}'"
+          validation: "MAC and interface name recorded"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference from nad1 to nad2"
+          command: "kubectl patch vm"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Wait for NAD change to take effect"
+          command: "Wait for VMI update"
+          validation: "VMI shows new NAD"
+          pattern_id: "wait-002"
+
+        - step_id: "TEST-03"
+          action: "Verify MAC address is unchanged"
+          command: "kubectl get vmi -o jsonpath='{.status.interfaces[1].mac}'"
+          validation: "MAC matches original"
+
+        - step_id: "TEST-04"
+          action: "Verify interface name is unchanged"
+          command: "kubectl get vmi -o jsonpath='{.status.interfaces[1].name}'"
+          validation: "Interface name matches original"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and NADs"
+          command: "Cleanup resources"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "MAC address preserved after NAD change"
+        condition: "MAC address before == MAC address after"
+        failure_impact: "Guest applications relying on MAC identity will break"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P0"
+        description: "Interface name preserved after NAD change"
+        condition: "Interface name before == Interface name after"
+        failure_impact: "Guest applications binding to interface names will break"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: nad1, nad2"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "006"
+    test_id: "TS-CNV72329-006"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want graceful handling when target NAD does not exist"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when target NAD does not exist"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should report error condition"
+        test_id_format: "[test_id:TS-CNV72329-006]"
+
+    code_structure: |
+      Context("when target NAD does not exist", Ordered) {
+        BeforeAll(func() {
+          // Create VM with secondary bridge interface on nad1
+        })
+        It("[test_id:TS-CNV72329-006]should report error condition", func() {
+          // Patch VM spec to change NAD reference to non-existent NAD
+          // Verify error condition is reported on VM status
+        })
+      }
+
+    test_objective:
+      title: "Verify error is reported for non-existent NAD"
+      what: |
+        Tests that patching the VM spec to reference a non-existent NAD results in an
+        error condition being reported on the VM status. Validates graceful error handling.
+      why: |
+        Users may typo NAD names or reference NADs before they are created. The system
+        must report clear errors rather than silently failing or entering retry loops.
+      acceptance_criteria:
+        - "VM spec patched to reference non-existent NAD"
+        - "Error condition reported on VM status"
+        - "VM remains running (not crashed)"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM via libvmifact"
+          validation: "VM is Running on nad1"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference to non-existent NAD"
+          command: "kubectl patch vm"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Verify error condition is reported"
+          command: "kubectl get vm -o jsonpath='{.status.conditions}'"
+          validation: "Error condition present for non-existent NAD"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          command: "Cleanup resources"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "Error condition reported for non-existent NAD"
+        condition: "VM status conditions contain error about missing NAD"
+        failure_impact: "Users get no feedback when NAD reference is wrong"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "007"
+    test_id: "TS-CNV72329-007"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want graceful handling when target NAD does not exist"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "network-connectivity-001"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "running_vm"]
+          purpose: "Create and manage VM lifecycle"
+      decorators:
+        - "pytest.mark.tier2"
+        - "pytest.mark.p1"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM under test"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestNADLiveUpdateE2E"
+        decorators:
+          - "pytest.mark.tier2"
+      context:
+        description: "test_recovery_after_failed_nad_update"
+        decorators: []
+      it:
+        description: "[NEGATIVE] Test that VM recovers after a failed NAD update to a non-existent NAD"
+        test_id_format: "[TS-CNV72329-007]"
+
+    code_structure: |
+      class TestNADLiveUpdateE2E:
+          def test_recovery_after_failed_nad_update(self):
+              # Step 1: Patch VM spec to change NAD reference to non-existent NAD name
+              # Step 2: Patch VM spec to change NAD reference to valid nad2
+              # Assert: Error condition is reported for non-existent NAD
+              # Assert: VM is "Running" and connected to nad2 after valid change
+
+    test_objective:
+      title: "Verify VM recovers after failed NAD update"
+      what: |
+        Negative test that verifies the VM can recover after a failed NAD update attempt
+        (referencing a non-existent NAD). After the failed update, a subsequent valid NAD
+        change should succeed, leaving the VM running and connected to the new network.
+      why: |
+        Validates the system's resilience - a bad NAD reference should not leave the VM
+        in an unrecoverable state. Users must be able to correct mistakes.
+      acceptance_criteria:
+        - "Error condition reported for non-existent NAD"
+        - "Subsequent valid NAD change succeeds"
+        - "VM is Running and connected to nad2 after recovery"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM via fixtures"
+          validation: "VM is Running on nad1"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference to non-existent NAD name"
+          command: "Patch VM spec with invalid NAD"
+          validation: "Error condition reported"
+
+        - step_id: "TEST-02"
+          action: "Patch VM spec to change NAD reference to valid nad2"
+          command: "Patch VM spec with valid NAD"
+          validation: "VM recovers and connects to nad2"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and NADs"
+          command: "Cleanup via context managers"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "Error condition reported for non-existent NAD"
+        condition: "Error condition present on VM status"
+        failure_impact: "No feedback on failed NAD change"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P1"
+        description: "VM recovers after valid NAD change"
+        condition: "VM is Running and connected to nad2"
+        failure_impact: "Failed NAD change leaves VM in unrecoverable state"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: nad1, nad2"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "008"
+    test_id: "TS-CNV72329-008"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want NAD changes applied without triggering a VM restart"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libwait"
+          functions: ["WaitUntilVMIReady"]
+          purpose: "Wait for VMI readiness"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+        - name: "originalUID"
+          type: "types.UID"
+          initialized_in: "BeforeAll"
+          used_in: ["It"]
+          comment: "VMI UID before NAD change"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when NAD reference is changed on a running VM"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should not restart the VM"
+        test_id_format: "[test_id:TS-CNV72329-008]"
+
+    code_structure: |
+      Context("when NAD reference is changed on a running VM", Ordered) {
+        BeforeAll(func() {
+          // Create VM and record VMI UID
+        })
+        It("[test_id:TS-CNV72329-008]should not restart the VM", func() {
+          // Patch VM spec to change NAD reference
+          // Wait for update
+          // Verify VMI UID is unchanged (no restart)
+          // Verify no RestartRequired condition
+        })
+      }
+
+    test_objective:
+      title: "Verify VM does not restart after NAD change"
+      what: |
+        Tests that changing the NAD reference on a running VM does not trigger a VM restart.
+        Validates by checking that the VMI UID remains the same before and after the change.
+      why: |
+        The core value proposition of this feature is avoiding restarts. If a restart is
+        triggered, the feature provides no benefit over the existing workflow.
+      acceptance_criteria:
+        - "VMI UID is unchanged after NAD change"
+        - "No RestartRequired condition set"
+        - "VM remains in Running phase throughout"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM"
+          validation: "VM is Running"
+          pattern_id: "factory-001"
+
+        - step_id: "SETUP-02"
+          action: "Record VMI UID"
+          command: "kubectl get vmi -o jsonpath='{.metadata.uid}'"
+          validation: "UID recorded"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference"
+          command: "kubectl patch vm"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Wait for update to complete"
+          command: "Wait for VMI to show new NAD"
+          validation: "NAD updated"
+          pattern_id: "wait-002"
+
+        - step_id: "TEST-03"
+          action: "Verify VMI UID is unchanged"
+          command: "kubectl get vmi -o jsonpath='{.metadata.uid}'"
+          validation: "UID matches original"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          command: "Cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "VMI UID unchanged after NAD change"
+        condition: "VMI UID before == VMI UID after"
+        failure_impact: "VM was restarted - feature does not avoid restart"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "009"
+    test_id: "TS-CNV72329-009"
+    tier: "Tier 1"
+    priority: "P2"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want non-NAD network changes to still require restart"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when a non-NAD network property is changed"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should still require restart"
+        test_id_format: "[test_id:TS-CNV72329-009]"
+
+    code_structure: |
+      Context("when a non-NAD network property is changed", Ordered) {
+        BeforeAll(func() {
+          // Create VM with secondary interface
+        })
+        It("[test_id:TS-CNV72329-009]should still require restart", func() {
+          // Change a non-NAD network property (e.g., binding type)
+          // Verify RestartRequired condition is set
+        })
+      }
+
+    test_objective:
+      title: "Verify non-NAD property change still requires restart"
+      what: |
+        Tests that changing non-NAD network properties (e.g., binding type, interface model)
+        still requires a VM restart, even when the LiveUpdateNADRef feature gate is enabled.
+        Ensures the feature gate only affects NAD reference changes.
+      why: |
+        The feature gate must be scoped precisely. Other network changes that require
+        infrastructure changes must still require restart for safety.
+      acceptance_criteria:
+        - "Non-NAD network property change sets RestartRequired condition"
+        - "VM is not automatically migrated for non-NAD changes"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary interface"
+          command: "Create VM"
+          validation: "VM is Running"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Change a non-NAD network property"
+          command: "kubectl patch vm with non-NAD change"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Verify RestartRequired condition is set"
+          command: "kubectl get vm -o jsonpath='{.status.conditions}'"
+          validation: "RestartRequired condition present"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          command: "Cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P2"
+        description: "Non-NAD property change requires restart"
+        condition: "RestartRequired condition set on VM"
+        failure_impact: "Feature gate scope is too broad - other changes are live-applied incorrectly"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "010"
+    test_id: "TS-CNV72329-010"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want existing NIC hotplug to work with the feature gate enabled"
+
+    patterns:
+      primary: "network-hotplug-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libnet"
+          functions: ["CreateNetworkAttachmentDefinition"]
+          purpose: "Create NADs"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when NIC hotplug is performed with feature gate enabled"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should hotplug and unplug NIC successfully"
+        test_id_format: "[test_id:TS-CNV72329-010]"
+
+    code_structure: |
+      Context("when NIC hotplug is performed with feature gate enabled", Ordered) {
+        BeforeAll(func() {
+          // Create VM
+          // Ensure LiveUpdateNADRef feature gate is enabled
+        })
+        It("[test_id:TS-CNV72329-010]should hotplug and unplug NIC successfully", func() {
+          // Hotplug a new NIC to the VM
+          // Verify NIC is attached
+          // Unplug the NIC
+          // Verify NIC is removed
+        })
+      }
+
+    test_objective:
+      title: "Verify NIC hotplug/unplug works with feature gate enabled"
+      what: |
+        Tests that existing NIC hotplug and unplug operations continue to work correctly
+        when the LiveUpdateNADRef feature gate is enabled. Validates no regression in
+        existing functionality.
+      why: |
+        The NAD live update feature shares code paths with NIC hotplug. Changes to the
+        VM controller sync and migration evaluator must not break existing hotplug.
+      acceptance_criteria:
+        - "NIC hotplug succeeds with feature gate enabled"
+        - "NIC unplug succeeds with feature gate enabled"
+        - "No errors or unexpected conditions"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM"
+          command: "Create VM"
+          validation: "VM is Running"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Hotplug a new bridge NIC"
+          command: "Add interface to VM spec"
+          validation: "NIC appears in VMI status"
+          pattern_id: "network-hotplug-001"
+
+        - step_id: "TEST-02"
+          action: "Verify hotplugged NIC is functional"
+          command: "Check interface in guest"
+          validation: "Interface visible in guest"
+
+        - step_id: "TEST-03"
+          action: "Unplug the NIC"
+          command: "Remove interface from VM spec"
+          validation: "NIC removed from VMI status"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          command: "Cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "NIC hotplug succeeds with feature gate enabled"
+        condition: "Hotplugged NIC appears in VMI status"
+        failure_impact: "Existing NIC hotplug is regressed"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P1"
+        description: "NIC unplug succeeds with feature gate enabled"
+        condition: "NIC removed from VMI status after unplug"
+        failure_impact: "Existing NIC unplug is regressed"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: hotplug-nad"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "011"
+    test_id: "TS-CNV72329-011"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want existing NIC hotplug to work with the feature gate enabled"
+
+    patterns:
+      primary: "network-hotplug-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "network-connectivity-001"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "running_vm"]
+          purpose: "Create and manage VM lifecycle"
+      decorators:
+        - "pytest.mark.tier2"
+        - "pytest.mark.p2"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM under test"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestNADLiveUpdateE2E"
+        decorators:
+          - "pytest.mark.tier2"
+      context:
+        description: "test_hotplug_then_nad_change"
+        decorators: []
+      it:
+        description: "Test that NIC hotplug and NAD change coexist on the same VM"
+        test_id_format: "[TS-CNV72329-011]"
+
+    code_structure: |
+      class TestNADLiveUpdateE2E:
+          def test_hotplug_then_nad_change(self):
+              # Step 1: Hotplug a new bridge interface to the VM
+              # Step 2: Patch VM spec to change NAD reference on existing secondary interface
+              # Assert: Hotplugged interface reports valid IP address
+              # Assert: Original secondary interface is connected to new NAD
+
+    test_objective:
+      title: "Verify NIC hotplug and NAD change both succeed on same VM"
+      what: |
+        Tests that NIC hotplug and NAD reference change can coexist on the same VM.
+        First hotplugs a new interface, then changes the NAD reference on an existing
+        interface. Both operations should succeed independently.
+      why: |
+        Both features share code paths in the VM controller. They must work together
+        without interference on the same VM.
+      acceptance_criteria:
+        - "Hotplugged interface reports valid IP address"
+        - "Original secondary interface is connected to new NAD after change"
+        - "Both operations succeed without errors"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM via fixtures"
+          validation: "VM is Running on nad1"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Hotplug a new bridge interface to the VM"
+          command: "Add new interface to VM spec"
+          validation: "New interface appears and has IP"
+
+        - step_id: "TEST-02"
+          action: "Patch VM spec to change NAD reference on existing secondary interface"
+          command: "Patch VM spec"
+          validation: "NAD reference changed"
+
+        - step_id: "TEST-03"
+          action: "Verify hotplugged interface has valid IP"
+          command: "Check interface IP"
+          validation: "Valid IP present"
+
+        - step_id: "TEST-04"
+          action: "Verify original secondary interface connected to new NAD"
+          command: "Check VMI network status"
+          validation: "Connected to nad2"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and NADs"
+          command: "Cleanup via context managers"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P2"
+        description: "Hotplugged interface has valid IP"
+        condition: "Interface reports valid IP address"
+        failure_impact: "NIC hotplug regressed when combined with NAD change"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P2"
+        description: "Original interface connected to new NAD"
+        condition: "Secondary interface shows nad2 in network status"
+        failure_impact: "NAD change fails when hotplug has been performed"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: nad1, nad2, hotplug-nad"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "012"
+    test_id: "TS-CNV72329-012"
+    tier: "Tier 1"
+    priority: "P2"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want namespace-qualified NAD names to work"
+
+    patterns:
+      primary: "network-connectivity-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libnet"
+          functions: ["CreateNetworkAttachmentDefinition"]
+          purpose: "Create NADs"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "when using namespace-qualified NAD names"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should change NAD reference using qualified names"
+        test_id_format: "[test_id:TS-CNV72329-012]"
+
+    code_structure: |
+      Context("when using namespace-qualified NAD names", Ordered) {
+        BeforeAll(func() {
+          // Create VM with secondary bridge interface using namespace/nad1
+        })
+        It("[test_id:TS-CNV72329-012]should change NAD reference using qualified names", func() {
+          // Patch VM spec using namespace/nad2 (namespace-qualified name)
+          // Verify NAD change takes effect
+          // Verify no false update trigger from normalization
+        })
+      }
+
+    test_objective:
+      title: "Verify NAD change works with namespace-qualified names"
+      what: |
+        Tests that NAD reference changes work correctly when using namespace-qualified
+        NAD names (e.g., "namespace/nad2" instead of just "nad2"). Also validates that
+        normalization between qualified and unqualified names does not cause false updates.
+      why: |
+        NAD name normalization was flagged as a risk in the PR review. Qualified and
+        unqualified names must be handled consistently.
+      acceptance_criteria:
+        - "NAD change with namespace-qualified name succeeds"
+        - "No false update triggered by name normalization"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface using namespace-qualified NAD name"
+          command: "Create VM with networkName: namespace/nad1"
+          validation: "VM is Running"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference using namespace-qualified name"
+          command: "kubectl patch vm with networkName: namespace/nad2"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Verify NAD change takes effect"
+          command: "Check VMI network status"
+          validation: "Connected to nad2"
+          pattern_id: "wait-002"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          command: "Cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P2"
+        description: "NAD change with namespace-qualified name succeeds"
+        condition: "VM connected to nad2 after using namespace/nad2"
+        failure_impact: "Namespace-qualified NAD names are broken"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: nad1, nad2"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "013"
+    test_id: "TS-CNV72329-013"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want the VM spec to reflect the NAD change"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "after NAD reference is changed"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should reflect the change in VMI spec"
+        test_id_format: "[test_id:TS-CNV72329-013]"
+
+    code_structure: |
+      Context("after NAD reference is changed", Ordered) {
+        BeforeAll(func() {
+          // Create VM on nad1
+        })
+        It("[test_id:TS-CNV72329-013]should reflect the change in VMI spec", func() {
+          // Patch VM spec to change NAD reference to nad2
+          // Wait for update
+          // Verify VMI spec shows updated NAD reference
+        })
+      }
+
+    test_objective:
+      title: "Verify VMI spec shows updated NAD after change"
+      what: |
+        Tests that after changing the NAD reference on a running VM, the VMI spec
+        reflects the updated NAD reference. Validates the spec is consistent.
+      why: |
+        The VMI spec must reflect the current state for observability and debugging.
+        If the spec is stale, operators and users cannot determine the actual network.
+      acceptance_criteria:
+        - "VMI spec shows nad2 after NAD change from nad1 to nad2"
+        - "VMI network-status annotation reflects new NAD"
+
+    classification:
+      test_type: "Functional"
+      scope: "Single-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions: []
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with secondary bridge interface on nad1"
+          command: "Create VM"
+          validation: "VM is Running on nad1"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Patch VM spec to change NAD reference to nad2"
+          command: "kubectl patch vm"
+          validation: "Patch applied"
+
+        - step_id: "TEST-02"
+          action: "Wait for update to complete"
+          command: "Wait for VMI update"
+          validation: "VMI updated"
+          pattern_id: "wait-002"
+
+        - step_id: "TEST-03"
+          action: "Verify VMI spec shows nad2"
+          command: "kubectl get vmi -o jsonpath='{.spec.networks}'"
+          validation: "nad2 in VMI spec"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          command: "Cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "VMI spec reflects updated NAD"
+        condition: "VMI spec.networks contains nad2 reference"
+        failure_impact: "VMI spec is stale - observability broken"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: nad1, nad2"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "014"
+    test_id: "TS-CNV72329-014"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-72329"
+    requirement_summary: "As a VM admin, I want existing network features to continue working"
+
+    patterns:
+      primary: "network-hotplug-001"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+      helpers_required:
+        - name: "libvmifact"
+          functions: ["NewFedora"]
+          purpose: "Create Fedora VMI"
+        - name: "libnet"
+          functions: ["CreateNetworkAttachmentDefinition"]
+          purpose: "Create NADs"
+      decorators:
+        - "decorators.SigNetwork"
+        - "decorators.Tier1"
+        - "Ordered"
+        - "decorators.OncePerOrderedCleanup"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Background context"
+        - name: "namespace"
+          type: "string"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Test namespace"
+        - name: "err"
+          type: "error"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "Live Update NAD Reference"
+        decorators:
+          - "decorators.SigNetwork"
+          - "Serial"
+      context:
+        description: "existing network features"
+        decorators:
+          - "Ordered"
+          - "decorators.OncePerOrderedCleanup"
+      it:
+        description: "should not regress SR-IOV and bridge hotplug"
+        test_id_format: "[test_id:TS-CNV72329-014]"
+
+    code_structure: |
+      Context("existing network features", Ordered) {
+        BeforeAll(func() {
+          // Create VM
+        })
+        It("[test_id:TS-CNV72329-014]should not regress SR-IOV and bridge hotplug", func() {
+          // Perform bridge NIC hotplug
+          // Verify bridge hotplug succeeds
+          // If SR-IOV available, perform SR-IOV hotplug
+          // Verify SR-IOV hotplug succeeds
+        })
+      }
+
+    test_objective:
+      title: "Verify SR-IOV and bridge hotplug are not regressed"
+      what: |
+        Regression test that verifies existing SR-IOV and bridge NIC hotplug operations
+        continue to work with the LiveUpdateNADRef feature gate enabled. Tests that
+        the code changes do not break existing network features.
+      why: |
+        Code changes affect VM controller sync, migration evaluator, and restart-required
+        detection — all shared with existing network features. Regression is a real risk.
+      acceptance_criteria:
+        - "Bridge NIC hotplug succeeds with feature gate enabled"
+        - "SR-IOV hotplug succeeds with feature gate enabled (if available)"
+
+    classification:
+      test_type: "Functional"
+      scope: "Multi-component"
+      automation_approach: "Ginkgo v2 with KubeVirt test framework"
+
+    specific_preconditions:
+      - name: "SR-IOV support"
+        requirement: "SR-IOV capable NICs on worker nodes (optional - test is skipped if unavailable)"
+        validation: "oc get sriovnetworknodepolicies -n openshift-sriov-network-operator"
+
+    test_data:
+      resource_definitions: []
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM"
+          command: "Create VM"
+          validation: "VM is Running"
+          pattern_id: "factory-001"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Hotplug a bridge NIC"
+          command: "Add bridge interface"
+          validation: "Bridge NIC attached"
+          pattern_id: "network-hotplug-001"
+
+        - step_id: "TEST-02"
+          action: "Verify bridge hotplug succeeds"
+          command: "Check VMI interfaces"
+          validation: "Bridge interface visible"
+
+        - step_id: "TEST-03"
+          action: "Hotplug SR-IOV NIC (if available)"
+          command: "Add SR-IOV interface"
+          validation: "SR-IOV NIC attached (or test skipped)"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and NADs"
+          command: "Cleanup"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "Bridge hotplug not regressed"
+        condition: "Bridge NIC hotplug succeeds"
+        failure_impact: "Existing bridge hotplug broken by NAD live update changes"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P1"
+        description: "SR-IOV hotplug not regressed"
+        condition: "SR-IOV NIC hotplug succeeds (if available)"
+        failure_impact: "Existing SR-IOV hotplug broken by NAD live update changes"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-vm"
+        - "NetworkAttachmentDefinition: bridge-nad"
+        - "SriovNetworkNodePolicy (optional)"
+      external_tools:
+        - "SR-IOV network operator (optional)"
+      scenario_specific_rbac: []
