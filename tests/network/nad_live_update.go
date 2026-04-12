@@ -159,10 +159,14 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for migration condition to appear and disappear")
-		Eventually(matcher.ThisVMI(vmi), timeoutInterval, pollingInterval).
+		Eventually(matcher.ThisVMI(vmi)).
+			WithTimeout(timeoutInterval).
+			WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
-		Eventually(matcher.ThisVMI(vmi), timeoutInterval, pollingInterval).
+		Eventually(matcher.ThisVMI(vmi)).
+			WithTimeout(timeoutInterval).
+			WithPolling(pollingInterval).
 			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMigrationRequired))
 
 		Eventually(func() (string, error) {
@@ -171,10 +175,13 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 				return "", err
 			}
 			return vmi.Status.NodeName, nil
-		}, timeoutInterval, pollingInterval).Should(SatisfyAll(
-			Not(BeEmpty()),
-			Not(Equal(sourceNodeName)),
-		))
+		}).
+			WithTimeout(timeoutInterval).
+			WithPolling(pollingInterval).
+			Should(SatisfyAll(
+				Not(BeEmpty()),
+				Not(Equal(sourceNodeName)),
+			))
 
 		targetNode := vmi.Status.NodeName
 
