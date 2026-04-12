@@ -20,6 +20,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -39,7 +40,7 @@ const hookSocket = "passt.sock"
 
 func main() {
 	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, hookSocket)
-	socket, err := net.Listen("unix", socketPath)
+	socket, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
 		log.Log.Error("Check whether given directory exists and socket name is not already taken by other file")

@@ -20,6 +20,7 @@
 package virtchroot
 
 import (
+	"context"
 	"os/exec"
 	"strconv"
 
@@ -51,7 +52,7 @@ func (v VirtCHRoot) addTapDeviceCmd(name string, mtu, queues, ownerID int) *exec
 		"--mtu", strconv.Itoa(mtu),
 	}
 	// #nosec No risk for attacker injection. cmdArgs includes predefined strings
-	return exec.Command(virtChrootBin, cmdArgs...)
+	return exec.CommandContext(context.Background(), virtChrootBin, cmdArgs...)
 }
 
 func (v VirtCHRoot) runWithSELinuxLabelFromPID(pid int, cmd *exec.Cmd) error {

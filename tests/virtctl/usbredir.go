@@ -215,7 +215,7 @@ func runConnectGoroutine(cmd *cobra.Command, errch chan error) {
 }
 
 func mockClientConnection(ctx context.Context, address string) error {
-	conn, err := net.Dial("tcp", address)
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	if err != nil {
 		return err
 	}

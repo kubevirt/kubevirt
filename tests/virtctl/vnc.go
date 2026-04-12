@@ -143,7 +143,7 @@ var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm
 
 func verifyProxyConnection(port, vmiName string) {
 	Eventually(func(g Gomega) {
-		conn, err := net.Dial("tcp", "127.0.0.1:"+port)
+		conn, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", "127.0.0.1:"+port)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer conn.Close()
 
@@ -163,7 +163,7 @@ func findOpenPort(start, end int) (int, bool) {
 	const host = "localhost"
 	for port := start; port < end; port++ {
 		addr := net.JoinHostPort(host, strconv.FormatInt(int64(port), 10))
-		if conn, err := net.Listen("tcp", addr); err == nil {
+		if conn, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", addr); err == nil {
 			err = conn.Close()
 			Expect(err).ToNot(HaveOccurred())
 			return port, true
