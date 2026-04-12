@@ -5,5 +5,5 @@ go_library(
     srcs = ["internal.go"],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/resolver/dns/internal",
     importpath = "google.golang.org/grpc/internal/resolver/dns/internal",
-    visibility = ["//vendor/google.golang.org/grpc:__subpackages__"],
+    visibility = ["//vendor/google.golang.org/grpc/internal/resolver/dns:__subpackages__"],
 )
