@@ -20,6 +20,7 @@
 package ssh
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -247,7 +248,7 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	}
 	args = append(args, clientArgs...)
 
-	cmd := exec.Command(command, args...)
+	cmd := exec.CommandContext(context.Background(), command, args...)
 	const logLevel = 3
 	log.Log.V(logLevel).Infof("running: %v", cmd)
 	cmd.Stdout = os.Stdout

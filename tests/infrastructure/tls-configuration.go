@@ -112,9 +112,11 @@ func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.Ciphe
 				MaxVersion:         tls.VersionTLS12,
 				CipherSuites:       kvtls.CipherSuiteIds([]string{cipher.Name}),
 			}
-			conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), acceptedTLSConfig)
-			Expect(conn).ToNot(BeNil(), fmt.Sprintf("Pod %s should accept valid tls config, %s", pod.Name, err))
+			rawConn, err := (&tls.Dialer{Config: acceptedTLSConfig}).DialContext(context.Background(), "tcp", fmt.Sprintf("localhost:%d", localPort))
+			Expect(rawConn).ToNot(BeNil(), fmt.Sprintf("Pod %s should accept valid tls config, %s", pod.Name, err))
 			Expect(err).ToNot(HaveOccurred(), "Pod %s should accept valid tls config", pod.Name)
+			conn, ok := rawConn.(*tls.Conn)
+			Expect(ok).To(BeTrue())
 			Expect(conn.ConnectionState().Version).To(BeEquivalentTo(tls.VersionTLS12), "Configured TLS version should be used for pod %s", pod.Name)
 			Expect(conn.ConnectionState().CipherSuite).To(BeEquivalentTo(cipher.ID), "Configured cipher should be used for pod %s", pod.Name)
 
@@ -123,9 +125,9 @@ func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.Ciphe
 				InsecureSkipVerify: true,
 				MaxVersion:         tls.VersionTLS11,
 			}
-			conn, err = tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), rejectedTLSConfig)
+			rawConn, err = (&tls.Dialer{Config: rejectedTLSConfig}).DialContext(context.Background(), "tcp", fmt.Sprintf("localhost:%d", localPort))
 			Expect(err).To(HaveOccurred())
-			Expect(conn).To(BeNil())
+			Expect(rawConn).To(BeNil())
 			Expect(err.Error()).To(SatisfyAny(
 				BeEquivalentTo("remote error: tls: protocol version not supported"),
 				// The error message changed with the golang 1.19 update
