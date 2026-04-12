@@ -14765,7 +14765,9 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 checksum:
                   description: Checksum is the checksum of the initrd file
-                  format: int32
+                  format: int64
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
               type: object
             kernelInfo:
@@ -14773,7 +14775,9 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 checksum:
                   description: Checksum is the checksum of the kernel image
-                  format: int32
+                  format: int64
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
               type: object
           type: object
@@ -15333,7 +15337,9 @@ var CRDsValidation map[string]string = map[string]string{
                   checksum:
                     description: Checksum is the checksum of the rootdisk or kernel
                       artifacts inside the containerdisk
-                    format: int32
+                    format: int64
+                    maximum: 4294967295
+                    minimum: 0
                     type: integer
                 type: object
               hotplugVolume:
