@@ -23,6 +23,15 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+readarray -t cmd_binary_targets < <(
+    bazel query 'kind("(go|cc)_binary rule", //cmd/...) except (//cmd/virtctl:virtctl-darwin + //cmd/virtctl:virtctl-darwin-arm64 + //cmd/virtctl:virtctl-windows)'
+)
+
+if ((${#cmd_binary_targets[@]} == 0)); then
+    echo "failed to resolve cmd binary targets from //cmd/..." >&2
+    exit 1
+fi
+
 rm -rf ${CMD_OUT_DIR}
 mkdir -p ${CMD_OUT_DIR}/virtctl
 mkdir -p ${CMD_OUT_DIR}/dump
@@ -37,7 +46,7 @@ bazel build \
     //tools/perfscale-audit/... \
     //tools/perfscale-load-generator/... \
     //tools/cluster-profiler/... \
-    //cmd/... \
+    "${cmd_binary_targets[@]}" \
     //staging/src/kubevirt.io/client-go/examples/...
 
 # Copy dump binary to a reachable place outside of the build container
@@ -80,12 +89,15 @@ if [[ "${KUBEVIRT_RELEASE}" == "true" || "${CI}" == "true" ]]; then
 
     # darwin
     bazel run \
+        --incompatible_enable_cc_toolchain_resolution=false \
         :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
     bazel run \
+        --incompatible_enable_cc_toolchain_resolution=false \
         :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
 
     # windows
     bazel run \
+        --incompatible_enable_cc_toolchain_resolution=false \
         :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
 fi
