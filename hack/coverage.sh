@@ -10,7 +10,13 @@ coverage --cache_test_results=no --runs_per_test=1
 EOF
 fi
 
-WHAT=${WHAT:-//staging/src/kubevirt.io/client-go/... //pkg/... //cmd/...}
+default_coverage_query='tests(//staging/src/kubevirt.io/client-go/... + //pkg/... + //cmd/...)'
+
+if [[ -n "${WHAT}" ]]; then
+    read -r -a bazel_coverage_targets <<<"${WHAT}"
+else
+    readarray -t bazel_coverage_targets < <(bazel query "${default_coverage_query}")
+fi
 
 # TODO: rules_go now supports full bazel lcov integration.
 # Let's move over to that, since the manual coverage merge step is then not needed anymore.
@@ -18,4 +24,4 @@ bazel coverage \
     --config=${ARCHITECTURE} \
     --features race \
     --@io_bazel_rules_go//go/config:cover_format=go_cover \
-    --test_output=errors -- ${WHAT}
+    --test_output=errors -- "${bazel_coverage_targets[@]}"
