@@ -28,9 +28,9 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/filewatcher"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )

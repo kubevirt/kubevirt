@@ -37,9 +37,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
-	"kubevirt.io/kubevirt/pkg/virt-handler/filewatcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
