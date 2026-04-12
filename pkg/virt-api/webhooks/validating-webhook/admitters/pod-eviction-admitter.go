@@ -171,7 +171,7 @@ func (admitter *PodEvictionAdmitter) admitLauncherPod(ctx context.Context, ar *a
 	}
 	evictionObject := policyv1.Eviction{}
 	if err := json.Unmarshal(ar.Request.Object.Raw, &evictionObject); err != nil {
-		denied(fmt.Sprintf("failed to parse the eviction object: %v", err))
+		return denied(fmt.Sprintf("failed to parse the eviction object: %v", err))
 	}
 	descEviction := isDeschedulerEviction(&evictionObject)
 	err = admitter.markVMI(ctx, vmi, pod.Spec.NodeName, isDryRun(ar, &evictionObject), descEviction)
