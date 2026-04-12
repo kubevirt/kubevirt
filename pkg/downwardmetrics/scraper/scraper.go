@@ -139,14 +139,18 @@ func (r *DownwardMetricsReporter) Report(socketFile string) (*api.Metrics, error
 
 func guestCPUMetrics(vmStats *stats.DomainStats) []api.Metric {
 	var cpuTimeTotal uint64
+	var onlineVcpus int
 	for _, vcpu := range vmStats.Vcpu {
 		cpuTimeTotal += vcpu.Time
+		if vcpu.StateSet && vcpu.State != stats.VCPUOffline {
+			onlineVcpus++
+		}
 	}
 
 	const nanosecondsInSecond = 1e9
 	return []api.Metric{
 		metricspkg.MustToVMMetric(float64(cpuTimeTotal)/nanosecondsInSecond, "TotalCPUTime", "s"),
-		metricspkg.MustToVMMetric(vmStats.NrVirtCpu, "ResourceProcessorLimit", ""),
+		metricspkg.MustToVMMetric(onlineVcpus, "ResourceProcessorLimit", ""),
 	}
 }
 
