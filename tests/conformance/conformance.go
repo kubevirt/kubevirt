@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -54,7 +55,7 @@ func execute() error {
 
 	args = append(args, "--config", "/conformance-config.json")
 
-	cmd := exec.Command("/usr/bin/go_default_test", args...)
+	cmd := exec.CommandContext(context.Background(), "/usr/bin/go_default_test", args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("ARTIFACTS=%s", resultsDir))
 	cmd.Stderr = os.Stderr
