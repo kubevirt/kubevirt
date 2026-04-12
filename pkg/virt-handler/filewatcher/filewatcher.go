@@ -82,7 +82,6 @@ func (f *FileWatcher) Close() {
 	}
 	close(f.done)
 	f.closeMu.Unlock()
-	return
 }
 
 func (f *FileWatcher) statFirst() {
