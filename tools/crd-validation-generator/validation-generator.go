@@ -91,23 +91,29 @@ func getValidation(filename string) (string, *extv1.CustomResourceValidation) {
 	return crd.Spec.Names.Singular, crd.Spec.Versions[0].Schema
 }
 
-// sanitizeSchema traverses the given JSON-Schema object and replaces all occurrences of the
-// backtick (`) character in the (sub-)schema Description fields with single quote characters
+// sanitizeSchema traverses the given JSON-Schema object and:
+// - replaces backticks (`) in Description fields with single quotes
+// - normalizes checksum field schemas to the expected uint32 range represented as int64
 func sanitizeSchema(inSchema *extv1.JSONSchemaProps) *extv1.JSONSchemaProps {
+	return sanitizeSchemaWithPath(inSchema, nil)
+}
+
+func sanitizeSchemaWithPath(inSchema *extv1.JSONSchemaProps, path []string) *extv1.JSONSchemaProps {
 	schema := inSchema.DeepCopy()
 	if schema.Description != "" {
 		schema.Description = strings.ReplaceAll(schema.Description, "`", "'")
 	}
+	normalizeChecksumFieldSchema(schema, path)
 
 	// Traverse Items
 	if schema.Items != nil {
 		if schema.Items.Schema != nil {
-			schema.Items.Schema = sanitizeSchema(schema.Items.Schema)
+			schema.Items.Schema = sanitizeSchemaWithPath(schema.Items.Schema, append(path, "[]"))
 		}
 		if len(schema.Items.JSONSchemas) > 0 {
 			sanitizedProps := make([]extv1.JSONSchemaProps, 0, len(schema.Items.JSONSchemas))
 			for _, schema := range schema.Items.JSONSchemas {
-				sanitizedProps = append(sanitizedProps, *sanitizeSchema(&schema))
+				sanitizedProps = append(sanitizedProps, *sanitizeSchemaWithPath(&schema, append(path, "[]")))
 			}
 			schema.Items.JSONSchemas = sanitizedProps
 		}
@@ -115,8 +121,37 @@ func sanitizeSchema(inSchema *extv1.JSONSchemaProps) *extv1.JSONSchemaProps {
 
 	// Traverse Properties
 	for name, prop := range schema.Properties {
-		schema.Properties[name] = *sanitizeSchema(&prop)
+		nextPath := append(append([]string{}, path...), name)
+		schema.Properties[name] = *sanitizeSchemaWithPath(&prop, nextPath)
 	}
 
 	return schema
+}
+
+func normalizeChecksumFieldSchema(schema *extv1.JSONSchemaProps, path []string) {
+	if !shouldNormalizeChecksum(path) {
+		return
+	}
+
+	min := float64(0)
+	max := float64(^uint32(0))
+	schema.Format = "int64"
+	schema.Minimum = &min
+	schema.Maximum = &max
+}
+
+func shouldNormalizeChecksum(path []string) bool {
+	if len(path) < 2 {
+		return false
+	}
+	if path[len(path)-1] != "checksum" {
+		return false
+	}
+
+	switch path[len(path)-2] {
+	case "containerDiskVolume", "kernelInfo", "initrdInfo":
+		return true
+	default:
+		return false
+	}
 }
