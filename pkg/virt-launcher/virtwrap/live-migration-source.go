@@ -678,6 +678,7 @@ func logMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 		return bytes * 8 / 1000000
 	}
 
+	// For completed jobs, Downtime is the final downtime, DowntimeNet contains the actual network overhead during the cutover
 	downtimeInfo := fmt.Sprintf("ExpectedDowntime:%dms", info.Downtime)
 	if info.DowntimeNetSet && info.DowntimeNet > 0 {
 		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
