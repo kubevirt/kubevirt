@@ -22,6 +22,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/dra/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -29,12 +30,14 @@ import (
 var _ = Describe("CreateDRAGPUHostDevices", func() {
 	var (
 		tempDir string
+		reader  drautil.MetadataReader
 	)
 
 	BeforeEach(func() {
 		var err error
 		tempDir, err = os.MkdirTemp("", "dra-gpu-test")
 		Expect(err).ToNot(HaveOccurred())
+		reader = drautil.NewMetadataReaderWithBasePath(tempDir)
 	})
 
 	AfterEach(func() {
@@ -63,7 +66,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(BeEmpty())
 		})
@@ -118,7 +121,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -181,7 +184,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -246,7 +249,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -341,7 +344,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(2))
 
@@ -422,7 +425,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).To(HaveOccurred())
 			Expect(hostDevices).To(BeNil())
 		})

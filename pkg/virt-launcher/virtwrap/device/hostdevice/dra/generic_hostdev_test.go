@@ -15,6 +15,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/dra/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -22,12 +23,14 @@ import (
 var _ = Describe("CreateDRAHostDevices", func() {
 	var (
 		tempDir string
+		reader  drautil.MetadataReader
 	)
 
 	BeforeEach(func() {
 		var err error
 		tempDir, err = os.MkdirTemp("", "dra-hostdev-test")
 		Expect(err).ToNot(HaveOccurred())
+		reader = drautil.NewMetadataReaderWithBasePath(tempDir)
 	})
 
 	AfterEach(func() {
@@ -51,7 +54,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(BeEmpty())
 		})
@@ -100,7 +103,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 
@@ -155,7 +158,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 			dev := hostDevs[0]
@@ -213,7 +216,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 			dev := hostDevs[0]
@@ -273,7 +276,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).To(HaveOccurred())
 			Expect(hostDevs).To(BeNil())
 		})

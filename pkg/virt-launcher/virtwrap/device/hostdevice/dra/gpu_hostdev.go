@@ -39,7 +39,7 @@ const (
 )
 
 // CreateDRAGPUHostDevices creates host devices for GPUs allocated via DRA.
-func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]api.HostDevice, error) {
+func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, reader drautil.MetadataReader) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasGPUsWithDRA(vmi) {
 		log.Log.V(3).Infof("No DRA GPU devices found for vmi %s/%s", vmi.GetNamespace(), vmi.GetName())
@@ -51,7 +51,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 			continue
 		}
 
-		hostDevice, err := createHostDeviceForGPU(gpu, basePath, vmi.Spec.ResourceClaims)
+		hostDevice, err := createHostDeviceForGPU(gpu, reader, vmi.Spec.ResourceClaims)
 		if err != nil {
 			return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 		}
@@ -78,7 +78,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 	return hostDevices, nil
 }
 
-func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
+func createHostDeviceForGPU(gpu v1.GPU, reader drautil.MetadataReader, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
 	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == nil || *gpu.ClaimRequest.ClaimName == "" || gpu.ClaimRequest.RequestName == nil || *gpu.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("GPU %s has incomplete ClaimRequest", gpu.Name)
 	}
@@ -89,7 +89,7 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
 	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating
 	// it as PCI passthrough would be incorrect.
-	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName)
+	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(reader, resourceClaims, claimName, requestName)
 	if mdevErr == nil {
 		log.Log.V(2).Infof("Adding DRA MDEV GPU device for %s", gpu.Name)
 		hostDevice := api.HostDevice{
@@ -116,7 +116,7 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 		return &hostDevice, nil
 	}
 
-	pciAddr, pciErr := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName)
+	pciAddr, pciErr := drautil.GetPCIAddressForClaim(reader, resourceClaims, claimName, requestName)
 	if pciErr == nil {
 		log.Log.V(2).Infof("Adding DRA PCI GPU device for %s", gpu.Name)
 		hostAddr, err := device.NewPciAddressField(pciAddr)

@@ -36,7 +36,7 @@ const (
 )
 
 // CreateDRAHostDevices creates host devices for HostDevices allocated via DRA.
-func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]api.HostDevice, error) {
+func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, reader drautil.MetadataReader) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasHostDevicesWithDRA(vmi) {
 		return hostDevices, nil
@@ -47,7 +47,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 			continue
 		}
 
-		hostDevice, err := createHostDeviceForHostDevice(hd, basePath, vmi.Spec)
+		hostDevice, err := createHostDeviceForHostDevice(hd, reader, vmi.Spec)
 		if err != nil {
 			return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 		}
@@ -63,7 +63,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 	return hostDevices, nil
 }
 
-func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v1.VirtualMachineInstanceSpec) (*api.HostDevice, error) {
+func createHostDeviceForHostDevice(hd v1.HostDevice, reader drautil.MetadataReader, vmiSpecs v1.VirtualMachineInstanceSpec) (*api.HostDevice, error) {
 	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || *hd.ClaimRequest.ClaimName == "" || hd.ClaimRequest.RequestName == nil || *hd.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("HostDevice %s has incomplete ClaimRequest", hd.Name)
 	}
@@ -75,7 +75,7 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
 	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating
 	// it as PCI passthrough would be incorrect.
-	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName)
+	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(reader, resourceClaims, claimName, requestName)
 	if mdevErr == nil {
 		log.Log.V(2).Infof("Adding DRA MDEV HostDevice for %s", hd.Name)
 		model := "vfio-pci"
@@ -95,7 +95,7 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 		}, nil
 	}
 
-	pciAddr, pciErr := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName)
+	pciAddr, pciErr := drautil.GetPCIAddressForClaim(reader, resourceClaims, claimName, requestName)
 	if pciErr == nil {
 		log.Log.V(2).Infof("Adding DRA PCI HostDevice for %s", hd.Name)
 		hostAddr, err := device.NewPciAddressField(pciAddr)
