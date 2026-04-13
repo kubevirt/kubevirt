@@ -83,19 +83,9 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
 		"type":            "+optional\nType indicates if the backup was full or incremental",
-		"conditions":      "+optional\n+listType=atomic",
+		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
 		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
-	}
-}
-
-func (Condition) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":                   "Condition defines conditions",
-		"lastProbeTime":      "+optional\n+nullable",
-		"lastTransitionTime": "+optional\n+nullable",
-		"reason":             "+optional",
-		"message":            "+optional",
 	}
 }
