@@ -1,0 +1,2481 @@
+document_metadata:
+  std_version: 2.1-enhanced
+  jira_id: CNV-68916
+  title: 'GA: Eject/Inject CD-ROM Support via Declarative Hotplug Volumes'
+  stp_reference: outputs/stp/CNV-68916/CNV-68916_test_plan.md
+  owning_sig: sig-storage
+  participating_sigs:
+  - sig-compute
+  - sig-network
+  qe_owner: Yan Du
+  feature_gate: DeclarativeHotplugVolumes
+  current_status: GA (off by default)
+  enhancement: kubevirt/enhancements#31
+  total_scenarios: 47
+  tier_1_count: 38
+  tier_2_count: 9
+  p0_count: 11
+  related_jira:
+  - CNV-79690
+  - CNV-77383
+  - CNV-64402
+  known_limitations:
+  - Ephemeral hotplug volumes not supported when DeclarativeHotplugVolumes enabled
+  - SATA CD-ROM drives cannot be hot-detached; triggers RestartRequired
+  - 'PCI address stability across upgrades is an open concern (PR #17029)'
+  - Feature is GA but off by default until telemetry confirms safety
+  - VM must be running for hotplug operations to take effect on VMI
+  - Volume ordering changes do not trigger RestartRequired
+code_generation_config:
+  std_version: 2.1-enhanced
+  package_name: storage
+  imports:
+    go:
+    - context
+    - fmt
+    - time
+    - . "github.com/onsi/ginkgo/v2"
+    - . "github.com/onsi/gomega"
+    - metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    - v1 "kubevirt.io/api/core/v1"
+    - '"kubevirt.io/kubevirt/tests/decorators"'
+    - '"kubevirt.io/kubevirt/tests/framework/kubevirt"'
+    - '"kubevirt.io/kubevirt/tests/framework/matcher"'
+    - '"kubevirt.io/kubevirt/tests/libkubevirt/config"'
+    - '"kubevirt.io/kubevirt/tests/libvmi"'
+    - '"kubevirt.io/kubevirt/tests/libvmifact"'
+    - '"kubevirt.io/kubevirt/tests/libwait"'
+    - '"kubevirt.io/kubevirt/tests/testsuite"'
+    python:
+    - pytest
+    - ocp_resources.virtual_machine
+    - ocp_resources.datavolume
+    - utilities.virt
+    - utilities.storage
+    - utilities.hco
+common_preconditions:
+  namespace: test namespace (auto-created per test)
+  cluster:
+  - OpenShift cluster with OCP 4.18+ and CNV 4.22+
+  - 3 control-plane + 2 worker nodes minimum
+  - Hardware virtualization enabled (Intel VT-x or AMD-V)
+  storage:
+  - At least one StorageClass with dynamic provisioning and RWO support
+  - CDI operator deployed and functional for DataVolume creation
+  configuration:
+  - DeclarativeHotplugVolumes feature gate enabled via HyperConverged CR
+  - 'spec.featureGates.declarativeHotplugVolumes: true'
+  tools:
+  - virtctl CLI available
+  - oc/kubectl CLI available
+scenarios:
+- test_id: TS-CNV68916-001
+  scenario_number: 1
+  requirement_id: REQ-CDROM-INJECT-01
+  tier: Tier 1
+  priority: P0
+  feature_area: cdrom_inject
+  test_objective:
+    title: CD-ROM inject with DataVolume source on running VM
+    description: Verify CD-ROM inject with DataVolume source on running VM with empty CD-ROM; confirm volume appears in VMI
+      status and CD-ROM is mountable/readable in guest
+    acceptance_criteria:
+    - Volume appears in VMI status after inject
+    - CD-ROM is mountable and readable in guest OS
+  specific_preconditions:
+  - requirement: Running VM with an empty CD-ROM disk defined in spec
+  - requirement: DataVolume with ISO content created and available
+  test_steps:
+    setup:
+    - Create a DataVolume with ISO content
+    - Create and start a VM with an empty CD-ROM disk (disk without volume reference)
+    - Verify VM is Running and guest OS is accessible
+    - Verify /dev/sr0 exists in guest and reports 'No medium found'
+    test_execution:
+    - action: Add volume reference to the empty CD-ROM disk in VM spec pointing to the DataVolume
+    - action: 'Wait for volume to appear in VMI status (timeout: 120s)'
+    verification:
+    - Volume appears in VMI status volumes list
+    - CD-ROM is mountable in guest via mount /dev/sr0
+    - CD-ROM content is readable in guest
+    cleanup: &id001
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for CD-ROM content
+  assertions:
+  - description: VMI status shows the injected volume
+    type: state_check
+  - description: CD-ROM mount succeeds in guest OS
+    type: operation_success
+  - description: CD-ROM content matches expected ISO content
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: &id002
+    - vm_factory
+    - datavolume_factory
+    - guest_console
+    decorators: &id003
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM inject operations
+    it: CD-ROM inject with DataVolume source on running VM
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-002
+  scenario_number: 2
+  requirement_id: REQ-CDROM-INJECT-02
+  tier: Tier 1
+  priority: P1
+  feature_area: cdrom_inject
+  test_objective:
+    title: CD-ROM inject with PVC volume source
+    description: Verify CD-ROM inject with PVC source on running VM; confirm CD-ROM content is accessible in guest
+    acceptance_criteria:
+    - CD-ROM content from PVC is accessible in guest after inject
+  specific_preconditions:
+  - requirement: Running VM with an empty CD-ROM disk defined in spec
+  - requirement: PVC with ISO content created and available
+  test_steps:
+    setup:
+    - Create a PVC with ISO content
+    - Create and start a VM with an empty CD-ROM disk
+    - Verify VM is Running
+    test_execution:
+    - action: Add volume reference to the empty CD-ROM disk in VM spec pointing to the PVC
+    - action: 'Wait for volume to appear in VMI status (timeout: 120s)'
+    verification:
+    - CD-ROM is mountable and readable in guest
+    cleanup: *id001
+  assertions:
+  - description: CD-ROM content from PVC source is accessible in guest
+    type: data_integrity
+  - description: CD-ROM content from PVC is readable in guest
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id002
+    decorators: *id003
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM inject operations
+    it: CD-ROM inject with PVC volume source
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-003
+  scenario_number: 3
+  requirement_id: REQ-CDROM-INJECT-03
+  tier: Tier 1
+  priority: P0
+  feature_area: cdrom_inject
+  test_objective:
+    title: Injected CD-ROM reflects correct content in guest
+    description: Verify injected CD-ROM is mountable, readable, and shows expected file count and content inside guest OS
+    acceptance_criteria:
+    - CD-ROM content matches expected files and data
+  specific_preconditions:
+  - requirement: Running VM with empty CD-ROM disk
+  - requirement: DataVolume with known ISO content (specific file count and filenames)
+  test_steps:
+    setup:
+    - Create a DataVolume with ISO containing known files
+    - Create and start a VM with an empty CD-ROM disk
+    - Verify VM is Running
+    test_execution:
+    - action: Inject CD-ROM by adding volume reference to VM spec
+    - action: Wait for injection to complete
+    - action: Mount CD-ROM in guest via mount /dev/sr0 /mnt
+    - action: List files on mounted CD-ROM
+    verification:
+    - File count matches expected count
+    - File content matches expected content
+    cleanup: *id001
+  assertions:
+  - description: Mounted CD-ROM shows expected file count
+    type: data_integrity
+  - description: File content matches expected ISO content
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id002
+    decorators: *id003
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM inject operations
+    it: Injected CD-ROM reflects correct content in guest
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-004
+  scenario_number: 4
+  requirement_id: REQ-CDROM-INJECT-04
+  tier: Tier 1
+  priority: P1
+  feature_area: cdrom_inject
+  test_objective:
+    title: '[NEGATIVE] CD-ROM inject blocked when feature gate is disabled'
+    description: Verify that adding a volume to an empty CD-ROM disk does not hot-inject when DeclarativeHotplugVolumes gate
+      is disabled (requires restart)
+    acceptance_criteria:
+    - Volume change is not hot-applied when feature gate is disabled
+  specific_preconditions:
+  - requirement: DeclarativeHotplugVolumes feature gate is disabled
+  - requirement: Running VM with empty CD-ROM disk
+  - requirement: DataVolume with ISO content available
+  test_steps:
+    setup:
+    - Disable DeclarativeHotplugVolumes feature gate
+    - Create and start a VM with empty CD-ROM disk
+    - Verify VM is Running
+    test_execution:
+    - action: Add volume reference to empty CD-ROM disk in VM spec
+    - action: Wait 60 seconds and check VM conditions for RestartRequired or error events
+    verification:
+    - CD-ROM is not hot-injected (guest still shows 'No medium found')
+    - RestartRequired condition may be set
+    cleanup: *id001
+  assertions:
+  - description: CD-ROM inject does not occur without feature gate
+    type: negative_validation
+  - description: VM does not require restart for the inject operation
+    type: negative_validation
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id002
+    decorators: *id003
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM inject operations
+    it: '[NEGATIVE] CD-ROM inject blocked when feature gate is disabled'
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-005
+  scenario_number: 5
+  requirement_id: REQ-CDROM-EJECT-01
+  tier: Tier 1
+  priority: P0
+  feature_area: cdrom_eject
+  test_objective:
+    title: CD-ROM eject by removing volume reference
+    description: Verify CD-ROM eject by removing volume reference from VM spec while keeping the CD-ROM disk entry; confirm
+      volume is unplugged and guest reports 'No medium found'
+    acceptance_criteria:
+    - Volume is unplugged from VMI
+    - Guest reports 'No medium found' for CD-ROM device
+  specific_preconditions:
+  - requirement: Running VM with an injected CD-ROM (volume reference present)
+  - requirement: CD-ROM is mounted and accessible in guest
+  test_steps:
+    setup:
+    - Create and start a VM with a CD-ROM containing media
+    - Verify CD-ROM is mountable and readable in guest
+    test_execution:
+    - action: Remove the volume reference from the CD-ROM disk in VM spec (keep disk entry)
+    - action: Wait for volume to be unplugged from VMI
+    verification:
+    - Volume is removed from VMI status
+    - Guest reports 'No medium found' when attempting to mount /dev/sr0
+    cleanup: &id004
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for CD-ROM content
+  assertions:
+  - description: Volume is removed from VMI status after eject
+    type: state_check
+  - description: Guest reports 'No medium found' for the CD-ROM device
+    type: operation_result
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: &id005
+    - vm_factory
+    - datavolume_factory
+    - guest_console
+    decorators: &id006
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM eject operations
+    it: CD-ROM eject by removing volume reference
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-006
+  scenario_number: 6
+  requirement_id: REQ-CDROM-EJECT-02
+  tier: Tier 1
+  priority: P1
+  feature_area: cdrom_eject
+  test_objective:
+    title: Ejected CD-ROM drive remains as empty device in guest
+    description: Verify that after ejecting CD-ROM media, the /dev/sr0 device still exists in guest but reports 'No medium
+      found' on mount attempt
+    acceptance_criteria:
+    - /dev/sr0 device exists in guest after eject
+    - Mount attempt returns 'No medium found'
+  specific_preconditions:
+  - requirement: Running VM with an injected CD-ROM
+  test_steps:
+    setup:
+    - Create and start a VM with a CD-ROM containing media
+    - Verify CD-ROM is accessible in guest
+    test_execution:
+    - action: Eject CD-ROM by removing volume reference from VM spec
+    - action: Wait for eject to complete
+    - action: Check /dev/sr0 existence in guest
+    - action: Attempt to mount /dev/sr0 in guest
+    verification:
+    - /dev/sr0 still exists as a block device
+    - Mount attempt fails with 'No medium found'
+    cleanup: *id004
+  assertions:
+  - description: /dev/sr0 device exists in guest after eject
+    type: state_check
+  - description: Mount attempt returns 'No medium found' error
+    type: error_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id005
+    decorators: *id006
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM eject operations
+    it: Ejected CD-ROM drive remains as empty device in guest
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-007
+  scenario_number: 7
+  requirement_id: REQ-CDROM-EJECT-03
+  tier: Tier 1
+  priority: P1
+  feature_area: cdrom_eject
+  test_objective:
+    title: '[NEGATIVE] CD-ROM eject blocked when feature gate is disabled'
+    description: Verify that removing a volume reference with feature gate disabled does not hot-eject (change queued for
+      next restart)
+    acceptance_criteria:
+    - CD-ROM is not hot-ejected when feature gate is disabled
+  specific_preconditions:
+  - requirement: DeclarativeHotplugVolumes feature gate is disabled
+  - requirement: Running VM with CD-ROM containing media
+  test_steps:
+    setup:
+    - Disable DeclarativeHotplugVolumes feature gate
+    - Create and start a VM with CD-ROM media
+    - Verify CD-ROM is accessible in guest
+    test_execution:
+    - action: Remove volume reference from CD-ROM disk in VM spec
+    - action: Wait 60 seconds and check VM conditions for RestartRequired or error events
+    verification:
+    - CD-ROM media is still accessible in guest (not hot-ejected)
+    - Change is queued for next restart
+    cleanup: *id004
+  assertions:
+  - description: CD-ROM eject does not occur without feature gate
+    type: negative_validation
+  - description: Guest OS reports 'No medium found' on the CD-ROM device
+    type: state_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id005
+    decorators: *id006
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM eject operations
+    it: '[NEGATIVE] CD-ROM eject blocked when feature gate is disabled'
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-008
+  scenario_number: 8
+  requirement_id: REQ-CDROM-SWAP-01
+  tier: Tier 1
+  priority: P0
+  feature_area: cdrom_swap
+  test_objective:
+    title: CD-ROM media swap without restart
+    description: Verify CD-ROM swap by replacing the DataVolume name in the volume reference; confirm new CD-ROM content is
+      accessible in guest and old content is no longer present
+    acceptance_criteria:
+    - New CD-ROM content is accessible in guest
+    - Old CD-ROM content is no longer present
+  specific_preconditions:
+  - requirement: Running VM with an injected CD-ROM (DataVolume A)
+  - requirement: Second DataVolume (B) with different ISO content created and available
+  test_steps:
+    setup:
+    - Create two DataVolumes with different ISO content (DV-A and DV-B)
+    - Create and start a VM with CD-ROM pointing to DV-A
+    - Verify DV-A content is accessible in guest
+    test_execution:
+    - action: Update volume reference in VM spec to point to DV-B instead of DV-A
+    - action: Wait for swap to complete
+    verification:
+    - New CD-ROM content (DV-B) is accessible in guest
+    - Old CD-ROM content (DV-A) is no longer present
+    cleanup: &id007
+    - Delete the test VM
+    - Delete all DataVolumes/PVCs used for CD-ROM swap
+  assertions:
+  - description: CD-ROM content matches DV-B after swap
+    type: data_integrity
+  - description: DV-A content is no longer accessible
+    type: state_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: &id008
+    - vm_factory
+    - datavolume_factory
+    - guest_console
+    decorators: &id009
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM swap operations
+    it: CD-ROM media swap without restart
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-009
+  scenario_number: 9
+  requirement_id: REQ-CDROM-SWAP-02
+  tier: Tier 1
+  priority: P1
+  feature_area: cdrom_swap
+  test_objective:
+    title: CD-ROM swap between different volume types
+    description: Verify CD-ROM swap from DataVolume source to PVC source and vice versa
+    acceptance_criteria:
+    - Swap from DataVolume to PVC succeeds
+    - CD-ROM content from PVC is accessible after swap
+  specific_preconditions:
+  - requirement: Running VM with CD-ROM pointing to a DataVolume
+  - requirement: PVC with different ISO content created and available
+  test_steps:
+    setup:
+    - Create a DataVolume and a PVC with different ISO content
+    - Create and start a VM with CD-ROM pointing to the DataVolume
+    - Verify DataVolume content is accessible in guest
+    test_execution:
+    - action: Update volume reference in VM spec to point to PVC instead of DataVolume
+    - action: Wait for swap to complete
+    verification:
+    - CD-ROM content from PVC is accessible in guest
+    cleanup: *id007
+  assertions:
+  - description: CD-ROM swap between DataVolume and PVC source types succeeds
+    type: operation_success
+  - description: Previous CD-ROM content is no longer accessible in guest
+    type: state_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id008
+    decorators: *id009
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM swap operations
+    it: CD-ROM swap between different volume types
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-010
+  scenario_number: 10
+  requirement_id: REQ-CDROM-SWAP-03
+  tier: Tier 1
+  priority: P0
+  feature_area: cdrom_swap
+  test_objective:
+    title: CD-ROM swap preserves VM operation without restart
+    description: Verify VM continues running without interruption during CD-ROM swap; verify no RestartRequired condition
+      after swap
+    acceptance_criteria:
+    - VM continues running during and after swap
+    - No RestartRequired condition is set
+  specific_preconditions:
+  - requirement: Running VM with an injected CD-ROM
+  - requirement: Second DataVolume with different content available
+  test_steps:
+    setup:
+    - Create two DataVolumes with different content
+    - Create and start a VM with CD-ROM pointing to first DataVolume
+    - Verify VM is Running
+    test_execution:
+    - action: Swap CD-ROM volume reference to second DataVolume
+    - action: Check VM status during and after swap
+    verification:
+    - VM remains in Running state throughout swap
+    - No RestartRequired condition is present on VM
+    cleanup: *id007
+  assertions:
+  - description: VM is Running after CD-ROM swap
+    type: state_check
+  - description: No RestartRequired condition set after swap
+    type: condition_absent
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id008
+    decorators: *id009
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: CD-ROM swap operations
+    it: CD-ROM swap preserves VM operation without restart
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-011
+  scenario_number: 11
+  requirement_id: REQ-EMPTY-CDROM-01
+  tier: Tier 1
+  priority: P0
+  feature_area: empty_cdrom
+  test_objective:
+    title: Empty CD-ROM drive can be defined in VM spec
+    description: Verify VM starts successfully with an empty CD-ROM disk (disk defined without volume reference); confirm
+      guest OS boots and /dev/sr0 exists
+    acceptance_criteria:
+    - VM starts successfully with empty CD-ROM
+    - /dev/sr0 exists in guest
+  specific_preconditions:
+  - requirement: VM spec with CD-ROM disk entry but no corresponding volume reference
+  test_steps:
+    setup:
+    - Create VM spec with an empty CD-ROM disk (disk defined, no volume reference)
+    test_execution:
+    - action: Start the VM
+    - action: 'Wait for VM to reach Running state (timeout: 300s)'
+    - action: Check for /dev/sr0 in guest
+    verification:
+    - VM is in Running state
+    - /dev/sr0 exists as a block device in guest
+    cleanup: &id010
+    - Delete the test VM
+  assertions:
+  - description: VM starts successfully with empty CD-ROM disk
+    type: state_check
+  - description: /dev/sr0 device exists in guest
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id011
+    - vm_factory
+    - guest_console
+    decorators: &id012
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Empty CD-ROM support
+    it: Empty CD-ROM drive can be defined in VM spec
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-012
+  scenario_number: 12
+  requirement_id: REQ-EMPTY-CDROM-02
+  tier: Tier 1
+  priority: P1
+  feature_area: empty_cdrom
+  test_objective:
+    title: Empty CD-ROM reports 'No medium found' in guest
+    description: Verify that attempting to mount an empty CD-ROM in guest returns 'No medium found' error
+    acceptance_criteria:
+    - Mount attempt returns 'No medium found' error
+  specific_preconditions:
+  - requirement: Running VM with empty CD-ROM disk (no volume reference)
+  test_steps:
+    setup:
+    - Create and start a VM with empty CD-ROM disk
+    - Verify VM is Running and /dev/sr0 exists
+    test_execution:
+    - action: Attempt to mount /dev/sr0 in guest
+    verification:
+    - Mount command fails with 'No medium found' error
+    cleanup: *id010
+  assertions:
+  - description: Mount attempt on empty CD-ROM returns 'No medium found'
+    type: error_check
+  - description: VM with empty CD-ROM boots and runs without errors
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id011
+    decorators: *id012
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Empty CD-ROM support
+    it: Empty CD-ROM reports 'No medium found' in guest
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-013
+  scenario_number: 13
+  requirement_id: REQ-FGATE-01
+  tier: Tier 1
+  priority: P0
+  feature_area: feature_gate
+  test_objective:
+    title: DeclarativeHotplugVolumes feature gate enables CD-ROM hotplug
+    description: Verify CD-ROM inject/eject/swap operations succeed when DeclarativeHotplugVolumes feature gate is enabled
+    acceptance_criteria:
+    - CD-ROM operations succeed with feature gate enabled
+  specific_preconditions:
+  - requirement: DeclarativeHotplugVolumes feature gate is enabled
+  - requirement: Running VM with empty CD-ROM disk
+  test_steps:
+    setup:
+    - Enable DeclarativeHotplugVolumes feature gate (via test fixture)
+    - Create and start a VM with empty CD-ROM disk
+    test_execution:
+    - action: Inject CD-ROM by adding volume reference
+    - action: Eject CD-ROM by removing volume reference
+    verification:
+    - Inject operation succeeds (CD-ROM mountable in guest)
+    - Eject operation succeeds (guest reports 'No medium found')
+    cleanup: &id013
+    - Restore DeclarativeHotplugVolumes feature gate to pre-test state
+    - Delete the test VM
+  assertions:
+  - description: CD-ROM inject succeeds with feature gate enabled
+    type: operation_success
+  - description: CD-ROM eject succeeds with feature gate enabled
+    type: operation_success
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id014
+    - vm_factory
+    - feature_gate_config
+    - guest_console
+    decorators: &id015
+    - SigStorage
+    - Serial
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Feature gate behavior
+    it: DeclarativeHotplugVolumes feature gate enables CD-ROM hotplug
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-014
+  scenario_number: 14
+  requirement_id: REQ-FGATE-02
+  tier: Tier 1
+  priority: P0
+  feature_area: feature_gate
+  test_objective:
+    title: '[NEGATIVE] CD-ROM hotplug blocked when feature gate is disabled'
+    description: Verify CD-ROM eject/inject operations are not hot-applied when DeclarativeHotplugVolumes feature gate is
+      disabled
+    acceptance_criteria:
+    - CD-ROM operations are not hot-applied without feature gate
+  specific_preconditions:
+  - requirement: DeclarativeHotplugVolumes feature gate is disabled
+  - requirement: Running VM with CD-ROM containing media
+  test_steps:
+    setup:
+    - Disable DeclarativeHotplugVolumes feature gate (via test fixture)
+    - Create and start a VM with CD-ROM media
+    test_execution:
+    - action: Attempt to eject CD-ROM by removing volume reference
+    - action: Check VM conditions for RestartRequired, verify CD-ROM state in guest
+    verification:
+    - CD-ROM is not hot-ejected
+    - Change requires restart to take effect
+    cleanup: *id013
+  assertions:
+  - description: CD-ROM operations blocked without feature gate
+    type: negative_validation
+  - description: VM shows RestartRequired condition after spec change
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id014
+    decorators: *id015
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Feature gate behavior
+    it: '[NEGATIVE] CD-ROM hotplug blocked when feature gate is disabled'
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-015
+  scenario_number: 15
+  requirement_id: REQ-FGATE-03
+  tier: Tier 1
+  priority: P1
+  feature_area: feature_gate
+  test_objective:
+    title: HotplugVolumes takes precedence when both gates enabled
+    description: Verify that when both HotplugVolumes and DeclarativeHotplugVolumes are enabled, the legacy HotplugVolumes
+      behavior takes precedence
+    acceptance_criteria:
+    - HotplugVolumes behavior takes precedence
+  specific_preconditions:
+  - requirement: Both HotplugVolumes and DeclarativeHotplugVolumes feature gates enabled
+  - requirement: Running VM
+  test_steps:
+    setup:
+    - Enable both HotplugVolumes and DeclarativeHotplugVolumes feature gates
+    - Create and start a VM
+    test_execution:
+    - action: Perform a volume hotplug operation
+    - action: Verify volume hotplug follows imperative (sub-resource) path rather than declarative (spec-patch) path by checking
+        VMI annotations
+    verification:
+    - Legacy HotplugVolumes (imperative) behavior takes precedence
+    cleanup: *id013
+  assertions:
+  - description: HotplugVolumes behavior takes precedence when both gates enabled
+    type: behavior_check
+  - description: VM does not hot-apply the declarative volume change
+    type: negative_validation
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id014
+    decorators: *id015
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Feature gate behavior
+    it: HotplugVolumes takes precedence when both gates enabled
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-016
+  scenario_number: 16
+  requirement_id: REQ-FGATE-04
+  tier: Tier 1
+  priority: P2
+  feature_area: feature_gate
+  test_objective:
+    title: Both feature gates disabled requires restart
+    description: Verify that with both feature gates disabled, volume changes in VM spec require a restart to take effect
+    acceptance_criteria:
+    - Volume changes require restart when both gates disabled
+  specific_preconditions:
+  - requirement: Both HotplugVolumes and DeclarativeHotplugVolumes feature gates disabled
+  - requirement: Running VM
+  test_steps:
+    setup:
+    - Disable both HotplugVolumes and DeclarativeHotplugVolumes feature gates
+    - Create and start a VM
+    test_execution:
+    - action: Modify volume configuration in VM spec
+    - action: Check VM conditions for RestartRequired, verify CD-ROM state in guest
+    verification:
+    - Volume changes are not hot-applied
+    - RestartRequired condition is set
+    cleanup: *id013
+  assertions:
+  - description: Volume changes require restart when both gates disabled
+    type: behavior_check
+  - description: Previously hotplugged volumes remain accessible after feature gate change
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id014
+    decorators: *id015
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Feature gate behavior
+    it: Both feature gates disabled requires restart
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-017
+  scenario_number: 17
+  requirement_id: REQ-RESTART-01
+  tier: Tier 1
+  priority: P0
+  feature_area: restart_required
+  test_objective:
+    title: Removing CD-ROM disk from VM spec triggers RestartRequired
+    description: Verify RestartRequired condition is set when a CD-ROM disk entry (not just the volume reference) is removed
+      from VM spec while the VM is running
+    acceptance_criteria:
+    - RestartRequired condition is set on VM
+  specific_preconditions:
+  - requirement: Running VM with a CD-ROM disk entry in spec
+  test_steps:
+    setup:
+    - Create and start a VM with a CD-ROM disk (with or without media)
+    - Verify VM is Running
+    test_execution:
+    - action: Remove the CD-ROM disk entry from VM spec (not just the volume reference)
+    - action: Observe VM conditions
+    verification:
+    - RestartRequired condition is set on the VM
+    - VM continues running (not restarted automatically)
+    cleanup: &id016
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for CD-ROM content
+  assertions:
+  - description: RestartRequired condition is present on VM after CD-ROM disk removal
+    type: condition_present
+  - description: VM becomes Running again after restart and CD-ROM change applied
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id017
+    - vm_factory
+    - datavolume_factory
+    - condition_checker
+    decorators: &id018
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: RestartRequired condition
+    it: Removing CD-ROM disk from VM spec triggers RestartRequired
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-018
+  scenario_number: 18
+  requirement_id: REQ-RESTART-02
+  tier: Tier 1
+  priority: P1
+  feature_area: restart_required
+  test_objective:
+    title: VM continues running after RestartRequired is set
+    description: Verify VM remains operational after RestartRequired condition; guest workloads continue running; the removed
+      CD-ROM is still accessible until restart
+    acceptance_criteria:
+    - VM remains operational after RestartRequired
+    - Guest workloads continue running
+  specific_preconditions:
+  - requirement: Running VM with RestartRequired condition from CD-ROM disk removal
+  test_steps:
+    setup:
+    - Create and start a VM with a CD-ROM disk containing media
+    - Remove CD-ROM disk entry from VM spec to trigger RestartRequired
+    - Verify RestartRequired condition is set
+    test_execution:
+    - action: Execute a command in the guest to verify it is still responsive
+    - action: Check if CD-ROM is still accessible in guest (pre-restart)
+    verification:
+    - Guest OS is responsive and executing commands
+    - CD-ROM is still accessible in guest until restart
+    cleanup: *id016
+  assertions:
+  - description: VM remains operational with RestartRequired condition
+    type: state_check
+  - description: CD-ROM remains accessible in guest until restart
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id017
+    decorators: *id018
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: RestartRequired condition
+    it: VM continues running after RestartRequired is set
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-019
+  scenario_number: 19
+  requirement_id: REQ-RESTART-03
+  tier: Tier 1
+  priority: P1
+  feature_area: restart_required
+  test_objective:
+    title: CD-ROM disk removal takes effect after restart
+    description: Verify that after restarting a VM with RestartRequired condition from CD-ROM disk removal, the CD-ROM device
+      is no longer present in the guest
+    acceptance_criteria:
+    - CD-ROM device is no longer present after restart
+  specific_preconditions:
+  - requirement: VM with RestartRequired condition from CD-ROM disk removal
+  test_steps:
+    setup:
+    - Create and start a VM with a CD-ROM disk
+    - Remove CD-ROM disk entry from VM spec
+    - Verify RestartRequired condition is set
+    test_execution:
+    - action: Restart the VM (stop and start)
+    - action: 'Wait for VM to reach Running state (timeout: 300s)'
+    - action: Check for /dev/sr0 in guest
+    verification:
+    - /dev/sr0 no longer exists in guest after restart
+    - RestartRequired condition is cleared
+    cleanup: *id016
+  assertions:
+  - description: CD-ROM device is removed from guest after restart
+    type: state_check
+  - description: RestartRequired condition is cleared after restart
+    type: condition_absent
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id017
+    decorators: *id018
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: RestartRequired condition
+    it: CD-ROM disk removal takes effect after restart
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-020
+  scenario_number: 20
+  requirement_id: REQ-RESTART-04
+  tier: Tier 1
+  priority: P1
+  feature_area: restart_required
+  test_objective:
+    title: Volume ordering changes do not trigger RestartRequired
+    description: Verify that adding a hotplug volume at the beginning of the volumes list does not trigger RestartRequired
+      condition
+    acceptance_criteria:
+    - No RestartRequired condition after volume ordering change
+  specific_preconditions:
+  - requirement: Running VM with existing volumes
+  test_steps:
+    setup:
+    - Create and start a VM with at least one volume
+    - Verify VM is Running
+    test_execution:
+    - action: Add a new hotplug volume at the beginning of the volumes list in VM spec
+    - action: Check VM conditions
+    verification:
+    - No RestartRequired condition is set
+    - Volume is hotplugged successfully
+    cleanup: *id016
+  assertions:
+  - description: No RestartRequired condition after adding volume at beginning of list
+    type: condition_absent
+  - description: Volume ordering in VMI spec matches the updated VM spec
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id017
+    decorators: *id018
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: RestartRequired condition
+    it: Volume ordering changes do not trigger RestartRequired
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-021
+  scenario_number: 21
+  requirement_id: REQ-BUS-01
+  tier: Tier 1
+  priority: P1
+  feature_area: bus_type
+  test_objective:
+    title: Hotplugged disks support virtio bus type
+    description: Verify disk hotplug with virtio bus type succeeds; confirm disk is accessible in guest with virtio driver
+    acceptance_criteria:
+    - Disk hotplug with virtio bus succeeds
+    - Disk accessible in guest via virtio driver
+  specific_preconditions:
+  - requirement: Running VM
+  - requirement: DataVolume for hotplug disk created
+  test_steps:
+    setup:
+    - Create a DataVolume for a hotplug disk
+    - Create and start a VM
+    - Verify VM is Running
+    test_execution:
+    - action: Add a hotplug disk with bus type 'virtio' to VM spec
+    - action: Wait for disk to appear in VMI
+    verification:
+    - Disk appears in VMI with virtio bus
+    - Disk is accessible in guest via /dev/vd* device
+    cleanup: &id019
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for hotplug disk
+  assertions:
+  - description: Virtio bus hotplug disk appears in VMI and is accessible in guest
+    type: operation_success
+  - description: VMI status shows the hotplugged disk with virtio bus type
+    type: state_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: &id020
+    - vm_factory
+    - datavolume_factory
+    - guest_console
+    decorators: &id021
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Bus type support
+    it: Hotplugged disks support virtio bus type
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-022
+  scenario_number: 22
+  requirement_id: REQ-BUS-02
+  tier: Tier 1
+  priority: P1
+  feature_area: bus_type
+  test_objective:
+    title: CD-ROM hotplug works with SATA bus
+    description: Verify CD-ROM hotplug with SATA bus succeeds (default CD-ROM bus type); confirm CD-ROM accessible in guest
+    acceptance_criteria:
+    - CD-ROM hotplug with SATA bus succeeds
+  specific_preconditions:
+  - requirement: Running VM with empty CD-ROM disk using SATA bus
+  - requirement: DataVolume with ISO content available
+  test_steps:
+    setup:
+    - Create a VM with empty CD-ROM disk using SATA bus
+    - Start the VM and verify Running
+    test_execution:
+    - action: Inject CD-ROM by adding volume reference
+    - action: Wait for injection to complete
+    verification:
+    - CD-ROM is accessible in guest via /dev/sr0
+    cleanup: *id019
+  assertions:
+  - description: CD-ROM hotplug with SATA bus succeeds
+    type: operation_success
+  - description: Disk data is accessible in guest at the SCSI device path
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id020
+    decorators: *id021
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Bus type support
+    it: CD-ROM hotplug works with SATA bus
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-023
+  scenario_number: 23
+  requirement_id: REQ-BUS-03
+  tier: Tier 1
+  priority: P2
+  feature_area: bus_type
+  test_objective:
+    title: SCSI bus supported for hotplugged disks
+    description: Verify disk hotplug with SCSI bus type succeeds
+    acceptance_criteria:
+    - Disk hotplug with SCSI bus succeeds
+  specific_preconditions:
+  - requirement: Running VM
+  - requirement: DataVolume for hotplug disk created
+  test_steps:
+    setup:
+    - Create a DataVolume for a hotplug disk
+    - Create and start a VM
+    test_execution:
+    - action: Add a hotplug disk with bus type 'scsi' to VM spec
+    - action: Wait for disk to appear in VMI
+    verification:
+    - Disk appears in VMI with SCSI bus
+    - Disk is accessible in guest via /dev/sd* device
+    cleanup: *id019
+  assertions:
+  - description: SCSI bus hotplug disk appears in VMI and is accessible in guest
+    type: operation_success
+  - description: Hotplugged disk is removed from VMI status
+    type: state_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id020
+    decorators: *id021
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Bus type support
+    it: SCSI bus supported for hotplugged disks
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-024
+  scenario_number: 24
+  requirement_id: REQ-PCI-01
+  tier: Tier 1
+  priority: P1
+  feature_area: pci_allocation
+  test_objective:
+    title: VMs with 2G or less memory get 8 PCI ports
+    description: Verify a VM configured with 2G or less guest memory has 8 total PCI ports allocated for hotplug; at least
+      3 ports are free for use
+    acceptance_criteria:
+    - 8 PCI ports allocated
+    - At least 3 free ports available
+  specific_preconditions:
+  - requirement: VM configured with 2Gi or less guest memory
+  test_steps:
+    setup:
+    - Create a VM with 2Gi guest memory
+    test_execution:
+    - action: Start the VM
+    - action: Inspect VMI domain XML or status for PCI port allocation
+    verification:
+    - 8 total PCI ports are allocated for hotplug
+    - At least 3 ports are free for use
+    cleanup: &id022
+    - Delete the test VM
+    - Delete all DataVolumes/PVCs used for hotplug operations
+  assertions:
+  - description: VM with 2Gi memory has 8 PCI ports allocated
+    type: resource_check
+  - description: No PCI address conflict with existing devices
+    type: negative_validation
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id023
+    - vm_factory
+    - datavolume_factory
+    decorators: &id024
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: PCI port allocation
+    it: VMs with 2G or less memory get 8 PCI ports
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-025
+  scenario_number: 25
+  requirement_id: REQ-PCI-02
+  tier: Tier 1
+  priority: P1
+  feature_area: pci_allocation
+  test_objective:
+    title: VMs with more than 2G memory get 16 PCI ports
+    description: Verify a VM configured with more than 2G guest memory has 16 total PCI ports allocated for hotplug; at least
+      6 ports are free for use
+    acceptance_criteria:
+    - 16 PCI ports allocated
+    - At least 6 free ports available
+  specific_preconditions:
+  - requirement: VM configured with more than 2Gi guest memory
+  test_steps:
+    setup:
+    - Create a VM with 4Gi guest memory
+    test_execution:
+    - action: Start the VM
+    - action: Inspect VMI domain XML or status for PCI port allocation
+    verification:
+    - 16 total PCI ports are allocated for hotplug
+    - At least 6 ports are free for use
+    cleanup: *id022
+  assertions:
+  - description: VM with >2Gi memory has 16 PCI ports allocated
+    type: resource_check
+  - description: PCI addresses of original devices unchanged after hotplug
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id023
+    decorators: *id024
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: PCI port allocation
+    it: VMs with more than 2G memory get 16 PCI ports
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-026
+  scenario_number: 26
+  requirement_id: REQ-PCI-03
+  tier: Tier 1
+  priority: P2
+  feature_area: pci_allocation
+  test_objective:
+    title: Hotplug operations respect PCI port limits
+    description: Verify that hotplugging volumes up to the free port limit succeeds; verify appropriate error when exceeding
+      available ports
+    acceptance_criteria:
+    - Hotplug succeeds up to port limit
+    - Error when exceeding port limit
+  specific_preconditions:
+  - requirement: Running VM with known number of free PCI ports
+  test_steps:
+    setup:
+    - Create and start a VM with known PCI port allocation
+    - Determine number of free ports
+    test_execution:
+    - action: Hotplug volumes up to the free port limit
+    - action: Attempt to hotplug one more volume beyond the limit
+    verification:
+    - All hotplugs up to the limit succeed
+    - Hotplug beyond the limit produces appropriate error
+    cleanup: *id022
+  assertions:
+  - description: Hotplug within port limit succeeds
+    type: operation_success
+  - description: Hotplug beyond port limit produces error
+    type: error_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id023
+    decorators: *id024
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: PCI port allocation
+    it: Hotplug operations respect PCI port limits
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-027
+  scenario_number: 27
+  requirement_id: REQ-VIRTCTL-01
+  tier: Tier 1
+  priority: P1
+  feature_area: virtctl_persist
+  test_objective:
+    title: virtctl addvolume persists to VM by default
+    description: Verify virtctl addvolume persists the volume in both VM and VMI specs without requiring the --persist flag
+    acceptance_criteria:
+    - Volume present in both VM and VMI specs after addvolume
+  specific_preconditions:
+  - requirement: Running VM owned by a VirtualMachine object
+  - requirement: DataVolume for hotplug available
+  test_steps:
+    setup:
+    - Create a DataVolume for hotplug
+    - Create and start a VM
+    - Verify VM is Running
+    test_execution:
+    - action: Run 'virtctl addvolume <vm-name> --volume-name=<dv-name>' without --persist flag
+    - action: Inspect VM and VMI specs
+    verification:
+    - Volume is present in VM spec (persisted)
+    - Volume is present in VMI spec (hot-applied)
+    cleanup: &id025
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for CD-ROM content
+  assertions:
+  - description: virtctl addvolume persists to VM spec by default
+    type: state_check
+  - description: Volume persists in VM spec after reboot
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id026
+    - vm_factory
+    - datavolume_factory
+    - virtctl_runner
+    decorators: &id027
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: virtctl persist-by-default
+    it: virtctl addvolume persists to VM by default
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-028
+  scenario_number: 28
+  requirement_id: REQ-VIRTCTL-02
+  tier: Tier 1
+  priority: P1
+  feature_area: virtctl_persist
+  test_objective:
+    title: virtctl removevolume persists to VM by default
+    description: Verify virtctl removevolume removes the volume from both VM and VMI specs without requiring the --persist
+      flag
+    acceptance_criteria:
+    - Volume removed from both VM and VMI specs after removevolume
+  specific_preconditions:
+  - requirement: Running VM with a hotplugged volume
+  test_steps:
+    setup:
+    - Create and start a VM with a hotplugged volume
+    - Verify volume is in both VM and VMI specs
+    test_execution:
+    - action: Run 'virtctl removevolume <vm-name> --volume-name=<dv-name>' without --persist flag
+    - action: Inspect VM and VMI specs
+    verification:
+    - Volume is removed from VM spec
+    - Volume is removed from VMI spec
+    cleanup: *id025
+  assertions:
+  - description: virtctl removevolume removes from VM spec by default
+    type: state_check
+  - description: Volume is no longer present in VMI status after reboot
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id026
+    decorators: *id027
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: virtctl persist-by-default
+    it: virtctl removevolume persists to VM by default
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-029
+  scenario_number: 29
+  requirement_id: REQ-VIRTCTL-03
+  tier: Tier 1
+  priority: P2
+  feature_area: virtctl_persist
+  test_objective:
+    title: --persist flag shows deprecation warning
+    description: Verify that using the --persist flag with virtctl addvolume or virtctl removevolume produces a deprecation
+      warning but still functions correctly
+    acceptance_criteria:
+    - Deprecation warning is displayed
+    - Operation still succeeds
+  specific_preconditions:
+  - requirement: Running VM
+  - requirement: DataVolume for hotplug available
+  test_steps:
+    setup:
+    - Create a DataVolume and a running VM
+    test_execution:
+    - action: Run 'virtctl addvolume <vm-name> --volume-name=<dv-name> --persist'
+    - action: Capture command output
+    verification:
+    - Output contains deprecation warning for --persist flag
+    - Volume is added successfully
+    cleanup: *id025
+  assertions:
+  - description: Deprecation warning displayed for --persist flag
+    type: output_check
+  - description: Operation succeeds despite deprecation
+    type: operation_success
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id026
+    decorators: *id027
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: virtctl persist-by-default
+    it: --persist flag shows deprecation warning
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-030
+  scenario_number: 30
+  requirement_id: REQ-VIRTCTL-04
+  tier: Tier 1
+  priority: P2
+  feature_area: virtctl_persist
+  test_objective:
+    title: Standalone VMI behavior unaffected
+    description: Verify that virtctl addvolume/removevolume behavior for standalone VMIs (not owned by a VM) remains unchanged
+    acceptance_criteria:
+    - Standalone VMI volume operations work as before
+  specific_preconditions:
+  - requirement: Standalone VMI (not owned by a VM object)
+  - requirement: DataVolume for hotplug available
+  test_steps:
+    setup:
+    - Create a standalone VMI (not via VirtualMachine)
+    - Verify VMI is Running
+    test_execution:
+    - action: Run 'virtctl addvolume <vmi-name> --volume-name=<dv-name>'
+    - action: Inspect VMI spec
+    verification:
+    - Volume added to VMI only (no VM to persist to)
+    - Operation succeeds without errors
+    cleanup: *id025
+  assertions:
+  - description: Standalone VMI volume operations remain unchanged
+    type: behavior_check
+  - description: No persist flag is applied by default
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id026
+    decorators: *id027
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: virtctl persist-by-default
+    it: Standalone VMI behavior unaffected
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-031
+  scenario_number: 31
+  requirement_id: REQ-EPHEMERAL-01
+  tier: Tier 1
+  priority: P1
+  feature_area: ephemeral_restriction
+  test_objective:
+    title: Ephemeral hotplug volumes removed by VM controller
+    description: Verify that when DeclarativeHotplugVolumes is enabled and a volume exists only in the VMI (not the VM spec),
+      the VM controller removes it
+    acceptance_criteria:
+    - Ephemeral volume is removed by VM controller
+  specific_preconditions:
+  - requirement: DeclarativeHotplugVolumes feature gate enabled
+  - requirement: Running VM with a volume that exists only in VMI (not in VM spec)
+  - requirement: DeclarativeHotplugVolumes feature gate enabled (fixture-managed)
+  test_steps:
+    setup:
+    - Create and start a VM
+    - Add a volume directly to the VMI (bypassing VM spec)
+    test_execution:
+    - action: Wait for VM controller reconciliation
+    - action: Inspect VMI volumes
+    verification:
+    - Ephemeral volume is removed from VMI by the controller
+    cleanup: &id028
+    - Delete the test VM
+  assertions:
+  - description: Ephemeral hotplug volume is automatically removed from the running VM
+    type: state_check
+  - description: VMI status no longer shows the ephemeral volume
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id029
+    - vm_factory
+    - metrics_checker
+    decorators: &id030
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Ephemeral hotplug restriction
+    it: Ephemeral hotplug volumes removed by VM controller
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-032
+  scenario_number: 32
+  requirement_id: REQ-EPHEMERAL-02
+  tier: Tier 1
+  priority: P2
+  feature_area: ephemeral_restriction
+  test_objective:
+    title: Ephemeral hotplug volume metric exposed
+    description: Verify kubevirt_vmi_contains_ephemeral_hotplug_volume metric is exposed when a VMI contains ephemeral hotplug
+      volumes; verify the associated alert fires
+    acceptance_criteria:
+    - Metric is exposed with correct value
+    - Associated alert fires
+  specific_preconditions:
+  - requirement: VMI with ephemeral hotplug volume annotation
+  test_steps:
+    setup:
+    - Create a VMI with ephemeral hotplug volume
+    test_execution:
+    - action: Query Prometheus for kubevirt_vmi_contains_ephemeral_hotplug_volume metric
+    - action: Check alert status
+    verification:
+    - Metric is present and has value 1 for the VMI
+    - Associated alert is firing or pending
+    cleanup: *id028
+  assertions:
+  - description: Ephemeral hotplug volume metric is exposed
+    type: metric_check
+  - description: Associated alert fires when metric is present
+    type: alert_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id029
+    decorators: *id030
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Ephemeral hotplug restriction
+    it: Ephemeral hotplug volume metric exposed
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-033
+  scenario_number: 33
+  requirement_id: REQ-HOTPLUG-DISK-01
+  tier: Tier 1
+  priority: P1
+  feature_area: hotplug_disk
+  test_objective:
+    title: Non-CD-ROM disk can be hotplugged declaratively
+    description: Verify adding a hotplug disk (not CD-ROM) by updating VM spec; disk appears in VMI and is usable in guest
+    acceptance_criteria:
+    - Disk appears in VMI after adding to VM spec
+    - Disk is usable in guest
+  specific_preconditions:
+  - requirement: Running VM with DeclarativeHotplugVolumes enabled
+  - requirement: DataVolume for hotplug disk created
+  test_steps:
+    setup:
+    - Create a DataVolume for a data disk
+    - Create and start a VM
+    test_execution:
+    - action: Add a hotplug disk and volume to VM spec
+    - action: Wait for disk to appear in VMI
+    verification:
+    - Disk appears in VMI status
+    - Disk is accessible and writable in guest
+    cleanup: &id031
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for hotplug disk
+  assertions:
+  - description: Hotplug disk appears in VMI and is usable in guest
+    type: operation_success
+  - description: Disk data is accessible and usable in guest OS
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: &id032
+    - vm_factory
+    - datavolume_factory
+    decorators: &id033
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Hotplug disk operations
+    it: Non-CD-ROM disk can be hotplugged declaratively
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-034
+  scenario_number: 34
+  requirement_id: REQ-HOTPLUG-DISK-02
+  tier: Tier 1
+  priority: P1
+  feature_area: hotplug_disk
+  test_objective:
+    title: Non-CD-ROM disk can be hot-unplugged declaratively
+    description: Verify removing a hotplug disk and volume from VM spec; disk is detached from VMI and inaccessible in guest
+    acceptance_criteria:
+    - Disk is detached from VMI after removal from VM spec
+    - Disk is inaccessible in guest
+  specific_preconditions:
+  - requirement: Running VM with a hotplugged data disk
+  test_steps:
+    setup:
+    - Create and start a VM with a hotplugged data disk
+    - Verify disk is accessible in guest
+    test_execution:
+    - action: Remove the hotplug disk and volume from VM spec
+    - action: Wait for disk to be detached from VMI
+    verification:
+    - Disk is removed from VMI status
+    - Disk device is no longer accessible in guest
+    cleanup: *id031
+  assertions:
+  - description: Hotplug disk is detached from VMI after removal
+    type: state_check
+  - description: Disk data is accessible and usable in guest OS
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id032
+    decorators: *id033
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Hotplug disk operations
+    it: Non-CD-ROM disk can be hot-unplugged declaratively
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-035
+  scenario_number: 35
+  requirement_id: REQ-RBAC-01
+  tier: Tier 1
+  priority: P1
+  feature_area: rbac
+  test_objective:
+    title: '[NEGATIVE] Non-admin user cannot modify VM volumes without permission'
+    description: Verify that a user without VM edit permissions cannot add or remove volumes from a VM spec
+    acceptance_criteria:
+    - Volume modification is rejected for unprivileged user
+  specific_preconditions:
+  - requirement: Running VM
+  - requirement: Non-admin user without VM edit permissions
+  test_steps:
+    setup:
+    - Create a non-admin service account or user without VM edit RBAC
+    - Create and start a VM as admin
+    test_execution:
+    - action: As non-admin user, attempt to patch VM spec to add a volume
+    verification:
+    - Patch request is rejected with 403 Forbidden
+    cleanup: &id034
+    - Delete the test VM
+    - Delete the service account and role bindings
+  assertions:
+  - description: Volume modification rejected for unprivileged user
+    type: rbac_check
+  - description: Appropriate permission error returned
+    type: error_validation
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id035
+    - vm_factory
+    - rbac_factory
+    decorators: &id036
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: RBAC enforcement
+    it: '[NEGATIVE] Non-admin user cannot modify VM volumes without permission'
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-036
+  scenario_number: 36
+  requirement_id: REQ-RBAC-02
+  tier: Tier 1
+  priority: P2
+  feature_area: rbac
+  test_objective:
+    title: Admin can grant volume management permissions
+    description: Verify that a cluster admin can grant a user permission to modify VM volumes via RBAC roles
+    acceptance_criteria:
+    - User can modify VM volumes after being granted permissions
+  specific_preconditions:
+  - requirement: Non-admin user
+  - requirement: Cluster admin access to create RBAC bindings
+  test_steps:
+    setup:
+    - Create a non-admin user
+    - Create RBAC role with VM edit permissions
+    - Create role binding for the user
+    test_execution:
+    - action: As the newly-authorized user, add a volume to VM spec
+    verification:
+    - Volume modification succeeds
+    cleanup: *id034
+  assertions:
+  - description: User can modify VM volumes after RBAC grant
+    type: rbac_check
+  - description: Operation succeeds with correct RBAC permissions
+    type: operation_success
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id035
+    decorators: *id036
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: RBAC enforcement
+    it: Admin can grant volume management permissions
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-037
+  scenario_number: 37
+  requirement_id: REQ-NEGATIVE-01
+  tier: Tier 1
+  priority: P2
+  feature_area: negative
+  test_objective:
+    title: '[NEGATIVE] Hotplug of non-hotpluggable volume is rejected'
+    description: 'Verify that attempting to hotplug a volume without hotpluggable: true is rejected or triggers RestartRequired'
+    acceptance_criteria:
+    - Non-hotpluggable volume hotplug is rejected or triggers RestartRequired
+  specific_preconditions:
+  - requirement: Running VM
+  - requirement: 'Volume without hotpluggable: true annotation'
+  test_steps:
+    setup:
+    - Create a DataVolume without hotpluggable annotation
+    - Create and start a VM
+    test_execution:
+    - action: Attempt to add the non-hotpluggable volume to VM spec
+    verification:
+    - Operation is rejected or RestartRequired condition is set
+    cleanup: &id037
+    - Delete the test VM
+  assertions:
+  - description: Non-hotpluggable volume hotplug is rejected or triggers RestartRequired
+    type: negative_validation
+  - description: VM status or events report appropriate error
+    type: error_validation
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id038
+    - vm_factory
+    - datavolume_factory
+    decorators: &id039
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Negative and error cases
+    it: '[NEGATIVE] Hotplug of non-hotpluggable volume is rejected'
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-038
+  scenario_number: 38
+  requirement_id: REQ-NEGATIVE-02
+  tier: Tier 1
+  priority: P2
+  feature_area: negative
+  test_objective:
+    title: '[NEGATIVE] Invalid volume reference handled gracefully'
+    description: Verify that referencing a non-existent DataVolume or PVC in a CD-ROM volume update is handled with appropriate
+      error/event
+    acceptance_criteria:
+    - Appropriate error or event is generated
+  specific_preconditions:
+  - requirement: Running VM with empty CD-ROM disk
+  test_steps:
+    setup:
+    - Create and start a VM with empty CD-ROM disk
+    test_execution:
+    - action: Add volume reference pointing to a non-existent DataVolume name
+    verification:
+    - Appropriate error event is generated on the VM
+    - VM continues running (not crashed)
+    cleanup: *id037
+  assertions:
+  - description: Invalid volume reference produces appropriate error
+    type: error_check
+  - description: VM remains operational despite invalid reference
+    type: state_check
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id038
+    decorators: *id039
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    describe: CD-ROM Hotplug Operations
+    context: Negative and error cases
+    it: '[NEGATIVE] Invalid volume reference handled gracefully'
+  code_structure:
+    framework: ginkgo_v2
+    pattern: Describe -> Context -> It
+    pending: true
+- test_id: TS-CNV68916-039
+  scenario_number: 39
+  requirement_id: REQ-E2E-LIFECYCLE-01
+  tier: Tier 2
+  priority: P0
+  feature_area: e2e_lifecycle
+  test_objective:
+    title: Full CD-ROM inject, swap, and eject lifecycle
+    description: 'Verify complete lifecycle: create VM with empty CD-ROM, inject media, verify content, swap media, verify
+      new content, eject media, verify ''No medium found'', re-inject and verify again'
+    acceptance_criteria:
+    - Complete inject-swap-eject-reinject lifecycle succeeds
+  specific_preconditions:
+  - requirement: DeclarativeHotplugVolumes feature gate enabled
+  - requirement: Two DataVolumes with different ISO content
+  test_steps:
+    setup:
+    - Create two DataVolumes with different ISO content (DV-A, DV-B)
+    - Create and start a VM with empty CD-ROM disk
+    - Verify VM is Running and /dev/sr0 shows 'No medium found'
+    test_execution:
+    - action: 'Inject DV-A: add volume reference to CD-ROM disk'
+    - action: Mount and verify DV-A content in guest
+    - action: 'Swap to DV-B: update volume reference'
+    - action: Unmount, remount and verify DV-B content in guest
+    - action: 'Eject: remove volume reference'
+    - action: Verify 'No medium found' in guest
+    - action: 'Re-inject DV-A: add volume reference again'
+    - action: Mount and verify DV-A content again
+    verification:
+    - Each lifecycle step succeeds without errors
+    - VM remains Running throughout all operations
+    cleanup:
+    - Delete the test VM
+    - Delete all DataVolumes used during lifecycle test
+  assertions:
+  - description: Full CD-ROM lifecycle (inject-swap-eject-reinject) completes successfully
+    type: e2e_workflow
+  - description: Each lifecycle stage transitions cleanly without errors
+    type: operation_success
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required:
+    - vm_factory
+    - datavolume_factory
+    - guest_console
+    decorators:
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromLifecycle
+    method: test_ts_cnv68916_039
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-040
+  scenario_number: 40
+  requirement_id: REQ-E2E-PERSIST-01
+  tier: Tier 2
+  priority: P0
+  feature_area: e2e_persistence
+  test_objective:
+    title: CD-ROM hotplug state persists through VM restart
+    description: Verify injected CD-ROM volume survives VM stop/start cycle; content remains accessible after restart
+    acceptance_criteria:
+    - CD-ROM volume present in VM spec after restart
+    - CD-ROM content accessible in guest after restart
+  specific_preconditions:
+  - requirement: Running VM with injected CD-ROM via declarative hotplug
+  test_steps:
+    setup:
+    - Create and start a VM with empty CD-ROM disk
+    - Inject CD-ROM media via declarative hotplug
+    - Verify CD-ROM content accessible in guest
+    test_execution:
+    - action: Stop the VM
+    - action: Start the VM
+    - action: 'Wait for VM to reach Running state (timeout: 300s)'
+    - action: Mount and verify CD-ROM content in guest
+    verification:
+    - Volume reference persists in VM spec through restart
+    - CD-ROM content is accessible in guest after restart
+    cleanup: &id040
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for persistence test
+  assertions:
+  - description: CD-ROM state persists through VM stop/start cycle
+    type: persistence_check
+  - description: Volume data integrity verified after stop/start cycle
+    type: data_integrity
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: &id041
+    - vm_factory
+    - datavolume_factory
+    - guest_console
+    decorators: &id042
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromPersistence
+    method: test_ts_cnv68916_040
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-041
+  scenario_number: 41
+  requirement_id: REQ-E2E-PERSIST-02
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_persistence
+  test_objective:
+    title: Ejected CD-ROM state persists after VM restart
+    description: Verify that an ejected CD-ROM (empty drive) persists correctly after VM restart; guest still sees empty CD-ROM
+      device
+    acceptance_criteria:
+    - Empty CD-ROM drive persists after restart
+    - Guest sees empty CD-ROM device
+  specific_preconditions:
+  - requirement: Running VM with ejected CD-ROM (empty drive, disk entry present)
+  test_steps:
+    setup:
+    - Create and start a VM with CD-ROM media
+    - Eject CD-ROM by removing volume reference
+    - Verify guest shows 'No medium found'
+    test_execution:
+    - action: Stop the VM
+    - action: Start the VM
+    - action: Wait for Running state
+    - action: Check /dev/sr0 in guest
+    verification:
+    - /dev/sr0 exists in guest after restart
+    - Guest reports 'No medium found' (ejected state preserved)
+    cleanup: *id040
+  assertions:
+  - description: Ejected CD-ROM state persists through VM restart
+    type: persistence_check
+  - description: Hotplugged volumes are preserved in VM spec after restart
+    type: state_check
+  patterns:
+    primary: storage-hotplug-001
+    helpers_required: *id041
+    decorators: *id042
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromPersistence
+    method: test_ts_cnv68916_041
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-042
+  scenario_number: 42
+  requirement_id: REQ-E2E-MIGRATION-01
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_migration
+  test_objective:
+    title: VM with hotplugged CD-ROM migrates successfully
+    description: Verify VM with an injected CD-ROM can be live-migrated; CD-ROM remains accessible on target node after migration
+    acceptance_criteria:
+    - Migration completes successfully
+    - CD-ROM accessible on target node
+  specific_preconditions:
+  - requirement: Running VM with injected CD-ROM via declarative hotplug
+  - requirement: At least 2 schedulable worker nodes
+  test_steps:
+    setup:
+    - Create and start a VM with injected CD-ROM
+    - Verify CD-ROM content accessible in guest
+    - Record source node
+    test_execution:
+    - action: Initiate live migration
+    - action: 'Wait for migration to complete (timeout: 600s)'
+    - action: Verify VM is on target node
+    - action: Mount and verify CD-ROM content in guest
+    verification:
+    - Migration completes without errors
+    - VM is running on a different node
+    - CD-ROM content is intact and accessible
+    cleanup: &id043
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for migration test
+  assertions:
+  - description: VM with hotplugged CD-ROM migrates successfully
+    type: migration_check
+  - description: Hotplugged volumes remain accessible after migration completes
+    type: state_check
+  patterns:
+    primary: migration-001
+    helpers_required: &id044
+    - vm_factory
+    - datavolume_factory
+    - migration_helper
+    decorators: &id045
+    - SigStorage
+    - RequiresTwoSchedulableNodes
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromMigration
+    method: test_ts_cnv68916_042
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-043
+  scenario_number: 43
+  requirement_id: REQ-E2E-MIGRATION-02
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_migration
+  test_objective:
+    title: Hotplugged disk data accessible after migration
+    description: Verify hotplugged data disk content is intact and accessible after live migration
+    acceptance_criteria:
+    - Data disk content intact after migration
+  specific_preconditions:
+  - requirement: Running VM with hotplugged data disk
+  - requirement: Data written to the hotplugged disk before migration
+  test_steps:
+    setup:
+    - Create and start a VM with hotplugged data disk
+    - Write test data to the hotplugged disk
+    - Record data checksum
+    test_execution:
+    - action: Initiate live migration
+    - action: 'Wait for migration to complete (timeout: 600s)'
+    - action: Read data from hotplugged disk and compute checksum
+    verification:
+    - Data checksum matches pre-migration checksum
+    cleanup: *id043
+  assertions:
+  - description: Hotplugged disk data is intact after migration
+    type: data_integrity
+  - description: VM successfully migrates without volume detachment
+    type: operation_success
+  patterns:
+    primary: migration-001
+    helpers_required: *id044
+    decorators: *id045
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromMigration
+    method: test_ts_cnv68916_043
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-044
+  scenario_number: 44
+  requirement_id: REQ-E2E-SNAPSHOT-01
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_snapshot
+  test_objective:
+    title: Snapshot of VM with hotplugged volumes
+    description: Verify snapshot creation succeeds for a VM with declaratively hotplugged volumes
+    acceptance_criteria:
+    - Snapshot creation succeeds
+  specific_preconditions:
+  - requirement: Running VM with hotplugged volumes (CD-ROM and data disk)
+  test_steps:
+    setup:
+    - Create and start a VM
+    - Hotplug a CD-ROM and a data disk
+    - Verify both are accessible in guest
+    test_execution:
+    - action: Create a VirtualMachineSnapshot
+    - action: Wait for snapshot to reach ReadyToUse
+    verification:
+    - Snapshot is created successfully
+    - Snapshot status is ReadyToUse
+    cleanup: &id046
+    - Delete the test VM
+    - Delete the VirtualMachineSnapshot and restore objects
+    - Delete the DataVolume/PVC
+  assertions:
+  - description: Snapshot creation succeeds with hotplugged volumes
+    type: operation_success
+  - description: Snapshot includes the hotplugged volume state
+    type: state_check
+  patterns:
+    primary: snapshot-001
+    helpers_required: &id047
+    - vm_factory
+    - datavolume_factory
+    - snapshot_helper
+    decorators: &id048
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromSnapshot
+    method: test_ts_cnv68916_044
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-045
+  scenario_number: 45
+  requirement_id: REQ-E2E-SNAPSHOT-02
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_snapshot
+  test_objective:
+    title: Restore of VM with hotplugged volumes
+    description: Verify restore from snapshot preserves hotplugged volume configuration and data
+    acceptance_criteria:
+    - Restore preserves hotplugged volume configuration
+    - Data is intact after restore
+  specific_preconditions:
+  - requirement: Snapshot of a VM with hotplugged volumes (ReadyToUse)
+  test_steps:
+    setup:
+    - Create VM with hotplugged volumes and take a snapshot
+    - Write known data to hotplugged disk
+    - Verify snapshot is ReadyToUse
+    test_execution:
+    - action: Restore the VM from snapshot
+    - action: Wait for restored VM to reach Running state
+    - action: Verify hotplugged volume configuration
+    - action: Verify data on hotplugged disk
+    verification:
+    - Restored VM has the hotplugged volume configuration
+    - Data on hotplugged disk matches pre-snapshot data
+    cleanup: *id046
+  assertions:
+  - description: Restore preserves hotplugged volume configuration and data
+    type: data_integrity
+  - description: Restored VM's hotplugged volumes are accessible in guest
+    type: data_integrity
+  patterns:
+    primary: snapshot-001
+    helpers_required: *id047
+    decorators: *id048
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromSnapshot
+    method: test_ts_cnv68916_045
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-046
+  scenario_number: 46
+  requirement_id: REQ-E2E-UPGRADE-01
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_upgrade
+  test_objective:
+    title: Feature gate state preserved across upgrade
+    description: Verify DeclarativeHotplugVolumes feature gate configuration survives OCP/CNV upgrade
+    acceptance_criteria:
+    - Feature gate configuration preserved after upgrade
+  specific_preconditions:
+  - requirement: Cluster with DeclarativeHotplugVolumes feature gate enabled
+  - requirement: OCP/CNV upgrade path available
+  - requirement: DeclarativeHotplugVolumes feature gate enabled (fixture-managed)
+  test_steps:
+    setup:
+    - Verify feature gate is active
+    test_execution:
+    - action: Verify feature gate is enabled and CD-ROM hotplug operations succeed (pre-upgrade baseline)
+    - action: Perform OCP/CNV upgrade
+    - action: 'Wait for upgrade to complete (timeout: 1800s)'
+    - action: Verify feature gate is still enabled (post-upgrade verification)
+    verification:
+    - DeclarativeHotplugVolumes feature gate is still enabled after upgrade
+    cleanup: &id049
+    - Delete the test VM
+    - Delete the DataVolume/PVC used for upgrade test
+  assertions:
+  - description: Feature gate configuration survives upgrade
+    type: upgrade_check
+  - description: CD-ROM hotplug operations still work after upgrade
+    type: operation_success
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: &id050
+    - vm_factory
+    - datavolume_factory
+    - upgrade_helper
+    decorators: &id051
+    - SigStorage
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromUpgrade
+    method: test_ts_cnv68916_046
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
+- test_id: TS-CNV68916-047
+  scenario_number: 47
+  requirement_id: REQ-E2E-UPGRADE-02
+  tier: Tier 2
+  priority: P1
+  feature_area: e2e_upgrade
+  test_objective:
+    title: VM with hotplugged volumes operational after upgrade
+    description: Verify VM with hotplugged CD-ROM and disk volumes continues to function correctly after cluster upgrade
+    acceptance_criteria:
+    - VM operational after upgrade
+    - Hotplugged volumes accessible after upgrade
+  specific_preconditions:
+  - requirement: Running VM with hotplugged CD-ROM and data disk
+  - requirement: OCP/CNV upgrade path available
+  test_steps:
+    setup:
+    - Create and start a VM with hotplugged CD-ROM and data disk
+    - Verify both are accessible in guest
+    test_execution:
+    - action: Record content checksums of hotplugged volumes (pre-upgrade baseline)
+    - action: Perform OCP/CNV upgrade
+    - action: 'Wait for upgrade to complete (timeout: 1800s)'
+    - action: Verify VM is Running
+    - action: Verify hotplugged volumes are accessible
+    - action: Verify content checksums match
+    verification:
+    - VM is Running after upgrade
+    - CD-ROM and data disk are accessible
+    - Content matches pre-upgrade checksums
+    cleanup: *id049
+  assertions:
+  - description: VM with hotplugged volumes is fully operational after upgrade
+    type: upgrade_check
+  - description: Content checksums match pre-upgrade values
+    type: data_integrity
+  patterns:
+    primary: vm-lifecycle-001
+    helpers_required: *id050
+    decorators: *id051
+  variables:
+    closure_scope:
+    - name: ctx
+      type: context.Context
+    - name: namespace
+      type: string
+  test_structure:
+    class: TestCdromUpgrade
+    method: test_ts_cnv68916_047
+  code_structure:
+    framework: pytest
+    pattern: class -> method
+    pending: true
