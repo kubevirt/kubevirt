@@ -609,7 +609,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 }
 
 func (m *migrationMonitor) startMonitor() {
-	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
 
 	m.start = time.Now().UTC().UnixNano()
@@ -659,11 +658,15 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 
-		jobStats := completedJobInfo
-		if jobStats == nil {
-			jobStats, err = dom.GetJobStats(0)
+		var jobStats *libvirt.DomainJobInfo
+		jobStats, err = dom.GetJobStats(0)
+		if err != nil {
+			logger.Reason(err).Info("failed to get domain job info, checking for completed job")
+			jobStats, err = dom.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
 			if err != nil {
-				logger.Reason(err).Warning("failed to get domain job info, will retry")
+				// This could only happen when the domain is gone (successful migration) but there is lock contention in stats retrieval.
+				// In case of a sudden domain crash the migrationErr handling above takes care of it.
+				logger.Reason(err).Warning("failed to get completed job stats, will retry")
 				continue
 			}
 		}
@@ -688,8 +691,16 @@ func (m *migrationMonitor) startMonitor() {
 			if logInterval%monitorLogInterval == 0 {
 				logMigrationInfo(logger, string(migrationUID), jobStats)
 			}
+		case libvirt.DOMAIN_JOB_COMPLETED:
+			logMigrationInfo(logger, string(migrationUID), jobStats)
+			return
 		case libvirt.DOMAIN_JOB_NONE:
-			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
+			jobStats = m.determineNonRunningMigrationStatus(dom)
+			if jobStats != nil && jobStats.Type == libvirt.DOMAIN_JOB_CANCELLED {
+				logger.Info("Migration was canceled")
+				m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+				return
+			}
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
 			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
