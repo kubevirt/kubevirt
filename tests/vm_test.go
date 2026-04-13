@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -58,6 +59,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -327,6 +329,57 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By(fmt.Sprintf("Doing run: %d", i))
 				vm = libvmops.StopVirtualMachine(libvmops.StartVirtualMachine(vm))
 			}
+		})
+
+		It("should preserve MAC address across stop/start cycles", Serial, func() {
+			const kubemacpoolVMOptOutLabel = "mutatevirtualmachines.kubemacpool.io"
+
+			By("Enabling VMPersistentMACs feature gate")
+			config.EnableFeatureGate(featuregate.VMPersistentMACs)
+
+			By("Opting out of kubemacpool to ensure MAC persistence is tested")
+			Expect(libnamespace.AddLabelToNamespace(virtClient, testsuite.GetTestNamespace(nil), kubemacpoolVMOptOutLabel, "ignore")).To(Succeed())
+			DeferCleanup(func() {
+				Expect(libnamespace.RemoveLabelFromNamespace(virtClient, testsuite.GetTestNamespace(nil), kubemacpoolVMOptOutLabel)).To(Succeed())
+			})
+
+			By("Creating a VM with masquerade networking")
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vm := createVM(virtClient, vmi)
+
+			By("Starting the VM and capturing the initial MAC address")
+			vm = libvmops.StartVirtualMachine(vm)
+			var originalMAC string
+			Eventually(func(g Gomega) {
+				runningVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(runningVMI.Status.Interfaces).NotTo(BeEmpty())
+				g.Expect(runningVMI.Status.Interfaces[0].MAC).NotTo(BeEmpty())
+				originalMAC = runningVMI.Status.Interfaces[0].MAC
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
+
+			By("Stopping and starting the VM")
+			vm = libvmops.StopVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
+
+			By("Verifying MAC address is preserved after stop/start")
+			Eventually(func(g Gomega) {
+				restartedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(restartedVMI.Status.Interfaces).NotTo(BeEmpty())
+				g.Expect(restartedVMI.Status.Interfaces[0].MAC).To(Equal(originalMAC),
+					"MAC address should be preserved after stop/start")
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
+
+			By("Verifying MAC address is persisted to VM spec")
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+			Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress).To(Equal(originalMAC),
+				"MAC address should be persisted to VM spec")
 		})
 
 		It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", decorators.Conformance, func() {

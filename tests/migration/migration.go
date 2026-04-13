@@ -553,6 +553,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
+				By("Capturing MAC addresses before migrations")
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				originalMACs := map[string]string{}
+				for _, ifaceStatus := range vmi.Status.Interfaces {
+					originalMACs[ifaceStatus.Name] = ifaceStatus.MAC
+				}
+
 				num := 4
 
 				for i := 0; i < num; i++ {
@@ -573,6 +581,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						Expect(err).NotTo(HaveOccurred())
 						return libnet.AssertAllPodIPsReportedOnVMI(newvmi, vmiPod)
 					}, 180*time.Second, time.Second).Should(Succeed(), "Should have updated IP and IPs fields")
+
+					By(fmt.Sprintf("Verifying MAC addresses are preserved after migration %d", i))
+					Eventually(func(g Gomega) {
+						newvmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						g.Expect(err).ToNot(HaveOccurred())
+						for _, ifaceStatus := range newvmi.Status.Interfaces {
+							g.Expect(ifaceStatus.MAC).To(Equal(originalMACs[ifaceStatus.Name]),
+								"MAC address for interface %s should be preserved after migration %d", ifaceStatus.Name, i)
+						}
+					}, 30*time.Second, 3*time.Second).Should(Succeed())
 				}
 			})
 
