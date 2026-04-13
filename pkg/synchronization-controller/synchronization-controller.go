@@ -934,6 +934,25 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	if newVMI.Status.MigrationState == nil {
 		newVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
+
+	// Only update SourceState if this migration is still active and matches the VMI's current migration.
+	// This prevents stale updates from a completed decentralized migration from interfering with a new compute migration.
+	if migration.IsFinal() {
+		log.Log.Object(migration).Infof("Migration is final, ignoring source state update for VMI %s/%s", vmi.Namespace, vmi.Name)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
+	// Check if the VMI's current migration matches this migration
+	if newVMI.Status.MigrationState.MigrationUID != "" && newVMI.Status.MigrationState.MigrationUID != migration.UID {
+		log.Log.Object(migration).Warningf("VMI %s/%s has different migration UID %s, ignoring source state update for migration %s",
+			vmi.Namespace, vmi.Name, newVMI.Status.MigrationState.MigrationUID, migration.UID)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
 	log.Log.Object(newVMI).V(5).Infof("vmi migration source state: %#v", newVMI.Status.MigrationState.SourceState)
 	log.Log.Object(newVMI).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
 	newVMI.Status.MigrationState.SourceState = remoteStatus.MigrationState.SourceState.DeepCopy()
@@ -1054,6 +1073,24 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	newVMI := vmi.DeepCopy()
 	if newVMI.Status.MigrationState == nil {
 		newVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+	}
+
+	// Only update TargetState if this migration is still active and matches the VMI's current migration.
+	// This prevents stale updates from a completed decentralized migration from interfering with a new compute migration.
+	if migration.IsFinal() {
+		log.Log.Object(migration).Infof("Migration is final, ignoring target state update for VMI %s/%s", vmi.Namespace, vmi.Name)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
+	// Check if the VMI's current migration matches this migration
+	if newVMI.Status.MigrationState.MigrationUID != "" && newVMI.Status.MigrationState.MigrationUID != migration.UID {
+		log.Log.Object(migration).Warningf("VMI %s/%s has different migration UID %s, ignoring target state update for migration %s",
+			vmi.Namespace, vmi.Name, newVMI.Status.MigrationState.MigrationUID, migration.UID)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
 	}
 
 	log.Log.Object(newVMI).V(5).Infof("vmi migration target state: %#v", newVMI.Status.MigrationState.TargetState)
