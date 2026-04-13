@@ -118,7 +118,7 @@ var _ = Describe(SIG("Backup", func() {
 		Entry("2 backups to the same PVC should succeed", getDoubleTargetPVCSize(cd.AlpineVolumeSize), 2),
 	)
 
-	It("[QUARANTINE]Full and Incremental Backup with BackupTracker", decorators.Quarantine, func() {
+	It("Full and Incremental Backup with BackupTracker", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -196,7 +196,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 	})
 
-	It("[QUARANTINE]Full and Incremental Backup with 2 disks", decorators.Quarantine, func() {
+	It("Full and Incremental Backup with 2 disks", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -490,7 +490,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
 	})
 
-	It("[QUARANTINE] Checkpoint redefinition succeeds after hotplug volume removal", decorators.Quarantine, func() {
+	It("Checkpoint redefinition succeeds after hotplug volume removal", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
