@@ -62,6 +62,8 @@ const (
 
 	populatedForPVCAnnotation = "cdi.kubevirt.io/storage.populatedFor"
 
+	contentTypeAnnotation = "cdi.kubevirt.io/storage.contentType"
+
 	lastRestoreAnnotation = "restore.kubevirt.io/lastRestoreUID"
 
 	restoreSourceNameLabel = "restore.kubevirt.io/source-vm-name"
@@ -1599,7 +1601,7 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 
 	for _, prefix := range restoreAnnotationsToDelete {
 		for anno := range pvc.Annotations {
-			if strings.HasPrefix(anno, prefix) {
+			if strings.HasPrefix(anno, prefix) && anno != contentTypeAnnotation {
 				delete(pvc.Annotations, anno)
 			}
 		}
