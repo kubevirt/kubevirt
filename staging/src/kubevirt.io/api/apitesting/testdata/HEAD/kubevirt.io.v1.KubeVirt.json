@@ -137,7 +137,12 @@
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true,
         "experimental": {
-          "compression": "compressionValue"
+          "compression": "compressionValue",
+          "maxDowntimeMs": 18446744073709551603,
+          "downtimeInitialMs": 18446744073709551599,
+          "downtimeSteps": -13,
+          "downtimeStartAfterIteration": 18446744073709551589,
+          "downtimeStepsCooldownSeconds": -28
         }
       },
       "machineType": "machineTypeValue",

@@ -1672,6 +1672,31 @@ func (in *ExperimentalMigrationConfiguration) DeepCopyInto(out *ExperimentalMigr
 		*out = new(MigrationCompression)
 		**out = **in
 	}
+	if in.MaxDowntimeMs != nil {
+		in, out := &in.MaxDowntimeMs, &out.MaxDowntimeMs
+		*out = new(uint64)
+		**out = **in
+	}
+	if in.DowntimeInitialMs != nil {
+		in, out := &in.DowntimeInitialMs, &out.DowntimeInitialMs
+		*out = new(uint64)
+		**out = **in
+	}
+	if in.DowntimeSteps != nil {
+		in, out := &in.DowntimeSteps, &out.DowntimeSteps
+		*out = new(int)
+		**out = **in
+	}
+	if in.DowntimeStartAfterIteration != nil {
+		in, out := &in.DowntimeStartAfterIteration, &out.DowntimeStartAfterIteration
+		*out = new(uint64)
+		**out = **in
+	}
+	if in.DowntimeStepsCooldownSeconds != nil {
+		in, out := &in.DowntimeStepsCooldownSeconds, &out.DowntimeStepsCooldownSeconds
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 

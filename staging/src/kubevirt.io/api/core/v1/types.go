@@ -3396,6 +3396,27 @@ type ExperimentalMigrationConfiguration struct {
 	// disabled.
 	//+optional
 	Compression *MigrationCompression `json:"compression,omitempty"`
+	// MaxDowntimeMs is the maximum allowed downtime in milliseconds for the
+	// final switchover phase of the migration. Defaults to the cluster-level
+	// setting when nil.
+	//+optional
+	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
+	// DowntimeInitialMs is the initial max_downtime value in milliseconds
+	// set at the start of migration. Tuning steps increase from this value.
+	//+optional
+	DowntimeInitialMs *uint64 `json:"downtimeInitialMs,omitempty"`
+	// DowntimeSteps is the number of equal increments used to ramp from
+	// DowntimeInitialMs to MaxDowntimeMs.
+	//+optional
+	DowntimeSteps *int `json:"downtimeSteps,omitempty"`
+	// DowntimeStartAfterIteration is the memory copy iteration after which
+	// downtime tuning begins.
+	//+optional
+	DowntimeStartAfterIteration *uint64 `json:"downtimeStartAfterIteration,omitempty"`
+	// DowntimeStepsCooldownSeconds is the minimum interval in seconds
+	// between successive downtime increases.
+	//+optional
+	DowntimeStepsCooldownSeconds *int `json:"downtimeStepsCooldownSeconds,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

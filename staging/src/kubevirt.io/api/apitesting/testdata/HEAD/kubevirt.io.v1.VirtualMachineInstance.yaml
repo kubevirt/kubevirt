@@ -720,6 +720,11 @@ status:
       disableTLS: true
       experimental:
         compression: compressionValue
+        downtimeInitialMs: 18446744073709551599
+        downtimeStartAfterIteration: 18446744073709551589
+        downtimeSteps: -13
+        downtimeStepsCooldownSeconds: -28
+        maxDowntimeMs: 18446744073709551603
       matchSELinuxLevelOnMigration: true
       network: networkValue
       nodeDrainTaintKey: nodeDrainTaintKeyValue

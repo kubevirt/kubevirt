@@ -66,6 +66,56 @@ const (
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
 )
 
+const (
+	defaultMaxDowntimeMs           = 1050
+	defaultInitialDowntimeMs       = 150
+	defaultDowntimeSteps           = 7
+	defaultStartAfterIteration     = 3
+	defaultDowntimeCooldownSeconds = 10
+)
+
+type downtimeTuningConfig struct {
+	MaxDowntimeMs           uint64
+	InitialMs               uint64
+	Steps                   int
+	StartAfterIteration     uint64
+	DowntimeCooldownSeconds int
+}
+
+func downtimeTuning(exp *v1.ExperimentalMigrationConfiguration) *downtimeTuningConfig {
+	if exp == nil {
+		return nil
+	}
+	if exp.MaxDowntimeMs == nil && exp.DowntimeInitialMs == nil && exp.DowntimeSteps == nil &&
+		exp.DowntimeStartAfterIteration == nil && exp.DowntimeStepsCooldownSeconds == nil {
+		return nil
+	}
+
+	cfg := &downtimeTuningConfig{
+		MaxDowntimeMs:           defaultMaxDowntimeMs,
+		InitialMs:               defaultInitialDowntimeMs,
+		Steps:                   defaultDowntimeSteps,
+		StartAfterIteration:     defaultStartAfterIteration,
+		DowntimeCooldownSeconds: defaultDowntimeCooldownSeconds,
+	}
+	if exp.MaxDowntimeMs != nil {
+		cfg.MaxDowntimeMs = min(*exp.MaxDowntimeMs, 2000000) // QEMU max
+	}
+	if exp.DowntimeInitialMs != nil {
+		cfg.InitialMs = *exp.DowntimeInitialMs
+	}
+	if exp.DowntimeSteps != nil {
+		cfg.Steps = max(*exp.DowntimeSteps, 1)
+	}
+	if exp.DowntimeStartAfterIteration != nil {
+		cfg.StartAfterIteration = *exp.DowntimeStartAfterIteration
+	}
+	if exp.DowntimeStepsCooldownSeconds != nil {
+		cfg.DowntimeCooldownSeconds = max(*exp.DowntimeStepsCooldownSeconds, 1)
+	}
+	return cfg
+}
+
 type migrationDisks struct {
 	shared         map[string]bool
 	generated      map[string]bool
@@ -87,6 +137,11 @@ type migrationMonitor struct {
 	progressTimeout          int64
 	acceptableCompletionTime int64
 	migrationFailedWithError error
+
+	downtimeTuning      *downtimeTuningConfig
+	currentDowntimeMs   uint64
+	lastTunedAt         time.Time
+	downtimeInitialized bool
 }
 
 type inflightMigrationAborted struct {
@@ -439,6 +494,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		downtimeTuning:           downtimeTuning(options.Experimental),
 	}
 
 	return monitor
@@ -522,6 +578,52 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 	return nil
 }
 
+func (m *migrationMonitor) tuneDowntime(dom cli.VirDomain, iteration uint64) {
+	cfg := m.downtimeTuning
+	if cfg == nil {
+		return
+	}
+
+	logger := log.Log.Object(m.vmi)
+
+	if !m.downtimeInitialized {
+		m.currentDowntimeMs = cfg.InitialMs
+		if err := dom.MigrateSetMaxDowntime(m.currentDowntimeMs, 0); err != nil {
+			logger.Reason(err).Warning("Failed to set initial max_downtime")
+			return
+		}
+		logger.Infof("Downtime tuning: set initial max_downtime to %dms", m.currentDowntimeMs)
+		m.downtimeInitialized = true
+		return
+	}
+
+	if iteration >= cfg.StartAfterIteration && m.lastTunedAt.IsZero() {
+		m.lastTunedAt = time.Now()
+	}
+	if m.lastTunedAt.IsZero() || time.Since(m.lastTunedAt) < time.Duration(cfg.DowntimeCooldownSeconds)*time.Second {
+		return
+	}
+	if m.currentDowntimeMs >= cfg.MaxDowntimeMs {
+		return
+	}
+
+	step := cfg.MaxDowntimeMs / uint64(cfg.Steps)
+	if step < 1 {
+		step = 1
+	}
+	m.currentDowntimeMs += step
+	if m.currentDowntimeMs > cfg.MaxDowntimeMs {
+		m.currentDowntimeMs = cfg.MaxDowntimeMs
+	}
+	m.lastTunedAt = time.Now()
+
+	if err := dom.MigrateSetMaxDowntime(m.currentDowntimeMs, 0); err != nil {
+		logger.Reason(err).Warningf("Failed to set max_downtime to %dms", m.currentDowntimeMs)
+		return
+	}
+	logger.Infof("Downtime tuning: iteration %d, set max_downtime to %dms", iteration, m.currentDowntimeMs)
+}
+
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
 	logger := log.Log.Object(m.vmi)
 
@@ -534,6 +636,10 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		m.lastProgressUpdate = now
 	}
 	m.progressWatermark = m.remainingData
+
+	if stats.MemIterationSet {
+		m.tuneDowntime(dom, stats.MemIteration)
+	}
 
 	switch {
 	case m.isMigrationPostCopy():
