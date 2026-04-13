@@ -1,0 +1,427 @@
+```yaml
+---
+document_metadata:
+  std_version: "2.1-enhanced"
+  generated_date: "2024-12-19"
+  jira_issue: "CNV-80573"
+  jira_summary: "QE Test automation for NAD changes in VM"
+  source_bugs: []
+  stp_reference:
+    file: "outputs/stp/CNV-80573/CNV-80573_test_plan.md"
+    version: "v1"
+    sections_covered: "Section III - Requirements-to-Tests Mapping"
+
+  owning_sig: "sig-network"
+  participating_sigs: ["sig-network"]
+
+  total_scenarios: 1
+  tier_1_count: 0
+  tier_2_count: 1
+  p0_count: 1
+  p1_count: 0
+
+code_generation_config:
+  std_version: "2.1-enhanced"
+  framework: "pytest"
+  assertion_library: "pytest"
+  language: "python"
+  package_name: "network"
+
+  context_init:
+    - statement: "self.namespace = testsuite.get_test_namespace()"
+      variable: "namespace"
+      type: "str"
+    - statement: "self.client = get_client()"
+      variable: "client"
+      type: "DynamicClient"
+
+  imports:
+    standard:
+      - "time"
+      - "logging"
+    pytest:
+      - "pytest"
+    openshift_wrapper:
+      - path: "ocp_resources.virtual_machine"
+        alias: "VirtualMachine"
+      - path: "ocp_resources.network_attachment_definition"
+        alias: "NetworkAttachmentDefinition"
+      - path: "ocp_resources.pod"
+        alias: "Pod"
+    cnv_tests:
+      - "cnv.tests.utils.vm_utils"
+      - "cnv.tests.utils.network_utils"
+
+  timeout_constants:
+    small: 60
+    medium: 120
+    large: 180
+    network_ready: 300
+
+common_preconditions:
+  infrastructure:
+    - name: "OpenShift cluster"
+      requirement: "OCP 4.22+ with OVN-Kubernetes"
+      validation: "oc version"
+
+    - name: "OpenShift Virtualization"
+      requirement: "CNV 4.22+"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+    - name: "Multus CNI"
+      requirement: "Multus CNI enabled for multi-network support"
+      validation: "oc get pods -n openshift-multus"
+
+    - name: "Multi-node cluster"
+      requirement: "Minimum 3 worker nodes for network isolation testing"
+      validation: "oc get nodes --no-headers | grep Ready | wc -l"
+
+  operators:
+    - name: "OpenShift Virtualization Operator"
+      namespace: "openshift-cnv"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+    - name: "Multus CNI"
+      namespace: "openshift-multus"
+      validation: "oc get daemonset -n openshift-multus multus"
+
+  cluster_configuration:
+    topology: "Multi-node"
+    cpu_virtualization: "Standard"
+    storage: "ocs-storagecluster-ceph-rbd"
+    network: "OVN-Kubernetes with Multus"
+
+  rbac_requirements:
+    - permission: "create, get, list, patch, update on virtualmachines"
+      scope: "Namespace: test namespace"
+      validation: "oc auth can-i create virtualmachines"
+    - permission: "create, get, list, patch, update on networkattachmentdefinitions"
+      scope: "Namespace: test namespace"
+      validation: "oc auth can-i create networkattachmentdefinitions"
+
+scenarios:
+  - scenario_id: "1"
+    test_id: "TS-CNV-80573-001"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: false
+    requirement_id: "CNV-80573"
+
+    patterns:
+      primary: "network_connectivity"
+      secondary:
+        - "factory-001"
+        - "network-nad-001"
+        - "wait-002"
+      helpers_required:
+        - name: "vm_utils"
+          functions: ["create_vm", "wait_for_vm_running", "stop_vm"]
+          purpose: "VM lifecycle management"
+        - name: "network_utils"
+          functions: ["create_nad", "attach_network_to_vm", "verify_network_connectivity"]
+          purpose: "Network configuration and validation"
+      decorators:
+        - "pytest.mark.tier2"
+        - "pytest.mark.network"
+        - "pytest.mark.nad_changes"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "setup"
+          used_in: ["setup", "test", "cleanup"]
+          comment: "Test execution context"
+        - name: "namespace"
+          type: "str"
+          initialized_in: "setup"
+          used_in: ["setup", "test", "cleanup"]
+          comment: "Test namespace for resources"
+        - name: "vm"
+          type: "VirtualMachine"
+          initialized_in: "setup"
+          used_in: ["setup", "test", "cleanup"]
+          comment: "Test virtual machine"
+        - name: "original_nad"
+          type: "NetworkAttachmentDefinition"
+          initialized_in: "setup"
+          used_in: ["setup", "test"]
+          comment: "Original NAD configuration"
+        - name: "updated_nad"
+          type: "NetworkAttachmentDefinition"
+          initialized_in: "test"
+          used_in: ["test", "cleanup"]
+          comment: "Updated NAD configuration"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "TestClass"
+        description: "NAD Changes in VM Test Suite"
+        decorators:
+          - "pytest.mark.network"
+          - "pytest.mark.tier2"
+      context:
+        description: "NAD modification operations during VM runtime"
+        decorators:
+          - "pytest.mark.nad_changes"
+      it:
+        description: "should successfully modify NAD configuration while VM is running"
+        test_id_format: "[test_id:TS-CNV-80573-001]"
+
+    code_structure: |
+      class TestNADChangesInVM:
+          @pytest.fixture(scope="class", autouse=True)
+          def setup_test_environment(self):
+              # Setup
+              pass
+          
+          @pytest.mark.tier2
+          @pytest.mark.network
+          def test_nad_change_during_vm_runtime(self):
+              # Test execution
+              pass
+
+    test_objective:
+      title: "Automate tier-2 test scenarios following interface hot-plug patterns; validate NAD modification operations and network connectivity preservation"
+      what: |
+        This test validates that Network Attachment Definition (NAD) configurations can be successfully 
+        modified for running virtual machines. The test verifies that VMs maintain proper network 
+        connectivity after NAD modifications and that the changes are applied correctly during runtime.
+        The automation follows existing interface hot-plug test patterns adapted for NAD change scenarios.
+      why: |
+        Dynamic NAD configuration changes are essential for customers who need to reconfigure VM network 
+        attachments without disrupting VM operations. This capability enables flexible network management 
+        in production environments where network topology changes or network attachment updates are required 
+        during VM runtime. Testing ensures reliability and prevents connectivity issues during NAD modifications.
+      acceptance_criteria:
+        - "VM successfully accepts NAD configuration changes during runtime"
+        - "Network connectivity is preserved throughout NAD modification process"
+        - "Modified NAD configuration is correctly applied to the running VM"
+        - "VM network interfaces reflect the updated NAD configuration"
+        - "No data loss or connection drops occur during NAD changes"
+
+    classification:
+      test_type: "Integration"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "Multiple NetworkAttachmentDefinition resources"
+        requirement: "At least 2 different NAD configurations available for testing"
+        validation: "oc get network-attachment-definitions | wc -l"
+      - name: "VM with initial network configuration"
+        requirement: "Running VM with attached NAD for modification testing"
+        validation: "oc get vm -o yaml | grep networkAttachmentDefinition"
+
+    test_data:
+      resource_definitions:
+        - name: "test_vm"
+          type: "VirtualMachine"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              name: test-nad-vm
+              namespace: test-namespace
+            spec:
+              running: true
+              template:
+                metadata:
+                  labels:
+                    kubevirt.io/vm: test-nad-vm
+                spec:
+                  domain:
+                    devices:
+                      disks:
+                        - name: root-disk
+                          disk:
+                            bus: virtio
+                      interfaces:
+                        - name: default
+                          masquerade: {}
+                        - name: test-network
+                          bridge: {}
+                    resources:
+                      requests:
+                        memory: 1Gi
+                        cpu: 1
+                  networks:
+                    - name: default
+                      pod: {}
+                    - name: test-network
+                      multus:
+                        networkName: original-nad
+                  volumes:
+                    - name: root-disk
+                      containerDisk:
+                        image: registry.redhat.io/ubi8/ubi:latest
+
+        - name: "original_nad"
+          type: "NetworkAttachmentDefinition"
+          yaml: |
+            apiVersion: k8s.cni.cncf.io/v1
+            kind: NetworkAttachmentDefinition
+            metadata:
+              name: original-nad
+              namespace: test-namespace
+            spec:
+              config: |
+                {
+                  "cniVersion": "0.3.1",
+                  "type": "bridge",
+                  "bridge": "br-test",
+                  "isGateway": true,
+                  "ipam": {
+                    "type": "host-local",
+                    "subnet": "192.168.100.0/24"
+                  }
+                }
+
+        - name: "updated_nad"
+          type: "NetworkAttachmentDefinition"
+          yaml: |
+            apiVersion: k8s.cni.cncf.io/v1
+            kind: NetworkAttachmentDefinition
+            metadata:
+              name: updated-nad
+              namespace: test-namespace
+            spec:
+              config: |
+                {
+                  "cniVersion": "0.3.1",
+                  "type": "bridge",
+                  "bridge": "br-updated",
+                  "isGateway": true,
+                  "ipam": {
+                    "type": "host-local",
+                    "subnet": "192.168.200.0/24"
+                  }
+                }
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create test namespace and initial NAD configuration"
+          command: "Create NetworkAttachmentDefinition with original configuration"
+          validation: "NAD resource exists and is ready"
+          pattern_id: "network-nad-001"
+          code_template: |
+            original_nad = NetworkAttachmentDefinition(
+                api_version="k8s.cni.cncf.io/v1",
+                kind="NetworkAttachmentDefinition",
+                metadata_name="original-nad",
+                metadata_namespace=namespace,
+                spec_config=original_nad_config
+            )
+            original_nad.create()
+            original_nad.wait_for_status("Ready")
+
+        - step_id: "SETUP-02"
+          action: "Create and start VM with initial NAD attachment"
+          command: "Create VirtualMachine with original NAD configuration"
+          validation: "VM is running with network attachment"
+          pattern_id: "factory-001"
+          code_template: |
+            vm = vm_utils.create_vm(
+                name="test-nad-vm",
+                namespace=namespace,
+                networks=[
+                    {"name": "default", "pod": {}},
+                    {"name": "test-network", "multus": {"networkName": "original-nad"}}
+                ]
+            )
+            vm_utils.wait_for_vm_running(vm)
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Create updated NAD configuration"
+          command: "Create new NetworkAttachmentDefinition with different configuration"
+          validation: "Updated NAD is created successfully"
+          pattern_id: "network-nad-001"
+          code_template: |
+            updated_nad = NetworkAttachmentDefinition(
+                api_version="k8s.cni.cncf.io/v1",
+                kind="NetworkAttachmentDefinition",
+                metadata_name="updated-nad",
+                metadata_namespace=namespace,
+                spec_config=updated_nad_config
+            )
+            updated_nad.create()
+            updated_nad.wait_for_status("Ready")
+
+        - step_id: "TEST-02"
+          action: "Modify VM network configuration to use updated NAD"
+          command: "Update VM spec to reference updated NAD"
+          validation: "VM spec update completes successfully and VM remains running with updated configuration"
+          pattern_id: "network_connectivity"
+          code_template: |
+            vm_spec = vm.instance.spec.template.spec
+            for network in vm_spec.networks:
+                if network.name == "test-network":
+                    network.multus.networkName = "updated-nad"
+            vm.update()
+
+        - step_id: "TEST-03"
+          action: "Verify NAD change is applied to running VM"
+          command: "Check VM network interfaces reflect updated configuration using network connectivity verification and VM status inspection"
+          validation: "VM uses updated NAD configuration"
+          pattern_id: "wait-002"
+          code_template: |
+            network_utils.verify_network_connectivity(vm, "updated-nad")
+            assert vm.instance.status.ready is True
+            updated_networks = vm.instance.spec.template.spec.networks
+            test_network = next(n for n in updated_networks if n.name == "test-network")
+            assert test_network.multus.networkName == "updated-nad"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Stop and delete test VM"
+          command: "vm.delete()"
+
+        - step_id: "CLEANUP-02"
+          action: "Delete NAD configurations"
+          command: "Delete original and updated NAD resources"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "VM successfully accepts NAD configuration change during runtime"
+        condition: "VM update operation completes without errors and VM remains running"
+        failure_impact: "NAD change functionality does not work as expected"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P0"
+        description: "Updated NAD configuration is correctly applied to VM"
+        condition: "VM network specification reflects the updated NAD reference"
+        failure_impact: "NAD changes are not properly applied to VM configuration"
+
+      - assertion_id: "ASSERT-03"
+        priority: "P1"
+        description: "Network connectivity is maintained during NAD modification"
+        condition: "VM network interfaces maintain connectivity throughout change process"
+        failure_impact: "Network disruption during NAD changes causes service interruption"
+
+      - assertion_id: "ASSERT-04"
+        priority: "P1"
+        description: "VM network interfaces reflect updated NAD configuration"
+        condition: "VM network status shows correct attachment to updated NAD"
+        failure_impact: "NAD changes are not properly reflected in VM network interfaces"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: test-nad-vm"
+        - "NetworkAttachmentDefinition: original-nad"
+        - "NetworkAttachmentDefinition: updated-nad"
+        - "Namespace: test namespace"
+
+      external_tools:
+        - "OpenShift CLI 4.22+"
+        - "Multus CNI"
+
+      scenario_specific_rbac:
+        - "Create and modify NetworkAttachmentDefinition resources"
+        - "Update VirtualMachine network specifications"
+        - "Access VM console for connectivity verification"
+---
+```
