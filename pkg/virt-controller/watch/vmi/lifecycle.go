@@ -280,6 +280,16 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	podConditionManager := controller.NewPodConditionManager()
 
 	vmiCopy := vmi.DeepCopy()
+
+	// Migrate the deprecated non-domain-qualified VMI finalizer
+	// ("foregroundDeleteVirtualMachine") to the current domain-qualified form
+	// ("kubevirt.io/foregroundDeleteVirtualMachine"). This handles VMIs created
+	// before PR #15096 and silences the API server warning from issue #12342.
+	if controller.HasFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer) {
+		controller.RemoveFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer)
+		controller.AddFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+	}
+
 	vmiPodExists := controller.PodExists(pod) && !isTempPod(pod)
 	tempPodExists := controller.PodExists(pod) && isTempPod(pod)
 
@@ -692,6 +702,17 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 			patchSet.AddOption(
 				patch.WithTest("/metadata/annotations", oldVMI.Annotations),
 				patch.WithReplace("/metadata/annotations", newVMI.Annotations),
+			)
+		}
+	}
+
+	if !equality.Semantic.DeepEqual(oldVMI.Finalizers, newVMI.Finalizers) {
+		if oldVMI.Finalizers == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/finalizers", newVMI.Finalizers))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/finalizers", oldVMI.Finalizers),
+				patch.WithReplace("/metadata/finalizers", newVMI.Finalizers),
 			)
 		}
 	}
