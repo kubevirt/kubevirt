@@ -63,6 +63,7 @@ import (
 	workqueuemetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1394,6 +1395,10 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() || migration.IsDecentralizedTarget() {
+		if c.clusterConfig.VMPersistentMACsEnabled() && !vmiInterfaceMACsPopulated(vmi) {
+			log.Log.Object(vmi).V(5).Info("waiting for MAC addresses to be populated on VMI status before migration")
+			return nil
+		}
 		err = c.handleBackendStorage(migration, vmi)
 		if err != nil {
 			return err
@@ -1402,6 +1407,16 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	}
 	log.Log.Object(vmi).V(5).Info("target pod not created because vmi is not running and migration is not decentralized target migration")
 	return nil
+}
+
+func vmiInterfaceMACsPopulated(vmi *virtv1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		status := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
+		if status == nil || status.MAC == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func getRequeueDelayForPriority(priority int) time.Duration {
