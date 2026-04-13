@@ -72,3 +72,13 @@ func (converterS390X) HasVMPort() bool {
 func (converterS390X) SupportPCIHole64Disabling() bool {
 	return false
 }
+
+func (converterS390X) SupportPCIePlacement() bool {
+	// s390x does not support PCIe topology features used in other architectures.
+	// Specifically:
+	// - No PCIe root ports
+	// - No expander buses
+	// - No PCI-based NUMA alignment
+	// All devices are attached via zPCI in a flat topology.
+	return false
+}
