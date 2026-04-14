@@ -158,13 +158,14 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	varsWithSB := getEFIBinaryIfExists(ovmfPath, EFIVarsSecureBoot)
 
 	// detect EFI without SecureBoot
-	code := getEFIBinaryIfExists(ovmfPath, EFICode)
-	vars := getEFIBinaryIfExists(ovmfPath, EFIVars)
+	// The combination (EFICodeSecureBoot + EFIVars) is valid for booting in EFI
+	// mode with SecureBoot disabled, and is preferred over plain EFICode which
+	// lacks SecureBoot infrastructure entirely.
+	code := codeWithSB
 	if code == "" {
-		// The combination (EFICodeSecureBoot + EFIVars) is valid
-		// for booting in EFI mode with SecureBoot disabled
-		code = codeWithSB
+		code = getEFIBinaryIfExists(ovmfPath, EFICode)
 	}
+	vars := getEFIBinaryIfExists(ovmfPath, EFIVars)
 
 	// detect EFI with SEV
 	codeWithSEV := getEFIBinaryIfExists(ovmfPath, EFICodeSEV)
