@@ -301,7 +301,16 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 			labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(migrateVMI.GetUID()))
 			fieldSelector := fmt.Sprintf("spec.nodeName==%s", beforeMigNodeName)
 
-			assertSourcePodContainersTerminate(labelSelector, fieldSelector, migrateVMI)
+			Eventually(func() k8sv1.PodPhase {
+				var pods *k8sv1.PodList
+				pods, err = kubevirt.Client().CoreV1().Pods(migrateVMI.Namespace).List(context.Background(),
+					metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).To(HaveLen(1))
+
+				return pods.Items[0].Status.Phase
+			}, 30*time.Second).Should(Equal(k8sv1.PodSucceeded))
 
 			By("Verify the VMI new IP is propagated to the status")
 			var migrateVmiAfterMigIP string
@@ -324,18 +333,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 	})
 }),
 )
-
-func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
-	return Eventually(func() k8sv1.PodPhase {
-		pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(),
-			metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
-		)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pods.Items).To(HaveLen(1))
-
-		return pods.Items[0].Status.Phase
-	}, 30*time.Second).Should(Equal(k8sv1.PodSucceeded))
-}
 
 func startPasstVMI() *v1.VirtualMachineInstance {
 	networkData, err := cloudinit.NewNetworkData(
