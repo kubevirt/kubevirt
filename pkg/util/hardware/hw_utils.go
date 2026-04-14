@@ -199,11 +199,18 @@ func PCIAddressToString(pciBusID *api.Address) string {
 // LookupDevicesNumaNodes looks up the NUMA nodes of multiple devices based on
 // their PCI addresses and the domain spec of the virtual machine.
 //
-// It returns a map of PCI addresses to their corresponding NUMA node IDs.
-func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) map[string]uint32 {
-	results := make(map[string]uint32)
+// It returns two maps:
+//   - aligned: PCI addresses mapped to guest NUMA cell IDs where the device's
+//     host NUMA node has vCPUs pinned to it.
+//   - unaligned: PCI addresses mapped to host NUMA node IDs where the device's
+//     host NUMA node has no pinned vCPUs. The caller can use this to create
+//     CPU-less guest NUMA cells for cross-NUMA device placement (e.g., NVIDIA
+//     GB200 where the GPU is on a separate NUMA node from all CPUs).
+func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) (aligned map[string]uint32, unaligned map[string]uint32) {
+	aligned = make(map[string]uint32)
+	unaligned = make(map[string]uint32)
 	if len(pciAddresses) == 0 || domainSpec == nil || domainSpec.CPU.NUMA == nil || domainSpec.CPUTune == nil {
-		return results
+		return
 	}
 
 	// pcpu -> vcpu mapping
@@ -244,6 +251,12 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 		if err != nil {
 			continue
 		}
+
+		// Skip devices that report no NUMA affinity (-1 wraps to max uint32)
+		if int32(*deviceNuma) == -1 {
+			continue
+		}
+
 		var pcpus []uint32
 		// if another device is already on this NUMA node, use the same pcpu set
 		if res, exists := pNumaToPCPUSetMap[*deviceNuma]; exists {
@@ -251,21 +264,33 @@ func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) m
 		} else {
 			pcpusNuma, err := GetNumaNodeCPUList(int(*deviceNuma))
 			if err != nil {
-				continue
+				// NUMA node may have no CPUs (e.g., GPU-only NUMA node)
+				pNumaToPCPUSetMap[*deviceNuma] = nil
+				pcpus = nil
+			} else {
+				for _, pcpu := range pcpusNuma {
+					pcpus = append(pcpus, uint32(pcpu))
+				}
+				pNumaToPCPUSetMap[*deviceNuma] = pcpus
 			}
-			for _, pcpu := range pcpusNuma {
-				pcpus = append(pcpus, uint32(pcpu))
-			}
-			pNumaToPCPUSetMap[*deviceNuma] = pcpus
 		}
 
+		found := false
 		for _, pcpu := range pcpus {
 			if vCPU, exist := p2vCPUMap[pcpu]; exist {
 				cellID := vCPUToCellMap[vCPU]
-				results[pciAddress] = cellID
+				aligned[pciAddress] = cellID
+				found = true
 				break
 			}
 		}
+
+		// Device is on a host NUMA node with no pinned vCPUs.
+		// Record the host NUMA node so the caller can create a
+		// CPU-less guest NUMA cell for it.
+		if !found {
+			unaligned[pciAddress] = *deviceNuma
+		}
 	}
-	return results
+	return
 }

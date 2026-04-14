@@ -33,7 +33,8 @@ import (
 
 var _ = Describe("Hardware utils test", func() {
 	const (
-		testPCIAddress = "0000:00:01.0"
+		testPCIAddress  = "0000:00:01.0"
+		testPCIAddress2 = "0000:00:02.0"
 	)
 
 	var (
@@ -52,13 +53,22 @@ var _ = Describe("Hardware utils test", func() {
 		fakeNodeBasePath, err = os.MkdirTemp("", "numa_nodes")
 		Expect(err).ToNot(HaveOccurred())
 
-		// Create test PCI device with NUMA node
+		// Create test PCI device on NUMA node 0
 		pciDevicePath := filepath.Join(fakePciBasePath, testPCIAddress)
 		err = os.MkdirAll(pciDevicePath, 0o755)
 		Expect(err).ToNot(HaveOccurred())
 
 		numaNodeFile := filepath.Join(pciDevicePath, "numa_node")
 		err = os.WriteFile(numaNodeFile, []byte("0\n"), 0o644)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Create test PCI device on NUMA node 1
+		pciDevicePath2 := filepath.Join(fakePciBasePath, testPCIAddress2)
+		err = os.MkdirAll(pciDevicePath2, 0o755)
+		Expect(err).ToNot(HaveOccurred())
+
+		numaNodeFile2 := filepath.Join(pciDevicePath2, "numa_node")
+		err = os.WriteFile(numaNodeFile2, []byte("1\n"), 0o644)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create NUMA node 0 with cpulist
@@ -276,26 +286,29 @@ var _ = Describe("Hardware utils test", func() {
 	})
 
 	Context("devices NUMA affinity", func() {
-		It("should return an empty result for no PCI addresses", func() {
+		It("should return empty results for no PCI addresses", func() {
 			domainSpec := &api.DomainSpec{}
-			devicesNumaNodes := LookupDevicesNumaNodes([]string{}, domainSpec)
-			Expect(devicesNumaNodes).To(BeEmpty())
+			aligned, unaligned := LookupDevicesNumaNodes([]string{}, domainSpec)
+			Expect(aligned).To(BeEmpty())
+			Expect(unaligned).To(BeEmpty())
 		})
 
-		It("should return an empty result for nil domain spec", func() {
-			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, nil)
-			Expect(devicesNumaNodes).To(BeEmpty())
+		It("should return empty results for nil domain spec", func() {
+			aligned, unaligned := LookupDevicesNumaNodes([]string{testPCIAddress}, nil)
+			Expect(aligned).To(BeEmpty())
+			Expect(unaligned).To(BeEmpty())
 		})
 
-		It("should return an empty result when domain spec has no NUMA info", func() {
+		It("should return empty results when domain spec has no NUMA info", func() {
 			domainSpec := &api.DomainSpec{
 				CPU: api.CPU{},
 			}
-			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
-			Expect(devicesNumaNodes).To(BeEmpty())
+			aligned, unaligned := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(aligned).To(BeEmpty())
+			Expect(unaligned).To(BeEmpty())
 		})
 
-		It("should handle domain spec with NUMA cells but no vCPU affinity", func() {
+		It("should return device as unaligned when NUMA cells exist but no vCPU affinity", func() {
 			domainSpec := &api.DomainSpec{
 				CPU: api.CPU{
 					NUMA: &api.NUMA{
@@ -310,8 +323,12 @@ var _ = Describe("Hardware utils test", func() {
 				},
 			}
 
-			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
-			Expect(devicesNumaNodes).To(BeEmpty())
+			// Device is on NUMA 0 but no vCPUs are pinned anywhere,
+			// so it should be reported as unaligned with its host NUMA node
+			aligned, unaligned := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(aligned).To(BeEmpty())
+			Expect(unaligned).To(HaveKey(testPCIAddress))
+			Expect(unaligned[testPCIAddress]).To(Equal(uint32(0)))
 		})
 
 		It("should return devices vCPU NUMA nodes for their aligned vCPUs", func() {
@@ -333,10 +350,40 @@ var _ = Describe("Hardware utils test", func() {
 			}
 
 			// Device is on host NUMA node 0, and vCPU 0 is on guest NUMA cell 0
-			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
-			Expect(devicesNumaNodes).ToNot(BeEmpty())
-			Expect(devicesNumaNodes).To(HaveKey(testPCIAddress))
-			Expect(devicesNumaNodes[testPCIAddress]).To(Equal(uint32(0)))
+			aligned, unaligned := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(aligned).ToNot(BeEmpty())
+			Expect(aligned).To(HaveKey(testPCIAddress))
+			Expect(aligned[testPCIAddress]).To(Equal(uint32(0)))
+			Expect(unaligned).To(BeEmpty())
+		})
+
+		It("should return unaligned devices when device is on NUMA node without vCPUs", func() {
+			// Simulate GB200: vCPUs on NUMA 0, device on NUMA 1
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0-1", Memory: 2048, Unit: "MiB"},
+						},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "0"},
+						{VCPU: 1, CPUSet: "1"},
+					},
+				},
+			}
+
+			// testPCIAddress (0000:00:01.0) is on NUMA node 0,
+			// use a device on NUMA node 1
+			aligned, unaligned := LookupDevicesNumaNodes([]string{testPCIAddress, testPCIAddress2}, domainSpec)
+			// testPCIAddress is on NUMA 0 with vCPUs -> aligned
+			Expect(aligned).To(HaveKey(testPCIAddress))
+			Expect(aligned[testPCIAddress]).To(Equal(uint32(0)))
+			// testPCIAddress2 is on NUMA 1 with no vCPUs -> unaligned
+			Expect(unaligned).To(HaveKey(testPCIAddress2))
+			Expect(unaligned[testPCIAddress2]).To(Equal(uint32(1)))
 		})
 	})
 })

@@ -183,6 +183,11 @@ type expanderBusAssigner struct {
 	devices          map[string]*api.HostDevice
 	devicesNUMANodes map[string]uint32
 
+	// hostNUMAToCellMap tracks CPU-less guest NUMA cells created for host
+	// NUMA nodes that have passthrough devices but no pinned vCPUs (e.g.,
+	// NVIDIA GB200 where the GPU is on a separate NUMA node from all CPUs).
+	hostNUMAToCellMap map[uint32]uint32
+
 	// lastAssignedBusNr tracks the last assigned bus number for expander buses.
 	// It starts from maxExpanderBusNr and decreases as expander buses are assigned
 	// to ensure controller indices don't conflict with expander bus number space.
@@ -213,6 +218,7 @@ func newExpanderBusAssigner(domainSpec *api.DomainSpec) *expanderBusAssigner {
 		topologyMap:       make(map[uint32]*numaAwareTopology),
 		devices:           make(map[string]*api.HostDevice),
 		devicesNUMANodes:  make(map[string]uint32),
+		hostNUMAToCellMap: make(map[uint32]uint32),
 		controllerIndex:   currentControllerIndex,
 		controllerCount:   0,
 		lastAssignedBusNr: maxExpanderBusNr,
@@ -277,16 +283,65 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 		devicesByAddress[address] = &devices[i]
 	}
 
-	numaNodes := hardware.LookupDevicesNumaNodes(pciAddresses, a.domainSpec)
+	aligned, unaligned := hardware.LookupDevicesNumaNodes(pciAddresses, a.domainSpec)
 
 	for address, device := range devicesByAddress {
-		if numaNode, exists := numaNodes[address]; exists {
+		if numaNode, exists := aligned[address]; exists {
 			a.devices[address] = device
 			a.devicesNUMANodes[address] = numaNode
+		} else if hostNUMANode, exists := unaligned[address]; exists {
+			// Device is on a host NUMA node with no pinned vCPUs (e.g.,
+			// NVIDIA GB200 where the GPU is on a separate NUMA node from
+			// all CPUs). Create a CPU-less guest NUMA cell for this host
+			// NUMA node so the device can be placed under an expander bus
+			// targeting it.
+			guestCellID := a.getOrCreateCPULessNUMACell(hostNUMANode)
+			a.devices[address] = device
+			a.devicesNUMANodes[address] = guestCellID
 		} else {
 			log.Log.Infof("device %s has no NUMA affinity information, skipping for pcie-expander-bus assignment", address)
 		}
 	}
+}
+
+// getOrCreateCPULessNUMACell returns the guest NUMA cell ID for a host NUMA
+// node that has no pinned vCPUs. If a CPU-less cell has already been created
+// for this host NUMA node, it returns the existing cell ID. Otherwise, it
+// creates a new CPU-less NUMA cell in the domain spec.
+func (a *expanderBusAssigner) getOrCreateCPULessNUMACell(hostNUMANode uint32) uint32 {
+	// Check if we already created a cell for this host NUMA node
+	if cellID, exists := a.hostNUMAToCellMap[hostNUMANode]; exists {
+		return cellID
+	}
+
+	// Find the next available cell ID
+	nextCellID := uint32(0)
+	if a.domainSpec.CPU.NUMA != nil {
+		for _, cell := range a.domainSpec.CPU.NUMA.Cells {
+			id, err := strconv.Atoi(cell.ID)
+			if err != nil {
+				continue
+			}
+			if uint32(id) >= nextCellID {
+				nextCellID = uint32(id) + 1
+			}
+		}
+	}
+
+	newCell := api.NUMACell{
+		ID:   strconv.Itoa(int(nextCellID)),
+		CPUs: "",
+	}
+
+	if a.domainSpec.CPU.NUMA == nil {
+		a.domainSpec.CPU.NUMA = &api.NUMA{}
+	}
+	a.domainSpec.CPU.NUMA.Cells = append(a.domainSpec.CPU.NUMA.Cells, newCell)
+	a.hostNUMAToCellMap[hostNUMANode] = nextCellID
+
+	log.Log.Infof("created CPU-less guest NUMA cell %d for host NUMA node %d", nextCellID, hostNUMANode)
+
+	return nextCellID
 }
 
 // numaDeviceGroups represents a mapping of NUMA nodes to host devices.
