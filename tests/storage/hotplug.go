@@ -158,19 +158,9 @@ var _ = Describe(SIG("Hotplug", func() {
 	}
 
 	addVolumeVMWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
-		var err error
-
-		// Try at least 3 times, this is done because `AddVolume` is inherently racy in the way it's implemented
-		// as when it patches the VM Status it expects the field `volumeRequests` to be there (by using a test json patch op),
-		// but at the same time virt-controller trims this field when all requests have been satisfied.
-		// To avoid hitting these we should explicitly try multiple times.
-		for i := 0; i < 3; i++ {
-			err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, volumeOptions)
-			if err == nil {
-				break
-			}
-		}
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			return virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, volumeOptions)
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVM := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
