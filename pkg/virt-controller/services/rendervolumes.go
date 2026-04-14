@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type VolumeRendererOption func(renderer *VolumeRenderer) error
@@ -406,7 +407,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			SubPath:   "meta",
 		})
 
-		if util.IsNonRootVMI(vmi) {
+		if vmitrait.IsNonRoot(vmi) {
 			// For non-root VMIs, the TPM state lives under /var/run/kubevirt-private/libvirt/qemu/swtpm
 			// To persist it, we need the persistent PVC to be mounted under that location.
 			// /var/run/kubevirt-private is an emptyDir, and k8s would automatically create the right sub-directories under it.

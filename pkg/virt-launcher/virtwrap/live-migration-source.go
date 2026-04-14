@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const liveMigrationFailed = "Live migration failed."
@@ -1066,7 +1067,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	// initiate the live migration
 	var dstURI string
-	if virtutil.IsNonRootVMI(vmi) {
+	if vmitrait.IsNonRoot(vmi) {
 		dstURI = fmt.Sprintf("qemu+unix:///session?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
 	} else {
 		dstURI = fmt.Sprintf("qemu+unix:///system?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
