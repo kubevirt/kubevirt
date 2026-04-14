@@ -56,7 +56,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			assertIPsNotEmptyForVMI(serverVMI)
 		})
 
-		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", decorators.WgS390x, func() {
+		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -139,7 +139,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			})
 		})
 
-		Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", decorators.WgS390x, func() {
+		Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -211,7 +211,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			})
 		})
 
-		Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", decorators.WgS390x, func() {
+		Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -242,7 +242,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				assertHTTPPingSucceed(clientVMI, serverVMI, 81)
 			})
 		})
-		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", decorators.WgS390x, func() {
+		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
