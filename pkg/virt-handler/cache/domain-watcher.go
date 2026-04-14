@@ -19,6 +19,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -27,23 +28,19 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const socketDialTimeout = 5
 
-type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error
+type runServerFunc func(ctx context.Context, c chan watch.Event) error
 
 var (
 	notifyServerMaxConsecutiveFails = 10
@@ -51,73 +48,59 @@ var (
 )
 
 type domainWatcher struct {
-	lock                     sync.Mutex
-	wg                       sync.WaitGroup
-	stopChan                 chan struct{}
-	eventChan                chan watch.Event
-	backgroundWatcherStarted bool
-	virtShareDir             string
-	watchdogTimeout          int
-	recorder                 record.EventRecorder
-	vmiStore                 cache.Store
-	resyncPeriod             time.Duration
-	runServer                runServerFunc
-	consecutiveFails         int
-
-	watchDogLock        sync.Mutex
+	wg                  sync.WaitGroup
+	cancel              context.CancelFunc
+	result              chan watch.Event
+	recorder            record.EventRecorder
+	consecutiveFails    *int
 	unresponsiveSockets map[string]int64
 }
 
-func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
+func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int) *domainWatcher {
+	ctx, cancel := context.WithCancel(ctx)
 	d := &domainWatcher{
-		backgroundWatcherStarted: false,
-		virtShareDir:             virtShareDir,
-		watchdogTimeout:          watchdogTimeout,
-		recorder:                 recorder,
-		vmiStore:                 vmiStore,
-		unresponsiveSockets:      make(map[string]int64),
-		resyncPeriod:             resyncPeriod,
-		runServer:                notifyserver.RunServer,
+		recorder:            recorder,
+		unresponsiveSockets: make(map[string]int64),
+		consecutiveFails:    consecutiveFails,
+		result:              make(chan watch.Event, 100),
+		cancel:              cancel,
 	}
-
+	d.wg.Add(1)
+	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
 	return d
 }
 
-func (d *domainWatcher) worker() {
+func (d *domainWatcher) worker(ctx context.Context, runServer runServerFunc, resyncPeriod time.Duration, watchdogTimeout int) {
 	defer d.wg.Done()
-	defer d.onWorkerExit()
+	defer close(d.result)
 
-	resyncTicker := time.NewTicker(d.resyncPeriod)
-	resyncTickerChan := resyncTicker.C
+	resyncTicker := time.NewTicker(resyncPeriod)
 	defer resyncTicker.Stop()
 
 	// Divide the watchdogTimeout by 3 for our ticker.
 	// This ensures we always have at least 2 response failures
 	// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
-	expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second)
+	expiredWatchdogTicker := time.NewTicker(time.Duration((watchdogTimeout/3)+1) * time.Second)
 	defer expiredWatchdogTicker.Stop()
-
-	expiredWatchdogTickerChan := expiredWatchdogTicker.C
 
 	startedAt := time.Now()
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := d.runServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
-		srvErr <- err
+		srvErr <- runServer(ctx, d.result)
 	}()
 
 	for {
 		select {
-		case <-resyncTickerChan:
+		case <-resyncTicker.C:
 			d.handleResync()
-		case <-expiredWatchdogTickerChan:
-			d.handleStaleSocketConnections()
+		case <-expiredWatchdogTicker.C:
+			d.handleStaleSocketConnections(watchdogTimeout)
 		case err := <-srvErr:
 			if err != nil {
 				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
 				d.panicOnConsecutiveFailures(err, startedAt)
-				d.eventChan <- watch.Event{
+				d.result <- watch.Event{
 					Type: watch.Error,
 					Object: &metav1.Status{
 						Status:  metav1.StatusFailure,
@@ -130,22 +113,15 @@ func (d *domainWatcher) worker() {
 	}
 }
 
-func (d *domainWatcher) onWorkerExit() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	d.backgroundWatcherStarted = false
-	close(d.eventChan)
-}
-
 func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Time) {
 	if time.Since(startedAt) >= notifyServerHealthyRunTime {
-		d.consecutiveFails = 0
+		*d.consecutiveFails = 0
 	}
-	d.consecutiveFails++
+	*d.consecutiveFails++
 
 	d.recordNotifyServerFailureEvent(err)
 
-	if d.consecutiveFails >= notifyServerMaxConsecutiveFails {
+	if *d.consecutiveFails >= notifyServerMaxConsecutiveFails {
 		log.Log.Reason(err).Criticalf("Domain notify server reached max consecutive failures (%d)",
 			notifyServerMaxConsecutiveFails)
 		panic(fmt.Sprintf("domain notify server reached max consecutive failures (%d): %v",
@@ -161,24 +137,6 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
 	d.recorder.Eventf(node, k8sv1.EventTypeWarning, "NotifyServerFailure",
 		"Domain notify server exited unexpectedly: %v", err)
-}
-
-func (d *domainWatcher) startBackground() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if d.backgroundWatcherStarted {
-		return nil
-	}
-
-	d.stopChan = make(chan struct{}, 1)
-	d.eventChan = make(chan watch.Event, 100)
-
-	d.wg.Add(1)
-	go d.worker()
-
-	d.backgroundWatcherStarted = true
-	return nil
 }
 
 func (d *domainWatcher) handleResync() {
@@ -211,11 +169,11 @@ func (d *domainWatcher) handleResync() {
 			continue
 		}
 
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+		d.result <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 }
 
-func (d *domainWatcher) handleStaleSocketConnections() error {
+func (d *domainWatcher) handleStaleSocketConnections(watchdogTimeout int) error {
 	var unresponsive []string
 
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
@@ -233,9 +191,6 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 		}
 		unresponsive = append(unresponsive, socket)
 	}
-
-	d.watchDogLock.Lock()
-	defer d.watchDogLock.Unlock()
 
 	now := time.Now().UTC().Unix()
 
@@ -264,7 +219,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 
 		diff := now - timeStamp
 
-		if diff > int64(d.watchdogTimeout) {
+		if diff > int64(watchdogTimeout) {
 
 			record, exists := GhostRecordGlobalStore.findBySocket(key)
 
@@ -279,7 +234,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 				now := metav1.Now()
 				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+				d.result <- watch.Event{Type: watch.Modified, Object: domain}
 
 				err := cmdclient.MarkSocketUnresponsive(key)
 				if err != nil {
@@ -292,7 +247,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 	return nil
 }
 
-func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
+func listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
 	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
@@ -348,54 +303,13 @@ func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	return domains, nil
 }
 
-func (d *domainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
-
-	log.Log.V(3).Info("Synchronizing domains")
-	err := d.startBackground()
-	if err != nil {
-		return nil, err
-	}
-
-	domains, err := d.listAllKnownDomains()
-	if err != nil {
-		return nil, err
-	}
-
-	list := api.DomainList{
-		Items: []api.Domain{},
-	}
-
-	for _, domain := range domains {
-		list.Items = append(list.Items, *domain)
-	}
-	return &list, nil
-}
-
-func (d *domainWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
-	return d, nil
-}
-
 func (d *domainWatcher) Stop() {
-	shouldWait := func() bool {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		if !d.backgroundWatcherStarted {
-			return false
-		}
-		select {
-		case <-d.stopChan:
-		default:
-			close(d.stopChan)
-		}
-		return true
-	}()
-	if shouldWait {
-		d.wg.Wait()
-	}
+	d.cancel()
+	d.wg.Wait()
 }
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {
-	return d.eventChan
+	return d.result
 }
 
 func listSockets(ghostRecords []ghostRecord) ([]string, error) {
