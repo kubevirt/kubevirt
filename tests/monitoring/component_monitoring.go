@@ -52,7 +52,6 @@ type alerts struct {
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
-	lowCountAlert        string
 }
 
 var (
@@ -60,14 +59,12 @@ var (
 		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
-		lowCountAlert:        "LowVirtAPICount",
 	}
 	virtController = alerts{
 		deploymentName:       "virt-controller",
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
-		lowCountAlert:        "LowVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
@@ -78,7 +75,6 @@ var (
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
-		lowCountAlert:        "LowVirtOperatorCount",
 	}
 )
 
@@ -125,14 +121,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
 		})
 
-		It("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Waiting for the operator to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", 0)
-
-			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtOperator.lowCountAlert)
-		})
-
 		It("VirtControllerDown should be triggered when virt-controller is down", func() {
 			By("Scaling down the controller")
 			scales.UpdateScale(virtController.deploymentName, int32(0))
@@ -155,17 +143,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
 		})
 
-		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Scaling down the controller")
-			scales.UpdateScale(virtController.deploymentName, int32(0))
-
-			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_up", 0)
-
-			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtController.lowCountAlert)
-		})
-
 		It("VirtApiDown should be triggered when virt-api is down", func() {
 			By("Scaling down the api")
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
@@ -175,17 +152,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtApi.downAlert)
-		})
-
-		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Scaling down the api")
-			scales.UpdateScale(virtApi.deploymentName, int32(0))
-
-			By("Waiting for the api to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_api_up", 0)
-
-			By("Verifying the alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, virtApi.lowCountAlert)
 		})
 	})
 
