@@ -366,6 +366,61 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims[0].Request).To(Equal("gpu-request"))
 		})
 
+		It("should collapse HostDevice DRA claims with same name and different requests", func() {
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-a"),
+					},
+				},
+				{
+					Name: "dra-host-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-b"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("shared-claim"))
+			Expect(claims[0].Request).To(BeEmpty())
+		})
+
+		It("should collapse mixed GPU and HostDevice DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("gpu-request"),
+					},
+				},
+			}
+
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("hostdev-request"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus), WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("shared-claim"))
+			Expect(claims[0].Request).To(BeEmpty())
+		})
+
 		It("Unified functions should not interfere with other renderer options", func() {
 			cpuRequest := resource.MustParse("100m")
 			memoryRequest := resource.MustParse("128Mi")
