@@ -58,6 +58,7 @@ import (
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/diskhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/vgpuhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/standalone"
@@ -446,6 +447,7 @@ func main() {
 
 	hookFuncs := []premigrationhookserver.HookFunc{
 		cpuhook.CPUDedicatedHook,
+		diskhook.DiskSourcePathHook,
 	}
 	if *ifacesOrdinalNamingUpgradeEnabled {
 		hookFuncs = append(hookFuncs, network.UpgradeOrdinalNamingScheme)
