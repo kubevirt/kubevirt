@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -201,6 +202,10 @@ func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 	}
 
 	if _, err := l.domainManager.SyncVMI(vmi, l.allowEmulation, request.Options); err != nil {
+		if shouldSignalEarlyExitOnSyncError(vmi, err) {
+			os.Setenv(receivedEarlyExitSignalEnvVar, "")
+			log.Log.Object(vmi).Reason(err).Error("startup sync error is fatal, signaling early exit")
+		}
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -209,6 +214,19 @@ func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 
 	log.Log.Object(vmi).Info("Synced vmi")
 	return response, nil
+}
+
+func shouldSignalEarlyExitOnSyncError(vmi *v1.VirtualMachineInstance, err error) bool {
+	if !errors.Is(err, drautil.ErrMissingClaimRequestMetadata) {
+		return false
+	}
+
+	switch vmi.Status.Phase {
+	case v1.VmPhaseUnset, v1.Pending, v1.Scheduling, v1.Scheduled:
+		return true
+	default:
+		return false
+	}
 }
 
 func (l *Launcher) PauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
