@@ -1155,7 +1155,7 @@ func (c *Controller) updateTargetPodNetworkInfo(vmi *virtv1.VirtualMachineInstan
 
 func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 
-	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID {
+	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID {
 		// already handed off
 		return nil
 	}
@@ -1369,7 +1369,8 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 	if migration.Status.MigrationState == nil {
 		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() {
+	// Set source PVC when: not decentralized, or VMI is source for this migration, or a previous decentralized migration completed (so next migration can run MigrationHandoff).
+	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() || vmi.IsMigrationCompleted() {
 		migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
 		if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
 			return fmt.Errorf("no backend-storage PVC found in VMI volume status")
@@ -1715,7 +1716,6 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			}
 		}
 		return nil
-
 	case virtv1.MigrationRunning:
 		if migration.DeletionTimestamp != nil && vmi.IsMigrationSynchronized(migration) {
 			err = c.markMigrationAbortInVmiStatus(migration, vmi)
