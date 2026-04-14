@@ -3,15 +3,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "adapter.go",
-        "context.go",
         "diff.go",
-        "doc.go",
-        "myers.go",
-        "op_string.go",
-        "print.go",
+        "todo.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/pkg/diff",
     importpath = "github.com/pkg/diff",
     visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/pkg/diff/ctxt:go_default_library",
+        "//vendor/github.com/pkg/diff/intern:go_default_library",
+        "//vendor/github.com/pkg/diff/myers:go_default_library",
+        "//vendor/github.com/pkg/diff/write:go_default_library",
+    ],
 )
