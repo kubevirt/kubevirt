@@ -87,7 +87,6 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
-	migrationFailedWithError error
 }
 
 type inflightMigrationAborted struct {
@@ -589,44 +588,37 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
+		var ok bool
 		err = nil
 		select {
-		case err = <-m.migrationErr:
+		case err, ok = <-m.migrationErr:
+			if !ok {
+				return
+			}
 		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
-		if err != nil && m.migrationFailedWithError == nil {
-			logger.Reason(err).Error("Received a live migration error. Will check the latest migration status.")
-			m.migrationFailedWithError = err
-		} else if m.migrationFailedWithError != nil {
-			logger.Info("Didn't manage to get a job status. Post the received error and finalize.")
-			logger.Reason(m.migrationFailedWithError).Error(liveMigrationFailed)
+		if err != nil {
+			logger.Reason(err).Error(liveMigrationFailed)
 			var abortStatus v1.MigrationAbortStatus
-			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
+			if strings.Contains(err.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
-			// Improve the error message when the volume migration fails because the destination size is smaller then the source volume
-			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(standardizeSpaces(m.migrationFailedWithError.Error()),
+			// Improve the error message when the volume migration fails because the destination size is smaller than the source volume
+			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(standardizeSpaces(err.Error()),
 				"has to be smaller or equal to the actual size of the containing file") {
 				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v",
-					m.migrationFailedWithError), abortStatus)
+					err), abortStatus)
 				return
 			}
-			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
+			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
 			return
 		}
 
-		var jobStats *libvirt.DomainJobInfo
-		jobStats, err = dom.GetJobStats(0)
+		jobStats, err := dom.GetJobStats(0)
 		if err != nil {
-			logger.Reason(err).Info("failed to get domain job info, checking for completed job")
-			jobStats, err = dom.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
-			if err != nil {
-				// This could only happen when the domain is gone (successful migration) but there is lock contention in stats retrieval.
-				// In case of a sudden domain crash the migrationErr handling above takes care of it.
-				logger.Reason(err).Warning("failed to get completed job stats, will retry")
-				continue
-			}
+			logger.Reason(err).Info("failed to get domain job info, will retry")
+			continue
 		}
 
 		if jobStats.DataRemainingSet {
