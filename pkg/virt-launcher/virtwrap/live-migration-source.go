@@ -651,10 +651,6 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
-		case libvirt.DOMAIN_JOB_CANCELLED:
-			logger.Info("Migration was canceled")
-			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
-			return
 		}
 	}
 }
