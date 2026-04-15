@@ -636,11 +636,8 @@ func (m *migrationMonitor) startMonitor() {
 			}
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				logMigrationInfo(logger, uid, jobStats)
+				LogMigrationInfo(logger, uid, jobStats)
 			}
-		case libvirt.DOMAIN_JOB_COMPLETED:
-			logMigrationInfo(logger, uid, jobStats)
-			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
 		}
@@ -657,8 +654,8 @@ func MigrationUID(vmi *v1.VirtualMachineInstance) types.UID {
 	return ""
 }
 
-// logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
-func logMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo) {
+// LogMigrationInfo logs the same migration info as `virsh -r domjobinfo`
+func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo) {
 	bToMiB := func(bytes uint64) uint64 {
 		return bytes / 1024 / 1024
 	}

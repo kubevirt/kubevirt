@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -702,16 +703,24 @@ func (n *Notifier) Close() {
 }
 
 func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
-	if jobCompletedEvent.Info.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP {
-		log.Log.V(3).Infof("Recieved a job completion event for operation %v", jobCompletedEvent.Info.Operation)
+	switch jobCompletedEvent.Info.Operation {
+	case libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT:
+		var uid types.UID
+		if migration, exists := metadataCache.Migration.Load(); exists {
+			uid = migration.UID
+		}
+		virtwrap.LogMigrationInfo(log.Log, uid, &jobCompletedEvent.Info)
+		return false
+	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
+		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
+		if value, exists := metadataCache.Backup.Load(); exists {
+			domain.Spec.Metadata.KubeVirt.Backup = &value
+		}
+		return true
+	default:
+		log.Log.V(3).Infof("Received a job completion event for operation %v", jobCompletedEvent.Info.Operation)
 		return false
 	}
-
-	storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
-	if value, exists := metadataCache.Backup.Load(); exists {
-		domain.Spec.Metadata.KubeVirt.Backup = &value
-	}
-	return true
 }
 
 func processLifecycleEvent(client *Notifier, domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, events chan watch.Event, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {
