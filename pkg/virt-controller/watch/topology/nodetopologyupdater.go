@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	nodeutils "kubevirt.io/kubevirt/pkg/util/nodes"
+	nodeutils "kubevirt.io/kubevirt/pkg/virt-controller/watch/topology/nodes"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"

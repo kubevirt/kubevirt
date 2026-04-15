@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["nodes.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/util/nodes",
+    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/topology/nodes",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

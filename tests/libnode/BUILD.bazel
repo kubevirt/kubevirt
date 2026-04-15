@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/hypervisor:go_default_library",
-        "//pkg/util/nodes:go_default_library",
+        "//pkg/virt-controller/watch/topology/nodes:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",

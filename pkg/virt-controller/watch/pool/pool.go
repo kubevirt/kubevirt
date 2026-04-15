@@ -42,7 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
+	traceUtils "kubevirt.io/kubevirt/pkg/virt-controller/watch/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 

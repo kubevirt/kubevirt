@@ -5,5 +5,5 @@ go_library(
     srcs = ["sysctl.go"],
     importpath = "kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin/sysctl",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/util/sysctl:go_default_library"],
+    deps = ["//pkg/network/sysctl:go_default_library"],
 )

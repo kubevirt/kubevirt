@@ -75,7 +75,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
-	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
+	traceUtils "kubevirt.io/kubevirt/pkg/virt-controller/watch/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"

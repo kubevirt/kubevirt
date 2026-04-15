@@ -64,7 +64,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
-	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
+	traceUtils "kubevirt.io/kubevirt/pkg/virt-controller/watch/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
