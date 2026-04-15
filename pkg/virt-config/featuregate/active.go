@@ -228,6 +228,14 @@ const (
 	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
+
+	// Owner: sig-compute
+	// Alpha: v1.9.0
+	//
+	// AdvancedLiveMigration enables the spec.experimental section in
+	// MigrationPolicy, which provides advanced migration knobs such as
+	// compression and downtime tuning.
+	AdvancedLiveMigration = "AdvancedLiveMigration"
 )
 
 func init() {
@@ -273,4 +281,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: AdvancedLiveMigration, State: Alpha})
 }
