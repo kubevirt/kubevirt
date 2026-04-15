@@ -775,6 +775,7 @@ type PCIHole64 struct {
 
 // BEGIN ControllerTarget
 type ControllerTarget struct {
+	Hotplug  string  `xml:"hotplug,attr,omitempty"`
 	BusNr    *uint32 `xml:"busNr,attr,omitempty"`
 	NUMANode *uint32 `xml:"node,omitempty"`
 }
