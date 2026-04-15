@@ -43,9 +43,56 @@ import (
 	"kubevirt.io/client-go/log"
 
 	putil "kubevirt.io/kubevirt/pkg/util"
+
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
-func GetListOfManifests(pathToManifestsDir string) []string {
+// tryBinaryRelative returns _out/manifests/testing relative to the test binary’s directory, or "" if not present.
+func tryBinaryRelative() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	candidate := filepath.Join(filepath.Dir(exe), "..", "_out", "manifests", "testing")
+	if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+		return candidate
+	}
+	return ""
+}
+
+// tryCwdRelative returns _out/manifests/testing relative to the current working directory, or "" if not present.
+func tryCwdRelative() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	candidate := filepath.Join(cwd, "_out", "manifests", "testing")
+	if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+		return candidate
+	}
+	return ""
+}
+
+// resolveManifestsDir returns a valid manifests dir, or "" if none found.
+func resolveManifestsDir(pathToManifestsDir string) string {
+	if info, err := os.Stat(pathToManifestsDir); err == nil && info.IsDir() {
+		return pathToManifestsDir
+	}
+	if p := tryBinaryRelative(); p != "" {
+		return p
+	}
+	if p := tryCwdRelative(); p != "" {
+		return p
+	}
+	fmt.Printf("WARNING: no valid testing manifests directory found. Skipping testing infra deployment.\n")
+	return ""
+}
+
+func GetListOfManifests() []string {
+	pathToManifestsDir := resolveManifestsDir(flags.PathToTestingInfrastrucureManifests)
+	if pathToManifestsDir == "" {
+		return nil
+	}
 	var manifests []string
 	matchFileName := func(pattern, filename string) bool {
 		match, err := filepath.Match(pattern, filename)
