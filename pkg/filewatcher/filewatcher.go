@@ -38,8 +38,8 @@ type FileWatcher struct {
 	path     string
 	interval time.Duration
 
-	Events chan Event
-	Errors chan error
+	events chan Event
+	errors chan error
 	done   chan struct{}
 
 	lastIno uint64
@@ -50,8 +50,8 @@ func New(path string, interval time.Duration) *FileWatcher {
 	return &FileWatcher{
 		path:     path,
 		interval: interval,
-		Events:   make(chan Event),
-		Errors:   make(chan error),
+		events:   make(chan Event),
+		errors:   make(chan error),
 		done:     make(chan struct{}),
 	}
 }
@@ -59,8 +59,8 @@ func New(path string, interval time.Duration) *FileWatcher {
 func (f *FileWatcher) Run() {
 	f.statFirst()
 	go func() {
-		defer close(f.Events)
-		defer close(f.Errors)
+		defer close(f.events)
+		defer close(f.errors)
 
 		ticker := time.Tick(f.interval)
 		for {
@@ -82,6 +82,14 @@ func (f *FileWatcher) Close() {
 	}
 	close(f.done)
 	f.closeMu.Unlock()
+}
+
+func (f *FileWatcher) Events() <-chan Event {
+	return f.events
+}
+
+func (f *FileWatcher) Errors() <-chan error {
+	return f.errors
 }
 
 func (f *FileWatcher) statFirst() {
@@ -123,7 +131,7 @@ func (f *FileWatcher) stat() {
 
 func (f *FileWatcher) sendEvent(e Event) bool {
 	select {
-	case f.Events <- e:
+	case f.events <- e:
 		return true
 	case <-f.done:
 		return false
@@ -132,7 +140,7 @@ func (f *FileWatcher) sendEvent(e Event) bool {
 
 func (f *FileWatcher) sendError(err error) bool {
 	select {
-	case f.Errors <- err:
+	case f.errors <- err:
 		return true
 	case <-f.done:
 		return false

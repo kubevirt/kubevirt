@@ -108,7 +108,7 @@ func (m *MultipathSocketMonitor) run() {
 	log.Log.Infof("Starting to monitor the multipath socket")
 	for {
 		select {
-		case event := <-m.Watcher.Events:
+		case event := <-m.Watcher.Events():
 			switch event {
 			case filewatcher.Create:
 				fallthrough
@@ -119,7 +119,7 @@ func (m *MultipathSocketMonitor) run() {
 			case filewatcher.Remove:
 				_ = m.unmount()
 			}
-		case err := <-m.Watcher.Errors:
+		case err := <-m.Watcher.Errors():
 			if err != nil {
 				log.Log.Reason(err).Errorf("Error during monitoring multipath socket")
 			}
