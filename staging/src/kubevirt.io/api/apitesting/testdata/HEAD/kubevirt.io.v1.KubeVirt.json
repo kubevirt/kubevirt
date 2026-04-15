@@ -135,7 +135,8 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "experimental": {}
       },
       "machineType": "machineTypeValue",
       "network": {

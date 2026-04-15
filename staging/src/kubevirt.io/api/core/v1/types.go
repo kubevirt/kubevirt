@@ -3361,6 +3361,17 @@ type MigrationConfiguration struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// Experimental holds advanced migration knobs gated behind the
+	// AdvancedLiveMigration feature gate. The entire section is ignored
+	// when the gate is disabled.
+	//+optional
+	Experimental *ExperimentalMigrationConfiguration `json:"experimental,omitempty"`
+}
+
+// ExperimentalMigrationConfiguration holds migration knobs that are
+// gated behind the AdvancedLiveMigration feature gate. Fields may
+// graduate to top-level or be removed in future versions.
+type ExperimentalMigrationConfiguration struct {
 }
 
 // DiskVerification holds container disks verification limits
