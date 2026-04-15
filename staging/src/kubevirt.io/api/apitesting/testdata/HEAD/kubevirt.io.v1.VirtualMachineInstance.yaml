@@ -718,6 +718,7 @@ status:
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
+      experimental: {}
       matchSELinuxLevelOnMigration: true
       network: networkValue
       nodeDrainTaintKey: nodeDrainTaintKeyValue
