@@ -1828,11 +1828,11 @@ var _ = Describe("Manager", func() {
 			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and send a different event otherwise this
+				// stop decreasing data and send a completed event otherwise this
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_CANCELLED,
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
 					}
 				}
 
@@ -1879,11 +1879,11 @@ var _ = Describe("Manager", func() {
 			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and send a different event otherwise this
+				// stop decreasing data and send a completed event otherwise this
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_CANCELLED,
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
 					}
 				}
 
@@ -1943,11 +1943,11 @@ var _ = Describe("Manager", func() {
 			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and send a different event otherwise this
+				// stop decreasing data and send a completed event otherwise this
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_CANCELLED,
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
 					}
 				}
 
@@ -2101,6 +2101,7 @@ var _ = Describe("Manager", func() {
 		})
 		It("migration cancellation should be finalized even if we missed status update", func() {
 			migrationErrorChan := make(chan error, 1)
+			defer close(migrationErrorChan)
 			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
 				return &libvirt.DomainJobInfo{
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
@@ -2132,9 +2133,15 @@ var _ = Describe("Manager", func() {
 			}
 
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil)
-
-			migrationErrorChan <- fmt.Errorf("operation canceled by client")
+			gomock.InOrder(
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).DoAndReturn(
+					func(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
+						migrationErrorChan <- fmt.Errorf("operation aborted: canceled by client")
+						return fake_jobinfo_running, nil
+					},
+				),
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
+			)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
