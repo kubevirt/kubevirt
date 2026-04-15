@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -64,4 +65,25 @@ func HasVMISpecPersistentReservation(vmiSpec *v1.VirtualMachineInstanceSpec) boo
 		}
 	}
 	return false
+}
+
+// NOTE: Live migration of persistent reservations requires QEMU >= 10.1.0.
+// On older QEMU versions, migration attempts will fail.
+func IsPersistentReservationMigratable(vmi *v1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return true
+	}
+
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.DiskDevice.LUN != nil && disk.DiskDevice.LUN.Reservation {
+			bus := disk.DiskDevice.LUN.Bus
+			if bus == v1.DiskBusSCSI {
+				continue
+			}
+			log.Log.Object(vmi).Warningf("Disk %s has non-SCSI bus type %s with persistent reservation. Migration blocked", disk.Name, bus)
+			return false
+		}
+	}
+
+	return true
 }
