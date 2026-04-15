@@ -933,7 +933,7 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 	return nil
 }
 
-// checkForContainerImageError checks if an error has occured while handling the image of any of the pod's containers
+// checkForContainerImageError checks if an error has occurred while handling the image of any of the pod's containers
 // (including init containers), and returns a syncErr with the details of the error, or nil otherwise.
 func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 	containerStatuses := append(append([]k8sv1.ContainerStatus{}, pod.Status.InitContainerStatuses...), pod.Status.ContainerStatuses...)
