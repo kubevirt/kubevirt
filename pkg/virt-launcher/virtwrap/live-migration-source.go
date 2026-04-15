@@ -371,6 +371,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 		return nil
 	}
 
+	// Improve the error message when the volume migration fails because the destination size is smaller than the source volume
+	if failed && strings.Contains(standardizeSpaces(reason), "has to be smaller or equal to the actual size of the containing file") {
+		reason = fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v", reason)
+	}
+
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
 		if failed {
 			migrationMetadata.Failed = true
@@ -603,13 +608,6 @@ func (m *migrationMonitor) startMonitor() {
 			var abortStatus v1.MigrationAbortStatus
 			if strings.Contains(err.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
-			}
-			// Improve the error message when the volume migration fails because the destination size is smaller than the source volume
-			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(standardizeSpaces(err.Error()),
-				"has to be smaller or equal to the actual size of the containing file") {
-				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v",
-					err), abortStatus)
-				return
 			}
 			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
 			return
