@@ -768,7 +768,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		// Update occured for labels but not spec
+		// Update occurred for labels but not spec
 		Expect(updatedVMI.Spec.Volumes).To(Equal(originalVMI.Spec.Volumes))
 		Expect(updatedVMI.Labels).To(Not(HaveKey(v1.MigrationTargetNodeNameLabel)))
 	})
