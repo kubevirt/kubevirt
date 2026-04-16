@@ -3377,10 +3377,25 @@ type MigrationConfiguration struct {
 	Experimental *ExperimentalMigrationConfiguration `json:"experimental,omitempty"`
 }
 
+// MigrationCompression selects the compression algorithm for the live
+// migration data stream.
+// +kubebuilder:validation:Enum=none;zstd
+type MigrationCompression string
+
+const (
+	MigrationCompressionNone MigrationCompression = "none"
+	MigrationCompressionZstd MigrationCompression = "zstd"
+)
+
 // ExperimentalMigrationConfiguration holds migration knobs that are
 // gated behind the AdvancedLiveMigration feature gate. Fields may
 // graduate to top-level or be removed in future versions.
 type ExperimentalMigrationConfiguration struct {
+	// Compression selects the algorithm for compressing the live migration
+	// data stream. When omitted (nil) or set to "none", compression is
+	// disabled.
+	//+optional
+	Compression *MigrationCompression `json:"compression,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

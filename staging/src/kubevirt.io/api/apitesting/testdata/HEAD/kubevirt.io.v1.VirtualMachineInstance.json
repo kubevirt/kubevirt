@@ -1005,7 +1005,9 @@
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true,
-        "experimental": {}
+        "experimental": {
+          "compression": "compressionValue"
+        }
       },
       "targetCPUSet": [
         -12
