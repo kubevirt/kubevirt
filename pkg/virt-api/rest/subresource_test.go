@@ -334,27 +334,29 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
+				gomock.InOrder(
+					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+							Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
 
-						patchSet := patch.New()
-						if terminationGracePeriod != nil {
-							patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *terminationGracePeriod))
-						} else {
-							patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
-						}
-						patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", int64(1)))
-						patchBytes, err := patchSet.GeneratePayload()
-						Expect(err).ToNot(HaveOccurred())
-						Expect(string(data)).To(Equal(string(patchBytes)))
-						return &vmi, nil
-					})
-				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions) (interface{}, interface{}) {
-						Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
-						return vm, nil
-					})
+							patchSet := patch.New()
+							if terminationGracePeriod != nil {
+								patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *terminationGracePeriod))
+							} else {
+								patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
+							}
+							patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", int64(1)))
+							patchBytes, err := patchSet.GeneratePayload()
+							Expect(err).ToNot(HaveOccurred())
+							Expect(string(data)).To(Equal(string(patchBytes)))
+							return &vmi, nil
+						}),
+					vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions) (interface{}, interface{}) {
+							Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
+							return vm, nil
+						}),
+				)
 
 				app.RestartVMRequestHandler(request, response)
 
@@ -390,6 +392,49 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("optimistic locking conflict"))
+
+				app.RestartVMRequestHandler(request, response)
+
+				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
+			})
+
+			It("should rollback VMI terminationGracePeriod when VM PatchStatus fails after successful VMI patch", func() {
+				request.PathParameters()["name"] = testVMName
+				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+				restartOptions := &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero}
+				bytesRepresentation, _ := json.Marshal(restartOptions)
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				var terminationGracePeriodSeconds int64 = 600
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Name:      testVMName,
+						Namespace: k8smetav1.NamespaceDefault,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
+					},
+				}
+				vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
+				gomock.InOrder(
+					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(&vmi, nil),
+					vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("status patch conflict")),
+					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+							patchSet := patch.New()
+							patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", int64(1)))
+							patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", terminationGracePeriodSeconds))
+							patchBytes, err := patchSet.GeneratePayload()
+							Expect(err).ToNot(HaveOccurred())
+							Expect(string(data)).To(Equal(string(patchBytes)))
+							return &vmi, nil
+						}),
+				)
 
 				app.RestartVMRequestHandler(request, response)
 

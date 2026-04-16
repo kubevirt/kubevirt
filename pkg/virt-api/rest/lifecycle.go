@@ -450,11 +450,22 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	if bodyStruct.GracePeriodSeconds != nil && *bodyStruct.GracePeriodSeconds == 0 {
-		if _, err := app.patchVMITerminationGracePeriod(vmi, namespace, int64(1), bodyStruct.DryRun); err != nil {
+	// Set terminationGracePeriodSeconds to 1 (the shortest safe restart period) before
+	// sending stateChangeRequests, so virt-handler shuts down the guest promptly regardless
+	// of which controller deletes the pod first.
+	forceRestart := bodyStruct.GracePeriodSeconds != nil && *bodyStruct.GracePeriodSeconds == 0
+	var oldGracePeriodSeconds int64
+	if forceRestart {
+		var err error
+		oldGracePeriodSeconds, err = app.patchVMITerminationGracePeriod(vmi, namespace, int64(1), bodyStruct.DryRun)
+		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
 		}
+		// Reflect the patched value locally so the rollback patch uses the correct
+		// optimistic concurrency test if PatchStatus fails below.
+		newGracePeriod := int64(1)
+		vmi.Spec.TerminationGracePeriodSeconds = &newGracePeriod
 	}
 
 	patchBytes, err := getChangeRequestJson(vm,
@@ -468,6 +479,11 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
 	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	if err != nil {
+		if forceRestart {
+			if _, rollbackErr := app.patchVMITerminationGracePeriod(vmi, namespace, oldGracePeriodSeconds, bodyStruct.DryRun); rollbackErr != nil {
+				log.Log.Object(vmi).Errorf("Failed to rollback VMI terminationGracePeriodSeconds: %v", rollbackErr)
+			}
+		}
 		if strings.Contains(err.Error(), jsonpatchTestErr) {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
 		} else {
