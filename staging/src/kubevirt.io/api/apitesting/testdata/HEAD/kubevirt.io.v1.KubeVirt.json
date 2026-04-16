@@ -136,7 +136,9 @@
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true,
-        "experimental": {}
+        "experimental": {
+          "compression": "compressionValue"
+        }
       },
       "machineType": "machineTypeValue",
       "network": {
