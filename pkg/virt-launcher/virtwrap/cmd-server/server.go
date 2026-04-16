@@ -436,6 +436,9 @@ func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.D
 		if interfaces := l.domainManager.InterfacesStatus(); interfaces != nil {
 			domainObj.Status.Interfaces = interfaces
 		}
+		if fsFreezeStatus := l.domainManager.GetFSFreezeStatus(); fsFreezeStatus != nil {
+			domainObj.Status.FSFreezeStatus = *fsFreezeStatus
+		}
 		if domain, err := json.Marshal(domainObj); err != nil {
 			log.Log.Reason(err).Errorf("Failed to marshal domain")
 			response.Response.Success = false

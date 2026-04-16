@@ -153,6 +153,7 @@ var _ = Describe("Virt remote commands", func() {
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
 			domainManager.EXPECT().InterfacesStatus().Return(nil)
+			domainManager.EXPECT().GetFSFreezeStatus().Return(nil)
 			domain, exists, err := client.GetDomain()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -176,6 +177,7 @@ var _ = Describe("Virt remote commands", func() {
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 			const osName = "fedora"
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{Name: osName})
+			domainManager.EXPECT().GetFSFreezeStatus().Return(nil)
 
 			domain, exists, err := client.GetDomain()
 			Expect(err).ToNot(HaveOccurred())

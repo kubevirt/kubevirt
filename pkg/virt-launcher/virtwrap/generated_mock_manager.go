@@ -203,6 +203,20 @@ func (mr *MockDomainManagerMockRecorder) GetGuestOSInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestOSInfo", reflect.TypeOf((*MockDomainManager)(nil).GetGuestOSInfo))
 }
 
+// GetFSFreezeStatus mocks base method.
+func (m *MockDomainManager) GetFSFreezeStatus() *api.FSFreeze {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFSFreezeStatus")
+	ret0, _ := ret[0].(*api.FSFreeze)
+	return ret0
+}
+
+// GetFSFreezeStatus indicates an expected call of GetFSFreezeStatus.
+func (mr *MockDomainManagerMockRecorder) GetFSFreezeStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFSFreezeStatus", reflect.TypeOf((*MockDomainManager)(nil).GetFSFreezeStatus))
+}
+
 // GetLaunchMeasurement mocks base method.
 func (m *MockDomainManager) GetLaunchMeasurement(arg0 *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
 	m.ctrl.T.Helper()

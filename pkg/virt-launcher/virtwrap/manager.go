@@ -153,6 +153,7 @@ type DomainManager interface {
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	InterfacesStatus() []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
+	GetFSFreezeStatus() *api.FSFreeze
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
@@ -2609,6 +2610,10 @@ func (l *LibvirtDomainManager) InterfacesStatus() []api.InterfaceStatus {
 // GetGuestOSInfo returns the Guest OS version and architecture
 func (l *LibvirtDomainManager) GetGuestOSInfo() *api.GuestOSInfo {
 	return l.agentData.GetGuestOSInfo()
+}
+
+func (l *LibvirtDomainManager) GetFSFreezeStatus() *api.FSFreeze {
+	return l.agentData.GetFSFreezeStatus()
 }
 
 // GetUsers return the full list of users on the guest machine
