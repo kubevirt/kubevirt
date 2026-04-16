@@ -100,7 +100,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 			namespace := testsuite.GetTestNamespace(nil)
 
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithPasstInterfaceWithPort(),
+				withPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
@@ -222,7 +222,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 
 		BeforeAll(func() {
 			vmi = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithPasstInterfaceWithPort(),
+				withPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			namespace := testsuite.GetTestNamespace(nil)
@@ -358,7 +358,7 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 	namespace := testsuite.GetTestNamespace(nil)
 
 	clientVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithPasstInterfaceWithPort(),
+		withPasstInterfaceWithPort(),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
@@ -431,4 +431,10 @@ EOL`, inetSuffix, serverIP, serverPort)
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.ShellSuccess},
 	}, 60*time.Second)
+}
+
+func withPasstInterfaceWithPort() libvmi.Option {
+	iface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+	iface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
+	return libvmi.WithInterface(iface)
 }

@@ -39,12 +39,6 @@ func WithNetwork(network *kvirtv1.Network) Option {
 	}
 }
 
-func WithPasstInterfaceWithPort() Option {
-	iface := InterfaceDeviceWithPasstBinding(kvirtv1.DefaultPodNetwork().Name)
-	iface.Ports = []kvirtv1.Port{{Port: 1234, Protocol: "TCP"}}
-	return WithInterface(iface)
-}
-
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
