@@ -238,12 +238,16 @@ func mountsFilter(compare, m *mount.Info, source, podUID string) (bool, bool) {
 		nfsMatch = m.Source != source
 	}
 
-	// Filter by pod UID if provided. Kubelet mounts volumes at paths like:
-	// /var/lib/kubelet/pods/<POD_UID>/volumes/...
-	// When multiple attachment pods exist with volumes from the same underlying
-	// device (same major:minor), we need the pod UID to disambiguate.
+	// Filter out mounts that are clearly for a different attachment pod.
+	// Kubelet mounts volumes at /var/lib/kubelet/pods/<UID>/volumes/...
+	// When multiple attachment pods co-exist with volumes from the same underlying
+	// device (same major:minor), a mount that contains "/pods/" but a different
+	// pod UID is definitely wrong and should be excluded.
+	// Mounts outside the kubelet pods path (e.g., the root filesystem mount at "/",
+	// or a device mount at "/mnt/data") are valid parent candidates for hostPath-backed
+	// volumes and must NOT be filtered by pod UID.
 	podUIDMismatch := false
-	if podUID != "" {
+	if podUID != "" && strings.Contains(m.Mountpoint, "/pods/") {
 		podUIDMismatch = !strings.Contains(m.Mountpoint, podUID)
 	}
 
