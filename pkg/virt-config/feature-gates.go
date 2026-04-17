@@ -117,6 +117,10 @@ func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
 }
 
+func (config *ClusterConfig) ARM64SecureBootEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ARM64SecureBoot)
+}
+
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
 }
@@ -239,4 +243,8 @@ func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
 
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
+}
+
+func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
 }

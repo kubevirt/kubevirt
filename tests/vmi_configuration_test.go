@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -345,6 +346,39 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled"),
 		)
 
+		It("should enable ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, func() {
+			kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+
+			ubuntuWithUefi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "quay.io/containerdisks/ubuntu:25.04"),
+				libvmi.WithMemoryRequest("1Gi"),
+				libvmi.WithRng(),
+				libvmi.WithArchitecture("arm64"),
+				libvmi.WithUefi(true),
+				libvmi.WithTPM(false),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
+					"#cloud-config\nuser: fedora\npassword: fedora\nchpasswd: { expire: False }\nruncmd:\n  - systemctl start serial-getty@ttyAMA0.service\n",
+				)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Starting the VirtualMachineInstance")
+			ubuntuWithUefi = libvmops.RunVMIAndExpectLaunch(ubuntuWithUefi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("Logging in and checking EFI SecureBoot state")
+			Expect(console.SafeExpectBatch(ubuntuWithUefi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login: "},
+				&expect.BSnd{S: "fedora\n"},
+				&expect.BExp{R: "Password: "},
+				&expect.BSnd{S: "fedora\n"},
+				&expect.BExp{R: `fedora@`},
+				&expect.BSnd{S: "[ -d /sys/firmware/efi ] && echo EFI_OK || echo EFI_FAIL\n"},
+				&expect.BExp{R: "EFI_OK"},
+				&expect.BSnd{S: "mokutil --sb-state\n"},
+				&expect.BExp{R: "SecureBoot enabled"},
+			}, 360)).To(Succeed())
+		})
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				overcommitVmi := libvmifact.NewAlpine(overcommitGuestOverhead())
