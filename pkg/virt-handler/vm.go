@@ -2203,6 +2203,9 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 				return vmi.Status.Phase, err
 			} else if isUnresponsive {
+				if vmi.IsMigrationTarget() {
+					return v1.WaitingForSync, nil
+				}
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
 				return v1.Failed, nil
@@ -2211,6 +2214,9 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 		case !vmi.IsRunning() && !vmi.IsFinal():
 			return v1.Scheduled, nil
 		case !vmi.IsFinal():
+			if vmi.IsMigrationTarget() {
+				return v1.WaitingForSync, nil
+			}
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
 			return v1.Failed, nil

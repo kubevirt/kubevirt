@@ -445,12 +445,21 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					}
 				}
 			} else if controller.IsPodDownOrGoingDown(pod) {
-				vmiCopy.Status.Phase = virtv1.Failed
+				if vmiCopy.IsMigrationTarget() {
+					log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduling because pod is down")
+					vmiCopy.Status.Phase = virtv1.WaitingForSync
+				} else {
+					vmiCopy.Status.Phase = virtv1.Failed
+				}
 			}
 		} else {
-			log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
-			// someone other than the controller deleted the pod unexpectedly
-			vmiCopy.Status.Phase = virtv1.Failed
+			if vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduling because pod does not exist")
+				vmiCopy.Status.Phase = virtv1.WaitingForSync
+			} else {
+				log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
+				vmiCopy.Status.Phase = virtv1.Failed
+			}
 		}
 	case vmi.IsFinal():
 		allDeleted, err := c.allPodsDeleted(vmi)

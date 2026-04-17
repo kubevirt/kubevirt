@@ -4476,6 +4476,74 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				sanityExecute()
 				expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Failed)
 			})
+
+			DescribeTable("should not let migration target escape WaitingForSync via Scheduling", func(podPhase k8sv1.PodPhase) {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.WaitingForSync
+				vmi.Status.NodeName = "targetnode"
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
+
+				pod := newPodForVirtualMachine(vmi, podPhase)
+				pod.Spec.NodeName = "targetnode"
+
+				addVirtualMachine(vmi)
+				addActivePods(vmi, pod.UID, "targetnode")
+				addPod(pod)
+
+				sanityExecute()
+
+				updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVmi.Status.Phase).To(Equal(virtv1.WaitingForSync))
+			},
+				Entry("pod in Failed phase", k8sv1.PodFailed),
+				Entry("pod in Succeeded phase", k8sv1.PodSucceeded),
+			)
+
+			DescribeTable("should transition scheduling migration target to WaitingForSync when pod is down", func(podPhase k8sv1.PodPhase) {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Status.NodeName = "targetnode"
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
+
+				pod := newPodForVirtualMachine(vmi, podPhase)
+				pod.Spec.NodeName = "targetnode"
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+
+				updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVmi.Status.Phase).To(Equal(virtv1.WaitingForSync))
+			},
+				Entry("pod in Failed phase", k8sv1.PodFailed),
+				Entry("pod in Succeeded phase", k8sv1.PodSucceeded),
+			)
+
+			It("should transition scheduling migration target to WaitingForSync when pod disappears", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
+
+				addVirtualMachine(vmi)
+
+				sanityExecute()
+
+				updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVmi.Status.Phase).To(Equal(virtv1.WaitingForSync))
+			})
 		})
 	})
 
