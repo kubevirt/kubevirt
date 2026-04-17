@@ -690,7 +690,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			By("Deleting virt-handler pod")
 			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get virt-handler pod for node %s", vmi.Status.NodeName))
+			Expect(err).ToNot(HaveOccurred(), "failed to get virt-handler pod for node %s", vmi.Status.NodeName)
 			Eventually(func() error {
 				err := virtClient.CoreV1().
 					Pods(virtHandlerPod.GetObjectMeta().GetNamespace()).
@@ -947,7 +947,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				vmi = libvmifact.NewAlpineWithTestTooling(opts...)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create VMI %s/%s", vmi.Namespace, vmi.Name))
+				Expect(err).ToNot(HaveOccurred(), "failed to create VMI %s/%s", vmi.Namespace, vmi.Name)
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
 			})
 
@@ -2247,7 +2247,7 @@ func deleteAttachmentPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachi
 		GracePeriodSeconds: pointer.P(int64(0)),
 		PropagationPolicy:  &foreGround,
 	})
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete attachment pod %s in namespace %s", podName, vmi.Namespace))
+	Expect(err).ToNot(HaveOccurred(), "failed to delete attachment pod %s in namespace %s", podName, vmi.Namespace)
 	Eventually(matcher.ThisPodWith(vmi.Namespace, podName), 300*time.Second, 1*time.Second).Should(matcher.BeGone())
 }
 
