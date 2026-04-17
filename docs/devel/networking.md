@@ -264,7 +264,7 @@ gateway IP, and `10.11.12.2` as VM IP.
 NAT is configured in the `preparePodNetworkInterfaces` method. The bridge is
 configured with the IP address previously reserved for the VM's gateway.
 
-The bridge acts as the vm's default gateway and not as an L2 bridge,
+The bridge acts as the VM's default gateway and not as an L2 bridge,
 therefore, the pod networking interface is not set as its port.
 Since a Linux bridge gets the MAC address of its first port and we don't want it to
 take the MAC address of the first tap device attached to it,
