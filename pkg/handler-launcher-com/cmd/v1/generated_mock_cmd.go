@@ -361,6 +361,26 @@ func (mr *MockCmdClientMockRecorder) GetUsers(ctx, in any, opts ...any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsers", reflect.TypeOf((*MockCmdClient)(nil).GetUsers), varargs...)
 }
 
+// GetVMStats mocks base method.
+func (m *MockCmdClient) GetVMStats(ctx context.Context, in *VMStatsRequest, opts ...grpc.CallOption) (*VMStatsResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetVMStats", varargs...)
+	ret0, _ := ret[0].(*VMStatsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVMStats indicates an expected call of GetVMStats.
+func (mr *MockCmdClientMockRecorder) GetVMStats(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVMStats", reflect.TypeOf((*MockCmdClient)(nil).GetVMStats), varargs...)
+}
+
 // GuestPing mocks base method.
 func (m *MockCmdClient) GuestPing(ctx context.Context, in *GuestPingRequest, opts ...grpc.CallOption) (*GuestPingResponse, error) {
 	m.ctrl.T.Helper()
@@ -1003,6 +1023,21 @@ func (m *MockCmdServer) GetUsers(arg0 context.Context, arg1 *EmptyRequest) (*Gue
 func (mr *MockCmdServerMockRecorder) GetUsers(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsers", reflect.TypeOf((*MockCmdServer)(nil).GetUsers), arg0, arg1)
+}
+
+// GetVMStats mocks base method.
+func (m *MockCmdServer) GetVMStats(arg0 context.Context, arg1 *VMStatsRequest) (*VMStatsResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVMStats", arg0, arg1)
+	ret0, _ := ret[0].(*VMStatsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVMStats indicates an expected call of GetVMStats.
+func (mr *MockCmdServerMockRecorder) GetVMStats(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVMStats", reflect.TypeOf((*MockCmdServer)(nil).GetVMStats), arg0, arg1)
 }
 
 // GuestPing mocks base method.

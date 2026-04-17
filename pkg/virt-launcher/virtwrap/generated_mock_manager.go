@@ -132,6 +132,21 @@ func (mr *MockDomainManagerMockRecorder) FreezeVMI(arg0, arg1 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVMI", reflect.TypeOf((*MockDomainManager)(nil).FreezeVMI), arg0, arg1)
 }
 
+// GetAgentData mocks base method.
+func (m *MockDomainManager) GetAgentData(dataKey string) (string, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAgentData", dataKey)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// GetAgentData indicates an expected call of GetAgentData.
+func (mr *MockDomainManagerMockRecorder) GetAgentData(dataKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentData", reflect.TypeOf((*MockDomainManager)(nil).GetAgentData), dataKey)
+}
+
 // GetDomainDirtyRateStats mocks base method.
 func (m *MockDomainManager) GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error) {
 	m.ctrl.T.Helper()

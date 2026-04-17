@@ -168,6 +168,7 @@ type DomainManager interface {
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
+	GetAgentData(dataKey string) (string, bool)
 }
 
 type LibvirtDomainManager struct {
@@ -2349,6 +2350,10 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	}
 
 	return fsList
+}
+
+func (l *LibvirtDomainManager) GetAgentData(dataKey string) (string, bool) {
+	return l.agentData.GetAgentData(dataKey)
 }
 
 func (l *LibvirtDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
