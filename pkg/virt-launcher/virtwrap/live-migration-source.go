@@ -618,10 +618,17 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 
-		jobStats, err := dom.GetJobStats(0)
+		var jobStats *libvirt.DomainJobInfo
+		jobStats, err = dom.GetJobStats(0)
 		if err != nil {
-			logger.Reason(err).Warning("failed to get domain job info, will retry")
-			continue
+			logger.Reason(err).Info("failed to get domain job info, checking for completed job")
+			jobStats, err = dom.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
+			if err != nil {
+				// This could only happen when the domain is gone (successful migration) but there is lock contention in stats retrieval.
+				// In case of a sudden domain crash the migrationErr handling above takes care of it.
+				logger.Reason(err).Warning("failed to get completed job stats, will retry")
+				continue
+			}
 		}
 
 		if jobStats.DataRemainingSet {
@@ -644,6 +651,9 @@ func (m *migrationMonitor) startMonitor() {
 			if logInterval%monitorLogInterval == 0 {
 				logMigrationInfo(logger, string(migrationUID), jobStats)
 			}
+		case libvirt.DOMAIN_JOB_COMPLETED:
+			logMigrationInfo(logger, string(migrationUID), jobStats)
+			return
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job is not active")
 		case libvirt.DOMAIN_JOB_CANCELLED:
