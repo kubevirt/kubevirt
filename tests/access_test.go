@@ -466,8 +466,8 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				denyAllFor("view", "migrate", "default")),
 			Entry("on vmi vnc/screenshot",
 				"virtualmachineinstances", "vnc/screenshot",
-				allowGetFor("admin", "edit"),
-				denyAllFor("view", "migrate", "default")),
+				allowGetFor("admin"),
+				denyAllFor("edit", "view", "migrate", "default")),
 		)
 	})
 })
