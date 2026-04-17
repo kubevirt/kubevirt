@@ -59,6 +59,10 @@ import (
 
 	v12 "kubevirt.io/client-go/api"
 
+	golog "log"
+
+	k8sappsv1 "k8s.io/api/apps/v1"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
@@ -67,6 +71,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	mime "kubevirt.io/kubevirt/pkg/rest"
+	"kubevirt.io/kubevirt/pkg/rest/auth"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -83,12 +88,10 @@ import (
 
 const (
 	// Default port that virt-api listens on.
-	defaultPort        = 443
-	defaultMetricsPort = 8080
+	defaultPort = 443
 
 	// Default address that virt-api listens on.
-	defaultHost        = "0.0.0.0"
-	defaultMetricsHost = defaultHost
+	defaultHost = "0.0.0.0"
 
 	DefaultConsoleServerPort = 8186
 
@@ -160,8 +163,16 @@ func NewVirtApi() VirtApi {
 	app := &virtAPIApp{}
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
-	app.MetricsBindAddress = defaultMetricsHost
-	app.MetricsPort = defaultMetricsPort
+
+	app.MetricsAuth = true
+	app.MetricsAuthOptions = &auth.ResourceAttributes{
+		Group:       k8sappsv1.SchemeGroupVersion.Group,
+		Version:     k8sappsv1.SchemeGroupVersion.Version,
+		Resource:    "deployments",
+		Namespace:   "d8-virtualization",
+		Name:        "virt-api",
+		Subresource: "prometheus-metrics",
+	}
 
 	return app
 }
@@ -1107,19 +1118,6 @@ func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.KubernetesCAManager, kubevirt
 	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
 }
 
-func (app *virtAPIApp) startPrometheusServer(errCh chan error) {
-	mux := restful.NewContainer()
-	webService := new(restful.WebService)
-	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	mux.Add(webService)
-	mux.Handle("/metrics", promhttp.Handler())
-	server := http.Server{
-		Addr:    app.ServiceListen.MetricsAddress(),
-		Handler: mux,
-	}
-	errCh <- server.ListenAndServe()
-
-}
 func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) error {
 
 	errors := make(chan error)
@@ -1142,6 +1140,23 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 	app.setupTLS(k8sCAManager, kubevirtCAInformer, virtualizationCAInformer)
 
 	app.Compose()
+
+	if app.MetricsAuth {
+		log.Log.Infof("metrics: auth enabled")
+		if app.MetricsAuthOptions == nil {
+			golog.Fatal("metrics auth options are required")
+		}
+		if err := app.MetricsAuthOptions.Validate(); err != nil {
+			golog.Fatalf("invalid metrics auth options: %v", err)
+		}
+		log.Log.Infof("metrics: auth options: %v", app.MetricsAuthOptions)
+
+		handler := auth.NewMiddlewareFromKubevirtClient(app.virtCli, *app.MetricsAuthOptions).Handler(promhttp.Handler())
+		http.Handle("/metrics", handler)
+	} else {
+		log.Log.Infof("metrics: auth disabled")
+		http.Handle("/metrics", promhttp.Handler())
+	}
 
 	server := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
@@ -1278,8 +1293,6 @@ func (app *virtAPIApp) Run() {
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()
 
-	promErrCh := make(chan error)
-	go app.startPrometheusServer(promErrCh)
 	// start TLS server
 	// tls server will only accept connections when fetching a certificate and internal configuration passed once
 	err = app.startTLS(kubeInformerFactory)

@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	kubeapirewriter "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/kube-api-rewriter"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -110,6 +111,10 @@ func SetupMetrics(
 	}
 
 	if err := workqueue.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := kubeapirewriter.SetupMetrics(); err != nil {
 		return err
 	}
 

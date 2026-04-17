@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/prometheus/procfs/internal/util"
 )
@@ -124,6 +125,7 @@ type InfiniBandDevice struct {
 	Name            string
 	BoardID         string // /sys/class/infiniband/<Name>/board_id
 	FirmwareVersion string // /sys/class/infiniband/<Name>/fw_ver
+	NodeGUID        string // /sys/class/infiniband/<Name>/node_guid
 	HCAType         string // /sys/class/infiniband/<Name>/hca_type
 	Ports           map[uint]InfiniBandPort
 }
@@ -171,7 +173,7 @@ func (fs FS) parseInfiniBandDevice(name string) (*InfiniBandDevice, error) {
 	device.FirmwareVersion = value
 
 	// Not all InfiniBand drivers expose all of these.
-	for _, f := range [...]string{"board_id", "hca_type"} {
+	for _, f := range [...]string{"board_id", "hca_type", "node_guid"} {
 		name := filepath.Join(path, f)
 		value, err := util.SysReadFile(name)
 		if err != nil {
@@ -186,6 +188,8 @@ func (fs FS) parseInfiniBandDevice(name string) (*InfiniBandDevice, error) {
 			device.BoardID = value
 		case "hca_type":
 			device.HCAType = value
+		case "node_guid":
+			device.NodeGUID = value
 		}
 	}
 
@@ -279,8 +283,11 @@ func (fs FS) parseInfiniBandPort(name string, port string) (*InfiniBandPort, err
 		return nil, fmt.Errorf("could not parse rate file in %q: %w", portPath, err)
 	}
 
-	// Intel irdma module does not expose /sys/class/infiniband/<device>/ports/<port-num>/counters
-	if !strings.HasPrefix(ibp.Name, "irdma") {
+	// Since the HCA may have been renamed by systemd, we cannot infer the kernel driver used by the
+	// device, and thus do not know what type(s) of counters should be present. Attempt to parse
+	// either / both "counters" (and potentially also "counters_ext"), and "hw_counters", subject
+	// to their availability on the system - irrespective of HCA naming convention.
+	if _, err := os.Stat(filepath.Join(portPath, "counters")); err == nil {
 		counters, err := parseInfiniBandCounters(portPath)
 		if err != nil {
 			return nil, err
@@ -288,7 +295,7 @@ func (fs FS) parseInfiniBandPort(name string, port string) (*InfiniBandPort, err
 		ibp.Counters = *counters
 	}
 
-	if strings.HasPrefix(ibp.Name, "irdma") || strings.HasPrefix(ibp.Name, "mlx5_") {
+	if _, err := os.Stat(filepath.Join(portPath, "hw_counters")); err == nil {
 		hwCounters, err := parseInfiniBandHwCounters(portPath)
 		if err != nil {
 			return nil, err
@@ -319,7 +326,7 @@ func parseInfiniBandCounters(portPath string) (*InfiniBandCounters, error) {
 		name := filepath.Join(path, f.Name())
 		value, err := util.SysReadFile(name)
 		if err != nil {
-			if os.IsNotExist(err) || os.IsPermission(err) || err.Error() == "operation not supported" || errors.Is(err, os.ErrInvalid) {
+			if os.IsNotExist(err) || os.IsPermission(err) || err.Error() == "operation not supported" || errors.Is(err, os.ErrInvalid) || errors.Is(err, syscall.EINVAL) {
 				continue
 			}
 			return nil, fmt.Errorf("failed to read file %q: %w", name, err)

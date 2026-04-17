@@ -198,7 +198,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
 
-		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+		migrationProxy := migrationproxy.NewMigrationProxyManager("0.0.0.0", nil, tlsConfig, tlsConfig, config)
 		launcherClientManager := &launcher_clients.MockLauncherClientManager{
 			Initialized: true,
 		}
@@ -217,11 +217,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			config,
 			mockIsolationDetector,
 			migrationProxy,
+			"",
 			nil, // capabilities
 			&netConfStub{},
 			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
 			migrationTargetPasstRepairHandler,
+			nil,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bytes_counter.go",
+        "doc.go",
+        "handler.go",
+        "logger.go",
+        "metrics.go",
+        "metrics_provider.go",
+        "roundtripper.go",
+        "stream_handler.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/deckhouse/kube-api-rewriter/pkg/proxy",
+    importpath = "github.com/deckhouse/kube-api-rewriter/pkg/proxy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/deckhouse/kube-api-rewriter/pkg/labels:go_default_library",
+        "//vendor/github.com/deckhouse/kube-api-rewriter/pkg/log:go_default_library",
+        "//vendor/github.com/deckhouse/kube-api-rewriter/pkg/monitoring/metrics:go_default_library",
+        "//vendor/github.com/deckhouse/kube-api-rewriter/pkg/rewriter:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/tidwall/gjson:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer/streaming:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/net:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+    ],
+)

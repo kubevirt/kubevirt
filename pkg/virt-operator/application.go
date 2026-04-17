@@ -54,10 +54,13 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	k8sappsv1 "k8s.io/api/apps/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	"kubevirt.io/kubevirt/pkg/rest/auth"
 	"kubevirt.io/kubevirt/pkg/service"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -300,13 +303,39 @@ func Execute() {
 }
 
 func (app *VirtOperatorApp) Run() {
+	promTLSConfig := kvtls.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
+
 	go func() {
 
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
 
 		webService := new(restful.WebService)
 		webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+
+		if app.MetricsAuth {
+			log.Log.Infof("metrics: auth enabled")
+			if app.MetricsAuthOptions == nil {
+				golog.Fatal("metrics auth options are required")
+			}
+			if err := app.MetricsAuthOptions.Validate(); err != nil {
+				golog.Fatalf("invalid metrics auth options: %v", err)
+				return
+			}
+			log.Log.Infof("metrics: auth options: %v", app.MetricsAuthOptions)
+
+			handler := auth.NewMiddlewareFromKubevirtClient(app.clientSet, *app.MetricsAuthOptions).RouteFunction(promhttp.Handler())
+			webService.Route(webService.GET("/metrics").To(handler).Doc("metrics endpoint"))
+		} else {
+			log.Log.Infof("metrics: auth disabled")
+			mux.Handle("/metrics", promhttp.Handler())
+		}
+
+		handle200 := restful.RouteFunction(func(req *restful.Request, resp *restful.Response) {
+			resp.WriteHeader(http.StatusOK)
+		})
+		webService.Route(webService.GET("/healthz").To(handle200).
+			Produces(restful.MIME_JSON).
+			Returns(200, "OK", nil))
 
 		componentProfiler := profiler.NewProfileManager(app.clusterConfig)
 		webService.Route(webService.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
@@ -318,33 +347,14 @@ func (app *VirtOperatorApp) Run() {
 		restfulContainer.Add(webService)
 
 		server := http.Server{
-			Addr:    app.ServiceListen.MetricsAddress(),
-			Handler: mux,
+			Addr:      app.ServiceListen.Address(),
+			Handler:   mux,
+			TLSConfig: promTLSConfig,
+			// Disable HTTP/2
+			// See CVE-2023-44487
+			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		}
-		if err := server.ListenAndServe(); err != nil {
-			golog.Fatal(err)
-		}
-	}()
-	go func() {
-		var handle200 = restful.RouteFunction(func(req *restful.Request, resp *restful.Response) {
-			resp.WriteHeader(http.StatusOK)
-		})
-		mux := http.NewServeMux()
-
-		webService := new(restful.WebService)
-		webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-		webService.Route(webService.GET("/healthz").To(handle200).
-			Produces(restful.MIME_JSON).
-			Returns(200, "OK", nil))
-
-		restfulContainer := restful.NewContainer()
-		restfulContainer.ServeMux = mux
-		restfulContainer.Add(webService)
-		server := http.Server{
-			Addr:    app.ServiceListen.Address(),
-			Handler: mux,
-		}
-		if err := server.ListenAndServe(); err != nil {
+		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
 		}
 	}()
@@ -485,6 +495,16 @@ func (app *VirtOperatorApp) AddFlags() {
 
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
+
+	app.MetricsAuth = true
+	app.MetricsAuthOptions = &auth.ResourceAttributes{
+		Group:       k8sappsv1.SchemeGroupVersion.Group,
+		Version:     k8sappsv1.SchemeGroupVersion.Version,
+		Resource:    "deployments",
+		Namespace:   "d8-virtualization",
+		Name:        "virt-operator",
+		Subresource: "prometheus-metrics",
+	}
 
 	app.AddCommonFlags()
 }

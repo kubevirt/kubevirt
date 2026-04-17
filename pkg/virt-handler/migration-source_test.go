@@ -187,7 +187,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+		migrationProxy := migrationproxy.NewMigrationProxyManager("0.0.0.0", nil, tlsConfig, tlsConfig, config)
 		launcherClientManager := &launcher_clients.MockLauncherClientManager{
 			Initialized: true,
 		}
@@ -206,6 +206,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			"/tmp/%d",
 			&netStatStub{},
 			migrationSourcePasstRepairHandler,
+			nil,
 		)
 
 		vmiTestUUID = uuid.NewUUID()

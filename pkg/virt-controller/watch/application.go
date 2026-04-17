@@ -100,20 +100,24 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 
+	k8sappsv1 "k8s.io/api/apps/v1"
+
+	"github.com/deckhouse/kube-api-rewriter/pkg/proxy"
+	kubevirtrules "github.com/deckhouse/virtualization/src/kubevirt-rules"
+
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	netcontrollers "kubevirt.io/kubevirt/pkg/network/controllers"
 	netmigration "kubevirt.io/kubevirt/pkg/network/migration"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
+	"kubevirt.io/kubevirt/pkg/rest/auth"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
 const (
-	defaultPort        = 8182
-	defaultMetricsPort = 8080
+	defaultPort = 8182
 
-	defaultHost        = "0.0.0.0"
-	defaultMetricsHost = defaultHost
+	defaultHost = "0.0.0.0"
 
 	launcherImage       = "virt-launcher"
 	exporterImage       = "virt-exportserver"
@@ -310,6 +314,8 @@ func Execute() {
 	if err != nil {
 		panic(err)
 	}
+	app.wrapConfigWithRewriteRules(clientConfig)
+
 	clientConfig.RateLimiter = app.reloadableRateLimiter
 	app.clientSet, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
@@ -551,6 +557,12 @@ func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
 	}
 }
 
+func (vca *VirtControllerApp) wrapConfigWithRewriteRules(clientConfig *clientrest.Config) {
+	rules := kubevirtrules.KubevirtRewriteRules
+	rules.Init()
+	proxy.WrapRESTConfig(clientConfig, proxy.NewProxyRoundTripper("virt-controller", proxy.ToRenamed, rules))
+}
+
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
 
@@ -558,12 +570,27 @@ func (vca *VirtControllerApp) Run() {
 	go promCertManager.Start()
 	promTLSConfig := kvtls.SetupPromTLS(promCertManager, vca.clusterConfig)
 
-	promErrCh := make(chan error)
-	go vca.startPrometheusServer(promErrCh)
-
 	go func() {
 		httpLogger := logger.With("service", "http")
 		_ = httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
+
+		if vca.MetricsAuth {
+			logger.Infof("metrics: auth enabled")
+			if vca.MetricsAuthOptions == nil {
+				golog.Fatal("metrics auth options are required")
+			}
+			if err := vca.MetricsAuthOptions.Validate(); err != nil {
+				golog.Fatalf("invalid metrics auth options: %v", err)
+			}
+			logger.Infof("metrics: auth options: %v", vca.MetricsAuthOptions)
+
+			handler := auth.NewMiddlewareFromKubevirtClient(vca.clientSet, *vca.MetricsAuthOptions).Handler(promhttp.Handler())
+			http.Handle("/metrics", handler)
+		} else {
+			logger.Infof("metrics: auth disabled")
+			http.Handle("/metrics", promhttp.Handler())
+		}
+
 		server := http.Server{
 			Addr:      vca.Address(),
 			Handler:   http.DefaultServeMux,
@@ -585,20 +612,6 @@ func (vca *VirtControllerApp) Run() {
 	vca.leaderElector.Run(vca.ctx)
 	metrics.SetVirtControllerNotReady()
 	panic("unreachable")
-}
-
-func (app *VirtControllerApp) startPrometheusServer(errCh chan error) {
-	mux := restful.NewContainer()
-	webService := new(restful.WebService)
-	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	mux.Add(webService)
-	mux.Handle("/metrics", promhttp.Handler())
-	server := http.Server{
-		Addr:    app.ServiceListen.MetricsAddress(),
-		Handler: mux,
-	}
-	errCh <- server.ListenAndServe()
-
 }
 
 func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
@@ -1017,8 +1030,16 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	vca.BindAddress = defaultHost
 	vca.Port = defaultPort
-	vca.MetricsBindAddress = defaultMetricsHost
-	vca.MetricsPort = defaultMetricsPort
+
+	vca.MetricsAuth = true
+	vca.MetricsAuthOptions = &auth.ResourceAttributes{
+		Group:       k8sappsv1.SchemeGroupVersion.Group,
+		Version:     k8sappsv1.SchemeGroupVersion.Version,
+		Resource:    "deployments",
+		Namespace:   "d8-virtualization",
+		Name:        "virt-controller",
+		Subresource: "prometheus-metrics",
+	}
 
 	vca.AddCommonFlags()
 
@@ -1107,6 +1128,8 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 	if err != nil {
 		return
 	}
+
+	vca.wrapConfigWithRewriteRules(clientConfig)
 
 	clientConfig.RateLimiter =
 		flowcontrol.NewTokenBucketRateLimiter(

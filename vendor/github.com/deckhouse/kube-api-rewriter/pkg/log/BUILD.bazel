@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "attrs.go",
+        "body.go",
+        "differ.go",
+        "pretty_handler.go",
+        "setup.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/deckhouse/kube-api-rewriter/pkg/log",
+    importpath = "github.com/deckhouse/kube-api-rewriter/pkg/log",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/josephburnett/jd/lib:go_default_library",
+        "//vendor/github.com/kr/text:go_default_library",
+        "//vendor/github.com/tidwall/gjson:go_default_library",
+        "//vendor/sigs.k8s.io/yaml:go_default_library",
+    ],
+)

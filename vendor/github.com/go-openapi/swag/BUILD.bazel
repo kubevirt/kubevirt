@@ -6,6 +6,7 @@ go_library(
         "convert.go",
         "convert_types.go",
         "doc.go",
+        "errors.go",
         "file.go",
         "initialism_index.go",
         "json.go",

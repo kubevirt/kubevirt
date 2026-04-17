@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "array.go",
+        "bool.go",
+        "diff.go",
+        "diff_common.go",
+        "diff_read.go",
+        "diff_write.go",
+        "hash_common.go",
+        "list.go",
+        "metadata.go",
+        "multiset.go",
+        "node.go",
+        "node_read.go",
+        "node_write.go",
+        "null.go",
+        "number.go",
+        "object.go",
+        "patch_common.go",
+        "path.go",
+        "pointer.go",
+        "set.go",
+        "string.go",
+        "string_or_integer.go",
+        "void.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/josephburnett/jd/lib",
+    importpath = "github.com/josephburnett/jd/lib",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-openapi/jsonpointer:go_default_library",
+        "//vendor/gopkg.in/yaml.v2:go_default_library",
+    ],
+)

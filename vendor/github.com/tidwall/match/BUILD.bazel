@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["match.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/tidwall/match",
+    importpath = "github.com/tidwall/match",
+    visibility = ["//visibility:public"],
+)

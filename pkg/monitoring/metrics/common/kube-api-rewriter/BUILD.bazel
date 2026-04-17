@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metrics.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/kube-api-rewriter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/deckhouse/kube-api-rewriter/pkg/monitoring/metrics:go_default_library",
+        "//vendor/github.com/deckhouse/kube-api-rewriter/pkg/proxy:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+    ],
+)

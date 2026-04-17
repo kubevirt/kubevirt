@@ -38,6 +38,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	flag "github.com/spf13/pflag"
+	k8sappsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -63,6 +64,10 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	"github.com/deckhouse/kube-api-rewriter/pkg/proxy"
+
+	kubevirtrules "github.com/deckhouse/virtualization/src/kubevirt-rules"
+
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -73,6 +78,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	"kubevirt.io/kubevirt/pkg/rest/auth"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -92,16 +98,9 @@ const (
 	defaultWatchdogTimeout = 30 * time.Second
 
 	// Default port that virt-handler listens on.
-	defaultPort        = 8185
-	defaultMetricsPort = 8080
-
-	// Default address that virt-handler listens on.
-	defaultHost        = "0.0.0.0"
-	defaultMetricsHost = defaultHost
+	defaultPort = 8185
 
 	hostOverride = ""
-
-	podIpAddress = ""
 
 	// This value reflects in the max number of VMIs per node
 	maxDevices = 1000
@@ -127,6 +126,8 @@ const (
 
 	// Path pattern for accessing virt-launcher filesystem from virt-handler via /proc
 	virtLauncherFSRunDirPattern = "/proc/%d/root/var/run"
+
+	myPodIpEnvVar = "MY_POD_IP"
 )
 
 type virtHandlerApp struct {
@@ -142,6 +143,10 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
+
+	migrationPortRangeEnabled bool
+	migrationPortRangeFirst   int
+	migrationPortRangeLast    int
 
 	caConfigMapName    string
 	clientCertFilePath string
@@ -207,6 +212,11 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+
+	rewriteRules := kubevirtrules.KubevirtRewriteRules
+	rewriteRules.Init()
+	proxy.WrapRESTConfig(clientConfig, proxy.NewProxyRoundTripper("virt-handler", proxy.ToRenamed, rewriteRules))
+
 	clientConfig.RateLimiter = app.reloadableRateLimiter
 	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
@@ -302,8 +312,6 @@ func (app *virtHandlerApp) Run() {
 
 	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
-
 	stop := make(chan struct{})
 	defer close(stop)
 	var capabilities libvirtxml.Caps
@@ -361,6 +369,16 @@ func (app *virtHandlerApp) Run() {
 	} else {
 		log.Log.Info("Conntrack sync: Cilium client not available, CT sync disabled")
 	}
+
+	var portRange *migrationproxy.PortRange
+	if app.migrationPortRangeEnabled {
+		portRange, err = migrationproxy.NewPortRange(app.migrationPortRangeFirst, app.migrationPortRangeLast)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	migrationProxy := migrationproxy.NewMigrationProxyManager(migrationIpAddress, portRange, app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
@@ -432,8 +450,6 @@ func (app *virtHandlerApp) Run() {
 
 	promErrCh := make(chan error)
 	go app.runPrometheusServer(promErrCh)
-	healErrCh := make(chan error)
-	go app.runHealthzServer(healErrCh)
 
 	lifecycleHandler := rest.NewLifecycleHandler(
 		recorder,
@@ -543,6 +559,9 @@ func (app *virtHandlerApp) Run() {
 	case err := <-errCh:
 		log.Log.Reason(err).Errorf("exiting due to error")
 		panic(err)
+	case err := <-promErrCh:
+		log.Log.Reason(err).Errorf("exiting due to error")
+		panic(err)
 	case doneMsg := <-doneCh:
 		log.Log.Infof("cleanly exiting with reason: %s", doneMsg)
 	}
@@ -585,32 +604,45 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
 
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
+
 	componentProfiler := profiler.NewProfileManager(app.clusterConfig)
 	webService.Route(webService.GET("/start-profiler").To(componentProfiler.HandleStartProfiler).Doc("start profiler endpoint"))
 	webService.Route(webService.GET("/stop-profiler").To(componentProfiler.HandleStopProfiler).Doc("stop profiler endpoint"))
 	webService.Route(webService.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
-	mux.Add(webService)
+	metricHandler := metricshandler.Handler(app.MaxRequestsInFlight)
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
-	mux.Handle("/metrics", metricshandler.Handler(app.MaxRequestsInFlight))
-	server := http.Server{
-		Addr:    app.ServiceListen.MetricsAddress(),
-		Handler: mux,
-	}
-	errCh <- server.ListenAndServe()
-}
 
-func (app *virtHandlerApp) runHealthzServer(errCh chan error) {
-	mux := restful.NewContainer()
-	webService := new(restful.WebService)
-	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
-	mux.Add(webService)
-	server := http.Server{
-		Addr:    app.ServiceListen.Address(),
-		Handler: mux,
+	if app.MetricsAuth {
+		log.Log.Infof("metrics: auth enabled")
+		if app.MetricsAuthOptions == nil {
+			errCh <- fmt.Errorf("metrics auth options are required")
+			return
+		}
+		if err := app.MetricsAuthOptions.Validate(); err != nil {
+			errCh <- fmt.Errorf("invalid metrics auth options: %v", err)
+			return
+		}
+		log.Log.Infof("metrics: auth options: %v", app.MetricsAuthOptions)
+
+		handler := auth.NewMiddlewareFromKubevirtClient(app.virtCli, *app.MetricsAuthOptions).RouteFunction(metricHandler)
+		webService.Route(webService.GET("/metrics").To(handler).Doc("metrics endpoint"))
+	} else {
+		log.Log.Infof("metrics: auth disabled")
+		mux.Handle("/metrics", metricHandler)
 	}
-	errCh <- server.ListenAndServe()
+	mux.Add(webService)
+
+	server := http.Server{
+		Addr:      app.ServiceListen.Address(),
+		Handler:   mux,
+		TLSConfig: app.promTLSConfig,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+	}
+	errCh <- server.ListenAndServeTLS("", "")
 }
 
 func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler) {
@@ -645,18 +677,31 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 func (app *virtHandlerApp) AddFlags() {
 	app.InitFlags()
 
-	app.BindAddress = defaultHost
-	app.MetricsBindAddress = defaultMetricsHost
+	podIP := os.Getenv(myPodIpEnvVar)
+
+	app.BindAddress = podIP
 	app.Port = defaultPort
-	app.MetricsPort = defaultMetricsPort
+
+	app.MetricsAuth = true
+	app.MetricsAuthOptions = &auth.ResourceAttributes{
+		Group:       k8sappsv1.SchemeGroupVersion.Group,
+		Version:     k8sappsv1.SchemeGroupVersion.Version,
+		Resource:    "daemonsets",
+		Namespace:   "d8-virtualization",
+		Name:        "virt-handler",
+		Subresource: "prometheus-metrics",
+	}
 
 	app.AddCommonFlags()
+
+	flag.BoolVar(&app.migrationPortRangeEnabled, "migration-port-range-enabled", false, "Enables allocation of ports for migration proxies")
+	flag.IntVar(&app.migrationPortRangeFirst, "migration-port-range-first", 0, "First port for migration proxies")
+	flag.IntVar(&app.migrationPortRangeLast, "migration-port-range-last", 0, "Last port for migration proxies")
 
 	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
 		"Name under which the node is registered in Kubernetes, where this virt-handler instance is running on")
 
-	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
-		"The pod ip address")
+	flag.StringVar(&app.PodIpAddress, "pod-ip-address", os.Getenv(myPodIpEnvVar), "The pod ip address")
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")

@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["gjson.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/tidwall/gjson",
+    importpath = "github.com/tidwall/gjson",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/tidwall/match:go_default_library",
+        "//vendor/github.com/tidwall/pretty:go_default_library",
+    ],
+)

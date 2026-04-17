@@ -245,7 +245,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	}
 	container.Args = []string{
 		"--port",
-		"8090",
+		"8443",
 		"--hostname-override",
 		"$(NODE_NAME)",
 		"--pod-ip-address",
@@ -263,7 +263,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{
 			Name:          "metrics",
 			Protocol:      corev1.ProtocolTCP,
-			ContainerPort: 8080,
+			ContainerPort: 8443,
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
@@ -298,10 +298,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		FailureThreshold: 3,
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Scheme: corev1.URISchemeHTTP,
+				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: 8090,
+					IntVal: 8443,
 				},
 				Path: "/healthz",
 			},
@@ -313,10 +313,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	container.ReadinessProbe = &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Scheme: corev1.URISchemeHTTP,
+				Scheme: corev1.URISchemeHTTPS,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: 8090,
+					IntVal: 8443,
 				},
 				Path: "/healthz",
 			},

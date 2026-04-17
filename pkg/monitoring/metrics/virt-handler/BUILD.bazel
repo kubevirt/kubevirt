@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/monitoring/metrics/common/client:go_default_library",
+        "//pkg/monitoring/metrics/common/kube-api-rewriter:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/domainstats:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/migrationdomainstats:go_default_library",

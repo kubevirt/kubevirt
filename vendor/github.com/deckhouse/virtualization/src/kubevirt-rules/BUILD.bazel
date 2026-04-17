@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["kubevirt_rules.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/deckhouse/virtualization/src/kubevirt-rules",
+    importpath = "github.com/deckhouse/virtualization/src/kubevirt-rules",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/deckhouse/kube-api-rewriter/pkg/rewriter:go_default_library"],
+)
