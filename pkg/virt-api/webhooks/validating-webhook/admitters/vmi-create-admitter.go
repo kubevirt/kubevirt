@@ -904,7 +904,7 @@ func validateCPURequestIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineIn
 func validateMemoryLimitAndRequestProvided(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 &&
-		spec.Domain.Memory.Hugepages == nil && spec.Domain.Memory.Guest.Value() == 0 {
+		spec.Domain.Memory.Hugepages == nil && (spec.Domain.Memory.Guest == nil || spec.Domain.Memory.Guest.Value() == 0) {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s, %s, %s or %s should be provided",
