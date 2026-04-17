@@ -437,8 +437,15 @@ kubectl version
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
 # arm64 e2e test lane use kind provider
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
-  export KUBEVIRT_E2E_PARALLEL=false
+if [[ $TARGET =~ .*kind.* ]]; then
+  # MSHV tests do not require serial execution
+  if ! [[ $TARGET =~ .*wg-mshv.* ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
+else
+  if [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
 fi
 
 ginko_params="--no-color"
