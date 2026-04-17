@@ -5,6 +5,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -611,3 +612,111 @@ func addResources(firstQuantity resource.Quantity, resources ...resource.Quantit
 	}
 	return firstQuantity
 }
+
+var _ = Describe("validatePermittedHostDevices", func() {
+	var (
+		vmiSpec *v1.VirtualMachineInstanceSpec
+		config  *virtconfig.ClusterConfig
+		kvStore cache.Store
+		kv      *v1.KubeVirt
+	)
+
+	BeforeEach(func() {
+		kv = &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					PermittedHostDevices: &v1.PermittedHostDevices{
+						PciHostDevices: []v1.PciHostDevice{
+							{
+								PCIVendorSelector: "8086:1234",
+								ResourceName:      "intel.com/gpu",
+							},
+						},
+					},
+				},
+			},
+		}
+		config, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
+
+		vmiSpec = &v1.VirtualMachineInstanceSpec{
+			Domain: v1.DomainSpec{
+				Devices: v1.Devices{},
+			},
+		}
+	})
+
+	Context("without DRA feature gate", func() {
+		It("should pass validation when no devices are specified", func() {
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should pass validation when HostDevice is in permitted list", func() {
+			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					Name:       "hostdev1",
+					DeviceName: "intel.com/gpu",
+				},
+			}
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should fail validation when HostDevice is not in permitted list", func() {
+			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					Name:       "hostdev1",
+					DeviceName: "unknown.com/device",
+				},
+			}
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("HostDevice unknown.com/device is not permitted"))
+		})
+	})
+
+	Context("with HostDevicesWithDRA feature gate enabled", func() {
+		BeforeEach(func() {
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{"HostDevicesWithDRA"},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+		})
+
+		It("should skip DRA HostDevice validation but still validate legacy devices", func() {
+			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					// Legacy device - has DeviceName
+					Name:       "legacy-hostdev",
+					DeviceName: "intel.com/gpu", // permitted device
+				},
+				{
+					// DRA device - no DeviceName, has ClaimRequest
+					Name: "dra-hostdev",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("my-claim"),
+						RequestName: pointer.P("my-request"),
+					},
+				},
+			}
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should fail validation for unpermitted legacy devices even with DRA enabled", func() {
+			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					Name:       "legacy-hostdev",
+					DeviceName: "unpermitted.com/device", // not permitted
+				},
+			}
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("HostDevice unpermitted.com/device is not permitted"))
+		})
+	})
+})
