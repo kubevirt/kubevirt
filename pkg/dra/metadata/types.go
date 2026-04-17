@@ -20,7 +20,7 @@
 package metadata
 
 import (
-	resourcev1 "k8s.io/api/resource/v1"
+	resourcev1 "k8s.io/api/resource/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

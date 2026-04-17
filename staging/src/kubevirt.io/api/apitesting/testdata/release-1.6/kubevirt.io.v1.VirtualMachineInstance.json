@@ -240,16 +240,14 @@
             "blockSize": {
               "custom": {
                 "logical": 18446744073709551609,
-                "physical": 18446744073709551608,
-                "discardGranularity": 18446744073709551598
+                "physical": 18446744073709551608
               },
               "matchVolume": {
                 "enabled": true
               }
             },
             "shareable": true,
-            "errorPolicy": "errorPolicyValue",
-            "changedBlockTracking": true
+            "errorPolicy": "errorPolicyValue"
           }
         ],
         "watchdog": {
@@ -389,9 +387,7 @@
           "attestation": {},
           "session": "sessionValue",
           "dhCert": "dhCertValue"
-        },
-        "snp": {},
-        "tdx": {}
+        }
       }
     },
     "nodeSelector": {
@@ -1135,8 +1131,33 @@
         }
       }
     ],
-    "changedBlockTracking": {
-      "state": "stateValue"
+    "deviceStatus": {
+      "gpuStatuses": [
+        {
+          "name": "nameValue",
+          "deviceResourceClaimStatus": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "attributes": {
+              "pciAddress": "pciAddressValue",
+              "mDevUUID": "mDevUUIDValue"
+            }
+          }
+        }
+      ],
+      "hostDeviceStatuses": [
+        {
+          "name": "nameValue",
+          "deviceResourceClaimStatus": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "attributes": {
+              "pciAddress": "pciAddressValue",
+              "mDevUUID": "mDevUUIDValue"
+            }
+          }
+        }
+      ]
     }
   }
 }
