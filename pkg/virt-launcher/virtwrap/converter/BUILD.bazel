@@ -76,6 +76,7 @@ go_test(
         "//pkg/util/hardware:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",

@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -165,6 +166,32 @@ var _ = Describe("OS Domain Configurator", func() {
 			Entry("without secure boot", false),
 			Entry("with secure boot", true),
 		)
+
+		It("should use firmware auto-selection when enabled", func() {
+			vmi := libvmi.New(withEFIBootloader(true))
+			var domain api.Domain
+			autoSelectConfig := &compute.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+
+			Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, autoSelectConfig).Configure(vmi, &domain)).To(Succeed())
+
+			expectedOS := api.OS{
+				Firmware: "efi",
+				FirmwareInfo: &api.FirmwareInfo{
+					Features: []api.FirmwareFeature{
+						{Enabled: "yes", Name: compute.FirmwareFeatureSecureBoot},
+						{Enabled: "yes", Name: compute.FirmwareFeatureEnrolledKeys},
+					},
+				},
+				NVRam: &api.NVRam{
+					NVRam: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+				},
+			}
+			expectedDomain := newDomainWithOS(expectedOS)
+			Expect(domain).To(Equal(expectedDomain))
+		})
 	})
 
 	Context("ACPI configuration", func() {
