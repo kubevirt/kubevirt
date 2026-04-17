@@ -691,6 +691,9 @@ const (
 
 	// VirtualMachineInstanceEvictionRequested indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceEvictionRequested VirtualMachineInstanceConditionType = "EvictionRequested"
+
+	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
+	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
 )
 
 // These are valid reasons for VMI conditions.

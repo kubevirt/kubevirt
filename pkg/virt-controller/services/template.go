@@ -161,6 +161,34 @@ func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
 }
 
+func setPreferredArchitectureAffinity(architecture string, pod *k8sv1.Pod) {
+	if architecture == "" {
+		return
+	}
+	preferredTerm := k8sv1.PreferredSchedulingTerm{
+		Weight: 100,
+		Preference: k8sv1.NodeSelectorTerm{
+			MatchExpressions: []k8sv1.NodeSelectorRequirement{
+				{
+					Key:      k8sv1.LabelArchStable,
+					Operator: k8sv1.NodeSelectorOpIn,
+					Values:   []string{strings.ToLower(architecture)},
+				},
+			},
+		},
+	}
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		preferredTerm,
+	)
+}
+
 func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
 		pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.NodeHostModelIsObsoleteLabel)
@@ -432,6 +460,10 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--allow-emulation")
 	}
 
+	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+		command = append(command, "--allow-cross-arch-emulation")
+	}
+
 	if checkForKeepLauncherAfterFailure(vmi) {
 		command = append(command, "--keep-after-failure")
 	}
@@ -689,6 +721,13 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	setNodeAffinityForPod(vmi, &pod)
 
+	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+		setPreferredArchitectureAffinity(vmi.Spec.Architecture, &pod)
+		if vmi.Spec.Architecture != "" {
+			pod.Spec.NodeSelector["kubevirt.io/vm-arch-"+vmi.Spec.Architecture] = "true"
+		}
+	}
+
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName
@@ -766,10 +805,15 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTDXSelector())
 	}
 
+	architecture := vmi.Spec.Architecture
+	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+		architecture = ""
+	}
+
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
-		vmi.Spec.Architecture,
+		architecture,
 		opts...,
 	)
 }

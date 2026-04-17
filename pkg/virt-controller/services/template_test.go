@@ -262,6 +262,54 @@ var _ = Describe("Template", func() {
 				Expect(containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
 				Expect(containers[0].Command).To(ContainElements(allowEmulationOption))
 			})
+
+			It("should add the allow-cross-arch-emulation option when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Command).To(ContainElements("--allow-cross-arch-emulation"))
+			})
+
+			It("should not add the allow-cross-arch-emulation option by default", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Command).NotTo(ContainElements("--allow-cross-arch-emulation"))
+			})
+
+			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when CrossArchitectureVirtualization is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithArchitecture("arm64"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Spec.NodeSelector).NotTo(HaveKey(k8sv1.LabelArchStable))
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubevirt.io/vm-arch-arm64", "true"))
+
+				Expect(pod.Spec.Affinity).NotTo(BeNil())
+				Expect(pod.Spec.Affinity.NodeAffinity).NotTo(BeNil())
+				preferred := pod.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+				Expect(preferred).To(HaveLen(1))
+				Expect(preferred[0].Weight).To(Equal(int32(100)))
+				Expect(preferred[0].Preference.MatchExpressions).To(ConsistOf(
+					k8sv1.NodeSelectorRequirement{
+						Key:      k8sv1.LabelArchStable,
+						Operator: k8sv1.NodeSelectorOpIn,
+						Values:   []string{"arm64"},
+					},
+				))
+			})
 		})
 
 		It("should not set seccomp profile by default", func() {

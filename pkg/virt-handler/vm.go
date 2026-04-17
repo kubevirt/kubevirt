@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -839,6 +840,27 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
+func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+	isCrossArchEmulation := domain != nil && domain.Spec.Type == "qemu" &&
+		vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH
+
+	if isCrossArchEmulation {
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
+			now := metav1.Now()
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:               v1.VirtualMachineInstanceSoftwareEmulation,
+				Status:             k8sv1.ConditionTrue,
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+				Reason:             "CrossArchitectureEmulation",
+				Message:            fmt.Sprintf("VM running with software emulation (host=%s, guest=%s)", runtime.GOARCH, vmi.Spec.Architecture),
+			})
+		}
+	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)
+	}
+}
+
 func dumpTargetFile(vmiName, volName string) string {
 	targetFileName := fmt.Sprintf("%s-%s-%s.memory.dump", vmiName, volName, time.Now().Format("20060102-150405"))
 	return targetFileName
@@ -1045,6 +1067,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 		return err
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
+	c.updateSoftwareEmulationCondition(vmi, domain, condManager)
 
 	return nil
 }
