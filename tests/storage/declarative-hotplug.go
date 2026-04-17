@@ -111,9 +111,9 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			patchObj.AddOption(patch.WithReplace("/spec/template/spec/volumes", volumes))
 		}
 		patchBytes, err := patchObj.GeneratePayload()
-		Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload for VirtualMachine %s", vm.Name)
+		Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload for VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred(), "failed to patch VirtualMachine %s", vm.Name)
+		Expect(err).ToNot(HaveOccurred(), "failed to patch VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		return vm
 	}
 
@@ -316,7 +316,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 				}
 			}
 
-			Expect(attachmentPodName).ToNot(BeEmpty(), "expected attachment pod name to be set for CD-ROM volume %s", cdRomName)
+			Expect(attachmentPodName).ToNot(BeEmpty(), "could not find hotplugged CD-ROM volume %s in vmi volume status", cdRomName)
 
 			By("Verifying no RestartRequired")
 			verifyNoRestartRequired(vm)
