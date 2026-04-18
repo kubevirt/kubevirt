@@ -139,7 +139,7 @@ const (
 	// Owner: @varunrsekar
 	// Alpha: v1.6.0
 	// Beta: v1.7.0
-	// GA: v1.8.0
+	// GA: v1.9.0
 	//
 	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
 	PanicDevicesGate = "PanicDevices"
