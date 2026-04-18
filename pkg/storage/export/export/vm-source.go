@@ -20,6 +20,7 @@
 package export
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/log"
@@ -160,9 +162,16 @@ func (ctrl *VMExportController) getPVCsFromVMI(vmi *virtv1.VirtualMachineInstanc
 
 	// No need to handle error when using VMI to fetch volumes
 	volumes, _ := storageutils.GetVolumes(vmi, ctrl.Client, storageutils.WithAllVolumes)
+	volumePVCMap := ctrl.volumePVCMapFromAnnotations(vmi.Annotations)
 
 	for _, volume := range volumes {
-		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
+		// if user specific pvc and volume mapping in annotation
+		// let annotation mappings take precedence
+		pvcName := volumePVCMap[volume.Name]
+		if pvcName == "" {
+			pvcName = storagetypes.PVCNameFromVirtVolume(&volume)
+		}
+
 		if pvc, err := ctrl.getPVCsFromName(vmi.Namespace, pvcName); err != nil {
 			log.Log.V(3).Infof("Error getting PVC %s/%s: %v", vmi.Namespace, pvcName, err)
 		} else if pvc != nil {
@@ -275,9 +284,16 @@ func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*cor
 		}
 		return nil, false, err
 	}
+	volumePVCMap := ctrl.volumePVCMapFromAnnotations(vm.Spec.Template.ObjectMeta.Annotations)
 
 	for _, volume := range volumes {
-		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
+		// if user specific pvc and volume mapping in annotation
+		// let annotation mappings take precedence
+		pvcName := volumePVCMap[volume.Name]
+		if pvcName == "" {
+			pvcName = storagetypes.PVCNameFromVirtVolume(&volume)
+		}
+
 		if pvcName == "" {
 			continue
 		}
@@ -326,4 +342,20 @@ func (ctrl *VMExportController) getVmi(namespace, name string) (*virtv1.VirtualM
 		return nil, exists, err
 	}
 	return obj.(*virtv1.VirtualMachineInstance).DeepCopy(), true, nil
+}
+
+// volumePVCMapFromAnnotations parse annotations key annVolumePVCMap to a map
+func (ctrl *VMExportController) volumePVCMapFromAnnotations(annotations map[string]string) map[string]string {
+	value := annotations[annVolumePVCMap]
+	if value == "" {
+		return nil
+	}
+
+	volumePVCMap := map[string]string{}
+	if err := json.Unmarshal([]byte(value), &volumePVCMap); err != nil {
+		log.Log.V(3).Infof("Error parsing annotation %s: %v", annVolumePVCMap, err)
+		return nil
+	}
+
+	return volumePVCMap
 }
