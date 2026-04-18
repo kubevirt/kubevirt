@@ -67,6 +67,7 @@ var (
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
 	RequiresNodeWithCPUManager           = Label("requires-node-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
+	RequiresIPv4Cluster                  = Label("requires-ipv4-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 	GuestAgentProbes                     = Label("guest-agent-probes")

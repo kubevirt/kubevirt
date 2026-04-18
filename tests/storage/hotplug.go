@@ -829,7 +829,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyNoVolumeAttached(vmi, "testvolume")
 		}
 
-		Context("Ephemeral Metrics", decorators.SigMonitoring, func() {
+		Context("Ephemeral Metrics", decorators.SigMonitoring, decorators.RequiresIPv4Cluster, func() {
 
 			var (
 				vm *v1.VirtualMachine
@@ -868,6 +868,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				if !isPrometheusDeployed() {
 					Skip("Prometheus not deployed")
 				}
+
 				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
 				ephemeralCount := 0.0
@@ -914,6 +915,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				if !isPrometheusDeployed() {
 					Skip("Prometheus not deployed")
 				}
+
 				kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
 
