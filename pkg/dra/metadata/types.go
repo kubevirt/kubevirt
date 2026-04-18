@@ -59,3 +59,10 @@ const (
 	// Note: This is not yet standardized under resource.kubernetes.io
 	MDevUUIDAttribute = resourcev1.QualifiedName("mdevUUID")
 )
+
+// SupportedAPIVersions lists the metadata.resource.k8s.io API versions that
+// this consumer can decode, in preference order. When reading a JSON stream
+// the first object whose apiVersion appears in this set is used.
+var SupportedAPIVersions = map[string]bool{
+	"metadata.resource.k8s.io/v1alpha1": true,
+}

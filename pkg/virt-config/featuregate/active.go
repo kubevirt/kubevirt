@@ -112,6 +112,14 @@ const (
 	// PCINUMAAwareTopologyEnabled enables NUMA-aware PCIe topology mapping for passthrough devices
 	PCINUMAAwareTopologyEnabled = "PCINUMAAwareTopology"
 
+	// Owner: @oshoval
+	// Alpha: v1.9.0
+	//
+	// NetworkDevicesWithDRAGate allows users to create VMIs with DRA provisioned Network devices
+	// specified in spec.networks with resourceClaim type. This enables DRA-managed network
+	// resources like SR-IOV NICs to be attached to VMs using the natural networks API.
+	NetworkDevicesWithDRAGate = "NetworkDevicesWithDRA"
+
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
 	// Owner: sig-storage / @alromeros
@@ -254,6 +262,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})

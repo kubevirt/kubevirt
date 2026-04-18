@@ -516,6 +516,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ReloadableComponentConfiguration":                                        schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/api/core/v1.RemoveVolumeOptions":                                                     schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref),
 		"kubevirt.io/api/core/v1.ReservedOverhead":                                                        schema_kubevirtio_api_core_v1_ReservedOverhead(ref),
+		"kubevirt.io/api/core/v1.ResourceClaimNetworkSource":                                              schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                                    schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims":                                       schema_kubevirtio_api_core_v1_ResourceRequirementsWithoutClaims(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                          schema_kubevirtio_api_core_v1_RestartOptions(ref),
@@ -24131,12 +24132,17 @@ func schema_kubevirtio_api_core_v1_Network(ref common.ReferenceCallback) common.
 							Ref: ref("kubevirt.io/api/core/v1.MultusNetwork"),
 						},
 					},
+					"resourceClaim": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.ResourceClaimNetworkSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork"},
+			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork", "kubevirt.io/api/core/v1.ResourceClaimNetworkSource"},
 	}
 }
 
@@ -24205,11 +24211,16 @@ func schema_kubevirtio_api_core_v1_NetworkSource(ref common.ReferenceCallback) c
 							Ref: ref("kubevirt.io/api/core/v1.MultusNetwork"),
 						},
 					},
+					"resourceClaim": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.ResourceClaimNetworkSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork"},
+			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork", "kubevirt.io/api/core/v1.ResourceClaimNetworkSource"},
 	}
 }
 
@@ -25229,6 +25240,36 @@ func schema_kubevirtio_api_core_v1_ReservedOverhead(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceClaimNetworkSource represents a network resource requested via a Kubernetes ResourceClaim.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requestName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequestName specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"claimName", "requestName"},
+			},
+		},
 	}
 }
 

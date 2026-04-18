@@ -32,6 +32,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -138,6 +139,83 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 		}
 		return nil
 	}
+}
+
+// CreateDRAHostDevices creates SR-IOV host devices for networks that use DRA.
+// PCI addresses are resolved from pod-local DRA metadata files.
+func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, metadataBasePath string) ([]api.HostDevice, error) {
+	// Find interfaces with SRIOV binding that reference networks with resourceClaim
+	sriovDRAInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		if iface.SRIOV == nil {
+			return false
+		}
+		network := vmispec.LookupNetworkByName(vmi.Spec.Networks, iface.Name)
+		return network != nil && drautil.IsNetworkDRA(*network)
+	})
+
+	if len(sriovDRAInterfaces) == 0 {
+		return []api.HostDevice{}, nil
+	}
+
+	var hostDevices []api.HostDevice
+	for _, iface := range sriovDRAInterfaces {
+		network := vmispec.LookupNetworkByName(vmi.Spec.Networks, iface.Name)
+		if network == nil || network.NetworkSource.ResourceClaim == nil {
+			return nil, fmt.Errorf("no DRA network found for SR-IOV interface %s", iface.Name)
+		}
+
+		claimName := network.NetworkSource.ResourceClaim.ClaimName
+		requestName := network.NetworkSource.ResourceClaim.RequestName
+		if claimName == "" || requestName == "" {
+			return nil, fmt.Errorf("SR-IOV DRA interface %s has empty claimName or requestName", iface.Name)
+		}
+
+		pciAddress, err := drautil.GetPCIAddressForClaim(
+			metadataBasePath,
+			vmi.Spec.ResourceClaims,
+			claimName,
+			requestName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to resolve PCI address for SR-IOV DRA interface %s (claim %s request %s): %w",
+				iface.Name,
+				claimName,
+				requestName,
+				err,
+			)
+		}
+
+		hostAddr, err := device.NewPciAddressField(pciAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create PCI address for SR-IOV DRA interface %s: %v", iface.Name, err)
+		}
+
+		hostDevice := api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(deviceinfo.SRIOVAliasPrefix + iface.Name),
+			Source:  api.HostDeviceSource{Address: hostAddr},
+			Type:    api.HostDevicePCI,
+			Managed: "no",
+		}
+
+		// Add guest PCI address if specified
+		if iface.PciAddress != "" {
+			addr, err := device.NewPciAddressField(iface.PciAddress)
+			if err != nil {
+				return nil, fmt.Errorf("failed to interpret the guest PCI address for interface %s: %v", iface.Name, err)
+			}
+			hostDevice.Address = addr
+		}
+
+		// Add boot order if specified
+		if iface.BootOrder != nil {
+			hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+		}
+
+		hostDevices = append(hostDevices, hostDevice)
+	}
+
+	return hostDevices, nil
 }
 
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
