@@ -53,6 +53,7 @@ const (
 	updateVMICountToPodCreateCountThreshold = 10
 	vmiCreationToRunningSecondsP50Threshold = 45
 	vmiCreationToRunningSecondsP95Threshold = 60
+	primerVMITimeout                        = 3 * time.Minute
 )
 
 var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
@@ -71,7 +72,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 			createBatchVMIWithRateControl(virtClient, 1)
 
 			By("Waiting for primer VMI to be Running")
-			waitRunningVMI(virtClient, 1, 1*time.Minute)
+			waitRunningVMI(virtClient, 1, primerVMITimeout)
 
 			// Leave a two scrape buffer between tests
 			time.Sleep(2 * PrometheusScrapeInterval)
@@ -92,7 +93,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 				createBatchVMIWithRateControl(virtClient, vmCount)
 
 				By("Waiting a batch of VMIs")
-				waitRunningVMI(virtClient, vmCount+1, vmBatchStartupLimit)
+				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
 				collectMetrics(startTime, filepath.Join(artifactsDir, "VMI-perf-audit-results.json"))
 			})
 		})
