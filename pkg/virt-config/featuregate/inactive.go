@@ -160,7 +160,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPlugingsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DynamicPodInterfaceNamingGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA, Dependencies: []string{VolumesUpdateStrategy}})
 	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})

@@ -121,8 +121,11 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	response := validating_webhooks.NewAdmissionResponse(results)
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
-		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+		devConfig := newKV.Spec.Configuration.DeveloperConfiguration
+		if devConfig != nil {
+			response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(devConfig.FeatureGates)...)
+			response.Warnings = append(response.Warnings, warnMissingFeatureGateDependencies(devConfig)...)
+		}
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -466,6 +469,53 @@ func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 	}
 
 	return warnings
+}
+
+func warnMissingFeatureGateDependencies(devConfig *v1.DeveloperConfiguration) (warnings []string) {
+	if devConfig == nil || len(devConfig.FeatureGates) == 0 {
+		return nil
+	}
+
+	enabled := make(map[string]struct{}, len(devConfig.FeatureGates))
+	emitted := map[string]struct{}{}
+
+	for _, fg := range devConfig.FeatureGates {
+		enabled[fg] = struct{}{}
+	}
+
+	for _, fg := range devConfig.FeatureGates {
+		fgInfo := featuregate.FeatureGateInfo(fg)
+		if fgInfo == nil || len(fgInfo.Dependencies) == 0 {
+			continue
+		}
+
+		for _, dep := range fgInfo.Dependencies {
+			if isDependencySatisfied(dep, enabled) {
+				continue
+			}
+
+			key := fg + "->" + dep
+			if _, seen := emitted[key]; seen {
+				continue
+			}
+			emitted[key] = struct{}{}
+
+			warning := fmt.Sprintf(`feature gate "%s" depends on "%s"; enable "%s" as well`, fg, dep, dep)
+			warnings = append(warnings, warning)
+			log.Log.Warning(warning)
+		}
+	}
+
+	return warnings
+}
+
+func isDependencySatisfied(dep string, enabled map[string]struct{}) bool {
+	depInfo := featuregate.FeatureGateInfo(dep)
+	if depInfo != nil && depInfo.State == featuregate.GA {
+		return true
+	}
+	_, depEnabled := enabled[dep]
+	return depEnabled
 }
 
 func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []string {
