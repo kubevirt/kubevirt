@@ -39,13 +39,6 @@ func GenerateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 		return nil, err
 	}
 
-	useIOThreads := false
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
-			useIOThreads = true
-			break
-		}
-	}
 	domain := api.NewMinimalDomain(vmi.Name)
 	domain.Spec = *domSpec
 	cpuTopology := vcpu.GetCPUTopology(vmi)
@@ -62,7 +55,7 @@ func GenerateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 		Placement: "static",
 		CPUs:      cpuCount,
 	}
-	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet)
 	if err != nil {
 		return nil, err
 	}
