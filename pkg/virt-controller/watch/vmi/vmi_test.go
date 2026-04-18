@@ -1742,6 +1742,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			sanityExecute()
 			expectVMIFailedState(vmi)
 		})
+		It("should replace the deprecated finalizer with the domain-qualified one during reconciliation", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			vmi.Finalizers = []string{virtv1.DeprecatedVirtualMachineInstanceFinalizer}
+
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addActivePods(vmi, pod.UID, "")
+
+			addVirtualMachine(vmi)
+			addPod(pod)
+
+			sanityExecute()
+
+			updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVmi.Finalizers).ToNot(ContainElement(virtv1.DeprecatedVirtualMachineInstanceFinalizer))
+			Expect(updatedVmi.Finalizers).To(ContainElement(virtv1.VirtualMachineInstanceFinalizer))
+		})
 		DescribeTable("should remove the fore ground finalizer if no pod is present and the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase, finalizer string) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
