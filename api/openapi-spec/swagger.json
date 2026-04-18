@@ -15245,8 +15245,7 @@
    "v1.Filesystem": {
     "type": "object",
     "required": [
-     "name",
-     "virtiofs"
+     "name"
     ],
     "properties": {
      "name": {
