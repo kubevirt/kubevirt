@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
@@ -139,6 +140,8 @@ type TemplateService struct {
 	hotplugDiskDir             string
 	imagePullSecret            string
 	persistentVolumeClaimStore cache.Store
+	persistentVolumeStore      cache.Store
+	nodeStore                  cache.Store
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
@@ -156,9 +159,86 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+func (t *TemplateService) getAllNodes() []*k8sv1.Node {
+	var nodes []*k8sv1.Node
+	for _, obj := range t.nodeStore.List() {
+		if node, ok := obj.(*k8sv1.Node); ok {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
+}
+
+func (t *TemplateService) getHotpluggedPVsForVMI(vmi *v1.VirtualMachineInstance) ([]*k8sv1.PersistentVolume, error) {
+	var pvs []*k8sv1.PersistentVolume
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		for _, volume := range vmi.Spec.Volumes {
+			// Assume (for now it's always true) that PVC name matches DV name
+			pvcName := ""
+			if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+				pvcName = volume.DataVolume.Name
+			} else if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+				pvcName = volume.PersistentVolumeClaim.ClaimName
+			}
+
+			if pvcName == "" {
+				continue
+			}
+
+			obj, exists, err := t.persistentVolumeClaimStore.GetByKey(vmi.Namespace + "/" + pvcName)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				// We can't tell if the PVC doesn't exist or if it's just not in the cache yet so if we don't find it here, we just skip it
+				// as there's nothing to take topology constraints from and creating the PVC after the VMI is not something we want to break
+				continue
+			}
+			pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+			if !ok {
+				return nil, fmt.Errorf("couldn't cast object to PersistentVolumeClaim: %+v", obj)
+			}
+			// Skip unbound PVCs (WaitForFirstConsumer) as there no topology constraints to enforce yet
+			if pvc.Status.Phase != k8sv1.ClaimBound || pvc.Spec.VolumeName == "" {
+				continue
+			}
+
+			pvName := pvc.Spec.VolumeName
+			obj, exists, err = t.persistentVolumeStore.GetByKey(pvName)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				// On the other hand, if the PVC exists and is Bound but we can't find the PV, it's definitely a cache timing issue so we should
+				// just return an error and retry instead of skipping the PV
+				return nil, fmt.Errorf("PersistentVolume %s not found in cache", pvName)
+			}
+			pv, ok := obj.(*k8sv1.PersistentVolume)
+			if !ok {
+				return nil, fmt.Errorf("couldn't cast object to PersistentVolume: %+v", obj)
+			}
+			pvs = append(pvs, pv)
+		}
+	}
+	return pvs, nil
+}
+
+func (t *TemplateService) setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	setNodeAffinityForHostModelCpuModel(vmi, pod)
 	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
+
+	hotpluggedVolumes, err := t.getHotpluggedPVsForVMI(vmi)
+	if err != nil {
+		return err
+	}
+
+	if len(hotpluggedVolumes) > 0 {
+		nodes := t.getAllNodes()
+		if err := setNodeAffinityForHotpluggedVolumeTopology(hotpluggedVolumes, nodes, pod); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -177,6 +257,72 @@ func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *
 			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
 		}
 	}
+}
+
+func setNodeAffinityForHotpluggedVolumeTopology(hotpluggedVolumes []*k8sv1.PersistentVolume, nodes []*k8sv1.Node, pod *k8sv1.Pod) error {
+	var constrainedVolumes []*k8sv1.PersistentVolume
+	for _, vol := range hotpluggedVolumes {
+		if vol.Spec.NodeAffinity != nil && vol.Spec.NodeAffinity.Required != nil &&
+			len(vol.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
+			constrainedVolumes = append(constrainedVolumes, vol)
+		}
+	}
+	if len(constrainedVolumes) == 0 {
+		return nil
+	}
+
+	var matchingNodeNames []string
+	for _, node := range nodes {
+		if nodeSatisfiesAllPVAffinities(node, constrainedVolumes) {
+			matchingNodeNames = append(matchingNodeNames, node.Name)
+		}
+	}
+
+	if len(matchingNodeNames) == 0 {
+		return fmt.Errorf("no nodes match the topology constraints of hotplugged volumes")
+	}
+	sort.Strings(matchingNodeNames)
+
+	nameReq := k8sv1.NodeSelectorRequirement{
+		Key:      "metadata.name",
+		Operator: k8sv1.NodeSelectorOpIn,
+		Values:   matchingNodeNames,
+	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	podAffinity := pod.Spec.Affinity
+
+	if podAffinity.NodeAffinity == nil {
+		podAffinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	nodeAffinity := podAffinity.NodeAffinity
+
+	required := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if required == nil || len(required.NodeSelectorTerms) == 0 {
+		nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{{MatchFields: []k8sv1.NodeSelectorRequirement{nameReq}}},
+		}
+	} else {
+		for i := range required.NodeSelectorTerms {
+			required.NodeSelectorTerms[i].MatchFields = append(required.NodeSelectorTerms[i].MatchFields, nameReq)
+		}
+	}
+	return nil
+}
+
+func nodeSatisfiesAllPVAffinities(node *k8sv1.Node, volumes []*k8sv1.PersistentVolume) bool {
+	for _, vol := range volumes {
+		// NewLazyErrorNodeSelector.Match (used by the scheduler) only returns an error if there is an invalid operator in
+		// a node selector term and there is not another (correct) node selector term that matches the node
+		// In this sense, false or err both mean that no node selector term matched and we can treat them in the same way
+		ns := nodeaffinity.NewLazyErrorNodeSelector(vol.Spec.NodeAffinity.Required)
+		if match, err := ns.Match(node); err != nil || !match {
+			return false
+		}
+	}
+	return true
 }
 
 func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject string) *k8sv1.Affinity {
@@ -687,7 +833,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	setNodeAffinityForPod(vmi, &pod)
+	if err := t.setNodeAffinityForPod(vmi, &pod); err != nil {
+		return nil, err
+	}
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {
@@ -1298,6 +1446,8 @@ func NewTemplateService(launcherImage string,
 	hotplugDiskDir string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
+	persistentVolumeCache cache.Store,
+	nodeCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
@@ -1318,6 +1468,8 @@ func NewTemplateService(launcherImage string,
 		hotplugDiskDir:              hotplugDiskDir,
 		imagePullSecret:             imagePullSecret,
 		persistentVolumeClaimStore:  persistentVolumeClaimCache,
+		persistentVolumeStore:       persistentVolumeCache,
+		nodeStore:                   nodeCache,
 		virtClient:                  virtClient,
 		clusterConfig:               clusterConfig,
 		launcherSubGid:              launcherSubGid,

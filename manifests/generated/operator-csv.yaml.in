@@ -634,6 +634,14 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - ""
+          resources:
+          - persistentvolumes
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - snapshot.kubevirt.io
           resources:
           - virtualmachinesnapshots
