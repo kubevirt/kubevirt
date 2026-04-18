@@ -126,7 +126,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, isKubeVirtServiceAccount)...)
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
-	causes = append(causes, ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -150,9 +150,17 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 	return warnings
 }
 
-func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	arch := spec.Architecture
+	if arch == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "architecture is required but missing (should have been defaulted by mutation webhook)",
+			Field:   field.Child("architecture").String(),
+		})
+		return causes
+	}
 
 	switch arch {
 	case "amd64":
@@ -767,7 +775,7 @@ func validateThreadCountOnArchitecture(field *k8sfield.Path, spec *v1.VirtualMac
 	var causes []metav1.StatusCause
 	arch := spec.Architecture
 	if arch == "" {
-		arch = config.GetDefaultArchitecture()
+		return causes
 	}
 
 	// Verify CPU thread count requested is 1 for ARM64 VMI architecture.
@@ -2095,7 +2103,7 @@ func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 
 	arch := spec.Architecture
 	if arch == "" {
-		arch = config.GetDefaultArchitecture()
+		return causes
 	}
 
 	if arch == "s390x" {
