@@ -671,16 +671,26 @@ var _ = Describe(SIG("Export", func() {
 		By("Waiting for backend PVC to be created")
 		var pvc k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			backendPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
-				LabelSelector: "persistent-state-for=" + vm.Name,
-			})
+			allPVCs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
-			if len(backendPVC.Items) != 1 {
-				return fmt.Errorf("expected 1 backend PVC, but found %d", len(backendPVC.Items))
+			var backendPVCs []k8sv1.PersistentVolumeClaim
+			for _, p := range allPVCs.Items {
+				if hasPrefix := len(p.Name) > 20 && p.Name[:21] == "persistent-state-for-"; !hasPrefix {
+					continue
+				}
+				for _, ownerRef := range p.OwnerReferences {
+					if ownerRef.UID == vm.UID {
+						backendPVCs = append(backendPVCs, p)
+						break
+					}
+				}
 			}
-			pvc = backendPVC.Items[0]
+			if len(backendPVCs) != 1 {
+				return fmt.Errorf("expected 1 backend PVC, but found %d", len(backendPVCs))
+			}
+			pvc = backendPVCs[0]
 			return nil
 		}, 15*time.Second, 1*time.Second).Should(Succeed(), "Backend PVC should be created")
 

@@ -155,16 +155,26 @@ var _ = Describe("[sig-compute]VM state", func() {
 			}
 
 			By("Ensuring we're testing what we think we're testing")
-			pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
-				LabelSelector: "persistent-state-for=" + vm.Name,
-			})
+			pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pvcs.Items).To(HaveLen(1))
-			Expect(pvcs.Items[0].Status.AccessModes).To(HaveLen(1))
+			var backendPVCs []k8sv1.PersistentVolumeClaim
+			for _, pvc := range pvcs.Items {
+				if hasPrefix := len(pvc.Name) > 20 && pvc.Name[:21] == "persistent-state-for-"; !hasPrefix {
+					continue
+				}
+				for _, ownerRef := range pvc.OwnerReferences {
+					if ownerRef.UID == vm.UID {
+						backendPVCs = append(backendPVCs, pvc)
+						break
+					}
+				}
+			}
+			Expect(backendPVCs).To(HaveLen(1))
+			Expect(backendPVCs[0].Status.AccessModes).To(HaveLen(1))
 			if shouldBeRWX {
-				Expect(pvcs.Items[0].Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteMany))
+				Expect(backendPVCs[0].Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteMany))
 			} else {
-				Expect(pvcs.Items[0].Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
+				Expect(backendPVCs[0].Status.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
 			}
 
 			By("Running the requested operations and ensuring TPM/EFI data persist")
@@ -227,12 +237,17 @@ var _ = Describe("[sig-compute]VM state", func() {
 				if !errors.IsNotFound(err) {
 					return fmt.Errorf("VM %s not removed: %v", vmi.Name, err)
 				}
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: "persistent-state-for=" + vmi.Name,
-				})
+				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				if len(pvcs.Items) > 0 {
-					return fmt.Errorf("PVC %s not removed: %v", pvcs.Items[0].Name, err)
+				for _, pvc := range pvcs.Items {
+					if hasPrefix := len(pvc.Name) > 20 && pvc.Name[:21] == "persistent-state-for-"; !hasPrefix {
+						continue
+					}
+					for _, ownerRef := range pvc.OwnerReferences {
+						if ownerRef.UID == vmi.UID {
+							return fmt.Errorf("PVC %s not removed", pvc.Name)
+						}
+					}
 				}
 				return nil
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

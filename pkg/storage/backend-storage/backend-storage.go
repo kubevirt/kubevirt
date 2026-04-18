@@ -60,7 +60,30 @@ func basePVC(vmi *corev1.VirtualMachineInstance) string {
 }
 
 func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
-	var legacyPVC *v1.PersistentVolumeClaim
+	// First: Check VMI status for PVC name
+	pvcName := CurrentPVCName(vmi)
+	if pvcName != "" {
+		key := controller.NamespacedKey(vmi.Namespace, pvcName)
+		obj, exists, err := pvcStore.GetByKey(key)
+		if err == nil && exists {
+			return obj.(*v1.PersistentVolumeClaim)
+		}
+	}
+
+	// Second: Scan PVCs by owner reference
+	return findPVCByOwnerReference(pvcStore, vmi)
+}
+
+func findPVCByOwnerReference(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
+	// Determine the expected owner UID
+	var expectedOwnerUID types.UID
+	if len(vmi.OwnerReferences) > 0 {
+		// VM-owned VMI: PVC is owned by the VM
+		expectedOwnerUID = vmi.OwnerReferences[0].UID
+	} else {
+		// Standalone VMI: PVC is owned by the VMI itself
+		expectedOwnerUID = vmi.UID
+	}
 
 	objs := pvcStore.List()
 	for _, obj := range objs {
@@ -71,16 +94,26 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 		if pvc.DeletionTimestamp != nil {
 			continue
 		}
-		vmName, found := pvc.Labels[PVCPrefix]
-		if found && vmName == vmi.Name {
-			return pvc
+
+		// Filter by name prefix (cheap check)
+		if !strings.HasPrefix(pvc.Name, PVCPrefix+"-") {
+			continue
 		}
-		if pvc.Name == basePVC(vmi) {
-			legacyPVC = pvc
+
+		// Skip migration target PVCs
+		if _, hasMigrationLabel := pvc.Labels[corev1.MigrationNameLabel]; hasMigrationLabel {
+			continue
+		}
+
+		// Check owner reference UID match
+		for _, ownerRef := range pvc.OwnerReferences {
+			if ownerRef.UID == expectedOwnerUID {
+				return pvc
+			}
 		}
 	}
 
-	return legacyPVC
+	return nil
 }
 
 func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
@@ -246,22 +279,6 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 
 }
 
-func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name string) {
-	labelPatch := patch.New()
-	if len(pvc.Labels) == 0 {
-		labelPatch.AddOption(patch.WithAdd("/metadata/labels", map[string]string{PVCPrefix: name}))
-	} else {
-		labelPatch.AddOption(patch.WithReplace("/metadata/labels/"+PVCPrefix, name))
-	}
-	labelPatchPayload, err := labelPatch.GeneratePayload()
-	if err == nil {
-		_, err = bs.client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, labelPatchPayload, metav1.PatchOptions{})
-		if err != nil {
-			log.Log.Reason(err).Warningf("failed to label legacy PVC %s/%s", pvc.Namespace, pvc.Name)
-		}
-	}
-}
-
 func IsBackendStorageVolume(v corev1.VolumeStatus) bool {
 	// TODO https://github.com/kubevirt/kubevirt/issues/17369
 	// simplify to volume.Name == VolumeName
@@ -329,25 +346,14 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 		return nil
 	}
 
-	// Let's label the target first, then remove the source.
-	// The target might already be labelled if this function was already called for this migration
+	// Remove migration label from target PVC (no longer need to track persistent-state-for label)
 	target := pvcForMigrationTargetFromStore(pvcStore, migration)
 	if target == nil {
 		return fmt.Errorf("target PVC not found for migration %s/%s", migration.Namespace, migration.Name)
 	}
-	labels := target.Labels
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	existing, ok := labels[PVCPrefix]
-	if ok && existing != migration.Spec.VMIName {
-		return fmt.Errorf("target PVC for %s is already labelled for another VMI: %s", migration.Spec.VMIName, existing)
-	}
 
 	if _, migrationLabelExists := target.Labels[corev1.MigrationNameLabel]; migrationLabelExists {
 		labelPatchPayload, err := patch.New(
-			patch.WithReplace("/metadata/labels/"+PVCPrefix, migration.Spec.VMIName),
 			patch.WithTest("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel), migration.Name),
 			patch.WithRemove("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel)),
 		).GeneratePayload()
@@ -567,11 +573,7 @@ func (bs *BackendStorage) DeletePVCForVMI(vmi *corev1.VirtualMachineInstance, pv
 func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
 	if pvc == nil {
-		return bs.createPVC(vmi, map[string]string{PVCPrefix: vmi.Name})
-	}
-
-	if _, exists := pvc.Labels[PVCPrefix]; !exists {
-		bs.labelLegacyPVC(pvc, vmi.Name)
+		return bs.createPVC(vmi, map[string]string{})
 	}
 
 	return pvc, nil

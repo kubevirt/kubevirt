@@ -93,7 +93,6 @@ func newAdmissionReviewForVMIMCreation(migration *v1.VirtualMachineInstanceMigra
 func expectedMigrationObjectMeta(currentObjectMeta k8smetav1.ObjectMeta, vmiName string) k8smetav1.ObjectMeta {
 	expectedObjectMeta := currentObjectMeta
 
-	expectedObjectMeta.Labels[v1.MigrationSelectorLabel] = vmiName
 	expectedObjectMeta.Finalizers = []string{v1.VirtualMachineInstanceMigrationFinalizer}
 
 	return expectedObjectMeta

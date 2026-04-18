@@ -285,9 +285,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
-			vm.Labels = map[string]string{
-				"kubevirt.io/dummy-webhook-identifier": vm.Name,
-			}
 		})
 
 		AfterEach(func() {
@@ -315,6 +312,11 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			BeforeEach(func() {
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Labels = map[string]string{
+					"kubevirt.io/dummy-webhook-identifier": string(vm.UID),
+				}
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
@@ -401,7 +403,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							},
 							ObjectSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"kubevirt.io/dummy-webhook-identifier": vm.Name,
+									"kubevirt.io/dummy-webhook-identifier": string(vm.UID),
 								},
 							},
 						},
@@ -1338,7 +1340,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						} else {
 							Expect(pvc.OwnerReferences).To(BeEmpty())
 						}
-						Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
 						Expect(pvc.Annotations).ToNot(HaveKey("restore.kubevirt.io/owned-by-vm"))
 					}
 				}
@@ -1389,12 +1390,25 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 				By("Expecting the creation of a backend storage PVC with the right storage class")
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: "persistent-state-for=" + vmi.Name,
-				})
+				allPVCs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pvcs.Items).To(HaveLen(1))
-				pvc := pvcs.Items[0]
+				var backendPVCs []corev1.PersistentVolumeClaim
+				for _, p := range allPVCs.Items {
+					if hasPrefix := len(p.Name) > 20 && p.Name[:21] == "persistent-state-for-"; !hasPrefix {
+						continue
+					}
+					// VMI is owned by VM, so check if PVC is owned by the same VM
+					for _, vmiOwnerRef := range vmi.OwnerReferences {
+						for _, pvcOwnerRef := range p.OwnerReferences {
+							if pvcOwnerRef.UID == vmiOwnerRef.UID {
+								backendPVCs = append(backendPVCs, p)
+								break
+							}
+						}
+					}
+				}
+				Expect(backendPVCs).To(HaveLen(1))
+				pvc := backendPVCs[0]
 
 				loginFunc := func(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 					// Wait for cloud init to finish and start the agent inside the vmi.
@@ -1456,9 +1470,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 									Path:      &whPath,
 								},
 							},
-							ObjectSelector: &metav1.LabelSelector{
+							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									"restore.kubevirt.io/source-vm-name": vm.Name,
+									"kubernetes.io/metadata.name": vm.Namespace,
 								},
 							},
 						},

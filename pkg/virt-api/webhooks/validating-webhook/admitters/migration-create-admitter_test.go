@@ -85,7 +85,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		inFlightMigration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: vmi.Namespace,
-				Labels:    map[string]string{v1.MigrationSelectorLabel: vmi.Name},
 			},
 			Spec: v1.VirtualMachineInstanceMigrationSpec{
 				VMIName: vmi.Name,

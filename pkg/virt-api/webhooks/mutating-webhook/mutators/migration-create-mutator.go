@@ -54,7 +54,6 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	addMigrationSelectorLabel(&migration)
 	addMigrationFinalizer(&migration)
 
 	patchBytes, err := patch.New(patch.WithReplace("/metadata", migration.ObjectMeta)).GeneratePayload()
@@ -68,14 +67,6 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
-}
-
-func addMigrationSelectorLabel(migration *v1.VirtualMachineInstanceMigration) {
-	if migration.Labels == nil {
-		migration.Labels = make(map[string]string)
-	}
-
-	migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
 }
 
 func addMigrationFinalizer(migration *v1.VirtualMachineInstanceMigration) {

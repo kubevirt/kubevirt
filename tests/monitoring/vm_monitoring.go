@@ -181,10 +181,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				context.Background(), &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: name,
-						Labels: map[string]string{
-							"restore.kubevirt.io/source-vm-name":      "simple-vm",
-							"restore.kubevirt.io/source-vm-namespace": testsuite.NamespaceTestDefault,
-						},
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},

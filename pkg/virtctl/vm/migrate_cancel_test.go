@@ -51,7 +51,8 @@ var _ = Describe("Migrate cancel command", func() {
 
 		vm = kubecli.NewMinimalVM(vmName)
 		vmiMigration = kubecli.NewMinimalMigration(fmt.Sprintf("%s-%s", vm.Name, "migration")) // "testvm-migration"
-		listoptions = k8smetav1.ListOptions{LabelSelector: fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vm.Name)}
+		vmiMigration.Spec.VMIName = vm.Name
+		listoptions = k8smetav1.ListOptions{}
 	})
 
 	It("should fail with missing input parameters", func() {

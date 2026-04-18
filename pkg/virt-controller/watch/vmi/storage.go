@@ -28,6 +28,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -46,13 +47,20 @@ func (c *Controller) addPVC(obj interface{}) {
 	if pvc.DeletionTimestamp != nil {
 		return
 	}
-	persistentStateFor, exists := pvc.Labels[backendstorage.PVCPrefix]
-	if exists {
-		vmiKey := controller.NamespacedKey(pvc.Namespace, persistentStateFor)
-		c.pvcExpectations.CreationObserved(vmiKey)
-		c.Queue.Add(vmiKey)
-		return // The PVC is a backend-storage PVC, won't be listed by `c.listVMIsMatchingDV()`
+
+	// Check if this is a backend storage PVC by name prefix
+	if strings.HasPrefix(pvc.Name, backendstorage.PVCPrefix+"-") {
+		vmi := c.findVMIByPVCOwnerReference(pvc)
+		if vmi != nil {
+			vmiKey := controller.NamespacedKey(vmi.Namespace, vmi.Name)
+			c.pvcExpectations.CreationObserved(vmiKey)
+			c.Queue.Add(vmiKey)
+			return
+		}
+		// If we can't find the VMI by owner reference, log and continue to DV logic
+		log.Log.V(4).Object(pvc).Info("Backend storage PVC created but could not find owning VMI")
 	}
+
 	vmis, err := c.listVMIsMatchingDV(pvc.Namespace, pvc.Name)
 	if err != nil {
 		return
@@ -61,6 +69,38 @@ func (c *Controller) addPVC(obj interface{}) {
 		log.Log.V(4).Object(pvc).Infof("PVC created for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
 	}
+}
+
+// findVMIByPVCOwnerReference finds the VMI that owns the given PVC, either directly or via a VM.
+func (c *Controller) findVMIByPVCOwnerReference(pvc *k8sv1.PersistentVolumeClaim) *virtv1.VirtualMachineInstance {
+	if len(pvc.OwnerReferences) == 0 {
+		return nil
+	}
+
+	ownerRef := pvc.OwnerReferences[0]
+
+	// List all VMIs in the namespace
+	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, pvc.Namespace)
+	if err != nil {
+		log.Log.Object(pvc).Reason(err).Error("Failed to list VMIs in namespace")
+		return nil
+	}
+
+	for _, obj := range objs {
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+
+		// Check if PVC is owned directly by this VMI
+		if vmi.UID == ownerRef.UID {
+			return vmi
+		}
+
+		// Check if PVC is owned by this VMI's parent VM
+		if len(vmi.OwnerReferences) > 0 && vmi.OwnerReferences[0].UID == ownerRef.UID {
+			return vmi
+		}
+	}
+
+	return nil
 }
 
 // updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity or requested size changes.
