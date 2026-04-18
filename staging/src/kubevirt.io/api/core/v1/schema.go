@@ -1486,6 +1486,28 @@ type Interface struct {
 	// Empty value functions as `up`.
 	// +optional
 	State InterfaceState `json:"state,omitempty"`
+	// Bandwidth allows setting QoS limits for the interface
+	// +optional
+	Bandwidth *Bandwidth `json:"bandwidth,omitempty"`
+}
+
+type Bandwidth struct {
+	// +optional
+	Inbound *BandwidthParams `json:"inbound,omitempty"`
+	// +optional
+	Outbound *BandwidthParams `json:"outbound,omitempty"`
+}
+
+type BandwidthParams struct {
+	// Average rate in bytes/sec
+	// +optional
+	Average *resource.Quantity `json:"average,omitempty"`
+	// Peak rate in bytes/sec
+	// +optional
+	Peak *resource.Quantity `json:"peak,omitempty"`
+	// Burst size in bytes
+	// +optional
+	Burst *resource.Quantity `json:"burst,omitempty"`
 }
 
 type InterfaceState string

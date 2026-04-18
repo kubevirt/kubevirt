@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -116,6 +117,14 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withMACAddress(iface.MacAddress))
 	}
 
+	if iface.Bandwidth != nil {
+		libvirtBandwidth := &api.BandWidth{
+			Inbound:  convertBandwidthParams(iface.Bandwidth.Inbound),
+			Outbound: convertBandwidthParams(iface.Bandwidth.Outbound),
+		}
+		builderOptions = append(builderOptions, withBandwidth(libvirtBandwidth))
+	}
+
 	switch {
 	case d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap):
 		builderOptions = append(builderOptions, d.tapBindingOptions(iface, useLaunchSecurity)...)
@@ -193,6 +202,49 @@ func WithVirtioModel(virtioModel string) option {
 	return func(d *DomainConfigurator) {
 		d.virtioModel = virtioModel
 	}
+}
+
+func quantityToLibvirtKB(q *resource.Quantity) uint {
+	if q == nil {
+		return 0
+	}
+
+	// Convert to kilobytes
+	val := q.Value() / 1024
+
+	// Guard against negative values (treat as 0 / ignore)
+	if val <= 0 {
+		return 0
+	}
+
+	// Clamp overly large values to avoid architecture-dependent uint overflows.
+	// ^uint(0) dynamically gets the maximum possible value for a uint on the current machine.
+	maxUint := uint64(^uint(0))
+	if uint64(val) > maxUint {
+		return uint(maxUint)
+	}
+
+	return uint(val)
+}
+
+func convertBandwidthParams(k8sParams *v1.BandwidthParams) *api.BandwidthParams {
+	if k8sParams == nil {
+		return nil
+	}
+
+	libvirtParams := &api.BandwidthParams{}
+
+	if k8sParams.Average != nil {
+		libvirtParams.Average = quantityToLibvirtKB(k8sParams.Average)
+	}
+	if k8sParams.Peak != nil {
+		libvirtParams.Peak = quantityToLibvirtKB(k8sParams.Peak)
+	}
+	if k8sParams.Burst != nil {
+		libvirtParams.Burst = quantityToLibvirtKB(k8sParams.Burst)
+	}
+
+	return libvirtParams
 }
 
 func getInterfaceType(iface *v1.Interface) string {

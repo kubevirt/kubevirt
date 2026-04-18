@@ -494,6 +494,15 @@ spec:
             type: typeValue
           interfaces:
           - acpiIndex: -9
+            bandwidth:
+              inbound:
+                average: "0"
+                burst: "0"
+                peak: "0"
+              outbound:
+                average: "0"
+                burst: "0"
+                peak: "0"
             binding:
               name: nameValue
             bootOrder: 18446744073709551607

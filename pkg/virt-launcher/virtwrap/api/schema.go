@@ -1005,6 +1005,15 @@ type LinkState struct {
 }
 
 type BandWidth struct {
+	Inbound  *BandwidthParams `xml:"inbound,omitempty"`
+	Outbound *BandwidthParams `xml:"outbound,omitempty"`
+}
+
+type BandwidthParams struct {
+	// Note: Libvirt expects these as raw integers (kB/s for average/peak, kilobytes for burst)
+	Average uint `xml:"average,attr,omitempty"`
+	Peak    uint `xml:"peak,attr,omitempty"`
+	Burst   uint `xml:"burst,attr,omitempty"`
 }
 
 type BootOrder struct {
