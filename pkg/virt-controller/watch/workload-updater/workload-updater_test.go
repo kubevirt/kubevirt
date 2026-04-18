@@ -634,6 +634,77 @@ var _ = Describe("Workload Updater", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should handle concurrent abortions for multiple VMIs without a data race", func() {
+			// Three VMIs each with one migration: launches three goroutines concurrently.
+			// Running under `go test -race` would flag the former `err =` capture of the outer variable
+			const numVMIs = 3
+			for i := 0; i < numVMIs; i++ {
+				vmiName := fmt.Sprintf("testvm-concurrent-%d", i)
+				vmi := libvmi.New(
+					libvmi.WithName(vmiName),
+					libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					libvmistatus.WithStatus(
+						libvmistatus.New(
+							libvmistatus.WithPhase(v1.Running),
+							libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+								Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue,
+							}),
+						),
+					),
+				)
+				controller.vmiStore.Add(vmi)
+				createMig(vmiName, v1.MigrationRunning)
+			}
+
+			waitForNumberOfInstancesOnVMIInformerCache(controller, numVMIs)
+			sanityExecute()
+			testutils.ExpectEvents(recorder,
+				SuccessfulChangeAbortionReason,
+				SuccessfulChangeAbortionReason,
+				SuccessfulChangeAbortionReason,
+			)
+		})
+
+		It("should not deadlock when a VMI has multiple migrations and the first deletion fails", func() {
+			// One goroutine iterates over two migrations. Without `return` after
+			// errChan <- err, the second send blocks (channel capacity = wgLen = 1),
+			// wg.Done() is never called, and wg.Wait() deadlocks.
+			vmiName := "testvm-multi-mig"
+			vmi := libvmi.New(
+				libvmi.WithName(vmiName),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+							Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue,
+						}),
+					),
+				),
+			)
+			controller.vmiStore.Add(vmi)
+
+			for i := 0; i < 2; i++ {
+				mig := newMigration(fmt.Sprintf("test-multi-%d", i), vmiName, v1.MigrationRunning)
+				mig.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
+				controller.migrationIndexer.Add(mig)
+				_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstanceMigrations(mig.Namespace).Create(
+					context.Background(), mig, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstancemigrations",
+				func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+					return true, nil, fmt.Errorf("deletion failed")
+				})
+
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+			sanityExecute()
+			// With `return` after errChan send, exactly 1 error event is emitted and
+			// the goroutine exits cleanly
+			testutils.ExpectEvent(recorder, FailedChangeAbortionReason)
+		})
+
 		It("shouldn't cancel the migration if the migration object is still in running phase but the domain is ready on the target", func() {
 			vmi := libvmi.New(
 				libvmi.WithName("testvm"),
