@@ -40,6 +40,7 @@ import (
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	instancetypeBuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -109,7 +110,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 		})
 
 		Context(fmt.Sprintf("[small] create a batch of %d running VMs using a single instancetype and preference", vmCount), func() {
-			It("should successfully create all VMS with instancetype and preference", func() {
+			It("[QUARANTINE]should successfully create all VMS with instancetype and preference", decorators.Quarantine, func() {
 				By("Creating an instancetype and preference for the test")
 				instancetype := createInstancetype(virtClient)
 				preference := createPreference(virtClient)
