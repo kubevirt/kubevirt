@@ -57,18 +57,34 @@ func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *vi
 }
 
 func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) error {
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
-			c.Status == k8sv1.ConditionFalse {
-			// Allow cross namespace/cluster migrations with non migratable disks.
-			// TODO: this is fragile since there could be other reasons for the VMI to be non migratable.
-			if c.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable && migration.IsDecentralized() {
-				continue
-			}
-			return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", c.Reason, c.Message)
+	var liveMigratableCond, storageMigratableCond *v1.VirtualMachineInstanceCondition
+
+	for i := range vmi.Status.Conditions {
+		c := &vmi.Status.Conditions[i]
+		if c.Type == v1.VirtualMachineInstanceIsMigratable {
+			liveMigratableCond = c
+		} else if c.Type == v1.VirtualMachineInstanceIsStorageLiveMigratable {
+			storageMigratableCond = c
 		}
 	}
-	return nil
+
+	if liveMigratableCond == nil || liveMigratableCond.Status == k8sv1.ConditionTrue {
+		return nil
+	}
+
+	if migration.IsDecentralized() {
+		// If StorageLiveMigratable is explicitly set, trust it as the source of truth for decentralized migrations.
+		if storageMigratableCond != nil {
+			if storageMigratableCond.Status == k8sv1.ConditionTrue {
+				return nil
+			}
+		} else if liveMigratableCond.Reason == v1.VirtualMachineInstanceReasonDisksNotMigratable {
+			// Legacy fallback for VMIs where StorageLiveMigratable might not be set yet.
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", liveMigratableCond.Reason, liveMigratableCond.Message)
 }
 
 func ensureNoMigrationConflict(ctx context.Context, virtClient kubevirt.Interface, vmiName string, namespace string) error {
