@@ -28,7 +28,6 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -210,11 +209,8 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		envVarManager)
 }
 
-func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, featureGate string) bool {
-	if kvConfig.DeveloperConfiguration != nil && len(kvConfig.DeveloperConfiguration.FeatureGates) > 0 {
-		return slices.Contains(kvConfig.DeveloperConfiguration.FeatureGates, featureGate)
-	}
-	return false
+func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, fg string) bool {
+	return featuregate.IsFeatureGateEnabled(fg, kvConfig.DeveloperConfiguration)
 }
 
 func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {

@@ -1256,6 +1256,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should compute checksums for the specified containerDisks and kernelboot containers", func() {
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.ImageVolume},
+					},
+				})
+				controller.clusterConfig = config
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{

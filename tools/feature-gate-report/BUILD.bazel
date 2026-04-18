@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["feature-gate-report.go"],
+    importpath = "kubevirt.io/kubevirt/tools/feature-gate-report",
+    visibility = ["//visibility:private"],
+    deps = ["//pkg/virt-config/featuregate:go_default_library"],
+)
+
+go_binary(
+    name = "feature-gate-report",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["feature-gate-report_test.go"],
+    embed = [":go_default_library"],
+    deps = ["//pkg/virt-config/featuregate:go_default_library"],
+)

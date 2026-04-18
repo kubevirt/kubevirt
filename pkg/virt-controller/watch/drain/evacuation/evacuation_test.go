@@ -101,9 +101,9 @@ var _ = Describe("Evacuation", func() {
 	}
 
 	Context("migration object creation", func() {
-		DescribeTable("should have expected values, annotations and priority", func(fgs []string, annotations map[string]string, matcher types.GomegaMatcher) {
+		DescribeTable("should have expected values, annotations and priority", func(devConfig *v1.DeveloperConfiguration, annotations map[string]string, matcher types.GomegaMatcher) {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{FeatureGates: fgs},
+				DeveloperConfiguration: devConfig,
 			})
 			vmi := newVirtualMachine("my-vmi", "somenode")
 			vmi.Annotations = annotations
@@ -112,13 +112,14 @@ var _ = Describe("Evacuation", func() {
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
 			Expect(migration.Spec.Priority).To(matcher)
 		},
-			Entry("with MigrationPriorityQueue feature gate disabled", nil, nil, BeNil()),
+			Entry("with MigrationPriorityQueue feature gate disabled",
+				&v1.DeveloperConfiguration{DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue}},
+				nil, BeNil()),
 			Entry("with MigrationPriorityQueue feature gate enabled",
-				[]string{featuregate.MigrationPriorityQueue},
-				nil,
+				nil, nil,
 				gstruct.PointTo(BeEquivalentTo("system-critical"))),
 			Entry("with MigrationPriorityQueue feature gate enabled, and descheduler annotation",
-				[]string{featuregate.MigrationPriorityQueue},
+				nil,
 				map[string]string{v1.EvictionSourceAnnotation: "descheduler"},
 				gstruct.PointTo(BeEquivalentTo("system-maintenance"))),
 		)
@@ -170,6 +171,11 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should ignore VMIs which are not migratable", func() {
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+				}
+			})
 			node := newNode("testnode")
 			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
@@ -194,6 +200,11 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should not evict VMIs if 5 migrations are in progress", func() {
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+				}
+			})
 			node := newNode("testnode")
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
@@ -217,6 +228,11 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should start another migration if one completes and we have a free spot", func() {
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+				}
+			})
 			node := newNode("testnode")
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
@@ -265,6 +281,11 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("Should record a warning on a not migratable VMI", func() {
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+				}
+			})
 			node := newNode("foo")
 			addNode(node)
 			enqueue(node)
@@ -437,6 +458,11 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("Should create new evictions up to the configured maximum migrations per outbound node", func() {
+			updateKV(func(kv *v1.KubeVirt) {
+				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+				}
+			})
 			var maxParallelMigrationsPerCluster uint32 = 10
 			var maxParallelMigrationsPerOutboundNode uint32 = 5
 			var activeMigrationsFromThisSourceNode = 4

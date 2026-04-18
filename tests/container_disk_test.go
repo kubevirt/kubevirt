@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -33,7 +32,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -45,6 +43,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -170,7 +169,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, decorators.WgArm64, func() {
 		Context("with ephemeral registry disk", func() {
-			It("[test_id:4299]should not have world write permissions", func() {
+			It("[test_id:4299]should not have world write permissions", Serial, func() {
+				if checks.HasFeature(featuregate.ImageVolume) {
+					config.DisableFeatureGate(featuregate.ImageVolume)
+					DeferCleanup(config.EnableFeatureGate, featuregate.ImageVolume)
+				}
+
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
 
 				By("Ensuring VMI is running by logging in")
@@ -208,7 +212,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
-			v, err := getKubernetesVersion()
+			v, err := checks.GetKubernetesVersion()
 			Expect(err).ToNot(HaveOccurred())
 			if v < "1.35" {
 				// Fail the test if the Kubernetes version is lower than 1.33
@@ -281,22 +285,4 @@ func newAlpineWithKernelBoot() *v1.VirtualMachineInstance {
 	)
 	utils.AddKernelBootToVMI(vmi)
 	return vmi
-}
-
-func getKubernetesVersion() (string, error) {
-	var info k8sversion.Info
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return "", err
-	}
-	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw(context.Background())
-	if err != nil {
-		return "", err
-	}
-	if err := json.Unmarshal(response, &info); err != nil {
-		return "", err
-	}
-	curVersion := strings.Split(info.GitVersion, "+")[0]
-	curVersion = strings.Trim(curVersion, "v")
-	return curVersion, nil
 }
