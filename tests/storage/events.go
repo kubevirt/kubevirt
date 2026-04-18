@@ -69,7 +69,7 @@ var _ = Describe(SIG("K8s IO events", Serial, func() {
 		removeFaultyDisk(nodeName, deviceName)
 
 		err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to delete PersistentVolume")
 	})
 	It("[test_id:6225]Should catch the IO error event", func() {
 		By("Creating VMI with faulty disk")
@@ -140,7 +140,7 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 		},
 	}
 	pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to create Pod")
 
 	Eventually(matcher.ThisPod(pod), 30).Should(matcher.HaveSucceeded())
 }

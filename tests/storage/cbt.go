@@ -81,10 +81,10 @@ var _ = Describe(SIG("CBT", func() {
 
 		By(fmt.Sprintf("Creating VM %s with CBT label", vm.Name))
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "failed to create VirtualMachine")
 		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
 		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 
 		By("Verify CBT overlay exists")
 		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
@@ -92,24 +92,24 @@ var _ = Describe(SIG("CBT", func() {
 
 		By("Remove CBT Label")
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		delete(vm.Labels, cbt.CBTKey)
 		patch, err := patch.New(patch.WithAdd("/metadata/labels", vm.Labels)).GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload")
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to patch VirtualMachine")
 
 		By("Verify CBT state PendingRestart")
 		Eventually(func() v1.ChangedBlockTrackingState {
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 			return cbt.CBTState(vm.Status.ChangedBlockTracking)
 		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingPendingRestart))
 
 		By("Restarting the VM")
 		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to restart VirtualMachine")
 		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 		By("Verify CBT state disabled")
@@ -131,16 +131,16 @@ var _ = Describe(SIG("CBT", func() {
 
 		By("Verify CBT overlay deleted")
 		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pod).NotTo(BeNil())
+		Expect(err).ToNot(HaveOccurred(), "failed to get Pod for VirtualMachineInstance")
+		Expect(pod).NotTo(BeNil(), "expected value to not be nil")
 
 		var cmdOutput string
 		cmdOutput, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"ls", "-d", cbt.PathForCBT(vmi)})
 		Expect(err.Error()).To(ContainSubstring("No such file or directory"))
-		Expect(cmdOutput).To(BeEmpty())
+		Expect(cmdOutput).To(BeEmpty(), "expected output to be empty")
 	})
 
 	DescribeTable("Patch to match cbt label selector", func(patchFunc func(vm *v1.VirtualMachine)) {
@@ -155,37 +155,37 @@ var _ = Describe(SIG("CBT", func() {
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 		Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 		Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
 
 		patchFunc(vm)
 
 		Eventually(func() v1.ChangedBlockTrackingState {
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
 			return cbt.CBTState(vm.Status.ChangedBlockTracking)
 		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingPendingRestart))
 
 		By("Restarting the VM")
 		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to restart VirtualMachine")
 
 		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
 		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 
 		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
 		Expect(stdout).To(ContainSubstring(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
 	},
 		Entry("patch vm", func(vm *v1.VirtualMachine) {
 			patch, err := patch.New(patch.WithAdd("/metadata/labels", cbt.CBTLabel)).GeneratePayload()
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload")
 
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to patch VirtualMachine")
 
 		}),
 		Entry("patch vm namespace", func(vm *v1.VirtualMachine) {
@@ -215,13 +215,13 @@ var _ = Describe(SIG("CBT", func() {
 			)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "failed to create VirtualMachine")
 			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			By("Waiting for CBT to be enabled")
 			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By(fmt.Sprintf("Creating DataVolume for hotplug with volume mode %s", volumeMode))
@@ -235,7 +235,7 @@ var _ = Describe(SIG("CBT", func() {
 				),
 			)
 			hotplugDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), hotplugDV, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
 
 			By("Hotplugging the DataVolume")
 			vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDV.Name)
@@ -245,7 +245,7 @@ var _ = Describe(SIG("CBT", func() {
 
 			By("Verifying QCOW2 overlay was created for hotplug volume")
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 			overlayPath := cbt.GetQCOW2OverlayPath(vmi, hotplugVolumeName)
 			stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", hotplugVolumeName)})
 			Expect(stdout).To(ContainSubstring(overlayPath), "Expected CBT overlay to exist for hotplug volume")
@@ -311,10 +311,10 @@ func runCBTPersistenceTest(virtClient kubecli.KubevirtClient, op string) {
 	volumeName := vm.Spec.Template.Spec.Volumes[0].Name
 
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine for CBT persistence test")
 	Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 	By("Verifying CBT is enabled")
@@ -342,24 +342,24 @@ func runCBTPersistenceTest(virtClient kubecli.KubevirtClient, op string) {
 func checkCBTIntegrityForPersistenceTest(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, cbtOverlayPath string) {
 	By("Checking CBT data integrity")
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(err).ShouldNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 	pvcName := backendstorage.CurrentPVCName(vmi)
 	Expect(pvcName).ToNot(BeEmpty(), "Backend storage PVC name should not be empty")
 	vm = libvmops.StopVirtualMachine(vm)
 	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to get PersistentVolumeClaim")
 	pod := libstorage.RenderPodWithPVC(
 		"cbt-consumer-"+rand.String(5),
 		[]string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"},
 		nil, pvc,
 	)
 	pod, err = libpod.Run(pod, vm.Namespace)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to run Pod")
 	containerName := pod.Spec.Containers[0].Name
 	stdout, err := exec.ExecuteCommandOnPod(pod, containerName, []string{"/bin/sh", "-c", fmt.Sprintf("qemu-img info %s/%s", libstorage.DefaultPvcMountPath, cbtOverlayPath)})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to execute command on Pod")
 	By("Verifying qcow2 file is not corrupted")
 	Expect(stdout).To(ContainSubstring("corrupt: false"))
 	err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "failed to delete Pod")
 }
