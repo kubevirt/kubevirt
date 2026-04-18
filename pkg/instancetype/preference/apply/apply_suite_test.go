@@ -21,11 +21,9 @@ package apply_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestApply(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Apply Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

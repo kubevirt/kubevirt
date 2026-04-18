@@ -3,11 +3,9 @@ package archdefaulter_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestArchDefaulter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ArchDefaulter Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

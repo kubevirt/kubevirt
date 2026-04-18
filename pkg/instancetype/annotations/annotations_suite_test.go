@@ -21,11 +21,9 @@ package annotations_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestAnnotations(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Annotations Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

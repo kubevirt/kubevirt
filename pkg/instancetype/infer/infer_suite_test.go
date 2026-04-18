@@ -21,11 +21,9 @@ package infer_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestInfer(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Infer Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
