@@ -29,7 +29,6 @@ fail_if_cri_bin_missing
 
 function podman_push_manifest() {
     image=$1
-    # FIXME: Workaround https://github.com/containers/podman/issues/18360 and remove once https://github.com/containers/podman/commit/bab4217cd16be609ac35ccf3061d1e34f787856f is released
     echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
     for ARCH in ${BUILD_ARCH//,/ }; do
@@ -41,7 +40,7 @@ function podman_push_manifest() {
             echo "Warning: Image ${TAGGED_IMAGE} does not exist, skipping"
         fi
     done
-    ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+    ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
 }
 
 function docker_push_manifest() {
