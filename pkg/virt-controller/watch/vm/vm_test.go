@@ -151,7 +151,6 @@ var _ = Describe("VirtualMachine", func() {
 				virtClient,
 				config,
 				nil,
-				nil,
 				instancetypecontroller.NewControllerStub(),
 				[]string{},
 				[]string{},
@@ -2593,21 +2592,6 @@ var _ = Describe("VirtualMachine", func() {
 			//TODO expect update status is called
 			Expect(vm.Status.Created).To(BeTrue())
 			Expect(vm.Status.Ready).To(BeTrue())
-		})
-
-		It("should have stable firmware UUIDs", func() {
-			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi1 := SetupVMIFromVM(vm1)
-
-			// intentionally use the same names
-			vm2, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi2 := SetupVMIFromVM(vm2)
-			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
-
-			// now we want different names
-			vm3, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
-			vmi3 := SetupVMIFromVM(vm3)
-			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
 		})
 
 		It("should honour any firmware UUID present in the template", func() {
@@ -6702,33 +6686,6 @@ var _ = Describe("VirtualMachine", func() {
 				)
 			})
 
-			DescribeTable("RestartRequired condition based on VM and VMI UUID comparison", func(uuid types.UID, matcher gomegatypes.GomegaMatcher) {
-				By("Creating a VM without firmware UUID")
-				vm.Spec.Template.Spec.Domain.Firmware = nil
-				controller.crIndexer.Add(createVMRevision(vm))
-
-				By("Creating a VMI with the calculated legacy UUID")
-				vmi = SetupVMIFromVM(vm)
-				controller.vmiIndexer.Add(vmi)
-
-				By("Setting the UUID in VM spec")
-				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
-					UUID: uuid,
-				}
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				By("Executing the controller")
-				sanityExecute(vm)
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm).To(matcher)
-			},
-				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
-				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
-			)
-
 			It("should clear existing RestartRequired condition when VM and VMI specs match", func() {
 				By("Creating a VM with an existing RestartRequired condition")
 				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
@@ -7385,7 +7342,6 @@ var _ = Describe("VirtualMachine", func() {
 				record.NewFakeRecorder(100),
 				virtClient,
 				config,
-				nil,
 				nil,
 				nil,
 				nil,
