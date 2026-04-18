@@ -20576,7 +20576,7 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 					},
 					"io": {
 						SchemaProps: spec.SchemaProps{
-							Description: "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
+							Description: "IO specifies which QEMU disk IO mode should be used. Supported values are: native, threads.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -22482,7 +22482,7 @@ func schema_kubevirtio_api_core_v1_KernelBoot(ref common.ReferenceCallback) comm
 					},
 					"container": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Container defines the container that containes kernel artifacts",
+							Description: "Container defines the container that contains kernel artifacts",
 							Ref:         ref("kubevirt.io/api/core/v1.KernelBootContainer"),
 						},
 					},
