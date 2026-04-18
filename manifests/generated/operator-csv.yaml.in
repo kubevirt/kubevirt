@@ -885,6 +885,14 @@ spec:
           - create
           - patch
         - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - apiextensions.k8s.io
           resources:
           - customresourcedefinitions

@@ -1047,7 +1047,13 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		_, existInCache := l.disksInfo[volume.Name]
 		if volume.ContainerDisk != nil && !existInCache {
-			info, err := osdisk.GetDiskInfoWithValidation(containerdisk.GetDiskTargetPathFromLauncherView(diskIndex), l.diskMemoryLimitBytes)
+			probeDiskIndex := diskIndex
+			if options != nil {
+				if frozenIdx, ok := options.GetContainerDiskVolumeIndices()[volume.Name]; ok {
+					probeDiskIndex = int(frozenIdx)
+				}
+			}
+			info, err := osdisk.GetDiskInfoWithValidation(containerdisk.GetDiskTargetPathFromLauncherView(probeDiskIndex), l.diskMemoryLimitBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get container disk info: %v", err)
 			}
@@ -1128,6 +1134,14 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 
 		c.DomainAttachmentByInterfaceName = options.GetInterfaceDomainAttachment()
+
+		if len(options.GetContainerDiskVolumeIndices()) > 0 {
+			indices := make(map[string]uint, len(options.GetContainerDiskVolumeIndices()))
+			for k, v := range options.GetContainerDiskVolumeIndices() {
+				indices[k] = uint(v)
+			}
+			c.ContainerDiskVolumeIndices = indices
+		}
 	}
 	c.DisksInfo = l.disksInfo
 
