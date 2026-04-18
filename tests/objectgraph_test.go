@@ -162,8 +162,10 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			hotplugOptions := &v1.AddVolumeOptions{
 				Name: hotplugPVC.Name,
 				Disk: &v1.Disk{
-					DiskDevice: v1.DiskDevice{},
-					Serial:     hotplugPVC.Name,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+					},
+					Serial: hotplugPVC.Name,
 				},
 				VolumeSource: &v1.HotplugVolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{

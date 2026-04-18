@@ -43,6 +43,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -164,6 +165,11 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = admitter.validateDeclarativeHotplugDisks(ar, vmCopy)
+	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
@@ -457,4 +463,73 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 
 	return nil, nil
 
+}
+
+func (admitter *VMsAdmitter) validateDeclarativeHotplugDisks(ar *admissionv1.AdmissionReview, vm *v1.VirtualMachine) []metav1.StatusCause {
+	if admitter.ClusterConfig.HotplugVolumesEnabled() {
+		return nil
+	}
+
+	oldVolumeNames := make(map[string]struct{})
+	oldDiskNames := make(map[string]struct{})
+	if ar.Request.Operation == admissionv1.Update && ar.Request.OldObject.Raw != nil {
+		oldVM := &v1.VirtualMachine{}
+		if err := json.Unmarshal(ar.Request.OldObject.Raw, oldVM); err == nil {
+			for _, volume := range oldVM.Spec.Template.Spec.Volumes {
+				oldVolumeNames[volume.Name] = struct{}{}
+			}
+			for _, disk := range oldVM.Spec.Template.Spec.Domain.Devices.Disks {
+				oldDiskNames[disk.Name] = struct{}{}
+			}
+		}
+	}
+
+	volumeMap := make(map[string]v1.Volume, len(vm.Spec.Template.Spec.Volumes))
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		volumeMap[volume.Name] = volume
+	}
+
+	newHotplugVolumes := make(map[string]int)
+	for i, disk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+		volume, ok := volumeMap[disk.Name]
+		if !ok {
+			continue
+		}
+		if !storagetypes.IsDeclarativeHotplugVolume(&volume) {
+			continue
+		}
+		if _, existed := oldVolumeNames[volume.Name]; existed {
+			continue
+		}
+		if _, existed := oldDiskNames[disk.Name]; existed {
+			continue
+		}
+		newHotplugVolumes[volume.Name] = i
+	}
+
+	if len(newHotplugVolumes) == 0 {
+		return nil
+	}
+
+	if !admitter.ClusterConfig.DeclarativeHotplugVolumesEnabled() {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("hotpluggable volumes are defined but the %s feature gate is not enabled", featuregate.DeclarativeHotplugVolumesGate),
+			Field:   k8sfield.NewPath("spec", "template", "spec", "volumes").String(),
+		}}
+	}
+
+	for name, diskIdx := range newHotplugVolumes {
+		d := vm.Spec.Template.Spec.Domain.Devices.Disks[diskIdx]
+		causes := storageadmitters.ValidateHotplugDiskConfiguration(
+			&d, name,
+			"Declarative hotplug",
+			k8sfield.NewPath("spec", "template", "spec", "domain", "devices", "disks").Index(diskIdx).String(),
+		)
+		if len(causes) > 0 {
+			return causes
+		}
+	}
+
+	return nil
 }
