@@ -51,16 +51,39 @@ A test must be put in quarantine when any of these conditions is met:
 * It has a failure rate higher than 5% in the last two weeks.
 * It has a failure rate higher than 20% in the last 3 days.
 
-#### Quarantine PR
+#### Automatic quarantine
 
-A PR will be proposed on Mondays every two weeks with a batch of the tests that
-met the first condition. A PR can be proposed at any time for the tests that meet
-the second condition. In both cases the PR will add the text `[QUARANTINE]` and
-the `decorators.Quarantine` [labelDecorator](https://github.com/kubevirt/kubevirt/blob/9a3799f7a0b97b70033e119c0b401778c51dee14/tests/decorators/decorators.go#L5)
+The [`periodic-kubevirt-auto-quarantine`] job runs **hourly** and automatically
+creates quarantine PRs for the flakiest test(s) that meet the above criteria.
+Each run quarantines at most one test.
+
+The job:
+1. Aggregates flake statistics from periodic job results over the last 14 days.
+2. Cross-references failures with [search.ci] data, filtering out rehearsals,
+   flake-check runs, de-quarantine runs, and clustered failures.
+3. Identifies the test source file via a Ginkgo dry-run and modifies it to add
+   `[QUARANTINE]` and the `decorators.Quarantine` decorator.
+4. Creates a PR from the `kubevirt-bot` fork with the `approved`,
+   `kind/auto-quarantine`, `kind/flake`, and `priority/critical-urgent` labels,
+   plus `/sig {compute,network,storage,operator}` based on the test's SIG label.
+
+Auto-quarantine PRs can be identified by the **`kind/auto-quarantine`** label.
+If a PR already exists on the `auto-quarantine` branch with `lgtm`, `approved`,
+or `do-not-merge/hold`, the job skips creating a new one.
+
+[`periodic-kubevirt-auto-quarantine`]: https://github.com/kubevirt/project-infra/blob/main/github/ci/prow-deploy/files/jobs/kubevirt/kubevirt/kubevirt-periodics.yaml
+[search.ci]: https://search.ci.kubevirt.io/
+
+#### Manual quarantine PR
+
+A quarantine PR can also be proposed manually at any time. The PR must add the
+text `[QUARANTINE]` and the `decorators.Quarantine`
+[labelDecorator](https://github.com/kubevirt/kubevirt/blob/9a3799f7a0b97b70033e119c0b401778c51dee14/tests/decorators/decorators.go#L5)
 to each test's description in the code.
-An email will be sent to the owners of the suspected tests.
 
-After the PR with the quarantine candidates is proposed there is a grace period
+#### Grace period
+
+After a quarantine PR (automatic or manual) is proposed there is a grace period
 of 2 days to prepare and land a fix for a test in the batch. If at least 5
 consecutive executions with the fix pass the test can be removed from the batch.
 
