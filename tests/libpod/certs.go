@@ -24,9 +24,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"math/rand"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -68,12 +66,6 @@ func GetCertsForPods(labelSelector, namespace, port string) ([][]byte, error) {
 }
 
 func getCert(pod *k8sv1.Pod, port string) []byte {
-	const (
-		basePort  = 4321
-		portRange = 6000
-	)
-	//nolint:gosec
-	randPort := strconv.Itoa(basePort + rand.Intn(portRange))
 	var rawCert []byte
 	mutex := &sync.Mutex{}
 	conf := &tls.Config{
@@ -93,10 +85,10 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
 		const timeout = 10
-		err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, timeout*time.Second)
+		localPort, err := ForwardPorts(pod, []string{"0:" + port}, stopChan, timeout*time.Second)
 		ExpectWithOffset(offset, err).ToNot(HaveOccurred())
 
-		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%s", randPort), conf)
+		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%d", localPort), conf)
 		if err == nil {
 			defer conn.Close()
 		}
@@ -110,9 +102,16 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 	return certificate
 }
 
-func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) error {
+// ForwardPorts starts port-forwarding from a pod's remote port to a local port
+// and waits until the tunnel is ready. Returns the assigned local port number.
+// Pass "0:remotePort" in ports to let the OS pick a free ephemeral local port.
+func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) (uint16, error) {
+	if len(ports) != 1 {
+		return 0, fmt.Errorf("ForwardPorts requires exactly one port mapping, got %d", len(ports))
+	}
 	errChan := make(chan error, 1)
 	readyChan := make(chan struct{})
+	var forwarder *portforward.PortForwarder
 	go func() {
 		cli := kubevirt.Client()
 
@@ -133,23 +132,30 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 			return
 		}
 		dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
-		forwarder, err := portforward.New(dialer, ports, stop, readyChan, GinkgoWriter, GinkgoWriter)
+		forwarder, err = portforward.New(dialer, ports, stop, readyChan, GinkgoWriter, GinkgoWriter)
 		if err != nil {
 			errChan <- err
 			return
 		}
-		err = forwarder.ForwardPorts()
-		if err != nil {
+		if err = forwarder.ForwardPorts(); err != nil {
 			errChan <- err
 		}
 	}()
 
+	// Wait for forwarding to be ready, then get ports synchronously
 	select {
 	case err := <-errChan:
-		return err
+		return 0, err
 	case <-readyChan:
-		return nil
+		assignedPorts, err := forwarder.GetPorts()
+		if err != nil {
+			return 0, err
+		}
+		if len(assignedPorts) == 0 {
+			return 0, fmt.Errorf("no ports were forwarded")
+		}
+		return assignedPorts[0].Local, nil
 	case <-time.After(readyTimeout):
-		return fmt.Errorf("failed to forward ports, timed out")
+		return 0, fmt.Errorf("failed to forward ports, timed out")
 	}
 }
