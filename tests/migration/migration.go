@@ -2909,6 +2909,64 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 		})
 	})
+
+	Describe("with a guest-agent-ping liveness probe", func() {
+		// Regression test for probe suppression on the migration target pod.
+		// Before the fix, the QEMU guest agent was unreachable on the target
+		// pod while it was receiving the incoming migration, causing the
+		// Kubernetes liveness probe to fail and the pod to be restarted,
+		// aborting the migration.
+		It("should complete migration without the liveness probe killing the target pod", func() {
+			By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
+			// InitialDelaySeconds covers VM boot time so the probe does not fire
+			// before the guest agent is ready. The low FailureThreshold ensures
+			// that without the fix the probe would still trigger a pod restart
+			// (and abort the migration) well within the expected migration duration.
+			livenessProbe := &v1.Probe{
+				Handler: v1.Handler{
+					GuestAgentPing: &v1.GuestAgentPing{},
+				},
+				InitialDelaySeconds: 120,
+				PeriodSeconds:       5,
+				FailureThreshold:    2,
+			}
+			vmi := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithMemoryRequest(fedoraVMSize),
+			)
+			vmi.Spec.LivenessProbe = livenessProbe
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("Waiting for the guest agent to connect")
+			Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Starting a migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Confirming the VMI migrated successfully and is still running")
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			Expect(vmi.IsFinal()).To(BeFalse(), "VMI should still be running after migration, not killed by the liveness probe")
+
+			By("Verifying no virt-launcher pod was restarted during the migration")
+			podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(vmi.GetUID())),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(podList.Items).ToNot(BeEmpty())
+			for _, pod := range podList.Items {
+				for _, cs := range pod.Status.ContainerStatuses {
+					if strings.Contains(cs.Name, "virt-launcher") {
+						Expect(cs.RestartCount).To(BeZero(),
+							fmt.Sprintf("pod %s container %s restarted %d time(s); liveness probe suppression may have failed",
+								pod.Name, cs.Name, cs.RestartCount))
+					}
+				}
+			}
+		})
+	})
 }))
 
 func createResourceQuota(resourceQuota *k8sv1.ResourceQuota) *k8sv1.ResourceQuota {
