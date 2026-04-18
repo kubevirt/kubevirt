@@ -71,7 +71,7 @@ func apiInputDeviceFromV1InputDevice(input v1.Input) (api.Input, error) {
 		return api.Input{}, fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
 
-	if input.Type != v1.InputTypeTablet {
+	if !v1.IsValidInputType(input.Type) {
 		return api.Input{}, fmt.Errorf("input contains unsupported type %s", input.Type)
 	}
 
