@@ -525,9 +525,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
-				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
+				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, cloudinit.DefaultIPv6CIDR),
+				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, cloudinit.DefaultIPv6CIDR),
+				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, cloudinit.DefaultIPv6CIDR),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
@@ -541,7 +541,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					ipv6Address = flags.IPV6ConnectivityCheckAddress
 				}
 
-				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
+				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -620,7 +620,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
-				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
+				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, cloudinit.DefaultIPv6CIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -769,9 +769,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 }))
 
 func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-	if ipv6NetworkCIDR == "" {
-		ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
-	}
 	networkData, err := cloudinit.NewNetworkData(
 		cloudinit.WithEthernet("eth0",
 			cloudinit.WithAddresses(ipv6NetworkCIDR),
