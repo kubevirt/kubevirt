@@ -124,7 +124,7 @@ var _ = Describe(SIG("Storage", func() {
 
 		createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume, timeoutSec int) *v1.VirtualMachineInstance {
 			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachineInstance")
 			By("Waiting until the DataVolume is ready")
 			libstorage.EventuallyDV(dataVolume, timeoutSec, HaveSucceeded())
 			By("Waiting until the VirtualMachineInstance starts")
@@ -143,9 +143,9 @@ var _ = Describe(SIG("Storage", func() {
 				nodeName = libnode.GetNodeNameWithHandler()
 				address, device = CreateErrorDisk(nodeName)
 				pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
-				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
+				Expect(err).NotTo(HaveOccurred(), "failed to create PV and PVC for faulty disk on node %s", nodeName)
 				DeferCleanup(func() {
-					Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+					Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred(), "failed to delete PersistentVolume %s", pv.Name)
 					RemoveSCSIDisk(nodeName, address)
 				})
 			})
@@ -276,8 +276,8 @@ var _ = Describe(SIG("Storage", func() {
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
+					Expect(err).ToNot(HaveOccurred(), "failed to delete VMI %s/%s", vmi.Namespace, vmi.Name)
+					Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed(), "VMI %s/%s did not disappear in time", vmi.Namespace, vmi.Name)
 				}
 			},
 				Entry("[test_id:3132]with Disk PVC", newRandomVMIWithPVC),
@@ -439,8 +439,8 @@ var _ = Describe(SIG("Storage", func() {
 
 				By("Killing a VirtualMachineInstance")
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120*time.Second)).To(Succeed())
+				Expect(err).ToNot(HaveOccurred(), "failed to delete VMI %s/%s", vmi.Namespace, vmi.Name)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120*time.Second)).To(Succeed(), "VMI %s/%s did not disappear in time", createdVMI.Namespace, createdVMI.Name)
 
 				By("Starting the VirtualMachineInstance again")
 				if isRunOnKindInfra {
@@ -499,8 +499,8 @@ var _ = Describe(SIG("Storage", func() {
 					}
 
 					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(context.Background(), obj.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Eventually(ThisVMI(obj), 120).Should(BeGone())
+					Expect(err).ToNot(HaveOccurred(), "failed to delete VMI %s/%s", obj.Namespace, obj.Name)
+					Eventually(ThisVMI(obj), 120).Should(BeGone(), "VMI %s/%s did not disappear in time", obj.Namespace, obj.Name)
 				}
 			})
 		})
@@ -598,8 +598,8 @@ var _ = Describe(SIG("Storage", func() {
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-size", "1G", "-o", "-size", "+1G"},
 						)
-						Expect(err).ToNot(HaveOccurred())
-						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("anotherdisk", filepath.Join(hostDiskDir, "another.img"))))
+						Expect(err).ToNot(HaveOccurred(), "failed to find 'another.img' host disk for VMI %s", vmi.Name)
+						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("anotherdisk", filepath.Join(hostDiskDir, "another.img"))), "expected mounted path of 'another.img' to be present in find output")
 
 						By("Checking if disk.img has been created")
 						output, err = exec.ExecuteCommandOnPod(
@@ -622,11 +622,11 @@ var _ = Describe(SIG("Storage", func() {
 						// create a disk image before test
 						pod := CreateHostDisk(diskPath)
 						pod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
-						Expect(err).ToNot(HaveOccurred())
+						Expect(err).ToNot(HaveOccurred(), "failed to create host disk creation pod")
 
 						Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 						pod, err = ThisPod(pod)()
-						Expect(err).NotTo(HaveOccurred())
+						Expect(err).NotTo(HaveOccurred(), "failed to get host disk creation pod after completion")
 						nodeName = pod.Spec.NodeName
 					})
 
@@ -652,8 +652,8 @@ var _ = Describe(SIG("Storage", func() {
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-name", diskName},
 						)
-						Expect(err).ToNot(HaveOccurred())
-						Expect(output).To(ContainSubstring(diskName))
+						Expect(err).ToNot(HaveOccurred(), "failed to find disk image %s for VMI %s", diskName, vmi.Name)
+						Expect(output).To(ContainSubstring(diskName), "expected disk image %s to be found in host disk directory", diskName)
 					})
 
 					It("[test_id:847]Should fail with a capacity option", func() {
@@ -739,10 +739,10 @@ var _ = Describe(SIG("Storage", func() {
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", diskImgName, "-size", "1G", "-o", "-size", "+1G"},
 						)
-						Expect(err).ToNot(HaveOccurred())
+						Expect(err).ToNot(HaveOccurred(), "failed to find disk.img in empty PVC for VMI %s", vmi.Name)
 
 						By("Checking if a disk image for PVC has been created")
-						Expect(strings.Contains(output, diskImgName)).To(BeTrue())
+						Expect(output).To(ContainSubstring(diskImgName), "expected disk.img to be present in PVC for VMI %s", vmi.Name)
 					}
 				})
 			})
@@ -773,20 +773,20 @@ var _ = Describe(SIG("Storage", func() {
 						},
 					}
 					pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).NotTo(HaveOccurred(), "failed to create hostPath preparator pod")
 
 					By("Waiting for hostPath pod to prepare the mounted directory")
 					Eventually(matcher.ThisPod(pod), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 
 					pod, err = ThisPod(pod)()
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred(), "failed to get hostPath preparator pod after readiness")
 
 					By("Determining the size of the mounted directory")
 					diskSizeStr, _, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, []string{"/bin/bash", "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred(), "failed to determine size of mounted directory %s", mountDir)
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred(), "failed to parse disk size value %q from mounted directory %s", diskSizeStr, mountDir)
 				})
 
 				AfterEach(func() {
@@ -822,7 +822,7 @@ var _ = Describe(SIG("Storage", func() {
 					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred(), "failed to create hostDisk-backed VMI %s/%s (host disk too small / toleration scenario)", vmi.Namespace, vmi.Name)
 
 					By("Checking events")
 					objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
@@ -877,7 +877,7 @@ var _ = Describe(SIG("Storage", func() {
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for block mode Cirros disk")
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 			})
 
@@ -918,7 +918,7 @@ var _ = Describe(SIG("Storage", func() {
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for Alpine block volume test")
 
 				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace)
 				createAndWaitForVMIReady(vmi, dv, 240)
@@ -937,7 +937,7 @@ var _ = Describe(SIG("Storage", func() {
 					libvmi.WithPersistentVolumeClaim("disk0", pvcName),
 				)
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create VMI with host disk that is too small")
 
 				Eventually(func() bool {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1037,7 +1037,7 @@ var _ = Describe(SIG("Storage", func() {
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for block-backed ephemeral disk test")
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
 			})
@@ -1051,7 +1051,7 @@ var _ = Describe(SIG("Storage", func() {
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
 				runningPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to get virt-launcher pod for VMI %s/%s", vmi.Namespace, vmi.Name)
 
 				By("Checking that the virt-launcher pod spec contains the volumeDevice")
 				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
@@ -1076,7 +1076,7 @@ var _ = Describe(SIG("Storage", func() {
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for shareable disk test")
 				labelKey := "testshareablekey"
 
 				// give an affinity rule to ensure the vmi's get placed on the same node.
@@ -1256,7 +1256,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			DescribeTable("should run the VMI using", func(addLunDisk func(*v1.VirtualMachineInstance, string, string)) {
 				pv, pvc, err = CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
-				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
+				Expect(err).NotTo(HaveOccurred(), "failed to create PV and PVC for SCSI disk %s on node %s", device, nodeName)
 
 				By("Creating VMI with LUN disk")
 				vmi := libvmifact.NewAlpine()
@@ -1280,7 +1280,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			It("should run the VMI created with a DataVolume source and use the LUN disk", func() {
 				pv, err = CreatePVwithSCSIDisk("scsi-disks", "scsipv", nodeName, device)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create PersistentVolume for SCSI disk %s on node %s", device, nodeName)
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
 					libdv.WithStorage(libdv.StorageWithStorageClass(pv.Spec.StorageClassName),
@@ -1290,7 +1290,7 @@ var _ = Describe(SIG("Storage", func() {
 					),
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for LUN disk test")
 
 				By("Creating VMI with LUN disk")
 				vmi := libvmifact.NewCirros(libvmi.WithMemoryRequest("512M"))
@@ -1373,11 +1373,11 @@ func runPodAndExpectPhase(pod *k8sv1.Pod, phase k8sv1.PodPhase) *k8sv1.Pod {
 
 	var err error
 	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(phase))
+	Expect(err).ToNot(HaveOccurred(), "failed to create pod %s", pod.Name)
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(phase), "pod %s did not reach phase %s in time", pod.Name, phase)
 
 	pod, err = ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(pod).ToNot(BeNil())
+	Expect(err).ToNot(HaveOccurred(), "failed to get pod %s after reaching phase %s", pod.Name, phase)
+	Expect(pod).ToNot(BeNil(), "pod %s should not be nil after reaching phase %s", pod.Name, phase)
 	return pod
 }

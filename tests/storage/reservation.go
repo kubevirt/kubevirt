@@ -73,7 +73,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	executeTargetCli := func(podName string, args []string) {
 		cmd := append([]string{"/usr/bin/targetcli"}, args...)
 		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get targetcli pod %s", podName)
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("command='targetcli %v' stdout='%s' stderr='%s'", args, stdout, stderr))
@@ -91,7 +91,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		// Create targetcli container
 		By("Create targetcli pod")
 		pod, err := libpod.Run(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to run targetcli pod %s", podName)
 		node = pod.Spec.NodeName
 		// The vm-killer image is built with bazel and the /etc/ld.so.cache isn't built
 		// at the package installation. The targetcli utility relies on ctype python package that
@@ -99,7 +99,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		// To fix this issue, we run ldconfig before targetcli
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli", []string{"ldconfig"})
 		By(fmt.Sprintf("ldconfig: stdout: %v stderr: %v", stdout, stderr))
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to run ldconfig in pod %s: stdout=%s stderr=%s", podName, stdout, stderr)
 
 		// Create backend file. Let some room for metedata and create a
 		// slightly smaller backend image, we use 800M instead of 1G. In
@@ -124,7 +124,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	findSCSIdisk := func(podName string, model string) string {
 		var device string
 		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get pod %s when finding SCSI disk", podName)
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli",
 			[]string{"/bin/lsblk", "--scsi", "-o", "NAME,MODEL", "-p", "-n"})
@@ -150,20 +150,20 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
 			&expect.BExp{R: ""},
 		}, 20)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to run command %q in VMI console", cmd)
 		return strings.Contains(res[0].Output, output)
 	}
 
 	waitForVirtHandlerWithPrHelperReadyOnNode := func(node string) {
 		ready := false
 		fieldSelector, err := fields.ParseSelector("spec.nodeName==" + string(node))
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to parse field selector for node %s", node)
 		labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-handler"))
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to parse label selector for virt-handler")
 		selector := metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
 		Eventually(func() bool {
 			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), selector)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to list virt-handler pods on node %s", node)
 			if len(pods.Items) < 1 {
 				return false
 			}
@@ -181,12 +181,12 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			}
 			return ready
 
-		}, 90*time.Second, 1*time.Second).Should(BeTrue())
+		}, 90*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler with pr-helper container did not become ready on node %s in time", node)
 	}
 	BeforeEach(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), "failed to get KubeVirt client")
 		fgDisabled = !checks.HasFeature(featuregate.PersistentReservation)
 		if fgDisabled {
 			config.EnableFeatureGate(featuregate.PersistentReservation)
@@ -211,10 +211,10 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			// Avoid races if there is some delay in the device creation
 			Eventually(findSCSIdisk, 20*time.Second, 1*time.Second).WithArguments(targetCliPod, backendDisk).ShouldNot(BeEmpty())
 			device = findSCSIdisk(targetCliPod, backendDisk)
-			Expect(device).ToNot(BeEmpty())
+			Expect(device).ToNot(BeEmpty(), "expected to find a SCSI device for backend disk %s on targetcli pod %s", backendDisk, targetCliPod)
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
 			pv, pvc, err = CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create PV and PVC for SCSI disk %s on node %s", device, node)
 			waitForVirtHandlerWithPrHelperReadyOnNode(node)
 			// Switching the PersistentReservation feature gate on/off
 			// causes redeployment of all KubeVirt components.
@@ -228,7 +228,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				"loopback/", "delete", naa})
 			executeTargetCli(targetCliPod, []string{
 				"backstores/fileio", "delete", backendDisk})
-			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred(), "failed to delete PersistentVolume %s", pv.Name)
 
 		})
 
@@ -240,7 +240,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				libvmi.WithNodeAffinityFor(node),
 			)
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create VMI with SCSI LUN disk")
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),
@@ -263,11 +263,11 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			// Restart virt-handler
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(),
 				vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s/%s before restarting virt-handler", vmi.Namespace, vmi.Name)
 			pod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get virt-handler pod on node %s", vmi.Status.NodeName)
 			err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to delete virt-handler pod %s", pod.Name)
 			// Wait unti new handler pod is ready
 			oldPodName := pod.Name
 			Eventually(func(g Gomega) bool {
@@ -278,7 +278,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				}
 				pod, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 				return pod.Name != oldPodName
-			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue())
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue(), "new virt-handler pod did not replace old pod %s on node %s in time", oldPodName, vmi.Status.NodeName)
 			Eventually(matcher.ThisPod(pod)).WithTimeout(30 * time.Second).
 				WithPolling(1 * time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 
@@ -296,7 +296,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				libvmi.WithNodeAffinityFor(node),
 			)
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create first VMI with shared SCSI LUN disk")
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),
@@ -308,7 +308,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				libvmi.WithNodeAffinityFor(node),
 			)
 			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create second VMI with shared SCSI LUN disk")
 			libwait.WaitForSuccessfulVMIStart(vmi2,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),
@@ -373,7 +373,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 						libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"touch", mpathSocket})
 						DeferCleanup(func() {
 							_, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"rm", "-f", mpathSocket})
-							Expect(err).ToNot(HaveOccurred())
+							Expect(err).ToNot(HaveOccurred(), "failed to remove fake multipathd socket on node %s", node.Name)
 						})
 					}
 				}
