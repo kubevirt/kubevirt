@@ -413,4 +413,72 @@ var _ = Describe("Operator Config", func() {
 					version:   "latest",
 				}))
 	})
+
+	Context("kubelet root directory configuration", func() {
+		BeforeEach(func() {
+			ExpectWithOffset(1, envVarManager.Unsetenv(KubeletRootDirEnvName)).To(Succeed())
+			ExpectWithOffset(1, envVarManager.Setenv(VirtOperatorImageEnvName, "registry/kubevirt/virt-operator")).To(Succeed())
+		})
+
+		AfterEach(func() {
+			_ = envVarManager.Unsetenv(KubeletRootDirEnvName)
+			_ = envVarManager.Unsetenv(VirtOperatorImageEnvName)
+		})
+
+		It("should read KUBELET_ROOT_DIR from environment variable", func() {
+			customPath := "/var/lib/rancher/k3s/agent/kubelet"
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, customPath)).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal(customPath))
+		})
+
+		It("should use default kubelet root when environment variable is not set", func() {
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/kubelet"))
+		})
+
+		It("should use default kubelet root when environment variable is empty string", func() {
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, "")).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/kubelet"))
+		})
+
+		It("should store kubelet root dir in AdditionalProperties when set", func() {
+			customPath := "/var/lib/k0s/kubelet"
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, customPath)).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			value, exists := config.AdditionalProperties["KubeletRootDir"]
+			Expect(exists).To(BeTrue())
+			Expect(value).To(Equal(customPath))
+		})
+
+		It("should not store empty kubelet root dir in AdditionalProperties", func() {
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			_, exists := config.AdditionalProperties["KubeletRootDir"]
+			Expect(exists).To(BeFalse())
+		})
+
+		DescribeTable("should handle various distribution kubelet paths",
+			func(kubeletPath string) {
+				Expect(envVarManager.Setenv(KubeletRootDirEnvName, kubeletPath)).To(Succeed())
+
+				config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+				Expect(config.GetKubeletRootDir()).To(Equal(kubeletPath))
+				Expect(config.AdditionalProperties["KubeletRootDir"]).To(Equal(kubeletPath))
+			},
+			Entry("k3s", "/var/lib/rancher/k3s/agent/kubelet"),
+			Entry("k0s", "/var/lib/k0s/kubelet"),
+			Entry("MicroK8s", "/var/snap/microk8s/common/var/lib/kubelet"),
+			Entry("custom path with multiple levels", "/custom/path/to/kubelet"),
+		)
+	})
 })
