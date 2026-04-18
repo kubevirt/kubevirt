@@ -75,6 +75,11 @@ var _ = Describe("Validating KubeVirtCreate Admitter", func() {
 			Request: &admissionv1.AdmissionRequest{
 				Namespace: "test",
 				Name:      "kubevirt",
+				Resource: metav1.GroupVersionResource{
+					Group:    v1.KubeVirtGroupVersionKind.Group,
+					Version:  v1.KubeVirtGroupVersionKind.Version,
+					Resource: "kubevirts",
+				},
 				Object: runtime.RawExtension{
 					Raw: b,
 				},
@@ -83,5 +88,43 @@ var _ = Describe("Validating KubeVirtCreate Admitter", func() {
 
 		response := admitter.Admit(context.Background(), review)
 		Expect(response.Allowed).To(BeTrue(), "Create Kubevirt should be allowed")
+	})
+
+	It("should validate KubeVirt resource spec", func() {
+		newKv := v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "New",
+			},
+			Spec: v1.KubeVirtSpec{
+				Infra: &v1.ComponentConfig{
+					Replicas: func() *uint8 {
+						r := uint8(0)
+						return &r
+					}(),
+				},
+			},
+		}
+
+		b, err := json.Marshal(newKv)
+		Expect(err).ToNot(HaveOccurred())
+		review := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Namespace: "test",
+				Name:      "kubevirt",
+				Resource: metav1.GroupVersionResource{
+					Group:    v1.KubeVirtGroupVersionKind.Group,
+					Version:  v1.KubeVirtGroupVersionKind.Version,
+					Resource: "kubevirts",
+				},
+				Object: runtime.RawExtension{
+					Raw: b,
+				},
+			},
+		}
+
+		response := admitter.Admit(context.Background(), review)
+		Expect(response.Allowed).To(BeFalse(), "Create Kubevirt with invalid spec should be denied")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("infra replica count can't be 0"))
 	})
 })
