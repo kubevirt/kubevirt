@@ -55,15 +55,26 @@ var _ = Describe("Common Methods", func() {
 	})
 	Context("GenerateNewBridgedVmiInterfaceName function", func() {
 		It("Should return the new bridge interface name", func() {
-			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("eth0")).To(Equal("eth0-nic"))
+			name, err := virtnetlink.GenerateNewBridgedVmiInterfaceName("eth0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(name).To(Equal("eth0-nic"))
 		})
 		It("Should return another new bridge interface name", func() {
-			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("net12")).To(Equal("net12-nic"))
+			name, err := virtnetlink.GenerateNewBridgedVmiInterfaceName("net12")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(name).To(Equal("net12-nic"))
 		})
 		It("Should return hash network name bridge interface name", func() {
-			hashedIfaceName := virtnetlink.GenerateNewBridgedVmiInterfaceName("pod16477688c0e")
+			hashedIfaceName, err := virtnetlink.GenerateNewBridgedVmiInterfaceName("pod16477688c0e")
+			Expect(err).NotTo(HaveOccurred())
 			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
 			Expect(hashedIfaceName).To(Equal("16477688c0e-nic"))
+		})
+		It("Should return an error when the generated name exceeds 15 characters", func() {
+			// "toolongprefix" (13 chars) + "-nic" (4 chars) = 17 chars > 15
+			_, err := virtnetlink.GenerateNewBridgedVmiInterfaceName("toolongprefix")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exceeds the maximum allowed length"))
 		})
 	})
 	Context("GenerateBridgeName function", func() {
