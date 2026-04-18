@@ -251,7 +251,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			stubStorageAnnotationsGenerator{},
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
-			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+			stubMigrationEvaluator{result: k8sv1.ConditionUnknown, reason: ""},
 			[]string{},
 			[]string{},
 		)
@@ -4905,7 +4905,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 			Entry("should not set the condition when there is no condition and evaluator returns Unknown",
 				nil,
-				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown, reason: ""},
 				noConditionMatcher,
 			),
 			Entry("should set the condition to false when there is no condition and evaluator returns False",
@@ -4951,7 +4951,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Status: k8sv1.ConditionFalse,
 					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationPending,
 				},
-				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown, reason: ""},
 				noConditionMatcher,
 			),
 			Entry("should remove the condition when there is a True condition and evaluator returns Unknown",
@@ -4960,7 +4960,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Status: k8sv1.ConditionTrue,
 					Reason: virtv1.VirtualMachineInstanceReasonAutoMigrationDueToLiveUpdate,
 				},
-				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+				stubMigrationEvaluator{result: k8sv1.ConditionUnknown, reason: ""},
 				noConditionMatcher,
 			),
 		)
@@ -5312,8 +5312,9 @@ func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *
 
 type stubMigrationEvaluator struct {
 	result k8sv1.ConditionStatus
+	reason string
 }
 
-func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) k8sv1.ConditionStatus {
-	return e.result
+func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) (k8sv1.ConditionStatus, string) {
+	return e.result, e.reason
 }
