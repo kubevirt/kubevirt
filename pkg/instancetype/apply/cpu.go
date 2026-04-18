@@ -1,4 +1,3 @@
-//nolint:gocyclo
 /*
  * This file is part of the KubeVirt project
  *
@@ -112,7 +111,15 @@ func validateCPU(
 	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) (conflicts conflict.Conflicts) {
+) conflict.Conflicts {
+	var conflicts conflict.Conflicts
+	conflicts = append(conflicts, validateCPUResources(baseConflict, vmiSpec)...)
+	conflicts = append(conflicts, validateCPUTopology(baseConflict, vmiSpec)...)
+	conflicts = append(conflicts, validateCPUFeatures(baseConflict, instancetypeSpec, vmiSpec)...)
+	return conflicts
+}
+
+func validateCPUResources(baseConflict *conflict.Conflict, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflicts conflict.Conflicts) {
 	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "resources", "requests", string(k8sv1.ResourceCPU)))
 	}
@@ -120,7 +127,10 @@ func validateCPU(
 	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "resources", "limits", string(k8sv1.ResourceCPU)))
 	}
+	return conflicts
+}
 
+func validateCPUTopology(baseConflict *conflict.Conflict, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflicts conflict.Conflicts) {
 	if vmiSpec.Domain.CPU.Sockets != 0 {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "sockets"))
 	}
@@ -132,7 +142,14 @@ func validateCPU(
 	if vmiSpec.Domain.CPU.Threads != 0 {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "threads"))
 	}
+	return conflicts
+}
 
+func validateCPUFeatures(
+	baseConflict *conflict.Conflict,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) (conflicts conflict.Conflicts) {
 	if vmiSpec.Domain.CPU.Model != "" && instancetypeSpec.CPU.Model != nil {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "model"))
 	}
@@ -152,6 +169,5 @@ func validateCPU(
 	if vmiSpec.Domain.CPU.Realtime != nil && instancetypeSpec.CPU.Realtime != nil {
 		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "realtime"))
 	}
-
 	return conflicts
 }
