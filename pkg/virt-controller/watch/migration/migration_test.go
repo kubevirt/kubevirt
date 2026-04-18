@@ -77,6 +77,7 @@ var _ = Describe("Migration watcher", func() {
 		kubeClient    *fake.Clientset
 		networkClient *fakenetworkclient.Clientset
 		namespace     k8sv1.Namespace
+		mockQueue     *testutils.MockPriorityQueue[string]
 	)
 	const qemuGid int64 = 107
 
@@ -270,6 +271,9 @@ var _ = Describe("Migration watcher", func() {
 			config,
 			stubNetworkAnnotationsGenerator{},
 		)
+
+		mockQueue = testutils.NewMockPriorityQueue[string](controller.Queue)
+		controller.Queue = mockQueue
 
 		namespace = k8sv1.Namespace{
 			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
@@ -2775,12 +2779,14 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("existing items should keep low priority after regular Add", func() {
+			mockQueue.ExpectAdds(2)
 			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
 				Priority: pointer.P(migrationsutil.QueuePriorityPending),
 			}, "default/testmigrationpending")
 
 			// Simulating what we do with informer handler
 			controller.Queue.Add("default/testmigrationpending")
+			mockQueue.Wait()
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
 			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
@@ -2797,6 +2803,7 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("should get items in order based on priority", func() {
+			mockQueue.ExpectAdds(12)
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
 					Priority: pointer.P(migrationsutil.QueuePriorityPending),
@@ -2811,12 +2818,13 @@ var _ = Describe("Migration watcher", func() {
 			controller.Queue.Add("default/active3")
 			// Add should bump pending3 higher than pending but lower than active
 			controller.Queue.Add("default/pending3")
+			mockQueue.Wait()
 
 			runningMigrationsFromQueue := make([]string, 0, 5)
 			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
 				runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-				Expect(priority).To(Equal(migrationsutil.QueuePriorityRunning))
+				Expect(priority).To(Equal(migrationsutil.QueuePriorityRunning), "unexpected name/priority for %s", item)
 				Expect(shutdown).To(BeFalse())
 			}
 			Expect(runningMigrationsFromQueue).To(
