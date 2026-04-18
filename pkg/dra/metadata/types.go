@@ -59,3 +59,13 @@ const (
 	// Note: This is not yet standardized under resource.kubernetes.io
 	MDevUUIDAttribute = resourcev1.QualifiedName("mdevUUID")
 )
+
+var supportedAPIVersions = map[string]bool{
+	"metadata.resource.k8s.io/v1alpha1": true,
+}
+
+// IsSupportedAPIVersion reports whether the given apiVersion string can be
+// decoded by this consumer.
+func IsSupportedAPIVersion(v string) bool {
+	return supportedAPIVersions[v]
+}

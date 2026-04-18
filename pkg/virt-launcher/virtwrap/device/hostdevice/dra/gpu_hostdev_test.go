@@ -41,9 +41,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 		os.RemoveAll(tempDir)
 	})
 
-	// KEP-5304 path: {base}/{claimName}/{requestName}/{driver}-metadata.json
 	createMetadataFile := func(claimName, requestName, driver string, md *metadata.DeviceMetadata) {
-		dir := filepath.Join(tempDir, claimName, requestName)
+		dir := filepath.Join(tempDir, "resourceclaims", claimName, requestName)
 		Expect(os.MkdirAll(dir, 0755)).To(Succeed())
 
 		data, err := json.Marshal(md)
@@ -77,7 +76,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -140,7 +139,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -204,7 +203,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -269,7 +268,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("pgpu-claim", "gpu", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pgpu-claim",
@@ -290,7 +289,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("vgpu-claim", "vgpu", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "vgpu-claim",
@@ -372,7 +371,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
