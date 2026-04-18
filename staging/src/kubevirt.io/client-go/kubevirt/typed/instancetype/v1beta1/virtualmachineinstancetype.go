@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	applyconfigurationsinstancetypev1beta1 "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -47,18 +48,19 @@ type VirtualMachineInstancetypeInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachineInstancetypeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachineInstancetype, err error)
+	Apply(ctx context.Context, virtualMachineInstancetype *applyconfigurationsinstancetypev1beta1.VirtualMachineInstancetypeApplyConfiguration, opts v1.ApplyOptions) (result *instancetypev1beta1.VirtualMachineInstancetype, err error)
 	VirtualMachineInstancetypeExpansion
 }
 
 // virtualMachineInstancetypes implements VirtualMachineInstancetypeInterface
 type virtualMachineInstancetypes struct {
-	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachineInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeList]
+	*gentype.ClientWithListAndApply[*instancetypev1beta1.VirtualMachineInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeList, *applyconfigurationsinstancetypev1beta1.VirtualMachineInstancetypeApplyConfiguration]
 }
 
 // newVirtualMachineInstancetypes returns a VirtualMachineInstancetypes
 func newVirtualMachineInstancetypes(c *InstancetypeV1beta1Client, namespace string) *virtualMachineInstancetypes {
 	return &virtualMachineInstancetypes{
-		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachineInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeList](
+		gentype.NewClientWithListAndApply[*instancetypev1beta1.VirtualMachineInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeList, *applyconfigurationsinstancetypev1beta1.VirtualMachineInstancetypeApplyConfiguration](
 			"virtualmachineinstancetypes",
 			c.RESTClient(),
 			scheme.ParameterCodec,

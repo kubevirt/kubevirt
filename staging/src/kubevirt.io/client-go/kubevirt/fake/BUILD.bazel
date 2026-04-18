@@ -22,6 +22,7 @@ go_library(
         "//staging/src/kubevirt.io/api/pool/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/applyconfigurations:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1/fake:go_default_library",

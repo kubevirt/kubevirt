@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
-	snapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
+	snapshotv1alpha1 "kubevirt.io/client-go/applyconfigurations/snapshot/v1alpha1"
+	typedsnapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
 )
 
 // fakeVirtualMachineSnapshotContents implements VirtualMachineSnapshotContentInterface
 type fakeVirtualMachineSnapshotContents struct {
-	*gentype.FakeClientWithList[*v1alpha1.VirtualMachineSnapshotContent, *v1alpha1.VirtualMachineSnapshotContentList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.VirtualMachineSnapshotContent, *v1alpha1.VirtualMachineSnapshotContentList, *snapshotv1alpha1.VirtualMachineSnapshotContentApplyConfiguration]
 	Fake *FakeSnapshotV1alpha1
 }
 
-func newFakeVirtualMachineSnapshotContents(fake *FakeSnapshotV1alpha1, namespace string) snapshotv1alpha1.VirtualMachineSnapshotContentInterface {
+func newFakeVirtualMachineSnapshotContents(fake *FakeSnapshotV1alpha1, namespace string) typedsnapshotv1alpha1.VirtualMachineSnapshotContentInterface {
 	return &fakeVirtualMachineSnapshotContents{
-		gentype.NewFakeClientWithList[*v1alpha1.VirtualMachineSnapshotContent, *v1alpha1.VirtualMachineSnapshotContentList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.VirtualMachineSnapshotContent, *v1alpha1.VirtualMachineSnapshotContentList, *snapshotv1alpha1.VirtualMachineSnapshotContentApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents"),

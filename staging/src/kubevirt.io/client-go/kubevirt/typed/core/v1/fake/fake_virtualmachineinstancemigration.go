@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1 "kubevirt.io/api/core/v1"
-	corev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	corev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
+	typedcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
 // fakeVirtualMachineInstanceMigrations implements VirtualMachineInstanceMigrationInterface
 type fakeVirtualMachineInstanceMigrations struct {
-	*gentype.FakeClientWithList[*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigrationList]
+	*gentype.FakeClientWithListAndApply[*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigrationList, *corev1.VirtualMachineInstanceMigrationApplyConfiguration]
 	Fake *FakeKubevirtV1
 }
 
-func newFakeVirtualMachineInstanceMigrations(fake *FakeKubevirtV1, namespace string) corev1.VirtualMachineInstanceMigrationInterface {
+func newFakeVirtualMachineInstanceMigrations(fake *FakeKubevirtV1, namespace string) typedcorev1.VirtualMachineInstanceMigrationInterface {
 	return &fakeVirtualMachineInstanceMigrations{
-		gentype.NewFakeClientWithList[*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigrationList](
+		gentype.NewFakeClientWithListAndApply[*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigrationList, *corev1.VirtualMachineInstanceMigrationApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1.SchemeGroupVersion.WithResource("virtualmachineinstancemigrations"),
