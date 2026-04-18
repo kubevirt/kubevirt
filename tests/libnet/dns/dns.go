@@ -35,6 +35,13 @@ const (
 	openshiftDNSNamespace   = "openshift-dns"
 )
 
+// PodFQDNForHostnameSubdomain returns the in-cluster FQDN for a Pod with spec.hostname and spec.subdomain
+// Format: <hostname>.<subdomain>.<namespace>.svc.cluster.local
+// Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-hostname-and-subdomain-fields
+func PodFQDNForHostnameSubdomain(hostname, subdomain, namespace string) string {
+	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", hostname, subdomain, namespace)
+}
+
 // SearchDomains returns a list of default search name domains.
 func SearchDomains() []string {
 	return []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
