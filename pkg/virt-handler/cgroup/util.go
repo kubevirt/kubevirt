@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -174,7 +175,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 			}
 			return nil, fmt.Errorf("failed to resolve path for volume %s: %v", volume.Name, err)
 		}
-		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(&realSafePath{path}, getDeviceRwmPermissions()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume %s: %v", volume.Name, deviceRule)
@@ -186,7 +187,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		if err != nil {
 			return nil, err
 		}
-		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(&realSafePath{path}, getDeviceRwmPermissions()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", deviceRule)
@@ -198,7 +199,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		if err != nil {
 			return nil, err
 		}
-		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(&realSafePath{path}, getDeviceRwmPermissions()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume vsock: %v", deviceRule)
@@ -212,7 +213,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 			return nil, err
 		}
 	} else {
-		if deviceRule, err := newAllowedDeviceRule(path, getDevicePermissionsFromCgroups()); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(&realSafePath{path}, getDevicePermissionsFromCgroups()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for device %s: %v", hypervisorDevice, deviceRule)
@@ -220,11 +221,113 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		}
 	}
 
+	macvtapRules, err := generateMacvtapDeviceRules(vmi, &realSafePath{mountRoot}, &realFS{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate macvtap device rules: %w", err)
+	}
+	vmiDeviceRules = append(vmiDeviceRules, macvtapRules...)
+
 	return vmiDeviceRules, nil
 }
 
-func newAllowedDeviceRule(devicePath *safepath.Path, devicePermissions devices.Permissions) (*devices.Rule, error) {
-	fileInfo, err := safepath.StatAtNoFollow(devicePath)
+type realFS struct{}
+
+func (r *realFS) Open(name string) (fs.File, error) {
+	return os.Open(name)
+}
+
+func (r *realFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return os.ReadDir(name)
+}
+
+func generateMacvtapDeviceRules(vmi *v1.VirtualMachineInstance, mountRoot safePath, fs fs.ReadDirFS) ([]*devices.Rule, error) {
+	var rules []*devices.Rule
+
+	macvtapMajor, err := getDeviceMajor("macvtap", fs)
+	if err != nil {
+		var errNotFound *errDeviceNotFound
+		if errors.As(err, &errNotFound) {
+			log.Log.V(loggingVerbosity).Object(vmi).Infof("macvtap device major number not found, assuming no macvtap interfaces")
+			return nil, nil
+		}
+		return nil, fmt.Errorf("macvtap device major number not found: %w", err)
+	}
+	log.Log.V(loggingVerbosity).Object(vmi).Infof("found macvtap major number to be %v", macvtapMajor)
+
+	devPath, err := mountRoot.JoinNoFollow("dev")
+	if err != nil {
+		return nil, err
+	}
+
+	var files []os.DirEntry
+	if err := devPath.ExecuteNoFollow(func(safePath string) error {
+		files, err = fs.ReadDir(safePath)
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list files in directory: %w", err)
+	}
+
+	for _, file := range files {
+		name := file.Name()
+		if !strings.HasPrefix(name, "tap") {
+			continue
+		}
+
+		devicePath, err := devPath.JoinNoFollow(name)
+		if err != nil {
+			return nil, err
+		}
+
+		deviceRule, err := newAllowedDeviceRule(devicePath, getDeviceRwmPermissions())
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate device rule: %w", err)
+		}
+
+		if deviceRule != nil && deviceRule.Type == devices.CharDevice && deviceRule.Major == int64(macvtapMajor) {
+			rules = append(rules, deviceRule)
+			log.Log.V(loggingVerbosity).Object(vmi).Infof("added specific macvtap rule for device %q (major %d minor %d)", name, deviceRule.Major, deviceRule.Minor)
+		}
+	}
+
+	return rules, nil
+}
+
+const procDevicesPath = "/proc/devices"
+
+type errDeviceNotFound struct {
+	device string
+}
+
+func (e *errDeviceNotFound) Error() string {
+	return fmt.Sprintf("%q not found in %q", e.device, procDevicesPath)
+}
+
+func getDeviceMajor(device string, fs fs.FS) (int, error) {
+	f, err := fs.Open(procDevicesPath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if fields := strings.Fields(line); len(fields) == 2 && fields[1] == device {
+			major, err := strconv.Atoi(fields[0])
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse major number for %s: %v", device, err)
+			}
+			return major, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	return 0, &errDeviceNotFound{device: device}
+}
+
+func newAllowedDeviceRule(devicePath safePath, devicePermissions devices.Permissions) (*devices.Rule, error) {
+	fileInfo, err := devicePath.StatAtNoFollow()
 	if err != nil {
 		return nil, err
 	}
