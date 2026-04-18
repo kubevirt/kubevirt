@@ -51,13 +51,14 @@ func AdmitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks 
 
 	newDiskMap := getDiskMap(newDisks)
 	oldDiskMap := getDiskMap(oldDisks)
+	newFilesystemMap := getFilesystemMap(newVMI.Spec.Domain.Devices.Filesystems)
 
 	permanentAr := verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap, newDiskMap, oldDiskMap, migratedVolumeMap)
 	if permanentAr != nil {
 		return permanentAr
 	}
 
-	hotplugAr := verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap, newDiskMap, oldDiskMap, migratedVolumeMap)
+	hotplugAr := verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap, newDiskMap, oldDiskMap, newFilesystemMap, migratedVolumeMap)
 	if hotplugAr != nil {
 		return hotplugAr
 	}
@@ -150,12 +151,10 @@ func validateExpectedDisksAndFilesystems(volumes []v1.Volume, disks []v1.Disk, f
 }
 
 func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk,
-	migratedVols map[string]bool) *admissionv1.AdmissionResponse {
+	newFilesystems map[string]v1.Filesystem, migratedVols map[string]bool) *admissionv1.AdmissionResponse {
 	for k, v := range newHotplugVolumeMap {
 		if _, ok := oldHotplugVolumeMap[k]; ok {
-			_, okMigVol := migratedVols[k]
-			// New and old have same volume, ensure they are the same
-			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) && !okMigVol {
+			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) && !migratedVols[k] {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -163,52 +162,62 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					},
 				})
 			}
-			if v.MemoryDump == nil {
-				if _, ok := newDisks[k]; !ok {
-					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-						{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("volume %s doesn't have a matching disk", k),
-						},
-					})
-				}
-				if !equality.Semantic.DeepEqual(newDisks[k], oldDisks[k]) {
-					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-						{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("hotplug disk %s, changed", k),
-						},
-					})
-				}
+			if ar := validateHotplugBacking(k, v, newDisks, oldDisks, newFilesystems, false); ar != nil {
+				return ar
 			}
-		} else {
-			// This is a new volume, ensure that the volume is either DV, PVC or memoryDumpVolume
-			if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
-				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-					{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("volume %s is not a PVC or DataVolume", k),
-					},
-				})
-			}
-			if v.MemoryDump == nil {
-				// Also ensure the matching new disk exists and has a valid bus
-				if _, ok := newDisks[k]; !ok {
-					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
-						{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("disk %s does not exist", k),
-						},
-					})
-				}
-				disk := newDisks[k]
-				if _, ok := oldDisks[k]; !ok {
-					causes := ValidateHotplugDiskConfiguration(&disk, k, "Hotplug configuration", "")
-					if len(causes) > 0 {
-						return webhookutils.ToAdmissionResponse(causes)
-					}
-				}
-			}
+			continue
+		}
+
+		if v.DataVolume == nil && v.PersistentVolumeClaim == nil && v.MemoryDump == nil {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("volume %s is not a PVC or DataVolume", k),
+				},
+			})
+		}
+		if ar := validateHotplugBacking(k, v, newDisks, oldDisks, newFilesystems, true); ar != nil {
+			return ar
+		}
+	}
+	return nil
+}
+
+func validateHotplugBacking(name string, vol v1.Volume, newDisks, oldDisks map[string]v1.Disk,
+	newFilesystems map[string]v1.Filesystem, isNew bool) *admissionv1.AdmissionResponse {
+	if vol.MemoryDump != nil {
+		return nil
+	}
+	if _, ok := newFilesystems[name]; ok {
+		return nil
+	}
+
+	disk, ok := newDisks[name]
+	if !ok {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("volume %s doesn't have a matching disk or filesystem", name),
+			},
+		})
+	}
+
+	if !isNew {
+		if !equality.Semantic.DeepEqual(disk, oldDisks[name]) {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("hotplug disk %s, changed", name),
+				},
+			})
+		}
+		return nil
+	}
+
+	if _, ok := oldDisks[name]; !ok {
+		causes := ValidateHotplugDiskConfiguration(&disk, name, "Hotplug configuration", "")
+		if len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
 		}
 	}
 	return nil
@@ -276,6 +285,16 @@ func getDiskMap(disks []v1.Disk) map[string]v1.Disk {
 		}
 	}
 	return newDiskMap
+}
+
+func getFilesystemMap(filesystems []v1.Filesystem) map[string]v1.Filesystem {
+	fsMap := make(map[string]v1.Filesystem, len(filesystems))
+	for _, fs := range filesystems {
+		if fs.Name != "" {
+			fsMap[fs.Name] = fs
+		}
+	}
+	return fsMap
 }
 
 func getHotplugVolumes(volumes []v1.Volume, volumeStatuses []v1.VolumeStatus) map[string]v1.Volume {
