@@ -41,6 +41,7 @@ pkg/tpm
 pkg/util/ratelimiter
 pkg/virt-controller/leaderelectionconfig
 pkg/virt-controller/watch/common
+pkg/virt-operator/webhooks
 pkg/virtctl/adm
 pkg/virtctl/clientconfig
 pkg/virtctl/configuration
