@@ -414,6 +414,7 @@ var _ = Describe("netpod", func() {
 
 		expDHCPConfig, err := expectedDHCPConfig(
 			"10.222.222.1/30",
+			primaryIPv6Address+"/64",
 			podIfaceOrignalMAC,
 			defaultGatewayIP4Address,
 			"192.168.1.0/24",
@@ -567,6 +568,7 @@ var _ = Describe("netpod", func() {
 
 		expDHCPConfig, err := expectedDHCPConfig(
 			"10.222.222.1/30",
+			primaryIPv6Address+"/64",
 			podIfaceOrignalMAC,
 			defaultGatewayIP4Address,
 			"192.168.1.0/24",
@@ -1924,7 +1926,7 @@ func (c *tempCacheCreator) New(filePath string) *cache.Cache {
 	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
 }
 
-func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst, staticRouteToWiderSubnet string) (*cache.DHCPConfig, error) {
+func expectedDHCPConfig(podIfaceCIDR, podIfaceIPv6CIDR, podIfaceMAC, defaultGW, staticRouteDst, staticRouteToWiderSubnet string) (*cache.DHCPConfig, error) {
 	ipv4, err := vishnetlink.ParseAddr(podIfaceCIDR)
 	if err != nil {
 		return nil, err
@@ -1948,14 +1950,24 @@ func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst, st
 		{Dst: destAddr.IPNet, Gw: net.ParseIP(defaultGW)},
 		{Dst: staticRouteToWiderSubnetDest.IPNet, Gw: nil},
 	}
-	return &cache.DHCPConfig{
+	dhcpConfig := &cache.DHCPConfig{
 		IP:           *ipv4,
 		MAC:          mac,
 		Routes:       &routes,
 		IPAMDisabled: false,
 		Gateway:      net.ParseIP(defaultGW),
 		Subdomain:    "",
-	}, nil
+	}
+
+	if podIfaceIPv6CIDR != "" {
+		ipv6, err := vishnetlink.ParseAddr(podIfaceIPv6CIDR)
+		if err != nil {
+			return nil, err
+		}
+		dhcpConfig.IPv6 = *ipv6
+	}
+
+	return dhcpConfig, nil
 }
 
 type netnsStub struct {
