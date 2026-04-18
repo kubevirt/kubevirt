@@ -3036,6 +3036,17 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}
 
+	// Neutralize default network interface backfill if the VM had no networks/interfaces
+	// in the revision but now matches the VMI. This happens when the network synchronizer
+	// persists the default pod network to a VM that was created without one.
+	if vmi != nil &&
+		len(lastSeenVM.Spec.Template.Spec.Networks) == 0 &&
+		len(lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces) == 0 &&
+		equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Networks, vmi.Spec.Networks) {
+		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
+		lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces = currentVM.Spec.Template.Spec.Domain.Devices.Interfaces
+	}
+
 	// Neutralize firmware UUID changes if the VMI's UUID matches the VM's UUID.
 	// This happens when the firmware synchronizer persists the UUID to a VM that didn't have one.
 	if vmi != nil && vmi.Spec.Domain.Firmware != nil && currentVM.Spec.Template.Spec.Domain.Firmware != nil &&

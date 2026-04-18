@@ -6314,6 +6314,38 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
+			It("should not appear when the network synchronizer backfills default pod network", func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				By("Creating a VM without networks/interfaces")
+				// VM has no networks/interfaces (simulates a pre-fix VM)
+
+				By("Creating a VMI with injected default pod network")
+				vmi = SetupVMIFromVM(vm)
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+				controller.vmiIndexer.Add(vmi)
+
+				By("Creating a Controller Revision without networks (as it was at start time)")
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Simulating backfill: adding the default network to the VM spec")
+				vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+				vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
+				addVirtualMachine(vm)
+
+				By("Executing the controller expecting no RestartRequired condition")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+			})
+
 			It("should appear when VM doesn't specify maxSockets and sockets go above cluster-wide maxSockets", func() {
 				var maxSockets uint32 = 8
 

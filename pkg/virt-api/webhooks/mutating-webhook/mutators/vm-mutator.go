@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -88,6 +89,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// race conditions with the VM controller.
 	if ar.Request.Operation == admissionv1.Create {
 		setFirmwareDefaultsIfEmpty(vm)
+		if err := netvmispec.SetDefaultNetworkInterface(mutator.ClusterConfig, &vm.Spec.Template.Spec); err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
 	}
 
 	// Set VM defaults
