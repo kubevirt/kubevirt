@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "secure-execution.go",
         "sev.go",
+        "tdx.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/launchsecurity",
     visibility = ["//visibility:public"],
