@@ -1979,13 +1979,28 @@ func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
 }
 
 func (c *Controller) autoHealFailingVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
-	vmsToCleanup := filterFailingVMsToStart(vms, pool.Spec.Autohealing)
+	vmsToCleanup, requeueAfter := filterFailingVMsToStart(vms, pool.Spec.Autohealing)
+
+	// VMs in a failing status sometimes won't generate further watch events while stuck
+	// (e.g. an Unschedulable VMI stays Pending indefinitely). Without an explicit
+	// re-queue the pool would never reconcile again to cross the threshold, so we
+	// schedule one for exactly when the earliest VM becomes eligible.
+	if requeueAfter > 0 {
+		key, err := controller.KeyFunc(pool)
+		if err != nil {
+			return err
+		}
+		log.Log.Object(pool).Infof("Pool %s/%s has VMs not yet eligible for autohealing, requeueing in %v", pool.Namespace, pool.Name, requeueAfter)
+		c.queue.AddAfter(key, requeueAfter)
+	}
 
 	return c.scaleIn(pool, vmsToCleanup, len(vmsToCleanup))
 }
 
-func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) []*virtv1.VirtualMachine {
+func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) ([]*virtv1.VirtualMachine, time.Duration) {
 	var filtered []*virtv1.VirtualMachine
+	var minRequeue time.Duration
+
 	for _, vm := range vms {
 		// Check for consecutive VMI start failures (tracked in Status.StartFailure)
 		if vm.Status.StartFailure != nil && vm.Status.StartFailure.ConsecutiveFailCount >= getFailureToStartThreshold(autohealing) {
@@ -1994,16 +2009,23 @@ func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.V
 		}
 
 		// Check for status-based failures (CrashLoopBackOff, Unschedulable, etc.)
-		if shouldAutohealBasedOnStatus(vm, autohealing) {
-			filtered = append(filtered, vm)
+		if hasFailingStatus(vm) {
+			if hasVMBeenFailingLongEnough(vm, autohealing) {
+				filtered = append(filtered, vm)
+			} else if failingSince := getFailingSince(vm); failingSince > 0 {
+				requeueAfter := getMinFailingToStartDuration(autohealing) - failingSince
+				if minRequeue == 0 || requeueAfter < minRequeue {
+					minRequeue = requeueAfter
+				}
+			}
 		}
 	}
 
-	return filtered
+	return filtered, minRequeue
 }
 
-// shouldAutohealBasedOnStatus checks if a VM's PrintableStatus indicates it should be autohealed
-func shouldAutohealBasedOnStatus(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
+// hasFailingStatus reports whether the VM's PrintableStatus is one that may require autohealing.
+func hasFailingStatus(vm *virtv1.VirtualMachine) bool {
 	switch vm.Status.PrintableStatus {
 	case virtv1.VirtualMachineStatusCrashLoopBackOff,
 		virtv1.VirtualMachineStatusUnschedulable,
@@ -2011,7 +2033,7 @@ func shouldAutohealBasedOnStatus(vm *virtv1.VirtualMachine, autohealing *poolv1.
 		virtv1.VirtualMachineStatusPvcNotFound,
 		virtv1.VirtualMachineStatusErrImagePull,
 		virtv1.VirtualMachineStatusImagePullBackOff:
-		return hasVMBeenFailingLongEnough(vm, autohealing)
+		return true
 	default:
 		return false
 	}
@@ -2019,15 +2041,21 @@ func shouldAutohealBasedOnStatus(vm *virtv1.VirtualMachine, autohealing *poolv1.
 
 // hasVMBeenFailingLongEnough checks if VM has not been ready for minimum duration
 func hasVMBeenFailingLongEnough(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
+	failingSince := getFailingSince(vm)
+	if failingSince >= getMinFailingToStartDuration(autohealing) {
+		log.Log.Object(vm).Infof("VM %s/%s has been failing to start for %v, adding to list", vm.Namespace, vm.Name, failingSince)
+		return true
+	}
+	return false
+}
+
+func getFailingSince(vm *virtv1.VirtualMachine) time.Duration {
 	condManager := controller.NewVirtualMachineConditionManager()
 	if c := condManager.GetCondition(vm, virtv1.VirtualMachineReady); c != nil && c.Status == k8score.ConditionFalse {
 		failingSince := c.LastProbeTime.Time
-		if time.Since(failingSince) >= getMinFailingToStartDuration(autohealing) {
-			log.Log.Object(vm).Infof("VM %s/%s has been failing to start for %v, adding to list", vm.Namespace, vm.Name, time.Since(failingSince))
-			return true
-		}
+		return time.Since(failingSince)
 	}
-	return false
+	return 0
 }
 
 func getFailureToStartThreshold(autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) int {
