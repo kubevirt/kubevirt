@@ -114,7 +114,7 @@ var _ = Describe(SIG("Subdomain", func() {
 				libvmi.WithSubdomain(subdomain),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
 			)
-			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
+			expectedFQDN := fqdnForVMI(vmiSpec.Name, subdomain)
 
 			dnsServerIP, err := dns.ClusterDNSServiceIP()
 			Expect(err).ToNot(HaveOccurred())
@@ -141,7 +141,7 @@ var _ = Describe(SIG("Subdomain", func() {
 			libvmi.WithSubdomain(subdomain),
 			libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
 		)
-		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
+		expectedFQDN := fqdnForVMI(vmiSpec.Name, subdomain)
 
 		dnsServerIP, err := dns.ClusterDNSServiceIP()
 		Expect(err).ToNot(HaveOccurred())
