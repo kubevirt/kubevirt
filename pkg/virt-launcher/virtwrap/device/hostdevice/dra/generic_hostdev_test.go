@@ -15,6 +15,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/dra/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -22,21 +23,22 @@ import (
 var _ = Describe("CreateDRAHostDevices", func() {
 	var (
 		tempDir string
+		reader  drautil.MetadataReader
 	)
 
 	BeforeEach(func() {
 		var err error
 		tempDir, err = os.MkdirTemp("", "dra-hostdev-test")
 		Expect(err).ToNot(HaveOccurred())
+		reader = drautil.NewMetadataReaderWithBasePath(tempDir)
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
 	})
 
-	// KEP-5304 path: {base}/{claimName}/{requestName}/{driver}-metadata.json
 	createMetadataFile := func(claimName, requestName, driver string, md *metadata.DeviceMetadata) {
-		dir := filepath.Join(tempDir, claimName, requestName)
+		dir := filepath.Join(tempDir, "resourceclaims", claimName, requestName)
 		Expect(os.MkdirAll(dir, 0755)).To(Succeed())
 
 		data, err := json.Marshal(md)
@@ -52,7 +54,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(BeEmpty())
 		})
@@ -65,7 +67,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -101,7 +103,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 
@@ -120,7 +122,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -156,7 +158,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 			dev := hostDevs[0]
@@ -177,7 +179,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -214,7 +216,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevs).To(HaveLen(1))
 			dev := hostDevs[0]
@@ -235,7 +237,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -274,7 +276,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 				},
 			}
 
-			hostDevs, err := CreateDRAHostDevices(vmi, tempDir)
+			hostDevs, err := CreateDRAHostDevices(vmi, reader)
 			Expect(err).To(HaveOccurred())
 			Expect(hostDevs).To(BeNil())
 		})
