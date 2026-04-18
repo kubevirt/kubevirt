@@ -1,9 +1,9 @@
 # VMI Networking
 Before we explain how KubeVirt performs VM networking configuration, it is
-paramount we separate the pod networking configuration and the  VM networking
+paramount we separate the pod networking configuration and the VM networking
 configuration concepts. The underlying configuration of the pod network
-interface is out of the scope of this document; Kubernetes is responsible to
-set up pod networking according to its configuration, via CNI. It is safe to
+interface is out of the scope of this document; Kubernetes is responsible for setting up
+pod networking according to its configuration, via CNI. It is safe to
 assume it will simply plug a configured network interface into the pod, and
 through it, the pod connects to the outside world.
 
@@ -13,7 +13,7 @@ casually referred to as `binding` throughout this developer's guide.
 ## VMI networking configuration
 In this section we'll explain how VM networking is configured. In order to
 follow the principle of least privilege (where each component is limited
-to only its required privileges), the configuration of a KubeVirt VM interfaces
+to only its required privileges), the configuration of KubeVirt VM interfaces
 is split into two distinct phases:
 - [privileged networking configuration](#privileged-vmi-networking-configuration): occurs in the virt-handler process
 - [unprivileged networking configuration](#unprivileged-vmi-networking-configuration): occurs in the virt-launcher process
@@ -24,17 +24,17 @@ daemonset. It is responsible for creating & configuring any required network
 infrastructure (or configuration) required by the
 [binding mechanisms](#binding-mechanisms).
 
-It is important to refer that while this step is performed by virt-handler, it
+It is important to note that while this step is performed by virt-handler, it
 is performed in the *target* virt-launcher's net namespace.
 
 The first action done in the privileged VMI networking configuration is to
-identify which is the correct [BindMechanisms](#binding-mechanisms) to use.
+identify the correct [BindMechanism](#binding-mechanisms) to use.
 Once the `BindMechanism` is defined, the correct implementation will perform
 the following operations, in this order:
 
 - `discoverPodNetworkInterface`: Each `BindMechanism` requires different
    information about the pod interface - slirp, for instance, doesn't require
-   any info. The others, gather the following information:
+   any info. The others gather the following information:
    - IP address
    - Routes (**only** bridge)
    - Gateway
@@ -59,7 +59,7 @@ run with as little privileges as required. As of now, the only capability
 required by virt-launcher to configure networking is `CAP_NET_BIND_SERVICE`.
 
 In this second phase, virt-launcher also has to select the correct
-`BindMechanism`, and afterwards will uses it to retrieve the configuration
+`BindMechanism`, and afterwards will use it to retrieve the configuration
 data previously gathered in phase #1 (by loading the cached VIF object).
 
 With the VIF information, it will proceed to decorate the domain xml
@@ -84,7 +84,7 @@ different libvirt domain xml specification. It may also require different
 networking infrastructure to be created / configured - e.g. a bridge for the 
 `bridge` or `masquerade` `BindMechanism`s. 
 
-Code-wise, a `BindMechanism` in an interface which collects the following methods:
+Code-wise, a `BindMechanism` is an interface which collects the following methods:
 
 ```golang
 type BindMechanism interface {
@@ -104,7 +104,7 @@ type BindMechanism interface {
 }
 ```
 
-As of now, the existent binding mechanisms are:
+As of now, the existing binding mechanisms are:
 - [bridge](#bridge-binding-mechanism)
 - [masquerade](#masquerade-binding-mechanism)
 - [slirp](#slirp-binding-mechanism)
@@ -136,7 +136,7 @@ Bridge binding mechanism diagram
 ![alt text](https://raw.githubusercontent.com/kubevirt/kubevirt.github.io/main/assets/images/diagram.png)
 
 As can be seen in the diagram above, there are three actors at play: CNI,
-libvirt, and DHCP. For completeness sake, let's add one more actor that is
+libvirt, and DHCP. For the sake of completeness, let's add one more actor that is
 implicit in the picture: KubeVirt.
 
 As indicated in [the introduction](#vmi-networking), the pod networking
@@ -157,7 +157,7 @@ behalf of virt-launcher.
 
 The `preparePodNetworkInterfaces` method performs one other operation: **if**
 the pod networking interface featured any IP address, it will delete the first
-one; remember this address is cached in the VIF structure It will be needed
+one; remember this address is cached in the VIF structure. It will be needed
 for phase#2.
 
 In phase#2 (executed by virt-launcher, unprivileged) the domain xml which will
@@ -214,7 +214,7 @@ a
 in the project's examples folder.
 
 The masquerade bind mechanism has plenty in common with bridge binding; both
-have virt-handler create an in-pod bridge, generate a similar looking interface
+have virt-handler create an in-pod bridge, generate a similar-looking interface
 domain xml element - e.g. interface type *bridge*, and same *source* and
 *target* values. Both phases of the networking configuration communicate by caching
 data in the VIF structure.
@@ -264,15 +264,15 @@ gateway IP, and `10.11.12.2` as VM IP.
 NAT is configured in the `preparePodNetworkInterfaces` method. The bridge is
 configured with the IP address previously reserved for the VM's gateway.
 
-The bridge acts as the vm's default gateway and not as a L2 bridge,
+The bridge acts as the VM's default gateway and not as an L2 bridge,
 therefore, the pod networking interface is not set as its port.
-Since a linux bridge gets the MAC address of its first port and we don't want it to
+Since a Linux bridge gets the MAC address of its first port and we don't want it to
 take the MAC address of the first tap device attached to it,
-`preparePodNetworkInterfaces` creates a dummy nic and sets it as the first
+`preparePodNetworkInterfaces` creates a dummy NIC and sets it as the first
 port of the bridge.
 
 Afterwards, the nftables rules are provisioned in the NAT table. It
-follows a standard one to one NAT implementation using netfilter.
+follows a standard one-to-one NAT implementation using netfilter.
 
 It first involves the `prerouting` chain, which is responsible for packets that
 have just arrived at the network interface. This rule simply filters all
@@ -338,11 +338,11 @@ The masquerade binding mechanism is currently the only binding mechanism which
 accepts IPv6 addresses.
 
 It operates in exactly the same way as in IPv4, and follows the same goals:
-configure one to one NAT. As in it's IPv4 counter-part, the pods are reached
+configure one-to-one NAT. As in its IPv4 counterpart, the pods are reached
 via their IPv6 pod addresses.
 
 NAT is configured in the exact same way, but using ip6tables, or the `ipv6-nat`
-nftable table. Please refer to the tables below to visualize how NAT for IPv6
+nftables table. Please refer to the tables below to visualize how NAT for IPv6
 addresses is accomplished in KubeVirt.
 
 ```
@@ -370,7 +370,7 @@ table ip6 nat {
 }
 ```
 
-It is important to refer that masquerade binding configures NAT for both IPv4
+It is important to note that masquerade binding configures NAT for both IPv4
 and IPv6 address families - both address family traffic is forwarded into the
 VM instance. Despite that, the only IP address reported is the IPv6 address,
 which implicitly highly encourages IPv6 communication towards the VM instance.
