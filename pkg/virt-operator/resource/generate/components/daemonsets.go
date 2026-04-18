@@ -306,6 +306,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	attachProfileVolume(pod)
 
 	bidi := corev1.MountPropagationBidirectional
+	hostToContainer := corev1.MountPropagationHostToContainer
 	// NOTE: the 'kubelet-pods' volume mount exists because that path holds unix socket files.
 	// Socket files fail when their path is longer than 108 characters,
 	//   so that shortened volume path is to allow domain socket connections.
@@ -315,7 +316,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
+		{"kubelet", util.KubeletRoot, util.KubeletRoot, &hostToContainer},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 
