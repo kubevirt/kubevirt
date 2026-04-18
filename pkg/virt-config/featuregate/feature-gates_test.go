@@ -38,7 +38,7 @@ var _ = Describe("Feature Gate", func() {
 		Expect(featuregate.FeatureGateInfo(fg.Name)).To(Equal(&featuregate.FeatureGate{
 			Name:    fg.Name,
 			State:   fg.State,
-			Message: fmt.Sprintf(featuregate.WarningPattern, fg.Name, fg.State),
+			Message: fmt.Sprintf(featuregate.WarningPatternDeprecated, fg.Name, fg.State),
 		}))
 	})
 
