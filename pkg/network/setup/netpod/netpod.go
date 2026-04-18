@@ -25,6 +25,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -210,6 +211,13 @@ func (n NetPod) Setup() error {
 	}
 
 	unplugNetworks := vmispec.FilterNetworksByInterfaces(n.vmiSpecNets, unplugIfaces)
+	
+	// Physically delete the Linux network interfaces
+	if serr := n.teardownNetworks(unplugNetworks); serr != nil {
+		return serr
+	}
+
+	// Clear the KubeVirt state cache
 	if serr := n.clearCache(unplugNetworks); serr != nil {
 		return serr
 	}
@@ -714,4 +722,37 @@ func (n NetPod) clearCache(nets []v1.Network) error {
 		return k8serrors.NewAggregate(unplugErrors)
 	}
 	return n.state.Delete(nets)
+}
+
+func (n NetPod) teardownNetworks(nets []v1.Network) error {
+	if len(nets) == 0 {
+		return nil
+	}
+
+	// Execute the deletion inside the pod's network namespace
+	return n.state.NSExec.Do(func() error {
+		for _, network := range nets { // Fix 1: Renamed 'net' to 'network'
+			podInterfaceName := namescheme.HashedPodInterfaceName(network, n.vmiIfaceStatuses)
+
+			// Generate the exact names of the stale interfaces
+			linksToRemove := []string{
+				link.GenerateTapDeviceName(podInterfaceName, network),
+				link.GenerateBridgeName(podInterfaceName),
+				link.GenerateNewBridgedVmiInterfaceName(podInterfaceName),
+			}
+
+			// Iterate through and explicitly delete them
+			for _, linkName := range linksToRemove {
+				l, err := netlink.LinkByName(linkName)
+				if err == nil {
+					// If the link exists, try to delete it
+					if delErr := netlink.LinkDel(l); delErr != nil {
+						// Fix 2: Log non-trivial errors to aid in future debugging
+						log.Log.Reason(delErr).Errorf("failed to delete network link %s during hot-unplug", linkName)
+					}
+				}
+			}
+		}
+		return nil
+	})
 }
