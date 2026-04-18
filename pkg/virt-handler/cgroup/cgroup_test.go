@@ -279,4 +279,24 @@ var _ = Describe("generateDeviceRulesForVMI", func() {
 		_, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", false)
 		Expect(err).To(HaveOccurred())
 	})
+
+	It("should not fail when /dev/vfio does not exist", func() {
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(BeEmpty())
+	})
+
+	It("should not fail when /dev/vfio exists but is empty", func() {
+		Expect(os.MkdirAll(filepath.Join(tempDir, "dev", "vfio"), 0755)).To(Succeed())
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(BeEmpty())
+	})
+
+	It("should not fail when /dev/bus/usb exists but is empty", func() {
+		Expect(os.MkdirAll(filepath.Join(tempDir, "dev", "bus", "usb"), 0755)).To(Succeed())
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(BeEmpty())
+	})
 })
