@@ -1581,6 +1581,11 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 	}
 }
 
+func isConsoleTimeout(err error) bool {
+	_, ok := err.(expect.TimeoutError)
+	return ok
+}
+
 func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, logsdir string, vmiType string) {
 	cmds := []commands{
 		{command: ipAddrName, fileNameSuffix: "ipaddress"},
@@ -1611,6 +1616,9 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 		}, 10)
 		if err != nil {
 			printError("Not collecting logs from %s (%v)", vmi.ObjectMeta.Name, err)
+			if isConsoleTimeout(err) {
+				break
+			}
 			continue
 		}
 
@@ -1663,6 +1671,9 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 		}, 10)
 		if err != nil {
 			printError("failed console vmi %s/%s: %v", vmi.Namespace, vmi.Name, err)
+			if isConsoleTimeout(err) {
+				break
+			}
 			continue
 		}
 
