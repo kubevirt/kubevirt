@@ -50,6 +50,7 @@ goimports(
         "./.history/*",
         "./.git/*",
         "./_ci-configs/*",
+        "./kubevirtci/*",
     ],
     local = ["kubevirt.io/kubevirt"],
     prefix = "kubevirt.io/kubevirt",
