@@ -20,6 +20,7 @@ package cpudedicated
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"libvirt.org/go/libvirtxml"
 
@@ -32,6 +33,10 @@ import (
 )
 
 func GenerateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
+	if vmi.Status.MigrationState == nil {
+		return nil, fmt.Errorf("cannot generate domain for target: VMI migration state is not initialized")
+	}
+
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
 	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
