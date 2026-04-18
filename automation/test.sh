@@ -18,6 +18,11 @@
 #
 
 set -ex
+readonly TEST_SH_START_TIME_SECONDS="$(date +%s)"
+readonly TEST_SH_DIR="$(
+  cd "$(dirname "${BASH_SOURCE[0]}")"
+  pwd
+)"
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
@@ -27,6 +32,7 @@ export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
+readonly NODE_IMAGE_PULL_LOGGER_SCRIPT="${TEST_SH_DIR}/node-image-pull-logger.sh"
 
 source hack/config-default.sh
 
@@ -152,6 +158,49 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET}
     ;;
 esac
+
+set_lane_push_targets() {
+  if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*arm64.* ]]; then
+    echo "Skipping lane-specific PUSH_TARGETS on kind/arm64 lane ${TARGET}"
+    return
+  fi
+
+  case "$TARGET" in
+    *windows*)
+      export PUSH_TARGETS="disks-images-provider virt-api virt-controller virt-exportproxy virt-handler virt-launcher virt-operator virt-synchronization-controller vm-killer winrmcli"
+      ;;
+    *sig-network*)
+      export PUSH_TARGETS="alpine-container-disk-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo fedora-with-test-tooling-container-disk network-passt-binding network-passt-binding-cni network-slirp-binding virt-api virt-controller virt-exportproxy virt-handler virt-launcher virt-operator virt-synchronization-controller vm-killer"
+      ;;
+    *sig-compute-migrations*)
+      export PUSH_TARGETS="alpine-container-disk-demo alpine-ext-kernel-boot-demo alpine-with-test-tooling-container-disk disks-images-provider fedora-with-test-tooling-container-disk virt-api virt-controller virt-exportproxy virt-handler virt-launcher virt-operator virt-synchronization-controller vm-killer"
+      ;;
+    *sig-compute-serial*)
+      export PUSH_TARGETS="alpine-container-disk-demo cirros-container-disk-demo disks-images-provider example-hook-sidecar fedora-with-test-tooling-container-disk virt-api virt-controller virt-exportproxy virt-handler virt-launcher virt-operator virt-synchronization-controller virt-template-apiserver virt-template-controller vm-killer"
+      ;;
+    *sig-compute*)
+      export PUSH_TARGETS="alpine-container-disk-demo alpine-ext-kernel-boot-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo cirros-custom-container-disk-demo disks-images-provider example-cloudinit-hook-sidecar example-hook-sidecar fedora-with-test-tooling-container-disk sidecar-shim virt-api virt-controller virt-exportproxy virt-handler virt-launcher virt-operator virt-synchronization-controller virtio-container-disk vm-killer"
+      ;;
+    *sig-operator*)
+      export PUSH_TARGETS="alpine-container-disk-demo disks-images-provider virt-api virt-controller virt-exportproxy virt-handler virt-launcher virt-operator virt-synchronization-controller virt-template-apiserver virt-template-controller"
+      ;;
+    *sig-storage*)
+      export PUSH_TARGETS="alpine-container-disk-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo disks-images-provider example-disk-mutation-hook-sidecar fedora-with-test-tooling-container-disk libguestfs-tools pr-helper test-helpers virt-api virt-controller virt-exportproxy virt-exportserver virt-handler virt-launcher virt-operator virt-synchronization-controller virtio-container-disk vm-killer"
+      ;;
+  esac
+
+  if [[ -n "${PUSH_TARGETS:-}" ]]; then
+    echo "Using lane-specific PUSH_TARGETS for ${TARGET}: ${PUSH_TARGETS}"
+  fi
+}
+
+set_lane_push_targets
+
+# devel_alt is only needed on sig-operator lanes according to observed pulls.
+if [[ ! $TARGET =~ .*sig-operator.* ]]; then
+  export DOCKER_TAG_ALT=""
+  echo "Disabling DOCKER_TAG_ALT for non-sig-operator lane ${TARGET}"
+fi
 
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
@@ -342,7 +391,7 @@ check_for_panics() {
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; check_for_panics; "${NODE_IMAGE_PULL_LOGGER_SCRIPT}" collect --artifacts-path "${ARTIFACTS_PATH}" || true; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
@@ -367,7 +416,11 @@ echo "=================="
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+if [[ -n "${PUSH_TARGETS:-}" ]]; then
+  echo "Skipping bazel-build-images because lane-specific PUSH_TARGETS are set"
+else
+  build_images
+fi
 
 trap '{ collect_debug_logs; }' ERR
 make cluster-up
@@ -388,7 +441,11 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+"${NODE_IMAGE_PULL_LOGGER_SCRIPT}" start || true
+
 ionice --class idle make cluster-sync
+cluster_sync_elapsed_seconds="$(( $(date +%s) - TEST_SH_START_TIME_SECONDS ))"
+echo "Benchmark: elapsed time from test.sh start through cluster-sync: ${cluster_sync_elapsed_seconds}s"
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
@@ -437,7 +494,7 @@ kubectl version
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
 # arm64 e2e test lane use kind provider
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
+if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
