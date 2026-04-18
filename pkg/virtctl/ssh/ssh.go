@@ -135,8 +135,26 @@ func (o *ssh) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	globalFlags := GlobalFlagsFromCmd(cmd)
 	clientArgs := o.BuildSSHTarget(kind, namespace, name)
-	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs).Run()
+	return LocalClientCmd("ssh", kind, namespace, name, o.options, globalFlags, clientArgs).Run()
+}
+
+func GlobalFlagsFromCmd(cmd *cobra.Command) []string {
+	var args []string
+	rootPFlags := cmd.Root().PersistentFlags()
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		if rootPFlags.Lookup(f.Name) != nil {
+			if sv, ok := f.Value.(pflag.SliceValue); ok {
+				for _, v := range sv.GetSlice() {
+					args = append(args, "--"+f.Name+"="+v)
+				}
+			} else {
+				args = append(args, "--"+f.Name+"="+f.Value.String())
+			}
+		}
+	})
+	return args
 }
 
 func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
@@ -237,8 +255,8 @@ func ParseTarget(arg string) (kind, namespace, name, username string, err error)
 	return kind, namespace, name, username, err
 }
 
-func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
-	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort)}
+func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, globalFlags, clientArgs []string) *exec.Cmd {
+	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort, globalFlags)}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
 	}
@@ -257,10 +275,14 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	return cmd
 }
 
-func BuildProxyCommandOption(kind, namespace, name string, port int) string {
+func BuildProxyCommandOption(kind, namespace, name string, port int, globalFlags []string) string {
 	proxyCommand := strings.Builder{}
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
+	for _, flag := range globalFlags {
+		proxyCommand.WriteRune(' ')
+		proxyCommand.WriteString("'" + strings.ReplaceAll(flag, "'", "'\\''") + "'")
+	}
 	proxyCommand.WriteString(" port-forward --stdio=true ")
 	proxyCommand.WriteString(kind)
 	proxyCommand.WriteRune('/')
