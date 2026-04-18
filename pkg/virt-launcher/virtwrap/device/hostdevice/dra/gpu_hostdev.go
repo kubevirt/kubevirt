@@ -79,7 +79,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 }
 
 func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
-	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == nil || gpu.ClaimRequest.RequestName == nil {
+	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == nil || *gpu.ClaimRequest.ClaimName == "" || gpu.ClaimRequest.RequestName == nil || *gpu.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("GPU %s has incomplete ClaimRequest", gpu.Name)
 	}
 
@@ -89,7 +89,8 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
 	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating
 	// it as PCI passthrough would be incorrect.
-	if mdevUUID, err := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName); err == nil {
+	mdevUUID, mdevErr := drautil.GetMDevUUIDForClaim(basePath, resourceClaims, claimName, requestName)
+	if mdevErr == nil {
 		log.Log.V(2).Infof("Adding DRA MDEV GPU device for %s", gpu.Name)
 		hostDevice := api.HostDevice{
 			Alias: api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
@@ -115,7 +116,8 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 		return &hostDevice, nil
 	}
 
-	if pciAddr, err := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName); err == nil {
+	pciAddr, pciErr := drautil.GetPCIAddressForClaim(basePath, resourceClaims, claimName, requestName)
+	if pciErr == nil {
 		log.Log.V(2).Infof("Adding DRA PCI GPU device for %s", gpu.Name)
 		hostAddr, err := device.NewPciAddressField(pciAddr)
 		if err != nil {
@@ -129,7 +131,7 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 		}, nil
 	}
 
-	return nil, fmt.Errorf("GPU %s has no mdevUUID or pciBusID in metadata for claim %s request %s", gpu.Name, claimName, requestName)
+	return nil, fmt.Errorf("GPU %s has no mdevUUID or pciBusID in metadata for claim %s request %s (mdev: %v, pci: %v)", gpu.Name, claimName, requestName, mdevErr, pciErr)
 }
 
 func hasGPUsWithDRA(vmi *v1.VirtualMachineInstance) bool {

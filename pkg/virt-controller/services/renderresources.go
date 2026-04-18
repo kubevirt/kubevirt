@@ -406,17 +406,24 @@ func requestResourceClaims(resources *k8sv1.ResourceRequirements, claim *k8sv1.R
 }
 
 func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.ResourceClaim) {
-	existing := make(map[string]struct{})
-	for _, c := range *claims {
-		existing[c.Name] = struct{}{}
+	existingByName := make(map[string]int, len(*claims))
+	for idx, c := range *claims {
+		existingByName[c.Name] = idx
 	}
 
 	for _, value := range resources.Claims {
-		if _, found := existing[value.Name]; found {
-			continue // skip duplicates by Name
+		if idx, found := existingByName[value.Name]; found {
+			if (*claims)[idx].Request != value.Request {
+				// A claim can be referenced only once (listMapKey=name). If different
+				// request names target the same claim, keep a single entry and expose
+				// the entire claim by clearing Request.
+				(*claims)[idx].Request = ""
+			}
+			continue
 		}
+
 		*claims = append(*claims, value)
-		existing[value.Name] = struct{}{}
+		existingByName[value.Name] = len(*claims) - 1
 	}
 }
 

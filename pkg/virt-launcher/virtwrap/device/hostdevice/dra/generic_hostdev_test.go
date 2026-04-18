@@ -34,9 +34,8 @@ var _ = Describe("CreateDRAHostDevices", func() {
 		os.RemoveAll(tempDir)
 	})
 
-	// KEP-5304 path: {base}/{claimName}/{requestName}/{driver}-metadata.json
 	createMetadataFile := func(claimName, requestName, driver string, md *metadata.DeviceMetadata) {
-		dir := filepath.Join(tempDir, claimName, requestName)
+		dir := filepath.Join(tempDir, "resourceclaims", claimName, requestName)
 		Expect(os.MkdirAll(dir, 0755)).To(Succeed())
 
 		data, err := json.Marshal(md)
@@ -65,7 +64,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -120,7 +119,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -177,7 +176,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -235,7 +234,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
