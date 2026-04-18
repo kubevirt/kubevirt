@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["flags.go"],
+    srcs = [
+        "flags.go",
+        "timeout.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/flags",
     visibility = ["//visibility:public"],
     deps = ["//staging/src/kubevirt.io/client-go/kubecli:go_default_library"],
