@@ -51,13 +51,13 @@ var _ = Describe("HandleStandaloneMode", func() {
 		standalone.HandleStandaloneMode(mockDM)
 	})
 
-	It("should panic on invalid JSON in STANDALONE_VMI", func() {
+	It("should panic with the JSON error when input is neither valid YAML nor valid JSON", func() {
 		os.Setenv("STANDALONE_VMI", "invalid json")
 		defer os.Unsetenv("STANDALONE_VMI")
 
 		Expect(func() {
 			standalone.HandleStandaloneMode(mockDM)
-		}).To(Panic())
+		}).To(PanicWith(MatchError(ContainSubstring("invalid character"))))
 	})
 
 	It("should panic if SyncVMI fails", func() {
