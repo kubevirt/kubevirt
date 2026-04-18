@@ -163,7 +163,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 	})
 })
 
-var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
+var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", Ordered, decorators.OncePerOrderedCleanup, func() { //nolint:lll
 	var (
 		virtClient       kubecli.KubevirtClient
 		preparedVMIs     []*v1.VirtualMachineInstance
@@ -209,7 +209,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		return nodeName
 	}
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		var err error
 		virtClient = kubevirt.Client()
 
@@ -229,12 +229,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		for _, ip := range pod.Status.PodIPs {
 			handlerMetricIPs = append(handlerMetricIPs, ip.IP)
 		}
-	})
-
-	AfterEach(func() {
-		preparedVMIs = []*v1.VirtualMachineInstance{}
-		pod = nil
-		handlerMetricIPs = []string{}
 	})
 
 	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
