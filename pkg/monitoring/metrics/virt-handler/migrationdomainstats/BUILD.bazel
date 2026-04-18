@@ -24,6 +24,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "handler_test.go",
         "migrationdomainstats_suite_test.go",
         "migrationstats_collector_test.go",
     ],
