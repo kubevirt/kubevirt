@@ -1249,5 +1249,12 @@ func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storag
 			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
 	)
-	return libstorage.RenderVMWithDataVolumeTemplate(dv)
+	var vmiOpts []libvmi.Option
+	if containerDisk == cd.ContainerDiskFedoraTestTooling {
+		vmiOpts = append(vmiOpts, libvmi.WithMemoryRequest("512Mi"))
+	}
+	return libvmi.NewVirtualMachine(
+		libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, vmiOpts...),
+		libvmi.WithDataVolumeTemplate(dv),
+	)
 }

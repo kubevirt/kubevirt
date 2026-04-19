@@ -32,7 +32,7 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+      image: quay.io/oshoval/fedora-with-test-tooling:latest
     name: containerdisk
   - cloudInitNoCloud:
       networkData: |
@@ -41,7 +41,9 @@ spec:
           eth0:
             addresses: [ fd10:0:2::2/120 ]
             dhcp4: true
-            gateway6: fd10:0:2::1
+            routes:
+            - to: ::/0
+              via: fd10:0:2::1
       userData: |-
         #cloud-config
         password: fedora
