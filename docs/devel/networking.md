@@ -67,9 +67,9 @@ The domain configuration is specific to each
 hypervisor configuration.
 
 ## Binding Mechanisms
-A binding mechanism can be seen as the translation service between KubeVirt's
-API and Libvirt's domain xml. It also features methods to set up the required
-networking infrastructure.
+A binding mechanism specifies how to wire the VM network interface to the pod
+network interface. It sets up the required networking infrastructure and
+generates the hypervisor configuration.
 
 Each interface type has a different binding mechanism, since it leads to a
 different hypervisor configuration and may require different networking
@@ -128,36 +128,26 @@ KubeVirt removes the first one; that address is preserved in the cached state
 and will be needed for phase 2.
 
 In phase 2 (executed by virt-launcher, unprivileged) the VM's domain
-configuration is generated. It first creates an initial interface definition
-whose sole purpose is to instruct how to connect to the in-pod bridge.
+configuration is generated.
+
+> **libvirt/QEMU specific:** The following domain XML example applies to the
+> libvirt/QEMU hypervisor. Other hypervisors may represent this configuration
+> differently.
 
 ```xml
- <interface type='bridge'>
-    <source bridge='k6t-eth0'/>
+<interface type='ethernet'>
+    <target dev='tap0' managed='no'/>
     <model type='virtio'/>
- </interface>
-```
-
-Afterwards, but still in phase 2, KubeVirt decorates the interface
-configuration, specifying both the link MTU and MAC address. The MAC and MTU
-of the pod interface are copied over, which at this stage results in:
-
-```xml
-<interface type='bridge'>
-  <mac address='8e:61:55:c2:4a:bd'/>
-  <source bridge='k6t-eth0'/>
-  <target dev='vnet0'/>
-  <model type='virtio'/>
-  <mtu size='1440'/>
-  <alias name='ua-bridge'/>
-  <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+    <mac address='8a:37:e9:71:f2:a4'/>
+    <mtu size='1450'/>
+    <alias name='ua-default'/>
 </interface>
 ```
 
-Once the VM is booted, libvirt will consume the interface xml definition and
-create a tap device - named after the `target` parameter. That tap device will
-be attached to the in-pod bridge, and the tap device's MAC address,
-and link MTU will be configured according to the values set in the domain xml.
+Once the VM is booted, libvirt consumes the interface XML definition and
+connects to the tap device — named after the `target` parameter — which was
+created by virt-handler in phase 1 and is already attached to the in-pod
+bridge.
 
 Finally, and depending if the pod networking interface had configured IP
 address(es), an in-pod DHCP server will be created to advertise the IP address
@@ -177,10 +167,9 @@ a
 [fedora based VMI](https://github.com/kubevirt/kubevirt/blob/main/examples/vmi-masquerade.yaml)
 in the project's examples folder.
 
-The masquerade bind mechanism has plenty in common with bridge binding; both
-have virt-handler create an in-pod bridge, generate a similar looking interface
-domain xml element - e.g. interface type *bridge*, and same *source* and
-*target* values. Both phases of the networking configuration communicate by caching
+The masquerade binding mechanism has plenty in common with bridge binding; both
+have virt-handler create an in-pod bridge and generate a hypervisor interface
+definition to connect the VM to it. Both phases communicate by caching
 interface state between phase 1 and phase 2.
 
 However, the similarities end there; while the networking infrastructure is
