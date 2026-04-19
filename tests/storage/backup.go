@@ -34,6 +34,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -699,11 +700,9 @@ var _ = Describe(SIG("Backup", func() {
 		By("Creating full backup and wait for it to fail")
 		backup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), tracker.Namespace, smallFSDv.Name, tracker.Name, waitBackupFailed)
 		Expect(backup).ToNot(BeNil())
-		for _, cond := range backup.Status.Conditions {
-			if cond.Type == backupv1.ConditionDone {
-				Expect(cond.Reason).To(ContainSubstring("No space left on device"))
-			}
-		}
+		Expect(backup.Status).To(Not(BeNil()))
+		cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionDone))
+		Expect(cond.Message).To(ContainSubstring("No space left on device"))
 
 		By("Verifying BackupTracker was not updated with a checkpoint")
 		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
@@ -1406,12 +1405,12 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(backupv1.ConditionDone),
-					"Status": Equal(corev1.ConditionTrue),
-					"Reason": ContainSubstring("Successfully completed VirtualMachineBackup")}),
+					"Type":    Equal(string(backupv1.ConditionDone)),
+					"Status":  Equal(metav1.ConditionTrue),
+					"Message": ContainSubstring("Successfully completed VirtualMachineBackup")}),
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(backupv1.ConditionProgressing),
-					"Status": Equal(corev1.ConditionFalse)}),
+					"Type":   Equal(string(backupv1.ConditionProgressing)),
+					"Status": Equal(metav1.ConditionFalse)}),
 			),
 		})),
 	))
@@ -1435,12 +1434,12 @@ func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backu
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(backupv1.ConditionDone),
-					"Status": Equal(corev1.ConditionTrue),
-					"Reason": ContainSubstring("Backup has failed")}),
+					"Type":    Equal(string(backupv1.ConditionDone)),
+					"Status":  Equal(metav1.ConditionTrue),
+					"Message": ContainSubstring("Backup has failed")}),
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(backupv1.ConditionProgressing),
-					"Status": Equal(corev1.ConditionFalse)}),
+					"Type":   Equal(string(backupv1.ConditionProgressing)),
+					"Status": Equal(metav1.ConditionFalse)}),
 			),
 		})),
 	))
@@ -1464,8 +1463,8 @@ func waitBackupExportReady(virtClient kubecli.KubevirtClient, namespace string, 
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(backupv1.ConditionExportReady),
-					"Status": Equal(corev1.ConditionTrue),
+					"Type":   Equal(string(backupv1.ConditionExportReady)),
+					"Status": Equal(metav1.ConditionTrue),
 				}),
 			),
 		})),
