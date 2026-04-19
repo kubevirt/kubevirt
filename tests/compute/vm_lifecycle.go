@@ -33,13 +33,18 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
+
+const kubemacpoolVMOptOutLabel = "mutatevirtualmachines.kubemacpool.io"
 
 var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 	var virtClient kubecli.KubevirtClient
@@ -120,7 +125,16 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 	)
 
 	Context("with reboot policy", func() {
-		It("should recreate VMI on guest reboot with runStrategy Always", decorators.RebootPolicy, func() {
+		It("should recreate VMI on guest reboot with runStrategy Always", Serial, decorators.RebootPolicy, func() {
+			By("Enabling VMPersistentMACs feature gate")
+			config.EnableFeatureGate(featuregate.VMPersistentMACs)
+
+			By("Opting out of kubemacpool to ensure MAC persistence is tested")
+			Expect(libnamespace.AddLabelToNamespace(virtClient, testsuite.GetTestNamespace(nil), kubemacpoolVMOptOutLabel, "ignore")).To(Succeed())
+			DeferCleanup(func() {
+				Expect(libnamespace.RemoveLabelFromNamespace(virtClient, testsuite.GetTestNamespace(nil), kubemacpoolVMOptOutLabel)).To(Succeed())
+			})
+
 			By("Creating a VM with runStrategy Always and rebootPolicy Terminate")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -140,10 +154,12 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			By("Waiting for guest agent to be connected")
 			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			By("Getting the current VMI UID")
+			By("Getting the current VMI UID and MAC address")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			oldUID := vmi.UID
+			Expect(vmi.Status.Interfaces).NotTo(BeEmpty())
+			originalMAC := vmi.Status.Interfaces[0].MAC
 
 			By("Triggering a soft reboot via guest agent")
 			err = virtClient.VirtualMachineInstance(vm.Namespace).SoftReboot(context.Background(), vm.Name)
@@ -154,6 +170,22 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 			By("Verifying the new VMI is running")
 			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+
+			By("Verifying MAC address is preserved in VMI status after reboot")
+			Eventually(func(g Gomega) {
+				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(newVMI.Status.Interfaces).NotTo(BeEmpty())
+				g.Expect(newVMI.Status.Interfaces[0].MAC).To(Equal(originalMAC),
+					"MAC address should be preserved across VM reboot")
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
+
+			By("Verifying MAC address is persisted to VM spec")
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+			Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces[0].MacAddress).To(Equal(originalMAC),
+				"MAC address should be persisted to VM spec")
 		})
 
 		DescribeTable("should not-recreate VMI on guest reboot", decorators.RebootPolicy, func(runStrategy v1.VirtualMachineRunStrategy) {

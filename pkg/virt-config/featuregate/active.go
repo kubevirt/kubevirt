@@ -222,6 +222,14 @@ const (
 	// Beta: v1.8
 	LiveUpdateNADRef = "LiveUpdateNADRef"
 
+	// Owner: SIG network
+	// Beta: v1.9
+	//
+	// VMPersistentMACs enables automatic MAC address persistence for VirtualMachines.
+	// When enabled, the network synchronizer persists runtime MAC addresses from VMI status
+	// back to the VM spec, ensuring MAC stability across VM lifecycle operations.
+	VMPersistentMACs = "VMPersistentMACs"
+
 	// Owner: @csomani1
 	// Alpha: v1.8.0
 	//
@@ -272,5 +280,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: VMPersistentMACs, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 }
