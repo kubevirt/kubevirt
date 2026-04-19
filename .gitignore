@@ -8,6 +8,7 @@ tools/crd-validation-generator/crd-validation-generator
 tools/resource-generator/resource-generator
 tools/manifest-templator/manifest-templator
 tools/vms-generator/vms-generator
+tools/vmlog-checker/vmlog-checker
 **/bin
 bin/*
 .vagrant
