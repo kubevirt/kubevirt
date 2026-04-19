@@ -107,10 +107,14 @@
 | cluster:kubevirt_nodes_allocatable:count | Recording rule | Gauge | The number of allocatable nodes in the cluster. |
 | cluster:kubevirt_nodes_with_kvm:count | Recording rule | Gauge | The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. |
 | cluster:kubevirt_non_schedulable_nodes:sum | Recording rule | Gauge | The number of non-schedulable nodes in the cluster. |
+| cluster:kubevirt_virt_api_pods_running:count | Recording rule | Gauge | The number of virt-api pods that are running. |
+| cluster:kubevirt_virt_api_ready:sum | Recording rule | Gauge | The number of virt-api pods that are ready. |
 | cluster:kubevirt_virt_api_up:sum | Recording rule | Gauge | The number of virt-api pods that are up. |
 | cluster:kubevirt_virt_controller_pods_running:count | Recording rule | Gauge | The number of virt-controller pods that are running. |
 | cluster:kubevirt_virt_controller_ready:sum | Recording rule | Gauge | The number of virt-controller pods that are ready. |
 | cluster:kubevirt_virt_controller_up:sum | Recording rule | Gauge | The number of virt-controller pods that are up. |
+| cluster:kubevirt_virt_handler_pods_running:count | Recording rule | Gauge | The number of virt-handler pods that are running. |
+| cluster:kubevirt_virt_handler_ready:sum | Recording rule | Gauge | The number of virt-handler pods that are ready. |
 | cluster:kubevirt_virt_handler_up:sum | Recording rule | Gauge | The number of virt-handler pods that are up. |
 | cluster:kubevirt_virt_operator_leading:sum | Recording rule | Gauge | The number of virt-operator pods that are leading. |
 | cluster:kubevirt_virt_operator_pods_running:count | Recording rule | Gauge | The number of virt-operator pods that are running. |
