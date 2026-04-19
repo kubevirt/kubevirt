@@ -30,10 +30,10 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtOperatorDown",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_up:sum == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_pods_running:count == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "All virt-operator servers are down.",
+				summaryAnnotationKey: "No running virt-operator pods were detected for the last 10 min.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
