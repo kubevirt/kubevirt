@@ -75,6 +75,7 @@ type MigrationOptions struct {
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
 	AllowWorkloadDisruption  bool
+	Experimental             *v1.ExperimentalMigrationConfiguration `json:"experimental,omitempty"`
 }
 
 type LauncherClient interface {
