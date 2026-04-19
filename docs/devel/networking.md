@@ -33,8 +33,7 @@ Once the `BindMechanism` is defined, the correct implementation will perform
 the following operations, in this order:
 
 - `discoverPodNetworkInterface`: Each `BindMechanism` requires different
-   information about the pod interface - slirp, for instance, doesn't require
-   any info. The others, gather the following information:
+   information about the pod interface. The gathered information includes:
    - IP address
    - Routes (**only** bridge)
    - Gateway
@@ -107,7 +106,6 @@ type BindMechanism interface {
 As of now, the existent binding mechanisms are:
 - [bridge](#bridge-binding-mechanism)
 - [masquerade](#masquerade-binding-mechanism)
-- [slirp](#slirp-binding-mechanism)
 
 ### Bridge binding mechanism
 Using the bridge `BindMechanism` requires a VMI configuration featuring a
