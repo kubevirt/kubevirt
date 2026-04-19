@@ -22,6 +22,7 @@ go_library(
         "services.go",
         "sriov.go",
         "vmi_infosource.go",
+        "vmi_ipv6_secondary.go",
         "vmi_istio.go",
         "vmi_lifecycle.go",
         "vmi_multus.go",
