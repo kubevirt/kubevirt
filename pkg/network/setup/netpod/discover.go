@@ -55,6 +55,8 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
 			}
 
+			podIfaceStatus.IPv6 = nmstate.IP{}
+
 			if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
 				return err
 			}
