@@ -416,6 +416,9 @@
           ]
         }
       },
+      "persistentReservationConfiguration": {
+        "enabled": true
+      },
       "confidentialCompute": {
         "tdx": {
           "attestation": {

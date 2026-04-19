@@ -1830,6 +1830,86 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity.PodAntiAffinity).To(BeEquivalentTo(&podAntiAffinity))
 			})
 
+			It("should add persistent reservation anti-affinity for PR LUN with PVC", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				Expect(pvcCache.Add(&k8sv1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-1234"},
+				})).To(Succeed())
+
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaimLun("lun0", "shared-pvc", true),
+				)
+				vmi.ObjectMeta = metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}
+				vmi.Annotations = map[string]string{v1.DeprecatedNonRootVMIAnnotation: ""}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedKey := v1.PersistentReservationLabelPrefix + "pvc-uid-1234"
+				Expect(pod.Labels).To(HaveKeyWithValue(expectedKey, ""))
+
+				Expect(pod.Spec.Affinity).ToNot(BeNil())
+				Expect(pod.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+				Expect(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				term := pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
+				Expect(term.TopologyKey).To(Equal("kubernetes.io/hostname"))
+				Expect(term.LabelSelector.MatchExpressions).To(HaveLen(1))
+				Expect(term.LabelSelector.MatchExpressions[0].Key).To(Equal(expectedKey))
+				Expect(term.LabelSelector.MatchExpressions[0].Operator).To(Equal(metav1.LabelSelectorOpExists))
+			})
+
+			It("should merge persistent reservation anti-affinity with existing pod anti-affinity", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				Expect(pvcCache.Add(&k8sv1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-5678"},
+				})).To(Succeed())
+
+				existingAntiAffinity := &k8sv1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: k8sv1.PodAffinityTerm{
+								TopologyKey: "zone",
+							},
+						},
+					},
+				}
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaimLun("lun0", "shared-pvc", true),
+				)
+				vmi.ObjectMeta = metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}
+				vmi.Annotations = map[string]string{v1.DeprecatedNonRootVMIAnnotation: ""}
+				vmi.Spec.Affinity = &k8sv1.Affinity{PodAntiAffinity: existingAntiAffinity}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			})
+
+			It("should not add persistent reservation anti-affinity when no PR disks", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				if pod.Spec.Affinity != nil && pod.Spec.Affinity.PodAntiAffinity != nil {
+					Expect(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(BeEmpty())
+				}
+			})
+
 			It("should add tolerations to pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				podToleration := k8sv1.Toleration{Key: "test"}

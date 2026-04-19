@@ -1333,6 +1333,11 @@ const (
 	// representation of the name to ensure uniqueness.
 	VirtualMachineInstanceIDLabel = "vmi.kubevirt.io/id"
 
+	// PersistentReservationLabelPrefix is the label key prefix used to mark
+	// virt-launcher pods that use SCSI PersistentReservation on a given PVC.
+	// The suffix is the PVC's UID.
+	PersistentReservationLabelPrefix = "pr.kubevirt.io/"
+
 	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
 	// pvc name and the timestamp the memory dump was collected
 	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
@@ -3093,6 +3098,10 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
 
+	// PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs
+	// +nullable
+	PersistentReservationConfiguration *PersistentReservationConfiguration `json:"persistentReservationConfiguration,omitempty"`
+
 	// QGS configuration for attestation on the Intel TDX Platform
 	// +nullable
 	ConfidentialCompute *ConfidentialComputeConfiguration `json:"confidentialCompute,omitempty"`
@@ -3851,4 +3860,11 @@ type ObjectGraphOptions struct {
 	IncludeOptionalNodes *bool `json:"includeOptionalNodes,omitempty"`
 	// LabelSelector is used to filter nodes in the graph based on their labels.
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+}
+
+type PersistentReservationConfiguration struct {
+	// Enabled controls the deployment of additional resources like the pr-helper container
+	// for enabling the use of the SCSI persistent reservation VMs, defaults to False.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
 }

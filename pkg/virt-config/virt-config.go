@@ -24,6 +24,8 @@ package virtconfig
 */
 
 import (
+	"slices"
+
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -524,4 +526,13 @@ func GetHypervisorFromKvConfig(kvConfig *v1.KubeVirtConfiguration, configHypervi
 	return &v1.HypervisorConfiguration{
 		Name: v1.KvmHypervisorName,
 	}
+}
+
+func (c *ClusterConfig) PersistentReservationEnabled() bool {
+	config := c.GetConfig().PersistentReservationConfiguration
+	if config != nil && config.Enabled != nil {
+		return *config.Enabled
+	}
+
+	return slices.Contains(c.GetConfig().DeveloperConfiguration.FeatureGates, featuregate.PersistentReservation)
 }
