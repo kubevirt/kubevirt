@@ -56,6 +56,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -408,11 +409,18 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(key,
+	performedSync, err := c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
 		domain,
 		domainExists)
+	_, localExists, _ := c.getVMIFromCache(key)
+	if !localExists {
+		metrics.ResetVMISync(key)
+	} else if err == nil && performedSync {
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
+	}
+	return err
 
 }
 
@@ -1384,7 +1392,7 @@ func (c *VirtualMachineController) sync(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
 	domain *api.Domain,
-	domainExists bool) error {
+	domainExists bool) (bool, error) {
 
 	oldStatus := vmi.Status.DeepCopy()
 	oldSpec := vmi.Spec.DeepCopy()
@@ -1472,7 +1480,7 @@ func (c *VirtualMachineController) sync(key string,
 		// optimization that prevents unnecessary re-processing VMIs during the start flow.
 		phase, err := c.calculateVmPhaseForStatusReason(domain, vmi)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if vmi.Status.Phase == phase {
 			shouldUpdate = true
@@ -1488,6 +1496,7 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	var syncErr error
+	performedSync := false
 
 	// Process the VirtualMachineInstance update in this order.
 	// * Shutdown and Deletion due to VirtualMachineInstance deletion, process stopping, graceful shutdown trigger, etc...
@@ -1497,6 +1506,7 @@ func (c *VirtualMachineController) sync(key string,
 	case shouldShutdown:
 		c.logger.Object(vmi).V(3).Info("Processing shutdown.")
 		syncErr = c.processVmShutdown(vmi, domain)
+		performedSync = true
 	case forceShutdownIrrecoverable:
 		msg := formatIrrecoverableErrorMessage(domain)
 		c.logger.Object(vmi).V(3).Infof("Processing a destruction of an irrecoverable domain - %s.", msg)
@@ -1504,12 +1514,15 @@ func (c *VirtualMachineController) sync(key string,
 		if syncErr == nil {
 			syncErr = &vmiIrrecoverableError{msg}
 		}
+		performedSync = true
 	case shouldDelete:
 		c.logger.Object(vmi).V(3).Info("Processing deletion.")
 		syncErr = c.deleteVM(vmi)
+		performedSync = true
 	case shouldUpdate:
 		c.logger.Object(vmi).V(3).Info("Processing vmi update")
 		syncErr = c.processVmUpdate(vmi, domain)
+		performedSync = true
 	default:
 		c.logger.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -1526,16 +1539,16 @@ func (c *VirtualMachineController) sync(key string,
 		vmi.Spec = *oldSpec
 		if err := c.updateVMIStatus(oldStatus, vmi, domain, syncErr); err != nil {
 			c.logger.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
-			return err
+			return false, err
 		}
 	}
 
 	if syncErr != nil {
-		return syncErr
+		return performedSync, syncErr
 	}
 
 	c.logger.Object(vmi).V(3).Info("Synchronization loop succeeded.")
-	return nil
+	return performedSync, nil
 
 }
 
