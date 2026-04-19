@@ -64,8 +64,8 @@ hypervisor configuration.
 
 ## Binding Mechanisms
 A binding mechanism can be seen as the translation service between KubeVirt's
-API and Libvirt's domain xml. It also features methods to set up the required
-networking infrastructure.
+API and the hypervisor configuration (e.g. libvirt's domain XML). It also
+features methods to set up the required networking infrastructure.
 
 Each interface type has a different binding mechanism, since it leads to a
 different hypervisor configuration and may require different networking
@@ -127,6 +127,10 @@ In phase 2 (executed by virt-launcher, unprivileged) the VM's domain
 configuration is generated. It first creates an initial interface definition
 whose sole purpose is to instruct how to connect to the in-pod bridge.
 
+> **libvirt/QEMU specific:** The following domain XML examples apply to the
+> libvirt/QEMU hypervisor. Other hypervisors may represent this configuration
+> differently.
+
 ```xml
  <interface type='bridge'>
     <source bridge='k6t-eth0'/>
@@ -150,10 +154,10 @@ of the pod interface are copied over, which at this stage results in:
 </interface>
 ```
 
-Once the VM is booted, libvirt will consume the interface xml definition and
-create a tap device - named after the `target` parameter. That tap device will
-be attached to the in-pod bridge, and the tap device's MAC address,
-and link MTU will be configured according to the values set in the domain xml.
+Once the VM is booted, libvirt will consume the interface XML definition and
+create a tap device — named after the `target` parameter. That tap device will
+be attached to the in-pod bridge, and its MAC address and link MTU will be
+configured according to the values set in the domain XML.
 
 Finally, and depending if the pod networking interface had configured IP
 address(es), an in-pod DHCP server will be created to advertise the IP address
@@ -173,11 +177,11 @@ a
 [fedora based VMI](https://github.com/kubevirt/kubevirt/blob/main/examples/vmi-masquerade.yaml)
 in the project's examples folder.
 
-The masquerade bind mechanism has plenty in common with bridge binding; both
-have virt-handler create an in-pod bridge, generate a similar looking interface
-domain xml element - e.g. interface type *bridge*, and same *source* and
-*target* values. Both phases of the networking configuration communicate by caching
-interface state between phase 1 and phase 2.
+The masquerade binding mechanism has plenty in common with bridge binding; both
+have virt-handler create an in-pod bridge and generate a similar-looking
+interface definition for the hypervisor (in libvirt/QEMU terms: interface type
+*bridge*, with the same *source* and *target* values). Both phases communicate
+by caching interface state between phase 1 and phase 2.
 
 However, the similarities end there; while the networking infrastructure is
 the same, VM networking works completely different.
