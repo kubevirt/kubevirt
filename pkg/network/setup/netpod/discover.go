@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 // discover goes over the current pod network configuration and persists/caches
@@ -107,9 +108,14 @@ func (n NetPod) storePodInterfaceData(vmiSpecIface v1.Interface, ifaceState nmst
 	}
 
 	ifCache.Iface = &vmiSpecIface
+	var ipv4, ipv6 *nmstate.IPAddress
+	ipv4 = firstIPGlobalUnicast(ifaceState.IPv4)
 
-	ipv4 := firstIPGlobalUnicast(ifaceState.IPv4)
-	ipv6 := firstIPGlobalUnicast(ifaceState.IPv6)
+	network := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiSpecIface.Name)
+	if !vmispec.IsSecondaryMultusNetwork(*network) {
+		ipv6 = firstIPGlobalUnicast(ifaceState.IPv6)
+	}
+
 	switch {
 	case ipv4 != nil && ipv6 != nil:
 		ifCache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4.IP, ipv6.IP)

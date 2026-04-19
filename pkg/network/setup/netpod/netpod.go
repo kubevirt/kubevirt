@@ -390,13 +390,18 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Metadata: &nmstate.IfaceMetadata{Pid: n.podPID, NetworkName: vmiNetworkName},
 	}
 
+	dummyIPv6 := podStatusIface.IPv6
+	if vmispec.IsSecondaryMultusNetwork(*vmiNetwork) {
+		dummyIPv6 = nmstate.IP{Enabled: pointer.P(false)}
+	}
+
 	dummyIface := nmstate.Interface{
 		Name:       podIfaceName,
 		TypeName:   nmstate.TypeDummy,
 		MacAddress: podStatusIface.MacAddress,
 		MTU:        podStatusIface.MTU,
 		IPv4:       podStatusIface.IPv4,
-		IPv6:       podStatusIface.IPv6,
+		IPv6:       dummyIPv6,
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -513,13 +518,18 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 		Metadata: &nmstate.IfaceMetadata{Pid: n.podPID, NetworkName: vmiNetworkName},
 	}
 
+	dummyIPv6 := podStatusIface.IPv6
+	if vmispec.IsSecondaryMultusNetwork(*vmiNetwork) {
+		dummyIPv6 = nmstate.IP{Enabled: pointer.P(false)}
+	}
+
 	dummyIface := nmstate.Interface{
 		Name:       podIfaceName,
 		TypeName:   nmstate.TypeDummy,
 		MacAddress: podStatusIface.MacAddress,
 		MTU:        podStatusIface.MTU,
 		IPv4:       podStatusIface.IPv4,
-		IPv6:       podStatusIface.IPv6,
+		IPv6:       dummyIPv6,
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
