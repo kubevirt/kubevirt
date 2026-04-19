@@ -220,7 +220,54 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		}
 	}
 
+	vfioRules, err := generateVFIODeviceRules(mountRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate VFIO device rules: %v", err)
+	}
+	vmiDeviceRules = append(vmiDeviceRules, vfioRules...)
+
 	return vmiDeviceRules, nil
+}
+
+// generateVFIODeviceRules scans /dev/vfio/ inside the container and creates
+// allow rules for all VFIO devices found. These devices are provisioned by
+// the device plugin / container runtime and must be preserved in the cgroup
+// device allowlist when the v2 eBPF program is replaced by subsequent Set()
+// calls (e.g. during hotplug volume mounting).
+func generateVFIODeviceRules(mountRoot *safepath.Path) ([]*devices.Rule, error) {
+	vfioBasePath, err := safepath.JoinNoFollow(mountRoot, filepath.Join("dev", "vfio"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var entries []os.DirEntry
+	err = vfioBasePath.ExecuteNoFollow(func(path string) (err error) {
+		entries, err = os.ReadDir(path)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var rules []*devices.Rule
+	for _, entry := range entries {
+		devPath, err := safepath.JoinNoFollow(vfioBasePath, entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		rule, err := newAllowedDeviceRule(devPath, getDeviceRwmPermissions())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create device rule for VFIO device %s: %v", entry.Name(), err)
+		}
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for VFIO device %s: %v", entry.Name(), rule)
+			rules = append(rules, rule)
+		}
+	}
+	return rules, nil
 }
 
 func newAllowedDeviceRule(devicePath *safepath.Path, devicePermissions devices.Permissions) (*devices.Rule, error) {
