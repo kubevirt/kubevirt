@@ -100,7 +100,7 @@ binding mechanism works.
 
 Bridge binding mechanism diagram
 
-![alt text](https://raw.githubusercontent.com/kubevirt/kubevirt.github.io/main/assets/images/diagram.png)
+![Bridge binding mechanism](bridge-binding.svg)
 
 As can be seen in the diagram above, there are three actors at play: CNI,
 libvirt, and DHCP. For completeness sake, let's add one more actor that is
