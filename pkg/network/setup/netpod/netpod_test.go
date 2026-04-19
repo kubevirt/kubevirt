@@ -903,6 +903,43 @@ var _ = Describe("netpod", func() {
 			Entry("with hotplug (second invoke adds a network)", hotplugEnabled),
 		)
 
+		It("filters IPv6 from secondary network dummy but keeps it on primary", func() {
+			const secondaryIPv6Address = "fd10:0:2::5"
+
+			nmstatestub.status.Interfaces[1].IPv6 = nmstate.IP{
+				Enabled: pointer.P(true),
+				Address: []nmstate.IPAddress{{
+					IP:        secondaryIPv6Address,
+					PrefixLen: 120,
+				}},
+			}
+
+			netPod := netpod.NewNetPod(
+				specNetworks,
+				specInterfaces,
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(&nmstatestub),
+				netpod.WithMasqueradeAdapter(&masqstub),
+				netpod.WithCacheCreator(&baseCacheCreator),
+			)
+			Expect(netPod.Setup()).To(Succeed())
+
+			secondaryDummy := nmstate.LookupInterface(nmstatestub.spec.Interfaces, func(iface nmstate.Interface) bool {
+				return iface.Name == secondaryPodInterfaceName && iface.TypeName == nmstate.TypeDummy
+			})
+			Expect(secondaryDummy).NotTo(BeNil())
+			Expect(secondaryDummy.IPv6).To(Equal(nmstate.IP{Enabled: pointer.P(false)}))
+
+			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+				Iface:  &specInterfaces[0],
+				PodIP:  primaryIPv4Address,
+				PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+			}))
+
+			_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, secondaryNetworkName)
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("setup secondary bridge binding with hashed pod interfaces and absent set", func() {
 			specInterfaces[1].State = v1.InterfaceStateAbsent
 			netPod := netpod.NewNetPod(
@@ -1298,6 +1335,7 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateAbsent,
 							MacAddress: "22:34:56:78:90:ab",
 							MTU:        1500,
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
@@ -1331,6 +1369,7 @@ var _ = Describe("netpod", func() {
 							TypeName:   nmstate.TypeDummy,
 							MacAddress: "32:34:56:78:90:ab",
 							MTU:        1500,
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 					},
@@ -1404,6 +1443,7 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateAbsent,
 							MacAddress: "22:34:56:78:90:ab",
 							MTU:        1500,
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
@@ -1428,6 +1468,7 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateAbsent,
 							MacAddress: "32:34:56:78:90:ab",
 							MTU:        1500,
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 					},
@@ -1517,6 +1558,7 @@ var _ = Describe("netpod", func() {
 							TypeName:   nmstate.TypeDummy,
 							MacAddress: "22:34:56:78:90:ab",
 							MTU:        1500,
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
@@ -1541,6 +1583,7 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateAbsent,
 							MacAddress: "32:34:56:78:90:ab",
 							MTU:        1500,
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 					},
@@ -1600,6 +1643,7 @@ var _ = Describe("netpod", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "22:34:56:78:90:ab",
 					MTU:        1500,
+					IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 				},
 				{
 					Name:       "podbc6cc93fa1e",
@@ -1608,6 +1652,7 @@ var _ = Describe("netpod", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "32:34:56:78:90:ab",
 					MTU:        1500,
+					IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 				},
 			},
 		}}
@@ -1707,6 +1752,7 @@ var _ = Describe("netpod", func() {
 						TypeName:   nmstate.TypeDummy,
 						MacAddress: "22:34:56:78:90:ab",
 						MTU:        1500,
+						IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					// Third network.
@@ -1731,6 +1777,7 @@ var _ = Describe("netpod", func() {
 						State:      nmstate.IfaceStateAbsent,
 						MacAddress: "32:34:56:78:90:ab",
 						MTU:        1500,
+						IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
 				},
