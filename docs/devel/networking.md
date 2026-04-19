@@ -115,17 +115,16 @@ configuration step - performed by CNI - is out of scope of this guide. The
 focus will be instead on how KubeVirt performs bridge binding.
 
 The bridge binding starts by reading the pod networking interface configured by
-CNI. It caches the assigned MAC address and the link MTU. When CNI has
-configured IP address(es) on the pod networking interface, the bridge binding
-also caches the **first** IP address, along with any routes CNI has configured.
+CNI. It records the assigned MAC address, MTU, IP address(es), and routes.
 
-In phase 1, KubeVirt randomizes the in-pod veth MAC address; the original one
-will be plugged into the VM. It also creates an in-pod bridge and sets the pod
-networking interface as a port to this bridge.
+In phase 1, KubeVirt creates an in-pod bridge and renames the pod networking
+interface (e.g. `eth0` → `eth0-nic`), attaching the renamed interface as a
+bridge port. Its MAC address is replaced and its IP addresses are removed.
 
-Still in phase 1, **if** the pod networking interface has any IP address,
-KubeVirt removes the first one; that address is preserved in the cached state
-and will be needed for phase 2.
+To preserve the original network identity, a dummy interface is created under
+the original pod interface name (e.g. `eth0`). It holds the original MAC
+address, IP address(es), MTU, and routes. This preserved identity is used by
+the in-pod DHCP server in phase 2 to advertise the correct addressing to the VM.
 
 In phase 2 (executed by virt-launcher, unprivileged) the VM's domain
 configuration is generated.
@@ -217,9 +216,6 @@ gateway IP, and `10.11.12.2` as VM IP.
 In phase 1, the bridge is configured with the IP address reserved for the
 VM's gateway. The bridge acts as the VM's default gateway and not as an L2
 bridge; therefore, the pod networking interface is not set as its port.
-Since a Linux bridge inherits the MAC address of its first port, and we don't
-want it to take the MAC address of the first tap device attached to it, a
-dummy NIC is created and set as the first port of the bridge.
 
 Afterwards, the nftables rules are provisioned in the NAT table. It
 follows a standard one to one NAT implementation using netfilter.
