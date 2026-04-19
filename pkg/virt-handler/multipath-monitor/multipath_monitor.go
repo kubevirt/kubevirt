@@ -28,9 +28,9 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/filewatcher"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
@@ -108,7 +108,7 @@ func (m *MultipathSocketMonitor) run() {
 	log.Log.Infof("Starting to monitor the multipath socket")
 	for {
 		select {
-		case event := <-m.Watcher.Events:
+		case event := <-m.Watcher.Events():
 			switch event {
 			case filewatcher.Create:
 				fallthrough
@@ -119,7 +119,7 @@ func (m *MultipathSocketMonitor) run() {
 			case filewatcher.Remove:
 				_ = m.unmount()
 			}
-		case err := <-m.Watcher.Errors:
+		case err := <-m.Watcher.Errors():
 			if err != nil {
 				log.Log.Reason(err).Errorf("Error during monitoring multipath socket")
 			}

@@ -37,9 +37,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
-	"kubevirt.io/kubevirt/pkg/virt-handler/filewatcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -167,11 +167,11 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		}
 		log.Log.Info("notify server done")
 		return nil
-	case event := <-fw.Events:
+	case event := <-fw.Events():
 		log.Log.Warningf("socket file %s changed (event: %d), stopping notify server", sockFile, event)
 		grpcServer.Stop()
 		return fmt.Errorf("socket file %s was removed or replaced externally", sockFile)
-	case err := <-fw.Errors:
+	case err := <-fw.Errors():
 		log.Log.Reason(err).Errorf("error watching socket file %s, stopping notify server", sockFile)
 		grpcServer.Stop()
 		return fmt.Errorf("error watching socket file %s: %w", sockFile, err)

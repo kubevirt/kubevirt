@@ -414,9 +414,6 @@ func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOpti
 	defer m.backupTunnelMu.Unlock()
 
 	backupSock := filepath.Join(pullBackupSocketDir, pullBackupSocketName)
-	if _, err := os.Stat(backupSock); err != nil {
-		return fmt.Errorf("cannot initialize backup tunnel: %w", err)
-	}
 
 	if m.activeBackupTunnel != nil {
 		if m.activeBackupTunnel.IsMatch(backupOptions.BackupName, backupOptions.BackupStartTime) {
@@ -437,7 +434,7 @@ func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOpti
 		m.registerNBD,
 	)
 	if err := tunnel.Start(); err != nil {
-		return fmt.Errorf("failed to initialize backup tunnel: %w", err)
+		return err
 	}
 
 	m.activeBackupTunnel = tunnel
