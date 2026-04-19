@@ -74,6 +74,11 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 
 		// ready
 		newRecordingRule(
+			"cluster:kubevirt_virt_api_ready:sum",
+			"The number of virt-api pods that are ready.",
+			kubePodReadyOnlyExpr(namespace, "api"),
+		),
+		newRecordingRule(
 			"cluster:kubevirt_virt_controller_ready:sum",
 			"The number of virt-controller pods that are ready.",
 			readyExpr(namespace, "controller", "kubevirt_virt_controller_ready_status"),
