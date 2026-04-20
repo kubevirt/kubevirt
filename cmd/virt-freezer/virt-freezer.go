@@ -106,12 +106,10 @@ func run(config *FreezerConfig, client cmdclient.LauncherClient) error {
 		return err
 	}
 
-	if info.GAVersion == "" {
+	if len(info.SupportedCommands) == 0 {
 		log.Log.Info("No guest agent, exiting")
 		return nil
 	}
-
-	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
 	shouldFreeze, err := shouldFreezeVirtualMachine(client)
 	if err != nil {
