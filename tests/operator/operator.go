@@ -527,36 +527,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Describe("imagePullSecrets", func() {
-		checkVirtComponents := func(imagePullSecrets []k8sv1.LocalObjectReference) {
-			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vc.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
-
-			va, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(va.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
-
-			vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vh.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
-
-			if len(imagePullSecrets) == 0 {
-				Expect(vh.Spec.Template.Spec.Containers).To(HaveLen(1))
-			} else {
-				Expect(vh.Spec.Template.Spec.Containers).To(HaveLen(2))
-				Expect(vh.Spec.Template.Spec.Containers[1].Name).To(Equal("virt-launcher-image-holder"))
-			}
-		}
-
-		checkVirtLauncherPod := func(vmi *v1.VirtualMachineInstance) {
-			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-
-			serviceAccount, err := virtClient.CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
-		}
-
 		It("should not be present if not specified on the KubeVirt CR", func() {
 
 			By("Check that KubeVirt CR has empty imagePullSecrets")
@@ -565,7 +535,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(kv.Spec.ImagePullSecrets).To(BeEmpty())
 
 			By("Ensuring that all virt components have empty image pull secrets")
-			checkVirtComponents(nil)
+			checkVirtComponents(originalKv.Namespace, nil)
 
 			By("Starting a VMI")
 			vmi := libvmi.New(libvmi.WithMemoryRequest("1Mi"))
@@ -614,7 +584,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Ensuring that all virt components have expected image pull secrets")
-			checkVirtComponents(imagePullSecrets)
+			checkVirtComponents(originalKv.Namespace, imagePullSecrets)
 
 			By("Starting a VMI")
 			vmi := libvmi.New(libvmi.WithMemoryRequest("1Mi"))
@@ -636,7 +606,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Ensuring that all virt components have empty image pull secrets")
-			checkVirtComponents(nil)
+			checkVirtComponents(originalKv.Namespace, nil)
 
 		})
 
@@ -2775,6 +2745,39 @@ func deprecatedBeforeAll(fn func()) {
 			first = false
 		}
 	})
+}
+
+func checkVirtComponents(namespace string, imagePullSecrets []k8sv1.LocalObjectReference) {
+	GinkgoHelper()
+	virtClient := kubevirt.Client()
+	vc, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(vc.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+
+	va, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(va.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+
+	vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(vh.Spec.Template.Spec.ImagePullSecrets).To(Equal(imagePullSecrets))
+
+	if len(imagePullSecrets) == 0 {
+		Expect(vh.Spec.Template.Spec.Containers).To(HaveLen(1))
+	} else {
+		Expect(vh.Spec.Template.Spec.Containers).To(HaveLen(2))
+		Expect(vh.Spec.Template.Spec.Containers[1].Name).To(Equal("virt-launcher-image-holder"))
+	}
+}
+
+func checkVirtLauncherPod(vmi *v1.VirtualMachineInstance) {
+	GinkgoHelper()
+	virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).NotTo(HaveOccurred())
+
+	serviceAccount, err := kubevirt.Client().CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
 }
 
 func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
