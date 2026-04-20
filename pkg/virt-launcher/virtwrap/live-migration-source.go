@@ -43,6 +43,7 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -67,11 +68,12 @@ const (
 	monitorLogPeriodMS   = 4000
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
 
-	stallMargin           float64 = 0.04
-	switchoverTimeout     int64   = 60
-	preCopyPossibleFactor float64 = 1.5
-	bandwidthEWMAAlpha    float64 = 0.4
-	searchLocalMinima             = true
+	stallMargin               float64 = 0.04
+	switchoverTimeout         int64   = 60
+	preCopyPossibleFactor     float64 = 1.5
+	patienceWindowDecayFactor float64 = 0.5
+	bandwidthEWMAAlpha        float64 = 0.4
+	searchLocalMinima                 = true
 )
 
 type convergenceAction int
@@ -106,8 +108,16 @@ type stallDetector struct {
 	minRecordOutsideWindow *iterationRecord
 	// whether migration is currently stalled
 	stallDetected bool
+	// a sorted history of remaining bytes
+	remainingBytesHistory *utilheap.Heap[uint64]
 	// best value of "remaining bytes" observed so far
 	bestRemainingBytes uint64
+	// time which when hit we will relax target downtime further
+	relaxationDeadlineMs uint64
+	// current time in ms to wait before relaxing target downtime
+	relaxationPatienceMs uint64
+	// multiplier applied to relaxationPatienceMs after each relaxation step
+	patienceWindowDecayFactor float64
 	// Current bandwidth smoothed using an exponential weighted moving average
 	ewmaBandwidthBps float64
 	// Whether we already initiated switchover to post-copy or stop-and-copy
@@ -488,8 +498,9 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
 		stallDetectionEnabled:    options.StallDetectionEnabled,
 		stallDetector: &stallDetector{
-			maxDowntimeMs:          options.MaxDowntimeMs,
-			progressTimeoutSeconds: options.ProgressTimeout,
+			maxDowntimeMs:             options.MaxDowntimeMs,
+			progressTimeoutSeconds:    options.ProgressTimeout,
+			patienceWindowDecayFactor: patienceWindowDecayFactor,
 		},
 	}
 
@@ -608,6 +619,28 @@ func (sd *stallDetector) findBestRemainingBytes() uint64 {
 	return bestRemainingBytes
 }
 
+func (sd *stallDetector) initializeRelaxationState(record iterationRecord) {
+	sd.remainingBytesHistory = utilheap.NewMin[uint64]()
+	sd.relaxationPatienceMs = uint64(sd.progressTimeoutSeconds) * 1000
+	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
+}
+
+func (sd *stallDetector) relaxBestRemainingBytes(record iterationRecord) {
+	sd.remainingBytesHistory.Push(record.remainingBytes)
+	if record.elapsedMs < sd.relaxationDeadlineMs || sd.remainingBytesHistory.Len() == 0 {
+		return
+	}
+	nextCandidate, exists := sd.remainingBytesHistory.Pop()
+	if !exists {
+		// should never happen
+		log.Log.Error("failed to pop remaining bytes history")
+		return
+	}
+	sd.bestRemainingBytes = nextCandidate
+	sd.relaxationPatienceMs = uint64(float64(sd.relaxationPatienceMs) * sd.patienceWindowDecayFactor)
+	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
+}
+
 func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action convergenceAction, reason string) *inflightMigrationAborted {
 	sd := m.stallDetector
 	logger := log.Log.Object(m.vmi)
@@ -677,10 +710,12 @@ func (sd *stallDetector) processStallDetectionIteration(record iterationRecord) 
 	sd.updateCandidates(record)
 
 	if sd.stallDetected {
+		sd.relaxBestRemainingBytes(record)
 		return true
 	} else if sd.checkStallCondition(record.remainingBytes) {
 		// when stall is first detected initialize stall-related state
 		sd.bestRemainingBytes = sd.findBestRemainingBytes()
+		sd.initializeRelaxationState(record)
 		sd.stallDetected = true
 		return true
 	} else {
