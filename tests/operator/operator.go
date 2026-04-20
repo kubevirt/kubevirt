@@ -1594,7 +1594,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			for _, deploymentName := range []string{"virt-controller", "virt-api"} {
 				errMsg := "NodeSelector should be propagated to the deployment eventually"
 				Eventually(func() bool {
-					return nodeSelectorExistInDeployment(virtClient, deploymentName, fakeLabelKey, fakeLabelValue)
+					return nodeSelectorExistInDeployment(deploymentName, fakeLabelKey, fakeLabelValue)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
 				//The reason we check this is that sometime it takes a while until the pod is created and
 				//if the pod is created after the call to allKvInfraPodsAreReady in the AfterEach scope
@@ -1602,7 +1602,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				//and increase flakiness
 				errMsg = "the deployment should try to rollup the pods with the new selector and fail to schedule pods because the nodes don't have the fake label"
 				Eventually(func() bool {
-					return atLeastOnePendingPodExistInDeployment(virtClient, deploymentName)
+					return atLeastOnePendingPodExistInDeployment(deploymentName)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
 			}
 			Expect(patchKVInfra(originalKv, nil)).To(Succeed())
@@ -2636,7 +2636,86 @@ func getUpstreamReleaseAssetURL(tag string, assetName string) string {
 	return ""
 }
 
-func atLeastOnePendingPodExistInDeployment(virtClient kubecli.KubevirtClient, deploymentName string) bool {
+func detectLatestUpstreamOfficialTag() (string, error) {
+	client := github.NewClient(&http.Client{
+		Timeout: 5 * time.Second,
+	})
+
+	var err error
+	var releases []*github.RepositoryRelease
+
+	Eventually(func() error {
+		releases, _, err = client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 10000})
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	var vs []*semver.Version
+
+	for _, release := range releases {
+		if *release.Draft ||
+			*release.Prerelease ||
+			len(release.Assets) == 0 {
+
+			continue
+		}
+		tagName := strings.TrimPrefix(*release.TagName, "v")
+		v, err := semver.NewVersion(tagName)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to parse latest release tag")
+		vs = append(vs, v)
+	}
+
+	if len(vs) == 0 {
+		return "", fmt.Errorf("no kubevirt releases found")
+	}
+
+	// descending order from most recent.
+	sort.Sort(sort.Reverse(semver.Versions(vs)))
+
+	// most recent tag
+	tag := fmt.Sprintf("v%v", vs[0])
+
+	// tag hint gives us information about the most recent tag in the current branch
+	// this is executing in. We want to make sure we are using the previous most
+	// recent official release from the branch we're in if possible. Note that this is
+	// all best effort. If a tag hint can't be detected, we move on with the most
+	// recent release from master.
+	tagHint := strings.TrimPrefix(getTagHint(), "v")
+	hint, err := semver.NewVersion(tagHint)
+
+	if tagHint != "" && err == nil {
+		for _, v := range vs {
+			if v.LessThan(*hint) || v.Equal(*hint) {
+				tag = fmt.Sprintf("v%v", v)
+				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
+				break
+			}
+		}
+	}
+
+	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
+	return tag, nil
+}
+
+func getTagHint() string {
+	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmdOutput, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(cmdOutput)))
+	cmdOutput, err = cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(strings.Split(string(cmdOutput), "-rc")[0])
+}
+
+func atLeastOnePendingPodExistInDeployment(deploymentName string) bool {
+	virtClient := kubevirt.Client()
 	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("kubevirt.io=%s", deploymentName),
@@ -2649,7 +2728,8 @@ func atLeastOnePendingPodExistInDeployment(virtClient kubecli.KubevirtClient, de
 	return true
 }
 
-func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deploymentName string, labelKey string, labelValue string) bool {
+func nodeSelectorExistInDeployment(deploymentName string, labelKey string, labelValue string) bool {
+	virtClient := kubevirt.Client()
 	deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	if deployment.Spec.Template.Spec.NodeSelector == nil || deployment.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
@@ -3256,3 +3336,5 @@ func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {
 		}
 	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "Expects only a single successful migration per workload update")
 }
+
+
