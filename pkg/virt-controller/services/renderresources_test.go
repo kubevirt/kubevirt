@@ -666,6 +666,17 @@ var _ = Describe("validatePermittedHostDevices", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should pass validation when GPU is in permitted list", func() {
+			vmiSpec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "gpu1",
+					DeviceName: "intel.com/gpu",
+				},
+			}
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should fail validation when HostDevice is not in permitted list", func() {
 			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{
@@ -677,17 +688,29 @@ var _ = Describe("validatePermittedHostDevices", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("HostDevice unknown.com/device is not permitted"))
 		})
+
+		It("should fail validation when GPU is not in permitted list", func() {
+			vmiSpec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "gpu1",
+					DeviceName: "unknown.com/device",
+				},
+			}
+			err := validatePermittedHostDevices(vmiSpec, config)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("GPU unknown.com/device is not permitted"))
+		})
 	})
 
-	Context("with HostDevicesWithDRA feature gate enabled", func() {
+	Context("with DRA feature gates enabled", func() {
 		BeforeEach(func() {
 			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{"HostDevicesWithDRA"},
+				FeatureGates: []string{"HostDevicesWithDRA", "GPUsWithDRA"},
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 		})
 
-		It("should skip DRA HostDevice validation but still validate legacy devices", func() {
+		It("should skip DRA HostDevice and GPU validation but still validate legacy devices", func() {
 			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{
 					// Legacy device - has DeviceName
@@ -703,6 +726,19 @@ var _ = Describe("validatePermittedHostDevices", func() {
 					},
 				},
 			}
+			vmiSpec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "legacy-gpu",
+					DeviceName: "intel.com/gpu", // permitted device
+				},
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("my-gpu-claim"),
+						RequestName: pointer.P("my-gpu-request"),
+					},
+				},
+			}
 			err := validatePermittedHostDevices(vmiSpec, config)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -714,9 +750,16 @@ var _ = Describe("validatePermittedHostDevices", func() {
 					DeviceName: "unpermitted.com/device", // not permitted
 				},
 			}
+			vmiSpec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "legacy-gpu",
+					DeviceName: "unpermitted.com/gpu", // not permitted
+				},
+			}
 			err := validatePermittedHostDevices(vmiSpec, config)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("HostDevice unpermitted.com/device is not permitted"))
+			Expect(err.Error()).To(ContainSubstring("GPU unpermitted.com/gpu is not permitted"))
 		})
 	})
 })
