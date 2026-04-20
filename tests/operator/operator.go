@@ -2020,33 +2020,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			labelSelector  string
 		)
 
-		updateConfigAndWait := func(config v1.KubeVirtConfiguration) {
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-			testsuite.EnsureKubevirtReady()
-		}
-
-		defaultDeployment := func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.CommonInstancetypesDeployment = nil
-			updateConfigAndWait(kv.Spec.Configuration)
-		}
-
-		enableDeployment := func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
-				Enabled: pointer.P(true),
-			}
-			updateConfigAndWait(kv.Spec.Configuration)
-		}
-
-		disableDeployment := func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
-				Enabled: pointer.P(false),
-			}
-			updateConfigAndWait(kv.Spec.Configuration)
-		}
-
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			originalConfig = kv.Spec.Configuration.CommonInstancetypesDeployment.DeepCopy()
@@ -2074,38 +2047,18 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			updateConfigAndWait(kv.Spec.Configuration)
 		})
 
-		expectResourcesToNotExist := func() {
-			instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(instancetypes.Items).To(BeEmpty())
-
-			preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(preferences.Items).To(BeEmpty())
-		}
-
-		expectResourcesToExist := func() {
-			instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(instancetypes.Items).ToNot(BeEmpty())
-
-			preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(preferences.Items).ToNot(BeEmpty())
-		}
-
 		It("Should deploy common-instancetypes according to KubeVirt configurable", func() {
 			// Default is to deploy the resources
-			expectResourcesToExist()
+			expectResourcesToExist(labelSelector)
 
 			disableDeployment()
-			expectResourcesToNotExist()
+			expectResourcesToNotExist(labelSelector)
 
 			enableDeployment()
-			expectResourcesToExist()
+			expectResourcesToExist(labelSelector)
 
 			disableDeployment()
-			expectResourcesToNotExist()
+			expectResourcesToNotExist(labelSelector)
 		})
 
 		Context("Should take ownership", func() {
@@ -2778,6 +2731,61 @@ func checkVirtLauncherPod(vmi *v1.VirtualMachineInstance) {
 	serviceAccount, err := kubevirt.Client().CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
+}
+
+func updateConfigAndWait(config v1.KubeVirtConfiguration) {
+	GinkgoHelper()
+	kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+	testsuite.EnsureKubevirtReady()
+}
+
+func defaultDeployment() {
+	GinkgoHelper()
+	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+	kv.Spec.Configuration.CommonInstancetypesDeployment = nil
+	updateConfigAndWait(kv.Spec.Configuration)
+}
+
+func enableDeployment() {
+	GinkgoHelper()
+	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+	kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
+		Enabled: pointer.P(true),
+	}
+	updateConfigAndWait(kv.Spec.Configuration)
+}
+
+func disableDeployment() {
+	GinkgoHelper()
+	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+	kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
+		Enabled: pointer.P(false),
+	}
+	updateConfigAndWait(kv.Spec.Configuration)
+}
+
+func expectResourcesToExist(labelSelector string) {
+	GinkgoHelper()
+	virtClient := kubevirt.Client()
+	instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(instancetypes.Items).ToNot(BeEmpty())
+
+	preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(preferences.Items).ToNot(BeEmpty())
+}
+
+func expectResourcesToNotExist(labelSelector string) {
+	GinkgoHelper()
+	virtClient := kubevirt.Client()
+	instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(instancetypes.Items).To(BeEmpty())
+
+	preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(preferences.Items).To(BeEmpty())
 }
 
 func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
