@@ -42,8 +42,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -379,14 +377,6 @@ var _ = Describe(SIG("GuestAgent info", func() {
 	})
 
 	Context("with cluster config changes", Serial, func() {
-		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-
-			config := kv.Spec.Configuration
-			config.SupportedGuestAgentVersions = []string{"X.*"}
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-		})
-
 		It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
 			agentVMI := libvmifact.NewFedora(
 				libnet.WithMasqueradeNetworking(),

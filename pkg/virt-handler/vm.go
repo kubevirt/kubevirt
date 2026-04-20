@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -792,21 +791,8 @@ func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 		var supported = false
 		var reason = ""
 
-		// For current versions, virt-launcher's supported commands will always contain data.
-		// For backwards compatibility: during upgrade from a previous version of KubeVirt,
-		// virt-launcher might not provide any supported commands. If the list of supported
-		// commands is empty, fall back to previous behavior.
-		if len(guestInfo.SupportedCommands) > 0 {
-			supported, reason = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
-			c.logger.V(3).Object(vmi).Info(reason)
-		} else {
-			for _, version := range c.clusterConfig.GetSupportedAgentVersions() {
-				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
-			}
-			if !supported {
-				reason = fmt.Sprintf("Guest agent version '%s' is not supported", guestInfo.GAVersion)
-			}
-		}
+		supported, reason = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
+		c.logger.V(3).Object(vmi).Info(reason)
 
 		if !supported {
 			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
