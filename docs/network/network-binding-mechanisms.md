@@ -123,8 +123,10 @@ bridge port. Its MAC address is replaced and its IP addresses are removed.
 
 To preserve the original network identity, a dummy interface is created under
 the original pod interface name (e.g. `eth0`). It holds the original MAC
-address, IP address(es), MTU, and routes. This preserved identity is used by
-the in-pod DHCP server in phase 2 to advertise the correct addressing to the VM.
+address, IP address(es), MTU, and routes. This allows the container runtime
+to continue answering CNI CHECK commands at runtime: since the IP has been
+moved to the guest and removed from the renamed pod interface, the dummy
+retains it so CNI can still verify the pod's network configuration is intact.
 
 In phase 2 (executed by virt-launcher, unprivileged) the VM's domain
 configuration is generated.
