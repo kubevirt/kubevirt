@@ -841,6 +841,51 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
 
+			By("Verifying RBAC aggregate labels are preserved after upgrade")
+			clusterRolesWithAggregateLabels := map[string]string{
+				rbac.ClusterRoleAdmin: "rbac.authorization.k8s.io/aggregate-to-admin",
+				rbac.ClusterRoleEdit:  "rbac.authorization.k8s.io/aggregate-to-edit",
+				rbac.ClusterRoleView:  "rbac.authorization.k8s.io/aggregate-to-view",
+			}
+			for name, labelKey := range clusterRolesWithAggregateLabels {
+				clusterRole, err := virtClient.RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "true"),
+					"ClusterRole %s should have label %s after upgrade", name, labelKey)
+			}
+
+			By("Enabling RoleAggregationStrategy Manual after upgrade")
+			currentKV := libkubevirt.GetCurrentKv(virtClient)
+			savedConfig := currentKV.Spec.Configuration.DeepCopy()
+			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
+				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+				featuregate.OptOutRoleAggregation,
+			)
+			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
+
+			By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
+			for name, labelKey := range clusterRolesWithAggregateLabels {
+				clusterRole, err := virtClient.RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "false"),
+					"ClusterRole %s should have label %s set to false after upgrade with Manual strategy", name, labelKey)
+			}
+
+			By("Restoring RoleAggregationStrategy to default after upgrade verification")
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*savedConfig)
+
+			By("Verifying aggregate labels are restored after upgrade")
+			for name, labelKey := range clusterRolesWithAggregateLabels {
+				clusterRole, err := virtClient.RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "true"),
+					"ClusterRole %s should have label %s after restoring default strategy", name, labelKey)
+			}
+
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Ensuring vm %s is ready and latest API annotation is set", vmYaml.apiVersion))
