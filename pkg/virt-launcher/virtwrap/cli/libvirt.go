@@ -52,6 +52,7 @@ type Connection interface {
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
+	DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error)
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
 	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
@@ -192,6 +193,17 @@ func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.Do
 	_, err = l.VolatileDomainEventDeviceRemovedRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
+}
+
+func (l *LibvirtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error) {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return 0, err
+	}
+
+	l.domainEventMigrationIterationCallbacks = append(l.domainEventMigrationIterationCallbacks, callback)
+	registrationID, err := l.Connect.DomainEventMigrationIterationRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return registrationID, err
 }
 
 func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) (err error) {
