@@ -76,6 +76,7 @@ type MigrationOptions struct {
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
 	AllowWorkloadDisruption  bool
+	StallDetectionEnabled    bool
 }
 
 type LauncherClient interface {

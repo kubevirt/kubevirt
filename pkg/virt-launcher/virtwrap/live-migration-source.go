@@ -84,6 +84,7 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
+	stallDetectionEnabled    bool
 }
 
 func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
@@ -414,6 +415,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		stallDetectionEnabled:    options.StallDetectionEnabled,
 	}
 
 	return monitor
