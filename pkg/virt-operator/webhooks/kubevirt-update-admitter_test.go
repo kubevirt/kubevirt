@@ -149,6 +149,53 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
+	DescribeTable("validateMigrationConfiguration", func(oldConfig, newConfig *v1.KubeVirtConfiguration, expectError bool) {
+		causes := validateMigrationConfiguration(oldConfig, newConfig)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrations.maxDowntimeMs"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when MaxDowntimeMs is newly set without feature gate",
+			&v1.KubeVirtConfiguration{},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			true,
+		),
+		Entry("should allow when MaxDowntimeMs is set with feature gate",
+			&v1.KubeVirtConfiguration{},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.MigrationStallDetection},
+				},
+			},
+			false,
+		),
+		Entry("should allow unrelated update when MaxDowntimeMs is unchanged and feature gate is disabled",
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			false,
+		),
+		Entry("should reject changing MaxDowntimeMs when feature gate is disabled",
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(500))},
+			},
+			&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+			},
+			true,
+		),
+	)
+
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
 		Expect(causes).To(HaveLen(len(expectedFields)))

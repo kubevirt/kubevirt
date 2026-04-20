@@ -128,6 +128,7 @@
         "allowAutoConverge": true,
         "bandwidthPerMigration": "0",
         "completionTimeoutPerGiB": -23,
+        "maxDowntimeMs": 18446744073709551603,
         "progressTimeout": -15,
         "utilityVolumesTimeout": -21,
         "unsafeMigrationOverride": true,

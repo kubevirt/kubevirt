@@ -24,25 +24,29 @@ import (
 	"encoding/json"
 	"fmt"
 
+	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/migrations"
-
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// MigrationPolicyAdmitter validates VirtualMachineSnapshots
+// MigrationPolicyAdmitter validates MigrationPolicy resources
 type MigrationPolicyAdmitter struct {
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 // NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
-func NewMigrationPolicyAdmitter() *MigrationPolicyAdmitter {
-	return &MigrationPolicyAdmitter{}
+func NewMigrationPolicyAdmitter(clusterConfig *virtconfig.ClusterConfig) *MigrationPolicyAdmitter {
+	return &MigrationPolicyAdmitter{
+		clusterConfig: clusterConfig,
+	}
 }
 
 // Admit validates an AdmissionReview
@@ -69,6 +73,23 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			Message: "must not be negative",
 			Field:   sourceField.Child("completionTimeoutPerGiB").String(),
 		})
+	}
+	if spec.MaxDowntimeMs != nil {
+		var oldMaxDowntimeMs *uint64
+		if ar.Request.OldObject.Raw != nil {
+			oldPolicy := &migrationsv1.MigrationPolicy{}
+			if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPolicy); err == nil {
+				oldMaxDowntimeMs = oldPolicy.Spec.MaxDowntimeMs
+			}
+		}
+		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, spec.MaxDowntimeMs) &&
+			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("maxDowntimeMs cannot be set without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Field:   sourceField.Child("maxDowntimeMs").String(),
+			})
+		}
 	}
 
 	if spec.BandwidthPerMigration != nil {

@@ -14,12 +14,14 @@ import (
 )
 
 const (
-	QueuePriorityRunning           int = 1000
-	QueuePrioritySystemCritical    int = 100
-	QueuePriorityUserTriggered     int = 50
-	QueuePrioritySystemMaintenance int = 20
-	QueuePriorityDefault           int = 0
-	QueuePriorityPending           int = -100
+	QEMUMaxMigrationDowntimeMS     uint64 = 2_000_000
+	QEMUDefaultTargetDowntimeMS    uint64 = 300
+	QueuePriorityRunning           int    = 1000
+	QueuePrioritySystemCritical    int    = 100
+	QueuePriorityUserTriggered     int    = 50
+	QueuePrioritySystemMaintenance int    = 20
+	QueuePriorityDefault           int    = 0
+	QueuePriorityPending           int    = -100
 )
 
 func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {

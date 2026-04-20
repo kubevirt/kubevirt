@@ -133,6 +133,11 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.MaxDowntimeMs != nil {
+		in, out := &in.MaxDowntimeMs, &out.MaxDowntimeMs
+		*out = new(uint64)
+		**out = **in
+	}
 	if in.AllowPostCopy != nil {
 		in, out := &in.AllowPostCopy, &out.AllowPostCopy
 		*out = new(bool)
