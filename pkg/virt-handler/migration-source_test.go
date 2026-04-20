@@ -292,6 +292,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				AllowPostCopy:            true,
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
+				StallDetectionEnabled:    false,
 				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
