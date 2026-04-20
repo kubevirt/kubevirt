@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -112,8 +113,14 @@ type migrationMonitor struct {
 	minRecordOutsideWindow *iterationRecord
 	// whether migration is currently stalled
 	stallDetected bool
+	// a sorted history of remaining bytes
+	remainingBytesHistory *utilheap.Heap[uint64]
 	// best value of "remaining bytes" observed so far
 	bestRemainingBytes uint64
+	// time which when hit we will relax target downtime further
+	relaxationDeadlineMs uint64
+	// current time in ms to wait before relaxing target downtime
+	relaxationPatienceMs uint64
 	// Current bandwidth smoothed using an exponential weighted moving average
 	ewmaBandwidthBps float64
 	// Whether we already initiated switchover to post-copy or stop-and-copy
@@ -558,6 +565,30 @@ func (m *migrationMonitor) findBestRemainingBytes() uint64 {
 	return bestRemainingBytes
 }
 
+func (m *migrationMonitor) initializeRelaxationState(iterElapsedMs uint64) {
+	m.remainingBytesHistory = utilheap.NewMin[uint64]()
+	m.relaxationPatienceMs = uint64(m.progressTimeoutSeconds) * 1000
+	if m.relaxationPatienceMs < 1000 {
+		m.relaxationPatienceMs = 1000
+	}
+	m.relaxationDeadlineMs = iterElapsedMs + m.relaxationPatienceMs
+}
+
+func (m *migrationMonitor) relaxBestRemainingBytes(iterElapsedMs uint64) {
+	if iterElapsedMs < m.relaxationDeadlineMs || m.remainingBytesHistory.Len() == 0 {
+		return
+	}
+	nextCandidate, exists := m.remainingBytesHistory.Pop()
+	if !exists {
+		// should never happen
+		log.Log.Error("failed to pop remaining bytes history")
+		return
+	}
+	m.bestRemainingBytes = nextCandidate
+	m.relaxationPatienceMs = max(m.relaxationPatienceMs/2, uint64(1000))
+	m.relaxationDeadlineMs = iterElapsedMs + m.relaxationPatienceMs
+}
+
 func (m *migrationMonitor) shouldSwitchover(remainingBytes uint64) bool {
 	logger := log.Log.Object(m.vmi)
 	if !searchLocalMinima {
@@ -662,12 +693,15 @@ func (m *migrationMonitor) processStallDetectionIteration(dom cli.VirDomain, sta
 	if !m.stallDetected && m.checkStallCondition(remainingBytes) {
 		m.bestRemainingBytes = m.findBestRemainingBytes()
 		m.stallDetected = true
+		m.initializeRelaxationState(iterElapsedMs)
 	}
 
 	if !m.stallDetected {
 		return nil
 	}
 
+	m.remainingBytesHistory.Push(remainingBytes)
+	m.relaxBestRemainingBytes(iterElapsedMs)
 	if !m.shouldSwitchover(remainingBytes) {
 		return nil
 	}
