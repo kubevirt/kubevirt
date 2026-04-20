@@ -248,3 +248,7 @@ func (config *ClusterConfig) IOMMUFDEnabled() bool {
 func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.FirmwareAutoSelection)
 }
+
+func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
+}

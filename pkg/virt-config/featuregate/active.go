@@ -270,6 +270,12 @@ const (
 	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
 	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
 	FirmwareAutoSelection = "FirmwareAutoSelection"
+
+	// Owner: @aseeef
+	// Alpha: v1.9.0
+	//
+	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
+	MigrationStallDetection = "MigrationStallDetection"
 )
 
 func init() {
@@ -319,4 +325,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 }
