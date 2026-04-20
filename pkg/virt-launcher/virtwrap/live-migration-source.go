@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -107,8 +108,14 @@ type stallDetector struct {
 	minRecordOutsideWindow *iterationRecord
 	// whether migration is currently stalled
 	stallDetected bool
+	// a sorted history of remaining bytes
+	remainingBytesHistory *utilheap.Heap[uint64]
 	// best value of "remaining bytes" observed so far
 	bestRemainingBytes uint64
+	// time which when hit we will relax target downtime further
+	relaxationDeadlineMs uint64
+	// current time in ms to wait before relaxing target downtime
+	relaxationPatienceMs uint64
 	// Current bandwidth smoothed using an exponential weighted moving average
 	ewmaBandwidthBps float64
 	// Whether we already initiated switchover to post-copy or stop-and-copy
@@ -604,6 +611,28 @@ func (sd *stallDetector) findBestRemainingBytes() uint64 {
 	return bestRemainingBytes
 }
 
+func (sd *stallDetector) initializeRelaxationState(record iterationRecord) {
+	sd.remainingBytesHistory = utilheap.NewMin[uint64]()
+	sd.relaxationPatienceMs = uint64(sd.progressTimeoutSeconds) * 1000
+	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
+}
+
+func (sd *stallDetector) relaxBestRemainingBytes(record iterationRecord) {
+	sd.remainingBytesHistory.Push(record.remainingBytes)
+	if record.elapsedMs < sd.relaxationDeadlineMs || sd.remainingBytesHistory.Len() == 0 {
+		return
+	}
+	nextCandidate, exists := sd.remainingBytesHistory.Pop()
+	if !exists {
+		// should never happen
+		log.Log.Error("failed to pop remaining bytes history")
+		return
+	}
+	sd.bestRemainingBytes = nextCandidate
+	sd.relaxationPatienceMs = sd.relaxationPatienceMs / 2
+	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
+}
+
 func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action convergenceAction, reason string) *inflightMigrationAborted {
 	sd := m.stallDetector
 	logger := log.Log.Object(m.vmi)
@@ -673,10 +702,12 @@ func (sd *stallDetector) processStallDetectionIteration(record iterationRecord) 
 	sd.updateCandidates(record)
 
 	if sd.stallDetected {
+		sd.relaxBestRemainingBytes(record)
 		return true
 	} else if sd.checkStallCondition(record.remainingBytes) {
 		// when stall is first detected initialize stall-related state
 		sd.bestRemainingBytes = sd.findBestRemainingBytes()
+		sd.initializeRelaxationState(record)
 		sd.stallDetected = true
 		return true
 	} else {
