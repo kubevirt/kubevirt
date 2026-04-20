@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -108,7 +109,10 @@ type migrationMonitor struct {
 	minCandidates          []iterationRecord
 	minRecordOutsideWindow *iterationRecord
 	stallDetected          bool
+	remainingBytesHistory  *utilheap.Heap[uint64]
 	bestRemainingBytes     uint64
+	relaxationDeadlineMs   uint64
+	relaxationPatienceMs   uint64
 	ewmaBandwidthBps       float64
 	switchoverInitiated    bool
 }
@@ -546,6 +550,30 @@ func (m *migrationMonitor) findBestRemainingBytes() uint64 {
 	return bestRemainingBytes
 }
 
+func (m *migrationMonitor) initializeRelaxationState(iterElapsedMs uint64) {
+	m.remainingBytesHistory = utilheap.NewMin[uint64]()
+	m.relaxationPatienceMs = uint64(m.progressTimeout) * 1000
+	if m.relaxationPatienceMs < 1000 {
+		m.relaxationPatienceMs = 1000
+	}
+	m.relaxationDeadlineMs = iterElapsedMs + m.relaxationPatienceMs
+}
+
+func (m *migrationMonitor) relaxBestRemainingBytes(iterElapsedMs uint64) {
+	if iterElapsedMs < m.relaxationDeadlineMs || m.remainingBytesHistory.Len() == 0 {
+		return
+	}
+	nextCandidate, exists := m.remainingBytesHistory.Pop()
+	if !exists {
+		// should never happen
+		log.Log.Error("failed to pop remaining bytes history")
+		return
+	}
+	m.bestRemainingBytes = nextCandidate
+	m.relaxationPatienceMs = max(m.relaxationPatienceMs/2, uint64(1000))
+	m.relaxationDeadlineMs = iterElapsedMs + m.relaxationPatienceMs
+}
+
 func (m *migrationMonitor) isWithinSwitchMargin(remainingBytes uint64) bool {
 	if m.bestRemainingBytes == 0 {
 		return false
@@ -640,12 +668,15 @@ func (m *migrationMonitor) processStallDetectionIteration(dom cli.VirDomain, sta
 	if !m.stallDetected && m.checkStallCondition(remainingBytes) {
 		m.bestRemainingBytes = m.findBestRemainingBytes()
 		m.stallDetected = true
+		m.initializeRelaxationState(iterElapsedMs)
 	}
 
 	if !m.stallDetected {
 		return nil
 	}
 
+	m.remainingBytesHistory.Push(remainingBytes)
+	m.relaxBestRemainingBytes(iterElapsedMs)
 	if !m.isWithinSwitchMargin(remainingBytes) {
 		return nil
 	}
