@@ -70,6 +70,7 @@ type MigrationOptions struct {
 	Bandwidth                resource.Quantity
 	ProgressTimeout          int64
 	CompletionTimeoutPerGiB  int64
+	MaxDowntime              int64
 	UnsafeMigration          bool
 	AllowAutoConverge        bool
 	AllowPostCopy            bool

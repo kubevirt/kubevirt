@@ -46,6 +46,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -89,6 +90,7 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
+	maxDowntime              int64
 	stallDetectionEnabled    bool
 }
 
@@ -335,7 +337,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
 	migration, _ := l.metadataCache.Migration.Load()
 	if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
-		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
+		return fmt.Errorf(migrationutils.CancelMigrationFailedVmiNotMigratingErr)
 	}
 
 	if err := l.setMigrationAbortStatus(v1.MigrationAbortInProgress); err != nil {
@@ -420,6 +422,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		maxDowntime:              options.MaxDowntime,
 		stallDetectionEnabled:    options.StallDetectionEnabled,
 	}
 
@@ -510,7 +513,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			//  page reporting.
 			maxDowntimeSec := m.acceptableCompletionTime * 2
 			// qemu doesn't allow max downtime larger than 2000s
-			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, 2_000_000), 0)
+			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, uint64(migrationutils.QEMUMaxMigrationDowntimeMS)), 0)
 			if err != nil {
 				logger.Reason(err).Error("Setting max downtime failed.")
 				return nil

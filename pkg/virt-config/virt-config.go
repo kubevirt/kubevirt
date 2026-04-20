@@ -40,8 +40,9 @@ const (
 	BandwidthPerMigrationDefault                    = "0Mi"
 	MigrationAllowAutoConverge               bool   = false
 	MigrationAllowPostCopy                   bool   = false
-	MigrationProgressTimeout                 int64  = 150
+	MigrationProgressTimeout                 int64  = 60
 	MigrationCompletionTimeoutPerGiB         int64  = 150
+	DefaultMigrationMaxDowntime              int64  = 900
 	MigrationUtilityVolumesTimeoutSeconds    int64  = 150
 	DefaultAMD64MachineType                         = "q35"
 	DefaultAARCH64MachineType                       = "virt"
