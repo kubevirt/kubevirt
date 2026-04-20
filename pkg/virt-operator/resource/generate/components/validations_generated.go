@@ -1417,6 +1417,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntimeMs:
+                  description: |-
+                    MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -4120,6 +4128,11 @@ var CRDsValidation map[string]string = map[string]string{
           x-kubernetes-int-or-string: true
         completionTimeoutPerGiB:
           format: int64
+          type: integer
+        maxDowntimeMs:
+          format: int64
+          maximum: 2000000
+          minimum: 1
           type: integer
         selectors:
           properties:
@@ -15393,6 +15406,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntimeMs:
+                  description: |-
+                    MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -15996,6 +16017,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntimeMs:
+                  description: |-
+                    MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go

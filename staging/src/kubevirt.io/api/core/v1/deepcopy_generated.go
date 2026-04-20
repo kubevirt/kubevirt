@@ -3489,6 +3489,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.MaxDowntimeMs != nil {
+		in, out := &in.MaxDowntimeMs, &out.MaxDowntimeMs
+		*out = new(uint64)
+		**out = **in
+	}
 	if in.ProgressTimeout != nil {
 		in, out := &in.ProgressTimeout, &out.ProgressTimeout
 		*out = new(int64)

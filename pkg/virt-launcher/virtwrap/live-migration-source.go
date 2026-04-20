@@ -29,6 +29,8 @@ import (
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -84,6 +86,7 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
+	maxDowntime              uint64
 	stallDetectionEnabled    bool
 }
 
@@ -415,6 +418,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		maxDowntime:              options.MaxDowntimeMs,
 		stallDetectionEnabled:    options.StallDetectionEnabled,
 	}
 
@@ -514,7 +518,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			// with perpetual dirty page reporting.
 			maxDowntimeSec := m.acceptableCompletionTime * 2
 			// qemu doesn't allow max downtime larger than 2000s
-			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, 2_000_000), 0)
+			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, uint64(migrationutils.QEMUMaxMigrationDowntimeMS)), 0)
 			if err != nil {
 				logger.Reason(err).Error("Setting max downtime failed.")
 				return

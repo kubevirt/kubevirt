@@ -23956,6 +23956,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "int64",
 						},
 					},
+					"maxDowntimeMs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntimeMs specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
@@ -32854,6 +32861,12 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 						},
 					},
 					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"maxDowntimeMs": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",

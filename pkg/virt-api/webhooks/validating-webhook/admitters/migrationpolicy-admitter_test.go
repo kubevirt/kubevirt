@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -38,15 +39,53 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
 	var admitter *MigrationPolicyAdmitter
 	var policyName string
 
+	kv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.MigrationStallDetection},
+				},
+			},
+		},
+		Status: v1.KubeVirtStatus{
+			Phase:               v1.KubeVirtPhaseDeploying,
+			DefaultArchitecture: "amd64",
+		},
+	}
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
+
+	enableFeatureGate := func(fg string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fg}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+	}
+
+	disableFeatureGates := func() {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = nil
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+	}
+
 	BeforeEach(func() {
-		admitter = &MigrationPolicyAdmitter{}
+		admitter = NewMigrationPolicyAdmitter(config)
 		policyName = "test-policy"
+		enableFeatureGate(featuregate.MigrationStallDetection)
+	})
+
+	AfterEach(func() {
+		disableFeatureGates()
 	})
 
 	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -86,6 +125,10 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(0))},
 		),
 
+		Entry("valid MaxDowntimeMs",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(900))},
+		),
+
 		Entry("zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
 		),
@@ -93,6 +136,27 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
 		),
+	)
+
+	DescribeTable("maxDowntimeMs feature gate validation when feature gate is disabled",
+		func(isUpdate bool, oldMs, newMs *uint64, expectAllowed bool) {
+			disableFeatureGates()
+			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			newPolicy.Spec.MaxDowntimeMs = newMs
+			if !isUpdate {
+				admitter.admitAndExpect(newPolicy, expectAllowed)
+				return
+			}
+			oldPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			oldPolicy.Spec.MaxDowntimeMs = oldMs
+			if expectAllowed {
+				newPolicy.Spec.AllowAutoConverge = pointer.P(true)
+			}
+			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
+		},
+		Entry("reject on create", false, nil, pointer.P(uint64(900)), false),
+		Entry("allow unchanged update", true, pointer.P(uint64(900)), pointer.P(uint64(900)), true),
+		Entry("reject changing value on update", true, pointer.P(uint64(500)), pointer.P(uint64(900)), false),
 	)
 })
 
@@ -118,6 +182,15 @@ func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace
 
 func (admitter *MigrationPolicyAdmitter) admitAndExpect(policy *migrationsv1.MigrationPolicy, expectAllowed bool) {
 	ar := createPolicyAdmissionReview(policy, policy.Namespace)
+	resp := admitter.Admit(context.Background(), ar)
+	Expect(resp.Allowed).To(Equal(expectAllowed))
+}
+
+func (admitter *MigrationPolicyAdmitter) admitUpdateAndExpect(oldPolicy, newPolicy *migrationsv1.MigrationPolicy, expectAllowed bool) {
+	ar := createPolicyAdmissionReview(newPolicy, newPolicy.Namespace)
+	ar.Request.Operation = admissionv1.Update
+	oldPolicyBytes, _ := json.Marshal(oldPolicy)
+	ar.Request.OldObject = runtime.RawExtension{Raw: oldPolicyBytes}
 	resp := admitter.Admit(context.Background(), ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }
