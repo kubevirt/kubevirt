@@ -22,14 +22,18 @@ package virtwrap
 import (
 	"fmt"
 	"math"
+
+	"kubevirt.io/client-go/log"
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 )
 
 const (
-	stallMargin           float64 = 0.04
-	switchoverTimeout     int64   = 60
-	preCopyPossibleFactor float64 = 1.5
-	bandwidthEWMAAlpha    float64 = 0.4
-	searchLocalMinima             = true
+	stallMargin               float64 = 0.04
+	switchoverTimeout         int64   = 60
+	preCopyPossibleFactor     float64 = 1.5
+	patienceWindowDecayFactor float64 = 0.5
+	bandwidthEWMAAlpha        float64 = 0.4
+	searchLocalMinima                 = true
 )
 
 type convergenceAction int
@@ -58,8 +62,16 @@ type stallDetector struct {
 	minRecordOutsideWindow iterationRecord
 	// whether migration is currently stalled
 	stallDetected bool
+	// a sorted history of remaining bytes
+	remainingBytesHistory *utilheap.Heap[uint64]
 	// best value of "remaining bytes" observed so far
 	bestRemainingBytes uint64
+	// time which when hit we will relax target downtime further
+	relaxationDeadlineMs uint64
+	// current time in ms to wait before relaxing target downtime
+	relaxationPatienceMs uint64
+	// multiplier applied to relaxationPatienceMs after each relaxation step
+	patienceWindowDecayFactor float64
 	// Current bandwidth smoothed using an exponential weighted moving average
 	ewmaBandwidthBps float64
 	// Whether we already initiated switchover to post-copy or stop-and-copy
@@ -126,6 +138,28 @@ func (sd *stallDetector) findBestRemainingBytes() uint64 {
 	return bestRemainingBytes
 }
 
+func (sd *stallDetector) initializeRelaxationState(record iterationRecord) {
+	sd.remainingBytesHistory = utilheap.NewMin[uint64]()
+	sd.relaxationPatienceMs = uint64(sd.progressTimeoutSeconds) * 1000
+	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
+}
+
+func (sd *stallDetector) relaxBestRemainingBytes(record iterationRecord) {
+	sd.remainingBytesHistory.Push(record.remainingBytes)
+	if record.elapsedMs < sd.relaxationDeadlineMs {
+		return
+	}
+	nextCandidate, exists := sd.remainingBytesHistory.Pop()
+	if !exists {
+		// should never happen
+		log.Log.Error("failed to pop remaining bytes history")
+		return
+	}
+	sd.bestRemainingBytes = nextCandidate
+	sd.relaxationPatienceMs = uint64(float64(sd.relaxationPatienceMs) * sd.patienceWindowDecayFactor)
+	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
+}
+
 func (sd *stallDetector) estimateDowntimeMs(record iterationRecord) uint32 {
 	if sd.ewmaBandwidthBps == 0 {
 		return 0
@@ -149,10 +183,12 @@ func (sd *stallDetector) processStallDetectionIteration(record iterationRecord) 
 	sd.updateCandidates(record)
 
 	if sd.stallDetected {
+		sd.relaxBestRemainingBytes(record)
 		return true
 	} else if sd.checkStallCondition(record.remainingBytes) {
 		// when stall is first detected initialize stall-related state
 		sd.bestRemainingBytes = sd.findBestRemainingBytes()
+		sd.initializeRelaxationState(record)
 		sd.stallDetected = true
 		return true
 	} else {

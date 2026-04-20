@@ -434,11 +434,12 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		monitor.iterationCh = make(chan int, 16)
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
 		monitor.stallDetector = &stallDetector{
-			maxDowntimeMs:           options.MaxDowntimeMs,
-			progressTimeoutSeconds:  options.ProgressTimeout,
-			allowPostCopy:           options.AllowPostCopy,
-			allowWorkloadDisruption: options.AllowWorkloadDisruption,
-			hasVFIO:                 vmitrait.HasVFIO(vmi),
+			maxDowntimeMs:             options.MaxDowntimeMs,
+			progressTimeoutSeconds:    options.ProgressTimeout,
+			patienceWindowDecayFactor: patienceWindowDecayFactor,
+			allowPostCopy:             options.AllowPostCopy,
+			allowWorkloadDisruption:   options.AllowWorkloadDisruption,
+			hasVFIO:                   vmitrait.HasVFIO(vmi),
 		}
 	}
 
