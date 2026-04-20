@@ -528,6 +528,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 		AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
+		StallDetectionEnabled:   c.clusterConfig.MigrationStallDetectionEnabled(),
 	}
 
 	configureParallelMigrationThreads(options, vmi)
