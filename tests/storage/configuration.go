@@ -62,7 +62,7 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 			vmi := libvmi.New(
@@ -76,7 +76,7 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), "failed to get running VMI domain spec")
 
 			disks := runningVMISpec.Devices.Disks
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
