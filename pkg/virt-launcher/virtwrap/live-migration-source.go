@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -68,12 +67,22 @@ const (
 	monitorSleepPeriodMS = 400
 	monitorLogPeriodMS   = 4000
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
+
+	stallMargin           float64 = 0.04
+	preCopyPossibleFactor float64 = 1.5
+	bandwidthEWMAAlpha    float64 = 0.5
+	searchLocalMinima             = true
 )
 
 type migrationDisks struct {
 	shared         map[string]bool
 	generated      map[string]bool
 	localToMigrate map[string]bool
+}
+
+type iterationRecord struct {
+	elapsedMs      uint64
+	remainingBytes uint64
 }
 
 type migrationMonitor struct {
@@ -89,10 +98,26 @@ type migrationMonitor struct {
 	progressWatermark  uint64
 	remainingData      uint64
 
-	progressTimeout          int64
+	progressTimeoutSeconds   int64
 	acceptableCompletionTime int64
+	switchOverDeadline       int64
 	maxDowntime              int64
 	stallDetectionEnabled    bool
+	lastIterTimestamp        time.Time
+	curEstimatedDowntimeMs   int64
+
+	// iteration records with the potential to end up in minRecordOutsideWindow
+	minCandidates []iterationRecord
+	// smallest iteration record outside the progressTimeout window
+	minRecordOutsideWindow *iterationRecord
+	// whether migration is currently stalled
+	stallDetected bool
+	// best value of "remaining bytes" observed so far
+	bestRemainingBytes uint64
+	// Current bandwidth smoothed using an exponential weighted moving average
+	ewmaBandwidthBps float64
+	// Whether we already initiated switchover to post-copy or stop-and-copy
+	switchoverInitiated bool
 }
 
 type inflightMigrationAborted struct {
@@ -422,8 +447,9 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		iterationCh:              make(chan int, 16),
 		progressWatermark:        0,
 		remainingData:            0,
-		progressTimeout:          options.ProgressTimeout,
+		progressTimeoutSeconds:   options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		switchOverDeadline:       options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
 		maxDowntime:              options.MaxDowntime,
 		stallDetectionEnabled:    options.StallDetectionEnabled,
 	}
@@ -441,16 +467,20 @@ func (m *migrationMonitor) isPausedMigration() bool {
 	return migration.Mode == v1.MigrationPaused
 }
 
-func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
+func (m *migrationMonitor) shouldTriggerTimeout(elapsedNs int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
 	}
 
-	return elapsed/int64(time.Second) > m.acceptableCompletionTime
+	if m.isPausedMigration() {
+		return elapsedNs/int64(time.Second) > m.acceptableCompletionTime
+	} else {
+		return elapsedNs/int64(time.Second) > m.switchOverDeadline
+	}
 }
 
-func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
-	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsed)
+func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64) bool {
+	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs) && !m.stallDetectionEnabled
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -460,7 +490,7 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 
 	// check if the migration is progressing
 	progressDelay := (now - m.lastProgressUpdate) / int64(time.Second)
-	if m.progressTimeout != 0 && progressDelay > m.progressTimeout {
+	if m.progressTimeoutSeconds != 0 && progressDelay > m.progressTimeoutSeconds {
 		logger.Warningf("Live migration stuck for %d seconds", progressDelay)
 		return false
 	}
@@ -468,13 +498,189 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 	return true
 }
 
-func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
-func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo, _ bool) *inflightMigrationAborted {
+func (m *migrationMonitor) updateBandwidthEstimate(stats *libvirt.DomainJobInfo) {
+	if m.ewmaBandwidthBps == 0 {
+		m.ewmaBandwidthBps = float64(stats.MemBps)
+		return
+	}
+	m.ewmaBandwidthBps = bandwidthEWMAAlpha*float64(stats.MemBps) + (1-bandwidthEWMAAlpha)*m.ewmaBandwidthBps
+}
+
+func (m *migrationMonitor) updateCandidates(iterElapsedMs uint64, remainingBytes uint64) {
+	progressTimeoutMs := uint64(m.progressTimeoutSeconds) * 1000
+	for len(m.minCandidates) > 0 {
+		oldestCandidate := m.minCandidates[0]
+		// iterElapsedMs > oldestCandidate.elapsedMs because iterElapsedMs is monotonically increasing
+		ageMs := iterElapsedMs - oldestCandidate.elapsedMs
+		if ageMs < progressTimeoutMs {
+			break
+		}
+
+		m.minCandidates = m.minCandidates[1:]
+		if m.minRecordOutsideWindow == nil || oldestCandidate.remainingBytes < m.minRecordOutsideWindow.remainingBytes {
+			m.minRecordOutsideWindow = &oldestCandidate
+		}
+	}
+
+	// optimization: candidates larger than the current out-of-window min can never become relevant.
+	if m.minRecordOutsideWindow != nil && remainingBytes > m.minRecordOutsideWindow.remainingBytes {
+		return
+	}
+
+	// optimization: candidates preceded by a smaller value.
+	if len(m.minCandidates) > 0 && remainingBytes >= m.minCandidates[len(m.minCandidates)-1].remainingBytes {
+		return
+	}
+
+	record := iterationRecord{
+		elapsedMs:      iterElapsedMs,
+		remainingBytes: remainingBytes,
+	}
+	m.minCandidates = append(m.minCandidates, record)
+}
+
+func (m *migrationMonitor) checkStallCondition(remainingBytes uint64) bool {
+	if m.minRecordOutsideWindow == nil {
+		return false
+	}
+
+	stallThreshold := uint64(float64(m.minRecordOutsideWindow.remainingBytes) * (1 - stallMargin))
+	return remainingBytes >= stallThreshold
+}
+
+func (m *migrationMonitor) findBestRemainingBytes() uint64 {
+	bestRemainingBytes := m.minRecordOutsideWindow.remainingBytes
+	for _, candidate := range m.minCandidates {
+		if candidate.remainingBytes < bestRemainingBytes {
+			bestRemainingBytes = candidate.remainingBytes
+		}
+	}
+	return bestRemainingBytes
+}
+
+func (m *migrationMonitor) shouldSwitchover(remainingBytes uint64) bool {
+	logger := log.Log.Object(m.vmi)
+	if !searchLocalMinima {
+		logger.V(4).Infof("Local minima search skipped: remainingBytes=%d bestRemainingBytes=%d", remainingBytes, m.bestRemainingBytes)
+		return true
+	}
+	target := uint64(float64(m.bestRemainingBytes) * (1 + stallMargin))
+	return remainingBytes <= target
+}
+
+func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain) *inflightMigrationAborted {
+	logger := log.Log.Object(m.vmi)
+
+	if m.switchoverInitiated {
+		return nil
+	}
+	m.switchoverInitiated = true
+
+	if m.options.AllowPostCopy && !virtutil.IsVFIOVMI(m.vmi) {
+		logger.Info("Starting post copy mode for migration")
+		if err := dom.MigrateStartPostCopy(0); err != nil {
+			m.switchoverInitiated = false
+			logger.Reason(err).Error("failed to start post migration")
+			return nil
+		}
+		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+		return nil
+	}
+
+	// for migrations using pre-copy only, we rely on MigrateSetMaxDowntime to trigger
+	//  switchover which does not guarantee when the switchover will occur. Therefore,
+	//  we apply a deadline for by when must the switchover start by. Else we abort migration.
+	now := time.Now().UTC().UnixNano() / int64(time.Second) * int64(time.Second)
+	m.switchOverDeadline = now + m.progressTimeoutSeconds
+
+	// note: since MigrateSetMaxDowntime(..) does not guarantee that VM will instantly be paused, we do
+	//  not update its state yet using m.l.updateVMIMigrationMode(v1.MigrationPaused). Instead, this
+	//  consolidation is done in a later loop by polling VM's state using dom.GetState.
+
+	if m.options.AllowWorkloadDisruption {
+		logger.Infof("Setting max downtime to %dms to force switchover", migrationutils.QEMUMaxMigrationDowntimeMS)
+		if err := dom.MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), 0); err != nil {
+			m.switchoverInitiated = false
+			logger.Reason(err).Error("setting max downtime failed")
+		}
+		return nil
+	}
+
+	if m.curEstimatedDowntimeMs <= m.maxDowntime {
+		logger.Infof("Max downtime set to %dms to attempt switchover but expected downtime is %dms.", m.maxDowntime, m.curEstimatedDowntimeMs)
+		// note: this does not guarantee a switchover since QEMU's internal downtime estimates may be different
+		if err := dom.MigrateSetMaxDowntime(uint64(m.maxDowntime), 0); err != nil {
+			m.switchoverInitiated = false
+			logger.Reason(err).Error("setting max downtime failed")
+		}
+		return nil
+	}
+
+	if float64(m.maxDowntime)*preCopyPossibleFactor <= float64(m.curEstimatedDowntimeMs) {
+		logger.Info("Aborting migration: convergence target is unlikely to be reached")
+		if err := dom.AbortJob(); err != nil {
+			m.switchoverInitiated = false
+			logger.Reason(err).Error("failed to abort migration")
+			return nil
+		}
+		return &inflightMigrationAborted{
+			message:     fmt.Sprintf("Migration aborted because it stalled with estimated downtime (%dms) far exceeding maxDowntime (%dms)", m.curEstimatedDowntimeMs, m.maxDowntime),
+			abortStatus: v1.MigrationAbortSucceeded,
+		}
+	}
+
+	logger.Warning(
+		fmt.Sprintf("Migration stalled but estimated downtime (%dms) slightly exceeds maxDowntime (%dms). Migration has %d seconds to satisfy downtime requirements or it will be aborted.",
+			m.curEstimatedDowntimeMs,
+			m.maxDowntime,
+			m.progressTimeoutSeconds,
+		),
+	)
+	if err := dom.MigrateSetMaxDowntime(uint64(m.maxDowntime), 0); err != nil {
+		m.switchoverInitiated = false
+		logger.Reason(err).Error("setting max downtime failed")
+	}
+	return nil
+}
+
+func (m *migrationMonitor) processStallDetectionIteration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
+	if !stats.DataRemainingSet || !stats.TimeElapsedSet || m.ewmaBandwidthBps == 0 || m.progressTimeoutSeconds <= 0 {
+		return nil
+	}
+	if m.switchoverInitiated {
+		return nil
+	}
+
+	iterElapsedMs := stats.TimeElapsed
+	remainingBytes := stats.DataRemaining
+	bandwidthBpms := m.ewmaBandwidthBps / 1000
+
+	m.updateCandidates(iterElapsedMs, remainingBytes)
+	m.curEstimatedDowntimeMs = int64(float64(remainingBytes) / bandwidthBpms)
+
+	// when stall is first detected initialize stall-related state
+	if !m.stallDetected && m.checkStallCondition(remainingBytes) {
+		m.bestRemainingBytes = m.findBestRemainingBytes()
+		m.stallDetected = true
+	}
+
+	if !m.stallDetected {
+		return nil
+	}
+
+	if !m.shouldSwitchover(remainingBytes) {
+		return nil
+	}
+
+	return m.triggerConvergenceAction(dom)
+}
+
+func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo, isIterationBoundary bool) *inflightMigrationAborted {
 	logger := log.Log.Object(m.vmi)
 
 	// Migration is running
 	now := time.Now().UTC().UnixNano()
-	elapsed := now - m.start
+	elapsedNs := now - m.start
 
 	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
 	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
@@ -482,99 +688,131 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	}
 	m.progressWatermark = m.remainingData
 
-	switch {
-	case m.isMigrationPostCopy():
-		// Currently, there is nothing for us to track when in Post Copy mode.
-		// The reasoning here is that post copy migrations transfer the state
-		// directly to the target pod in a way that results in the target pod
-		// hosting the active workload while the migration completes.
+	migrationState, stateReason, err := dom.GetState()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to get migration state")
+	}
 
-		// If we were to abort the migration due to a timeout while in post copy,
-		// then it would result in that active state being lost.
+	// reconcile pause state (i.e. when QEMU triggers its internal switchover)
+	if !m.isPausedMigration() && migrationState == libvirt.DOMAIN_PAUSED && stateReason == int(libvirt.DOMAIN_PAUSED_MIGRATION) {
+		m.l.paused.add(m.vmi.UID)
+		m.l.updateVMIMigrationMode(v1.MigrationPaused)
+	}
 
-	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
-		if m.options.AllowPostCopy && !virtutil.IsVFIOVMI(m.vmi) {
-			logger.Info("Starting post copy mode for migration")
-			// if a migration has stalled too long, post copy will be
-			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
-			err := dom.MigrateStartPostCopy(0)
-			if err != nil {
-				logger.Reason(err).Error("failed to start post migration")
-				return nil
+	if m.stallDetectionEnabled {
+		if isIterationBoundary {
+			if aborted := m.processStallDetectionIteration(dom, stats); aborted != nil {
+				return aborted
 			}
-			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
-		} else if virtutil.IsVFIOVMI(m.vmi) {
-			logger.Info("Setting large max downtime to trigger migration switchover")
-			// TODO: once the VGPULiveMigration featuregate graduates
-			//  (and even possibly other VFIO live migration featuregates)
-			//  we should consider merging this with the "else" case below.
-			// Setting a very high max downtime causes QEMU to
-			//  trigger its internal switchover, which pauses vCPUs and
-			//  transitions VFIO devices to _STOP_COPY. This is more
-			//  correct than dom.Suspend() which only pauses vCPUs but
-			//  leaves VFIO devices in _RUNNING with perpetual dirty
-			//  page reporting.
-			maxDowntimeSec := m.acceptableCompletionTime * 2
-			// qemu doesn't allow max downtime larger than 2000s
-			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, uint64(migrationutils.QEMUMaxMigrationDowntimeMS)), 0)
-			if err != nil {
-				logger.Reason(err).Error("Setting max downtime failed.")
-				return nil
-			}
-			logger.Infof("Set max downtime to %ds for %s", maxDowntimeSec, m.vmi.GetObjectMeta().GetName())
-
-			m.acceptableCompletionTime = maxDowntimeSec
-			m.l.paused.add(m.vmi.UID)
-			m.l.updateVMIMigrationMode(v1.MigrationPaused)
 		} else {
-			logger.Info("Pausing the guest to allow migration to complete")
-			// if a migration has stalled too long, the guest will be paused
-			// to complete the migration when allowPostCopy is disabled
-			err := dom.Suspend()
+			m.updateBandwidthEstimate(stats)
+		}
+		if m.shouldTriggerTimeout(elapsedNs) {
+			err := dom.AbortJob()
 			if err != nil {
-				logger.Reason(err).Error("Signalling suspension failed.")
+				logger.Reason(err).Error("failed to abort migration")
 				return nil
 			}
-			logger.Infof("Signaled pause for %s", m.vmi.GetObjectMeta().GetName())
 
-			// update acceptableCompletionTime to prevent premature migration
-			// cancellation
-			m.acceptableCompletionTime *= 2
-			m.l.paused.add(m.vmi.UID)
-			m.l.updateVMIMigrationMode(v1.MigrationPaused)
+			return &inflightMigrationAborted{
+				message:     fmt.Sprintf("Live migration is not completed after %d seconds and has been aborted", m.acceptableCompletionTime),
+				abortStatus: v1.MigrationAbortSucceeded,
+			}
 		}
+	} else {
+		switch {
+		case m.isMigrationPostCopy():
+			// Currently, there is nothing for us to track when in Post Copy mode.
+			// The reasoning here is that post copy migrations transfer the state
+			// directly to the target pod in a way that results in the target pod
+			// hosting the active workload while the migration completes.
 
-	case !m.isMigrationProgressing():
-		// The migration is completely stuck.
-		// It usually indicates a problem with the network or qemu's connection handling.
-		// In this case, we abort the migration directly without trying to pause/post-copy,
-		// since the problem is highly unlikely to be caused by a high dirty rate.
-		err := dom.AbortJob()
-		if err != nil {
-			logger.Reason(err).Error("failed to abort migration")
-			return nil
+			// If we were to abort the migration due to a timeout while in post copy,
+			// then it would result in that active state being lost.
+
+		case m.shouldAssistMigrationToComplete(elapsedNs) && !m.isPausedMigration():
+			if m.options.AllowPostCopy && !virtutil.IsVFIOVMI(m.vmi) {
+				logger.Info("Starting post copy mode for migration")
+				// if a migration has stalled too long, post copy will be
+				// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
+				err := dom.MigrateStartPostCopy(0)
+				if err != nil {
+					logger.Reason(err).Error("failed to start post migration")
+					return nil
+				}
+				m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+			} else if virtutil.IsVFIOVMI(m.vmi) {
+				logger.Info("Setting large max downtime to trigger migration switchover")
+				// TODO: once the VGPULiveMigration featuregate graduates
+				//  (and even possibly other VFIO live migration featuregates)
+				//  we should consider merging this with the "else" case below.
+				// Setting a very high max downtime causes QEMU to
+				//  trigger its internal switchover, which pauses vCPUs and
+				//  transitions VFIO devices to _STOP_COPY. This is more
+				//  correct than dom.Suspend() which only pauses vCPUs but
+				//  leaves VFIO devices in _RUNNING with perpetual dirty
+				//  page reporting.
+				maxDowntimeSec := m.acceptableCompletionTime * 2
+				// qemu doesn't allow max downtime larger than 2000s
+				err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, uint64(migrationutils.QEMUMaxMigrationDowntimeMS)), 0)
+				if err != nil {
+					logger.Reason(err).Error("Setting max downtime failed.")
+					return nil
+				}
+				logger.Infof("Set max downtime to %ds for %s", maxDowntimeSec, m.vmi.GetObjectMeta().GetName())
+
+				m.acceptableCompletionTime = maxDowntimeSec
+				m.l.paused.add(m.vmi.UID)
+				m.l.updateVMIMigrationMode(v1.MigrationPaused)
+			} else {
+				logger.Info("Pausing the guest to allow migration to complete")
+				// if a migration has stalled too long, the guest will be paused
+				// to complete the migration when allowPostCopy is disabled
+				err := dom.Suspend()
+				if err != nil {
+					logger.Reason(err).Error("Signalling suspension failed.")
+					return nil
+				}
+				logger.Infof("Signaled pause for %s", m.vmi.GetObjectMeta().GetName())
+
+				// update acceptableCompletionTime to prevent premature migration
+				// cancellation
+				m.acceptableCompletionTime *= 2
+				m.l.paused.add(m.vmi.UID)
+				m.l.updateVMIMigrationMode(v1.MigrationPaused)
+			}
+		case !m.isMigrationProgressing():
+			// The migration is completely stuck.
+			// It usually indicates a problem with the network or qemu's connection handling.
+			// In this case, we abort the migration directly without trying to pause/post-copy,
+			// since the problem is highly unlikely to be caused by a high dirty rate.
+			err := dom.AbortJob()
+			if err != nil {
+				logger.Reason(err).Error("failed to abort migration")
+				return nil
+			}
+
+			progressDelay := now - m.lastProgressUpdate
+			aborted := &inflightMigrationAborted{}
+			aborted.message = fmt.Sprintf("Live migration stuck for %d seconds and has been aborted", progressDelay/int64(time.Second))
+			aborted.abortStatus = v1.MigrationAbortSucceeded
+			return aborted
+		case m.shouldTriggerTimeout(elapsedNs):
+			// check the overall migration time
+			// if the total migration time exceeds an acceptable
+			// limit, then the migration will get aborted, but
+			// only if post copy migration hasn't been enabled
+			err := dom.AbortJob()
+			if err != nil {
+				logger.Reason(err).Error("failed to abort migration")
+				return nil
+			}
+
+			aborted := &inflightMigrationAborted{}
+			aborted.message = fmt.Sprintf("Live migration is not completed after %d seconds and has been aborted", m.acceptableCompletionTime)
+			aborted.abortStatus = v1.MigrationAbortSucceeded
+			return aborted
 		}
-
-		progressDelay := now - m.lastProgressUpdate
-		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration stuck for %d seconds and has been aborted", progressDelay/int64(time.Second))
-		aborted.abortStatus = v1.MigrationAbortSucceeded
-		return aborted
-	case m.shouldTriggerTimeout(elapsed):
-		// check the overall migration time
-		// if the total migration time exceeds an acceptable
-		// limit, then the migration will get aborted, but
-		// only if post copy migration hasn't been enabled
-		err := dom.AbortJob()
-		if err != nil {
-			logger.Reason(err).Error("failed to abort migration")
-			return nil
-		}
-
-		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration is not completed after %d seconds and has been aborted", m.acceptableCompletionTime)
-		aborted.abortStatus = v1.MigrationAbortSucceeded
-		return aborted
 	}
 
 	return nil
@@ -631,7 +869,7 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
-		processIteration := false
+		isIterationBoundary := false
 		var ok bool
 		err = nil
 		select {
@@ -640,7 +878,7 @@ func (m *migrationMonitor) startMonitor() {
 				return
 			}
 		case <-m.iterationCh:
-			processIteration = true
+			isIterationBoundary = true
 		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
@@ -667,14 +905,16 @@ func (m *migrationMonitor) startMonitor() {
 		uid := MigrationUID(vmi)
 		switch jobStats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			aborted := m.processInflightMigration(dom, jobStats, processIteration)
+			aborted := m.processInflightMigration(dom, jobStats, isIterationBoundary)
 			if aborted != nil {
 				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
 				m.l.setMigrationResult(true, aborted.message, aborted.abortStatus)
 				return
 			}
-			logInterval++
-			if logInterval%monitorLogInterval == 0 {
+			if !isIterationBoundary {
+				logInterval++
+			}
+			if logInterval%monitorLogInterval == 0 || isIterationBoundary {
 				LogMigrationInfo(logger, uid, jobStats)
 			}
 		case libvirt.DOMAIN_JOB_NONE:
@@ -711,7 +951,7 @@ func (l *LibvirtDomainManager) retrieveCompletedStats(vmi *v1.VirtualMachineInst
 		return
 	}
 
-	logMigrationInfo(logger, migrationUID(vmi), jobStats)
+	LogMigrationInfo(logger, MigrationUID(vmi), jobStats)
 }
 
 func MigrationUID(vmi *v1.VirtualMachineInstance) types.UID {
