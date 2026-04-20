@@ -46,12 +46,13 @@
   <line x1="356" y1="138" x2="356" y2="260" stroke="black" stroke-width="1.5"/>
 
   <!-- ============ "Configured by virt-handler" RED DASHED BOX ============ -->
-  <!-- Encompasses vnet0, br1, AND eth0 (orange) -->
-  <rect x="225" y="252" width="257" height="248" fill="none" stroke="#CC2222" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <!-- Encompasses vnet0, br1, eth0-nic AND eth0 (dummy) -->
+  <rect x="225" y="252" width="390" height="258" fill="none" stroke="#CC2222" stroke-width="1.5" stroke-dasharray="6,3"/>
 
-  <!-- "Configured by virt-handler" label pill -->
-  <rect x="492" y="354" width="218" height="34" fill="#FFAAAA" stroke="#CC2222" stroke-width="1.5" rx="15" ry="15"/>
-  <text x="601" y="376" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#770000">Configured by virt-handler</text>
+  <!-- "Configured by virt-handler" label pill (two lines, right of expanded box) -->
+  <rect x="623" y="340" width="110" height="48" fill="#FFAAAA" stroke="#CC2222" stroke-width="1.5" rx="15" ry="15"/>
+  <text x="678" y="360" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#770000">Configured by</text>
+  <text x="678" y="376" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#770000">virt-handler</text>
 
   <!-- vnet0 (green / tap) -->
   <rect x="272" y="260" width="168" height="50" fill="#90EE90" stroke="black" stroke-width="1.5"/>
@@ -67,15 +68,21 @@
   <!-- Line: br1 bottom → eth0 (orange) top -->
   <line x1="356" y1="382" x2="356" y2="440" stroke="black" stroke-width="1.5"/>
 
-  <!-- eth0 (orange / pod interface) -->
+  <!-- eth0-nic (orange / renamed pod interface, bridge port) -->
   <rect x="272" y="440" width="168" height="50" fill="#FFA040" stroke="black" stroke-width="1.5"/>
-  <text x="356" y="470" text-anchor="middle" font-family="Arial,sans-serif" font-size="14">eth0</text>
+  <text x="356" y="470" text-anchor="middle" font-family="Arial,sans-serif" font-size="14">eth0-nic</text>
 
-  <!-- Line: eth0 (orange) bottom → veth# top -->
+  <!-- eth0 (dummy / holds original pod identity) — dashed border signals virtual interface -->
+  <rect x="460" y="440" width="140" height="50" fill="white" stroke="#888" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="530" y="460" text-anchor="middle" font-family="Arial,sans-serif" font-size="13">eth0</text>
+  <text x="530" y="478" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#555">(dummy)</text>
+
+
+  <!-- Line: eth0-nic (orange) bottom → veth# top -->
   <line x1="356" y1="490" x2="356" y2="568" stroke="black" stroke-width="1.5"/>
 
   <!-- ============ "Configured by CNI" BLUE DASHED BOX ============ -->
-  <!-- Encompasses eth0 (orange), veth#, and cni0 — eth0 overlaps with virt-handler box -->
+  <!-- Encompasses eth0-nic, veth#, and cni0 — eth0-nic overlaps with virt-handler box -->
   <rect x="225" y="432" width="257" height="278" fill="none" stroke="#0055AA" stroke-width="3" stroke-dasharray="6,3"/>
 
   <!-- veth# (orange / veth pair) -->
