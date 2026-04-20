@@ -44,6 +44,7 @@ const (
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 150
+	DefaultMigrationMaxDowntime              uint64 = 900
 	MigrationUtilityVolumesTimeoutSeconds    int64  = 150
 	DefaultAMD64MachineType                         = "q35"
 	DefaultAARCH64MachineType                       = "virt"

@@ -23540,9 +23540,16 @@ func schema_kubevirtio_api_core_v1_LegacyVMMigrationConfiguration(ref common.Ref
 							Format:      "int64",
 						},
 					},
+					"maxDowntime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Description: "ProgressTimeout is the number of seconds used by migration convergence detection to decide when pre-copy has stalled and switchover logic should be evaluated. Defaults to 60",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -24057,9 +24064,16 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "int64",
 						},
 					},
+					"maxDowntime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Description: "ProgressTimeout is the number of seconds used by migration convergence detection to decide when pre-copy has stalled and switchover logic should be evaluated. Defaults to 60",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -26791,9 +26805,16 @@ func schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref common.Reference
 							Format:      "int64",
 						},
 					},
+					"maxDowntime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Description: "ProgressTimeout is the number of seconds used by migration convergence detection to decide when pre-copy has stalled and switchover logic should be evaluated. Defaults to 60",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -26929,9 +26950,16 @@ func schema_kubevirtio_api_core_v1_VMMigrationConfiguration(ref common.Reference
 							Format:      "int64",
 						},
 					},
+					"maxDowntime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Description: "ProgressTimeout is the number of seconds used by migration convergence detection to decide when pre-copy has stalled and switchover logic should be evaluated. Defaults to 60",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -33135,9 +33163,16 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Format:      "int64",
 						},
 					},
+					"maxDowntime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Description: "ProgressTimeout is the number of seconds used by migration convergence detection to decide when pre-copy has stalled and switchover logic should be evaluated. Defaults to 60",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},

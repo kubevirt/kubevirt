@@ -168,6 +168,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
+	maxDowntime := DefaultMigrationMaxDowntime
 	utilityVolumesTimeout := MigrationUtilityVolumesTimeoutSeconds
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
@@ -217,6 +218,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 				UnsafeMigrationOverride: &defaultUnsafeMigrationOverride,
 				AllowAutoConverge:       &allowAutoConverge,
 				AllowPostCopy:           &allowPostCopy,
+				MaxDowntime:             &maxDowntime,
 			},
 		},
 		CPURequest: &cpuRequestDefault,

@@ -33,6 +33,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -68,6 +69,13 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "must not be negative",
 			Field:   sourceField.Child("completionTimeoutPerGiB").String(),
+		})
+	}
+	if spec.MaxDowntime != nil && (*spec.MaxDowntime <= 0 || *spec.MaxDowntime > migrationutils.QEMUMaxMigrationDowntimeMS) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("must be in range 1-%d", migrationutils.QEMUMaxMigrationDowntimeMS),
+			Field:   sourceField.Child("maxDowntime").String(),
 		})
 	}
 

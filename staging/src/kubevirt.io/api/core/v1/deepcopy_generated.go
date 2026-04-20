@@ -3278,6 +3278,11 @@ func (in *LegacyVMMigrationConfiguration) DeepCopyInto(out *LegacyVMMigrationCon
 		*out = new(int64)
 		**out = **in
 	}
+	if in.MaxDowntime != nil {
+		in, out := &in.MaxDowntime, &out.MaxDowntime
+		*out = new(uint64)
+		**out = **in
+	}
 	if in.ProgressTimeout != nil {
 		in, out := &in.ProgressTimeout, &out.ProgressTimeout
 		*out = new(int64)
