@@ -86,6 +86,7 @@ var _ = Describe("Live migration source", func() {
 				v1.KvmHypervisorName,
 				nil,
 				"", false,
+				false, // firmware auto-selection
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
@@ -174,6 +175,7 @@ var _ = Describe("Live migration source", func() {
 				v1.KvmHypervisorName,
 				nil,
 				"", false,
+				false, // firmware auto-selection
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
