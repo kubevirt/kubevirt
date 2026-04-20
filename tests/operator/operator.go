@@ -1104,31 +1104,13 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false, originalKv.Name)
-
-			// this is just verifying some common known components do in fact get deleted.
-			By("Sanity Checking Deployments infrastructure is deleted")
-			eventuallyDeploymentNotFound(virtApiDepName)
-			eventuallyDeploymentNotFound(virtControllerDepName)
-
-			By("Creating KubeVirt Object")
 			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec = v1.KubeVirtSpec{
 				ImageTag:      flags.KubeVirtVersionTagAlt,
 				ImageRegistry: flags.KubeVirtRepoPrefix,
 			}
-			createKv(kv)
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
-
-			By("Verifying infrastructure is Ready")
-			allKvInfraPodsAreReady(kv)
-			// We're just verifying that a few common components that
-			// should always exist get re-deployed.
-			sanityCheckDeploymentsExist()
+			reinstallKubeVirt(kv, 300*time.Second)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false, originalKv.Name)
@@ -1219,32 +1201,13 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false, originalKv.Name)
-
-			// this is just verifying some common known components do in fact get deleted.
-			By("Sanity Checking Deployments infrastructure is deleted")
-			eventuallyDeploymentNotFound(virtApiDepName)
-			eventuallyDeploymentNotFound(virtControllerDepName)
-
-			By("Creating KubeVirt Object")
 			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 				PermitBridgeInterfaceOnPodNetwork: pointer.P(true),
 			}
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
-
-			createKv(kv)
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
-
-			By("Verifying infrastructure is Ready")
-			allKvInfraPodsAreReady(kv)
-			// We're just verifying that a few common components that
-			// should always exist get re-deployed.
-			sanityCheckDeploymentsExist()
+			reinstallKubeVirt(kv, 300*time.Second)
 
 			By("Starting multiple migratable VMIs before performing update")
 
@@ -2731,6 +2694,17 @@ func checkVirtLauncherPod(vmi *v1.VirtualMachineInstance) {
 	serviceAccount, err := kubevirt.Client().CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
+}
+
+func reinstallKubeVirt(kv *v1.KubeVirt, timeout time.Duration) {
+	GinkgoHelper()
+	deleteAllKvAndWait(false, kv.Name)
+	eventuallyDeploymentNotFound(virtApiDepName)
+	eventuallyDeploymentNotFound(virtControllerDepName)
+	createKv(kv)
+	testsuite.EnsureKubevirtReadyWithTimeout(kv, timeout)
+	allKvInfraPodsAreReady(kv)
+	sanityCheckDeploymentsExist()
 }
 
 func updateConfigAndWait(config v1.KubeVirtConfiguration) {
