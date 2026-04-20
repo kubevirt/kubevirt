@@ -78,6 +78,7 @@ type migrationMonitor struct {
 	options *cmdclient.MigrationOptions
 
 	migrationDone <-chan struct{}
+	iterationCh   chan int
 
 	start              int64
 	lastProgressUpdate int64
@@ -414,6 +415,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		vmi:                      vmi,
 		options:                  options,
 		migrationDone:            migrationDone,
+		iterationCh:              make(chan int, 16),
 		progressWatermark:        0,
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
@@ -462,7 +464,7 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 	return true
 }
 
-func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) {
+func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo, _ bool) {
 	logger := log.Log.Object(m.vmi)
 
 	// only send abort if one is not in progress already or if a previous attempt failed
@@ -569,6 +571,20 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	}
 }
 
+func (m *migrationMonitor) registerIterationCallback(domName string) (int, error) {
+	return m.l.virConn.DomainEventMigrationIterationRegister(func(_ *libvirt.Connect, domain *libvirt.Domain, event *libvirt.DomainEventMigrationIteration) {
+		name, err := domain.GetName()
+		if err != nil || name != domName {
+			return
+		}
+
+		select {
+		case m.iterationCh <- event.Iteration:
+		default:
+		}
+	})
+}
+
 func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	vmi := m.vmi
 
@@ -589,13 +605,31 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	defer dom.Free()
 	close(ready) // signal we're ready to monitor migration
 
+	if m.stallDetectionEnabled {
+		registrationID, registerErr := m.registerIterationCallback(domName)
+		if registerErr != nil {
+			logger.Reason(registerErr).Error("failed to register migration iteration callback, falling back to legacy stall handling")
+			m.stallDetectionEnabled = false
+		} else {
+			defer func() {
+				if err := m.l.virConn.DomainEventDeregister(registrationID); err != nil {
+					logger.Reason(err).V(3).Info("failed to deregister migration iteration callback")
+				}
+			}()
+		}
+	}
+
 	logInterval := 0
 
 	for {
+		isIterationBoundary := false
 		select {
 		case <-m.migrationDone:
 			return
+		case <-m.iterationCh:
+			isIterationBoundary = true
 		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
+			isIterationBoundary = false
 		}
 
 		jobStats, err := dom.GetJobStats(0)
@@ -604,7 +638,7 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 			jobStats = nil
 		}
 
-		m.processInflightMigration(dom, jobStats)
+		m.processInflightMigration(dom, jobStats, isIterationBoundary)
 
 		if jobStats != nil && jobStats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
 			logInterval++
