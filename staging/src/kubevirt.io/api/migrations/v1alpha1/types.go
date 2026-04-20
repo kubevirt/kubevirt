@@ -50,6 +50,8 @@ type MigrationPolicySpec struct {
 	//+optional
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	//+optional
+	MaxDowntime *int64 `json:"maxDowntime,omitempty"`
+	//+optional
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 	//+optional
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
@@ -96,6 +98,10 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 	if policySpec.CompletionTimeoutPerGiB != nil {
 		changed = true
 		*clusterMigrationConfigurations.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
+	}
+	if policySpec.MaxDowntime != nil {
+		changed = true
+		*clusterMigrationConfigurations.MaxDowntime = *policySpec.MaxDowntime
 	}
 	if policySpec.AllowPostCopy != nil {
 		changed = true

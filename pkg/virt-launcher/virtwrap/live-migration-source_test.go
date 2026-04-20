@@ -219,4 +219,23 @@ var _ = Describe("Live migration source", func() {
 				&libvirtxml.DomainDiskSource{}, "", true),
 		)
 	})
+
+	Context("stall detection helpers", func() {
+		It("should skip candidates larger than minRecordOutsideWindow", func() {
+			monitor := &migrationMonitor{
+				progressTimeout: 60,
+				minRecordOutsideWindow: &iterationRecord{
+					elapsedMs:      0,
+					remainingBytes: 100,
+				},
+			}
+
+			monitor.updateCandidates(10_000, 110)
+			Expect(monitor.minCandidates).To(BeEmpty())
+
+			monitor.updateCandidates(10_000, 95)
+			Expect(monitor.minCandidates).To(HaveLen(1))
+			Expect(monitor.minCandidates[0].remainingBytes).To(Equal(uint64(95)))
+		})
+	})
 })
