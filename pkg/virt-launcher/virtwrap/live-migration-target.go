@@ -201,12 +201,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
-	inProgress, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
-	if err != nil {
+	// inProgress is intentionally ignored: unlike the source side, target
+	// preparation must fully re-run on retries (sockets, hooks, etc.).
+	if _, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy); err != nil {
 		return err
-	}
-	if inProgress {
-		return nil
 	}
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
