@@ -3367,6 +3367,21 @@ const (
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
 
+// TLS supported group (key exchange curve) names from the IANA TLS Supported
+// Groups registry, provided as named constants for the groups KubeVirt
+// recognises. The TLSConfiguration.Groups field is an open string set (see
+// kubevirt/kubevirt#18612, §3.2), so these are convenience constants rather
+// than an exhaustive, schema-enforced enumeration.
+const (
+	TLSGroupX25519             = "X25519"
+	TLSGroupSecP256r1          = "secp256r1"
+	TLSGroupSecP384r1          = "secp384r1"
+	TLSGroupSecP521r1          = "secp521r1"
+	TLSGroupX25519MLKEM768     = "X25519MLKEM768"
+	TLSGroupSecP256r1MLKEM768  = "SecP256r1MLKEM768"
+	TLSGroupSecP384r1MLKEM1024 = "SecP384r1MLKEM1024"
+)
+
 type CustomProfile struct {
 	LocalhostProfile      *string `json:"localhostProfile,omitempty"`
 	RuntimeDefaultProfile bool    `json:"runtimeDefaultProfile,omitempty"`
@@ -3402,6 +3417,7 @@ type DisableFreePageReporting struct{}
 type DisableSerialConsoleLog struct{}
 
 // TLSConfiguration holds TLS options
+// +kubebuilder:validation:XValidation:rule="!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion) && self.minTLSVersion == 'VersionTLS13') || self.groups.exists(g, !(g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024']))",message="at least one classical group (e.g. X25519, secp256r1, secp384r1 or secp521r1) is required in groups when minTLSVersion is below VersionTLS13"
 type TLSConfiguration struct {
 	// MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
 	// Protocol versions are based on the following most common TLS configurations:
@@ -3414,6 +3430,20 @@ type TLSConfiguration struct {
 	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
 	// +listType=set
 	Ciphers []string `json:"ciphers,omitempty"`
+	// Groups defines the ordered list of TLS supported groups (key exchange
+	// curves) offered during TLS handshakes, using IANA names from the TLS
+	// Supported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). The
+	// order is significant: it is applied verbatim as the curve preference
+	// order during negotiation. When empty, Go's default curve preferences
+	// apply. Unrecognised groups are ignored. Requires the TLSGroupPreferences
+	// feature gate to be enabled.
+	//
+	// This is an open string list rather than a hard enum, in line with the
+	// KubeVirt API design guidelines (kubevirt/kubevirt#18612, §3.2), so that
+	// newly-standardised groups do not break rolling upgrades.
+	// +optional
+	// +listType=atomic
+	Groups []string `json:"groups,omitempty"`
 }
 
 type StallDetectorOptions struct {

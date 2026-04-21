@@ -1019,9 +1019,10 @@ func (DisableSerialConsoleLog) SwaggerDoc() map[string]string {
 
 func (TLSConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "TLSConfiguration holds TLS options",
+		"":              "TLSConfiguration holds TLS options\n+kubebuilder:validation:XValidation:rule=\"!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion) && self.minTLSVersion == 'VersionTLS13') || self.groups.exists(g, !(g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024']))\",message=\"at least one classical group (e.g. X25519, secp256r1, secp384r1 or secp521r1) is required in groups when minTLSVersion is below VersionTLS13\"",
 		"minTLSVersion": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.\nProtocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known\nvulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE\n+kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13",
 		"ciphers":       "+listType=set",
+		"groups":        "Groups defines the ordered list of TLS supported groups (key exchange\ncurves) offered during TLS handshakes, using IANA names from the TLS\nSupported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). The\norder is significant: it is applied verbatim as the curve preference\norder during negotiation. When empty, Go's default curve preferences\napply. Unrecognised groups are ignored. Requires the TLSGroupPreferences\nfeature gate to be enabled.\n\nThis is an open string list rather than a hard enum, in line with the\nKubeVirt API design guidelines (kubevirt/kubevirt#18612, §3.2), so that\nnewly-standardised groups do not break rolling upgrades.\n+optional\n+listType=atomic",
 	}
 }
 
