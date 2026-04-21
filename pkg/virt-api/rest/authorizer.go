@@ -212,14 +212,23 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authv1.Subject
 }
 
 func addNamespacedResourceAttributes(pathSplit []string, requestMethod string, r *authv1.SubjectAccessReview) error {
-	// URL example
+	// URL examples:
 	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/vnc/screenshot
+	//
+	// #17337: virt-operator RBAC and tests reference deep subresources like
+	// "virtualmachineinstances/vnc/screenshot" and
+	// "virtualmachineinstances/sev/injectlaunchsecret". Preserve the full
+	// slash-delimited remainder after pathSplit[7] so the
+	// SubjectAccessReview matches those resource names exactly; otherwise
+	// the authz decision runs against the first segment only ("vnc") and
+	// diverges from what the cluster role actually grants.
 	group := pathSplit[2]
 	version := pathSplit[3]
 	namespace := pathSplit[5]
 	resource := pathSplit[6]
 	resourceName := pathSplit[7]
-	subresource := pathSplit[8]
+	subresource := strings.Join(pathSplit[8:], "/")
 
 	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
 		return fmt.Errorf("unknown resource type %s", resource)
