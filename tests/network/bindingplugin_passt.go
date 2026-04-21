@@ -30,13 +30,13 @@ import (
 	expect "github.com/google/goexpect"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -56,304 +55,281 @@ const (
 	vmiReadyTimeout = 180
 )
 
-var _ = Describe(
-	SIG(" VirtualMachineInstance with passt network binding plugin",
-		decorators.NetCustomBindingPlugins, decorators.Passt, Serial, func() {
-			const passtNetAttDefName = "netbindingpasst"
+var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Serial, func() {
 
-			var err error
+	var err error
 
-			BeforeEach(OncePerOrdered, func() {
-				const passtBindingName = "passt"
+	BeforeEach(OncePerOrdered, func() {
+		config.EnableFeatureGate(featuregate.PasstBinding)
+	})
 
-				passtComputeMemoryOverheadWhenAllPortsAreForwarded := resource.MustParse("500Mi")
+	It("should apply the interface configuration", func() {
+		const testMACAddr = "02:02:02:02:02:02"
+		const testPCIAddr = "0000:01:00.0"
+		passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+		passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
+		passtIface.MacAddress = testMACAddr
+		passtIface.PciAddress = testPCIAddr
+		vmi := libvmifact.NewAlpineWithTestTooling(
+			libvmi.WithInterface(passtIface),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 
-				passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
+		namespace := testsuite.GetTestNamespace(nil)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+			context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		waitUntilVMIsReady(console.LoginToAlpine, vmi)
 
-				err = config.RegisterKubevirtConfigChange(
-					config.WithNetBindingPluginIfNotPresent(passtBindingName, v1.InterfaceBindingPlugin{
-						SidecarImage:                passtSidecarImage,
-						NetworkAttachmentDefinition: passtNetAttDefName,
-						Migration:                   &v1.InterfaceBindingMigration{},
-						ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
-							Requests: map[k8sv1.ResourceName]resource.Quantity{
-								k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
-							},
-						},
-					}),
-				)
-				Expect(err).NotTo(HaveOccurred())
-			})
+		Expect(vmi.Status.Interfaces).To(HaveLen(1))
+		Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+		Expect(vmi.Status.Interfaces[0].IP).NotTo(BeEmpty())
+		Expect(vmi.Status.Interfaces[0].MAC).To(Equal(testMACAddr))
 
-			BeforeEach(OncePerOrdered, func() {
-				netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
-				_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
-				Expect(err).NotTo(HaveOccurred())
-			})
+		guestIfaceName := vmi.Status.Interfaces[0].InterfaceName
+		cmd := fmt.Sprintf("ls /sys/bus/pci/devices/%s/virtio0/net/%s", testPCIAddr, guestIfaceName)
+		Expect(console.RunCommand(vmi, cmd, time.Second*5)).To(Succeed())
+	})
 
-			It("should apply the interface configuration", func() {
-				const testMACAddr = "02:02:02:02:02:02"
-				const testPCIAddr = "0000:01:00.0"
-				passtIface := libvmi.InterfaceWithPasstBindingPlugin()
-				passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
-				passtIface.MacAddress = testMACAddr
-				passtIface.PciAddress = testPCIAddr
-				vmi := libvmifact.NewAlpineWithTestTooling(
-					libvmi.WithInterface(passtIface),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				)
+	Context("TCP without port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
+		var clientVMI *v1.VirtualMachineInstance
+		var serverVMI *v1.VirtualMachineInstance
 
-				namespace := testsuite.GetTestNamespace(nil)
-				vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-					context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				waitUntilVMIsReady(console.LoginToAlpine, vmi)
+		const highTCPPort = 8080
 
-				Expect(vmi.Status.Interfaces).To(HaveLen(1))
-				Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
-				Expect(vmi.Status.Interfaces[0].IP).NotTo(BeEmpty())
-				Expect(vmi.Status.Interfaces[0].MAC).To(Equal(testMACAddr))
+		BeforeAll(func() {
+			namespace := testsuite.GetTestNamespace(nil)
 
-				guestIfaceName := vmi.Status.Interfaces[0].InterfaceName
-				cmd := fmt.Sprintf("ls /sys/bus/pci/devices/%s/virtio0/net/%s", testPCIAddr, guestIfaceName)
-				Expect(console.RunCommand(vmi, cmd, time.Second*5)).To(Succeed())
-			})
+			clientVMI = libvmifact.NewAlpineWithTestTooling(
+				withPasstInterfaceWithPort(),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), clientVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			Context("TCP without port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
-				var clientVMI *v1.VirtualMachineInstance
-				var serverVMI *v1.VirtualMachineInstance
+			serverVMI = libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), serverVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				const highTCPPort = 8080
+			waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
 
-				BeforeAll(func() {
-					namespace := testsuite.GetTestNamespace(nil)
+			vmnetserver.StartTCPServer(serverVMI, highTCPPort, console.LoginToAlpine)
+		})
+		DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-					clientVMI = libvmifact.NewAlpineWithTestTooling(
-						withPasstInterfaceWithPort(),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), clientVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+			serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+			Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
+			Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, highTCPPort), 30*time.Second)).To(Succeed())
+		},
+			Entry("[IPv4]", k8sv1.IPv4Protocol),
+			Entry("[IPv6]", k8sv1.IPv6Protocol),
+		)
+	})
 
-					serverVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), serverVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+	Context("TCP with port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
+		const highTCPPort = 8080
+		const lowTCPPort = 80
 
-					waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
+		DescribeTable("connectivity",
+			func(tcpPort int, ipFamily k8sv1.IPFamily) {
+				clientVMI, serverVMI, createErr := createClientServerPasstVMIsWithTCPServer(tcpPort)
+				Expect(createErr).ToNot(HaveOccurred())
 
-					vmnetserver.StartTCPServer(serverVMI, highTCPPort, console.LoginToAlpine)
-				})
-				DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+				libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-					Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
-					Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, highTCPPort), 30*time.Second)).To(Succeed())
-				},
-					Entry("[IPv4]", k8sv1.IPv4Protocol),
-					Entry("[IPv6]", k8sv1.IPv6Protocol),
-				)
-			})
+				serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 
-			Context("TCP with port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
-				const highTCPPort = 8080
-				const lowTCPPort = 80
+				By("Connecting from the client VM")
+				Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort), 30*time.Second)).To(Succeed())
 
-				DescribeTable("connectivity",
-					func(tcpPort int, ipFamily k8sv1.IPFamily) {
-						clientVMI, serverVMI, createErr := createClientServerPasstVMIsWithTCPServer(tcpPort)
-						Expect(createErr).ToNot(HaveOccurred())
+				By("Connecting from the client VM to a port not specified on the VM spec")
+				Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort+1), 30)).NotTo(Succeed())
+			},
+			Entry("[IPv4] high port", highTCPPort, k8sv1.IPv4Protocol),
+			Entry("[IPv6] high port", highTCPPort, k8sv1.IPv6Protocol),
+			Entry("[IPv4] low port", lowTCPPort, k8sv1.IPv4Protocol),
+			Entry("[IPv6] low port", lowTCPPort, k8sv1.IPv6Protocol),
+		)
+	})
 
-						libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+	Context("UDP", Ordered, decorators.OncePerOrderedCleanup, func() {
+		var clientVMI *v1.VirtualMachineInstance
+		var serverVMI *v1.VirtualMachineInstance
 
-						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-						Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
+		const udpPortForIPv4 = 1700
+		const udpPortForIPv6 = 1701
 
-						By("Connecting from the client VM")
-						Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort), 30*time.Second)).To(Succeed())
+		BeforeAll(func() {
+			namespace := testsuite.GetTestNamespace(nil)
 
-						By("Connecting from the client VM to a port not specified on the VM spec")
-						Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort+1), 30)).NotTo(Succeed())
-					},
-					Entry("[IPv4] high port", highTCPPort, k8sv1.IPv4Protocol),
-					Entry("[IPv6] high port", highTCPPort, k8sv1.IPv6Protocol),
-					Entry("[IPv4] low port", lowTCPPort, k8sv1.IPv4Protocol),
-					Entry("[IPv6] low port", lowTCPPort, k8sv1.IPv6Protocol),
-				)
-			})
+			ports := []v1.Port{
+				{Port: udpPortForIPv4, Protocol: "UDP"},
+				{Port: udpPortForIPv6, Protocol: "UDP"},
+			}
+			passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+			passtIface.Ports = ports
 
-			Context("UDP", Ordered, decorators.OncePerOrderedCleanup, func() {
-				var clientVMI *v1.VirtualMachineInstance
-				var serverVMI *v1.VirtualMachineInstance
+			By("Starting server VMI")
+			serverVMI = libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(passtIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), serverVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				const udpPortForIPv4 = 1700
-				const udpPortForIPv6 = 1701
+			By("Starting client VMI")
+			clientVMI = libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), clientVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				BeforeAll(func() {
-					namespace := testsuite.GetTestNamespace(nil)
+			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
+		})
 
-					ports := []v1.Port{
-						{Port: udpPortForIPv4, Protocol: "UDP"},
-						{Port: udpPortForIPv6, Protocol: "UDP"},
-					}
+		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-					By("Starting server VMI")
-					serverVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), serverVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+			By("Starting a UDP server")
+			vmnetserver.StartPythonUDPServer(serverVMI, udpPort, ipFamily)
 
-					By("Starting client VMI")
-					clientVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), clientVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+			By("Starting and verifying UDP client")
+			// Due to a passt bug, at least one UDPv6 message has to be sent from a machine before it can receive UDPv6 messages
+			// Tracking bug - https://bugs.passt.top/show_bug.cgi?id=16
+			if ipFamily == k8sv1.IPv6Protocol {
+				clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
+				Expect(libnet.PingFromVMConsole(serverVMI, clientIP)).To(Succeed())
+			}
+			serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+			Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
+		},
+			Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
+			Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
+		)
+	})
 
-					waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
-				})
+	Context("egress connectivity", Ordered, decorators.OncePerOrderedCleanup, func() {
+		var vmi *v1.VirtualMachineInstance
 
-				DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+		BeforeAll(func() {
+			vmi = libvmifact.NewAlpineWithTestTooling(
+				withPasstInterfaceWithPort(),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			namespace := testsuite.GetTestNamespace(nil)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-					By("Starting a UDP server")
-					vmnetserver.StartPythonUDPServer(serverVMI, udpPort, ipFamily)
+			waitUntilVMIsReady(console.LoginToAlpine, vmi)
+		})
 
-					By("Starting and verifying UDP client")
-					// Due to a passt bug, at least one UDPv6 message has to be sent from a machine before it can receive UDPv6 messages
-					// Tracking bug - https://bugs.passt.top/show_bug.cgi?id=16
-					if ipFamily == k8sv1.IPv6Protocol {
-						clientIP := libnet.GetVmiPrimaryIPByFamily(clientVMI, ipFamily)
-						Expect(libnet.PingFromVMConsole(serverVMI, clientIP)).To(Succeed())
-					}
-					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-					Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
-				},
-					Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
-					Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
-				)
-			})
+		It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
+			libnet.SkipWhenClusterNotSupportIpv4()
+			const externalIPv4Address = "8.8.8.8"
+			ipv4Address := externalIPv4Address
+			if flags.IPV4ConnectivityCheckAddress != "" {
+				ipv4Address = flags.IPV4ConnectivityCheckAddress
+			}
+			const externalDomain = "google.com"
+			dns := externalDomain
+			if flags.ConnectivityCheckDNS != "" {
+				dns = flags.ConnectivityCheckDNS
+			}
 
-			Context("egress connectivity", Ordered, decorators.OncePerOrderedCleanup, func() {
-				var vmi *v1.VirtualMachineInstance
+			By("Checking ping (IPv4)")
+			Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
+			Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
+		})
 
-				BeforeAll(func() {
-					vmi = libvmifact.NewAlpineWithTestTooling(
-						withPasstInterfaceWithPort(),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					namespace := testsuite.GetTestNamespace(nil)
-					vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
+		It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+			libnet.SkipWhenClusterNotSupportIpv6()
+			// Cluster nodes subnet (docker network gateway)
+			// Docker network subnet cidr definition:
+			// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
+			const externalIPv6Address = "2001:db8:1::1"
+			ipv6Address := externalIPv6Address
+			if flags.IPV6ConnectivityCheckAddress != "" {
+				ipv6Address = flags.IPV6ConnectivityCheckAddress
+			}
 
-					waitUntilVMIsReady(console.LoginToAlpine, vmi)
-				})
+			By("Checking ping (IPv6) from VM to cluster nodes gateway")
+			Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
+		})
+	})
 
-				It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
-					libnet.SkipWhenClusterNotSupportIpv4()
-					const externalIPv4Address = "8.8.8.8"
-					ipv4Address := externalIPv4Address
-					if flags.IPV4ConnectivityCheckAddress != "" {
-						ipv4Address = flags.IPV4ConnectivityCheckAddress
-					}
-					const externalDomain = "google.com"
-					dns := externalDomain
-					if flags.ConnectivityCheckDNS != "" {
-						dns = flags.ConnectivityCheckDNS
-					}
+	Context("migration", Ordered, decorators.OncePerOrderedCleanup, func() {
+		var migrateVMI *v1.VirtualMachineInstance
+		var anotherVMI *v1.VirtualMachineInstance
 
-					By("Checking ping (IPv4)")
-					Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
-					Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
-				})
+		BeforeAll(func() {
+			By("Starting a VMI")
+			migrateVMI = startPasstVMI()
 
-				It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
-					libnet.SkipWhenClusterNotSupportIpv6()
-					// Cluster nodes subnet (docker network gateway)
-					// Docker network subnet cidr definition:
-					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-					const externalIPv6Address = "2001:db8:1::1"
-					ipv6Address := externalIPv6Address
-					if flags.IPV6ConnectivityCheckAddress != "" {
-						ipv6Address = flags.IPV6ConnectivityCheckAddress
-					}
+			By("Starting another VMI")
+			anotherVMI = startPasstVMI()
 
-					By("Checking ping (IPv6) from VM to cluster nodes gateway")
-					Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
-				})
-			})
+			waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
+		})
 
-			Context("migration", Ordered, decorators.OncePerOrderedCleanup, func() {
-				var migrateVMI *v1.VirtualMachineInstance
-				var anotherVMI *v1.VirtualMachineInstance
+		DescribeTable("connectivity should be preserved", func(ipFamily k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-				BeforeAll(func() {
-					By("Starting a VMI")
-					migrateVMI = startPasstVMI()
+			By("Verify the VMIs can ping each other")
+			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
+			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
+			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
 
-					By("Starting another VMI")
-					anotherVMI = startPasstVMI()
+			beforeMigNodeName := migrateVMI.Status.NodeName
 
-					waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
-				})
+			By("Perform migration")
+			migration := libmigration.New(migrateVMI.Name, migrateVMI.Namespace)
+			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+			migrateVMI = libmigration.ConfirmVMIPostMigration(kubevirt.Client(), migrateVMI, migrationUID)
 
-				DescribeTable("connectivity should be preserved", func(ipFamily k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+			By("Verify all the containers in the source pod were terminated")
+			labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(migrateVMI.GetUID()))
+			fieldSelector := fmt.Sprintf("spec.nodeName==%s", beforeMigNodeName)
 
-					By("Verify the VMIs can ping each other")
-					migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
-					anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
-					Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
-					Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
+			assertSourcePodContainersTerminate(labelSelector, fieldSelector, migrateVMI)
 
-					beforeMigNodeName := migrateVMI.Status.NodeName
+			By("Verify the VMI new IP is propagated to the status")
+			var migrateVmiAfterMigIP string
+			Eventually(func() string {
+				vmiClient := kubevirt.Client().VirtualMachineInstance(migrateVMI.Namespace)
+				migrateVMI, err = vmiClient.Get(
+					context.Background(), migrateVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
+				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+				return migrateVmiAfterMigIP
+			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
-					By("Perform migration")
-					migration := libmigration.New(migrateVMI.Name, migrateVMI.Namespace)
-					migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-					migrateVMI = libmigration.ConfirmVMIPostMigration(kubevirt.Client(), migrateVMI, migrationUID)
-
-					By("Verify all the containers in the source pod were terminated")
-					labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(migrateVMI.GetUID()))
-					fieldSelector := fmt.Sprintf("spec.nodeName==%s", beforeMigNodeName)
-
-					assertSourcePodContainersTerminate(labelSelector, fieldSelector, migrateVMI)
-
-					By("Verify the VMI new IP is propagated to the status")
-					var migrateVmiAfterMigIP string
-					Eventually(func() string {
-						vmiClient := kubevirt.Client().VirtualMachineInstance(migrateVMI.Namespace)
-						migrateVMI, err = vmiClient.Get(
-							context.Background(), migrateVMI.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
-						migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
-						return migrateVmiAfterMigIP
-					}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
-
-					By("Verify the VMIs can ping each other after migration")
-					Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
-					Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
-				},
-					Entry("[IPv4]", k8sv1.IPv4Protocol),
-					Entry("[IPv6]", k8sv1.IPv6Protocol, decorators.Quarantine),
-				)
-			})
-		}),
+			By("Verify the VMIs can ping each other after migration")
+			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
+			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
+		},
+			Entry("[IPv4]", k8sv1.IPv4Protocol),
+			Entry("[IPv6]", k8sv1.IPv6Protocol, decorators.Quarantine),
+		)
+	})
+}),
 )
 
 func withPasstInterfaceWithPort() libvmi.Option {
-	return libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(v1.Port{Port: 1234, Protocol: "TCP"}))
+	iface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+	iface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
+	return libvmi.WithInterface(iface)
 }
 
 func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
@@ -377,7 +353,7 @@ func startPasstVMI() *v1.VirtualMachineInstance {
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	vmi := libvmifact.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
@@ -402,8 +378,10 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 	}
 
 	ports := []v1.Port{{Name: "http", Port: int32(tcpPort), Protocol: "TCP"}} //nolint:gosec // tcpPort is a test constant
+	passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+	passtIface.Ports = ports
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
+		libvmi.WithInterface(passtIface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
