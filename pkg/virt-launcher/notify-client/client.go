@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -280,7 +279,7 @@ func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
 	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
 
-func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int) {
+func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int, nonRoot bool) {
 	if vmi == nil {
 		log.Log.Warning("Guest panic detected but VMI is nil, cannot emit K8s event")
 		return
@@ -293,7 +292,6 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 	}
 
 	domainName := util.DomainFromNamespaceName(vmi.Namespace, vmi.Name)
-	nonRoot := vmitrait.IsNonRoot(vmi)
 	logPath := util.GetQemuLogPath(domainName, nonRoot)
 
 	panicInfo, err := util.ReadPanicInfoFromLog(logPath)
@@ -321,10 +319,10 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
-	metadataCache *metadata.Cache) {
+	metadataCache *metadata.Cache, nonRoot bool) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if isGuestPanicEvent(libvirtEvent.Event) {
-		e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail)
+		e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail, nonRoot)
 	}
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
@@ -443,6 +441,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
+	nonRoot bool,
 ) error {
 
 	eventChan := make(chan libvirtEvent, 10)
@@ -477,7 +476,7 @@ func (n *Notifier) StartDomainNotifier(
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 			case agentUpdate := <-agentStore.AgentUpdated:
@@ -487,7 +486,7 @@ func (n *Notifier) StartDomainNotifier(
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
 				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
@@ -510,6 +509,7 @@ func (n *Notifier) StartDomainNotifier(
 						vmi,
 						fsFreezeStatus,
 						metadataCache,
+						nonRoot,
 					)
 				}
 			}
