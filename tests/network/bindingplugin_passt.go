@@ -129,7 +129,7 @@ var _ = Describe(
 					namespace := testsuite.GetTestNamespace(nil)
 
 					clientVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithPasstInterfaceWithPort(),
+						withPasstInterfaceWithPort(),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 					clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
@@ -249,7 +249,7 @@ var _ = Describe(
 
 				BeforeAll(func() {
 					vmi = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithPasstInterfaceWithPort(),
+						withPasstInterfaceWithPort(),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 					namespace := testsuite.GetTestNamespace(nil)
@@ -352,6 +352,10 @@ var _ = Describe(
 		}),
 )
 
+func withPasstInterfaceWithPort() libvmi.Option {
+	return libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(v1.Port{Port: 1234, Protocol: "TCP"}))
+}
+
 func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
 	return Eventually(func() k8sv1.PodPhase {
 		pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(),
@@ -388,7 +392,7 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 	namespace := testsuite.GetTestNamespace(nil)
 
 	clientVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithPasstInterfaceWithPort(),
+		withPasstInterfaceWithPort(),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
