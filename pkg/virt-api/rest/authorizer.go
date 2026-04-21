@@ -223,6 +223,9 @@ func addNamespacedResourceAttributes(pathSplit []string, requestMethod string, r
 	// SubjectAccessReview matches those resource names exactly; otherwise
 	// the authz decision runs against the first segment only ("vnc") and
 	// diverges from what the cluster role actually grants.
+	if len(pathSplit) <= 8 {
+		return fmt.Errorf("missing subresource in request path: %s", strings.Join(pathSplit, "/"))
+	}
 	group := pathSplit[2]
 	version := pathSplit[3]
 	namespace := pathSplit[5]
