@@ -8484,6 +8484,42 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                             x-kubernetes-map-type: atomic
                         type: object
+                      vhostUser:
+                        description: VhostUser represents a PVC-backed volume exposed
+                          to the guest via a vhost-user endpoint.
+                        properties:
+                          claimName:
+                            description: ClaimName is the name of the PVC backing
+                              this vhost-user volume.
+                            type: string
+                          queues:
+                            description: Queues configures the number of request queues
+                              exposed to the guest.
+                            type: integer
+                          reconnectTimeoutSeconds:
+                            description: ReconnectTimeoutSeconds controls how long
+                              QEMU should keep retrying reconnects.
+                            type: integer
+                          socket:
+                            description: Socket identifies the vhost-user unix socket
+                              endpoint.
+                            properties:
+                              path:
+                                description: Path is the path to the socket file relative
+                                  to the root of the associated volume.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          type:
+                            description: |-
+                              Type identifies the vhost-user backend type.
+                              Currently only blk is supported.
+                            type: string
+                        required:
+                        - claimName
+                        - socket
+                        type: object
                     required:
                     - name
                     type: object
@@ -14533,6 +14569,41 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
+                type: object
+              vhostUser:
+                description: VhostUser represents a PVC-backed volume exposed to the
+                  guest via a vhost-user endpoint.
+                properties:
+                  claimName:
+                    description: ClaimName is the name of the PVC backing this vhost-user
+                      volume.
+                    type: string
+                  queues:
+                    description: Queues configures the number of request queues exposed
+                      to the guest.
+                    type: integer
+                  reconnectTimeoutSeconds:
+                    description: ReconnectTimeoutSeconds controls how long QEMU should
+                      keep retrying reconnects.
+                    type: integer
+                  socket:
+                    description: Socket identifies the vhost-user unix socket endpoint.
+                    properties:
+                      path:
+                        description: Path is the path to the socket file relative
+                          to the root of the associated volume.
+                        type: string
+                    required:
+                    - path
+                    type: object
+                  type:
+                    description: |-
+                      Type identifies the vhost-user backend type.
+                      Currently only blk is supported.
+                    type: string
+                required:
+                - claimName
+                - socket
                 type: object
             required:
             - name
@@ -20977,6 +21048,42 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                             x-kubernetes-map-type: atomic
                         type: object
+                      vhostUser:
+                        description: VhostUser represents a PVC-backed volume exposed
+                          to the guest via a vhost-user endpoint.
+                        properties:
+                          claimName:
+                            description: ClaimName is the name of the PVC backing
+                              this vhost-user volume.
+                            type: string
+                          queues:
+                            description: Queues configures the number of request queues
+                              exposed to the guest.
+                            type: integer
+                          reconnectTimeoutSeconds:
+                            description: ReconnectTimeoutSeconds controls how long
+                              QEMU should keep retrying reconnects.
+                            type: integer
+                          socket:
+                            description: Socket identifies the vhost-user unix socket
+                              endpoint.
+                            properties:
+                              path:
+                                description: Path is the path to the socket file relative
+                                  to the root of the associated volume.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          type:
+                            description: |-
+                              Type identifies the vhost-user backend type.
+                              Currently only blk is supported.
+                            type: string
+                        required:
+                        - claimName
+                        - socket
+                        type: object
                     required:
                     - name
                     type: object
@@ -26100,6 +26207,43 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                type: object
+                              vhostUser:
+                                description: VhostUser represents a PVC-backed volume
+                                  exposed to the guest via a vhost-user endpoint.
+                                properties:
+                                  claimName:
+                                    description: ClaimName is the name of the PVC
+                                      backing this vhost-user volume.
+                                    type: string
+                                  queues:
+                                    description: Queues configures the number of request
+                                      queues exposed to the guest.
+                                    type: integer
+                                  reconnectTimeoutSeconds:
+                                    description: ReconnectTimeoutSeconds controls
+                                      how long QEMU should keep retrying reconnects.
+                                    type: integer
+                                  socket:
+                                    description: Socket identifies the vhost-user
+                                      unix socket endpoint.
+                                    properties:
+                                      path:
+                                        description: Path is the path to the socket
+                                          file relative to the root of the associated
+                                          volume.
+                                        type: string
+                                    required:
+                                    - path
+                                    type: object
+                                  type:
+                                    description: |-
+                                      Type identifies the vhost-user backend type.
+                                      Currently only blk is supported.
+                                    type: string
+                                required:
+                                - claimName
+                                - socket
                                 type: object
                             required:
                             - name
@@ -31687,6 +31831,44 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                    type: object
+                                  vhostUser:
+                                    description: VhostUser represents a PVC-backed
+                                      volume exposed to the guest via a vhost-user
+                                      endpoint.
+                                    properties:
+                                      claimName:
+                                        description: ClaimName is the name of the
+                                          PVC backing this vhost-user volume.
+                                        type: string
+                                      queues:
+                                        description: Queues configures the number
+                                          of request queues exposed to the guest.
+                                        type: integer
+                                      reconnectTimeoutSeconds:
+                                        description: ReconnectTimeoutSeconds controls
+                                          how long QEMU should keep retrying reconnects.
+                                        type: integer
+                                      socket:
+                                        description: Socket identifies the vhost-user
+                                          unix socket endpoint.
+                                        properties:
+                                          path:
+                                            description: Path is the path to the socket
+                                              file relative to the root of the associated
+                                              volume.
+                                            type: string
+                                        required:
+                                        - path
+                                        type: object
+                                      type:
+                                        description: |-
+                                          Type identifies the vhost-user backend type.
+                                          Currently only blk is supported.
+                                        type: string
+                                    required:
+                                    - claimName
+                                    - socket
                                     type: object
                                 required:
                                 - name

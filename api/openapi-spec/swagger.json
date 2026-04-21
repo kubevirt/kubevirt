@@ -18035,6 +18035,54 @@
      }
     }
    },
+   "v1.VhostUserSocket": {
+    "description": "VhostUserSocket describes how to locate a vhost-user unix socket relative to the root of the associated volume.",
+    "type": "object",
+    "required": [
+     "path"
+    ],
+    "properties": {
+     "path": {
+      "description": "Path is the path to the socket file relative to the root of the associated volume.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.VhostUserVolumeSource": {
+    "description": "VhostUserVolumeSource describes a volume exposed to the guest via a vhost-user unix socket.",
+    "type": "object",
+    "required": [
+     "claimName",
+     "socket"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of the PVC backing this vhost-user volume.",
+      "type": "string",
+      "default": ""
+     },
+     "queues": {
+      "description": "Queues configures the number of request queues exposed to the guest.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "reconnectTimeoutSeconds": {
+      "description": "ReconnectTimeoutSeconds controls how long QEMU should keep retrying reconnects.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "socket": {
+      "description": "Socket identifies the vhost-user unix socket endpoint.",
+      "default": {},
+      "$ref": "#/definitions/v1.VhostUserSocket"
+     },
+     "type": {
+      "description": "Type identifies the vhost-user backend type. Currently only blk is supported.",
+      "type": "string"
+     }
+    }
+   },
    "v1.VideoDevice": {
     "type": "object",
     "properties": {
@@ -20201,6 +20249,10 @@
      "sysprep": {
       "description": "Represents a Sysprep volume source.",
       "$ref": "#/definitions/v1.SysprepSource"
+     },
+     "vhostUser": {
+      "description": "VhostUser represents a PVC-backed volume exposed to the guest via a vhost-user endpoint.",
+      "$ref": "#/definitions/v1.VhostUserVolumeSource"
      }
     }
    },

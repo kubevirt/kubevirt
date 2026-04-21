@@ -4263,6 +4263,69 @@ var _ = Describe("additional tests", func() {
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
 		Expect(causes).To(BeEmpty())
 	})
+
+	Context("with vhost-user disks", func() {
+		newVhostUserVMI := func(socketPath string) *v1.VirtualMachineInstance {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					VhostUser: &v1.VhostUserVolumeSource{
+						ClaimName: "test-pvc",
+						Type:      v1.VhostUserDiskTypeBlk,
+						Socket:    v1.VhostUserSocket{Path: socketPath},
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+				},
+			})
+			return vmi
+		}
+
+		It("should reject vhost-user disks when the feature gate is disabled", func() {
+			vmi := newVhostUserVMI("nbs.sock")
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.volumes[0].vhostUser"))
+			Expect(causes[0].Message).To(Equal("VhostUserDisks feature gate is not enabled"))
+		})
+
+		It("should accept a valid vhost-user disk when the feature gate is enabled", func() {
+			enableFeatureGates(featuregate.VhostUserDisksGate)
+			vmi := newVhostUserVMI("nbs.sock")
+			vmi.Spec.Volumes[0].VhostUser.Queues = pointer.P(uint(2))
+			vmi.Spec.Volumes[0].VhostUser.ReconnectTimeoutSeconds = pointer.P(uint(5))
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject unsupported driver settings for vhost-user disks", func() {
+			enableFeatureGates(featuregate.VhostUserDisksGate)
+			vmi := newVhostUserVMI("nbs.sock")
+			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].cache"))
+			Expect(causes[0].Message).To(Equal("cache is not supported for vhost-user disks"))
+		})
+
+		It("should reject absolute vhost-user socket paths", func() {
+			enableFeatureGates(featuregate.VhostUserDisksGate)
+			vmi := newVhostUserVMI("/run/kubevirt-private/vmi-disks/testdisk/nbs.sock")
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.volumes[0].vhostUser.socket.path"))
+			Expect(causes[0].Message).To(Equal("vhost-user socket path must be relative to the root of the associated volume"))
+		})
+	})
 })
 
 func newBaseVmi(opts ...libvmi.Option) *v1.VirtualMachineInstance {

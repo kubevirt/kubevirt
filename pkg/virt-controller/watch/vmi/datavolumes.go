@@ -119,9 +119,10 @@ func (c *Controller) areDataVolumesReady(vmi *v1.VirtualMachineInstance, dataVol
 	wffc := false
 
 	for _, volume := range vmi.Spec.Volumes {
-		// Check both DVs and PVCs
+		// Check both DVs and PVC-like sources.
 		if (volume.VolumeSource.DataVolume != nil && !volume.VolumeSource.DataVolume.Hotpluggable) ||
-			(volume.VolumeSource.PersistentVolumeClaim != nil && !volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) {
+			(volume.VolumeSource.PersistentVolumeClaim != nil && !volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) ||
+			volume.VolumeSource.VhostUser != nil {
 			volumeReady, volumeWffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 			if err != nil {
 				if _, ok := err.(storagetypes.PvcNotFoundError); ok {

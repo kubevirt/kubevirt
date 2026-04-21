@@ -27,7 +27,7 @@ import (
 )
 
 func IsStorageVolume(volume *v1.Volume) bool {
-	return volume.PersistentVolumeClaim != nil || volume.DataVolume != nil
+	return volume.PersistentVolumeClaim != nil || volume.DataVolume != nil || volume.VhostUser != nil
 }
 
 func IsDeclarativeHotplugVolume(vol *v1.Volume) bool {

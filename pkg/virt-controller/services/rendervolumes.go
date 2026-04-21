@@ -159,6 +159,12 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 				}
 			}
 
+			if volume.VhostUser != nil {
+				if err := renderer.handleVhostUserVolume(volume, pvcStore); err != nil {
+					return err
+				}
+			}
+
 			if volume.Ephemeral != nil {
 				if err := renderer.handleEphemeralVolume(volume, pvcStore); err != nil {
 					return err
@@ -601,6 +607,23 @@ func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: volume.PersistentVolumeClaim.ClaimName,
 				ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
+			},
+		},
+	})
+	return nil
+}
+
+func (vr *VolumeRenderer) handleVhostUserVolume(volume v1.Volume, pvcStore cache.Store) error {
+	claimName := volume.VhostUser.ClaimName
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
+		return err
+	}
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: volume.Name,
+		VolumeSource: k8sv1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+				ReadOnly:  false,
 			},
 		},
 	})
