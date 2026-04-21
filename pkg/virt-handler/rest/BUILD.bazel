@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/rest",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/safepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
