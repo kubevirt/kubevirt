@@ -22,6 +22,8 @@ package cloudinit
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libnet/dns"
 
 	"sigs.k8s.io/yaml"
@@ -81,16 +83,28 @@ func WithAddresses(addresses ...string) NetworkDataInterfaceOption {
 
 func WithDHCP4Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		enabled := true
-		networkDataInterface.DHCP4 = &enabled
+		networkDataInterface.DHCP4 = pointer.P(true)
 		return nil
 	}
 }
 
 func WithDHCP6Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		enabled := true
-		networkDataInterface.DHCP6 = &enabled
+		networkDataInterface.DHCP6 = pointer.P(true)
+		return nil
+	}
+}
+
+func WithDHCP4Disabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.DHCP4 = pointer.P(false)
+		return nil
+	}
+}
+
+func WithDHCP6Disabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.DHCP6 = pointer.P(false)
 		return nil
 	}
 }
@@ -176,18 +190,44 @@ const (
 	DefaultIPv6Gateway = "fd10:0:2::1"
 )
 
-// CreateDefaultCloudInitNetworkData generates a default configuration
-// for the Cloud-Init Network Data, in version 2 format.
-// The default configuration sets dynamic IPv4 (DHCP) and static IPv6 addresses,
-// including DNS settings of the cluster nameserver IP and search domains.
+// CreateDefaultCloudInitNetworkData returns cloud-init v2 network-config for eth0 from cluster IP family probes.
 func CreateDefaultCloudInitNetworkData() string {
-	data, err := NewNetworkData(
-		WithEthernet("eth0",
+	supportsIPv4, errV4 := cluster.SupportsIpv4()
+	if errV4 != nil {
+		panic(errV4)
+	}
+	supportsIPv6, errV6 := cluster.SupportsIpv6()
+	if errV6 != nil {
+		panic(errV6)
+	}
+
+	var ifaceOpts []NetworkDataInterfaceOption
+	switch {
+	case supportsIPv4 && supportsIPv6: // DHCPv4 + static IPv6 + gateway6
+		ifaceOpts = []NetworkDataInterfaceOption{
 			WithDHCP4Enabled(),
 			WithAddresses(DefaultIPv6CIDR),
 			WithGateway6(DefaultIPv6Gateway),
 			WithNameserverFromCluster(),
-		))
+		}
+	case supportsIPv4: // DHCPv4 only
+		ifaceOpts = []NetworkDataInterfaceOption{
+			WithDHCP4Enabled(),
+			WithDHCP6Disabled(),
+			WithNameserverFromCluster(),
+		}
+	case supportsIPv6: // static IPv6 + gateway6
+		ifaceOpts = []NetworkDataInterfaceOption{
+			WithDHCP4Disabled(),
+			WithAddresses(DefaultIPv6CIDR),
+			WithGateway6(DefaultIPv6Gateway),
+			WithNameserverFromCluster(),
+		}
+	default: // probes ok but neither family — should not happen
+		panic(fmt.Errorf("cluster IPv4/IPv6 probes succeeded but neither family is supported"))
+	}
+
+	data, err := NewNetworkData(WithEthernet("eth0", ifaceOpts...))
 	if err != nil {
 		panic(err)
 	}
