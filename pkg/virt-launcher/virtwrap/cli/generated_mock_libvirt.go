@@ -158,6 +158,20 @@ func (mr *MockConnectionMockRecorder) DomainEventLifecycleRegister(callback any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventLifecycleRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventLifecycleRegister), callback)
 }
 
+// DomainEventMemoryDeviceSizeChangeRegister mocks base method.
+func (m *MockConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainEventMemoryDeviceSizeChangeRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainEventMemoryDeviceSizeChangeRegister indicates an expected call of DomainEventMemoryDeviceSizeChangeRegister.
+func (mr *MockConnectionMockRecorder) DomainEventMemoryDeviceSizeChangeRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventMemoryDeviceSizeChangeRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventMemoryDeviceSizeChangeRegister), callback)
+}
+
 // DomainEventMigrationIterationRegister mocks base method.
 func (m *MockConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error) {
 	m.ctrl.T.Helper()
@@ -171,20 +185,6 @@ func (m *MockConnection) DomainEventMigrationIterationRegister(callback libvirt.
 func (mr *MockConnectionMockRecorder) DomainEventMigrationIterationRegister(callback any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventMigrationIterationRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventMigrationIterationRegister), callback)
-}
-
-// DomainEventMemoryDeviceSizeChangeRegister mocks base method.
-func (m *MockConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventMemoryDeviceSizeChangeRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DomainEventMemoryDeviceSizeChangeRegister indicates an expected call of DomainEventMemoryDeviceSizeChangeRegister.
-func (mr *MockConnectionMockRecorder) DomainEventMemoryDeviceSizeChangeRegister(callback any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventMemoryDeviceSizeChangeRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventMemoryDeviceSizeChangeRegister), callback)
 }
 
 // GetAllDomainStats mocks base method.
