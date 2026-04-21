@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
@@ -46,11 +47,16 @@ func SetupPromTLS(certManager certificate.Manager, clusterConfig *virtconfig.Clu
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			var curvePreferences []tls.CurveID
+			if clusterConfig.TLSGroupPreferencesEnabled() {
+				curvePreferences = CurvePreferenceIds(tlsConfig.Groups)
+			}
 			config := &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				Certificates: []tls.Certificate{*crt},
-				ClientAuth:   tls.VerifyClientCertIfGiven,
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				Certificates:     []tls.Certificate{*crt},
+				ClientAuth:       tls.VerifyClientCertIfGiven,
 			}
 
 			config.BuildNameToCertificate()
@@ -81,10 +87,15 @@ func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtStore cache.St
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			var curvePreferences []tls.CurveID
+			if isFeatureGateEnabledInKubeVirt(kv, featuregate.TLSGroupPreferences) {
+				curvePreferences = CurvePreferenceIds(tlsConfig.Groups)
+			}
 			config := &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				Certificates: []tls.Certificate{*crt},
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				Certificates:     []tls.Certificate{*crt},
 			}
 
 			config.BuildNameToCertificate()
@@ -119,12 +130,17 @@ func SetupTLSWithCertManager(caManager KubernetesCAManager, certManager certific
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			var curvePreferences []tls.CurveID
+			if clusterConfig.TLSGroupPreferencesEnabled() {
+				curvePreferences = CurvePreferenceIds(tlsConfig.Groups)
+			}
 			config := &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				Certificates: []tls.Certificate{*cert},
-				ClientCAs:    clientCAPool,
-				ClientAuth:   clientAuth,
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				Certificates:     []tls.Certificate{*cert},
+				ClientCAs:        clientCAPool,
+				ClientAuth:       clientAuth,
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 					if len(verifiedChains) == 0 || len(verifiedChains[0]) == 0 {
 						return nil
@@ -201,10 +217,15 @@ func SetupTLSForServer(caManager ClientCAManager, certManager certificate.Manage
 			tlsConfig := getTLSConfiguration(kv)
 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
 			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
+			var curvePreferences []tls.CurveID
+			if clusterConfig.TLSGroupPreferencesEnabled() {
+				curvePreferences = CurvePreferenceIds(tlsConfig.Groups)
+			}
 			config = &tls.Config{
-				CipherSuites: ciphers,
-				MinVersion:   minTLSVersion,
-				ClientCAs:    certPool,
+				CipherSuites:     ciphers,
+				MinVersion:       minTLSVersion,
+				CurvePreferences: curvePreferences,
+				ClientCAs:        certPool,
 				GetCertificate: func(info *tls.ClientHelloInfo) (i *tls.Certificate, e error) {
 					return cert, nil
 				},
@@ -280,6 +301,16 @@ func InjectTLSConfigIntoDeployment(kv *v1.KubeVirt, deployment *appsv1.Deploymen
 		deployment.Spec.Template.Spec.Containers[idx].Args = append(
 			deployment.Spec.Template.Spec.Containers[idx].Args,
 			"--tls-min-version", string(tlsConfig.MinTLSVersion),
+		)
+	}
+	if len(tlsConfig.Groups) > 0 && isFeatureGateEnabledInKubeVirt(kv, featuregate.TLSGroupPreferences) {
+		groupStrs := make([]string, len(tlsConfig.Groups))
+		for i, g := range tlsConfig.Groups {
+			groupStrs[i] = string(g)
+		}
+		deployment.Spec.Template.Spec.Containers[idx].Args = append(
+			deployment.Spec.Template.Spec.Containers[idx].Args,
+			"--tls-groups", strings.Join(groupStrs, ","),
 		)
 	}
 	return nil
@@ -401,6 +432,48 @@ func createIntermediatePool(externallyManaged bool, rawIntermediates [][]byte) *
 		}
 	}
 	return intermediatePool
+}
+
+func CurvePreferenceIds(groups []v1.TLSGroup) []tls.CurveID {
+	if len(groups) == 0 {
+		return nil
+	}
+	ids := make([]tls.CurveID, 0, len(groups))
+	for _, group := range groups {
+		switch group {
+		case v1.TLSGroupX25519:
+			ids = append(ids, tls.X25519)
+		case v1.TLSGroupSecP256r1:
+			ids = append(ids, tls.CurveP256)
+		case v1.TLSGroupSecP384r1:
+			ids = append(ids, tls.CurveP384)
+		case v1.TLSGroupSecP521r1:
+			ids = append(ids, tls.CurveP521)
+		case v1.TLSGroupX25519MLKEM768:
+			ids = append(ids, tls.X25519MLKEM768)
+		}
+	}
+	return ids
+}
+
+func ValidTLSGroup(group v1.TLSGroup) bool {
+	switch group {
+	case v1.TLSGroupX25519, v1.TLSGroupSecP256r1, v1.TLSGroupSecP384r1, v1.TLSGroupSecP521r1, v1.TLSGroupX25519MLKEM768:
+		return true
+	default:
+		return false
+	}
+}
+
+func IsTLS13OnlyGroup(group v1.TLSGroup) bool {
+	return group == v1.TLSGroupX25519MLKEM768
+}
+
+func isFeatureGateEnabledInKubeVirt(kv *v1.KubeVirt, fgName string) bool {
+	if kv == nil || kv.Spec.Configuration.DeveloperConfiguration == nil {
+		return false
+	}
+	return slices.Contains(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, fgName)
 }
 
 func getKubevirt(kubeVirtStore cache.Store) *v1.KubeVirt {
