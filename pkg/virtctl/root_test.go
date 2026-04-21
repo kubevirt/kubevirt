@@ -40,7 +40,7 @@ var _ = Describe("virtctl", func() {
 		Entry("shorthand flag", "-v=2"),
 	)
 
-	It("Execute should print a message if and error occurred and server and client virtctl versions are different", func() {
+	It("Execute should print a message if an error occurred and server and client virtctl versions are different", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		serverVersionInterface := kubecli.NewMockServerVersionInterface(ctrl)
 		serverVersionInterface.EXPECT().Get().Return(&version.Info{
