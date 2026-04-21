@@ -56,7 +56,6 @@ const (
 )
 
 var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Serial, func() {
-
 	var err error
 
 	BeforeEach(OncePerOrdered, func() {
