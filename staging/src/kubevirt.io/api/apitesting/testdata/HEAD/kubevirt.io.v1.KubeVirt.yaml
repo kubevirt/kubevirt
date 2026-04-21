@@ -258,6 +258,8 @@ spec:
     tlsConfiguration:
       ciphers:
       - ciphersValue
+      groups:
+      - groupsValue
       minTLSVersion: minTLSVersionValue
     virtTemplateDeployment:
       enabled: true

@@ -3266,6 +3266,19 @@ const (
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
 
+// TLSGroup defines a TLS supported group (key exchange curve) using IANA
+// names from the TLS Supported Groups registry.
+// +kubebuilder:validation:Enum=X25519;secp256r1;secp384r1;secp521r1;X25519MLKEM768
+type TLSGroup string
+
+const (
+	TLSGroupX25519         TLSGroup = "X25519"
+	TLSGroupSecP256r1      TLSGroup = "secp256r1"
+	TLSGroupSecP384r1      TLSGroup = "secp384r1"
+	TLSGroupSecP521r1      TLSGroup = "secp521r1"
+	TLSGroupX25519MLKEM768 TLSGroup = "X25519MLKEM768"
+)
+
 type CustomProfile struct {
 	LocalhostProfile      *string `json:"localhostProfile,omitempty"`
 	RuntimeDefaultProfile bool    `json:"runtimeDefaultProfile,omitempty"`
@@ -3313,6 +3326,13 @@ type TLSConfiguration struct {
 	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
 	// +listType=set
 	Ciphers []string `json:"ciphers,omitempty"`
+	// Groups defines the set of TLS supported groups (key exchange curves)
+	// offered during TLS handshakes. Uses IANA names from the TLS Supported
+	// Groups registry. When empty, Go's default curve preferences apply.
+	// Requires the TLSGroupPreferences feature gate to be enabled.
+	// +optional
+	// +listType=set
+	Groups []TLSGroup `json:"groups,omitempty"`
 }
 
 // MigrationConfiguration holds migration options.
