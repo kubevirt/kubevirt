@@ -1744,4 +1744,15 @@ func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {
 			})
 		}
 	}
+	if len(tlsConfig.Groups) > 0 && ctrl.clusterConfig.TLSGroupPreferencesEnabled() {
+		curveJSON, err := json.Marshal(kvtls.CurvePreferenceIds(tlsConfig.Groups))
+		if err != nil {
+			log.Log.Warningf("Failed to marshal TLS curve preference IDs: %v", err)
+		} else {
+			podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "TLS_CURVE_PREFERENCES",
+				Value: string(curveJSON),
+			})
+		}
+	}
 }

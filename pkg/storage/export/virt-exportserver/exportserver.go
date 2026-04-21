@@ -97,10 +97,11 @@ type ExportServerConfig struct {
 
 	ListenAddr string
 
-	CertFile, KeyFile string
-	BackupCACert      []byte
-	TLSMinVersion     uint16
-	TLSCipherSuites   []uint16
+	CertFile, KeyFile   string
+	BackupCACert        []byte
+	TLSMinVersion       uint16
+	TLSCipherSuites     []uint16
+	TLSCurvePreferences []tls.CurveID
 
 	TokenFile string
 
@@ -260,9 +261,10 @@ func (s *exportServer) Run() {
 
 func (s *exportServer) buildServer() *http.Server {
 	tlsConfig := &tls.Config{
-		MinVersion:   s.TLSMinVersion,
-		CipherSuites: s.TLSCipherSuites,
-		NextProtos:   []string{"h2", "http/1.1"},
+		MinVersion:       s.TLSMinVersion,
+		CipherSuites:     s.TLSCipherSuites,
+		CurvePreferences: s.TLSCurvePreferences,
+		NextProtos:       []string{"h2", "http/1.1"},
 	}
 
 	rootHandler := s.handler

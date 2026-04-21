@@ -44,14 +44,15 @@ func main() {
 
 	certFile, keyFile := getCert()
 	config := exportServer.ExportServerConfig{
-		CertFile:        certFile,
-		KeyFile:         keyFile,
-		Deadline:        getDeadline(),
-		ListenAddr:      getListenAddr(),
-		TokenFile:       getTokenFile(),
-		Paths:           export.CreateServerPaths(export.EnvironToMap()),
-		TLSMinVersion:   getTLSMinVersion(),
-		TLSCipherSuites: getTLSCipherSuites(),
+		CertFile:            certFile,
+		KeyFile:             keyFile,
+		Deadline:            getDeadline(),
+		ListenAddr:          getListenAddr(),
+		TokenFile:           getTokenFile(),
+		Paths:               export.CreateServerPaths(export.EnvironToMap()),
+		TLSMinVersion:       getTLSMinVersion(),
+		TLSCipherSuites:     getTLSCipherSuites(),
+		TLSCurvePreferences: getTLSCurvePreferences(),
 	}
 	if len(config.Paths.Backups) > 0 {
 		config.BackupUID = getBackupUID()
@@ -151,6 +152,19 @@ func getTLSCipherSuites() []uint16 {
 	var ids []uint16
 	if err := json.Unmarshal([]byte(env), &ids); err != nil {
 		log.Log.Warningf("Failed to parse TLS_CIPHER_SUITES: %v", err)
+		return nil
+	}
+	return ids
+}
+
+func getTLSCurvePreferences() []tls.CurveID {
+	env := os.Getenv("TLS_CURVE_PREFERENCES")
+	if env == "" {
+		return nil
+	}
+	var ids []tls.CurveID
+	if err := json.Unmarshal([]byte(env), &ids); err != nil {
+		log.Log.Warningf("Failed to parse TLS_CURVE_PREFERENCES: %v", err)
 		return nil
 	}
 	return ids
