@@ -247,7 +247,7 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: RetValueWithPrompt("0")},
 	}
-	const configureConsoleTimeout = 30 * time.Second
+	const configureConsoleTimeout = 60 * time.Second
 	resp, err := expecter.ExpectBatch(batch, configureConsoleTimeout)
 	if err != nil {
 		log.DefaultLogger().Infof("%v", resp)
