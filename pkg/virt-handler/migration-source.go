@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -371,6 +372,7 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 	}
 
 	if syncErr != nil {
@@ -400,6 +402,9 @@ func (c *MigrationSourceController) execute(key string) error {
 		!vmi.IsDecentralizedMigration() && vmi.IsFinal()) ||
 		vmi.DeletionTimestamp != nil {
 		c.logger.V(4).Infof("vmi for key %v is terminating, succeeded or does not exists", key)
+		if !vmiExists {
+			metrics.ResetVMISync(key)
+		}
 		return nil
 	}
 

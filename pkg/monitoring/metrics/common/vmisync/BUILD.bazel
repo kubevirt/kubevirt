@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metrics.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "metrics_suite_test.go",
+        "metrics_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/prometheus/client_model/go:go_default_library",
+        "//vendor/github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics:go_default_library",
+    ],
+)
