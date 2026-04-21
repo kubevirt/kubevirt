@@ -279,9 +279,14 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 				})
 			}
 		}
-
-		return statuses
 	}
+
+	// TLS groups are an open string set (see kubevirt/kubevirt#18612, §3.2):
+	// unrecognised group names are not rejected here but ignored at TLS setup
+	// time by CurvePreferenceIds. The cross-field constraint requiring a
+	// classical group when minTLSVersion is below VersionTLS13 is expressed as a
+	// CEL validation on TLSConfiguration per §4.2, not as an imperative webhook
+	// check.
 
 	return statuses
 }
