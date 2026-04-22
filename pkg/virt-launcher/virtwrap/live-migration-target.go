@@ -339,6 +339,7 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 type TargetMigrationMonitor struct {
 	c             cli.Connection
 	events        chan watch.Event
+	logger        *log.FilteredLogger
 	vmi           *v1.VirtualMachineInstance
 	domain        *api.Domain
 	metadataCache *metadata.Cache
@@ -361,6 +362,7 @@ func NewTargetMigrationMonitor(
 	return &TargetMigrationMonitor{
 		c:             c,
 		events:        events,
+		logger:        log.Log.Object(vmi),
 		vmi:           vmi,
 		domain:        domain,
 		metadataCache: metadataCache,
@@ -382,7 +384,7 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 				defer dom.Free()
 				jobInfo, err := dom.GetJobInfo()
 				if err != nil {
-					log.Log.Object(m.vmi).V(4).Reason(err).Info("Failed to get domain job info")
+					m.logger.V(4).Reason(err).Info("Failed to get domain job info")
 					// This can happen if the current job doesn't support `GetJobInfo()`, let's try again
 					return false, nil
 				}
@@ -390,19 +392,19 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 					// No migration job is currently running
 					return true, nil
 				}
-				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d)", jobInfo.Type)
+				m.logger.V(4).Infof("Incoming migration job active (type %d)", jobInfo.Type)
 				return false, nil
 			})
 			if err == nil || attempt == len(retryDelays) {
 				break
 			}
-			log.Log.Object(m.vmi).Info("A migration job is still active, retrying after delay")
+			m.logger.Info("A migration job is still active, retrying after delay")
 			time.Sleep(retryDelays[attempt])
 		}
 		if err != nil {
-			log.Log.Object(m.vmi).Info("Error polling libvirt, setting EndTimestamp anyway to unblock migration")
+			m.logger.Info("Error polling libvirt, setting EndTimestamp anyway to unblock migration")
 		} else {
-			log.Log.Object(m.vmi).Info("Incoming migration job completed, setting EndTimestamp")
+			m.logger.Info("Incoming migration job completed, setting EndTimestamp")
 		}
 		setEndTimestamp(m.metadataCache)
 		event := watch.Event{Type: watch.Modified, Object: m.domain}
