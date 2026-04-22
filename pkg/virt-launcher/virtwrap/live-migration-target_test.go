@@ -79,7 +79,7 @@ var _ = Describe("client", func() {
 		domain := api.NewMinimalDomain("test")
 		metadataCache := metadata.NewCache()
 		notifier := &eventNotifier{}
-		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, vmi, log.Log.Object(vmi), domain, metadataCache, notifier)
+		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, log.Log.Object(vmi), domain, metadataCache, notifier)
 		monitor.StartMonitor()
 
 		By("Ensuring that nothing gets added to the metadata cache as long as the migration is running")

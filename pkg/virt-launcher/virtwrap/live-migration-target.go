@@ -338,7 +338,6 @@ type TargetMigrationMonitor struct {
 	c             cli.Connection
 	events        chan watch.Event
 	logger        *log.FilteredLogger
-	vmi           *v1.VirtualMachineInstance
 	domain        *api.Domain
 	metadataCache *metadata.Cache
 	notifier      MigrationEventNotifier
@@ -352,7 +351,6 @@ type MigrationEventNotifier interface {
 func NewTargetMigrationMonitor(
 	c cli.Connection,
 	events chan watch.Event,
-	vmi *v1.VirtualMachineInstance,
 	logger *log.FilteredLogger,
 	domain *api.Domain,
 	metadataCache *metadata.Cache,
@@ -362,7 +360,6 @@ func NewTargetMigrationMonitor(
 		c:             c,
 		events:        events,
 		logger:        logger,
-		vmi:           vmi,
 		domain:        domain,
 		metadataCache: metadataCache,
 		notifier:      notifier}
@@ -373,7 +370,7 @@ var retryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Sec
 func (m *TargetMigrationMonitor) StartMonitor() {
 	go func() {
 		var err error
-		domName := api.VMINamespaceKeyFunc(m.vmi)
+		domName := m.domain.Spec.Name
 		for attempt := 0; attempt <= len(retryDelays); attempt++ {
 			err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(context context.Context) (bool, error) {
 				dom, err := m.c.LookupDomainByName(domName)
