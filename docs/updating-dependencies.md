@@ -77,7 +77,7 @@ executing the `make verify-rpm-deps` command.
 * Adjust the select clauses on all container entries to choose the right
   target architecture and the right base image.
 * Add architecture specific entries to [.bazelrc](../.bazelrc)
-* Running `make rpm-deps` requires a sandbox enviroment, which is also updated from the previous command. You need to either run the command on an already onboarded architecture or updating the sandbox manually, by sourcing the variables from `hack/rpm-deps.sh` and running the bazeldnf command.
+* Running `make rpm-deps` requires a sandbox environment, which is also updated from the previous command. You need to either run the command on an already onboarded architecture or updating the sandbox manually, by sourcing the variables from `hack/rpm-deps.sh` and running the bazeldnf command.
 ```
 bazeldnf rpmtree \
         --public --nobest \

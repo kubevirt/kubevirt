@@ -105,9 +105,9 @@ const (
 	PVCNotReadyReason = "PVCNotReady"
 	// FailedHotplugSyncReason is set when a hotplug specific failure occurs during sync
 	FailedHotplugSyncReason = "FailedHotplugSync"
-	// ErrImagePullReason is set when an error has occured while pulling an image for a containerDisk VM volume.
+	// ErrImagePullReason is set when an error has occurred while pulling an image for a containerDisk VM volume.
 	ErrImagePullReason = "ErrImagePull"
-	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
+	// ImagePullBackOffReason is set when an error has occurred while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
@@ -115,7 +115,7 @@ const (
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
 	// FailedPodPatchReason is set when a pod patch error occurs during sync
 	FailedPodPatchReason = "FailedPodPatch"
-	// MigrationBackoffReason is set when an error has occured while migrating
+	// MigrationBackoffReason is set when an error has occurred while migrating
 	// and virt-controller is backing off before retrying.
 	MigrationBackoffReason = "MigrationBackoff"
 )
