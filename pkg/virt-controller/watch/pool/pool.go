@@ -2010,9 +2010,10 @@ func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.V
 
 		// Check for status-based failures (CrashLoopBackOff, Unschedulable, etc.)
 		if hasFailingStatus(vm) {
-			if hasVMBeenFailingLongEnough(vm, autohealing) {
+			failingSince := getFailingSince(vm)
+			if hasVMBeenFailingLongEnough(vm, autohealing, failingSince) {
 				filtered = append(filtered, vm)
-			} else if failingSince := getFailingSince(vm); failingSince > 0 {
+			} else if failingSince > 0 {
 				requeueAfter := getMinFailingToStartDuration(autohealing) - failingSince
 				if minRequeue == 0 || requeueAfter < minRequeue {
 					minRequeue = requeueAfter
@@ -2040,8 +2041,7 @@ func hasFailingStatus(vm *virtv1.VirtualMachine) bool {
 }
 
 // hasVMBeenFailingLongEnough checks if VM has not been ready for minimum duration
-func hasVMBeenFailingLongEnough(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
-	failingSince := getFailingSince(vm)
+func hasVMBeenFailingLongEnough(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy, failingSince time.Duration) bool {
 	if failingSince >= getMinFailingToStartDuration(autohealing) {
 		log.Log.Object(vm).Infof("VM %s/%s has been failing to start for %v, adding to list", vm.Namespace, vm.Name, failingSince)
 		return true
