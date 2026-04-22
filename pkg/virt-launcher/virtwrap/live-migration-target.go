@@ -355,6 +355,7 @@ func NewTargetMigrationMonitor(
 	c cli.Connection,
 	events chan watch.Event,
 	vmi *v1.VirtualMachineInstance,
+	logger *log.FilteredLogger,
 	domain *api.Domain,
 	metadataCache *metadata.Cache,
 	notifier MigrationEventNotifier,
@@ -362,7 +363,7 @@ func NewTargetMigrationMonitor(
 	return &TargetMigrationMonitor{
 		c:             c,
 		events:        events,
-		logger:        log.Log.Object(vmi),
+		logger:        logger,
 		vmi:           vmi,
 		domain:        domain,
 		metadataCache: metadataCache,

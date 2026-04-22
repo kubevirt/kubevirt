@@ -735,7 +735,7 @@ func processLifecycleEvent(client *Notifier, domain *api.Domain, lifecycleEvent 
 			domain: domain,
 			events: events,
 		}
-		monitor := virtwrap.NewTargetMigrationMonitor(c, events, vmi, domain, metadataCache, notifier)
+		monitor := virtwrap.NewTargetMigrationMonitor(c, events, vmi, log.Log.Object(vmi), domain, metadataCache, notifier)
 		monitor.StartMonitor()
 	}
 	return false
