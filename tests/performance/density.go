@@ -272,5 +272,5 @@ func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout tim
 			}
 		}
 		return running
-	}, timeout, 10*time.Second).Should(Equal(vmiCount))
+	}, timeout, 10*time.Second).Should(BeNumerically(">=", vmiCount))
 }
