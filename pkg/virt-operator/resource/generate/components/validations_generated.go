@@ -2944,6 +2944,85 @@ var CRDsValidation map[string]string = map[string]string{
             Specifies if kubevirt can be deleted if workloads are still present.
             This is mainly a precaution to avoid accidental data loss
           type: string
+        workerPools:
+          description: |-
+            WorkerPools configures additional virt-handler DaemonSets targeting
+            specific nodes with custom images, matched to VMIs via device and
+            label selectors.
+            Requires the WorkerPools feature gate to be enabled.
+          items:
+            description: |-
+              WorkerPoolConfig defines configuration for an additional virt-handler
+              DaemonSet that targets specific nodes with custom images and automatically
+              matches VMIs via device and label selectors.
+            properties:
+              name:
+                description: |-
+                  name is a unique identifier appended to "virt-handler" to form the
+                  DaemonSet name. For example, "gpu" results in a DaemonSet named
+                  "virt-handler-gpu".
+                maxLength: 48
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: |-
+                  nodeSelector specifies labels that must match a node's labels for this
+                  pool's DaemonSet pods to be scheduled on that node. When a VMI matches
+                  this pool's selector, the nodeSelector is also merged into the
+                  virt-launcher pod's node affinity.
+                minProperties: 1
+                type: object
+              selector:
+                description: |-
+                  selector defines the criteria for matching VMIs to this pool. A VMI
+                  matches if any of the selector's criteria are met (OR semantics).
+                properties:
+                  deviceNames:
+                    description: |-
+                      deviceNames matches VMIs that request any of the listed device names
+                      via spec.domain.devices.gpus[].deviceName or
+                      spec.domain.devices.hostDevices[].deviceName.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  vmLabels:
+                    description: |-
+                      vmLabels matches VMIs whose labels contain all of the specified
+                      key-value pairs.
+                    properties:
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of key-value pairs. A VMI matches if all
+                          entries are present in the VMI's labels.
+                        minProperties: 1
+                        type: object
+                    required:
+                    - matchLabels
+                    type: object
+                type: object
+              virtHandlerImage:
+                description: |-
+                  virtHandlerImage overrides the virt-handler container image for this
+                  pool's DaemonSet. If not specified, the default virt-handler image is used.
+                type: string
+              virtLauncherImage:
+                description: |-
+                  virtLauncherImage overrides the virt-launcher image used by virt-launcher
+                  pods on nodes served by this pool's handler. If not specified, the default
+                  virt-launcher image is used.
+                type: string
+            required:
+            - name
+            - nodeSelector
+            - selector
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         workloadUpdateStrategy:
           description: |-
             WorkloadUpdateStrategy defines at the cluster level how to handle

@@ -620,6 +620,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VolumeUpdateState":                                                       schema_kubevirtio_api_core_v1_VolumeUpdateState(ref),
 		"kubevirt.io/api/core/v1.Watchdog":                                                                schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                          schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
+		"kubevirt.io/api/core/v1.WorkerPoolConfig":                                                        schema_kubevirtio_api_core_v1_WorkerPoolConfig(ref),
+		"kubevirt.io/api/core/v1.WorkerPoolSelector":                                                      schema_kubevirtio_api_core_v1_WorkerPoolSelector(ref),
+		"kubevirt.io/api/core/v1.WorkerPoolVMLabels":                                                      schema_kubevirtio_api_core_v1_WorkerPoolVMLabels(ref),
 		"kubevirt.io/api/export/v1.Condition":                                                             schema_kubevirtio_api_export_v1_Condition(ref),
 		"kubevirt.io/api/export/v1.VirtualMachineExport":                                                  schema_kubevirtio_api_export_v1_VirtualMachineExport(ref),
 		"kubevirt.io/api/export/v1.VirtualMachineExportBackup":                                            schema_kubevirtio_api_export_v1_VirtualMachineExportBackup(ref),
@@ -23213,11 +23216,30 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Ref:     ref("kubevirt.io/api/core/v1.CustomizeComponents"),
 						},
 					},
+					"workerPools": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "WorkerPools configures additional virt-handler DaemonSets targeting specific nodes with custom images, matched to VMIs via device and label selectors. Requires the WorkerPools feature gate to be enabled.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.WorkerPoolConfig"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
+			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy", "kubevirt.io/api/core/v1.WorkerPoolConfig"},
 	}
 }
 
@@ -30299,6 +30321,138 @@ func schema_kubevirtio_api_core_v1_WatchdogDevice(ref common.ReferenceCallback) 
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.Diag288Watchdog", "kubevirt.io/api/core/v1.I6300ESBWatchdog"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_WorkerPoolConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkerPoolConfig defines configuration for an additional virt-handler DaemonSet that targets specific nodes with custom images and automatically matches VMIs via device and label selectors.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is a unique identifier appended to \"virt-handler\" to form the DaemonSet name. For example, \"gpu\" results in a DaemonSet named \"virt-handler-gpu\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtHandlerImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtHandlerImage overrides the virt-handler container image for this pool's DaemonSet. If not specified, the default virt-handler image is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtLauncherImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtLauncherImage overrides the virt-launcher image used by virt-launcher pods on nodes served by this pool's handler. If not specified, the default virt-launcher image is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodeSelector specifies labels that must match a node's labels for this pool's DaemonSet pods to be scheduled on that node. When a VMI matches this pool's selector, the nodeSelector is also merged into the virt-launcher pod's node affinity.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selector defines the criteria for matching VMIs to this pool. A VMI matches if any of the selector's criteria are met (OR semantics).",
+							Default:     map[string]interface{}{},
+							Ref:         ref("kubevirt.io/api/core/v1.WorkerPoolSelector"),
+						},
+					},
+				},
+				Required: []string{"name", "nodeSelector", "selector"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.WorkerPoolSelector"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_WorkerPoolSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkerPoolSelector defines the criteria for matching VMIs to a pool. DeviceNames and VMLabels are OR'd: if either matches, the pool applies.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deviceNames": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "deviceNames matches VMIs that request any of the listed device names via spec.domain.devices.gpus[].deviceName or spec.domain.devices.hostDevices[].deviceName.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"vmLabels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "vmLabels matches VMIs whose labels contain all of the specified key-value pairs.",
+							Ref:         ref("kubevirt.io/api/core/v1.WorkerPoolVMLabels"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.WorkerPoolVMLabels"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_WorkerPoolVMLabels(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "WorkerPoolVMLabels matches VMIs by label selectors.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"matchLabels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "matchLabels is a map of key-value pairs. A VMI matches if all entries are present in the VMI's labels.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"matchLabels"},
+			},
+		},
 	}
 }
 

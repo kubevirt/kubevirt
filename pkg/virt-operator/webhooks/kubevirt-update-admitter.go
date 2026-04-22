@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -45,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/poolmatcher"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -82,6 +84,8 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
+	results = append(results, validateWorkerPools(&newKV.Spec)...)
+	results = append(results, validateWorkerPoolRemoval(ctx, &currKV.Spec, &newKV.Spec, admitter.Client)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -143,6 +147,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	}
 
 	response.Warnings = append(response.Warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
+
+	if len(newKV.Spec.WorkerPools) > 1 {
+		response.Warnings = append(response.Warnings, warnOverlappingWorkerPools(newKV.Spec.WorkerPools)...)
+	}
 
 	return response
 }
@@ -562,4 +570,159 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		Field:   "spec.configuration.roleAggregationStrategy",
 		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
 	}}
+}
+
+func validateWorkerPools(spec *v1.KubeVirtSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if len(spec.WorkerPools) == 0 {
+		return causes
+	}
+
+	// Check feature gate
+	fgEnabled := false
+	if spec.Configuration.DeveloperConfiguration != nil {
+		fgEnabled = slices.Contains(spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.WorkerPools)
+	}
+	if !fgEnabled {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "WorkerPools feature gate must be enabled to configure worker pools",
+			Field:   "spec.workerPools",
+		})
+		return causes
+	}
+
+	names := make(map[string]bool)
+	for i, pool := range spec.WorkerPools {
+		fieldPath := fmt.Sprintf("spec.workerPools[%d]", i)
+
+		// Duplicate name check
+		if names[pool.Name] {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate pool name %q", pool.Name),
+				Field:   fieldPath + ".name",
+			})
+		}
+		names[pool.Name] = true
+
+		// Must have at least one image override
+		if pool.VirtHandlerImage == "" && pool.VirtLauncherImage == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "pool must specify at least one of virtHandlerImage or virtLauncherImage",
+				Field:   fieldPath,
+			})
+		}
+
+		// Must have at least one selector criterion
+		if len(pool.Selector.DeviceNames) == 0 && pool.Selector.VMLabels == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "pool selector must define at least one of deviceNames or vmLabels",
+				Field:   fieldPath + ".selector",
+			})
+		}
+	}
+
+	return causes
+}
+
+func validateWorkerPoolRemoval(ctx context.Context, oldSpec, newSpec *v1.KubeVirtSpec, client kubecli.KubevirtClient) []metav1.StatusCause {
+	if client == nil || len(oldSpec.WorkerPools) == 0 {
+		return nil
+	}
+
+	newPoolNames := make(map[string]bool, len(newSpec.WorkerPools))
+	for _, pool := range newSpec.WorkerPools {
+		newPoolNames[pool.Name] = true
+	}
+
+	var removedPools []v1.WorkerPoolConfig
+	for _, pool := range oldSpec.WorkerPools {
+		if !newPoolNames[pool.Name] {
+			removedPools = append(removedPools, pool)
+		}
+	}
+	if len(removedPools) == 0 {
+		return nil
+	}
+
+	vmis, err := client.VirtualMachineInstance("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("failed to list VMIs to validate pool removal: %v", err),
+			Field:   "spec.workerPools",
+		}}
+	}
+
+	var causes []metav1.StatusCause
+	for _, pool := range removedPools {
+		pools := []v1.WorkerPoolConfig{pool}
+		var matchCount int
+		for i := range vmis.Items {
+			vmi := &vmis.Items[i]
+			if vmi.IsFinal() {
+				continue
+			}
+			if poolmatcher.MatchVMIToWorkerPool(pools, vmi) != nil {
+				matchCount++
+			}
+		}
+		if matchCount > 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("cannot remove pool %q: %d running VMI(s) still match this pool's selectors; drain impacted nodes before removing the pool", pool.Name, matchCount),
+				Field:   "spec.workerPools",
+			})
+		}
+	}
+	return causes
+}
+
+func isSubset(subset, superset map[string]string) bool {
+	for k, v := range subset {
+		if superset[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func warnOverlappingWorkerPools(pools []v1.WorkerPoolConfig) []string {
+	var warnings []string
+	for i := 0; i < len(pools); i++ {
+		for j := i + 1; j < len(pools); j++ {
+			for _, dn := range pools[i].Selector.DeviceNames {
+				if slices.Contains(pools[j].Selector.DeviceNames, dn) {
+					warnings = append(warnings, fmt.Sprintf(
+						"spec.workerPools: pools %q and %q have overlapping deviceName %q; first-match-wins applies",
+						pools[i].Name, pools[j].Name, dn))
+				}
+			}
+
+			if pools[i].Selector.VMLabels != nil && pools[j].Selector.VMLabels != nil {
+				li := pools[i].Selector.VMLabels.MatchLabels
+				lj := pools[j].Selector.VMLabels.MatchLabels
+				if isSubset(li, lj) || isSubset(lj, li) {
+					warnings = append(warnings, fmt.Sprintf(
+						"spec.workerPools: pools %q and %q have overlapping vmLabels; first-match-wins applies",
+						pools[i].Name, pools[j].Name))
+				}
+			}
+
+			if maps.Equal(pools[i].NodeSelector, pools[j].NodeSelector) {
+				warnings = append(warnings, fmt.Sprintf(
+					"spec.workerPools: pools %q and %q have identical nodeSelector; multiple virt-handler DaemonSets may target the same nodes",
+					pools[i].Name, pools[j].Name))
+			} else if isSubset(pools[i].NodeSelector, pools[j].NodeSelector) || isSubset(pools[j].NodeSelector, pools[i].NodeSelector) {
+				warnings = append(warnings, fmt.Sprintf(
+					"spec.workerPools: pools %q and %q have overlapping nodeSelector; multiple virt-handler DaemonSets may target the same nodes",
+					pools[i].Name, pools[j].Name))
+			}
+		}
+	}
+	return warnings
 }

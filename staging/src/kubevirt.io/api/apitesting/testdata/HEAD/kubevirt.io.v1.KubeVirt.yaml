@@ -439,6 +439,18 @@ spec:
   serviceMonitorNamespace: serviceMonitorNamespaceValue
   synchronizationPort: synchronizationPortValue
   uninstallStrategy: uninstallStrategyValue
+  workerPools:
+  - name: nameValue
+    nodeSelector:
+      nodeSelectorKey: nodeSelectorValue
+    selector:
+      deviceNames:
+      - deviceNamesValue
+      vmLabels:
+        matchLabels:
+          matchLabelsKey: matchLabelsValue
+    virtHandlerImage: virtHandlerImageValue
+    virtLauncherImage: virtLauncherImageValue
   workloadUpdateStrategy:
     batchEvictionInterval: 1ns
     batchEvictionSize: -17

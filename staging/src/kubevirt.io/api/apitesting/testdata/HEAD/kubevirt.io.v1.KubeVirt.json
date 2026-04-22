@@ -942,7 +942,27 @@
           "handlerKey": "handlerValue"
         }
       }
-    }
+    },
+    "workerPools": [
+      {
+        "name": "nameValue",
+        "virtHandlerImage": "virtHandlerImageValue",
+        "virtLauncherImage": "virtLauncherImageValue",
+        "nodeSelector": {
+          "nodeSelectorKey": "nodeSelectorValue"
+        },
+        "selector": {
+          "deviceNames": [
+            "deviceNamesValue"
+          ],
+          "vmLabels": {
+            "matchLabels": {
+              "matchLabelsKey": "matchLabelsValue"
+            }
+          }
+        }
+      }
+    ]
   },
   "status": {
     "phase": "phaseValue",

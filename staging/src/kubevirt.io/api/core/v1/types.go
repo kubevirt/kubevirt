@@ -1153,6 +1153,8 @@ const (
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 	// This label indicates what launcher image a VMI is currently running with.
 	OutdatedLauncherImageLabel string = "kubevirt.io/outdatedLauncherImage"
+	// WorkerPoolLabel identifies which worker pool a resource belongs to.
+	WorkerPoolLabel string = "kubevirt.io/worker-pool"
 	// Namespace recommended by Kubernetes for commonly recognized labels
 	AppLabelPrefix = "app.kubernetes.io"
 	// This label is commonly used by 3rd party management tools to identify
@@ -2537,6 +2539,14 @@ type KubeVirtSpec struct {
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
+
+	// WorkerPools configures additional virt-handler DaemonSets targeting
+	// specific nodes with custom images, matched to VMIs via device and
+	// label selectors.
+	// Requires the WorkerPools feature gate to be enabled.
+	// +listType=atomic
+	// +optional
+	WorkerPools []WorkerPoolConfig `json:"workerPools,omitempty"`
 }
 
 type CustomizeComponents struct {
@@ -3313,6 +3323,67 @@ type TLSConfiguration struct {
 	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
 	// +listType=set
 	Ciphers []string `json:"ciphers,omitempty"`
+}
+
+// WorkerPoolConfig defines configuration for an additional virt-handler
+// DaemonSet that targets specific nodes with custom images and automatically
+// matches VMIs via device and label selectors.
+type WorkerPoolConfig struct {
+	// name is a unique identifier appended to "virt-handler" to form the
+	// DaemonSet name. For example, "gpu" results in a DaemonSet named
+	// "virt-handler-gpu".
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=48
+	Name string `json:"name"`
+
+	// virtHandlerImage overrides the virt-handler container image for this
+	// pool's DaemonSet. If not specified, the default virt-handler image is used.
+	// +optional
+	VirtHandlerImage string `json:"virtHandlerImage,omitempty"`
+
+	// virtLauncherImage overrides the virt-launcher image used by virt-launcher
+	// pods on nodes served by this pool's handler. If not specified, the default
+	// virt-launcher image is used.
+	// +optional
+	VirtLauncherImage string `json:"virtLauncherImage,omitempty"`
+
+	// nodeSelector specifies labels that must match a node's labels for this
+	// pool's DaemonSet pods to be scheduled on that node. When a VMI matches
+	// this pool's selector, the nodeSelector is also merged into the
+	// virt-launcher pod's node affinity.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinProperties=1
+	NodeSelector map[string]string `json:"nodeSelector"`
+
+	// selector defines the criteria for matching VMIs to this pool. A VMI
+	// matches if any of the selector's criteria are met (OR semantics).
+	// +kubebuilder:validation:Required
+	Selector WorkerPoolSelector `json:"selector"`
+}
+
+// WorkerPoolSelector defines the criteria for matching VMIs to a pool.
+// DeviceNames and VMLabels are OR'd: if either matches, the pool applies.
+type WorkerPoolSelector struct {
+	// deviceNames matches VMIs that request any of the listed device names
+	// via spec.domain.devices.gpus[].deviceName or
+	// spec.domain.devices.hostDevices[].deviceName.
+	// +listType=atomic
+	// +optional
+	DeviceNames []string `json:"deviceNames,omitempty"`
+
+	// vmLabels matches VMIs whose labels contain all of the specified
+	// key-value pairs.
+	// +optional
+	VMLabels *WorkerPoolVMLabels `json:"vmLabels,omitempty"`
+}
+
+// WorkerPoolVMLabels matches VMIs by label selectors.
+type WorkerPoolVMLabels struct {
+	// matchLabels is a map of key-value pairs. A VMI matches if all
+	// entries are present in the VMI's labels.
+	// +kubebuilder:validation:MinProperties=1
+	MatchLabels map[string]string `json:"matchLabels"`
 }
 
 // MigrationConfiguration holds migration options.
