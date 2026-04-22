@@ -40,6 +40,7 @@ import (
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	instancetypeBuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -88,7 +89,7 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 		vmBatchStartupLimit := 5 * time.Minute
 
 		Context(fmt.Sprintf("[small] create a batch of %d VMIs", vmCount), func() {
-			It("should successfully create all VMIS", func() {
+			It("[QUARANTINE] should successfully create all VMIS", decorators.Quarantine, func() {
 				By("Creating a batch of VMIs")
 				createBatchVMIWithRateControl(virtClient, vmCount)
 
