@@ -197,9 +197,6 @@ type VirtControllerApp struct {
 	caBackupConfigMapInformer    cache.SharedIndexInformer
 	exportRouteConfigMapInformer cache.SharedInformer
 	exportServiceInformer        cache.SharedIndexInformer
-	exportController             *export.VMExportController
-	snapshotController           *snapshot.VMSnapshotController
-	restoreController            *snapshot.VMRestoreController
 	vmExportInformer             cache.SharedIndexInformer
 	routeCache                   cache.Store
 	ingressCache                 cache.Store
@@ -210,17 +207,16 @@ type VirtControllerApp struct {
 	storageClassInformer         cache.SharedIndexInformer
 	allPodInformer               cache.SharedIndexInformer
 	resourceQuotaInformer        cache.SharedIndexInformer
+	storageControllers           []storageControllerRunner
 
 	crdInformer cache.SharedIndexInformer
 
 	migrationPolicyInformer cache.SharedIndexInformer
 
-	vmCloneInformer   cache.SharedIndexInformer
-	vmCloneController *clonecontroller.VMCloneController
+	vmCloneInformer cache.SharedIndexInformer
 
 	vmBackupInformer        cache.SharedIndexInformer
 	vmBackupTrackerInformer cache.SharedIndexInformer
-	vmBackupController      *backup.VMBackupController
 
 	instancetypeInformer        cache.SharedIndexInformer
 	clusterInstancetypeInformer cache.SharedIndexInformer
@@ -280,6 +276,15 @@ type VirtControllerApp struct {
 	leaderElector            *leaderelection.LeaderElector
 
 	onOpenshift bool
+}
+
+type runnableController interface {
+	Run(threadiness int, stopCh <-chan struct{}) error
+}
+type storageControllerRunner struct {
+	Name    string
+	Ctrl    runnableController
+	Threads int
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -483,12 +488,8 @@ func Execute() {
 	app.initVirtualMachines()
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
-	app.initSnapshotController()
-	app.initRestoreController()
-	app.initExportController()
 	app.initWorkloadUpdaterController()
-	app.initCloneController()
-	app.initBackupController()
+	app.buildStorageControllers()
 	go app.Run()
 
 	<-app.reInitChan
@@ -610,34 +611,15 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go vca.vmController.Run(vca.vmControllerThreads, stop)
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
-		go func() {
-			if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the snapshot controller: %v", err)
-			}
-		}()
-		go func() {
-			if err := vca.restoreController.Run(vca.restoreControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the restore controller: %v", err)
-			}
-		}()
-		go func() {
-			if err := vca.exportController.Run(vca.exportControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the export controller: %v", err)
-			}
-		}()
 		go vca.workloadUpdateController.Run(stop)
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
-		go func() {
-			if err := vca.vmCloneController.Run(vca.cloneControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the clone controller: %v", err)
-			}
-		}()
-		go func() {
-			if err := vca.vmBackupController.Run(vca.backupControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the backup controller: %v", err)
-			}
-		}()
-
+		for _, runner := range vca.storageControllers {
+			go func(r storageControllerRunner) {
+				if err := r.Ctrl.Run(r.Threads, stop); err != nil {
+					log.Log.Warningf("error running the %s controller: %v", r.Name, err)
+				}
+			}(runner)
+		}
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced, vca.namespaceInformer.HasSynced, vca.resourceQuotaInformer.HasSynced)
 		close(vca.readyChan)
 		metrics.SetVirtControllerLeading()
@@ -868,9 +850,12 @@ func (vca *VirtControllerApp) initEvacuationController() {
 	}
 }
 
-func (vca *VirtControllerApp) initSnapshotController() {
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
-	vca.snapshotController = &snapshot.VMSnapshotController{
+func (vca *VirtControllerApp) buildStorageControllers() {
+	var controllers []storageControllerRunner
+
+	// Snapshot Controller
+	snapshotRecorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
+	snapshotCtrl := &snapshot.VMSnapshotController{
 		Client:                    vca.clientSet,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
 		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
@@ -883,17 +868,17 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		PodInformer:               vca.allPodInformer,
 		DVInformer:                vca.dataVolumeInformer,
 		CRInformer:                vca.controllerRevisionInformer,
-		Recorder:                  recorder,
+		Recorder:                  snapshotRecorder,
 		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
 	}
-	if err := vca.snapshotController.Init(); err != nil {
+	if err := snapshotCtrl.Init(); err != nil {
 		panic(err)
 	}
-}
+	controllers = append(controllers, storageControllerRunner{Name: "snapshot", Ctrl: snapshotCtrl, Threads: vca.snapshotControllerThreads})
 
-func (vca *VirtControllerApp) initRestoreController() {
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
-	vca.restoreController = &snapshot.VMRestoreController{
+	// Restore Controller
+	restoreRecorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
+	restoreCtrl := &snapshot.VMRestoreController{
 		Client:                    vca.clientSet,
 		VMRestoreInformer:         vca.vmRestoreInformer,
 		VMSnapshotInformer:        vca.vmSnapshotInformer,
@@ -903,18 +888,18 @@ func (vca *VirtControllerApp) initRestoreController() {
 		DataVolumeInformer:        vca.dataVolumeInformer,
 		PVCInformer:               vca.persistentVolumeClaimInformer,
 		StorageClassInformer:      vca.storageClassInformer,
-		VolumeSnapshotProvider:    vca.snapshotController,
-		Recorder:                  recorder,
+		VolumeSnapshotProvider:    snapshotCtrl,
+		Recorder:                  restoreRecorder,
 		CRInformer:                vca.controllerRevisionInformer,
 	}
-	if err := vca.restoreController.Init(); err != nil {
+	if err := restoreCtrl.Init(); err != nil {
 		panic(err)
 	}
-}
+	controllers = append(controllers, storageControllerRunner{Name: "restore", Ctrl: restoreCtrl, Threads: vca.restoreControllerThreads})
 
-func (vca *VirtControllerApp) initExportController() {
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
-	vca.exportController = &export.VMExportController{
+	// Export Controller
+	exportRecorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
+	exportCtrl := &export.VMExportController{
 		ManifestRenderer:            vca.templateService,
 		Client:                      vca.clientSet,
 		VMExportInformer:            vca.vmExportInformer,
@@ -922,14 +907,14 @@ func (vca *VirtControllerApp) initExportController() {
 		PodInformer:                 vca.allPodInformer,
 		DataVolumeInformer:          vca.dataVolumeInformer,
 		ServiceInformer:             vca.exportServiceInformer,
-		Recorder:                    recorder,
+		Recorder:                    exportRecorder,
 		ConfigMapInformer:           vca.caExportConfigMapInformer,
 		IngressCache:                vca.ingressCache,
 		RouteCache:                  vca.routeCache,
 		KubevirtNamespace:           vca.kubevirtNamespace,
 		RouteConfigMapInformer:      vca.exportRouteConfigMapInformer,
 		SecretInformer:              vca.unmanagedSecretInformer,
-		VolumeSnapshotProvider:      vca.snapshotController,
+		VolumeSnapshotProvider:      snapshotCtrl,
 		VMSnapshotInformer:          vca.vmSnapshotInformer,
 		VMSnapshotContentInformer:   vca.vmSnapshotContentInformer,
 		VMInformer:                  vca.vmInformer,
@@ -944,40 +929,32 @@ func (vca *VirtControllerApp) initExportController() {
 		VMBackupInformer:            vca.vmBackupInformer,
 		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
 	}
-	if err := vca.exportController.Init(); err != nil {
+	if err := exportCtrl.Init(); err != nil {
 		panic(err)
 	}
-}
+	controllers = append(controllers, storageControllerRunner{Name: "export", Ctrl: exportCtrl, Threads: vca.exportControllerThreads})
 
-func (vca *VirtControllerApp) initCloneController() {
-	var err error
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
-	vca.vmCloneController, err = clonecontroller.NewVmCloneController(
-		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, vca.vmSnapshotContentInformer, vca.persistentVolumeClaimInformer, recorder,
+	// Clone Controller
+	cloneRecorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
+	cloneCtrl, err := clonecontroller.NewVmCloneController(
+		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, vca.vmSnapshotContentInformer, vca.persistentVolumeClaimInformer, cloneRecorder,
 	)
 	if err != nil {
 		panic(err)
 	}
-}
+	controllers = append(controllers, storageControllerRunner{Name: "clone", Ctrl: cloneCtrl, Threads: vca.cloneControllerThreads})
 
-func (vca *VirtControllerApp) initBackupController() {
-	var err error
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "backup-controller")
-	vca.vmBackupController, err = backup.NewVMBackupController(
-		vca.clientSet,
-		vca.vmBackupInformer,
-		vca.vmBackupTrackerInformer,
-		vca.vmInformer,
-		vca.vmiInformer,
-		vca.persistentVolumeClaimInformer,
-		vca.vmExportInformer,
-		vca.caExportConfigMapInformer,
-		recorder,
-		vca.kubevirtNamespace,
+	// Backup Controller
+	backupRecorder := vca.newRecorder(k8sv1.NamespaceAll, "backup-controller")
+	backupCtrl, err := backup.NewVMBackupController(
+		vca.clientSet, vca.vmBackupInformer, vca.vmBackupTrackerInformer, vca.vmInformer, vca.vmiInformer, vca.persistentVolumeClaimInformer, vca.vmExportInformer, vca.caExportConfigMapInformer, backupRecorder, vca.kubevirtNamespace,
 	)
 	if err != nil {
 		panic(err)
 	}
+	controllers = append(controllers, storageControllerRunner{Name: "backup", Ctrl: backupCtrl, Threads: vca.backupControllerThreads})
+
+	vca.storageControllers = controllers
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
