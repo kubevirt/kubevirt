@@ -30,6 +30,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/watch"
 	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/log"
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -78,7 +79,7 @@ var _ = Describe("client", func() {
 		domain := api.NewMinimalDomain("test")
 		metadataCache := metadata.NewCache()
 		notifier := &eventNotifier{}
-		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, vmi, domain, metadataCache, notifier)
+		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, vmi, log.Log.Object(vmi), domain, metadataCache, notifier)
 		monitor.StartMonitor()
 
 		By("Ensuring that nothing gets added to the metadata cache as long as the migration is running")
