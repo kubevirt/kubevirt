@@ -85,7 +85,7 @@ The existing binding mechanisms are:
 Using the bridge binding requires a VMI configuration featuring a
 network whose interface type is `bridge` - the yaml file below can be used
 as reference, but please refer to the
-[user guide](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=bridge)
+[user guide](https://kubevirt.io/user-guide/network/interfaces_and_networks/#bridge)
 for more information.
 ```yaml
 kind: VirtualMachine
@@ -134,6 +134,7 @@ retains it so CNI can still verify the pod's network configuration is intact.
 In phase 2 (executed by virt-launcher, unprivileged) the VM's domain
 configuration is generated.
 
+> [!NOTE]
 > **libvirt/QEMU specific:** The following domain XML example applies to the
 > libvirt/QEMU hypervisor. Other hypervisors may represent this configuration
 > differently.
