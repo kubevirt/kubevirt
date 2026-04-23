@@ -37,6 +37,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 			_, err := sec.SecurityContextConstraints().Create(context.Background(), scc, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.SCC.LowerExpectations(r.kvKey, 1, 0)
+				log.Log.V(2).Infof("failed to create SCC %s: %+v", scc.Name, scc)
 				return fmt.Errorf("unable to create SCC %s: %v", scc.Name, err)
 			}
 
@@ -71,6 +72,7 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 
 	SCC, ok := SCCObj.(*secv1.SecurityContextConstraints)
 	if !ok {
+		log.Log.V(2).Infof("failed to cast object to SecurityContextConstraints: %+v", SCCObj)
 		return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %T", SCCObj)
 	}
 
