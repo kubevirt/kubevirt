@@ -39,6 +39,7 @@ other_images_x86_64_aarch64="
     //cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image
     //cmd/sidecars/network-slirp-binding:network-slirp-binding-image
     //cmd/sidecars/network-passt-binding:network-passt-binding-image
+    //cmd/sidecars/network-bpf-bridge-binding:network-bpf-bridge-binding-image
     //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
     //cmd/pr-helper:pr-helper-image
     //containerimages:cirros-container-disk-image

@@ -17,7 +17,9 @@ RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable crb && \
     dnf install -y --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
+        clang \
         libvirt-devel \
+        libbpf-devel \
         cpio \
         patch \
         make \

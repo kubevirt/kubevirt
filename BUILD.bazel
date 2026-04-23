@@ -276,6 +276,12 @@ oci_push(
 )
 
 oci_push(
+    name = "push-network-bpf-bridge-binding",
+    image = "//cmd/sidecars/network-bpf-bridge-binding:network-bpf-bridge-binding-image",
+    repository = "quay.io/kubevirt/network-bpf-bridge-binding",
+)
+
+oci_push(
     name = "push-network-passt-binding-cni",
     image = "//cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image",
     repository = "quay.io/kubevirt/network-passt-binding-cni",

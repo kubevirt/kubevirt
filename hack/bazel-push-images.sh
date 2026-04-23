@@ -58,6 +58,7 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         winrmcli
         network-slirp-binding
         network-passt-binding
+        network-bpf-bridge-binding
         network-passt-binding-cni
     "
 fi
