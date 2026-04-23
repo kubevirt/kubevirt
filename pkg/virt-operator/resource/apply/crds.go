@@ -8,6 +8,7 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -80,6 +81,19 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 	crd = crd.DeepCopy()
 	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id, true)
 	obj, exists, _ := r.stores.OperatorCrdCache.Get(crd)
+	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
+	if !exists {
+		var err error
+		cachedCrd, err = client.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crd.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			exists = false
+		} else if err != nil {
+			return err
+		} else {
+			exists = true
+		}
+	}
+
 	if !exists {
 		// Create non existent
 		r.expectations.OperatorCrd.RaiseExpectations(r.kvKey, 1, 0)
@@ -94,7 +108,9 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		return nil
 	}
 
-	cachedCrd = obj.(*extv1.CustomResourceDefinition)
+	if cachedCrd == nil {
+		cachedCrd = obj.(*extv1.CustomResourceDefinition)
+	}
 	modified := resourcemerge.BoolPtr(false)
 	expectedGeneration := GetExpectedGeneration(crd, r.kv.Status.Generations)
 

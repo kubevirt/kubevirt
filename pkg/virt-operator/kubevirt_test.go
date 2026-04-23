@@ -318,6 +318,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 	k.extClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		if action.GetVerb() == "get" && action.GetResource().Resource == "customresourcedefinitions" {
+			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, action.(testing.GetAction).GetName())
+		}
 		Expect(action).To(BeNil())
 		return true, nil, nil
 	})
