@@ -21,7 +21,6 @@ const (
 	QueuePriorityUserTriggered     int    = 50
 	QueuePrioritySystemMaintenance int    = 20
 	QueuePriorityDefault           int    = 0
-	QueuePriorityPending           int    = -100
 )
 
 func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
