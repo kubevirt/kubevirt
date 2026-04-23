@@ -43,7 +43,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(context.Background(), serviceMonitor, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ServiceMonitor.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
+			return fmt.Errorf("unable to create serviceMonitor %s: %v", serviceMonitor.Name, err)
 		}
 
 		log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
@@ -71,7 +71,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 
 	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
+		return fmt.Errorf("unable to patch serviceMonitor %s: %v", serviceMonitor.Name, err)
 	}
 
 	log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
@@ -118,7 +118,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 		_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(context.Background(), prometheusRule, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PrometheusRule.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create PrometheusRule %+v: %v", prometheusRule, err)
+			return fmt.Errorf("unable to create PrometheusRule %s: %v", prometheusRule.Name, err)
 		}
 
 		log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
@@ -142,7 +142,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 
 	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
+		return fmt.Errorf("unable to patch PrometheusRule %s: %v", prometheusRule.Name, err)
 	}
 
 	log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
