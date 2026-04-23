@@ -87,16 +87,18 @@ as reference, but please refer to the
 [user guide](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=bridge)
 for more information.
 ```yaml
-kind: VM
+kind: VirtualMachine
 spec:
-  domain:
-    devices:
-      interfaces:
-        - name: default
-          bridge: {}
-  networks:
-  - name: default
-    pod: {} # Stock pod network
+  template:
+    spec:
+      domain:
+        devices:
+          interfaces:
+            - name: default
+              bridge: {}
+      networks:
+      - name: default
+        pod: {}
 ```
 
 Let's refer to the image below to get a better understanding of how this
