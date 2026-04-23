@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -460,7 +461,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 	logger := log.Log.With("VirtualMachineBackup", backup.Name)
 	backupDeleting := isBackupDeleting(backup)
 	// If backup is done and not being deleted, nothing to do
-	if IsBackupDone(backup.Status) {
+	if IsBackupDone(backup) {
 		if !backupDeleting {
 			logger.V(4).Info("Backup is already done, skipping reconciliation")
 			return nil
@@ -488,7 +489,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 		return syncInfoError(err)
 	}
 
-	if isBackupInitializing(backup.Status) {
+	if isBackupInitializing(backup) {
 		if backupDeleting {
 			logger.V(3).Infof("Backup deleting during initialization")
 			if !vmiExists {
@@ -543,7 +544,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 		return ctrl.handleBackupInitiation(backup, vmi, backupTracker, logger)
 	}
 
-	if isBackupProgressing(backup.Status) {
+	if isBackupProgressing(backup) {
 		if !vmiExists {
 			return &SyncInfo{
 				event:  backupFailedEvent,
@@ -655,7 +656,7 @@ func (ctrl *VMBackupController) handleBackupInitiation(backup *backupv1.VirtualM
 }
 
 func (ctrl *VMBackupController) handleAbort(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) *SyncInfo {
-	if isBackupAborting(backup.Status) {
+	if isBackupAborting(backup) {
 		return nil
 	}
 
@@ -697,19 +698,19 @@ func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBa
 		return ctrl.handlePullModeTTLExpiry(backup, vmi)
 	}
 
-	if !isBackupExportInitialized(backup.Status) {
+	if !isBackupExportInitialized(backup) {
 		if syncInfo := ctrl.handlePrepareBackupExport(backup, vmi); syncInfo != nil {
 			return syncInfo
 		}
 	}
 
-	if !isBackupExportReady(backup.Status) {
+	if !isBackupExportReady(backup) {
 		if syncInfo := ctrl.waitForBackupExportReady(backup, vmi); syncInfo != nil {
 			return syncInfo
 		}
 	}
 
-	if isBackupExportReady(backup.Status) {
+	if isBackupExportReady(backup) {
 		if syncInfo := ctrl.validateExportHealth(backup); syncInfo != nil {
 			return syncInfo
 		}
@@ -933,64 +934,76 @@ func (ctrl *VMBackupController) cleanupBackupExport(backup *backupv1.VirtualMach
 func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBackup, syncInfo *SyncInfo, logger *log.FilteredLogger) error {
 	backupOut := backup.DeepCopy()
 
-	if backup.Status == nil {
+	if backupOut.Status == nil {
 		backupOut.Status = &backupv1.VirtualMachineBackupStatus{}
-		updateBackupCondition(backupOut, newInitializingCondition(corev1.ConditionTrue, backupInitializing))
-		updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionFalse, backupInitializing))
+		meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionInitializing), metav1.ConditionTrue, "Initializing", backupInitializing))
+		meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionFalse, "Initializing", backupInitializing))
 	}
 
 	if syncInfo != nil {
 		switch syncInfo.event {
 		case backupInitializingEvent:
-			updateBackupCondition(backupOut, newInitializingCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionFalse, syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionInitializing), metav1.ConditionTrue, "Initializing", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionFalse, "Initializing", syncInfo.reason))
+
 		case backupInitiatedEvent:
-			removeBackupCondition(backupOut, backupv1.ConditionInitializing)
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionFalse, syncInfo.reason))
+			meta.RemoveStatusCondition(&backupOut.Status.Conditions, string(backupv1.ConditionInitializing))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Initiated", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionDone), metav1.ConditionFalse, "Initiated", syncInfo.reason))
 			if syncInfo.backupType != "" {
 				backupOut.Status.Type = syncInfo.backupType
 			}
+
 		case backupPreparingVMExportEvent:
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newExportInitiatedCondition(corev1.ConditionFalse, syncInfo.reason))
-			updateBackupCondition(backupOut, newExportReadyCondition(corev1.ConditionFalse, syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "PreparingExport", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionFalse, "PreparingExport", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionExportReady), metav1.ConditionFalse, "PreparingExport", syncInfo.reason))
+
 		case backupExportInitiatedEvent:
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newExportInitiatedCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newExportReadyCondition(corev1.ConditionFalse, syncInfo.reason))
-			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionFalse, syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "ExportInitiated", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionExportReady), metav1.ConditionFalse, "ExportInitiated", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionDone), metav1.ConditionFalse, "ExportInitiated", syncInfo.reason))
+
 		case backupExportReadyEvent:
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newExportInitiatedCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newExportReadyCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionFalse, syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "ExportReady", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportReady", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionExportReady), metav1.ConditionTrue, "ExportReady", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionDone), metav1.ConditionFalse, "ExportReady", syncInfo.reason))
 			if syncInfo.caCert != nil {
 				backupOut.Status.EndpointCert = syncInfo.caCert
 			}
+
 		case backupAbortingEvent:
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionTrue, syncInfo.reason))
-			updateBackupCondition(backupOut, newAbortingCondition(corev1.ConditionTrue, syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Aborting", syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionAborting), metav1.ConditionTrue, "Aborting", syncInfo.reason))
 			eventSev := corev1.EventTypeNormal
-			if isPushMode(backup) {
+			if isPushMode(backupOut) {
 				eventSev = corev1.EventTypeWarning
 			}
 			ctrl.recorder.Eventf(backupOut, eventSev, backupAbortingEvent, syncInfo.reason)
+
 		case backupCompletedEvent, backupCompletedWithWarningEvent, backupFailedEvent:
+			condReason := "Completed"
 			switch syncInfo.event {
 			case backupFailedEvent:
+				condReason = "Failed"
 				ctrl.recorder.Eventf(backupOut, corev1.EventTypeWarning, backupFailedEvent, syncInfo.reason)
 			case backupCompletedWithWarningEvent:
+				condReason = "CompletedWithWarning"
 				ctrl.recorder.Eventf(backupOut, corev1.EventTypeWarning, backupCompletedWithWarningEvent, syncInfo.reason)
 			case backupCompletedEvent:
 				ctrl.recorder.Eventf(backupOut, corev1.EventTypeNormal, backupCompletedEvent, syncInfo.reason)
 			}
-			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionFalse, syncInfo.reason))
-			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionTrue, syncInfo.reason))
-			if isBackupAborting(backup.Status) {
-				updateBackupCondition(backupOut, newAbortingCondition(corev1.ConditionFalse, syncInfo.reason))
+
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionProgressing), metav1.ConditionFalse, condReason, syncInfo.reason))
+			meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionDone), metav1.ConditionTrue, condReason, syncInfo.reason))
+
+			if isBackupAborting(backupOut) {
+				meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionAborting), metav1.ConditionFalse, condReason, syncInfo.reason))
 			}
 		}
+
 		if len(syncInfo.includedVolumes) > 0 {
 			backupOut.Status.IncludedVolumes = syncInfo.includedVolumes
 		}
@@ -1001,7 +1014,7 @@ func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBack
 
 	if isBackupDeleting(backupOut) && controller.HasFinalizer(backupOut, vmBackupFinalizer) {
 		logger.Info("update backup is deleting")
-		updateBackupCondition(backupOut, newDeletingCondition(corev1.ConditionTrue, backupDeleting))
+		meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionDeleting), metav1.ConditionTrue, "Deleting", backupDeleting))
 	}
 
 	if !equality.Semantic.DeepEqual(backup.Status, backupOut.Status) {
@@ -1361,7 +1374,7 @@ func (ctrl *VMBackupController) cleanup(backup *backupv1.VirtualMachineBackup, v
 	detached := ctrl.backupTargetPVCDetached(vmi, volumeName)
 	if !detached {
 		event := backupInitializingEvent
-		if isBackupProgressing(backup.Status) {
+		if isBackupProgressing(backup) {
 			event = backupInitiatedEvent
 		}
 		return false, ctrl.detachBackupTargetPVC(vmi, volumeName, event)
@@ -1375,108 +1388,36 @@ func (ctrl *VMBackupController) cleanup(backup *backupv1.VirtualMachineBackup, v
 	return true, nil
 }
 
-func isBackupInitializing(status *backupv1.VirtualMachineBackupStatus) bool {
-	return status == nil || hasCondition(status.Conditions, backupv1.ConditionInitializing)
-}
-
-func isBackupProgressing(status *backupv1.VirtualMachineBackupStatus) bool {
-	return status != nil && hasCondition(status.Conditions, backupv1.ConditionProgressing)
-}
-
-func isBackupExportInitialized(status *backupv1.VirtualMachineBackupStatus) bool {
-	return status != nil && hasCondition(status.Conditions, backupv1.ConditionExportInitiated)
-}
-
-func isBackupExportReady(status *backupv1.VirtualMachineBackupStatus) bool {
-	return status != nil && hasCondition(status.Conditions, backupv1.ConditionExportReady)
-}
-
-func isBackupAborting(status *backupv1.VirtualMachineBackupStatus) bool {
-	return status != nil && hasCondition(status.Conditions, backupv1.ConditionAborting)
-}
-
-func IsBackupDone(status *backupv1.VirtualMachineBackupStatus) bool {
-	return status != nil && hasCondition(status.Conditions, backupv1.ConditionDone)
-}
-
-func updateCondition(conditions []backupv1.Condition, c backupv1.Condition) []backupv1.Condition {
-	found := false
-	for i := range conditions {
-		if conditions[i].Type == c.Type {
-			if conditions[i].Status != c.Status || conditions[i].Reason != c.Reason || conditions[i].Message != c.Message {
-				conditions[i] = c
-			}
-			found = true
-			break
-		}
+func backupConditions(backup *backupv1.VirtualMachineBackup) []metav1.Condition {
+	if backup != nil && backup.Status != nil {
+		return backup.Status.Conditions
 	}
-
-	if !found {
-		conditions = append(conditions, c)
-	}
-
-	return conditions
+	return nil
 }
 
-func newCondition(condType backupv1.ConditionType, status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return backupv1.Condition{
-		Type:               condType,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: metav1.Now(),
-	}
+func isBackupInitializing(backup *backupv1.VirtualMachineBackup) bool {
+	conds := backupConditions(backup)
+	return conds == nil || meta.IsStatusConditionTrue(conds, string(backupv1.ConditionInitializing))
 }
 
-func newInitializingCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionInitializing, status, reason)
+func isBackupProgressing(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionProgressing))
 }
 
-func newDoneCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionDone, status, reason)
+func IsBackupDone(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionDone))
 }
 
-func newProgressingCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionProgressing, status, reason)
+func isBackupAborting(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionAborting))
 }
 
-func newExportInitiatedCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionExportInitiated, status, reason)
+func isBackupExportInitialized(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionExportInitiated))
 }
 
-func newExportReadyCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionExportReady, status, reason)
-}
-
-func newAbortingCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionAborting, status, reason)
-}
-
-func newDeletingCondition(status corev1.ConditionStatus, reason string) backupv1.Condition {
-	return newCondition(backupv1.ConditionDeleting, status, reason)
-}
-
-func hasCondition(conditions []backupv1.Condition, condType backupv1.ConditionType) bool {
-	for _, cond := range conditions {
-		if cond.Type == condType {
-			return cond.Status == corev1.ConditionTrue
-		}
-	}
-	return false
-}
-
-func updateBackupCondition(b *backupv1.VirtualMachineBackup, c backupv1.Condition) {
-	b.Status.Conditions = updateCondition(b.Status.Conditions, c)
-}
-
-func removeBackupCondition(b *backupv1.VirtualMachineBackup, cType backupv1.ConditionType) {
-	var conds []backupv1.Condition
-	for _, c := range b.Status.Conditions {
-		if c.Type == cType {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	b.Status.Conditions = conds
+func isBackupExportReady(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionExportReady))
 }
 
 func isBackupDeleting(backup *backupv1.VirtualMachineBackup) bool {
@@ -1516,4 +1457,13 @@ func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Du
 func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
 	ttl := getPullBackupTTL(backup)
 	return time.Since(backup.CreationTimestamp.Time) >= ttl.Duration
+}
+
+func newCondition(condType string, status metav1.ConditionStatus, reason, message string) metav1.Condition {
+	return metav1.Condition{
+		Type:    condType,
+		Status:  status,
+		Reason:  reason,
+		Message: message,
+	}
 }
