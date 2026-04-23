@@ -1,13 +1,9 @@
 package asm
 
-//go:generate stringer -output func_string.go -type=BuiltinFunc
+//go:generate go run golang.org/x/tools/cmd/stringer@latest -output func_string.go -type=BuiltinFunc
 
 // BuiltinFunc is a built-in eBPF function.
 type BuiltinFunc int32
-
-func (_ BuiltinFunc) Max() BuiltinFunc {
-	return maxBuiltinFunc - 1
-}
 
 // eBPF built-in functions
 //
@@ -237,8 +233,6 @@ const (
 	FnUserRingbufDrain
 	FnCgrpStorageGet
 	FnCgrpStorageDelete
-
-	maxBuiltinFunc
 )
 
 // Call emits a function call.

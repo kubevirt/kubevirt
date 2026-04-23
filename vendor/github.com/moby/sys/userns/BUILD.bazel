@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "userns.go",
+        "userns_linux.go",
+        "userns_unsupported.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/moby/sys/userns",
+    importpath = "github.com/moby/sys/userns",
+    visibility = ["//visibility:public"],
+)

@@ -12,6 +12,14 @@ type RelayOptions struct {
 
 var relayHumanizer = OptionHumanizer{
 	ValueHumanizer: func(code OptionCode, data []byte) fmt.Stringer {
+		var d OptionDecoder
+		switch code {
+		case LinkSelectionSubOption, ServerIdentifierOverrideSubOption:
+			d = &IPs{}
+		}
+		if d != nil && d.FromBytes(data) == nil {
+			return d
+		}
 		return raiSubOptionValue{data}
 	},
 	CodeHumanizer: func(c uint8) OptionCode {
@@ -42,7 +50,7 @@ type raiSubOptionValue struct {
 }
 
 func (rv raiSubOptionValue) String() string {
-	return fmt.Sprintf("%s (%v)", string(rv.val), rv.val)
+	return fmt.Sprintf("%q (%v)", string(rv.val), rv.val)
 }
 
 type raiSubOptionCode uint8
