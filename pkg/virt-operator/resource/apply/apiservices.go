@@ -54,6 +54,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		_, err := r.aggregatorclient.Create(context.Background(), apiService, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.APIService.LowerExpectations(r.kvKey, 1, 0)
+			log.Log.V(2).Infof("failed to create apiservice %s: %+v", apiService.Name, apiService)
 			return fmt.Errorf("unable to create apiservice %s: %v", apiService.Name, err)
 		}
 
@@ -80,6 +81,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 
 	_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
+		log.Log.V(2).Infof("failed to patch apiservice %s: %+v", apiService.Name, apiService)
 		return fmt.Errorf("unable to patch apiservice %s: %v", apiService.Name, err)
 	}
 	log.Log.V(4).Infof("apiservice %v updated", apiService.GetName())
