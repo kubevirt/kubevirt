@@ -89,10 +89,11 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	obj, exists, _ := r.stores.DeploymentCache.Get(deployment)
 	if !exists {
 		r.expectations.Deployment.RaiseExpectations(r.kvKey, 1, 0)
+		deploymentName := deployment.Name
 		deployment, err := apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Deployment.LowerExpectations(r.kvKey, 1, 0)
-			return nil, fmt.Errorf("unable to create deployment %s: %v", deployment.Name, err)
+			return nil, fmt.Errorf("unable to create deployment %s: %v", deploymentName, err)
 		}
 
 		SetGeneration(&kv.Status.Generations, deployment)
@@ -389,10 +390,11 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 			unattachCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 		}
 
+		daemonSetName := daemonSet.Name
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.DaemonSet.LowerExpectations(r.kvKey, 1, 0)
-			return false, fmt.Errorf("unable to create daemonset %s: %v", daemonSet.Name, err)
+			return false, fmt.Errorf("unable to create daemonset %s: %v", daemonSetName, err)
 		}
 
 		SetGeneration(&kv.Status.Generations, daemonSet)
@@ -455,10 +457,11 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 
 	if !exists {
 		r.expectations.PodDisruptionBudget.RaiseExpectations(r.kvKey, 1, 0)
+		pdbName := podDisruptionBudget.Name
 		podDisruptionBudget, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create poddisruptionbudget %s: %v", podDisruptionBudget.Name, err)
+			return fmt.Errorf("unable to create poddisruptionbudget %s: %v", pdbName, err)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
 		SetGeneration(&kv.Status.Generations, podDisruptionBudget)

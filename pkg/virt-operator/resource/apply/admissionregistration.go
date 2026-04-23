@@ -201,10 +201,11 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 
 	if !exists {
 		r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
+		webhookName := webhook.Name
 		webhook, err := r.createValidatingWebhookConfiguration(webhook)
 		if err != nil {
 			r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create validatingwebhook %s: %v", webhook.GetName(), err)
+			return fmt.Errorf("unable to create validatingwebhook %s: %v", webhookName, err)
 		}
 
 		SetGeneration(&r.kv.Status.Generations, webhook)
@@ -343,10 +344,11 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 
 	if !exists {
 		r.expectations.MutatingWebhook.RaiseExpectations(r.kvKey, 1, 0)
+		webhookName := webhook.Name
 		webhook, err := r.createMutatingWebhookConfiguration(webhook)
 		if err != nil {
 			r.expectations.MutatingWebhook.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create mutatingwebhook %s: %v", webhook.GetName(), err)
+			return fmt.Errorf("unable to create mutatingwebhook %s: %v", webhookName, err)
 		}
 
 		SetGeneration(&r.kv.Status.Generations, webhook)
