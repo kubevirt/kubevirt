@@ -2679,6 +2679,81 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		})
 
+		It("should update CRDs via fallback API Get when not found in informer cache", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			err := kvTestData.controller.stores.NamespaceCache.Add(&k8sv1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Namespace",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: NAMESPACE,
+					Labels: map[string]string{
+						"openshift.io/cluster-monitoring": "true",
+					},
+				},
+			})
+			Expect(err).To(Not(HaveOccurred()))
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Generation: int64(1),
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:              v1.KubeVirtPhaseDeployed,
+					ObservedGeneration: pointer.P(int64(1)),
+				},
+			}
+			enableTemplateFeatureGate(kv)
+			enableContainerPathVolumesFeatureGate(kv)
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			// Save the CRDs before removing them from cache
+			cachedCrds := kvTestData.controller.stores.OperatorCrdCache.List()
+			Expect(cachedCrds).ToNot(BeEmpty())
+
+			// Remove all CRDs from the informer cache to simulate a label
+			// mismatch (e.g. managed-by: kustomize instead of virt-operator)
+			for _, obj := range cachedCrds {
+				kvTestData.controller.stores.OperatorCrdCache.Delete(obj)
+			}
+			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(BeEmpty())
+
+			// Register a get reactor that returns CRDs from the API server,
+			// simulating CRDs that exist on the cluster but are not in cache
+			kvTestData.extClient.Fake.PrependReactor("get", "customresourcedefinitions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				getAction := action.(testing.GetAction)
+				for _, cached := range cachedCrds {
+					crd := cached.(*extv1.CustomResourceDefinition)
+					if crd.Name == getAction.GetName() {
+						return true, crd, nil
+					}
+				}
+				return true, nil, errors.NewNotFound(schema.GroupResource{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"}, getAction.GetName())
+			})
+
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectCreations()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+
+			kvTestData.controller.Execute()
+
+			kv = kvTestData.getLatestKubeVirt(kv)
+			// Verify the operator reached deployed state (not stuck in error loop)
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
+		})
+
 		It("should pause rollback until api server is rolled over.", func() {
 			defer GinkgoRecover()
 
