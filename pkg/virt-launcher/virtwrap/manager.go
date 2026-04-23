@@ -1687,17 +1687,32 @@ func isHotplugDisk(disk api.Disk) bool {
 	return strings.HasPrefix(getSourceFile(disk), v1.HotplugDiskDir)
 }
 
+// diskKey returns a stable identity for a Disk. Prefers the user-defined alias,
+// then the hotplug source-path basename, and falls back to target.device for
+// non-hotplug disks.
+func diskKey(disk api.Disk) string {
+	if disk.Alias != nil {
+		if name := disk.Alias.GetName(); name != "" {
+			return name
+		}
+	}
+	if isHotplugDisk(disk) {
+		return filepath.Base(getSourceFile(disk))
+	}
+	return disk.Target.Device
+}
+
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	newDiskMap := make(map[string]api.Disk)
 	for _, disk := range newDisks {
-		newDiskMap[disk.Target.Device] = disk
+		newDiskMap[diskKey(disk)] = disk
 	}
 	res := make([]api.Disk, 0)
 	for _, oldDisk := range oldDisks {
 		if !isHotplugDisk(oldDisk) {
 			continue
 		}
-		if _, ok := newDiskMap[oldDisk.Target.Device]; !ok {
+		if _, ok := newDiskMap[diskKey(oldDisk)]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
 		}
@@ -1708,14 +1723,14 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	oldDiskMap := make(map[string]api.Disk)
 	for _, disk := range oldDisks {
-		oldDiskMap[disk.Target.Device] = disk
+		oldDiskMap[diskKey(disk)] = disk
 	}
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
 		if !isHotplugDisk(newDisk) {
 			continue
 		}
-		if _, ok := oldDiskMap[newDisk.Target.Device]; !ok {
+		if _, ok := oldDiskMap[diskKey(newDisk)]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)
 		}
@@ -1730,11 +1745,11 @@ func isHotPlugDiskOrEmpty(disk api.Disk) bool {
 func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	oldDiskMap := make(map[string]api.Disk)
 	for _, disk := range oldDisks {
-		oldDiskMap[disk.Target.Device] = disk
+		oldDiskMap[diskKey(disk)] = disk
 	}
 	var res []api.Disk
 	for _, newDisk := range newDisks {
-		oldDisk, ok := oldDiskMap[newDisk.Target.Device]
+		oldDisk, ok := oldDiskMap[diskKey(newDisk)]
 		if !ok {
 			continue
 		}
