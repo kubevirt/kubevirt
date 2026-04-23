@@ -439,12 +439,10 @@ func (c *Controller) execute(key string) error {
 		if err != nil {
 			return err
 		}
-		if c.clusterConfig.MigrationPriorityQueueEnabled() {
-			// re-enqueue of highest priority pending migration since now there is a free spot
-			err = c.reEnqueueHighestPriorityPendingMigrations()
-			if err != nil {
-				return err
-			}
+		// re-enqueue of highest priority pending migration since now there is a free spot
+		err = c.reEnqueueHighestPriorityPendingMigrations()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1378,13 +1376,9 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		if c.clusterConfig.MigrationPriorityQueueEnabled() {
-			priority := migrationsutil.PriorityFromMigration(migration)
-			delay := getRequeueDelayForPriority(*priority)
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, key)
-		} else {
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(migrationsutil.QueuePriorityPending), After: 5 * time.Second}, key)
-		}
+		priority := migrationsutil.PriorityFromMigration(migration)
+		delay := getRequeueDelayForPriority(*priority)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, key)
 
 		return nil
 	}
@@ -1395,13 +1389,9 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
-		if c.clusterConfig.MigrationPriorityQueueEnabled() {
-			priority := migrationsutil.PriorityFromMigration(migration)
-			delay := getRequeueDelayForPriority(*priority)
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, key)
-		} else {
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(migrationsutil.QueuePriorityPending), After: 5 * time.Second}, key)
-		}
+		priority := migrationsutil.PriorityFromMigration(migration)
+		delay := getRequeueDelayForPriority(*priority)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, key)
 		return nil
 	}
 
@@ -1620,13 +1610,9 @@ func (c *Controller) handleVMBackup(migration *virtv1.VirtualMachineInstanceMigr
 		return true, err
 	}
 
-	if c.clusterConfig.MigrationPriorityQueueEnabled() {
-		priority := migrationsutil.PriorityFromMigration(migration)
-		delay := getRequeueDelayForPriority(*priority)
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, migrationKey)
-	} else {
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(migrationsutil.QueuePriorityPending), After: 5 * time.Second}, migrationKey)
-	}
+	priority := migrationsutil.PriorityFromMigration(migration)
+	delay := getRequeueDelayForPriority(*priority)
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, migrationKey)
 
 	return true, nil
 }
@@ -2031,13 +2017,7 @@ func (c *Controller) enqueueMigration(obj interface{}) {
 	if migration.Status.Phase == virtv1.MigrationRunning {
 		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(migrationsutil.QueuePriorityRunning)}, key)
 	} else {
-		if c.clusterConfig.MigrationPriorityQueueEnabled() {
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration)}, key)
-		} else {
-			// If the key is already in the queue at active priority or higher, it will keep that priority.
-			// If the key is already in the queue at pending priority, it will be bumped to 0 (still below all active ones).
-			c.Queue.Add(key)
-		}
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: migrationsutil.PriorityFromMigration(migration)}, key)
 	}
 }
 

@@ -185,10 +185,6 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }
 
-func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.MigrationPriorityQueue)
-}
-
 func (config *ClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PodSecondaryInterfaceNamingUpgrade)
 }

@@ -137,15 +137,6 @@ const (
 	// PasstBinding enables the use of passt core network binding
 	PasstBinding = "PasstBinding"
 
-	// MigrationPriorityQueue enables controllers to assign priorities to migrations,
-	// ensuring system-initiated migrations (e.g., node drains, upgrades) take precedence
-	// over user-initiated ones (e.g., hot plug operations).
-	// Owner: sig-compute / @fossedihelm
-	// Alpha: v1.7.0
-	// Beta: v1.8.0
-	//
-	MigrationPriorityQueue = "MigrationPriorityQueue"
-
 	// Owner: @harshitgupta1337
 	// Alpha: v1.8.0
 	// This feature is disabled by default. When enabled, it allows using
@@ -303,7 +294,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
