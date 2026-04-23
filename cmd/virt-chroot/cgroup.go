@@ -8,15 +8,16 @@ import (
 	"runtime"
 	"syscall"
 
-	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
-	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	_ "github.com/opencontainers/cgroups/devices"
+	runc_fs "github.com/opencontainers/cgroups/fs"
+	runc_fs2 "github.com/opencontainers/cgroups/fs2"
 
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
-func decodeResources(marshalledResourcesHash string) (*runc_configs.Resources, error) {
-	var unmarshalledResources runc_configs.Resources
+func decodeResources(marshalledResourcesHash string) (*runc_cgroups.Resources, error) {
+	var unmarshalledResources runc_cgroups.Resources
 
 	marshalledResources, err := base64.StdEncoding.DecodeString(marshalledResourcesHash)
 	if err != nil {
@@ -51,8 +52,8 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *runc_configs.Resources, isRootless bool, isV2 bool) error {
-	config := &runc_configs.Cgroup{
+func setCgroupResources(paths map[string]string, resources *runc_cgroups.Resources, isRootless bool, isV2 bool) error {
+	config := &runc_cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
 		Rootless:  isRootless,
@@ -73,7 +74,7 @@ func setCgroupResources(paths map[string]string, resources *runc_configs.Resourc
 	return nil
 }
 
-func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
+func setCgroupResourcesV1(paths map[string]string, resources *runc_cgroups.Resources, config *runc_cgroups.Cgroup) error {
 	return RunWithChroot(cgroupconsts.HostCgroupBasePath, func() error {
 		cgroupManager, err := runc_fs.NewManager(config, paths)
 		if err != nil {
@@ -83,7 +84,7 @@ func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resou
 	})
 }
 
-func setCgroupResourcesV2(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
+func setCgroupResourcesV2(paths map[string]string, resources *runc_cgroups.Resources, config *runc_cgroups.Cgroup) error {
 	for _, path := range paths {
 		mgr, err := runc_fs2.NewManager(config, path)
 		if err != nil {

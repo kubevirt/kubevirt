@@ -23,12 +23,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/devices"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	devices "github.com/opencontainers/cgroups/devices/config"
 	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -61,7 +61,7 @@ var _ = Describe("cgroup manager", func() {
 			return paths
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		execVirtChrootFunc := func(r *runc_cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
 			rulesDefined = r.Devices
 			subsystemPathsDefined = subsystemPaths
 			return nil
@@ -82,8 +82,8 @@ var _ = Describe("cgroup manager", func() {
 		return newMockManagerFromCtrl(ctrl, version)
 	}
 
-	newResourcesWithRule := func(rule *devices.Rule) *runc_configs.Resources {
-		return &runc_configs.Resources{
+	newResourcesWithRule := func(rule *devices.Rule) *runc_cgroups.Resources {
+		return &runc_cgroups.Resources{
 			Devices: []*devices.Rule{
 				rule,
 			},
@@ -244,6 +244,102 @@ var _ = Describe("GetMiscCapacity", func() {
 		),
 		Entry("produces error for non-numeric capacity",
 			"tdx abc\n", "tdx", 0, true,
+		),
+	)
+})
+
+var _ = Describe("parseDevicesList", func() {
+	DescribeTable("should parse valid devices.list entries",
+		func(input string, expected []*devices.Rule) {
+			rules, err := parseDevicesList(strings.NewReader(input))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rules).To(Equal(expected))
+		},
+		Entry("single block device",
+			"b 8:0 rwm\n",
+			[]*devices.Rule{{
+				Type: devices.BlockDevice, Major: 8, Minor: 0,
+				Permissions: "rwm", Allow: true,
+			}},
+		),
+		Entry("single char device",
+			"c 1:3 rw\n",
+			[]*devices.Rule{{
+				Type: devices.CharDevice, Major: 1, Minor: 3,
+				Permissions: "rw", Allow: true,
+			}},
+		),
+		Entry("wildcard major and minor",
+			"c *:* rwm\n",
+			[]*devices.Rule{{
+				Type: devices.CharDevice, Major: devices.Wildcard, Minor: devices.Wildcard,
+				Permissions: "rwm", Allow: true,
+			}},
+		),
+		Entry("wildcard major only",
+			"b *:0 r\n",
+			[]*devices.Rule{{
+				Type: devices.BlockDevice, Major: devices.Wildcard, Minor: 0,
+				Permissions: "r", Allow: true,
+			}},
+		),
+		Entry("wildcard minor only",
+			"c 5:* rw\n",
+			[]*devices.Rule{{
+				Type: devices.CharDevice, Major: 5, Minor: devices.Wildcard,
+				Permissions: "rw", Allow: true,
+			}},
+		),
+		Entry("multiple rules",
+			"c 1:3 rwm\nb 8:0 rw\nc 136:* rw\n",
+			[]*devices.Rule{
+				{Type: devices.CharDevice, Major: 1, Minor: 3, Permissions: "rwm", Allow: true},
+				{Type: devices.BlockDevice, Major: 8, Minor: 0, Permissions: "rw", Allow: true},
+				{Type: devices.CharDevice, Major: 136, Minor: devices.Wildcard, Permissions: "rw", Allow: true},
+			},
+		),
+		Entry("'a' wildcard line is skipped",
+			"a *:* rwm\nc 1:3 rw\n",
+			[]*devices.Rule{{
+				Type: devices.CharDevice, Major: 1, Minor: 3,
+				Permissions: "rw", Allow: true,
+			}},
+		),
+		Entry("only 'a' wildcard yields empty list",
+			"a *:* rwm\n",
+			([]*devices.Rule)(nil),
+		),
+		Entry("empty input",
+			"",
+			([]*devices.Rule)(nil),
+		),
+	)
+
+	DescribeTable("should reject malformed input",
+		func(input string, errSubstring string) {
+			_, err := parseDevicesList(strings.NewReader(input))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(errSubstring))
+		},
+		Entry("too few fields",
+			"b 8:0\n",
+			"malformed devices.list rule",
+		),
+		Entry("unknown device type",
+			"x 8:0 rwm\n",
+			"unknown device type",
+		),
+		Entry("invalid major number",
+			"c abc:0 rwm\n",
+			"invalid major number",
+		),
+		Entry("invalid minor number",
+			"b 8:abc rwm\n",
+			"invalid minor number",
+		),
+		Entry("too many fields",
+			"b 8 0 rwm extra\n",
+			"malformed devices.list rule",
 		),
 	)
 })

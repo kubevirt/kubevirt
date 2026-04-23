@@ -32,9 +32,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 
-	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/devices"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	devices "github.com/opencontainers/cgroups/devices/config"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -50,7 +49,7 @@ import (
 // guide-line is to have the thinnest glue layer possible in order to have all runc's capabilities without extra effort.
 // This interface can, of course, extend runc and introduce new functionalities that are specific to Kubevirt's use.
 type Manager interface {
-	Set(r *configs.Resources) error
+	Set(r *runc_cgroups.Resources) error
 
 	// GetBasePathToHostSubsystem returns the path to the specified subsystem
 	// from the host's viewpoint.
@@ -106,9 +105,9 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
 
-	config := &configs.Cgroup{
+	config := &runc_cgroups.Cgroup{
 		Path: cgroupconsts.HostCgroupBasePath,
-		Resources: &configs.Resources{
+		Resources: &runc_cgroups.Resources{
 			Devices: deviceRules,
 		},
 		Rootless: isRootless,

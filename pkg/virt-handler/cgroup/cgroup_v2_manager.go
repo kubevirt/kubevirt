@@ -27,10 +27,9 @@ import (
 	"strconv"
 	"strings"
 
-	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/devices"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	devices "github.com/opencontainers/cgroups/devices/config"
+	runc_fs "github.com/opencontainers/cgroups/fs2"
 
 	"kubevirt.io/client-go/log"
 
@@ -45,7 +44,7 @@ type v2Manager struct {
 	execVirtChroot execVirtChrootFunc
 }
 
-func newV2Manager(config *runc_configs.Cgroup, dirPath string) (Manager, error) {
+func newV2Manager(config *runc_cgroups.Cgroup, dirPath string) (Manager, error) {
 	runcManager, err := runc_fs.NewManager(config, dirPath)
 	if err != nil {
 		return nil, err
@@ -75,7 +74,7 @@ func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
 	return v.dirPath, nil
 }
 
-func (v *v2Manager) Set(r *runc_configs.Resources) error {
+func (v *v2Manager) Set(r *runc_cgroups.Resources) error {
 	// We want to keep given resources untouched
 	resourcesToSet := *r
 
