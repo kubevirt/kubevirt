@@ -59,8 +59,9 @@ the in-pod DHCP server to bind to a privileged port.
 
 In this second phase, virt-launcher generates the VM's domain configuration
 based on the selected binding mechanism and interface information read from
-netlink. For bridge binding, it additionally starts an in-pod DHCP server
-using the configuration written by virt-handler in phase 1.
+netlink. It also starts an in-pod DHCP server — for bridge binding, it serves
+the configuration written by virt-handler in phase 1; for masquerade binding,
+it serves addressing derived from the configured CIDR.
 
 The domain configuration is specific to each
 [binding mechanism](#binding-mechanisms), as each leads to a different
@@ -125,7 +126,7 @@ bridge port. Its MAC address is replaced and its IP addresses are removed.
 
 To preserve the original network identity, a dummy interface is created under
 the original pod interface name (e.g. `eth0`). It holds the original MAC
-address, IP address(es), MTU, and routes. This allows the container runtime
+address, IP address(es) and MTU. This allows the container runtime
 to continue answering CNI CHECK commands at runtime: since the IP has been
 moved to the guest and removed from the renamed pod interface, the dummy
 retains it so CNI can still verify the pod's network configuration is intact.
