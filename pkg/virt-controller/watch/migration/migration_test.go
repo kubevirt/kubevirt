@@ -26,9 +26,6 @@ import (
 	"strings"
 	"time"
 
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -57,6 +54,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 	kvtesting "kubevirt.io/client-go/testing"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -65,7 +63,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -2733,30 +2730,37 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Priority queue", func() {
-		It("should properly re-enqueue pending migrations as low priority when no new migration can start", func() {
-			setConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				},
-			})
+		It("new items should have a priority strictly lower than active and higher than default", func() {
+			controller.Queue.Add("default/testmigrationpending")
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
+			Expect(priority).To(BeNumerically(">=", migrationsutil.QueuePriorityDefault))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("should properly re-enqueue pending migrations with the defined priority when no new migration can start", func() {
 			By("Creating 1 pending migration. It will be picked up by the call to Execute()")
 			vmi := newVirtualMachine("testvmipending", v1.Running)
 			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			By("Creating 5 running migrations")
+			const migrationNamePrefix = "testmigration%d"
+			By("Creating 5 running system maintenance migrations")
 			for i := range 5 {
 				vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
-				migration := newMigration(fmt.Sprintf("testmigration%d", i), vmi.Name, v1.MigrationRunning)
+				migration := newMigration(fmt.Sprintf(migrationNamePrefix, i), vmi.Name, v1.MigrationRunning)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
 				pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 				addPod(pod)
 			}
 
-			By("Executing the controller and expecting the pending migration to have a low priority")
+			By("Executing the controller and expecting the pending migration to have the defined priority")
 			controller.Execute()
 			runningMigrationsFromQueue := make([]string, 0, 5)
 			for range 5 {
@@ -2767,57 +2771,64 @@ var _ = Describe("Migration watcher", func() {
 			}
 			Expect(runningMigrationsFromQueue).To(
 				ConsistOf(
-					"default/testmigration0",
-					"default/testmigration1",
-					"default/testmigration2",
-					"default/testmigration3",
-					"default/testmigration4",
+					fmt.Sprintf("default/"+migrationNamePrefix, 0),
+					fmt.Sprintf("default/"+migrationNamePrefix, 1),
+					fmt.Sprintf("default/"+migrationNamePrefix, 2),
+					fmt.Sprintf("default/"+migrationNamePrefix, 3),
+					fmt.Sprintf("default/"+migrationNamePrefix, 4),
 				),
 			)
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(Equal(migrationsutil.QueuePriorityPending))
+			Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
 			Expect(shutdown).To(BeFalse())
 		})
 
-		It("existing items should keep low priority after regular Add", func() {
-			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-				Priority: pointer.P(migrationsutil.QueuePriorityPending),
-			}, "default/testmigrationpending")
+		// TODO: This test is flaky due to https://github.com/kubernetes-sigs/controller-runtime/issues/3363
+		//  Promote this back to stable once a fix is merged
+		PIt("should get items in order based on priority", func() {
 
-			// Simulating what we do with informer handler
-			controller.Queue.Add("default/testmigrationpending")
-			item, priority, shutdown := controller.Queue.GetWithPriority()
-			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
-			Expect(shutdown).To(BeFalse())
-		})
+			const (
+				runningMigNamePrefix       = "testmigration%d"
+				userTriggeredMigNamePrefix = "test-user-migration-%d"
+				criticalMigNamePrefix      = "test-crit-migration-%d"
+				defaultMigNamePrefix       = "test-noprio-migration-%d"
+				maintenanceMigNamePrefix   = "test-maint-migration-%d"
+			)
 
-		It("new items should have a priority strictly lower than active and higher than pending", func() {
-			controller.Queue.Add("default/testmigrationpending")
-			item, priority, shutdown := controller.Queue.GetWithPriority()
-			Expect(item).To(Equal("default/testmigrationpending"))
-			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
-			Expect(priority).To(BeNumerically(">", migrationsutil.QueuePriorityPending))
-			Expect(shutdown).To(BeFalse())
-		})
-
-		It("should get items in order based on priority", func() {
+			By("Creating 5 running system critical migrations")
 			for i := range 5 {
-				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: pointer.P(migrationsutil.QueuePriorityPending),
-				}, fmt.Sprintf("default/pending%d", i))
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
+				migration := newMigration(fmt.Sprintf(runningMigNamePrefix, i), vmi.Name, v1.MigrationRunning)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+				controller.enqueueMigration(migration)
 			}
-			for i := range 5 {
-				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: pointer.P(migrationsutil.QueuePriorityRunning),
-				}, fmt.Sprintf("default/active%d", i))
-			}
-			// Add should not change active3's priority
-			controller.Queue.Add("default/active3")
-			// Add should bump pending3 higher than pending but lower than active
-			controller.Queue.Add("default/pending3")
 
+			By("Creating 5 critical, 5 maintenance, 5 user triggered and 5 non-defined priority migrations")
+			for i := range 5 {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi-user-%d", i), v1.Running)
+				migration := newMigration(fmt.Sprintf(userTriggeredMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				migration.Spec.Priority = pointer.P(v1.PriorityUserTriggered)
+				controller.enqueueMigration(migration)
+
+				vmi = newVirtualMachine(fmt.Sprintf("testvmi-crit-%d", i), v1.Running)
+				migration = newMigration(fmt.Sprintf(criticalMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
+				controller.enqueueMigration(migration)
+
+				vmi = newVirtualMachine(fmt.Sprintf("testvmi-noprio-%d", i), v1.Running)
+				migration = newMigration(fmt.Sprintf(defaultMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				controller.enqueueMigration(migration)
+
+				vmi = newVirtualMachine(fmt.Sprintf("testvmi-maint-%d", i), v1.Running)
+				migration = newMigration(fmt.Sprintf(maintenanceMigNamePrefix, i), vmi.Name, v1.MigrationPending)
+				migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
+				controller.enqueueMigration(migration)
+			}
+
+			Eventually(func() int {
+				return controller.Queue.Len()
+			}, 20*time.Millisecond, 2*time.Second).Should(Equal(25))
 			runningMigrationsFromQueue := make([]string, 0, 5)
 			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
@@ -2827,220 +2838,81 @@ var _ = Describe("Migration watcher", func() {
 			}
 			Expect(runningMigrationsFromQueue).To(
 				ConsistOf(
-					"default/active0",
-					"default/active1",
-					"default/active2",
-					"default/active3",
-					"default/active4",
+					fmt.Sprintf("default/"+runningMigNamePrefix, 0),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 1),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 2),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 3),
+					fmt.Sprintf("default/"+runningMigNamePrefix, 4),
 				),
 			)
 
-			item, priority, shutdown := controller.Queue.GetWithPriority()
-			Expect(item).To(BeEquivalentTo("default/pending3"))
-			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
-			Expect(priority).To(BeNumerically(">", migrationsutil.QueuePriorityPending))
-			Expect(shutdown).To(BeFalse())
-			runningMigrationsFromQueue = make([]string, 0, 4)
-			for range 4 {
+			criticalMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
-				runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-				Expect(priority).To(Equal(migrationsutil.QueuePriorityPending))
-				Expect(shutdown).To(BeFalse())
-			}
-			Expect(runningMigrationsFromQueue).To(
-				ConsistOf(
-					"default/pending0",
-					"default/pending1",
-					"default/pending2",
-					"default/pending4",
-				),
-			)
-		})
-
-		Context("with MigrationPriorityQueue feature gate enabled", func() {
-			BeforeEach(func() {
-				setConfig(&v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.MigrationPriorityQueue},
-					},
-				})
-			})
-
-			It("should properly re-enqueue pending migrations with the defined priority when no new migration can start", func() {
-				By("Creating 1 pending migration. It will be picked up by the call to Execute()")
-				vmi := newVirtualMachine("testvmipending", v1.Running)
-				migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
-				migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(newSourcePodForVirtualMachine(vmi))
-
-				const migrationNamePrefix = "testmigration%d"
-				By("Creating 5 running system maintenance migrations")
-				for i := range 5 {
-					vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
-					migration := newMigration(fmt.Sprintf(migrationNamePrefix, i), vmi.Name, v1.MigrationRunning)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
-					pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
-					addMigration(migration)
-					addVirtualMachineInstance(vmi)
-					addPod(pod)
-				}
-
-				By("Executing the controller and expecting the pending migration to have the defined priority")
-				controller.Execute()
-				runningMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-					Expect(priority).To(Equal(0))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(runningMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+migrationNamePrefix, 0),
-						fmt.Sprintf("default/"+migrationNamePrefix, 1),
-						fmt.Sprintf("default/"+migrationNamePrefix, 2),
-						fmt.Sprintf("default/"+migrationNamePrefix, 3),
-						fmt.Sprintf("default/"+migrationNamePrefix, 4),
-					),
-				)
-				item, priority, shutdown := controller.Queue.GetWithPriority()
-				Expect(item).To(Equal("default/testmigrationpending"))
+				criticalMigrationsFromQueue = append(criticalMigrationsFromQueue, item)
 				Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
 				Expect(shutdown).To(BeFalse())
-			})
+			}
+			Expect(criticalMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 0),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 1),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 2),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 3),
+					fmt.Sprintf("default/"+criticalMigNamePrefix, 4),
+				),
+			)
 
-			// TODO: This test is flaky due to https://github.com/kubernetes-sigs/controller-runtime/issues/3363
-			//  Promote this back to stable once a fix is merged
-			PIt("should get items in order based on priority", func() {
+			userMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				userMigrationsFromQueue = append(userMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePriorityUserTriggered))
+				Expect(shutdown).To(BeFalse())
+			}
+			Expect(userMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 0),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 1),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 2),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 3),
+					fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 4),
+				),
+			)
 
-				const (
-					runningMigNamePrefix       = "testmigration%d"
-					userTriggeredMigNamePrefix = "test-user-migration-%d"
-					criticalMigNamePrefix      = "test-crit-migration-%d"
-					defaultMigNamePrefix       = "test-noprio-migration-%d"
-					maintenanceMigNamePrefix   = "test-maint-migration-%d"
-				)
+			maintenanceMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				maintenanceMigrationsFromQueue = append(maintenanceMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemMaintenance))
+				Expect(shutdown).To(BeFalse())
+			}
+			Expect(maintenanceMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 0),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 1),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 2),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 3),
+					fmt.Sprintf("default/"+maintenanceMigNamePrefix, 4),
+				),
+			)
 
-				By("Creating 5 running system critical migrations")
-				for i := range 5 {
-					vmi := newVirtualMachine(fmt.Sprintf("testvmi%d", i), v1.Running)
-					migration := newMigration(fmt.Sprintf(runningMigNamePrefix, i), vmi.Name, v1.MigrationRunning)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
-					controller.enqueueMigration(migration)
-				}
-
-				By("Creating 5 critical, 5 maintenance, 5 user triggered and 5 non-defined priority migrations")
-				for i := range 5 {
-					vmi := newVirtualMachine(fmt.Sprintf("testvmi-user-%d", i), v1.Running)
-					migration := newMigration(fmt.Sprintf(userTriggeredMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					migration.Spec.Priority = pointer.P(v1.PriorityUserTriggered)
-					controller.enqueueMigration(migration)
-
-					vmi = newVirtualMachine(fmt.Sprintf("testvmi-crit-%d", i), v1.Running)
-					migration = newMigration(fmt.Sprintf(criticalMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemCritical)
-					controller.enqueueMigration(migration)
-
-					vmi = newVirtualMachine(fmt.Sprintf("testvmi-noprio-%d", i), v1.Running)
-					migration = newMigration(fmt.Sprintf(defaultMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					controller.enqueueMigration(migration)
-
-					vmi = newVirtualMachine(fmt.Sprintf("testvmi-maint-%d", i), v1.Running)
-					migration = newMigration(fmt.Sprintf(maintenanceMigNamePrefix, i), vmi.Name, v1.MigrationPending)
-					migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
-					controller.enqueueMigration(migration)
-				}
-
-				Eventually(func() int {
-					return controller.Queue.Len()
-				}, 20*time.Millisecond, 2*time.Second).Should(Equal(25))
-				runningMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePriorityRunning))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(runningMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+runningMigNamePrefix, 0),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 1),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 2),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 3),
-						fmt.Sprintf("default/"+runningMigNamePrefix, 4),
-					),
-				)
-
-				criticalMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					criticalMigrationsFromQueue = append(criticalMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemCritical))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(criticalMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 0),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 1),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 2),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 3),
-						fmt.Sprintf("default/"+criticalMigNamePrefix, 4),
-					),
-				)
-
-				userMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					userMigrationsFromQueue = append(userMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePriorityUserTriggered))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(userMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 0),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 1),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 2),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 3),
-						fmt.Sprintf("default/"+userTriggeredMigNamePrefix, 4),
-					),
-				)
-
-				maintenanceMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					maintenanceMigrationsFromQueue = append(maintenanceMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemMaintenance))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(maintenanceMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 0),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 1),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 2),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 3),
-						fmt.Sprintf("default/"+maintenanceMigNamePrefix, 4),
-					),
-				)
-
-				defaultMigrationsFromQueue := make([]string, 0, 5)
-				for range 5 {
-					item, priority, shutdown := controller.Queue.GetWithPriority()
-					defaultMigrationsFromQueue = append(defaultMigrationsFromQueue, item)
-					Expect(priority).To(Equal(migrationsutil.QueuePriorityDefault))
-					Expect(shutdown).To(BeFalse())
-				}
-				Expect(defaultMigrationsFromQueue).To(
-					ConsistOf(
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 0),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 1),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 2),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 3),
-						fmt.Sprintf("default/"+defaultMigNamePrefix, 4),
-					),
-				)
-			})
+			defaultMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
+				item, priority, shutdown := controller.Queue.GetWithPriority()
+				defaultMigrationsFromQueue = append(defaultMigrationsFromQueue, item)
+				Expect(priority).To(Equal(migrationsutil.QueuePriorityDefault))
+				Expect(shutdown).To(BeFalse())
+			}
+			Expect(defaultMigrationsFromQueue).To(
+				ConsistOf(
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 0),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 1),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 2),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 3),
+					fmt.Sprintf("default/"+defaultMigNamePrefix, 4),
+				),
+			)
 		})
 	})
 
