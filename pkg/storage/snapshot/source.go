@@ -487,7 +487,22 @@ func (s *vmSnapshotSource) Unfreeze() error {
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, storageutils.WithAllVolumes)
+	// Expand the VM spec to resolve instancetype/preference references.
+	// This ensures that preference-applied fields like persistent TPM/EFI
+	// are visible when checking for backend storage requirements.
+	vmToCheck := s.vm
+	if s.vm.Spec.Instancetype != nil || s.vm.Spec.Preference != nil {
+		expandedVM, err := s.controller.Client.ExpandSpec(s.vm.Namespace).ForVirtualMachine(s.vm)
+		if err != nil {
+			// If expansion fails, fall back to the original VM spec.
+			// This maintains backward compatibility for VMs without instancetype/preference.
+			log.Log.Reason(err).Warningf("Failed to expand VM %s/%s for backend storage check, using unexpanded spec", s.vm.Namespace, s.vm.Name)
+		} else {
+			vmToCheck = expandedVM
+		}
+	}
+
+	volumes, err := storageutils.GetVolumes(vmToCheck, s.controller.Client, storageutils.WithAllVolumes)
 	if err != nil {
 		return map[string]string{}, err
 	}
