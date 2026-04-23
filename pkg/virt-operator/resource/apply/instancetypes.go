@@ -49,7 +49,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 
 	if errors.IsNotFound(err) {
 		if _, err := r.clientset.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("unable to create instancetype %+v: %v", instancetype, err)
+			return fmt.Errorf("unable to create instancetype %s: %v", instancetype.Name, err)
 		}
 		log.Log.V(2).Infof("instancetype %v created", instancetype.GetName())
 		return nil
@@ -64,7 +64,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 
 	instancetype.ResourceVersion = foundObj.ResourceVersion
 	if _, err := r.clientset.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("unable to update instancetype %+v: %v", instancetype, err)
+		return fmt.Errorf("unable to update instancetype %s: %v", instancetype.Name, err)
 	}
 	log.Log.V(2).Infof("instancetype %v updated", instancetype.GetName())
 
@@ -136,7 +136,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 
 	if errors.IsNotFound(err) {
 		if _, err := r.clientset.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("unable to create preference %+v: %v", preference, err)
+			return fmt.Errorf("unable to create preference %s: %v", preference.Name, err)
 		}
 		log.Log.V(2).Infof("preference %v created", preference.GetName())
 		return nil
@@ -151,7 +151,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 
 	preference.ResourceVersion = foundObj.ResourceVersion
 	if _, err := r.clientset.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("unable to update preference %+v: %v", preference, err)
+		return fmt.Errorf("unable to update preference %s: %v", preference.Name, err)
 	}
 	log.Log.V(2).Infof("preference %v updated", preference.GetName())
 
