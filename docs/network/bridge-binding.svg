@@ -42,11 +42,11 @@
   <rect x="490" y="97" width="186" height="34" fill="#FFAAAA" stroke="#CC2222" stroke-width="1.5" rx="15" ry="15"/>
   <text x="583" y="119" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#770000">Configured by DHCP</text>
 
-  <!-- Line: eth0(VM) bottom → vnet0 top -->
+  <!-- Line: eth0(VM) bottom → tap0 top -->
   <line x1="356" y1="138" x2="356" y2="260" stroke="black" stroke-width="1.5"/>
 
   <!-- ============ "Configured by virt-handler" RED DASHED BOX ============ -->
-  <!-- Encompasses vnet0, br1, eth0-nic AND eth0 (dummy) -->
+  <!-- Encompasses tap0, br1, eth0-nic AND eth0 (dummy) -->
   <rect x="225" y="252" width="390" height="258" fill="none" stroke="#CC2222" stroke-width="1.5" stroke-dasharray="6,3"/>
 
   <!-- "Configured by virt-handler" label pill (two lines, right of expanded box) -->
@@ -54,11 +54,11 @@
   <text x="678" y="360" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#770000">Configured by</text>
   <text x="678" y="376" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" fill="#770000">virt-handler</text>
 
-  <!-- vnet0 (green / tap) -->
+  <!-- tap0 (green / tap) -->
   <rect x="272" y="260" width="168" height="50" fill="#90EE90" stroke="black" stroke-width="1.5"/>
-  <text x="356" y="290" text-anchor="middle" font-family="Arial,sans-serif" font-size="14">vnet0</text>
+  <text x="356" y="290" text-anchor="middle" font-family="Arial,sans-serif" font-size="14">tap0</text>
 
-  <!-- Line: vnet0 bottom → br1 top -->
+  <!-- Line: tap0 bottom → br1 top -->
   <line x1="356" y1="310" x2="356" y2="332" stroke="black" stroke-width="1.5"/>
 
   <!-- br1 (blue / bridge) -->
