@@ -92,7 +92,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		deployment, err := apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Deployment.LowerExpectations(r.kvKey, 1, 0)
-			return nil, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+			return nil, fmt.Errorf("unable to create deployment %s: %v", deployment.Name, err)
 		}
 
 		SetGeneration(&kv.Status.Generations, deployment)
@@ -132,7 +132,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
+		return nil, fmt.Errorf("unable to update deployment %s: %v", deployment.Name, err)
 	}
 
 	SetGeneration(&kv.Status.Generations, deployment)
@@ -167,7 +167,7 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 		patch,
 		metav1.PatchOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to update daemonset %+v: %v", oldDs, err)
+		return nil, fmt.Errorf("unable to update daemonset %s: %v", oldDs.Name, err)
 	}
 	return newDs, nil
 }
@@ -231,7 +231,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
 			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
-				return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
+				return false, fmt.Errorf("unable to start canary upgrade for daemonset %s: %v", newDS.Name, err), CanaryUpgradeStatusFailed
 			}
 			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
 		} else {
@@ -252,7 +252,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			// start rollout again
 			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
-				return false, fmt.Errorf("unable to update daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
+				return false, fmt.Errorf("unable to update daemonset %s: %v", newDS.Name, err), CanaryUpgradeStatusFailed
 			}
 			log.V(2).Infof("daemonSet %v updated", newDS.GetName())
 			status = CanaryUpgradeStatusUpgradingDaemonSet
@@ -392,7 +392,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.DaemonSet.LowerExpectations(r.kvKey, 1, 0)
-			return false, fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
+			return false, fmt.Errorf("unable to create daemonset %s: %v", daemonSet.Name, err)
 		}
 
 		SetGeneration(&kv.Status.Generations, daemonSet)
@@ -458,7 +458,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		podDisruptionBudget, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
+			return fmt.Errorf("unable to create poddisruptionbudget %s: %v", podDisruptionBudget.Name, err)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
 		SetGeneration(&kv.Status.Generations, podDisruptionBudget)
@@ -487,7 +487,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 
 	podDisruptionBudget, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to patch/delete poddisruptionbudget %+v: %v", podDisruptionBudget, err)
+		return fmt.Errorf("unable to patch/delete poddisruptionbudget %s: %v", podDisruptionBudget.Name, err)
 	}
 
 	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
