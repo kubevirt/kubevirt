@@ -52,9 +52,11 @@ func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, o
 	if err != nil {
 		return nil, err
 	}
+	origCrd := crd
 	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to patch crd %s: %v", crd.Name, err)
+		log.Log.V(2).Infof("failed to patch crd %s: %+v", origCrd.Name, origCrd)
+		return nil, fmt.Errorf("unable to patch crd %s: %v", origCrd.Name, err)
 	}
 
 	log.Log.V(2).Infof("crd %v updated", name)
@@ -86,6 +88,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		createdCRD, err := client.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), crd, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.OperatorCrd.LowerExpectations(r.kvKey, 1, 0)
+			log.Log.V(2).Infof("failed to create crd %s: %+v", crd.Name, crd)
 			return fmt.Errorf("unable to create crd %s: %v", crd.Name, err)
 		}
 
