@@ -903,20 +903,25 @@ func (vca *VirtControllerApp) initEvacuationController() {
 func (vca *VirtControllerApp) initSnapshotController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
 	vca.snapshotController = &snapshot.VMSnapshotController{
-		Client:                    vca.clientSet,
-		VMSnapshotInformer:        vca.vmSnapshotInformer,
-		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
-		VMInformer:                vca.vmInformer,
-		VMIInformer:               vca.vmiInformer,
-		StorageClassInformer:      vca.storageClassInformer,
-		StorageProfileInformer:    vca.storageProfileInformer,
-		PVCInformer:               vca.persistentVolumeClaimInformer,
-		CRDInformer:               vca.crdInformer,
-		PodInformer:               vca.allPodInformer,
-		DVInformer:                vca.dataVolumeInformer,
-		CRInformer:                vca.controllerRevisionInformer,
-		Recorder:                  recorder,
-		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
+		Client:                      vca.clientSet,
+		VMSnapshotInformer:          vca.vmSnapshotInformer,
+		VMSnapshotContentInformer:   vca.vmSnapshotContentInformer,
+		VMInformer:                  vca.vmInformer,
+		VMIInformer:                 vca.vmiInformer,
+		StorageClassInformer:        vca.storageClassInformer,
+		StorageProfileInformer:      vca.storageProfileInformer,
+		PVCInformer:                 vca.persistentVolumeClaimInformer,
+		CRDInformer:                 vca.crdInformer,
+		PodInformer:                 vca.allPodInformer,
+		DVInformer:                  vca.dataVolumeInformer,
+		CRInformer:                  vca.controllerRevisionInformer,
+		InstancetypeInformer:        vca.instancetypeInformer,
+		ClusterInstancetypeInformer: vca.clusterInstancetypeInformer,
+		PreferenceInformer:          vca.preferenceInformer,
+		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
+		ClusterConfig:               vca.clusterConfig,
+		Recorder:                    recorder,
+		ResyncPeriod:                vca.snapshotControllerResyncPeriod,
 	}
 	if err := vca.snapshotController.Init(); err != nil {
 		panic(err)
@@ -926,18 +931,23 @@ func (vca *VirtControllerApp) initSnapshotController() {
 func (vca *VirtControllerApp) initRestoreController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
 	vca.restoreController = &snapshot.VMRestoreController{
-		Client:                    vca.clientSet,
-		VMRestoreInformer:         vca.vmRestoreInformer,
-		VMSnapshotInformer:        vca.vmSnapshotInformer,
-		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
-		VMInformer:                vca.vmInformer,
-		VMIInformer:               vca.vmiInformer,
-		DataVolumeInformer:        vca.dataVolumeInformer,
-		PVCInformer:               vca.persistentVolumeClaimInformer,
-		StorageClassInformer:      vca.storageClassInformer,
-		VolumeSnapshotProvider:    vca.snapshotController,
-		Recorder:                  recorder,
-		CRInformer:                vca.controllerRevisionInformer,
+		Client:                      vca.clientSet,
+		VMRestoreInformer:           vca.vmRestoreInformer,
+		VMSnapshotInformer:          vca.vmSnapshotInformer,
+		VMSnapshotContentInformer:   vca.vmSnapshotContentInformer,
+		VMInformer:                  vca.vmInformer,
+		VMIInformer:                 vca.vmiInformer,
+		DataVolumeInformer:          vca.dataVolumeInformer,
+		PVCInformer:                 vca.persistentVolumeClaimInformer,
+		StorageClassInformer:        vca.storageClassInformer,
+		VolumeSnapshotProvider:      vca.snapshotController,
+		Recorder:                    recorder,
+		CRInformer:                  vca.controllerRevisionInformer,
+		InstancetypeInformer:        vca.instancetypeInformer,
+		ClusterInstancetypeInformer: vca.clusterInstancetypeInformer,
+		PreferenceInformer:          vca.preferenceInformer,
+		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
+		ClusterConfig:               vca.clusterConfig,
 	}
 	if err := vca.restoreController.Init(); err != nil {
 		panic(err)
@@ -987,7 +997,20 @@ func (vca *VirtControllerApp) initCloneController() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
 	vca.vmCloneController, err = clonecontroller.NewVmCloneController(
-		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, vca.vmSnapshotContentInformer, vca.persistentVolumeClaimInformer, recorder,
+		vca.clientSet,
+		vca.vmCloneInformer,
+		vca.vmSnapshotInformer,
+		vca.vmRestoreInformer,
+		vca.vmInformer,
+		vca.vmSnapshotContentInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.instancetypeInformer,
+		vca.clusterInstancetypeInformer,
+		vca.preferenceInformer,
+		vca.clusterPreferenceInformer,
+		vca.controllerRevisionInformer,
+		vca.clusterConfig,
+		recorder,
 	)
 	if err != nil {
 		panic(err)
