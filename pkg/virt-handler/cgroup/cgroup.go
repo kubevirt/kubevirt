@@ -146,7 +146,12 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDev
 		return nil, err
 	}
 
-	vmiDeviceRules, err := generateDeviceRulesForVMI(vmi, isolationRes, host, hypervisorDevice, allowEmulation)
+	mountRoot, err := isolationRes.MountRoot()
+	if err != nil {
+		return nil, err
+	}
+
+	vmiDeviceRules, err := generateDeviceRulesForVMI(vmi, mountRoot, host, hypervisorDevice, allowEmulation)
 	if err != nil {
 		return nil, err
 	}

@@ -20,21 +20,24 @@
 package cgroup
 
 import (
+	"io/fs"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	cgroups "github.com/opencontainers/cgroups"
 	devices "github.com/opencontainers/cgroups/devices/config"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 var _ = Describe("cgroup manager", func() {
@@ -346,53 +349,285 @@ var _ = Describe("parseDevicesList", func() {
 
 var _ = Describe("generateDeviceRulesForVMI", func() {
 	var (
-		ctrl    *gomock.Controller
-		tempDir string
+		origStatDevice func(*safepath.Path, string) (os.FileInfo, error)
+		origReadDevDir func(*safepath.Path, string) ([]os.DirEntry, error)
 	)
 
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		tempDir = GinkgoT().TempDir()
-		Expect(os.MkdirAll(filepath.Join(tempDir, "dev"), 0755)).To(Succeed())
-	})
-
-	newMockIsolationWithMountRoot := func() isolation.IsolationResult {
-		mountRoot, err := safepath.NewPathNoFollow(tempDir)
-		Expect(err).ToNot(HaveOccurred())
-
-		mockIso := isolation.NewMockIsolationResult(ctrl)
-		mockIso.EXPECT().MountRoot().Return(mountRoot, nil)
-		return mockIso
+	noDevices := func(_ *safepath.Path, _ string) (os.FileInfo, error) {
+		return nil, os.ErrNotExist
+	}
+	noDirs := func(_ *safepath.Path, _ string) ([]os.DirEntry, error) {
+		return nil, os.ErrNotExist
 	}
 
+	BeforeEach(func() {
+		origStatDevice = statDevice
+		origReadDevDir = readDeviceDir
+	})
+
+	AfterEach(func() {
+		statDevice = origStatDevice
+		readDeviceDir = origReadDevDir
+	})
+
 	It("should skip hypervisor device rule when emulation is allowed and device is missing", func() {
-		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		statDevice = noDevices
+		readDeviceDir = noDirs
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rules).To(BeEmpty())
 	})
 
 	It("should fail when hypervisor device is missing and emulation is not allowed", func() {
-		_, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", false)
+		statDevice = noDevices
+		readDeviceDir = noDirs
+
+		_, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", false)
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("should create a rule for the hypervisor device", func() {
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			if relPath == "/dev/kvm" {
+				return charDeviceInfo(10, 232), nil
+			}
+			return nil, os.ErrNotExist
+		}
+		readDeviceDir = noDirs
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(10)), "Minor": Equal(int64(232)),
+			})),
+		))
+	})
+
+	It("should discover VFIO device nodes", func() {
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			switch relPath {
+			case "/dev/vfio/vfio":
+				return charDeviceInfo(10, 196), nil
+			case "/dev/vfio/42":
+				return charDeviceInfo(243, 0), nil
+			default:
+				return nil, os.ErrNotExist
+			}
+		}
+		readDeviceDir = func(_ *safepath.Path, relPath string) ([]os.DirEntry, error) {
+			if relPath == "/dev/vfio" {
+				return []os.DirEntry{
+					&fakeDirEntry{name: "vfio"},
+					&fakeDirEntry{name: "42"},
+				}, nil
+			}
+			return nil, os.ErrNotExist
+		}
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(10)), "Minor": Equal(int64(196)),
+			})),
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(243)), "Minor": Equal(int64(0)),
+			})),
+		))
+	})
+
+	It("should discover USB device nodes in nested directories", func() {
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			switch relPath {
+			case "/dev/bus/usb/001/001":
+				return charDeviceInfo(189, 0), nil
+			case "/dev/bus/usb/001/002":
+				return charDeviceInfo(189, 1), nil
+			default:
+				return nil, os.ErrNotExist
+			}
+		}
+		readDeviceDir = func(_ *safepath.Path, relPath string) ([]os.DirEntry, error) {
+			switch relPath {
+			case "/dev/bus/usb":
+				return []os.DirEntry{&fakeDirEntry{name: "001", isDir: true}}, nil
+			case "/dev/bus/usb/001":
+				return []os.DirEntry{
+					&fakeDirEntry{name: "001"},
+					&fakeDirEntry{name: "002"},
+				}, nil
+			default:
+				return nil, os.ErrNotExist
+			}
+		}
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(189)), "Minor": Equal(int64(0)),
+			})),
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(189)), "Minor": Equal(int64(1)),
+			})),
+		))
+	})
+
+	It("should discover devices from both VFIO and USB", func() {
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			switch relPath {
+			case "/dev/vfio/vfio":
+				return charDeviceInfo(10, 196), nil
+			case "/dev/vfio/0":
+				return charDeviceInfo(243, 0), nil
+			case "/dev/bus/usb/001/001":
+				return charDeviceInfo(189, 0), nil
+			case "/dev/bus/usb/002/001":
+				return charDeviceInfo(189, 128), nil
+			default:
+				return nil, os.ErrNotExist
+			}
+		}
+		readDeviceDir = func(_ *safepath.Path, relPath string) ([]os.DirEntry, error) {
+			switch relPath {
+			case "/dev/vfio":
+				return []os.DirEntry{
+					&fakeDirEntry{name: "vfio"},
+					&fakeDirEntry{name: "0"},
+				}, nil
+			case "/dev/bus/usb":
+				return []os.DirEntry{
+					&fakeDirEntry{name: "001", isDir: true},
+					&fakeDirEntry{name: "002", isDir: true},
+				}, nil
+			case "/dev/bus/usb/001":
+				return []os.DirEntry{&fakeDirEntry{name: "001"}}, nil
+			case "/dev/bus/usb/002":
+				return []os.DirEntry{&fakeDirEntry{name: "001"}}, nil
+			default:
+				return nil, os.ErrNotExist
+			}
+		}
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(HaveLen(4))
+	})
+
+	It("should create a rule for urandom when RNG is enabled", func() {
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			if relPath == "/dev/urandom" {
+				return charDeviceInfo(1, 9), nil
+			}
+			return nil, os.ErrNotExist
+		}
+		readDeviceDir = noDirs
+
+		vmi := &v1.VirtualMachineInstance{}
+		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+		rules, err := generateDeviceRulesForVMI(vmi, nil, "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(1)), "Minor": Equal(int64(9)),
+			})),
+		))
+	})
+
+	It("should create a rule for vhost-vsock when AutoattachVSOCK is enabled", func() {
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			if relPath == "/dev/vhost-vsock" {
+				return charDeviceInfo(10, 241), nil
+			}
+			return nil, os.ErrNotExist
+		}
+		readDeviceDir = noDirs
+
+		autoAttach := true
+		vmi := &v1.VirtualMachineInstance{}
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = &autoAttach
+
+		rules, err := generateDeviceRulesForVMI(vmi, nil, "", "kvm", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type": Equal(devices.CharDevice), "Major": Equal(int64(10)), "Minor": Equal(int64(241)),
+			})),
+		))
+	})
+
 	It("should not fail when /dev/vfio does not exist", func() {
-		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		statDevice = noDevices
+		readDeviceDir = noDirs
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rules).To(BeEmpty())
 	})
 
 	It("should not fail when /dev/vfio exists but is empty", func() {
-		Expect(os.MkdirAll(filepath.Join(tempDir, "dev", "vfio"), 0755)).To(Succeed())
-		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		statDevice = noDevices
+		readDeviceDir = func(_ *safepath.Path, relPath string) ([]os.DirEntry, error) {
+			if relPath == "/dev/vfio" {
+				return nil, nil
+			}
+			return nil, os.ErrNotExist
+		}
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rules).To(BeEmpty())
 	})
 
 	It("should not fail when /dev/bus/usb exists but is empty", func() {
-		Expect(os.MkdirAll(filepath.Join(tempDir, "dev", "bus", "usb"), 0755)).To(Succeed())
-		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, newMockIsolationWithMountRoot(), "", "kvm", true)
+		statDevice = noDevices
+		readDeviceDir = func(_ *safepath.Path, relPath string) ([]os.DirEntry, error) {
+			if relPath == "/dev/bus/usb" {
+				return nil, nil
+			}
+			return nil, os.ErrNotExist
+		}
+
+		rules, err := generateDeviceRulesForVMI(&v1.VirtualMachineInstance{}, nil, "", "kvm", true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rules).To(BeEmpty())
 	})
 })
+
+func charDeviceInfo(major, minor uint32) os.FileInfo {
+	return &fakeFileInfo{
+		mode: os.ModeDevice | os.ModeCharDevice,
+		rdev: unix.Mkdev(major, minor),
+	}
+}
+
+type fakeFileInfo struct {
+	name string
+	mode os.FileMode
+	rdev uint64
+}
+
+func (f *fakeFileInfo) Name() string       { return f.name }
+func (f *fakeFileInfo) Size() int64        { return 0 }
+func (f *fakeFileInfo) Mode() os.FileMode  { return f.mode }
+func (f *fakeFileInfo) ModTime() time.Time { return time.Time{} }
+func (f *fakeFileInfo) IsDir() bool        { return f.mode.IsDir() }
+func (f *fakeFileInfo) Sys() interface{}   { return &syscall.Stat_t{Rdev: f.rdev} }
+
+type fakeDirEntry struct {
+	name  string
+	isDir bool
+}
+
+func (e *fakeDirEntry) Name() string { return e.name }
+func (e *fakeDirEntry) IsDir() bool  { return e.isDir }
+func (e *fakeDirEntry) Type() fs.FileMode {
+	if e.isDir {
+		return fs.ModeDir
+	}
+	return 0
+}
+func (e *fakeDirEntry) Info() (fs.FileInfo, error) { return nil, nil }
