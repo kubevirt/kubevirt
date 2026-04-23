@@ -28,6 +28,11 @@ import (
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
+const (
+	diskTypeBlock = "block"
+	diskTypeFile  = "file"
+)
+
 func SetDiskDriver(disk *api.Disk, driverType string, discard bool) {
 	disk.Driver.Type = driverType
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
@@ -36,114 +41,66 @@ func SetDiskDriver(disk *api.Disk, driverType string, discard bool) {
 	}
 }
 
-func convertVolumeWithCBT(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	SetDiskDriver(disk, "qcow2", !slices.Contains(volumesDiscardIgnore, volumeName))
-
-	disk.Type = "file"
-	disk.Source.File = cbtPath
-	disk.Source.DataStore = &api.DataStore{
-		Format: &api.DataStoreFormat{
-			Type: "raw",
-		},
-	}
-
+func setDiskSource(disk *api.Disk, volumeName string, isBlock, isHotplug bool, devPath string) {
 	if isBlock {
-		disk.Source.Name = volumeName
-		disk.Source.DataStore.Type = "block"
-		disk.Source.DataStore.Source = &api.DiskSource{
-			Dev: GetBlockDeviceVolumePath(volumeName),
+		disk.Type = diskTypeBlock
+		disk.Source.Dev = devPath
+		if !isHotplug {
+			disk.Source.Name = volumeName
 		}
 	} else {
-		disk.Source.DataStore.Type = "file"
-		disk.Source.DataStore.Source = &api.DiskSource{
-			File: GetFilesystemVolumePath(volumeName),
-		}
+		disk.Type = diskTypeFile
+		disk.Source.File = devPath
 	}
-
-	return nil
 }
 
-func convertVolumeWithoutCBT(volumeName string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	SetDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
-
+func newDataStore(isBlock bool, devPath string) *api.DataStore {
+	ds := &api.DataStore{
+		Format: &api.DataStoreFormat{Type: "raw"},
+	}
 	if isBlock {
-		disk.Type = "block"
-		disk.Source.Name = volumeName
-		disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+		ds.Type = diskTypeBlock
+		ds.Source = &api.DiskSource{Dev: devPath}
 	} else {
-		disk.Type = "file"
-		disk.Source.File = GetFilesystemVolumePath(volumeName)
+		ds.Type = diskTypeFile
+		ds.Source = &api.DiskSource{File: devPath}
 	}
-	return nil
+	return ds
 }
 
-func convertHotplugVolumeWithCBT(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	SetDiskDriver(disk, "qcow2", !slices.Contains(volumesDiscardIgnore, volumeName))
-
-	disk.Type = "file"
-	disk.Source.File = cbtPath
-	disk.Source.DataStore = &api.DataStore{
-		Format: &api.DataStoreFormat{
-			Type: "raw",
-		},
-	}
-
-	if isBlock {
-		disk.Source.DataStore.Type = "block"
-		disk.Source.DataStore.Source = &api.DiskSource{
-			Dev: GetHotplugBlockDeviceVolumePath(volumeName),
-		}
-	} else {
-		disk.Source.DataStore.Type = "file"
-		disk.Source.DataStore.Source = &api.DiskSource{
-			File: GetHotplugFilesystemVolumePath(volumeName),
-		}
-	}
-
-	return nil
-}
-
-func convertHotplugVolumeWithoutCBT(volumeName string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	SetDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
-
-	if isBlock {
-		disk.Type = "block"
-		disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
-	} else {
-		disk.Type = "file"
-		disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
-	}
-	return nil
-}
-
-func ConvertHotplugVolumeSourceToDisk(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
+func resolveStorageBackend(volumeName, cbtPath string, isBlock, isHotplug bool, disk *api.Disk, volumesDiscardIgnore []string) {
+	discard := !slices.Contains(volumesDiscardIgnore, volumeName)
+	devPath := GetVolumeImagePath(volumeName, isBlock, isHotplug)
 	if cbtPath != "" {
-		return convertHotplugVolumeWithCBT(volumeName, cbtPath, isBlock, disk, volumesDiscardIgnore)
+		SetDiskDriver(disk, "qcow2", discard)
+		disk.Type = diskTypeFile
+		disk.Source.File = cbtPath
+		disk.Source.DataStore = newDataStore(isBlock, devPath)
+		if isBlock && !isHotplug {
+			disk.Source.Name = volumeName
+		}
+	} else {
+		SetDiskDriver(disk, "raw", discard)
+		setDiskSource(disk, volumeName, isBlock, isHotplug, devPath)
 	}
-	return convertHotplugVolumeWithoutCBT(volumeName, isBlock, disk, volumesDiscardIgnore)
 }
 
-func ConvertVolumeSourceToDisk(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
-	if cbtPath != "" {
-		return convertVolumeWithCBT(volumeName, cbtPath, isBlock, disk, volumesDiscardIgnore)
-	}
-	return convertVolumeWithoutCBT(volumeName, isBlock, disk, volumesDiscardIgnore)
+func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error { //nolint:staticcheck,lll
+	resolveStorageBackend(name, c.ApplyCBT[name], c.IsBlockPVC[name], false, disk, c.VolumesDiscardIgnore)
+	return nil
 }
 
-func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return ConvertVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockPVC[name], disk, c.VolumesDiscardIgnore)
+func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error { //nolint:staticcheck,lll
+	resolveStorageBackend(name, c.ApplyCBT[name], c.IsBlockPVC[name], true, disk, c.VolumesDiscardIgnore)
+	return nil
 }
 
-// Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
-func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return ConvertHotplugVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockPVC[name], disk, c.VolumesDiscardIgnore)
+func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error { //nolint:staticcheck
+	resolveStorageBackend(name, c.ApplyCBT[name], c.IsBlockDV[name], false, disk, c.VolumesDiscardIgnore)
+	return nil
 }
 
-func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return ConvertVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockDV[name], disk, c.VolumesDiscardIgnore)
-}
-
-// Convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
-func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error {
-	return ConvertHotplugVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockDV[name], disk, c.VolumesDiscardIgnore)
+func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *convertertypes.ConverterContext) error { //nolint:staticcheck
+	resolveStorageBackend(name, c.ApplyCBT[name], c.IsBlockDV[name], true, disk, c.VolumesDiscardIgnore)
+	return nil
 }

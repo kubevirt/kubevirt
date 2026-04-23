@@ -44,7 +44,7 @@ var _ = Describe("Disk source conversion", func() {
 
 	type converterFunc func(string, *api.Disk, *convertertypes.ConverterContext) error
 
-	DescribeTable("should convert hotplug volume to disk",
+	DescribeTable("should convert hotplug PVC/DV to disk",
 		func(fn converterFunc, volumeName string, isBlock, discardIgnore bool) {
 			c := newContext()
 			if isBlock {
@@ -83,7 +83,7 @@ var _ = Describe("Disk source conversion", func() {
 		Entry("discard-ignore DV", storage.Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard", false, true),
 	)
 
-	DescribeTable("should convert non-hotplug volume to disk",
+	DescribeTable("should convert non-hotplug PVC/DV to disk",
 		func(fn converterFunc, volumeName string, isBlock bool) {
 			c := newContext()
 			if isBlock {
