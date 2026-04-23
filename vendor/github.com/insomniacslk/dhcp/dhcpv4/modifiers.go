@@ -159,6 +159,11 @@ func WithLeaseTime(leaseTime uint32) Modifier {
 	return WithOption(OptIPAddressLeaseTime(time.Duration(leaseTime) * time.Second))
 }
 
+// WithIPv6OnlyPreferred adds or updates an OptIPv6OnlyPreferred
+func WithIPv6OnlyPreferred(v6OnlyWait uint32) Modifier {
+	return WithOption(OptIPv6OnlyPreferred(time.Duration(v6OnlyWait) * time.Second))
+}
+
 // WithDomainSearchList adds or updates an OptionDomainSearch
 func WithDomainSearchList(searchList ...string) Modifier {
 	return WithOption(OptDomainSearch(&rfc1035label.Labels{

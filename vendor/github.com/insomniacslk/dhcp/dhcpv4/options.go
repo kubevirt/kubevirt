@@ -21,11 +21,6 @@ var (
 	// ErrZeroLengthByteStream is an error that is thrown any time a zero-length
 	// byte stream is encountered.
 	ErrZeroLengthByteStream = errors.New("zero-length byte stream")
-
-	// ErrInvalidOptions is returned when invalid options data is
-	// encountered during parsing. The data could report an incorrect
-	// length or have trailing bytes which are not part of the option.
-	ErrInvalidOptions = errors.New("invalid options data")
 )
 
 // OptionValue is an interface that all DHCP v4 options adhere to.
@@ -110,8 +105,9 @@ func (o Options) FromBytes(data []byte) error {
 }
 
 const (
-	optPad = 0
-	optEnd = 255
+	optPad       = 0
+	optAgentInfo = 82
+	optEnd       = 255
 )
 
 // FromBytesCheckEnd parses Options from byte sequences using the
@@ -160,14 +156,6 @@ func (o Options) fromBytesCheckEnd(data []byte, checkEndOption bool) error {
 		return io.ErrUnexpectedEOF
 	}
 
-	// Any bytes left must be padding.
-	var pad uint8
-	for buf.Len() >= 1 {
-		pad = buf.Read8()
-		if pad != optPad && pad != optEnd {
-			return ErrInvalidOptions
-		}
-	}
 	return nil
 }
 
@@ -176,11 +164,28 @@ func (o Options) fromBytesCheckEnd(data []byte, checkEndOption bool) error {
 func (o Options) sortedKeys() []int {
 	// Send all values for a given key
 	var codes []int
+	var hasOptAgentInfo, hasOptEnd bool
 	for k := range o {
+		// RFC 3046 section 2.1 states that option 82 SHALL come last (ignoring End).
+		if k == optAgentInfo {
+			hasOptAgentInfo = true
+			continue
+		}
+		if k == optEnd {
+			hasOptEnd = true
+			continue
+		}
 		codes = append(codes, int(k))
 	}
 
 	sort.Ints(codes)
+
+	if hasOptAgentInfo {
+		codes = append(codes, optAgentInfo)
+	}
+	if hasOptEnd {
+		codes = append(codes, optEnd)
+	}
 	return codes
 }
 
@@ -326,7 +331,8 @@ func getOption(code OptionCode, data []byte, vendorDecoder OptionDecoder) fmt.St
 		d = &OptionCodeList{}
 
 	case OptionHostName, OptionDomainName, OptionRootPath,
-		OptionClassIdentifier, OptionTFTPServerName, OptionBootfileName:
+		OptionClassIdentifier, OptionTFTPServerName, OptionBootfileName,
+		OptionMessage, OptionReferenceToTZDatabase:
 		var s String
 		d = &s
 
@@ -336,7 +342,9 @@ func getOption(code OptionCode, data []byte, vendorDecoder OptionDecoder) fmt.St
 	case OptionDNSDomainSearchList:
 		d = &rfc1035label.Labels{}
 
-	case OptionIPAddressLeaseTime:
+	case OptionIPAddressLeaseTime, OptionRenewTimeValue,
+		OptionRebindingTimeValue, OptionIPv6OnlyPreferred, OptionArpCacheTimeout,
+		OptionTimeOffset:
 		var dur Duration
 		d = &dur
 
@@ -351,6 +359,10 @@ func getOption(code OptionCode, data []byte, vendorDecoder OptionDecoder) fmt.St
 			var s String
 			d = &s
 		}
+
+	case OptionAutoConfigure:
+		var a AutoConfiguration
+		d = &a
 
 	case OptionVendorIdentifyingVendorClass:
 		d = &VIVCIdentifiers{}
