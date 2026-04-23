@@ -202,7 +202,7 @@ func main() {
 
 	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
 		"For v1 key is cgroup subsystem and value is its path, for v2 the only key is an empty string and the value is cgroup dir path.")
-	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/runc/libcontainer/configs/cgroup_linux.go), encoded to base64 format")
+	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/cgroups/config_linux.go), encoded to base64 format")
 	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
 	cgroupsCmd.Flags().Bool("isV2", false, "true to run rootless")
 

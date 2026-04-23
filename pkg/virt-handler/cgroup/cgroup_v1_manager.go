@@ -20,22 +20,20 @@
 package cgroup
 
 import (
-	"bytes"
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
-	cgroup_devices "github.com/opencontainers/runc/libcontainer/cgroups/devices"
-	"github.com/opencontainers/runc/libcontainer/devices"
-
-	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	devices "github.com/opencontainers/cgroups/devices/config"
+	runc_fs "github.com/opencontainers/cgroups/fs"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
@@ -49,7 +47,7 @@ type v1Manager struct {
 	getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc
 }
 
-func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string) (Manager, error) {
+func newV1Manager(config *runc_cgroups.Cgroup, controllerPaths map[string]string) (Manager, error) {
 	runcManager, err := runc_fs.NewManager(config, controllerPaths)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
@@ -78,7 +76,7 @@ func (v *v1Manager) GetBasePathToHostSubsystem(subsystem string) (string, error)
 	return filepath.Join(cgroupconsts.HostCgroupBasePath, subsystemPath), nil
 }
 
-func (v *v1Manager) Set(r *runc_configs.Resources) error {
+func (v *v1Manager) Set(r *runc_cgroups.Resources) error {
 	// We want to keep given resources untouched
 	resourcesToSet := *r
 
@@ -119,17 +117,57 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 		return nil, fmt.Errorf("error reading current rules: %v", err)
 	}
 
-	emulator, err := cgroup_devices.EmulatorFromList(bytes.NewBufferString(currentRulesStr))
-	if err != nil {
-		return nil, fmt.Errorf("error creating emulator out of current rules: %v", err)
-	}
+	return parseDevicesList(strings.NewReader(currentRulesStr))
+}
 
-	currentRules, err := emulator.Rules()
-	if err != nil {
-		return nil, fmt.Errorf("error getting rules from emulator: %v", err)
+func parseDevicesList(reader io.Reader) ([]*devices.Rule, error) {
+	var rules []*devices.Rule
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.FieldsFunc(line, func(r rune) bool {
+			return r == ' ' || r == ':'
+		})
+		if len(fields) != 4 {
+			return nil, fmt.Errorf("malformed devices.list rule %q", line)
+		}
+		var rule devices.Rule
+		rule.Allow = true
+		switch fields[0] {
+		case "a":
+			continue
+		case "b":
+			rule.Type = devices.BlockDevice
+		case "c":
+			rule.Type = devices.CharDevice
+		default:
+			return nil, fmt.Errorf("unknown device type %q", fields[0])
+		}
+		if fields[1] == "*" {
+			rule.Major = devices.Wildcard
+		} else {
+			val, err := strconv.ParseInt(fields[1], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid major number: %w", err)
+			}
+			rule.Major = val
+		}
+		if fields[2] == "*" {
+			rule.Minor = devices.Wildcard
+		} else {
+			val, err := strconv.ParseInt(fields[2], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid minor number: %w", err)
+			}
+			rule.Minor = val
+		}
+		rule.Permissions = devices.Permissions(fields[3])
+		rules = append(rules, &rule)
 	}
-
-	return currentRules, nil
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading devices.list: %w", err)
+	}
+	return rules, nil
 }
 
 func (v *v1Manager) GetCpuSet() (string, error) {

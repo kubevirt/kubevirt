@@ -26,9 +26,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/devices"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	devices "github.com/opencontainers/cgroups/devices/config"
 	"go.uber.org/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -61,7 +60,7 @@ var _ = Describe("cgroup manager", func() {
 			return paths
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		execVirtChrootFunc := func(r *runc_cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
 			rulesDefined = r.Devices
 			subsystemPathsDefined = subsystemPaths
 			return nil
@@ -82,8 +81,8 @@ var _ = Describe("cgroup manager", func() {
 		return newMockManagerFromCtrl(ctrl, version)
 	}
 
-	newResourcesWithRule := func(rule *devices.Rule) *runc_configs.Resources {
-		return &runc_configs.Resources{
+	newResourcesWithRule := func(rule *devices.Rule) *runc_cgroups.Resources {
+		return &runc_cgroups.Resources{
 			Devices: []*devices.Rule{
 				rule,
 			},
