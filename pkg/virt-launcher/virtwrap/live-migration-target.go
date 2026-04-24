@@ -336,7 +336,6 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 // See https://issues.redhat.com/browse/RHEL-117250
 type TargetMigrationMonitor struct {
 	c             cli.Connection
-	events        chan watch.Event
 	logger        *log.FilteredLogger
 	domain        *api.Domain
 	metadataCache *metadata.Cache
@@ -350,7 +349,6 @@ type MigrationEventNotifier interface {
 
 func NewTargetMigrationMonitor(
 	c cli.Connection,
-	events chan watch.Event,
 	logger *log.FilteredLogger,
 	domain *api.Domain,
 	metadataCache *metadata.Cache,
@@ -358,7 +356,6 @@ func NewTargetMigrationMonitor(
 ) *TargetMigrationMonitor {
 	return &TargetMigrationMonitor{
 		c:             c,
-		events:        events,
 		logger:        logger,
 		domain:        domain,
 		metadataCache: metadataCache,

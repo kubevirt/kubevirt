@@ -74,12 +74,11 @@ var _ = Describe("client", func() {
 			}, domainJobError
 		}).AnyTimes()
 		mockLibvirt.DomainEXPECT().Free().Return(nil).AnyTimes()
-		eventChan := make(chan watch.Event, 100)
 		vmi := api2.NewMinimalVMI("fake-vmi")
 		domain := api.NewMinimalDomain("test")
 		metadataCache := metadata.NewCache()
 		notifier := &eventNotifier{}
-		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, log.Log.Object(vmi), domain, metadataCache, notifier)
+		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, log.Log.Object(vmi), domain, metadataCache, notifier)
 		monitor.StartMonitor()
 
 		By("Ensuring that nothing gets added to the metadata cache as long as the migration is running")
