@@ -104,3 +104,21 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *c
 	resolveStorageBackend(name, c.ApplyCBT[name], c.IsBlockDV[name], true, disk, c.VolumesDiscardIgnore)
 	return nil
 }
+
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error { //nolint:staticcheck,lll
+	disk.Type = diskTypeFile
+	SetDiskDriver(disk, "raw", false)
+	disk.Source.File = GetFilesystemVolumePath(volumeName)
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
+	return nil
+}
+
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error { //nolint:staticcheck,lll
+	disk.Type = diskTypeBlock
+	SetDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
+	disk.Source.Name = volumeName
+	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+	return nil
+}

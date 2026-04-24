@@ -658,25 +658,6 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType
 	return nil
 }
 
-// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
-func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-	disk.Type = "file"
-	storage.SetDiskDriver(disk, "raw", false)
-	disk.Source.File = storage.GetFilesystemVolumePath(volumeName)
-	if !slices.Contains(volumesDiscardIgnore, volumeName) {
-		disk.Driver.Discard = "unmap"
-	}
-	return nil
-}
-
-func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-	disk.Type = "block"
-	storage.SetDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
-	disk.Source.Name = volumeName
-	disk.Source.Dev = storage.GetBlockDeviceVolumePath(volumeName)
-	return nil
-}
-
 func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, c *convertertypes.ConverterContext) error {
 	disk.Type = "file"
 	if cbtPath, ok := c.ApplyCBT[volumeName]; ok {
@@ -792,11 +773,11 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 
 	backingDisk := &api.Disk{Driver: &api.DiskDriver{}}
 	if c.IsBlockPVC[volumeName] {
-		if err := Convert_v1_BlockVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore); err != nil {
+		if err := storage.Convert_v1_BlockVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore); err != nil {
 			return err
 		}
 	} else {
-		if err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore); err != nil {
+		if err := storage.Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore); err != nil {
 			return err
 		}
 	}
