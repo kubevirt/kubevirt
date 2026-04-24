@@ -262,16 +262,6 @@ func (e *eventCaller) updateStatus(status *api.DomainStatus) {
 	e.domainStatusChangeReason = status.Reason
 }
 
-type eventNotifier struct {
-	client *Notifier
-	domain *api.Domain
-	events chan watch.Event
-}
-
-func (e eventNotifier) SendEvent(event watch.Event) error {
-	return e.client.SendDomainEvent(event)
-}
-
 func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
 	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
