@@ -273,10 +273,6 @@ func (e eventNotifier) SendEvent(event watch.Event) error {
 	return e.client.SendDomainEvent(event)
 }
 
-func (e eventNotifier) UpdateEvents(event watch.Event) {
-	e.client.updateEvents(event, e.domain, e.events)
-}
-
 func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
 	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
@@ -408,7 +404,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			eventType = watch.Added
 		}
 	case libvirtEvent.Event != nil:
-		if shouldAdd := processLifecycleEvent(client, domain, libvirtEvent.Event, metadataCache, events, c, vmi); shouldAdd {
+		if shouldAdd := processLifecycleEvent(domain, libvirtEvent.Event, metadataCache, events, c, vmi); shouldAdd {
 			eventType = watch.Added
 		}
 	}
@@ -723,7 +719,7 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 	}
 }
 
-func processLifecycleEvent(client *Notifier, domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, events chan watch.Event, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {
+func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, events chan watch.Event, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {
 	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_DEFINED &&
 		libvirt.DomainEventDefinedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 		return true
@@ -739,12 +735,7 @@ func processLifecycleEvent(client *Notifier, domain *api.Domain, lifecycleEvent 
 		// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
 		// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
 		// makes sure that migrations actually finish in those cases.
-		notifier := eventNotifier{
-			client: client,
-			domain: domain,
-			events: events,
-		}
-		monitor := virtwrap.NewTargetMigrationMonitor(c, log.Log.Object(vmi), domain, metadataCache, notifier)
+		monitor := virtwrap.NewTargetMigrationMonitor(c, log.Log.Object(vmi), domain, metadataCache)
 		monitor.StartMonitor()
 	}
 	return false
