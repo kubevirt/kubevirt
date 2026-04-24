@@ -31,7 +31,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -341,12 +340,6 @@ type TargetMigrationMonitor struct {
 	logger        *log.FilteredLogger
 	domain        *api.Domain
 	metadataCache *metadata.Cache
-	notifier      MigrationEventNotifier
-}
-
-type MigrationEventNotifier interface {
-	SendEvent(event watch.Event) error
-	UpdateEvents(event watch.Event)
 }
 
 func NewTargetMigrationMonitor(
@@ -354,14 +347,13 @@ func NewTargetMigrationMonitor(
 	logger *log.FilteredLogger,
 	domain *api.Domain,
 	metadataCache *metadata.Cache,
-	notifier MigrationEventNotifier,
 ) *TargetMigrationMonitor {
 	return &TargetMigrationMonitor{
 		c:             c,
 		logger:        logger,
 		domain:        domain,
 		metadataCache: metadataCache,
-		notifier:      notifier}
+	}
 }
 
 var retryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Second}
@@ -402,9 +394,6 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 			m.logger.Info("Incoming migration job completed, setting EndTimestamp")
 		}
 		setEndTimestamp(m.metadataCache)
-		event := watch.Event{Type: watch.Modified, Object: m.domain}
-		m.notifier.SendEvent(event)
-		m.notifier.UpdateEvents(event)
 	}()
 }
 
