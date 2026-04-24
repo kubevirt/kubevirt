@@ -508,6 +508,8 @@ func (n *Notifier) StartDomainNotifier(
 						fsFreezeStatus,
 						metadataCache,
 					)
+				} else {
+					log.Log.Warning("Dropping metadata cache notification")
 				}
 			}
 		}
