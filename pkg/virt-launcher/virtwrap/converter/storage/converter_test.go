@@ -113,6 +113,40 @@ var _ = Describe("Disk source conversion", func() {
 		Entry("block DV", storage.Convert_v1_DataVolume_To_api_Disk, "test-block-dv", true),
 	)
 
+	DescribeTable("should convert filesystem/block volume source to disk",
+		func(fn func(string, *api.Disk, []string) error, volumeName string, isBlock, discardIgnore bool) {
+			var volumesDiscardIgnore []string
+			if discardIgnore {
+				volumesDiscardIgnore = []string{volumeName}
+			}
+
+			disk := newDisk()
+			Expect(fn(volumeName, disk, volumesDiscardIgnore)).To(Succeed())
+
+			Expect(disk.Driver.Type).To(Equal("raw"))
+			Expect(disk.Driver.ErrorPolicy).To(Equal(v1.DiskErrorPolicyStop))
+
+			if isBlock {
+				Expect(disk.Type).To(Equal("block"))
+				Expect(disk.Source.Dev).To(Equal(storage.GetBlockDeviceVolumePath(volumeName)))
+				Expect(disk.Source.Name).To(Equal(volumeName))
+			} else {
+				Expect(disk.Type).To(Equal("file"))
+				Expect(disk.Source.File).To(Equal(storage.GetFilesystemVolumePath(volumeName)))
+			}
+
+			if discardIgnore {
+				Expect(disk.Driver.Discard).To(BeEmpty())
+			} else {
+				Expect(disk.Driver.Discard).To(Equal("unmap"))
+			}
+		},
+		Entry("filesystem", storage.Convert_v1_FilesystemVolumeSource_To_api_Disk, "test-fs", false, false),
+		Entry("filesystem discard-ignore", storage.Convert_v1_FilesystemVolumeSource_To_api_Disk, "test-fs", false, true),
+		Entry("block", storage.Convert_v1_BlockVolumeSource_To_api_Disk, "test-block", true, false),
+		Entry("block discard-ignore", storage.Convert_v1_BlockVolumeSource_To_api_Disk, "test-block", true, true),
+	)
+
 	DescribeTable("should convert volume with CBT to disk with datastore",
 		func(fn converterFunc, volumeName string, isBlock, isHotplug bool) {
 			cbtPath := "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"
