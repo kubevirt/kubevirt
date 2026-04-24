@@ -18,6 +18,7 @@ go_library(
         "reset.go",
         "size.go",
         "size_gen.go",
+        "wrapperopaque.go",
         "wrappers.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/proto",

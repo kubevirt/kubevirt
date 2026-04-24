@@ -16,6 +16,7 @@ go_library(
     deps = [
         "//vendor/google.golang.org/protobuf/encoding/protowire:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/editiondefaults:go_default_library",
+        "//vendor/google.golang.org/protobuf/internal/editionssupport:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/encoding/defval:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/errors:go_default_library",
         "//vendor/google.golang.org/protobuf/internal/filedesc:go_default_library",

@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bufferreader.go",
+        "lazy.go",
+        "pointer_unsafe.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/internal/protolazy",
+    importpath = "google.golang.org/protobuf/internal/protolazy",
+    visibility = ["//vendor/google.golang.org/protobuf:__subpackages__"],
+    deps = [
+        "//vendor/google.golang.org/protobuf/encoding/protowire:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoiface:go_default_library",
+    ],
+)
