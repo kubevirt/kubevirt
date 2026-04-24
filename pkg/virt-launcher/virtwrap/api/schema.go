@@ -1156,6 +1156,7 @@ type SMBios struct {
 
 type NVRam struct {
 	Template string `xml:"template,attr,omitempty"`
+	Format   string `xml:"format,attr,omitempty"`
 	NVRam    string `xml:",chardata"`
 }
 

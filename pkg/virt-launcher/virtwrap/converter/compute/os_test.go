@@ -187,7 +187,8 @@ var _ = Describe("OS Domain Configurator", func() {
 					},
 				},
 				NVRam: &api.NVRam{
-					NVRam: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+					Format: "raw",
+					NVRam:  filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
 				},
 			}
 			expectedDomain := newDomainWithOS(expectedOS)

@@ -122,7 +122,8 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		}
 		domain.Spec.OS.BootLoader = nil
 		domain.Spec.OS.NVRam = &api.NVRam{
-			NVRam: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			Format: "raw",
+			NVRam:  filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
 		}
 		return
 	}

@@ -3619,6 +3619,7 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.FirmwareInfo.Features[1]).To(Equal(api.FirmwareFeature{Enabled: "yes", Name: compute.FirmwareFeatureEnrolledKeys}))
 			Expect(domainSpec.OS.BootLoader).To(BeNil())
 			Expect(domainSpec.OS.NVRam).ToNot(BeNil())
+			Expect(domainSpec.OS.NVRam.Format).To(Equal("raw"))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		})
 
