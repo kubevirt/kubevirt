@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -40,6 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/naming"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -241,7 +243,8 @@ func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*
 }
 
 func GenerateName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
-	return fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
+	fullName := fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
+	return naming.TruncateWithHash(fullName, validation.DNS1123SubdomainMaxLength)
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
@@ -276,7 +279,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 			Labels: map[string]string{
 				api.ControllerRevisionObjectGenerationLabel: fmt.Sprintf("%d", metaObj.GetGeneration()),
 				api.ControllerRevisionObjectKindLabel:       obj.GetObjectKind().GroupVersionKind().Kind,
-				api.ControllerRevisionObjectNameLabel:       metaObj.GetName(),
+				api.ControllerRevisionObjectNameLabel:       naming.TruncateLabelValue(metaObj.GetName()),
 				api.ControllerRevisionObjectUIDLabel:        string(metaObj.GetUID()),
 				api.ControllerRevisionObjectVersionLabel:    obj.GetObjectKind().GroupVersionKind().Version,
 			},

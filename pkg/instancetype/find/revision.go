@@ -26,6 +26,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/naming"
 )
 
 type revisionFinder struct {
@@ -56,7 +58,8 @@ func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevi
 			return nil, err
 		}
 		// Only return the found CR if it is for the referenced instance type
-		if label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]; ok && label == vm.Spec.Instancetype.Name {
+		label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]
+		if ok && label == naming.TruncateLabelValue(vm.Spec.Instancetype.Name) {
 			return cr, nil
 		}
 	}
