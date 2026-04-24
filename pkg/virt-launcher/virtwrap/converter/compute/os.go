@@ -33,10 +33,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	FirmwareFeatureSecureBoot   = "secure-boot"
+	FirmwareFeatureEnrolledKeys = "enrolled-keys"
+)
+
 type EFIConfiguration struct {
-	EFICode      string
-	EFIVars      string
-	SecureLoader bool
+	EFICode                   string
+	EFIVars                   string
+	SecureLoader              bool
+	UsesFirmwareAutoSelection bool
 }
 
 type OSDomainConfigurator struct {
@@ -103,6 +109,22 @@ func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.Virtua
 
 func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if !vmi.IsBootloaderEFI() || o.efiConfiguration == nil {
+		return
+	}
+
+	if o.efiConfiguration.UsesFirmwareAutoSelection {
+		domain.Spec.OS.Firmware = "efi"
+		domain.Spec.OS.FirmwareInfo = &api.FirmwareInfo{
+			Features: []api.FirmwareFeature{
+				{Enabled: "yes", Name: FirmwareFeatureSecureBoot},
+				{Enabled: "yes", Name: FirmwareFeatureEnrolledKeys},
+			},
+		}
+		domain.Spec.OS.BootLoader = nil
+		domain.Spec.OS.NVRam = &api.NVRam{
+			Format: "raw",
+			NVRam:  filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+		}
 		return
 	}
 

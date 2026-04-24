@@ -207,6 +207,7 @@ type LibvirtDomainManager struct {
 	cpuSetGetter                       func() ([]int, error)
 	imageVolumeFeatureGateEnabled      bool
 	libvirtHooksServerAndClientEnabled bool
+	firmwareAutoSelectionEnabled       bool
 	setTimeOnce                        sync.Once
 
 	// Premigration hook server for VMI updates during migration
@@ -241,14 +242,14 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc, firmwareAutoSelectionEnabled bool) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer, hypervisorName, registerNBD)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer, hypervisorName, registerNBD, firmwareAutoSelectionEnabled)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc, firmwareAutoSelectionEnabled bool) (DomainManager, error) {
 
 	// Check hypervisor device availability
 	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(hypervisorName).GetHypervisorDevice()
@@ -282,6 +283,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		setTimeOnce:                        sync.Once{},
 		imageVolumeFeatureGateEnabled:      imageVolumeEnabled,
 		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
+		firmwareAutoSelectionEnabled:       firmwareAutoSelectionEnabled,
 		hookServer:                         hookServer,
 		hypervisorName:                     hypervisorName,
 		hypervisorDeviceAvailable:          hypervisorDeviceAvailable,
@@ -1073,15 +1075,24 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		} else if tdx {
 			vmType = efi.TDX
 		}
-		if !l.efiEnvironment.Bootable(secureBoot, vmType) {
-			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
-		}
 
-		efiConf = &convertertypes.EFIConfiguration{
-			EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
-			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
-			SecureLoader: secureBoot,
+		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled {
+			log.Log.V(2).Infof("Using firmware auto-selection for EFI Secure Boot")
+			efiConf = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+		} else {
+			if !l.efiEnvironment.Bootable(secureBoot, vmType) {
+				log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+				return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+			}
+
+			efiConf = &convertertypes.EFIConfiguration{
+				EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
+				EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
+				SecureLoader: secureBoot,
+			}
 		}
 	}
 
