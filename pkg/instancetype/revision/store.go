@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +38,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
@@ -89,7 +91,6 @@ func syncStatusWithMatcher(
 	// from the matcher or to store a copy of the new resource the matcher is pointing at.
 	if clearControllerRevisionRef {
 		statusRef.ControllerRevisionRef = nil
-		statusRef.Resources = nil
 	}
 
 	syncInferFromVolumeFailurePolicy(matcher, statusRef)
@@ -140,8 +141,12 @@ func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 		return nil, err
 	}
 
-	// Populate InstancetypeStatusResources if not already set
-	if statusRef.Resources == nil {
+	// Populate InstancetypeStatusResources unless the VM has a pending restart,
+	// in which case the existing resources reflect the currently active
+	// instancetype and should be preserved until the restart occurs.
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if !(vm.Status.Created && vmConditionManager.HasConditionWithStatus(
+		vm, virtv1.VirtualMachineRestartRequired, k8sv1.ConditionTrue)) {
 		if err := h.populateInstancetypeStatusResources(vm, statusRef); err != nil {
 			return nil, err
 		}

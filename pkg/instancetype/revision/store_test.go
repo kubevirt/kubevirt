@@ -529,6 +529,192 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(storeHandler.Store(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 		})
+
+		Context("RestartRequired resources behavior", func() {
+			var (
+				originalInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype
+				newInstancetype      *instancetypev1beta1.VirtualMachineClusterInstancetype
+			)
+
+			BeforeEach(func() {
+				originalInstancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachineClusterInstancetype",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "original",
+						UID:        "original-uid",
+						Generation: 1,
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(2),
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("4Gi"),
+						},
+					},
+				}
+
+				newInstancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachineClusterInstancetype",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "new",
+						UID:        "new-uid",
+						Generation: 1,
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(4),
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("8Gi"),
+						},
+					},
+				}
+
+				err := clusterInstancetypeInformerStore.Add(originalInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+				err = clusterInstancetypeInformerStore.Add(newInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+					Name: originalInstancetype.Name,
+					Kind: apiinstancetype.ClusterSingularResourceName,
+				}
+			})
+
+			It("store preserves existing resources when VM has RestartRequired condition", func() {
+				By("Storing the original instancetype")
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(originalInstancetype.Spec.Memory.Guest))
+
+				By("Simulating a running VM with RestartRequired")
+				vm.Status.Created = true
+				vm.Status.Conditions = []virtv1.VirtualMachineCondition{
+					{
+						Type:   virtv1.VirtualMachineRestartRequired,
+						Status: k8sv1.ConditionTrue,
+					},
+				}
+
+				By("Switching to the new instancetype")
+				vm.Spec.Instancetype.Name = newInstancetype.Name
+
+				var err error
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				By("Verifying resources still reflect the original instancetype")
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(originalInstancetype.Spec.Memory.Guest))
+			})
+
+			It("store updates resources when VM has no RestartRequired condition", func() {
+				By("Storing the original instancetype")
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+
+				By("Simulating a running VM without RestartRequired")
+				vm.Status.Created = true
+
+				By("Switching to the new instancetype")
+				vm.Spec.Instancetype.Name = newInstancetype.Name
+
+				var err error
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				By("Verifying resources reflect the new instancetype")
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(newInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(newInstancetype.Spec.Memory.Guest))
+			})
+
+			It("store populates resources for a stopped VM", func() {
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Threads).To(Equal(uint32(1)))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(originalInstancetype.Spec.Memory.Guest))
+			})
+
+			It("store updates resources when switching instancetype on a stopped VM", func() {
+				By("Storing the original instancetype")
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(originalInstancetype.Spec.Memory.Guest))
+
+				By("Switching to the new instancetype on a stopped VM")
+				vm.Spec.Instancetype.Name = newInstancetype.Name
+
+				var err error
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				By("Verifying resources reflect the new instancetype")
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(newInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Threads).To(Equal(uint32(1)))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(newInstancetype.Spec.Memory.Guest))
+			})
+
+			It("store updates resources after RestartRequired is cleared", func() {
+				By("Storing the original instancetype")
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+
+				By("Simulating a running VM with RestartRequired and switching instancetype")
+				vm.Status.Created = true
+				vm.Status.Conditions = []virtv1.VirtualMachineCondition{
+					{
+						Type:   virtv1.VirtualMachineRestartRequired,
+						Status: k8sv1.ConditionTrue,
+					},
+				}
+				vm.Spec.Instancetype.Name = newInstancetype.Name
+
+				var err error
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetype.Spec.CPU.Guest))
+
+				By("Simulating RestartRequired being cleared after restart")
+				vm.Status.Conditions = nil
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				By("Verifying resources now reflect the new instancetype")
+				Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(newInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(newInstancetype.Spec.Memory.Guest))
+			})
+		})
 	})
 	Context("store preference", func() {
 		It("store returns error when preferenceMatcher kind is invalid", func() {
