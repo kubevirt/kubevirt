@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -1401,7 +1402,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 						},
 					},
 				}
-				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				var err error
+				instancetype, err = virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
@@ -1436,6 +1438,73 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Entry("with running source VM", true),
 				Entry("with stopped source VM", false),
 			)
+
+			It("should include backend storage from preference-applied persistent TPM in snapshot", decorators.StorageCritical, func() {
+				By("Creating a preference with persistent TPM")
+				preference := &instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-preference-tpm-",
+						Namespace:    testsuite.GetTestNamespace(nil),
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredTPM: &v1.TPMDevice{
+								Persistent: pointer.P(true),
+							},
+						},
+					},
+				}
+				preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), preference, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating VM with instancetype and preference")
+				vmWithTPM := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
+				vmWithTPM.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vmWithTPM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: instancetype.Name,
+					Kind: "VirtualMachineInstanceType",
+				}
+				vmWithTPM.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: "VirtualMachinePreference",
+				}
+				vmWithTPM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+
+				vmWithTPM, err = virtClient.VirtualMachine(vmWithTPM.Namespace).Create(context.Background(), vmWithTPM, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VM to be running")
+				Eventually(ThisVMIWith(vmWithTPM.Namespace, vmWithTPM.Name), 360).Should(BeInPhase(v1.Running))
+
+				for _, dvt := range vmWithTPM.Spec.DataVolumeTemplates {
+					waitDataVolumePopulated(vmWithTPM.Namespace, dvt.Name)
+				}
+
+				By("Stopping the VM")
+				vmWithTPM = libvmops.StopVirtualMachine(vmWithTPM)
+
+				By("Creating snapshot")
+				snapshot = libstorage.NewSnapshot(vmWithTPM.Name, vmWithTPM.Namespace)
+				snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vmWithTPM.Namespace, snapshot.Name)
+
+				By("Verifying snapshot content includes backend storage volume")
+				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+				content, err := virtClient.VirtualMachineSnapshotContent(vmWithTPM.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				foundBackendStorage := false
+				for _, vb := range content.Spec.VolumeBackups {
+					if strings.Contains(vb.PersistentVolumeClaim.Name, "persistent-state-for") {
+						foundBackendStorage = true
+						By(fmt.Sprintf("Found backend storage volume: %s", vb.PersistentVolumeClaim.Name))
+						break
+					}
+				}
+				Expect(foundBackendStorage).To(BeTrue(), "Should find backend storage volume with 'persistent-state-for' in name")
+			})
 		})
 	})
 }))
