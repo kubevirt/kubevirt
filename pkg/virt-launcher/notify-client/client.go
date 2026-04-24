@@ -510,6 +510,8 @@ func (n *Notifier) StartDomainNotifier(
 						metadataCache,
 						nonRoot,
 					)
+				} else {
+					log.Log.Object(vmi).Warning("Dropping metadata cache notification")
 				}
 			}
 		}
