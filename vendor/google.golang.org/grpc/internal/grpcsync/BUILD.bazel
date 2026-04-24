@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "callback_serializer.go",
         "event.go",
-        "oncefunc.go",
         "pubsub.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/grpcsync",
