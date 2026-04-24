@@ -1770,7 +1770,6 @@ var _ = Describe("Manager", func() {
 	Context("test migration monitor", func() {
 		It("migration should be canceled if it's not progressing", func() {
 			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
 			fake_jobinfo := &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 				DataRemaining:    32479827394,
@@ -1788,6 +1787,11 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
+			now := metav1.Now()
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			metadataCache.Migration.Store(migrationMetadata)
+
 			manager := &LibvirtDomainManager{
 				virConn:       mockLibvirt.VirtConnection,
 				virtShareDir:  testVirtShareDir,
@@ -1798,14 +1802,21 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
 			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			mockLibvirt.DomainEXPECT().AbortJob()
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
+			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
+				go func() {
+					time.Sleep(time.Second)
+					close(migrationErrorChan)
+				}()
+				return nil
+			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
 		})
 		It("migration should be canceled if timeout has been reached", func() {
 			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				migrationData -= 125
@@ -1826,6 +1837,11 @@ var _ = Describe("Manager", func() {
 				MigrationUID: "111222333",
 			}
 
+			now := metav1.Now()
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			metadataCache.Migration.Store(migrationMetadata)
+
 			manager := &LibvirtDomainManager{
 				virConn:       mockLibvirt.VirtConnection,
 				virtShareDir:  testVirtShareDir,
@@ -1836,7 +1852,15 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
 			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			mockLibvirt.DomainEXPECT().AbortJob()
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
+			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
+				go func() {
+					time.Sleep(time.Second)
+					close(migrationErrorChan)
+				}()
+				return nil
+			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
@@ -2005,7 +2029,6 @@ var _ = Describe("Manager", func() {
 		})
 		It("migration should be canceled if Paused workload didn't migrate until timeout was reached", func() {
 			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				migrationData -= 125
@@ -2027,6 +2050,10 @@ var _ = Describe("Manager", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
 			}
+			now := metav1.Now()
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			metadataCache.Migration.Store(migrationMetadata)
 
 			manager := &LibvirtDomainManager{
 				paused: pausedVMIs{
@@ -2044,7 +2071,15 @@ var _ = Describe("Manager", func() {
 				return fake_jobinfo(), nil
 			})
 			mockLibvirt.DomainEXPECT().Suspend().Times(1).Return(nil)
-			mockLibvirt.DomainEXPECT().AbortJob()
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
+			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
+				go func() {
+					time.Sleep(time.Second)
+					close(migrationErrorChan)
+				}()
+				return nil
+			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
