@@ -19,7 +19,6 @@
 package client
 
 import (
-	"fmt"
 	"net/http"
 	"regexp"
 
@@ -31,7 +30,7 @@ import (
 
 var resourceParsingRegexs []*regexp.Regexp
 
-func init() {
+func init() { //nolint:gochecknoinits // Force KubeVirt client metrics to be registered before default k8s client metrics
 	metrics.Register(metrics.RegisterOpts{
 		RequestLatency:     &latencyAdapter{requestLatency},
 		RateLimiterLatency: &latencyAdapter{rateLimiterLatency},
@@ -51,23 +50,26 @@ func SetupMetrics() error {
 }
 
 func setupResourcesToWatch() {
-	resPat := `[A-Za-z0-9.\-]*`
+	p := `[A-Za-z0-9.\-]*`
+	res := `(?P<resource>` + p + `)`
 
-	// watch core k8s apis
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/api/%s/watch/namespaces/%s/(?P<resource>%s)`, resPat, resPat, resPat)))
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/api/%s/watch/(?P<resource>%s)`, resPat, resPat)))
+	resourceParsingRegexs = append(resourceParsingRegexs,
+		// watch core k8s apis
+		regexp.MustCompile(`/api/`+p+`/watch/namespaces/`+p+`/`+res),
+		regexp.MustCompile(`/api/`+p+`/watch/`+res),
 
-	// watch custom resource apis
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/apis/%s/%s/watch/namespaces/%s/(?P<resource>%s)`, resPat, resPat, resPat, resPat)))
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/apis/%s/%s/watch/(?P<resource>%s)`, resPat, resPat, resPat)))
+		// watch custom resource apis
+		regexp.MustCompile(`/apis/`+p+`/`+p+`/watch/namespaces/`+p+`/`+res),
+		regexp.MustCompile(`/apis/`+p+`/`+p+`/watch/`+res),
 
-	// namespaced core k8 apis and namespaced custom apis
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/api/%s/namespaces/%s/(?P<resource>%s)`, resPat, resPat, resPat)))
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/apis/%s/%s/namespaces/%s/(?P<resource>%s)`, resPat, resPat, resPat, resPat)))
+		// namespaced core k8s apis and namespaced custom apis
+		regexp.MustCompile(`/api/`+p+`/namespaces/`+p+`/`+res),
+		regexp.MustCompile(`/apis/`+p+`/`+p+`/namespaces/`+p+`/`+res),
 
-	// globally scoped core k8s apis and globally scoped custom apis
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/api/%s/(?P<resource>%s)`, resPat, resPat)))
-	resourceParsingRegexs = append(resourceParsingRegexs, regexp.MustCompile(fmt.Sprintf(`/apis/%s/%s/(?P<resource>%s)`, resPat, resPat, resPat)))
+		// globally scoped core k8s apis and globally scoped custom apis
+		regexp.MustCompile(`/api/`+p+`/`+res),
+		regexp.MustCompile(`/apis/`+p+`/`+p+`/`+res),
+	)
 }
 
 func addHTTPRoundTripClientMonitoring(config *rest.Config) {

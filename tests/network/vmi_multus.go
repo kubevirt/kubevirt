@@ -323,7 +323,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				Expect(libnet.PingFromVMConsole(vmiOne, ipAddr)).To(Succeed())
 			},
 				Entry("[test_id:1577]with secondary network only", []v1.Interface{linuxBridgeInterface}, []v1.Network{linuxBridgeNetwork}, "eth0", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
-				Entry("[test_id:1578]with default network and secondary network",
+				Entry("[test_id:1578]with default network and secondary network", decorators.WgS390x,
 					[]v1.Interface{*v1.DefaultMasqueradeNetworkInterface(), linuxBridgeInterface},
 					[]v1.Network{*v1.DefaultPodNetwork(), linuxBridgeNetwork},
 					"eth1",
@@ -365,7 +365,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
 			})
 
-			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
+			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", decorators.WgS390x, func() {
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
 				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
@@ -417,7 +417,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		})
 
 		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
-			It("[test_id:1756]should report all interfaces in Status", func() {
+			It("[test_id:1756]should report all interfaces in Status", decorators.WgS390x, func() {
 				interfaces := []v1.Interface{
 					*v1.DefaultMasqueradeNetworkInterface(),
 					linuxBridgeInterface,
@@ -526,7 +526,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 					By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
 					linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
-					libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
+					linuxBridgeInterfaceWithCustomMac = libvmi.InterfaceWithMac(linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
 
 					networkData, err := cloudinit.NewNetworkData(
 						cloudinit.WithEthernet(linuxBridgeInterfaceWithCustomMac.Name,
@@ -578,7 +578,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
 		Context("with qemu guest agent", func() {
-			It("[test_id:1757] should report guest interfaces in VMI status", func() {
+			It("[test_id:1757] should report guest interfaces in VMI status", decorators.WgS390x, func() {
 				interfaces := []v1.Interface{
 					*v1.DefaultMasqueradeNetworkInterface(),
 					linuxBridgeInterface,

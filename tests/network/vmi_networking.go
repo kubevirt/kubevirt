@@ -247,7 +247,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		})
 	})
 
-	It("[test_id:1774]should not configure any external interfaces when a VMI has no networks and auto attachment is disabled", func() {
+	It("[test_id:1774]should not configure any external interfaces when a VMI has no networks and auto attachment is disabled", decorators.WgS390x, func() {
 		vmi := libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false))
 
 		var err error
@@ -307,7 +307,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	})
 
 	Context("VirtualMachineInstance with dhcp options", func() {
-		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
+		It("[test_id:1778]should offer extra dhcp options to pod iface", decorators.WgS390x, func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
@@ -756,7 +756,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			},
-				Entry("IPv4", k8sv1.IPv4Protocol),
+				Entry("IPv4", decorators.WgS390x, k8sv1.IPv4Protocol),
 				Entry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
@@ -839,7 +839,7 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
-		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
+		libvmi.WithInterface(libvmi.InterfaceWithMac(*v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 

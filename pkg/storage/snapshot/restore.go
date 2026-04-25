@@ -62,6 +62,8 @@ const (
 
 	populatedForPVCAnnotation = "cdi.kubevirt.io/storage.populatedFor"
 
+	contentTypeAnnotation = "cdi.kubevirt.io/storage.contentType"
+
 	lastRestoreAnnotation = "restore.kubevirt.io/lastRestoreUID"
 
 	restoreSourceNameLabel = "restore.kubevirt.io/source-vm-name"
@@ -1277,7 +1279,7 @@ func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine
 	newDataVolume.Annotations[cdiv1.AnnPrePopulated] = "true"
 
 	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(restoredVM.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{}); err != nil {
-		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
+		t.controller.Recorder.Eventf(t.vmRestore, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
 		return false, fmt.Errorf("Failed to create restore DataVolume: %v", err)
 	}
 
@@ -1613,7 +1615,7 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 
 	for _, prefix := range restoreAnnotationsToDelete {
 		for anno := range pvc.Annotations {
-			if strings.HasPrefix(anno, prefix) {
+			if strings.HasPrefix(anno, prefix) && anno != contentTypeAnnotation {
 				delete(pvc.Annotations, anno)
 			}
 		}

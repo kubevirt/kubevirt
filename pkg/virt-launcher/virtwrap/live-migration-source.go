@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const liveMigrationFailed = "Live migration failed."
@@ -521,16 +522,39 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// then it would result in that active state being lost.
 
 	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
-		if m.options.AllowPostCopy {
+		if m.options.AllowPostCopy && !virtutil.IsVFIOVMI(m.vmi) {
 			logger.Info("Starting post copy mode for migration")
 			// if a migration has stalled too long, post copy will be
-			// triggered when allowPostCopy is enabled
+			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
 			err := dom.MigrateStartPostCopy(0)
 			if err != nil {
 				logger.Reason(err).Error("failed to start post migration")
 				return nil
 			}
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+		} else if virtutil.IsVFIOVMI(m.vmi) {
+			logger.Info("Setting large max downtime to trigger migration switchover")
+			// TODO: once the VGPULiveMigration featuregate graduates
+			//  (and even possibly other VFIO live migration featuregates)
+			//  we should consider merging this with the "else" case below.
+			// Setting a very high max downtime causes QEMU to
+			//  trigger its internal switchover, which pauses vCPUs and
+			//  transitions VFIO devices to _STOP_COPY. This is more
+			//  correct than dom.Suspend() which only pauses vCPUs but
+			//  leaves VFIO devices in _RUNNING with perpetual dirty
+			//  page reporting.
+			maxDowntimeSec := m.acceptableCompletionTime * 2
+			// qemu doesn't allow max downtime larger than 2000s
+			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, 2_000_000), 0)
+			if err != nil {
+				logger.Reason(err).Error("Setting max downtime failed.")
+				return nil
+			}
+			logger.Infof("Set max downtime to %ds for %s", maxDowntimeSec, m.vmi.GetObjectMeta().GetName())
+
+			m.acceptableCompletionTime = maxDowntimeSec
+			m.l.paused.add(m.vmi.UID)
+			m.l.updateVMIMigrationMode(v1.MigrationPaused)
 		} else {
 			logger.Info("Pausing the guest to allow migration to complete")
 			// if a migration has stalled too long, the guest will be paused
@@ -1043,7 +1067,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	// initiate the live migration
 	var dstURI string
-	if virtutil.IsNonRootVMI(vmi) {
+	if vmitrait.IsNonRoot(vmi) {
 		dstURI = fmt.Sprintf("qemu+unix:///session?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
 	} else {
 		dstURI = fmt.Sprintf("qemu+unix:///system?socket=%s", migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
@@ -1117,9 +1141,6 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 
 func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shouldConfigure bool, threadsCount int) {
 	if options == nil {
-		return
-	}
-	if options.AllowPostCopy {
 		return
 	}
 	if options.ParallelMigrationThreads == nil {

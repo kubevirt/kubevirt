@@ -26,10 +26,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/log"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -60,7 +62,9 @@ func NewVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, caCert string) *
 }
 
 func (s *VMBackupSource) IsSourceAvailable() bool {
-	return s.hasCondition(backupv1.ConditionProgressing)
+	return s.vmBackup != nil &&
+		s.vmBackup.Status != nil &&
+		meta.IsStatusConditionTrue(s.vmBackup.Status.Conditions, string(backupv1.ConditionProgressing))
 }
 
 func (s *VMBackupSource) HasContent() bool {
@@ -77,11 +81,11 @@ func (s *VMBackupSource) SourceCondition() exportv1.Condition {
 	if !s.HasContent() {
 		return newReadyCondition(corev1.ConditionFalse, vmBackupReadyReason, vmBackupNoContent)
 	}
-	cond := s.condition(backupv1.ConditionProgressing)
+	cond := meta.FindStatusCondition(s.vmBackup.Status.Conditions, string(backupv1.ConditionProgressing))
 	if cond == nil {
 		return newReadyCondition(corev1.ConditionFalse, vmBackupReadyReason, vmBackupNoProgressingCondition)
 	}
-	if cond.Status == corev1.ConditionFalse {
+	if cond.Status == metav1.ConditionFalse {
 		return newReadyCondition(corev1.ConditionFalse, vmBackupReadyReason, cond.Message)
 	}
 	return newReadyCondition(corev1.ConditionTrue, vmBackupReadyReason, cond.Message)
@@ -185,26 +189,6 @@ func (s *VMBackupSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, p
 
 	vmExport.Status.Conditions = updateCondition(vmExport.Status.Conditions, s.SourceCondition())
 	return requeue, nil
-}
-
-func (s *VMBackupSource) hasCondition(condType backupv1.ConditionType) bool {
-	if s.vmBackup.Status == nil {
-		return false
-	}
-	cond := s.condition(condType)
-	return cond != nil && cond.Status == corev1.ConditionTrue
-}
-
-func (s *VMBackupSource) condition(condType backupv1.ConditionType) *backupv1.Condition {
-	if s.vmBackup.Status == nil {
-		return nil
-	}
-	for _, cond := range s.vmBackup.Status.Conditions {
-		if cond.Type == condType {
-			return cond.DeepCopy()
-		}
-	}
-	return nil
 }
 
 func (ctrl *VMExportController) handleVMBackup(obj any) {

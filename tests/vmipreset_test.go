@@ -58,7 +58,6 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	)
 
 	var (
-		err          error
 		virtClient   kubecli.KubevirtClient
 		vmi          *v1.VirtualMachineInstance
 		memoryPreset *v1.VirtualMachineInstancePreset
@@ -69,7 +68,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, memoryFlavor))
+		vmi = libvmifact.NewGuestless(libvmi.WithLabel(flavorKey, memoryFlavor))
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
 		memory = resource.MustParse("128M")
@@ -94,51 +93,6 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				},
 			},
 		}
-	})
-
-	Context("CRD Validation", func() {
-		It("[test_id:1595]Should reject POST if schema is invalid", func() {
-			// Preset with missing selector should fail CRD validation
-			jsonString := fmt.Sprintf("{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"%s\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}", v1.StorageGroupVersion.String())
-
-			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(testsuite.GetTestNamespace(nil)).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
-
-			// Verify validation failed.
-			statusCode := 0
-			result.StatusCode(&statusCode)
-			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
-		})
-
-		It("[test_id:1596]should reject POST if validation webhoook deems the spec is invalid", func() {
-			preset := &v1.VirtualMachineInstancePreset{
-				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "fake"},
-				Spec: v1.VirtualMachineInstancePresetSpec{
-					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"fake": "fake"}},
-					Domain:   &v1.DomainSpec{},
-				},
-			}
-			// disk with two targets is invalid
-			preset.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk",
-				DiskDevice: v1.DiskDevice{
-					Disk:  &v1.DiskTarget{},
-					CDRom: &v1.CDRomTarget{},
-				},
-			})
-			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(testsuite.GetTestNamespace(nil)).Body(preset).Do(context.Background())
-			// Verify validation failed.
-			statusCode := 0
-			result.StatusCode(&statusCode)
-			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
-
-			reviewResponse := &k8smetav1.Status{}
-			body, _ := result.Raw()
-			err = json.Unmarshal(body, reviewResponse)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
-			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[1]"))
-		})
 	})
 
 	Context("Preset Matching", func() {
@@ -202,7 +156,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor))
+			vmi = libvmifact.NewGuestless(libvmi.WithLabel(flavorKey, cpuFlavor))
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -230,7 +184,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			// reset the label so it will not match
-			vmi = libvmifact.NewAlpine()
+			vmi = libvmifact.NewGuestless()
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -276,7 +230,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
-			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor), libvmi.WithAnnotation(exclusionMarking, "true"))
+			vmi = libvmifact.NewGuestless(libvmi.WithLabel(flavorKey, cpuFlavor), libvmi.WithAnnotation(exclusionMarking, "true"))
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

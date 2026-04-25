@@ -83,10 +83,10 @@ var _ = Describe(SIG("Infosource", func() {
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
 			secondaryLinuxBridgeInterface2 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2.Name)
 			vmiSpec := libvmifact.NewFedora(
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(&defaultBridgeInterface, primaryInterfaceMac)),
+				libvmi.WithInterface(libvmi.InterfaceWithMac(defaultBridgeInterface, primaryInterfaceMac)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface1, secondaryInterface1Mac)),
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface2, secondaryInterface2Mac)),
+				libvmi.WithInterface(libvmi.InterfaceWithMac(secondaryLinuxBridgeInterface1, secondaryInterface1Mac)),
+				libvmi.WithInterface(libvmi.InterfaceWithMac(secondaryLinuxBridgeInterface2, secondaryInterface2Mac)),
 				libvmi.WithNetwork(secondaryNetwork1),
 				libvmi.WithNetwork(secondaryNetwork2),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac))))

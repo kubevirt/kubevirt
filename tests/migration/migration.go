@@ -175,7 +175,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			const labelKey = "subdomain"
 			const labelValue = "mysub"
 
-			vmi := libvmifact.NewCirros(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithHostname(hostname),
 				withSubdomain(subdomain),
 				libvmi.WithLabel(labelKey, labelValue),
@@ -185,7 +185,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("Starting hello world in the VM")
-			vmnetserver.StartTCPServer(vmi, port, console.LoginToCirros)
+			vmnetserver.StartTCPServer(vmi, port, console.LoginToAlpine)
 
 			By("Exposing headless service matching subdomain")
 			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)
@@ -2907,6 +2907,36 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			By("Expecting to be able to migrate the VMI")
 			migration = libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+		})
+	})
+
+	Describe("with a guest-agent-ping liveness probe", func() {
+		// Regression test for probe suppression on the migration target pod.
+		// Before the fix, the QEMU guest agent was unreachable on the target
+		// pod while it was receiving the incoming migration, causing the
+		// Kubernetes liveness probe to fail. Because virt-launcher pods use
+		// restartPolicy: Never, the failed probe kills the compute container
+		// and the pod enters Failed phase, aborting the migration.
+		It("should complete migration without the liveness probe killing the target pod", func() {
+			By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
+			vmi := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithMemoryRequest(fedoraVMSize),
+				libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),
+			)
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("Waiting for the guest agent to connect")
+			Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Starting a migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Confirming the VMI migrated successfully and is still running")
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 		})
 	})
 }))

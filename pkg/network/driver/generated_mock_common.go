@@ -43,21 +43,6 @@ func (m *MockNetworkHandler) EXPECT() *MockNetworkHandlerMockRecorder {
 	return m.recorder
 }
 
-// AddrList mocks base method.
-func (m *MockNetworkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddrList", link, family)
-	ret0, _ := ret[0].([]netlink.Addr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddrList indicates an expected call of AddrList.
-func (mr *MockNetworkHandlerMockRecorder) AddrList(link, family any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddrList", reflect.TypeOf((*MockNetworkHandler)(nil).AddrList), link, family)
-}
-
 // HasIPv4GlobalUnicastAddress mocks base method.
 func (m *MockNetworkHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -88,21 +73,6 @@ func (mr *MockNetworkHandlerMockRecorder) HasIPv6GlobalUnicastAddress(interfaceN
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasIPv6GlobalUnicastAddress", reflect.TypeOf((*MockNetworkHandler)(nil).HasIPv6GlobalUnicastAddress), interfaceName)
 }
 
-// IsIpv4Primary mocks base method.
-func (m *MockNetworkHandler) IsIpv4Primary() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsIpv4Primary")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsIpv4Primary indicates an expected call of IsIpv4Primary.
-func (mr *MockNetworkHandlerMockRecorder) IsIpv4Primary() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsIpv4Primary", reflect.TypeOf((*MockNetworkHandler)(nil).IsIpv4Primary))
-}
-
 // LinkByName mocks base method.
 func (m *MockNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 	m.ctrl.T.Helper()
@@ -116,66 +86,6 @@ func (m *MockNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 func (mr *MockNetworkHandlerMockRecorder) LinkByName(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkByName", reflect.TypeOf((*MockNetworkHandler)(nil).LinkByName), name)
-}
-
-// LinkDel mocks base method.
-func (m *MockNetworkHandler) LinkDel(link netlink.Link) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LinkDel", link)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// LinkDel indicates an expected call of LinkDel.
-func (mr *MockNetworkHandlerMockRecorder) LinkDel(link any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkDel", reflect.TypeOf((*MockNetworkHandler)(nil).LinkDel), link)
-}
-
-// ParseAddr mocks base method.
-func (m *MockNetworkHandler) ParseAddr(s string) (*netlink.Addr, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ParseAddr", s)
-	ret0, _ := ret[0].(*netlink.Addr)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ParseAddr indicates an expected call of ParseAddr.
-func (mr *MockNetworkHandlerMockRecorder) ParseAddr(s any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseAddr", reflect.TypeOf((*MockNetworkHandler)(nil).ParseAddr), s)
-}
-
-// ReadIPAddressesFromLink mocks base method.
-func (m *MockNetworkHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadIPAddressesFromLink", interfaceName)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ReadIPAddressesFromLink indicates an expected call of ReadIPAddressesFromLink.
-func (mr *MockNetworkHandlerMockRecorder) ReadIPAddressesFromLink(interfaceName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadIPAddressesFromLink", reflect.TypeOf((*MockNetworkHandler)(nil).ReadIPAddressesFromLink), interfaceName)
-}
-
-// RouteList mocks base method.
-func (m *MockNetworkHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RouteList", link, family)
-	ret0, _ := ret[0].([]netlink.Route)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RouteList indicates an expected call of RouteList.
-func (mr *MockNetworkHandlerMockRecorder) RouteList(link, family any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RouteList", reflect.TypeOf((*MockNetworkHandler)(nil).RouteList), link, family)
 }
 
 // StartDHCP mocks base method.

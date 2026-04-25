@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,12 +40,22 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	mdevBusPath               = "/sys/class/mdev_bus/"
+	mdevSupportedTypesDirName = "mdev_supported_types"
+)
+
 var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
+	var testNodeName string
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+		// There should be only one node in this lane
+		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
+		Expect(nodes).To(HaveLen(1))
+		testNodeName = nodes[0].Name
 	})
 
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
@@ -60,7 +71,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		}
 	}
 
-	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount int) func() (*k8sv1.Pod, error) {
+	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount uint) func() (*k8sv1.Pod, error) {
 		return func() (*k8sv1.Pod, error) {
 			By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
 			check := fmt.Sprintf(`set -x
@@ -128,7 +139,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		var deviceName = "nvidia.com/GRID_T4-1B"
 		var mdevSelector = "GRID T4-1B"
 		var desiredMdevTypeName = "nvidia-222"
-		var expectedInstancesNum = 16
+		var expectedInstancesNum uint
 		var config v1.KubeVirtConfiguration
 		var originalFeatureGates []string
 
@@ -154,6 +165,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			noGPUDevicesAreAvailable()
 		}
 		BeforeEach(func() {
+			By("Determining the expected amount of mediated device instances used for the test")
+			expectedInstancesNum = getNumOfInstancesOnNodeByMdevType(testNodeName, desiredMdevTypeName)
+
 			addMdevsConfiguration()
 
 			By("Verifying that an expected amount of devices has been created")
@@ -206,14 +220,16 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		var updatedMdevSelector = "GRID T4-2B"
 		var parentDeviceID = "10de:1eb8"
 		var desiredMdevTypeName = "nvidia-222"
-		var expectedInstancesNum = 16
+		var expectedInstancesNum uint
 		var config v1.KubeVirtConfiguration
 		var mdevTestLabel = "mdevTestLabel1"
 
 		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			By("Determining the expected amount of mediated device instances used for the test")
+			expectedInstancesNum = getNumOfInstancesOnNodeByMdevType(testNodeName, desiredMdevTypeName)
 
 			By("Creating a configuration for mediated devices")
+			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{desiredMdevTypeName},
@@ -282,8 +298,10 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
 		})
 		It("Should override default mdev configuration on a specific node", func() {
+			By("Determining the expected amount of mediated device instances used for the test")
 			newDesiredMdevTypeName := "nvidia-223"
-			newExpectedInstancesNum := 8
+			newExpectedInstancesNum := getNumOfInstancesOnNodeByMdevType(testNodeName, newDesiredMdevTypeName)
+
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
@@ -300,9 +318,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
-			// There should be only one node in this lane
-			singleNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
+			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
@@ -326,23 +342,21 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 	})
 	Context("with generic mediated devices", func() {
-		const mdevBusPath = "/sys/class/mdev_bus/"
 		const findMdevCapableDevices = "ls -df1 " + mdevBusPath + "0000* | head -1"
-		const findSupportedTypeFmt = "ls -df1 " + mdevBusPath + "%s/mdev_supported_types/* | head -1"
-		const deviceNameFmt = mdevBusPath + "%s/mdev_supported_types/%s/name"
+		const findSupportedTypeFmt = "ls -df1 " + mdevBusPath + "%s/" + mdevSupportedTypesDirName + "/* | head -1"
+		const deviceNameFmt = mdevBusPath + "%s/" + mdevSupportedTypesDirName + "/%s/name"
 		const unbindCmdFmt = "echo %s > %s/unbind"
 		const bindCmdFmt = "echo %s > %s/bind"
 		const uuidRegex = "????????-????-????-????-????????????"
 		const mdevUUIDPathFmt = "/sys/class/mdev_bus/%s/%s"
 		const mdevTypePathFmt = "/sys/class/mdev_bus/%s/%s/mdev_type"
 
-		var node string
 		var driverPath string
 		var rootPCIId string
 
 		runBashCmd := func(cmd string) (string, error) {
 			args := []string{"bash", "-x", "-c", cmd}
-			stdout, err := libnode.ExecuteCommandInVirtHandlerPod(node, args)
+			stdout, err := libnode.ExecuteCommandInVirtHandlerPod(testNodeName, args)
 			stdout = strings.TrimSpace(stdout)
 			return stdout, err
 		}
@@ -371,9 +385,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		}
 
 		BeforeEach(func() {
-			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-			Expect(nodes).To(HaveLen(1))
-			node = nodes[0].Name
 			rootPCIId = "none"
 		})
 
@@ -468,3 +479,27 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 	})
 })
+
+// Note: this may not work for non-NVIDIA devices as it relies on `<type-id>/description` which is optional
+//
+//	NVIDIA driver implements the `max_instance` attribute via `description`
+//	$ cat /sys/class/mdev_bus/0000:ab:00.0/mdev_supported_types/nvidia-222/description
+//	num_heads=4, frl_config=45, framebuffer=1024M, max_resolution=5120x2880, max_instance=16
+func getNumOfInstancesOnNodeByMdevType(nodeName string, typeID string) uint {
+	cmd := fmt.Sprintf(`num=0
+	for dev in %s*/%[2]s/%[3]s; do
+	  ins=$(/usr/bin/grep -m1 -oPs '\bmax_instance=\K\d+\b' ${dev}/description)
+	  if [[ -n $ins ]]; then
+	    ((num+=$ins))
+	  fi
+	done
+	echo $num`, mdevBusPath, mdevSupportedTypesDirName, typeID)
+	args := []string{"bash", "-x", "-c", cmd}
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	num, err := strconv.ParseUint(strings.TrimSpace(stdout), 10, 0)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(num).To(BeNumerically(">", 0))
+	return uint(num)
+}

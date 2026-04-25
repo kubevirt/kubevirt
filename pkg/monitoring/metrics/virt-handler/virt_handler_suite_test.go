@@ -17,7 +17,7 @@
  *
  */
 
-package virt_handler_test
+package virthandler_test
 
 import (
 	"testing"

@@ -86,6 +86,12 @@ case "$TARGET" in
     export KUBEVIRT_HUGEPAGES_2M=512
     export KUBEVIRT_REALTIME_SCHEDULER=true
     ;;
+  *sig-compute-parallel-wg-mshv-amd64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel-wg-mshv-amd64/}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    add_feature_gate "ConfigurableHypervisor"
+    export HYPERVISOR="hyperv-direct"
+    ;;
   *sig-compute-migrations-wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations-wg-arm64/}
     export KUBEVIRT_E2E_PARALLEL_NODES=3
@@ -136,12 +142,6 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
     ;;
-  *wg-mshv-amd64*)
-    export KUBEVIRT_PROVIDER=${TARGET/-wg-mshv-amd64/}
-    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
-    add_feature_gate "ConfigurableHypervisor"
-    export HYPERVISOR="hyperv-direct"
-    ;;
   *sev*)
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
     ;;
@@ -169,6 +169,7 @@ if [[ $TARGET =~ sriov.* ]]; then
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
+  add_feature_gate "ExternalNetResourceInjection"
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
@@ -347,12 +348,21 @@ if [ "$CI" != "true" ]; then
   make cluster-down
 fi
 
-# Create .bazelrc to use 4 jobs, remote cache and disable progress output
-cat >ci.bazelrc <<EOF
+# Create .bazelrc to use 4 jobs, remote cache and disable progress output.
+# Seed ci.bazelrc with /etc/bazel.bazelrc if it exists so the Bazel remote
+# cache configuration written by create_bazel_cache_rcs.sh during bootstrap
+# is propagated into the hack/dockerized builder container (which only sees
+# files rsync'd from the source tree).
+cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || : >ci.bazelrc
+cat >>ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
 build --noshow_progress
 EOF
+
+echo "=== ci.bazelrc ==="
+cat ci.bazelrc
+echo "=================="
 
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
@@ -427,8 +437,15 @@ kubectl version
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
 # arm64 e2e test lane use kind provider
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
-  export KUBEVIRT_E2E_PARALLEL=false
+if [[ $TARGET =~ .*kind.* ]]; then
+  # MSHV tests do not require serial execution
+  if ! [[ $TARGET =~ .*wg-mshv.* ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
+else
+  if [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
 fi
 
 ginko_params="--no-color"

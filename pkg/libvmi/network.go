@@ -39,10 +39,6 @@ func WithNetwork(network *kvirtv1.Network) Option {
 	}
 }
 
-func WithPasstInterfaceWithPort() Option {
-	return WithInterface(InterfaceWithPasstBindingPlugin([]kvirtv1.Port{{Port: 1234, Protocol: "TCP"}}...))
-}
-
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
@@ -95,9 +91,9 @@ func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
 }
 
 // InterfaceWithMacvtapBindingPlugin returns an Interface named "default" with "macvtap" binding plugin.
-func InterfaceWithMacvtapBindingPlugin(name string) *kvirtv1.Interface {
+func InterfaceWithMacvtapBindingPlugin(name string) kvirtv1.Interface {
 	const macvtapBindingName = "macvtap"
-	return &kvirtv1.Interface{
+	return kvirtv1.Interface{
 		Name:    name,
 		Binding: &kvirtv1.PluginBinding{Name: macvtapBindingName},
 	}
@@ -112,7 +108,7 @@ func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, port
 }
 
 // InterfaceWithMac decorates an existing Interface with a MAC address.
-func InterfaceWithMac(iface *kvirtv1.Interface, macAddress string) *kvirtv1.Interface {
+func InterfaceWithMac(iface kvirtv1.Interface, macAddress string) kvirtv1.Interface {
 	iface.MacAddress = macAddress
 	return iface
 }

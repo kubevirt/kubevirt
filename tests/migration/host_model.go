@@ -56,7 +56,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 
 			By("Creating a VMI with default CPU mode to land in source node")
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),

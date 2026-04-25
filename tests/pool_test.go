@@ -169,7 +169,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewAlpine()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewGuestless()))
 	}
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {
@@ -209,7 +209,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		})
 
 		_, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
-		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[1].Name 'testdisk' not found"))
+		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[0].Name 'testdisk' not found"))
 	})
 
 	It("should remove VMs once they are marked for deletion", func() {
@@ -798,7 +798,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should use DescendingOrder scale-in strategy when specified", func() {
 		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
-		pool := newPoolFromVMI(libvmifact.NewAlpine())
+		pool := newPoolFromVMI(libvmifact.NewGuestless())
 
 		// Set up DescendingOrder scale-in strategy
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{

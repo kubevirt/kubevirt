@@ -139,7 +139,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			}, time.Second*30, time.Second*3).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
@@ -153,7 +153,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 
 		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
@@ -209,7 +209,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			Expect(libnet.PingFromVMConsole(hotPluggedVMI, ip2)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
@@ -271,7 +271,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			Expect(console.RunCommand(hotPluggedVMI, libnet.NewLinkStateAssersionCmd(secondIfaceMac.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 	})
 }))
@@ -361,7 +361,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName1)
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 	})
 }))

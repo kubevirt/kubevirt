@@ -213,6 +213,8 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logVolumeSnapshots(virtCli)
 	r.logVirtualMachineSnapshots(virtCli)
 	r.logVirtualMachineSnapshotContents(virtCli)
+	r.logVirtualMachineBackups(virtCli)
+	r.logVirtualMachineBackupTrackers(virtCli)
 
 	r.logAuditLogs(virtCli, nodesDir, nodesWithTestPods, since)
 	r.logDMESG(virtCli, nodesDir, nodesWithTestPods, since)
@@ -1131,6 +1133,26 @@ func (r *KubernetesReporter) logVirtualMachineSnapshotContents(virtCli kubecli.K
 	}
 
 	r.logObjects(volumeSnapshotContents, "virtualmachinenapshotcontents")
+}
+
+func (r *KubernetesReporter) logVirtualMachineBackups(virtCli kubecli.KubevirtClient) {
+	vmBackups, err := virtCli.VirtualMachineBackup(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		printError("failed to fetch virtual machine backups: %v", err)
+		return
+	}
+
+	r.logObjects(vmBackups, "virtualmachinebackups")
+}
+
+func (r *KubernetesReporter) logVirtualMachineBackupTrackers(virtCli kubecli.KubevirtClient) {
+	vmBackupTrackers, err := virtCli.VirtualMachineBackupTracker(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		printError("failed to fetch virtual machine backup trackers: %v", err)
+		return
+	}
+
+	r.logObjects(vmBackupTrackers, "virtualmachinebackuptrackers")
 }
 
 func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {

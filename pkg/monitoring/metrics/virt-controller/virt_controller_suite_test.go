@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller_test
+package virtcontroller_test
 
 import (
 	"testing"

@@ -41,7 +41,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -138,7 +138,7 @@ var _ = Describe("Backup source", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(vmExportClient.ExportV1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,
@@ -219,7 +219,7 @@ var _ = Describe("Backup source", func() {
 		).To(Succeed())
 	})
 
-	createTestVMBackup := func(conditions []backupv1.Condition, includedVolumes []backupv1.BackupVolumeInfo, checkpointName *string) *backupv1.VirtualMachineBackup {
+	createTestVMBackup := func(conditions []metav1.Condition, includedVolumes []backupv1.BackupVolumeInfo, checkpointName *string) *backupv1.VirtualMachineBackup {
 		return &backupv1.VirtualMachineBackup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testBackupName,
@@ -252,7 +252,7 @@ var _ = Describe("Backup source", func() {
 	It("Should create VM export when backup is progressing", func() {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
-			[]backupv1.Condition{{Type: backupv1.ConditionProgressing, Status: k8sv1.ConditionTrue}},
+			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
 			pointer.P(testBackupCheckpointName),
 		)
@@ -325,7 +325,7 @@ var _ = Describe("Backup source", func() {
 	})
 
 	DescribeTable("Should update VM Export status according to backup source",
-		func(hasContent bool, backupConditions []backupv1.Condition, expectedReadyStatus k8sv1.ConditionStatus, expectedMessage string) {
+		func(hasContent bool, backupConditions []metav1.Condition, expectedReadyStatus k8sv1.ConditionStatus, expectedMessage string) {
 			testVMExport := createBackupVMExport()
 
 			var volumes []backupv1.BackupVolumeInfo
@@ -369,19 +369,19 @@ var _ = Describe("Backup source", func() {
 		},
 		Entry("when backup lacks content",
 			false,
-			[]backupv1.Condition{{Type: backupv1.ConditionProgressing, Status: k8sv1.ConditionFalse}},
+			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionFalse}},
 			k8sv1.ConditionFalse,
 			vmBackupNoContent,
 		),
 		Entry("when backup Progressing condition is missing entirely",
 			true,
-			[]backupv1.Condition{},
+			[]metav1.Condition{},
 			k8sv1.ConditionFalse,
 			vmBackupNoProgressingCondition,
 		),
 		Entry("when backup Progressing condition is false",
 			true,
-			[]backupv1.Condition{{Type: backupv1.ConditionProgressing, Status: k8sv1.ConditionFalse, Message: "Backup encountered a fatal error"}},
+			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionFalse, Message: "Backup encountered a fatal error"}},
 			k8sv1.ConditionFalse,
 			"Backup encountered a fatal error",
 		),
@@ -429,7 +429,7 @@ var _ = Describe("Backup source", func() {
 	It("Should properly omit BACKUP_CHECKPOINT from pod when checkpoint is nil", func() {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
-			[]backupv1.Condition{{Type: backupv1.ConditionProgressing, Status: k8sv1.ConditionTrue}},
+			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
 			nil,
 		)
@@ -467,7 +467,7 @@ var _ = Describe("Backup source", func() {
 	It("Should return an error when failed to obtain backup CA", func() {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
-			[]backupv1.Condition{{Type: backupv1.ConditionProgressing, Status: k8sv1.ConditionTrue}},
+			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
 			nil,
 		)

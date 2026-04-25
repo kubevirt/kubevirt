@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"strconv"
@@ -41,8 +41,9 @@ import (
 )
 
 const (
-	none  = "" // Empty values will be ignored by operator-observability and label will not be created
-	other = "<other>"
+	none      = "" // Empty values will be ignored by operator-observability and label will not be created
+	other     = "<other>"
+	modelNone = "<none>"
 
 	annotationPrefix        = "vm.kubevirt.io/"
 	instancetypeVendorLabel = "instancetype.kubevirt.io/vendor"
@@ -152,7 +153,7 @@ var (
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := stores.VMI.List()
 	if len(cachedObjs) == 0 {
-		log.Log.V(4).Infof("No VMIs detected")
+		log.Log.V(logVerbosityDebug).Infof("No VMIs detected")
 		return []operatormetrics.CollectorResult{}
 	}
 
@@ -169,8 +170,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 	var crs []operatormetrics.CollectorResult
 
 	for _, vmi := range vmis {
-		crs = append(crs, collectVMIInfo(vmi))
-		crs = append(crs, getEvictionBlocker(vmi))
+		crs = append(crs, collectVMIInfo(vmi), getEvictionBlocker(vmi))
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
 		crs = append(crs, CollectVmisVnicInfo(vmi)...)
@@ -191,7 +191,8 @@ func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operato
 	} else {
 		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
 		// and we are sure that all VMIs include the MemoryOverhead status field
-		// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between different hypervisors
+		// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between
+		// different hypervisors
 		launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
 		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
 		memoryOverheadValue = memoryOverhead.Value()
@@ -251,7 +252,6 @@ func getSystemInfoFromAnnotations(annotations map[string]string) (os, workload, 
 }
 
 func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, guestOSMachineArch, name, versionID string) {
-
 	if vmi.Status.GuestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
 		return
 	}
@@ -379,7 +379,6 @@ func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
 		if vmiIsMigratableCond == nil || vmiIsMigratableCond.Status == k8sv1.ConditionFalse {
 			return false
 		}
-
 	}
 	return true
 }
@@ -401,7 +400,10 @@ func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetri
 	return crs
 }
 
-func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) *operatormetrics.CollectorResult {
+func collectVMIInterfaceInfo(
+	vmi *k6tv1.VirtualMachineInstance,
+	iface k6tv1.VirtualMachineInstanceNetworkInterface,
+) *operatormetrics.CollectorResult {
 	interfaceType := "ExternalInterface"
 
 	if iface.IP == "" {
@@ -444,7 +446,8 @@ func collectVMIMigrationTime(vmi *k6tv1.VirtualMachineInstance) []operatormetric
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiMigrationEndTime,
 			Value:  float64(vmi.Status.MigrationState.EndTimestamp.Time.Unix()),
-			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
+			Labels: []string{
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
 				calculateMigrationStatus(vmi.Status.MigrationState),
 			},
 		})
@@ -481,7 +484,7 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 	networks := vmi.Spec.Networks
 
 	for _, iface := range interfaces {
-		model := "<none>"
+		model := modelNone
 		if iface.Model != "" {
 			model = iface.Model
 		}

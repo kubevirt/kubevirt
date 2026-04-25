@@ -1,5 +1,6 @@
 # Network Binding Plugin
 [v1.4.0, Beta feature]
+[v1.5.0, GA feature]
 
 A modular plugin framework which integrates with Kubevirt to implement a
 network binding.
@@ -169,10 +170,11 @@ plugin.
 
 When a standard domain attachment requires customization,
 or when additional services are needed (e.g. DHCP), a sidecar container
-may be executed to integrate with Kubevirt.
+can be used to integrate with Kubevirt.
 
-The sidecar container runs in parallel to the virt-launcher container
-which runs the hypervisor (libvirt and qemu).
+The sidecar container runs alongside the virt-launcher container,
+which is responsible for running the hypervisor components (Libvirt and QEMU).
+
 
 ### Sidecar Protocol
 

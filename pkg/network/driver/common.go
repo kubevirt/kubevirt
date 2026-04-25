@@ -23,11 +23,8 @@ package driver
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/vishvananda/netlink"
-
-	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -51,15 +48,9 @@ const (
 
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
-	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
-	ReadIPAddressesFromLink(interfaceName string) (string, string, error)
-	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
-	LinkDel(link netlink.Link) error
-	ParseAddr(s string) (*netlink.Addr, error)
 	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
-	IsIpv4Primary() (bool, error)
 }
 
 type NetworkUtilsHandler struct{}
@@ -67,25 +58,12 @@ type NetworkUtilsHandler struct{}
 func (h *NetworkUtilsHandler) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
 }
-func (h *NetworkUtilsHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
-	return netlink.AddrList(link, family)
-}
-func (h *NetworkUtilsHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
-	return netlink.RouteList(link, family)
-}
-func (h *NetworkUtilsHandler) LinkDel(link netlink.Link) error {
-	return netlink.LinkDel(link)
-}
-func (h *NetworkUtilsHandler) ParseAddr(s string) (*netlink.Addr, error) {
-	return netlink.ParseAddr(s)
-}
-
 func (h *NetworkUtilsHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
 	link, err := h.LinkByName(interfaceName)
 	if err != nil {
 		return false, err
 	}
-	addrList, err := h.AddrList(link, netlink.FAMILY_V4)
+	addrList, err := netlink.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
 		return false, err
 	}
@@ -103,7 +81,7 @@ func (h *NetworkUtilsHandler) HasIPv6GlobalUnicastAddress(interfaceName string) 
 	if err != nil {
 		return false, err
 	}
-	addrList, err := h.AddrList(link, netlink.FAMILY_V6)
+	addrList, err := netlink.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
 		return false, err
 	}
@@ -114,48 +92,6 @@ func (h *NetworkUtilsHandler) HasIPv6GlobalUnicastAddress(interfaceName string) 
 		}
 	}
 	return false, nil
-}
-
-func (h *NetworkUtilsHandler) IsIpv4Primary() (bool, error) {
-	podIP, exist := os.LookupEnv("MY_POD_IP")
-	if !exist {
-		return false, fmt.Errorf("MY_POD_IP doesn't exist")
-	}
-
-	return !netutils.IsIPv6String(podIP), nil
-}
-
-func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
-	link, err := h.LinkByName(interfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", interfaceName)
-		return "", "", err
-	}
-
-	// get IP address
-	addrList, err := h.AddrList(link, netlink.FAMILY_ALL)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get an address for interface: %s", interfaceName)
-		return "", "", err
-	}
-
-	// no ip assigned. ipam disabled
-	if len(addrList) == 0 {
-		return "", "", nil
-	}
-
-	var ipv4, ipv6 string
-	for _, addr := range addrList {
-		if addr.IP.IsGlobalUnicast() {
-			if netutils.IsIPv6(addr.IP) && ipv6 == "" {
-				ipv6 = addr.IP.String()
-			} else if !netutils.IsIPv6(addr.IP) && ipv4 == "" {
-				ipv4 = addr.IP.String()
-			}
-		}
-	}
-
-	return ipv4, ipv6, nil
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {

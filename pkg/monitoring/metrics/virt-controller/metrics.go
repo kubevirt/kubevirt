@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"fmt"
@@ -34,8 +34,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+)
+
+const (
+	logVerbosityDebug = 4
 )
 
 type vmApplyHandler interface {
@@ -114,6 +119,10 @@ func SetupMetrics(
 		return err
 	}
 
+	if err := vmisync.SetupMetrics(); err != nil {
+		return err
+	}
+
 	if err := operatormetrics.RegisterMetrics(metrics...); err != nil {
 		return err
 	}
@@ -168,7 +177,7 @@ func PhaseTransitionTimeBuckets() []float64 {
 	}
 }
 
-func getTransitionTimeSeconds(oldTime *metav1.Time, newTime *metav1.Time) (float64, error) {
+func getTransitionTimeSeconds(oldTime, newTime *metav1.Time) (float64, error) {
 	if newTime == nil || oldTime == nil {
 		// no phase transition timestamp found
 		return 0.0, fmt.Errorf("missing phase transition timestamp, newTime: %v, oldTime: %v", newTime, oldTime)

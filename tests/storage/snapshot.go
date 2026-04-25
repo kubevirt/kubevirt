@@ -1317,6 +1317,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
 				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes).Should(HaveLen(1))
 				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes[0]).Should(Equal("notsnapshotablevolume"))
+
+				By("Verifying PartialSnapshot indication is set when snapshottable volume is excluded")
+				Expect(snapshot.Status.Indications).Should(ContainElement(snapshotv1.VMSnapshotPartialSnapshotIndication))
+				Expect(snapshot.Status.SourceIndications).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Indication": Equal(snapshotv1.VMSnapshotPartialSnapshotIndication),
+				})))
 			})
 
 			It("Should also include backend PVC in the snapshot", func() {
@@ -1372,7 +1378,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(2))
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
-				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).Should(Equal(fmt.Sprintf("persistent-state-for-%s", vm.Name)))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).To(HavePrefix("persistent-state-for-"))
 			})
 		})
 

@@ -404,12 +404,18 @@ type VolumeStatus struct {
 
 // KernelInfo show info about the kernel image
 type KernelInfo struct {
+	// +kubebuilder:validation:Format:=int64
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=4294967295
 	// Checksum is the checksum of the kernel image
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
 // InitrdInfo show info about the initrd file
 type InitrdInfo struct {
+	// +kubebuilder:validation:Format:=int64
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=4294967295
 	// Checksum is the checksum of the initrd file
 	Checksum uint32 `json:"checksum,omitempty"`
 }
@@ -444,6 +450,9 @@ type HotplugVolumeStatus struct {
 
 // ContainerDiskInfo shows info about the containerdisk
 type ContainerDiskInfo struct {
+	// +kubebuilder:validation:Format:=int64
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=4294967295
 	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
 	Checksum uint32 `json:"checksum,omitempty"`
 }
@@ -2317,6 +2326,12 @@ type Handler struct {
 	// +optional
 	Exec *k8sv1.ExecAction `json:"exec,omitempty" protobuf:"bytes,1,opt,name=exec"`
 	// GuestAgentPing contacts the qemu-guest-agent for availability checks.
+	// Probe failures are automatically suppressed when the guest agent is
+	// unreachable for a non-fault reason: during live migration (guest paused
+	// on one pod while memory is transferred) and whenever the VM is paused
+	// for an intentional or transient reason such as a user pause, snapshot,
+	// save, or dump. Failures are not suppressed when the VM is paused due to
+	// a fault (IO error, crash, or postcopy failure).
 	// +optional
 	GuestAgentPing *GuestAgentPing `json:"guestAgentPing,omitempty"`
 	// HTTPGet specifies the http request to perform.
@@ -3178,7 +3193,6 @@ type VirtTemplateDeployment struct {
 }
 
 // RoleAggregationStrategy represents the strategy for RBAC role aggregation
-// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 type RoleAggregationStrategy string
 
 const (

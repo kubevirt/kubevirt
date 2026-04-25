@@ -89,10 +89,6 @@ func (config *ClusterConfig) SnapshotEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SnapshotGate)
 }
 
-func (config *ClusterConfig) VMExportEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VMExportGate)
-}
-
 func (config *ClusterConfig) HotplugVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HotplugVolumesGate)
 }
@@ -173,10 +169,6 @@ func (config *ClusterConfig) SecureExecutionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }
 
-func (config *ClusterConfig) PanicDevicesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PanicDevicesGate)
-}
-
 func (config *ClusterConfig) PasstBindingEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstBinding)
 }
@@ -243,4 +235,8 @@ func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
 
 func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.LiveUpdateNADRef)
+}
+
+func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
 }

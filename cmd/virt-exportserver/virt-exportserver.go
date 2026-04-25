@@ -20,7 +20,10 @@
 package main
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"os"
+	"strconv"
 	"time"
 
 	"kubevirt.io/client-go/log"
@@ -41,12 +44,14 @@ func main() {
 
 	certFile, keyFile := getCert()
 	config := exportServer.ExportServerConfig{
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		Deadline:   getDeadline(),
-		ListenAddr: getListenAddr(),
-		TokenFile:  getTokenFile(),
-		Paths:      export.CreateServerPaths(export.EnvironToMap()),
+		CertFile:        certFile,
+		KeyFile:         keyFile,
+		Deadline:        getDeadline(),
+		ListenAddr:      getListenAddr(),
+		TokenFile:       getTokenFile(),
+		Paths:           export.CreateServerPaths(export.EnvironToMap()),
+		TLSMinVersion:   getTLSMinVersion(),
+		TLSCipherSuites: getTLSCipherSuites(),
 	}
 	if len(config.Paths.Backups) > 0 {
 		config.BackupUID = getBackupUID()
@@ -123,4 +128,30 @@ func getBackupCACert() []byte {
 		panic("backup export but no backup CA provided")
 	}
 	return []byte(caCert)
+}
+
+func getTLSMinVersion() uint16 {
+	env := os.Getenv("TLS_MIN_VERSION")
+	if env == "" {
+		return tls.VersionTLS12
+	}
+	v, err := strconv.ParseUint(env, 10, 16)
+	if err != nil {
+		log.Log.Warningf("Failed to parse TLS_MIN_VERSION %q: %v", env, err)
+		return tls.VersionTLS12
+	}
+	return uint16(v)
+}
+
+func getTLSCipherSuites() []uint16 {
+	env := os.Getenv("TLS_CIPHER_SUITES")
+	if env == "" {
+		return nil
+	}
+	var ids []uint16
+	if err := json.Unmarshal([]byte(env), &ids); err != nil {
+		log.Log.Warningf("Failed to parse TLS_CIPHER_SUITES: %v", err)
+		return nil
+	}
+	return ids
 }

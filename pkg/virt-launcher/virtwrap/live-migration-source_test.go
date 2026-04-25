@@ -63,7 +63,7 @@ var _ = Describe("Live migration source", func() {
 				testVirtShareDir,
 				testEphemeralDiskDir,
 				nil, // agent store
-				"/usr/share/OVMF",
+				virtconfig.DefaultARCHOVMFPath,
 				ephemeralDiskCreatorMock,
 				metadataCache,
 				nil, //stop chn
@@ -73,6 +73,7 @@ var _ = Describe("Live migration source", func() {
 				false, // libvirt hooks server and client enabled
 				nil,
 				v1.KvmHypervisorName,
+				nil,
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)

@@ -144,7 +144,7 @@ func getDeviceRwmPermissions() devices.Permissions {
 // This builds up the known persistent block devices allow list for a VMI (as in, hotplugged volumes are handled separately)
 // This will be maintained and extended as new devices likely have to end up on this list as well
 // For example - https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, host, hypervisorDevice string) ([]*devices.Rule, error) {
+func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, host, hypervisorDevice string, allowEmulation bool) ([]*devices.Rule, error) {
 	mountRoot, err := isolationRes.MountRoot()
 	if err != nil {
 		return nil, err
@@ -208,13 +208,16 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 
 	path, err := safepath.JoinNoFollow(mountRoot, fmt.Sprintf("/dev/%s", hypervisorDevice))
 	if err != nil {
-		return nil, err
-	}
-	if deviceRule, err := newAllowedDeviceRule(path, getDevicePermissionsFromCgroups()); err != nil {
-		return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
-	} else if deviceRule != nil {
-		log.Log.V(loggingVerbosity).Infof("device rule for device %s: %v", hypervisorDevice, deviceRule)
-		vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		if !allowEmulation {
+			return nil, err
+		}
+	} else {
+		if deviceRule, err := newAllowedDeviceRule(path, getDevicePermissionsFromCgroups()); err != nil {
+			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
+		} else if deviceRule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for device %s: %v", hypervisorDevice, deviceRule)
+			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		}
 	}
 
 	return vmiDeviceRules, nil

@@ -36,7 +36,6 @@ import (
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -51,10 +50,6 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 	}
 
 	BeforeEach(func() {
-		if !checks.HasFeature(featuregate.VMExportGate) {
-			Fail(fmt.Sprintf(`Cluster has the %q featuregate disabled, skipping  the tests`, featuregate.VMExportGate))
-		}
-
 		kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
 		kvConfig.TLSConfiguration = &v1.TLSConfiguration{
 			MinTLSVersion: v1.VersionTLS12,

@@ -100,7 +100,7 @@ var _ = Describe("Premigration Hook Server", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to parse input domain XML")
 
 			By("running the CPU dedicated hook")
-			err = CPUDedicatedHook(vmi, &domain)
+			err = CPUDedicatedHook(nil, vmi, &domain)
 			Expect(err).NotTo(HaveOccurred(), "failed to modify domain")
 
 			By("marshaling the modified domain back to XML")

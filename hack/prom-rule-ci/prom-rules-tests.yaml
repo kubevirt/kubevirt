@@ -144,7 +144,7 @@ tests:
             exp_labels:
               node: "node01"
               severity: "warning"
-              operator_health_impact: "none"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -186,7 +186,7 @@ tests:
             exp_labels:
               node: "node01"
               severity: "warning"
-              operator_health_impact: "none"
+              operator_health_impact: "warning"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
@@ -550,15 +550,15 @@ tests:
         # time:  0          1          2          3
         values: "1073176576 1073176576 1073176576 1273176576"
     promql_expr_test:
-      - expr: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes'
+      - expr: 'pod_container:kubevirt_vm_memory_request_margin_based_on_working_set_bytes:sum'
         eval_time: 1m
         exp_samples:
-          - labels: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+          - labels: 'pod_container:kubevirt_vm_memory_request_margin_based_on_working_set_bytes:sum{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
             value: 303706112
-      - expr: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes'
+      - expr: 'pod_container:kubevirt_vm_memory_request_margin_based_on_working_set_bytes:sum'
         eval_time: 3m
         exp_samples:
-          - labels: 'kubevirt_vm_container_memory_request_margin_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+          - labels: 'pod_container:kubevirt_vm_memory_request_margin_based_on_working_set_bytes:sum{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
             value: 103706112
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m
@@ -612,15 +612,15 @@ tests:
       - series: 'kube_pod_container_resource_requests{pod="virt-launcher-foo-1", namespace="ns-a", container="compute", resource="memory"}'
         values: '1000 1000'
     promql_expr_test:
-      - expr: 'kubevirt_memory_delta_from_requested_bytes{reason="memory_working_set_delta_from_request"}'
+      - expr: 'container:kubevirt_memory_delta_from_requested_bytes:max{reason="memory_working_set_delta_from_request"}'
         eval_time: 1m
         exp_samples:
-          - labels: 'kubevirt_memory_delta_from_requested_bytes{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_working_set_delta_from_request"}'
+          - labels: 'container:kubevirt_memory_delta_from_requested_bytes:max{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_working_set_delta_from_request"}'
             value: 500
-      - expr: 'kubevirt_memory_delta_from_requested_bytes{reason="memory_rss_delta_from_request"}'
+      - expr: 'container:kubevirt_memory_delta_from_requested_bytes:max{reason="memory_rss_delta_from_request"}'
         eval_time: 1m
         exp_samples:
-          - labels: 'kubevirt_memory_delta_from_requested_bytes{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_rss_delta_from_request"}'
+          - labels: 'container:kubevirt_memory_delta_from_requested_bytes:max{container="compute",namespace="ns-a",pod="virt-launcher-foo-1",reason="memory_rss_delta_from_request"}'
             value: 200
 
   # Test recording rule
@@ -641,19 +641,19 @@ tests:
         # time:  0          1          2          3
         values: "2448936960 2448936960 2448936960 2658936964"
     promql_expr_test:
-      - expr: 'kubevirt_vmi_memory_used_bytes'
+      - expr: 'vmi:kubevirt_vmi_memory_used_bytes:sum'
         eval_time: 1m
         exp_samples:
-          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+          - labels: 'vmi:kubevirt_vmi_memory_used_bytes:sum{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
             value: 303706112
-          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
+          - labels: 'vmi:kubevirt_vmi_memory_used_bytes:sum{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
             value: 444329984
-      - expr: 'kubevirt_vmi_memory_used_bytes'
+      - expr: 'vmi:kubevirt_vmi_memory_used_bytes:sum'
         eval_time: 3m
         exp_samples:
-          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+          - labels: 'vmi:kubevirt_vmi_memory_used_bytes:sum{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
             value: 103706112
-          - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
+          - labels: 'vmi:kubevirt_vmi_memory_used_bytes:sum{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
             value: 234329980
 
   # Mass Failed virt-launcher pods should trigger critical alert after 10m

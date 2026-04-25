@@ -934,6 +934,25 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	if newVMI.Status.MigrationState == nil {
 		newVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
+
+	// Only update SourceState if this migration is still active and matches the VMI's current migration.
+	// This prevents stale updates from a completed decentralized migration from interfering with a new compute migration.
+	if migration.IsFinal() {
+		log.Log.Object(migration).Infof("Migration is final, ignoring source state update for VMI %s/%s", vmi.Namespace, vmi.Name)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
+	// Check if the VMI's current migration matches this migration
+	if newVMI.Status.MigrationState.MigrationUID != "" && newVMI.Status.MigrationState.MigrationUID != migration.UID {
+		log.Log.Object(migration).Warningf("VMI %s/%s has different migration UID %s, ignoring source state update for migration %s",
+			vmi.Namespace, vmi.Name, newVMI.Status.MigrationState.MigrationUID, migration.UID)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
 	log.Log.Object(newVMI).V(5).Infof("vmi migration source state: %#v", newVMI.Status.MigrationState.SourceState)
 	log.Log.Object(newVMI).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
 	newVMI.Status.MigrationState.SourceState = remoteStatus.MigrationState.SourceState.DeepCopy()
@@ -945,6 +964,7 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 		log.Log.Object(newVMI).V(5).Info("SyncSourceMigrationStatus: No source migrated volumes found")
 	}
 	newVMI.Status.MigrationMethod = remoteStatus.MigrationMethod
+	newVMI.Status.MigrationTransport = remoteStatus.MigrationTransport
 	if !apiequality.Semantic.DeepEqual(vmi.Status, newVMI.Status) {
 		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
@@ -1056,6 +1076,24 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 		newVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
 
+	// Only update TargetState if this migration is still active and matches the VMI's current migration.
+	// This prevents stale updates from a completed decentralized migration from interfering with a new compute migration.
+	if migration.IsFinal() {
+		log.Log.Object(migration).Infof("Migration is final, ignoring target state update for VMI %s/%s", vmi.Namespace, vmi.Name)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
+	// Check if the VMI's current migration matches this migration
+	if newVMI.Status.MigrationState.MigrationUID != "" && newVMI.Status.MigrationState.MigrationUID != migration.UID {
+		log.Log.Object(migration).Warningf("VMI %s/%s has different migration UID %s, ignoring target state update for migration %s",
+			vmi.Namespace, vmi.Name, newVMI.Status.MigrationState.MigrationUID, migration.UID)
+		return &syncv1.VMIStatusResponse{
+			Message: successMessage,
+		}, nil
+	}
+
 	log.Log.Object(newVMI).V(5).Infof("vmi migration target state: %#v", newVMI.Status.MigrationState.TargetState)
 	log.Log.Object(newVMI).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
 	newVMI.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
@@ -1128,6 +1166,18 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 		}
 	}
 
+	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigrationTransport, newVMI.Status.MigrationTransport) {
+		if origVMI.Status.MigrationTransport == "" {
+			patchSet.AddOption(
+				patch.WithAdd("/status/migrationTransport", newVMI.Status.MigrationTransport))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/status/migrationTransport", origVMI.Status.MigrationTransport),
+				patch.WithReplace("/status/migrationTransport", newVMI.Status.MigrationTransport),
+			)
+		}
+	}
+
 	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigratedVolumes, newVMI.Status.MigratedVolumes) {
 		if origVMI.Status.MigratedVolumes == nil {
 			patchSet.AddOption(
@@ -1145,10 +1195,7 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 			patchSet.AddOption(
 				patch.WithAdd("/status/migrationState", newVMI.Status.MigrationState))
 		} else {
-			patchSet.AddOption(
-				patch.WithTest("/status/migrationState", origVMI.Status.MigrationState),
-				patch.WithReplace("/status/migrationState", newVMI.Status.MigrationState),
-			)
+			addMigrationStateFieldPatches(patchSet, origVMI.Status.MigrationState, newVMI.Status.MigrationState)
 		}
 	}
 
@@ -1163,6 +1210,72 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 		}
 	}
 	return nil
+}
+
+// addMigrationStateFieldPatches generates individual JSON Patch
+// operations for each changed field in MigrationState, rather than a
+// single test+replace of the entire object. This prevents spurious
+// patch failures when another controller concurrently modifies
+// unrelated MigrationState fields (e.g. the virt-handler setting
+// ports while the sync controller sets SourceState).
+func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virtv1.VirtualMachineInstanceMigrationState) {
+	if newMS == nil {
+		patchSet.AddOption(
+			patch.WithTest("/status/migrationState", origMS),
+			patch.WithRemove("/status/migrationState"),
+		)
+		return
+	}
+
+	patchMigrationStateField(patchSet, "startTimestamp", origMS.StartTimestamp, newMS.StartTimestamp)
+	patchMigrationStateField(patchSet, "endTimestamp", origMS.EndTimestamp, newMS.EndTimestamp)
+	patchMigrationStateField(patchSet, "targetNodeDomainReadyTimestamp", origMS.TargetNodeDomainReadyTimestamp, newMS.TargetNodeDomainReadyTimestamp)
+	patchMigrationStateField(patchSet, "targetNodeDomainDetected", origMS.TargetNodeDomainDetected, newMS.TargetNodeDomainDetected)
+	patchMigrationStateField(patchSet, "targetNodeAddress", origMS.TargetNodeAddress, newMS.TargetNodeAddress)
+	patchMigrationStateField(patchSet, "targetDirectMigrationNodePorts", origMS.TargetDirectMigrationNodePorts, newMS.TargetDirectMigrationNodePorts)
+	patchMigrationStateField(patchSet, "targetNode", origMS.TargetNode, newMS.TargetNode)
+	patchMigrationStateField(patchSet, "targetPod", origMS.TargetPod, newMS.TargetPod)
+	patchMigrationStateField(patchSet, "targetAttachmentPodUID", origMS.TargetAttachmentPodUID, newMS.TargetAttachmentPodUID)
+	patchMigrationStateField(patchSet, "sourceNode", origMS.SourceNode, newMS.SourceNode)
+	patchMigrationStateField(patchSet, "sourcePod", origMS.SourcePod, newMS.SourcePod)
+	patchMigrationStateField(patchSet, "completed", origMS.Completed, newMS.Completed)
+	patchMigrationStateField(patchSet, "failed", origMS.Failed, newMS.Failed)
+	patchMigrationStateField(patchSet, "abortRequested", origMS.AbortRequested, newMS.AbortRequested)
+	patchMigrationStateField(patchSet, "abortStatus", origMS.AbortStatus, newMS.AbortStatus)
+	patchMigrationStateField(patchSet, "failureReason", origMS.FailureReason, newMS.FailureReason)
+	patchMigrationStateField(patchSet, "migrationUid", origMS.MigrationUID, newMS.MigrationUID)
+	patchMigrationStateField(patchSet, "mode", origMS.Mode, newMS.Mode)
+	patchMigrationStateField(patchSet, "migrationPolicyName", origMS.MigrationPolicyName, newMS.MigrationPolicyName)
+	patchMigrationStateField(patchSet, "migrationConfiguration", origMS.MigrationConfiguration, newMS.MigrationConfiguration)
+	patchMigrationStateField(patchSet, "targetCPUSet", origMS.TargetCPUSet, newMS.TargetCPUSet)
+	patchMigrationStateField(patchSet, "targetNodeTopology", origMS.TargetNodeTopology, newMS.TargetNodeTopology)
+	patchMigrationStateField(patchSet, "sourcePersistentStatePVCName", origMS.SourcePersistentStatePVCName, newMS.SourcePersistentStatePVCName)
+	patchMigrationStateField(patchSet, "targetPersistentStatePVCName", origMS.TargetPersistentStatePVCName, newMS.TargetPersistentStatePVCName)
+	patchMigrationStateField(patchSet, "sourceState", origMS.SourceState, newMS.SourceState)
+	patchMigrationStateField(patchSet, "targetState", origMS.TargetState, newMS.TargetState)
+	patchMigrationStateField(patchSet, "migrationNetworkType", origMS.MigrationNetworkType, newMS.MigrationNetworkType)
+	patchMigrationStateField(patchSet, "targetMemoryOverhead", origMS.TargetMemoryOverhead, newMS.TargetMemoryOverhead)
+}
+
+// patchMigrationStateField generates an add or test+replace JSON
+// Patch operation for a single MigrationState field (all of which are
+// omitempty). Unchanged fields are skipped. Zero originals use add
+// (field absent from JSON), non-zero use test+replace for conflict
+// detection.
+func patchMigrationStateField[T any](patchSet *patch.PatchSet, field string, orig, new T) {
+	if apiequality.Semantic.DeepEqual(orig, new) {
+		return
+	}
+	path := "/status/migrationState/" + field
+	var zero T
+	if apiequality.Semantic.DeepEqual(orig, zero) {
+		patchSet.AddOption(patch.WithAdd(path, new))
+	} else {
+		patchSet.AddOption(
+			patch.WithTest(path, orig),
+			patch.WithReplace(path, new),
+		)
+	}
 }
 
 func indexByMigrationUID(obj interface{}) ([]string, error) {

@@ -328,7 +328,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/backup/v1alpha1.BackupCheckpoint":                                                schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref),
 		"kubevirt.io/api/backup/v1alpha1.BackupOptions":                                                   schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref),
 		"kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo":                                                schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref),
-		"kubevirt.io/api/backup/v1alpha1.Condition":                                                       schema_kubevirtio_api_backup_v1alpha1_Condition(ref),
 		"kubevirt.io/api/backup/v1alpha1.VirtualMachineBackup":                                            schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackup(ref),
 		"kubevirt.io/api/backup/v1alpha1.VirtualMachineBackupList":                                        schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupList(ref),
 		"kubevirt.io/api/backup/v1alpha1.VirtualMachineBackupSpec":                                        schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref),
@@ -621,16 +620,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VolumeUpdateState":                                                       schema_kubevirtio_api_core_v1_VolumeUpdateState(ref),
 		"kubevirt.io/api/core/v1.Watchdog":                                                                schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                          schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
-		"kubevirt.io/api/export/v1alpha1.Condition":                                                       schema_kubevirtio_api_export_v1alpha1_Condition(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExport":                                            schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink":                                        schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks":                                       schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportList":                                        schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest":                                    schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec":                                        schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus":                                      schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume":                                      schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat":                                schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref),
+		"kubevirt.io/api/export/v1.Condition":                                                             schema_kubevirtio_api_export_v1_Condition(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExport":                                                  schema_kubevirtio_api_export_v1_VirtualMachineExport(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportBackup":                                            schema_kubevirtio_api_export_v1_VirtualMachineExportBackup(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportBackupEndpoint":                                    schema_kubevirtio_api_export_v1_VirtualMachineExportBackupEndpoint(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportLink":                                              schema_kubevirtio_api_export_v1_VirtualMachineExportLink(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportLinks":                                             schema_kubevirtio_api_export_v1_VirtualMachineExportLinks(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportList":                                              schema_kubevirtio_api_export_v1_VirtualMachineExportList(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportManifest":                                          schema_kubevirtio_api_export_v1_VirtualMachineExportManifest(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportSpec":                                              schema_kubevirtio_api_export_v1_VirtualMachineExportSpec(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportStatus":                                            schema_kubevirtio_api_export_v1_VirtualMachineExportStatus(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportVolume":                                            schema_kubevirtio_api_export_v1_VirtualMachineExportVolume(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportVolumeFormat":                                      schema_kubevirtio_api_export_v1_VirtualMachineExportVolumeFormat(ref),
 		"kubevirt.io/api/export/v1beta1.Condition":                                                        schema_kubevirtio_api_export_v1beta1_Condition(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExport":                                             schema_kubevirtio_api_export_v1beta1_VirtualMachineExport(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExportBackup":                                       schema_kubevirtio_api_export_v1beta1_VirtualMachineExportBackup(ref),
@@ -17420,58 +17421,6 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 	}
 }
 
-func schema_kubevirtio_api_backup_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Condition defines conditions",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"lastProbeTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"lastTransitionTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"reason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"type", "status"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
 func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17654,7 +17603,10 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 					"conditions": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -17663,7 +17615,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/backup/v1alpha1.Condition"),
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
 									},
 								},
 							},
@@ -17706,7 +17658,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo", "kubevirt.io/api/backup/v1alpha1.Condition"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo"},
 	}
 }
 
@@ -21679,7 +21631,7 @@ func schema_kubevirtio_api_core_v1_Handler(ref common.ReferenceCallback) common.
 					},
 					"guestAgentPing": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks. Probe failures are automatically suppressed when the guest agent is unreachable for a non-fault reason: during live migration (guest paused on one pod while memory is transferred) and whenever the VM is paused for an intentional or transient reason such as a user pause, snapshot, save, or dump. Failures are not suppressed when the VM is paused due to a fault (IO error, crash, or postcopy failure).",
 							Ref:         ref("kubevirt.io/api/core/v1.GuestAgentPing"),
 						},
 					},
@@ -24919,7 +24871,7 @@ func schema_kubevirtio_api_core_v1_Probe(ref common.ReferenceCallback) common.Op
 					},
 					"guestAgentPing": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks. Probe failures are automatically suppressed when the guest agent is unreachable for a non-fault reason: during live migration (guest paused on one pod while memory is transferred) and whenever the VM is paused for an intentional or transient reason such as a user pause, snapshot, save, or dump. Failures are not suppressed when the VM is paused due to a fault (IO error, crash, or postcopy failure).",
 							Ref:         ref("kubevirt.io/api/core/v1.GuestAgentPing"),
 						},
 					},
@@ -30350,7 +30302,7 @@ func schema_kubevirtio_api_core_v1_WatchdogDevice(ref common.ReferenceCallback) 
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30402,7 +30354,7 @@ func schema_kubevirtio_api_export_v1alpha1_Condition(ref common.ReferenceCallbac
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30432,12 +30384,12 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref common.Refer
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec"),
+							Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportStatus"),
 						},
 					},
 				},
@@ -30445,11 +30397,86 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/export/v1.VirtualMachineExportSpec", "kubevirt.io/api/export/v1.VirtualMachineExportStatus"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportBackup contains the name and available endpoints for the exported backup",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the exported volume",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"endpoint",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportBackupEndpoint"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/export/v1.VirtualMachineExportBackupEndpoint"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1_VirtualMachineExportBackupEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportBackupEndpoint contains the endpoint type and URL to interact with a backup export",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"endpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Endpoint is the endpoint of the backup export at the specified URL",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Url is the url that contains the volume in the format specified",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"endpoint", "url"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_export_v1_VirtualMachineExportLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30480,7 +30507,29 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportVolume"),
+									},
+								},
+							},
+						},
+					},
+					"backups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Backups is a list of available backups for the export",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportBackup"),
 									},
 								},
 							},
@@ -30502,7 +30551,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportManifest"),
 									},
 								},
 							},
@@ -30513,11 +30562,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume"},
+			"kubevirt.io/api/export/v1.VirtualMachineExportBackup", "kubevirt.io/api/export/v1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1.VirtualMachineExportVolume"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30526,23 +30575,23 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref common.
 				Properties: map[string]spec.Schema{
 					"internal": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportLink"),
 						},
 					},
 					"external": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportLink"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink"},
+			"kubevirt.io/api/export/v1.VirtualMachineExportLink"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30581,7 +30630,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExport"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExport"),
 									},
 								},
 							},
@@ -30592,11 +30641,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/export/v1alpha1.VirtualMachineExport"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/export/v1.VirtualMachineExport"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30626,7 +30675,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref comm
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30661,7 +30710,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.R
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30676,7 +30725,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 					},
 					"links": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportLinks"),
 						},
 					},
 					"tokenSecretRef": {
@@ -30718,7 +30767,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.Condition"),
+										Ref:     ref("kubevirt.io/api/export/v1.Condition"),
 									},
 								},
 							},
@@ -30728,11 +30777,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/export/v1alpha1.Condition", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/export/v1.Condition", "kubevirt.io/api/export/v1.VirtualMachineExportLinks"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30762,7 +30811,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportVolumeFormat"),
 									},
 								},
 							},
@@ -30773,11 +30822,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat"},
+			"kubevirt.io/api/export/v1.VirtualMachineExportVolumeFormat"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportVolumeFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

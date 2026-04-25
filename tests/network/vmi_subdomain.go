@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/dns"
@@ -73,7 +74,7 @@ var _ = Describe(SIG("Subdomain", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom, hostname string) {
+		DescribeTable("VMI should have the expected FQDN", decorators.WgS390x, func(f func() *v1.VirtualMachineInstance, subdom, hostname string) {
 			vmiSpec := f()
 			var expectedFQDN, domain string
 			if subdom != "" {

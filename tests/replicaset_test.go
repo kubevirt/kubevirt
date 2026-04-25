@@ -127,7 +127,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := libvmifact.NewAlpine(
+		template := libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
@@ -156,7 +156,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	)
 
 	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
-		template := libvmifact.NewAlpine(
+		template := libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
@@ -219,7 +219,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(reviewResponse.Details.Causes).To(HaveLen(1))
-		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].name"))
+		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
 	It("[test_id:1413]should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
@@ -404,7 +404,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
 		By("Creating new replica set")
-		template := libvmifact.NewAlpine(
+		template := libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithTerminationGracePeriod(200),
@@ -463,7 +463,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 			vmLabelKey := "test" + rand.String(5)
 			vmLabelValue := "test" + rand.String(5)
-			vmi := libvmifact.NewAlpine()
+			vmi := libvmifact.NewGuestless()
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{

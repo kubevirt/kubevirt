@@ -141,7 +141,7 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			pvcName = "test-utility-volume-pvc" + rand.String(5)
 			utilityVolumeName = "test-utility-volume"
 
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
@@ -171,7 +171,7 @@ var _ = Describe(SIG("Utility Volumes", func() {
 			utilityVolumeName = "test-utility-migration"
 
 			// Create a VM with masquerade networking to make it migratable
-			vmiSpec := libvmifact.NewCirros()
+			vmiSpec := libvmifact.NewGuestless()
 			vmiSpec.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{

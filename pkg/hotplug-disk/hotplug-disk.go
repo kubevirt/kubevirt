@@ -94,7 +94,7 @@ func (h *hotplugDiskManager) GetFileSystemDirectoryTargetPathFromHostView(virtla
 func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (*safepath.Path, error) {
 	targetPath, err := h.GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
 	if err != nil {
-		return targetPath, err
+		return nil, err
 	}
 	diskName := fmt.Sprintf("%s.img", volumeName)
 	if err := safepath.TouchAtNoFollow(targetPath, diskName, 0666); err != nil && !os.IsExist(err) {

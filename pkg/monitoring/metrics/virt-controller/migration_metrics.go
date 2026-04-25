@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -56,21 +56,24 @@ var (
 func CreateVMIMigrationHandler(informer cache.SharedIndexInformer) error {
 	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMIMigration, newVMIMigration interface{}) {
-			updateVMIMigrationPhaseTransitionTimeFromCreationTime(oldVMIMigration.(*v1.VirtualMachineInstanceMigration), newVMIMigration.(*v1.VirtualMachineInstanceMigration))
+			updateVMIMigrationPhaseTransitionTimeFromCreationTime(
+				oldVMIMigration.(*v1.VirtualMachineInstanceMigration),
+				newVMIMigration.(*v1.VirtualMachineInstanceMigration),
+			)
 		},
 	})
 
 	return err
 }
 
-func updateVMIMigrationPhaseTransitionTimeFromCreationTime(oldVMIMigration *v1.VirtualMachineInstanceMigration, newVMIMigration *v1.VirtualMachineInstanceMigration) {
+func updateVMIMigrationPhaseTransitionTimeFromCreationTime(oldVMIMigration, newVMIMigration *v1.VirtualMachineInstanceMigration) {
 	if oldVMIMigration == nil || oldVMIMigration.Status.Phase == newVMIMigration.Status.Phase {
 		return
 	}
 
 	diffSeconds, err := getVMIMigrationTransitionTimeSeconds(newVMIMigration)
 	if err != nil {
-		log.Log.V(4).Infof(migrationTransTimeErrFmt, err)
+		log.Log.V(logVerbosityDebug).Infof(migrationTransTimeErrFmt, err)
 		return
 	}
 

@@ -69,7 +69,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		resource := "virtualmachineinstances"
 
 		BeforeEach(func() {
-			vmi = libvmifact.NewAlpine(
+			vmi = libvmifact.NewGuestless(
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -153,7 +153,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		const resource = "virtualmachines"
 
 		BeforeEach(func() {
-			vm = libvmi.NewVirtualMachine(libvmifact.NewAlpine())
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 			namespace = testsuite.GetTestNamespace(vm)
 		})
 
@@ -232,7 +232,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		resource := "virtualmachineinstancemigrations"
 
 		BeforeEach(func() {
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -720,7 +720,7 @@ func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstanceP
 }
 
 func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
-	vmi := libvmifact.NewAlpine(
+	vmi := libvmifact.NewGuestless(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)

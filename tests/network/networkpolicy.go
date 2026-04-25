@@ -23,6 +23,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	libvmi "kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -32,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
+var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", decorators.WgS390x, func() {
 	var (
 		virtClient      kubecli.KubevirtClient
 		serverVMILabels map[string]string
@@ -392,9 +394,13 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
-	var err error
-	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
+	clientVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(
+			libvmifact.WithDummyCloudForFastBoot(),
+		),
+		libnet.WithMasqueradeNetworking(),
+	)
+	clientVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -405,6 +411,9 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(
+			libvmifact.WithDummyCloudForFastBoot(),
+		),
 		libnet.WithMasqueradeNetworking(
 			v1.Port{
 				Name:     "http80",

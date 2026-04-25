@@ -747,6 +747,38 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(expectedIfaces))
 		Expect(updatedVMI.Spec.Networks).To(Equal(expectedNets))
 	})
+
+	It("sync preserves auto-injected Pod network", func() {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(clientset, stubClusterConfigurer{isLiveUpdateNADRefEnabled: true})
+
+		expectedIfaces := []v1.Interface{libvmi.InterfaceDeviceWithMasqueradeBinding()}
+		expectedNets := []v1.Network{*v1.DefaultPodNetwork()}
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(expectedIfaces[0]),
+			libvmi.WithNetwork(&expectedNets[0]),
+		)
+
+		vm := libvmi.NewVirtualMachine(libvmi.New())
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM.Spec.Template.Spec.Networks).To(BeEmpty())
+		Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(expectedIfaces))
+		Expect(updatedVMI.Spec.Networks).To(Equal(expectedNets))
+	})
 })
 
 type syncError interface {

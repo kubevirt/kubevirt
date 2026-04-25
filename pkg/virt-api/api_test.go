@@ -20,9 +20,12 @@
 package virt_api
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 
 	"github.com/emicklei/go-restful/v3"
@@ -34,6 +37,8 @@ import (
 	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	handler3 "k8s.io/kube-openapi/pkg/handler3"
+	"k8s.io/kube-openapi/pkg/spec3"
 
 	"kubevirt.io/kubevirt/pkg/util"
 
@@ -218,12 +223,72 @@ var _ = Describe("Virt-api", func() {
 			// TODO: Check list
 		})
 
-		It("should have default values for flags", func() {
-			app.AddFlags()
-			Expect(app.SwaggerUI).To(Equal("third_party/swagger-ui"))
-			Expect(app.SubresourcesOnly).To(BeFalse())
+		It("should return OpenAPI v3 discovery endpoint", func() {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+			resp, err := http.Get(backend.URL + "/openapi/v3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			var discovery handler3.OpenAPIV3Discovery
+			Expect(json.Unmarshal(body, &discovery)).To(Succeed())
+			Expect(discovery.Paths).ToNot(BeEmpty())
+			Expect(discovery.Paths).To(HaveKey("apis/subresources.kubevirt.io/v1"))
+			Expect(discovery.Paths).To(HaveKey("apis/subresources.kubevirt.io/v1alpha3"))
+
+			hashes := make(map[string]string)
+			for gvPath, pathInfo := range discovery.Paths {
+				serverRelativeURL := pathInfo.ServerRelativeURL
+				Expect(serverRelativeURL).ToNot(BeEmpty(), "path %s should have serverRelativeURL", gvPath)
+				Expect(serverRelativeURL).To(HavePrefix("/openapi/v3/"),
+					"serverRelativeURL should start with /openapi/v3/")
+				Expect(serverRelativeURL).To(MatchRegexp(`\?hash=[A-F0-9]{128}$`),
+					"serverRelativeURL %s should end with a valid SHA-512 hash (128 uppercase hex chars)", serverRelativeURL)
+
+				parsedURL, err := url.Parse(serverRelativeURL)
+				Expect(err).ToNot(HaveOccurred())
+				hash := parsedURL.Query().Get("hash")
+				hashes[gvPath] = hash
+			}
+
+			hashesSet := map[string]struct{}{}
+			for _, hash := range hashes {
+				Expect(hashesSet).ToNot(HaveKey(hash), "Different API versions should have different hashes since they have different specs")
+				hashesSet[hash] = struct{}{}
+			}
 		})
 
+		DescribeTable("should have OpenAPI v3 spec endpoint", func(version string) {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+			resp, err := http.Get(backend.URL + "/openapi/v3/apis/subresources.kubevirt.io/" + version)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			var openAPISpec spec3.OpenAPI
+			Expect(json.Unmarshal(body, &openAPISpec)).To(Succeed())
+			Expect(openAPISpec.Version).To(Equal("3.0.0"))
+			Expect(openAPISpec.Paths).ToNot(BeNil())
+		},
+			Entry("for subresources.kubevirt.io/v1", "v1"),
+			Entry("for subresources.kubevirt.io/v1alpha3", "v1alpha3"),
+		)
 	})
 
 	AfterEach(func() {

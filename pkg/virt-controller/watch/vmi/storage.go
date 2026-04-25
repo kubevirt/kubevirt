@@ -173,15 +173,13 @@ func (c *Controller) processHotplugVolumeStatus(
 		statusCopy.HotplugVolume = &virtv1.HotplugVolumeStatus{}
 	}
 
+	usePVCStatus := false
+
 	if attachmentPod == nil {
 		if !c.volumeReady(statusCopy.Phase) {
 			statusCopy.HotplugVolume.AttachPodUID = ""
 			// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-			phase, reason, message := c.getVolumePhaseMessageReason(pvcName, vmi.Namespace)
-			statusCopy.Phase = phase
-			log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volumeName)
-			statusCopy.Message = message
-			statusCopy.Reason = reason
+			usePVCStatus = true
 		}
 	} else {
 		statusCopy.HotplugVolume.AttachPodName = attachmentPod.Name
@@ -198,6 +196,22 @@ func (c *Controller) processHotplugVolumeStatus(
 			statusCopy.Reason = controller.SuccessfulCreatePodReason
 			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, statusCopy.Reason, statusCopy.Message)
 		}
+		// Handle race condition where an unplugged volume was quickly re-attached.
+		// The old attachment pod may still be cleaning up while the new one is created,
+		// causing the new volume to inherit HotplugVolumeDetaching status from the previous
+		// hotplug instead of being reset. We reset the phase based on PVC status so it can
+		// properly transition through the normal attach flow on the next reconcile.
+		if statusCopy.Phase == virtv1.HotplugVolumeDetaching {
+			usePVCStatus = true
+		}
+	}
+
+	if usePVCStatus {
+		phase, reason, message := c.getVolumePhaseMessageReason(pvcName, vmi.Namespace)
+		statusCopy.Phase = phase
+		log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volumeName)
+		statusCopy.Message = message
+		statusCopy.Reason = reason
 	}
 
 	*status = *statusCopy
@@ -264,7 +278,16 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 
 	backendStoragePVC := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
 	if backendStoragePVC != nil {
-		if backendStorage, ok := oldStatusMap[backendStoragePVC.Name]; ok {
+		backendStorage, ok := oldStatusMap[backendstorage.VolumeName]
+		if !ok {
+			// TODO https://github.com/kubevirt/kubevirt/issues/17369
+			// Fall back to the legacy volume name (the PVC name itself) used by older VMIs
+			backendStorage, ok = oldStatusMap[backendStoragePVC.Name]
+			if ok {
+				backendStorage.Name = backendstorage.VolumeName
+			}
+		}
+		if ok {
 			newStatus = append(newStatus, backendStorage)
 		}
 	}

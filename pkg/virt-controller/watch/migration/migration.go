@@ -1114,31 +1114,43 @@ func (c *Controller) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachi
 }
 
 func (c *Controller) handleMarkMigrationFailedOnVMI(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	now := v1.Now()
 
-	// Mark Migration Done on VMI if virt handler never started it.
-	// Once virt-handler starts the migration, it's up to handler
-	// to finalize it.
+	// Use field-level "add" patches instead of whole-object test+replace.
+	// The RFC 6902 "add" operation creates the member when absent (omitempty
+	// fields like "failed" and "completed" are absent when false) and
+	// replaces it when present, making the patch idempotent and free from
+	// conflicts with concurrent sync-controller field-level patches.
+	// A test on migrationUid ensures the patch is rejected if a new
+	// migration has replaced the MigrationState since we read it.
+	patchSet := patch.New(
+		patch.WithTest("/status/migrationState/migrationUid", string(migration.UID)),
+		patch.WithAdd("/status/migrationState/failed", true),
+		patch.WithAdd("/status/migrationState/completed", true),
+	)
+	if vmi.Status.MigrationState.EndTimestamp == nil {
+		patchSet.AddOption(patch.WithAdd("/status/migrationState/endTimestamp", now))
+	}
+	if vmi.Status.MigrationState.StartTimestamp == nil {
+		patchSet.AddOption(patch.WithAdd("/status/migrationState/startTimestamp", now))
+	}
+	if vmi.Status.MigrationState.FailureReason == "" {
+		failureReason := "Target pod is down"
+		patchSet.AddOption(patch.WithAdd("/status/migrationState/failureReason", failureReason))
+	}
 
-	vmiCopy := vmi.DeepCopy()
-
-	now := v1.NewTime(time.Now())
-	vmiCopy.Status.MigrationState.StartTimestamp = &now
-	vmiCopy.Status.MigrationState.EndTimestamp = &now
-	vmiCopy.Status.MigrationState.Failed = true
-	vmiCopy.Status.MigrationState.Completed = true
-
-	err := c.patchVMI(vmi, vmiCopy)
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
+		return err
+	}
+	log.Log.Object(vmi).V(4).Infof("patch VMI with %s", string(patchBytes))
+	if _, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 		log.Log.Reason(err).Object(vmi).Errorf("Failed to patch VMI status to indicate migration %s/%s failed.", migration.Namespace, migration.Name)
 		return err
 	}
+
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
-	failureReason := "Target pod is down"
-	c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
-	if vmiCopy.Status.MigrationState.FailureReason == "" {
-		// Only set the failure reason if empty, as virt-handler may already have provided a better one
-		vmiCopy.Status.MigrationState.FailureReason = failureReason
-	}
+	c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: Target pod is down", string(migration.UID)))
 
 	return nil
 }
@@ -1188,7 +1200,7 @@ func (c *Controller) updateTargetPodNetworkInfo(vmi *virtv1.VirtualMachineInstan
 
 func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 
-	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState.MigrationUID == migration.UID {
+	if vmi.IsMigrationSynchronized(migration) && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID {
 		// already handed off
 		return nil
 	}
@@ -1424,7 +1436,8 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 	if migration.Status.MigrationState == nil {
 		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() {
+	// Set source PVC when: not decentralized, or VMI is source for this migration, or a previous decentralized migration completed (so next migration can run MigrationHandoff).
+	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() || vmi.IsMigrationCompleted() {
 		migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
 		if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
 			return fmt.Errorf("no backend-storage PVC found in VMI volume status")
@@ -1900,13 +1913,24 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			}
 			return c.handleTargetPodHandoff(migration, vmi, pod)
 		}
-	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady, virtv1.MigrationFailed:
+	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady:
 		if migration.IsLocalOrDecentralizedTarget() && (!targetPodExists || controller.PodIsDown(pod)) &&
 			vmi.IsMigrationSynchronized(migration) &&
 			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
 			vmi.Status.MigrationState.StartTimestamp == nil &&
 			!vmi.Status.MigrationState.Failed &&
 			!vmi.Status.MigrationState.Completed {
+
+			err = c.handleMarkMigrationFailedOnVMI(migration, vmi)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case virtv1.MigrationFailed:
+		if migration.IsLocalOrDecentralizedTarget() &&
+			vmi.IsMigrationSynchronized(migration) &&
+			!vmi.Status.MigrationState.Failed {
 
 			err = c.handleMarkMigrationFailedOnVMI(migration, vmi)
 			if err != nil {

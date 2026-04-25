@@ -130,14 +130,14 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 func (KernelInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "KernelInfo show info about the kernel image",
-		"checksum": "Checksum is the checksum of the kernel image",
+		"checksum": "+kubebuilder:validation:Format:=int64\n+kubebuilder:validation:Minimum:=0\n+kubebuilder:validation:Maximum:=4294967295\nChecksum is the checksum of the kernel image",
 	}
 }
 
 func (InitrdInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "InitrdInfo show info about the initrd file",
-		"checksum": "Checksum is the checksum of the initrd file",
+		"checksum": "+kubebuilder:validation:Format:=int64\n+kubebuilder:validation:Minimum:=0\n+kubebuilder:validation:Maximum:=4294967295\nChecksum is the checksum of the initrd file",
 	}
 }
 
@@ -170,7 +170,7 @@ func (HotplugVolumeStatus) SwaggerDoc() map[string]string {
 func (ContainerDiskInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "ContainerDiskInfo shows info about the containerdisk",
-		"checksum": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+		"checksum": "+kubebuilder:validation:Format:=int64\n+kubebuilder:validation:Minimum:=0\n+kubebuilder:validation:Maximum:=4294967295\nChecksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
 	}
 }
 
@@ -558,7 +558,7 @@ func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "Handler defines a specific action that should be taken",
 		"exec":           "One and only one of the following should be specified.\nExec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.\nIf the guest agent is not available, this probe will fail.\n+optional",
-		"guestAgentPing": "GuestAgentPing contacts the qemu-guest-agent for availability checks.\n+optional",
+		"guestAgentPing": "GuestAgentPing contacts the qemu-guest-agent for availability checks.\nProbe failures are automatically suppressed when the guest agent is\nunreachable for a non-fault reason: during live migration (guest paused\non one pod while memory is transferred) and whenever the VM is paused\nfor an intentional or transient reason such as a user pause, snapshot,\nsave, or dump. Failures are not suppressed when the VM is paused due to\na fault (IO error, crash, or postcopy failure).\n+optional",
 		"httpGet":        "HTTPGet specifies the http request to perform.\n+optional",
 		"tcpSocket":      "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
 	}

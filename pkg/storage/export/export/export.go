@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ import (
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/workqueue"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -61,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -1137,6 +1139,8 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: secretManifestPath,
 	})
 
+	ctrl.appendTLSEnvVars(podManifest)
+
 	tokenSecretRef := ""
 	if vmExport.Status != nil && vmExport.Status.TokenSecretRef != nil {
 		tokenSecretRef = *vmExport.Status.TokenSecretRef
@@ -1715,4 +1719,29 @@ func (ctrl *VMExportController) pvcsToSourceVolumes(pvcs ...*corev1.PersistentVo
 		})
 	}
 	return volumes
+}
+
+func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {
+	kv := ctrl.clusterConfig.GetConfigFromKubeVirtCR()
+	if kv == nil || kv.Spec.Configuration.TLSConfiguration == nil {
+		return
+	}
+	tlsConfig := kv.Spec.Configuration.TLSConfiguration
+	if tlsConfig.MinTLSVersion != "" {
+		podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "TLS_MIN_VERSION",
+			Value: strconv.FormatUint(uint64(kvtls.TLSVersion(tlsConfig.MinTLSVersion)), 10),
+		})
+	}
+	if len(tlsConfig.Ciphers) > 0 {
+		cipherJSON, err := json.Marshal(kvtls.CipherSuiteIds(tlsConfig.Ciphers))
+		if err != nil {
+			log.Log.Warningf("Failed to marshal TLS cipher suite IDs: %v", err)
+		} else {
+			podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "TLS_CIPHER_SUITES",
+				Value: string(cipherJSON),
+			})
+		}
+	}
 }

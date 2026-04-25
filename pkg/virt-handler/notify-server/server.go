@@ -22,7 +22,6 @@ package eventsserver
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -40,8 +39,11 @@ import (
 
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	"kubevirt.io/kubevirt/pkg/virt-handler/filewatcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+const socketCheckInterval = 5 * time.Second
 
 type Notify struct {
 	EventChan chan watch.Event
@@ -121,7 +123,11 @@ func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventReq
 	return response, nil
 }
 
-func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error {
+func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store, watchInterval ...time.Duration) error {
+	interval := socketCheckInterval
+	if len(watchInterval) > 0 {
+		interval = watchInterval[0]
+	}
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	notifyServer := &Notify{
@@ -141,25 +147,37 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		return err
 	}
 
-	defer func() {
-		sock.Close()
-		os.Remove(sockFile)
-	}()
+	defer sock.Close()
 
-	done := make(chan struct{})
+	fw := filewatcher.New(sockFile, interval)
+	fw.Run()
+	defer fw.Close()
+
+	serveErr := make(chan error, 1)
 	go func() {
-		defer close(done)
-		grpcServer.Serve(sock)
+		defer close(serveErr)
+		serveErr <- grpcServer.Serve(sock)
 	}()
 
-	// wait for either the server to exit or stopChan to signal
 	select {
-	case <-done:
+	case err := <-serveErr:
+		if err != nil {
+			log.Log.Reason(err).Error("notify server exited with error")
+			return err
+		}
 		log.Log.Info("notify server done")
+		return nil
+	case event := <-fw.Events:
+		log.Log.Warningf("socket file %s changed (event: %d), stopping notify server", sockFile, event)
+		grpcServer.Stop()
+		return fmt.Errorf("socket file %s was removed or replaced externally", sockFile)
+	case err := <-fw.Errors:
+		log.Log.Reason(err).Errorf("error watching socket file %s, stopping notify server", sockFile)
+		grpcServer.Stop()
+		return fmt.Errorf("error watching socket file %s: %w", sockFile, err)
 	case <-stopChan:
 		grpcServerStop(grpcServer)
 	}
-
 	return nil
 }
 

@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libhypervisor"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -55,28 +56,31 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 
 	var (
 		virtClient               kubecli.KubevirtClient
-		nodesWithKVM             []*k8sv1.Node
+		nodesWithHypervisor      []*k8sv1.Node
 		nonExistingCPUModelLabel = v1.CPUModelLabel + "someNonExistingCPUModel"
+		hypervisorDevice         string
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		nodesWithKVM = libnode.GetNodesWithKVM()
-		if len(nodesWithKVM) == 0 {
-			Fail("No nodes with kvm")
+		hypervisorDevice = libhypervisor.GetHypervisorDeviceName(kubevirt.Client())
+		nodesWithHypervisor = libnode.GetNodesWithHypervisor(hypervisorDevice)
+
+		if len(nodesWithHypervisor) == 0 {
+			Fail(fmt.Sprintf("No nodes with hypervisor device %s", hypervisorDevice))
 		}
 	})
 
 	AfterEach(func() {
-		nodesWithKVM = libnode.GetNodesWithKVM()
+		nodesWithHypervisor = libnode.GetNodesWithHypervisor(hypervisorDevice)
 
-		for _, node := range nodesWithKVM {
+		for _, node := range nodesWithHypervisor {
 			libnode.RemoveLabelFromNode(node.Name, nonExistingCPUModelLabel)
 			libnode.RemoveAnnotationFromNode(node.Name, v1.LabellerSkipNodeAnnotation)
 		}
 		libinfra.WakeNodeLabellerUp(virtClient)
 
-		for _, node := range nodesWithKVM {
+		for _, node := range nodesWithHypervisor {
 			Eventually(func() error {
 				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -115,7 +119,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		}
 
 		It("skip node reconciliation when node has skip annotation", func() {
-			for i, node := range nodesWithKVM {
+			for i, node := range nodesWithHypervisor {
 				node.Labels[nonExistingCPUModelLabel] = trueStr
 				p := []patch{
 					{
@@ -144,9 +148,9 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			config.UpdateKubeVirtConfigValueAndWait(kvConfig)
 
 			Eventually(func() bool {
-				nodesWithKVM = libnode.GetNodesWithKVM()
+				nodesWithHypervisor = libnode.GetNodesWithHypervisor(hypervisorDevice)
 
-				for _, node := range nodesWithKVM {
+				for _, node := range nodesWithHypervisor {
 					_, skipAnnotationFound := node.Annotations[v1.LabellerSkipNodeAnnotation]
 					_, customLabelFound := node.Labels[nonExistingCPUModelLabel]
 					if customLabelFound && !skipAnnotationFound {
@@ -158,7 +162,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		})
 
 		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", decorators.WgS390x, func() {
-			for _, node := range nodesWithKVM {
+			for _, node := range nodesWithHypervisor {
 				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUFeatureLabel)), fmt.Sprintf(errorMessageTemplate, "feature"))
@@ -184,7 +188,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			kvConfig := libkubevirt.GetCurrentKv(virtClient)
 			kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
 			config.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
-			node := nodesWithKVM[0]
+			node := nodesWithHypervisor[0]
 			timeout := 30 * time.Second
 			Eventually(func() error {
 				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
@@ -202,7 +206,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		})
 
 		It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
-			node := nodesWithKVM[0]
+			node := nodesWithHypervisor[0]
 			Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-frequency"))
 			Expect(node.Labels).To(HaveKey("cpu-timer.node.kubevirt.io/tsc-scalable"))
 			Expect(node.Labels["cpu-timer.node.kubevirt.io/tsc-scalable"]).To(Or(Equal(trueStr), Equal("false")))
@@ -225,7 +229,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 
 		It("[test_id:6249] should update node with new cpu model label set", func() {
 			obsoleteModel := ""
-			node := nodesWithKVM[0]
+			node := nodesWithHypervisor[0]
 
 			kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
 			kvConfig.ObsoleteCPUModels = make(map[string]bool)
@@ -262,7 +266,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		})
 
 		It("[test_id:6252] should remove all cpu model labels (all cpu model are in obsolete list)", func() {
-			node := nodesWithKVM[0]
+			node := nodesWithHypervisor[0]
 
 			obsoleteModels := map[string]bool{}
 			for k, v := range nodelabellerutil.DefaultObsoleteCPUModels {
@@ -367,7 +371,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		})
 
 		It("should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
-			vmi := libvmifact.NewFedora(
+			vmi := libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)

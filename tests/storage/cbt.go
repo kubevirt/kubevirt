@@ -281,7 +281,7 @@ var _ = Describe("[sig-compute-migrations] CBT with migration", decorators.SigCo
 	// NOTE: Currently there is a bug in libvirt where if the qcow2 overlay is on a RWO block storage,
 	// the bitmap migration fails. resulting in the deletion of previous bitmaps. Will add a test with RWO block storage once the bug is fixed.
 	// Bug: https://issues.redhat.com/browse/RHEL-145770
-	It("should persist CBT data across live migration", decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, func() {
+	It("should persist CBT data across live migration", decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, decorators.NoFlakeCheck, func() {
 		runCBTPersistenceTest(virtClient, "migrate")
 	})
 })

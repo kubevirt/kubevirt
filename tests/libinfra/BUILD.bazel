@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "certificates.go",
-        "http.go",
         "leader.go",
         "metrics.go",
         "node-labeller.go",

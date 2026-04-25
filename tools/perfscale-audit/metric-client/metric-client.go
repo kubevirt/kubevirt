@@ -49,7 +49,7 @@ const (
 //
 //	at all times.
 const (
-	vmiPhaseCount                 = `sum by (phase) (kubevirt_vmi_phase_count{})`
+	vmiPhaseSum                   = `sum by (phase) (node:kubevirt_vmi_phase:sum{})`
 	avgVirtAPICPUUsage            = `avg(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-api.*", container!="",container!="POD"}[%ds]))`
 	avgVirtAPIMemUsageInMB        = `avg(avg_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds]))/1024/1024`
 	avgMinVirtAPIMemUsageInMB     = `avg(min_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[%ds]))/1024/1024`
@@ -60,12 +60,12 @@ const (
 	maxVirtControllerMemUsageInMB = `max(max_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds]))/1024/1024`
 	avgVirtControllerCPUUsage     = `max(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-controller.*", container!="",container!="POD"}[%ds]))`
 	// avg_over_time gives the average memory utilization of the virt-handler pod per node over time, the outside max, min, avg gives the pods with highest, lowest and average avg_over_time values respectively
-	avgVirtHandlerMemUsageInMB = `avg(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
-	maxVirtHandlerMemUsageInMB = `max(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
-	minVirtHandlerMemUsageInMB = `min(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
-	avgVirtHandlerCPUUsage     = `avg((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
-	maxVirtHandlerCPUUsage     = `max((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
-	minVirtHandlerCPUUsage     = `min((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
+	avgVirtHandlerMemUsageInMB = `avg(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (node:kubevirt_vmi_phase:sum{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
+	maxVirtHandlerMemUsageInMB = `max(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (node:kubevirt_vmi_phase:sum{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
+	minVirtHandlerMemUsageInMB = `min(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (node:kubevirt_vmi_phase:sum{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
+	avgVirtHandlerCPUUsage     = `avg((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (node:kubevirt_vmi_phase:sum{node != "", node != "<no value>"})))`
+	maxVirtHandlerCPUUsage     = `max((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (node:kubevirt_vmi_phase:sum{node != "", node != "<no value>"})))`
+	minVirtHandlerCPUUsage     = `min((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (node:kubevirt_vmi_phase:sum{node != "", node != "<no value>"})))`
 	// Monitors how quickly the items are added to the workqueue
 	virtControllerWorkqueueAddRate = `sum(rate(kubevirt_workqueue_adds_total{container="virt-controller"}[%ds]))`
 	// Track to identify any backlogs or delays in the workqueue
@@ -305,7 +305,7 @@ func (m *MetricClient) getTimePercentilesFromQuery(r *audit_api.Result, rangeVec
 }
 
 func (m *MetricClient) getPhaseBreakdown(r *audit_api.Result) error {
-	query := vmiPhaseCount
+	query := vmiPhaseSum
 
 	val, err := m.query(query)
 	if err != nil {

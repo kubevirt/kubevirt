@@ -168,17 +168,17 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		}
 	}
 
-	if l.libvirtHooksServerAndClientEnabled {
-		if l.hookServer != nil {
-			if err := l.hookServer.Start(vmi); err != nil {
-				return err
-			}
-		}
-	}
-
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
+	}
+
+	if l.libvirtHooksServerAndClientEnabled {
+		if l.hookServer != nil {
+			if err := l.hookServer.Start(c); err != nil {
+				return err
+			}
+		}
 	}
 
 	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
@@ -201,12 +201,10 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
-	inProgress, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
-	if err != nil {
+	// inProgress is intentionally ignored: unlike the source side, target
+	// preparation must fully re-run on retries (sockets, hooks, etc.).
+	if _, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy); err != nil {
 		return err
-	}
-	if inProgress {
-		return nil
 	}
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)

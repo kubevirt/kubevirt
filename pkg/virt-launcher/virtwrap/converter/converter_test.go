@@ -398,28 +398,41 @@ var _ = Describe("Converter", func() {
 			Entry("on s390x", s390x, "virtio"),
 		)
 
-		It("Should add blockio fields when custom sizes are provided", func() {
+		DescribeTable("Should handle custom block sizes correctly per architecture", func(arch string, logical, physical uint, shouldSucceed bool) {
 			kubevirtDisk := &v1.Disk{
 				BlockSize: &v1.BlockSize{
 					Custom: &v1.CustomBlockSize{
-						Logical:            1234,
-						Physical:           1234,
-						DiscardGranularity: pointer.P[uint](1234),
+						Logical:            logical,
+						Physical:           physical,
+						DiscardGranularity: pointer.P(physical),
 					},
 				},
 			}
-			expectedXML := `<Disk device="" type="">
+			libvirtDisk := &api.Disk{}
+			err := Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk, arch)
+			if shouldSucceed {
+				Expect(err).ToNot(HaveOccurred())
+				expectedXML := fmt.Sprintf(`<Disk device="" type="">
   <source></source>
   <target></target>
-  <blockio logical_block_size="1234" physical_block_size="1234" discard_granularity="1234"></blockio>
-</Disk>`
-			libvirtDisk := &api.Disk{}
-			Expect(Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)).To(Succeed())
-			data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
-			Expect(err).ToNot(HaveOccurred())
-			xml := string(data)
-			Expect(xml).To(Equal(expectedXML))
-		})
+  <blockio logical_block_size="%d" physical_block_size="%d" discard_granularity="%d"></blockio>
+</Disk>`, logical, physical, physical)
+				data, xmlErr := xml.MarshalIndent(libvirtDisk, "", "  ")
+				Expect(xmlErr).ToNot(HaveOccurred())
+				Expect(string(data)).To(Equal(expectedXML))
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("exceeds the maximum supported size")))
+			}
+		},
+			MultiArchEntry("valid 1234", uint(1234), uint(1234), true),
+			Entry("4096 on s390x", s390x, uint(4096), uint(4096), true),
+			Entry("2048 on s390x", s390x, uint(2048), uint(2048), true),
+			Entry("1024 on s390x", s390x, uint(1024), uint(1024), true),
+			Entry("8192 on s390x", s390x, uint(8192), uint(8192), false),
+			Entry("65536 on s390x", s390x, uint(65536), uint(65536), false),
+			Entry("1 MiB on s390x", s390x, uint(1048576), uint(1048576), false),
+		)
+
 		DescribeTable("should set sharable and the cache if requested", func(arch, expectedModel string) {
 			v1Disk := &v1.Disk{
 				Name: "mydisk",
@@ -771,15 +784,8 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			c = &convertertypes.ConverterContext{
-				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
-				Secrets: map[string]*k8sv1.Secret{
-					"mysecret": {
-						Data: map[string][]byte{
-							"node.session.auth.username": []byte("admin"),
-						},
-					},
-				},
+				Architecture:                    archconverter.NewConverter(runtime.GOARCH),
+				VirtualMachine:                  vmi,
 				AllowEmulation:                  true,
 				HypervisorDeviceAvailable:       true,
 				IsBlockPVC:                      isBlockPVCMap,
@@ -835,12 +841,6 @@ var _ = Describe("Converter", func() {
 				Entry("NOT appear if disabled for arm64", false, "virtio-serial", "virtio-non-transitional", arm64),
 				Entry("NOT appear if disabled for s390x", false, "virtio-serial", "virtio", s390x),
 			)
-		})
-
-		It("should handle float memory", func() {
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
-			xml := vmiToDomainXML(vmi, c)
-			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
 
 		It("should use panic devices if requested", func() {
@@ -1687,28 +1687,6 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		DescribeTable("should calculate memory in bytes", func(quantity string, bytes int) {
-			m64, _ := resource.ParseQuantity(quantity)
-			memory, err := vcpu.QuantityToByte(m64)
-			Expect(memory.Value).To(BeNumerically("==", bytes))
-			Expect(memory.Unit).To(Equal("b"))
-			Expect(err).ToNot(HaveOccurred())
-		},
-			Entry("specifying memory 64M", "64M", 64*1000*1000),
-			Entry("specifying memory 64Mi", "64Mi", 64*1024*1024),
-			Entry("specifying memory 3G", "3G", 3*1000*1000*1000),
-			Entry("specifying memory 3Gi", "3Gi", 3*1024*1024*1024),
-			Entry("specifying memory 45Gi", "45Gi", 45*1024*1024*1024),
-			Entry("specifying memory 2780Gi", "2780Gi", 2780*1024*1024*1024),
-			Entry("specifying memory 451231 bytes", "451231", 451231),
-		)
-		It("should calculate memory in bytes", func() {
-			By("specyfing negative memory size -45Gi")
-			m45gi, _ := resource.ParseQuantity("-45Gi")
-			_, err := vcpu.QuantityToByte(m45gi)
-			Expect(err).To(HaveOccurred())
-		})
-
 		It("should convert hugepages", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
@@ -1720,19 +1698,6 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
-			Expect(domainSpec.Memory.Unit).To(Equal("b"))
-		})
-
-		It("should use guest memory instead of requested memory if present", func() {
-			guestMemory := resource.MustParse("123Mi")
-			vmi.Spec.Domain.Memory = &v1.Memory{
-				Guest: &guestMemory,
-			}
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-
-			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))
 		})
 
@@ -1854,7 +1819,7 @@ var _ = Describe("Converter", func() {
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
-				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(Succeed())
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(Succeed())
 
 				blockIO := apiDisk.BlockIO
 				Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
@@ -1876,7 +1841,18 @@ var _ = Describe("Converter", func() {
 					},
 				}
 				apiDisk := api.Disk{Source: api.DiskSource{}}
-				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+			})
+
+			It("Should fail block size detection for a nil domain disk", func() {
+				const nilDiskErrorMessage = "disk is nil"
+				v1Disk := v1.Disk{
+					Name: "test",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+				}
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, nil, amd64)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
 			})
 		})
 	})
@@ -1961,6 +1937,7 @@ var _ = Describe("Converter", func() {
 		Context("with PCINUMAAwareTopology feature gate enabled", func() {
 			BeforeEach(func() {
 				c.PCINUMAAwareTopologyEnabled = true
+				c.Architecture = archconverter.NewConverter(amd64)
 			})
 
 			It("should create PCIe controllers for NUMA-aligned devices", func() {
@@ -2009,6 +1986,29 @@ var _ = Describe("Converter", func() {
 				Expect(expanderBusCount).To(Equal(0), "expected no PCIe expander bus controllers when feature is disabled")
 			})
 		})
+
+		Context("with PCINUMAAwareTopology feature gate enabled for s390x architecture", func() {
+			BeforeEach(func() {
+				c.PCINUMAAwareTopologyEnabled = true
+				c.Architecture = archconverter.NewConverter(s390x)
+				vmiArchMutate(s390x, vmi, c)
+			})
+
+			It("should not create any PCIe controllers even with NUMA topology enabled", func() {
+				c = createContextWithDevices(vmi, c)
+				domain := vmiToDomain(vmi, c)
+
+				for _, controller := range domain.Spec.Devices.Controllers {
+					Expect(controller.Model).To(
+						And(
+							Not(Equal(api.ControllerModelPCIeExpanderBus)),
+							Not(Equal(api.ControllerModelPCIeRootPort)),
+						),
+						"s390x should not have pcie-expander-bus or pcie-root-port controllers",
+					)
+				}
+			})
+		})
 	})
 
 	Context("Network convert", func() {
@@ -2029,13 +2029,6 @@ var _ = Describe("Converter", func() {
 			c = &convertertypes.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				VirtualMachine: vmi,
-				Secrets: map[string]*k8sv1.Secret{
-					"mysecret": {
-						Data: map[string][]byte{
-							"node.session.auth.username": []byte("admin"),
-						},
-					},
-				},
 				AllowEmulation: true,
 				SMBios:         TestSmbios,
 				DomainAttachmentByInterfaceName: map[string]string{
@@ -3953,120 +3946,6 @@ var _ = Describe("Converter", func() {
 					v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-hotplug-block-dv", Hotpluggable: true}}, true),
 			)
 		})
-
-		Context("memory", func() {
-			var domain *api.Domain
-			var guestMemory resource.Quantity
-			var maxGuestMemory resource.Quantity
-
-			BeforeEach(func() {
-				guestMemory = resource.MustParse("32Mi")
-				maxGuestMemory = resource.MustParse("128Mi")
-
-				vmi = &v1.VirtualMachineInstance{
-					ObjectMeta: k8smeta.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "mynamespace",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Memory: &v1.Memory{
-								Guest:    &guestMemory,
-								MaxGuest: &maxGuestMemory,
-							},
-						},
-					},
-					Status: v1.VirtualMachineInstanceStatus{
-						Memory: &v1.MemoryStatus{
-							GuestAtBoot:  &guestMemory,
-							GuestCurrent: &guestMemory,
-						},
-					},
-				}
-
-				domain = &api.Domain{
-					Spec: api.DomainSpec{
-						VCPU: &api.VCPU{
-							CPUs: 2,
-						},
-					},
-				}
-
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-				c = &convertertypes.ConverterContext{
-					VirtualMachine: vmi,
-					AllowEmulation: true,
-					Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				}
-			})
-
-			It("should not setup hotplug when maxGuest is missing", func() {
-				vmi.Spec.Domain.Memory.MaxGuest = nil
-				domain = vmiToDomain(vmi, c)
-				Expect(domain).ToNot(BeNil())
-				Expect(domain.Spec.MaxMemory).To(BeNil())
-			})
-
-			It("should not setup hotplug when maxGuest equals guest memory", func() {
-				vmi.Spec.Domain.Memory.MaxGuest = &guestMemory
-				domain = vmiToDomain(vmi, c)
-				Expect(domain).ToNot(BeNil())
-				Expect(domain.Spec.MaxMemory).To(BeNil())
-			})
-
-			It("should setup hotplug when maxGuest is set", func() {
-				domain = vmiToDomain(vmi, c)
-				Expect(domain).ToNot(BeNil())
-
-				Expect(domain.Spec.MaxMemory).ToNot(BeNil())
-				Expect(domain.Spec.MaxMemory.Unit).To(Equal("b"))
-				Expect(domain.Spec.MaxMemory.Value).To(Equal(uint64(maxGuestMemory.Value())))
-
-				Expect(domain.Spec.Memory).ToNot(BeNil())
-				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
-				Expect(domain.Spec.Memory.Value).To(Equal(uint64(guestMemory.Value())))
-			})
-
-			DescribeTable("should correctly convert memory configuration from VMI spec to domain",
-				func(expectedMemoryMiB int64, opts ...libvmi.Option) {
-
-					vmi := libvmi.New(opts...)
-
-					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-					testContext := &convertertypes.ConverterContext{
-						VirtualMachine: vmi,
-						AllowEmulation: true,
-						Architecture:   archconverter.NewConverter(runtime.GOARCH),
-					}
-
-					apiDomainSpec := vmiToDomainXMLToDomainSpec(vmi, testContext)
-
-					expectedBytes := expectedMemoryMiB * 1024 * 1024
-					Expect(apiDomainSpec.Memory.Value).To(Equal(uint64(expectedBytes)),
-						"Memory value should be %d bytes (%d MiB)", expectedBytes, expectedMemoryMiB)
-					Expect(apiDomainSpec.Memory.Unit).To(Equal("b"))
-				},
-				Entry("provided by domain spec directly (guest memory takes precedence over limits)",
-					int64(512),
-					libvmi.WithGuestMemory("512Mi"),
-				),
-				Entry("provided by resources limits (no guest memory, no request)",
-					int64(256),
-					libvmi.WithMemoryLimit("256Mi"),
-				),
-				Entry("provided by resources requests (request takes precedence over limit when both set)",
-					int64(64),
-					libvmi.WithMemoryRequest("64Mi"),
-					libvmi.WithMemoryLimit("256Gi"),
-				),
-				Entry("provided by resources requests only",
-					int64(128),
-					libvmi.WithMemoryRequest("128Mi"),
-				),
-			)
-		})
 	})
 
 	Context("with AMD SEV LaunchSecurity", func() {
@@ -4697,15 +4576,111 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
 	)
 
+	It("should fail to set appropriate driver cache mode for a nil disk", func() {
+		Expect(SetDriverCacheMode(nil, nil)).To(MatchError("unable to set a driver cache mode, disk is nil"))
+	})
+
+	It("should check block device paths correctly", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{Dev: "/dev/vda"},
+			Driver: &api.DiskDriver{},
+		}
+		mockDirectIOChecker.EXPECT().CheckBlockDevice("/dev/vda").Return(true, nil)
+
+		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
+		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
+	})
+
+	It("should resolve datastore block dev over frontend file source", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{
+				File: "/test/overlay.qcow2",
+				DataStore: &api.DataStore{
+					Source: &api.DiskSource{Dev: "/dev/vda"},
+				},
+			},
+			Driver: &api.DiskDriver{},
+		}
+		mockDirectIOChecker.EXPECT().CheckBlockDevice("/dev/vda").Return(true, nil)
+
+		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
+	})
 	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
 		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
 		Expect(disk.Driver.IO).To(Equal(expectedIO))
 	},
-		Entry("user-specified IO", &api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}}, v1.IOThreads, false),
-		Entry("sparse image", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}}, v1.DriverIO(""), false),
-		Entry("pre-allocated image with O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
-		Entry("pre-allocated image without O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}}, v1.DriverIO(""), true),
-		Entry("block device with O_DIRECT", &api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
+		Entry("user-specified IO",
+			&api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}},
+			v1.IOThreads, false,
+		),
+		Entry("sparse image",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}},
+			v1.DriverIO(""), false,
+		),
+		Entry("pre-allocated image with O_DIRECT",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
+			v1.IONative, true,
+		),
+		Entry("pre-allocated image without O_DIRECT",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}},
+			v1.DriverIO(""), true,
+		),
+		Entry("block device with O_DIRECT",
+			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
+			v1.IONative, true,
+		),
+		Entry("datastore block device with O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "block",
+						Source: &api.DiskSource{Dev: "/dev/vda"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			},
+			v1.IONative, false,
+		),
+		Entry("datastore block device without O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "block",
+						Source: &api.DiskSource{Dev: "/dev/vda"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)},
+			},
+			v1.DriverIO(""), false,
+		),
+		Entry("datastore file backend pre-allocated with O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "file",
+						Source: &api.DiskSource{File: "/disks/disk.img"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			},
+			v1.IONative, true,
+		),
+		Entry("datastore file backend sparse with O_DIRECT",
+			&api.Disk{
+				Source: api.DiskSource{
+					File: "/test/overlay.qcow2",
+					DataStore: &api.DataStore{
+						Type:   "file",
+						Source: &api.DiskSource{File: "/disks/disk.img"},
+					},
+				},
+				Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			},
+			v1.DriverIO(""), false,
+		),
 	)
 })
 

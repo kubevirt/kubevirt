@@ -83,6 +83,13 @@ const (
 	// Introduced in v1.3.0
 	VolumeMigration = "VolumeMigration"
 
+	// Owner: sig-storage
+	// Alpha: v0.55.0
+	// Beta: v1.3.0
+	// GA: v1.9.0
+	// VMExportGate enables the creation of VMExport resources, that allows setting up the export server to export VM volumes.
+	VMExportGate = "VMExport"
+
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
@@ -128,6 +135,14 @@ const (
 	//
 	// ExpandDisksGate allows for expanding the storage available for in-use virtual machines.
 	ExpandDisksGate = "ExpandDisks"
+
+	// Owner: @varunrsekar
+	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	// GA: v1.8.0
+	//
+	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
+	PanicDevicesGate = "PanicDevices"
 )
 
 func init() {
@@ -150,6 +165,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
@@ -164,4 +180,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 }

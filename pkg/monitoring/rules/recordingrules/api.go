@@ -27,8 +27,8 @@ import (
 var apiRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_api_request_deprecated_total",
-			Help: "The total number of requests to deprecated KubeVirt APIs.",
+			Name: "cluster:kubevirt_api_request_deprecated_total:sum",
+			Help: "The total number of requests to deprecated KubeVirt APIs, by API verb (e.g., LIST, WATCH).",
 		},
 		MetricType: operatormetrics.CounterType,
 		Expr: intstr.FromString(

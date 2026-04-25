@@ -49,6 +49,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -280,6 +281,16 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	podConditionManager := controller.NewPodConditionManager()
 
 	vmiCopy := vmi.DeepCopy()
+
+	// Migrate the deprecated non-domain-qualified VMI finalizer
+	// ("foregroundDeleteVirtualMachine") to the current domain-qualified form
+	// ("kubevirt.io/foregroundDeleteVirtualMachine"). This handles VMIs created
+	// before PR #15096 and silences the API server warning from issue #12342.
+	if controller.HasFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer) {
+		controller.RemoveFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer)
+		controller.AddFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+	}
+
 	vmiPodExists := controller.PodExists(pod) && !isTempPod(pod)
 	tempPodExists := controller.PodExists(pod) && isTempPod(pod)
 
@@ -318,6 +329,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	if c.clusterConfig.VmiMemoryOverheadReportEnabled() && vmiPodExists {
 		c.updateMemoryOverheadStatusFromPod(vmiCopy, pod)
 	}
+
+	migrationTargetFailed := vmiCopy.IsMigrationTarget() &&
+		vmiCopy.Status.MigrationState != nil && vmiCopy.Status.MigrationState.Failed
 
 	switch {
 	case vmi.IsUnprocessed():
@@ -442,12 +456,21 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					}
 				}
 			} else if controller.IsPodDownOrGoingDown(pod) {
-				vmiCopy.Status.Phase = virtv1.Failed
+				if vmiCopy.IsMigrationTarget() {
+					log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduling because pod is down")
+					vmiCopy.Status.Phase = virtv1.WaitingForSync
+				} else {
+					vmiCopy.Status.Phase = virtv1.Failed
+				}
 			}
 		} else {
-			log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
-			// someone other than the controller deleted the pod unexpectedly
-			vmiCopy.Status.Phase = virtv1.Failed
+			if vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduling because pod does not exist")
+				vmiCopy.Status.Phase = virtv1.WaitingForSync
+			} else {
+				log.Log.Object(vmi).V(5).Infof("setting VMI to failed during scheduling because pod does not exist")
+				vmiCopy.Status.Phase = virtv1.Failed
+			}
 		}
 	case vmi.IsFinal():
 		allDeleted, err := c.allPodsDeleted(vmi)
@@ -509,9 +532,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		c.checkEphemeralHotplugVolumes(vmiCopy)
 
 	case vmi.IsScheduled():
-		if !vmiPodExists {
-			if vmiCopy.IsDecentralizedMigration() && vmiCopy.IsMigrationTarget() {
-				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist")
+		if !vmiPodExists || (vmiCopy.IsMigrationTarget() && controller.PodIsDown(pod)) || migrationTargetFailed {
+			if vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist, is down, or migration failed")
 				vmiCopy.Status.Phase = virtv1.WaitingForSync
 				if vmiCopy.Status.MigrationState != nil {
 					vmiCopy.Status.MigrationState.Failed = true
@@ -539,7 +562,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
 				controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
 			}
-		} else if vmiPodExists {
+		} else if vmiPodExists && !migrationTargetFailed && !(vmiCopy.IsMigrationTarget() && controller.PodIsDown(pod)) {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		}
 	default:
@@ -580,6 +603,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if err != nil {
 			return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 
 		return nil
 	}
@@ -600,6 +624,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
+		metrics.VMISynced(vmiCopy.Namespace, vmiCopy.Name)
 	}
 
 	return nil
@@ -689,6 +714,17 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 			patchSet.AddOption(
 				patch.WithTest("/metadata/annotations", oldVMI.Annotations),
 				patch.WithReplace("/metadata/annotations", newVMI.Annotations),
+			)
+		}
+	}
+
+	if !equality.Semantic.DeepEqual(oldVMI.Finalizers, newVMI.Finalizers) {
+		if oldVMI.Finalizers == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/finalizers", newVMI.Finalizers))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/finalizers", oldVMI.Finalizers),
+				patch.WithReplace("/metadata/finalizers", newVMI.Finalizers),
 			)
 		}
 	}

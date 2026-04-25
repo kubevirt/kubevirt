@@ -32,7 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -46,7 +46,7 @@ const (
 	subjectAltNameId     = "2.5.29.17"
 
 	apiGroup              = "export.kubevirt.io"
-	apiVersion            = "v1beta1"
+	apiVersion            = "v1"
 	exportResourceName    = "virtualmachineexports"
 	gv                    = apiGroup + "/" + apiVersion
 	externalUrlLinkFormat = "/api/" + gv + "/namespaces/%s/" + exportResourceName + "/%s"

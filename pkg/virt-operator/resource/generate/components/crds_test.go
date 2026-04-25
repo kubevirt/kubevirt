@@ -14,9 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/jsonpath"
 
+	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1beta1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
@@ -50,6 +51,8 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd),
 		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd),
 		Entry("for MigrationPolicy", NewMigrationPolicyCrd),
+		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd),
+		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd),
 	)
 
 	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {
@@ -143,6 +146,8 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd),
 		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd, "Phase", "SourceVirtualMachine", "TargetVirtualMachine"),
 		Entry("for MigrationPolicy", NewMigrationPolicyCrd),
+		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd, "SourceKind", "SourceName", "Type", "CheckpointName"),
+		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd, "SourceKind", "SourceName", "LatestCheckpoint", "CheckpointTime"),
 	)
 
 	DescribeTable("Additional printer columns map to expected value", func(crdFunc func() (*extv1.CustomResourceDefinition, error), obj any, expected ...string) {
@@ -303,15 +308,15 @@ var _ = Describe("CRDs", func() {
 			"VirtualMachine", "test-vm", "false", timestamp,
 		),
 		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd,
-			exportv1beta1.VirtualMachineExport{
-				Spec: exportv1beta1.VirtualMachineExportSpec{
+			exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
 					Source: k8sv1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
 						Name: "test-vm",
 					},
 				},
-				Status: &exportv1beta1.VirtualMachineExportStatus{
-					Phase: exportv1beta1.Ready,
+				Status: &exportv1.VirtualMachineExportStatus{
+					Phase: exportv1.Ready,
 				},
 			},
 			"VirtualMachine", "test-vm", "Ready",
@@ -331,6 +336,38 @@ var _ = Describe("CRDs", func() {
 				},
 			},
 			"RestoreInProgress", "test-source", "test-target",
+		),
+		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd,
+			backupv1alpha1.VirtualMachineBackup{
+				Spec: backupv1alpha1.VirtualMachineBackupSpec{
+					Source: k8sv1.TypedLocalObjectReference{
+						Kind: "VirtualMachineBackupTracker",
+						Name: "test-tracker",
+					},
+				},
+				Status: &backupv1alpha1.VirtualMachineBackupStatus{
+					Type:           backupv1alpha1.Full,
+					CheckpointName: pointer.P("test-checkpoint"),
+				},
+			},
+			"VirtualMachineBackupTracker", "test-tracker", "Full", "test-checkpoint",
+		),
+		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd,
+			backupv1alpha1.VirtualMachineBackupTracker{
+				Spec: backupv1alpha1.VirtualMachineBackupTrackerSpec{
+					Source: k8sv1.TypedLocalObjectReference{
+						Kind: "VirtualMachine",
+						Name: "test-vm",
+					},
+				},
+				Status: &backupv1alpha1.VirtualMachineBackupTrackerStatus{
+					LatestCheckpoint: &backupv1alpha1.BackupCheckpoint{
+						Name:         "test-checkpoint",
+						CreationTime: pointer.P(createTime()),
+					},
+				},
+			},
+			"VirtualMachine", "test-vm", "test-checkpoint", timestamp,
 		),
 	)
 })

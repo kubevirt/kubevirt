@@ -31,7 +31,9 @@ var (
 	vcpuSeconds = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_vcpu_seconds_total",
-			Help: "Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
+			Help: "Total amount of time spent in each state by each vcpu " +
+				"(cpu_time excluding hypervisor time). Where `id` is the vcpu identifier " +
+				"and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
 		},
 	)
 

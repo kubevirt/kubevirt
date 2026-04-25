@@ -19,10 +19,13 @@
 package cache
 
 import (
+	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -40,6 +43,13 @@ import (
 
 const socketDialTimeout = 5
 
+type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store, watchInterval ...time.Duration) error
+
+var (
+	notifyServerMaxConsecutiveFails = 10
+	notifyServerHealthyRunTime      = 1 * time.Minute
+)
+
 type domainWatcher struct {
 	lock                     sync.Mutex
 	wg                       sync.WaitGroup
@@ -51,6 +61,8 @@ type domainWatcher struct {
 	recorder                 record.EventRecorder
 	vmiStore                 cache.Store
 	resyncPeriod             time.Duration
+	runServer                runServerFunc
+	consecutiveFails         int
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
@@ -65,6 +77,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 		vmiStore:                 vmiStore,
 		unresponsiveSockets:      make(map[string]int64),
 		resyncPeriod:             resyncPeriod,
+		runServer:                notifyserver.RunServer,
 	}
 
 	return d
@@ -72,6 +85,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 
 func (d *domainWatcher) worker() {
 	defer d.wg.Done()
+	defer d.onWorkerExit()
 
 	resyncTicker := time.NewTicker(d.resyncPeriod)
 	resyncTickerChan := resyncTicker.C
@@ -85,10 +99,11 @@ func (d *domainWatcher) worker() {
 
 	expiredWatchdogTickerChan := expiredWatchdogTicker.C
 
+	startedAt := time.Now()
 	srvErr := make(chan error)
 	go func() {
 		defer close(srvErr)
-		err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
+		err := d.runServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
 		srvErr <- err
 	}()
 
@@ -100,13 +115,52 @@ func (d *domainWatcher) worker() {
 			d.handleStaleSocketConnections()
 		case err := <-srvErr:
 			if err != nil {
-				log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
+				log.Log.Reason(err).Errorf("Domain notify server exited unexpectedly")
+				d.panicOnConsecutiveFailures(err, startedAt)
+				d.eventChan <- watch.Event{
+					Type: watch.Error,
+					Object: &metav1.Status{
+						Status:  metav1.StatusFailure,
+						Message: fmt.Sprintf("domain notify server error: %v", err),
+					},
+				}
 			}
-
-			// server exitted so this goroutine is done.
 			return
 		}
 	}
+}
+
+func (d *domainWatcher) onWorkerExit() {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.backgroundWatcherStarted = false
+	close(d.eventChan)
+}
+
+func (d *domainWatcher) panicOnConsecutiveFailures(err error, startedAt time.Time) {
+	if time.Since(startedAt) >= notifyServerHealthyRunTime {
+		d.consecutiveFails = 0
+	}
+	d.consecutiveFails++
+
+	d.recordNotifyServerFailureEvent(err)
+
+	if d.consecutiveFails >= notifyServerMaxConsecutiveFails {
+		log.Log.Reason(err).Criticalf("Domain notify server reached max consecutive failures (%d)",
+			notifyServerMaxConsecutiveFails)
+		panic(fmt.Sprintf("domain notify server reached max consecutive failures (%d): %v",
+			notifyServerMaxConsecutiveFails, err))
+	}
+}
+
+func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
+	if d.recorder == nil {
+		return
+	}
+	hostname, _ := os.Hostname()
+	node := &k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: hostname}}
+	d.recorder.Eventf(node, k8sv1.EventTypeWarning, "NotifyServerFailure",
+		"Domain notify server exited unexpectedly: %v", err)
 }
 
 func (d *domainWatcher) startBackground() error {
@@ -322,16 +376,22 @@ func (d *domainWatcher) Watch(_ metav1.ListOptions) (watch.Interface, error) {
 }
 
 func (d *domainWatcher) Stop() {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if !d.backgroundWatcherStarted {
-		return
+	shouldWait := func() bool {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		if !d.backgroundWatcherStarted {
+			return false
+		}
+		select {
+		case <-d.stopChan:
+		default:
+			close(d.stopChan)
+		}
+		return true
+	}()
+	if shouldWait {
+		d.wg.Wait()
 	}
-	close(d.stopChan)
-	d.wg.Wait()
-	d.backgroundWatcherStarted = false
-	close(d.eventChan)
 }
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {

@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"fmt"
@@ -135,14 +135,14 @@ func addVMIPhaseTransitionTimeFromDeletionHandler(informer cache.SharedIndexInfo
 	return err
 }
 
-func updateVMIPhaseTransitionTime(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+func updateVMIPhaseTransitionTime(oldVMI, newVMI *v1.VirtualMachineInstance) {
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
 
 	diffSeconds, err := getVMITransitionTimeSeconds(false, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(logVerbosityDebug).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -156,14 +156,14 @@ func updateVMIPhaseTransitionTime(oldVMI *v1.VirtualMachineInstance, newVMI *v1.
 	histogram.Observe(diffSeconds)
 }
 
-func updateVMIPhaseTransitionTimeFromCreationTime(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+func updateVMIPhaseTransitionTimeFromCreationTime(oldVMI, newVMI *v1.VirtualMachineInstance) {
 	if oldVMI == nil || oldVMI.Status.Phase == newVMI.Status.Phase {
 		return
 	}
 
 	diffSeconds, err := getVMITransitionTimeSeconds(true, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(logVerbosityDebug).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -177,7 +177,7 @@ func updateVMIPhaseTransitionTimeFromCreationTime(oldVMI *v1.VirtualMachineInsta
 	histogram.Observe(diffSeconds)
 }
 
-func updateVMIPhaseTransitionTimeFromDeletionTime(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) {
+func updateVMIPhaseTransitionTimeFromDeletionTime(oldVMI, newVMI *v1.VirtualMachineInstance) {
 	if !newVMI.IsMarkedForDeletion() || !newVMI.IsFinal() {
 		return
 	}
@@ -188,7 +188,7 @@ func updateVMIPhaseTransitionTimeFromDeletionTime(oldVMI *v1.VirtualMachineInsta
 
 	diffSeconds, err := getVMITransitionTimeSeconds(false, true, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(logVerbosityDebug).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -202,18 +202,26 @@ func updateVMIPhaseTransitionTimeFromDeletionTime(oldVMI *v1.VirtualMachineInsta
 	histogram.Observe(diffSeconds)
 }
 
-func getVMITransitionTimeSeconds(fromCreation bool, fromDeletion bool, oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) (float64, error) {
-	var oldTime *metav1.Time
-	var newTime *metav1.Time
-
+func getOldTime(fromCreation, fromDeletion bool, oldVMI, newVMI *v1.VirtualMachineInstance) (*metav1.Time, error) {
 	if fromCreation || oldVMI == nil || (oldVMI.Status.Phase == v1.VmPhaseUnset) {
-		oldTime = newVMI.CreationTimestamp.DeepCopy()
-	} else if fromDeletion && newVMI.IsMarkedForDeletion() {
-		oldTime = newVMI.DeletionTimestamp.DeepCopy()
-	} else if fromDeletion && !newVMI.IsMarkedForDeletion() {
-		return 0.0, fmt.Errorf("missing deletion timestamp")
+		return newVMI.CreationTimestamp.DeepCopy(), nil
+	}
+	if fromDeletion && newVMI.IsMarkedForDeletion() {
+		return newVMI.DeletionTimestamp.DeepCopy(), nil
+	}
+	if fromDeletion && !newVMI.IsMarkedForDeletion() {
+		return nil, fmt.Errorf("missing deletion timestamp")
+	}
+	return nil, nil
+}
+
+func getVMITransitionTimeSeconds(fromCreation, fromDeletion bool, oldVMI, newVMI *v1.VirtualMachineInstance) (float64, error) {
+	oldTime, err := getOldTime(fromCreation, fromDeletion, oldVMI, newVMI)
+	if err != nil {
+		return 0.0, err
 	}
 
+	var newTime *metav1.Time
 	for _, transitionTimestamp := range newVMI.Status.PhaseTransitionTimestamps {
 		if newTime == nil && transitionTimestamp.Phase == newVMI.Status.Phase {
 			newTime = transitionTimestamp.PhaseTransitionTimestamp.DeepCopy()

@@ -840,24 +840,24 @@ var _ = Describe("Clone", func() {
 
 			marshalledVM, err := json.Marshal(vm)
 			if err != nil {
-				return patchedVM, fmt.Errorf("cannot marshall VM %s: %v", vm.Name, err)
+				return patchedVM, fmt.Errorf("cannot marshall VM %s: %w", vm.Name, err)
 			}
 
 			jsonPatch := "[\n" + strings.Join(patches, ",\n") + "\n]"
 
 			patch, err := jsonpatch.DecodePatch([]byte(jsonPatch))
 			if err != nil {
-				return patchedVM, fmt.Errorf("cannot decode vm patches %s: %v", jsonPatch, err)
+				return patchedVM, fmt.Errorf("cannot decode vm patches %s: %w", jsonPatch, err)
 			}
 
 			modifiedMarshalledVM, err := patch.Apply(marshalledVM)
 			if err != nil {
-				return patchedVM, fmt.Errorf("failed to apply patch for VM %s: %v", jsonPatch, err)
+				return patchedVM, fmt.Errorf("failed to apply patch for VM %s: %w", jsonPatch, err)
 			}
 
 			err = json.Unmarshal(modifiedMarshalledVM, &patchedVM)
 			if err != nil {
-				return patchedVM, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
+				return patchedVM, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %w", string(modifiedMarshalledVM), err)
 			}
 
 			return patchedVM, nil

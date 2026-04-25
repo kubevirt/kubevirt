@@ -21,20 +21,19 @@ package infrastructure
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	gomegatypes "github.com/onsi/gomega/types"
 	metricsutil "github.com/rhobs/operator-observability-toolkit/pkg/testutil"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -104,7 +103,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		*/
 
 		By("creating a VMI in a user defined namespace")
-		vmi := libvmifact.NewAlpine()
+		vmi := libvmifact.NewGuestless()
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 		startVMI(vmi)
 
@@ -315,50 +314,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		concurrency := 100 // random value "much higher" than maxRequestsInFlight
-
-		tr := &http.Transport{
-			MaxIdleConnsPerHost: concurrency,
-			TLSClientConfig: &tls.Config{
-				//nolint:gosec
-				InsecureSkipVerify: true,
-			},
-		}
-
-		client := http.Client{
-			Timeout:   time.Duration(1),
-			Transport: tr,
-		}
-
-		errorsChan := make(chan error)
-		By("Scraping the Prometheus endpoint")
-		const metricsPort = 8443
-		metricsURL := libmonitoring.PrepareMetricsURL(ip, metricsPort)
-		for ix := 0; ix < concurrency; ix++ {
-			go func(ix int) {
-				req, _ := http.NewRequest("GET", metricsURL, http.NoBody)
-				resp, err := client.Do(req)
-				if err != nil {
-					GinkgoLogr.Info("client request", "request", req, "index", ix, "error", err)
-				} else {
-					Expect(resp.Body.Close()).To(Succeed())
-				}
-				errorsChan <- err
-			}(ix)
-		}
-
-		err := libinfra.ValidatedHTTPResponses(errorsChan, concurrency)
-		Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
-	},
-		Entry("[test_id:4140] by using IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6226] by using IPv6", k8sv1.IPv6Protocol),
-	)
-
 	It("[test_id:4141]should include the metrics for a running VM", func() {
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
@@ -445,102 +400,54 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
 
-	It("[QUARANTINE][test_id:4145]should include VMI infos for a running VM", decorators.Quarantine, func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+	It("[QUARANTINE][test_id:4145]should include correct labels for a running VMI", decorators.Quarantine, func() {
+		// Build expected metrics from the domainstats collector, excluding
+		// conditionally emitted metrics that require features not available
+		// on a basic Alpine VMI:
+		//   - filesystem metrics require qemu-guest-agent
+		//   - guest load metrics require qemu-guest-agent >= 10.0.0
+		conditionalMetrics := map[string]struct{}{
+			"kubevirt_vmi_filesystem_capacity_bytes": {},
+			"kubevirt_vmi_filesystem_used_bytes":     {},
+			"kubevirt_vmi_guest_load_1m":             {},
+			"kubevirt_vmi_guest_load_5m":             {},
+			"kubevirt_vmi_guest_load_15m":            {},
+		}
 
+		var expectedVMIMetrics []string
+		for _, m := range domainstats.Collector.Metrics {
+			if _, excluded := conditionalMetrics[m.GetOpts().Name]; !excluded {
+				expectedVMIMetrics = append(expectedVMIMetrics, m.GetOpts().Name)
+			}
+		}
+
+		By("Collecting metrics filtered by VMI name and namespace")
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_")
+		fetcher.AddLabelFilter("name", preparedVMIs[0].Name, "namespace", preparedVMIs[0].Namespace)
 
 		metrics, err := fetcher.LoadMetrics(metricsPayload)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Checking the collected metrics")
+		By("Checking that all expected metrics are present")
+		for _, metricName := range expectedVMIMetrics {
+			Expect(metrics).To(HaveKey(metricName),
+				"Expected metric %s to be present for VMI %s/%s",
+				metricName, preparedVMIs[0].Namespace, preparedVMIs[0].Name)
+		}
+
+		By("Checking that all VMI metrics have correct labels")
 		nodeName := pod.Spec.NodeName
-
-		var nameMatchers []gomegatypes.GomegaMatcher
-		for _, vmi := range preparedVMIs {
-			nameMatchers = append(nameMatchers, HaveKeyWithValue("name", vmi.Name))
-		}
-
 		for metricName, results := range metrics {
-			// we don't care about the ordering of the labels
-			if strings.HasPrefix(metricName, "kubevirt_vmi_info") {
-				// special case: namespace and name don't make sense for this metric
-				for _, metricResult := range results {
-					Expect(metricResult.Labels).To(HaveKeyWithValue("node", nodeName))
-				}
-				continue
-			}
-
-			for _, metricResult := range results {
-				Expect(metricResult.Labels).To(SatisfyAll(
+			for _, result := range results {
+				Expect(result.Labels).To(SatisfyAll(
 					HaveKeyWithValue("node", nodeName),
-					// all testing VMIs are on the same node and namespace,
-					// so checking the namespace of any random VMI is fine
 					HaveKeyWithValue("namespace", preparedVMIs[0].Namespace),
-					// otherwise, each result must refer to exactly one the prepared VMIs.
-					SatisfyAny(nameMatchers...),
-				))
+					HaveKeyWithValue("name", preparedVMIs[0].Name),
+				), "Metric %s has incorrect labels", metricName)
 			}
 		}
-	})
-
-	It("[test_id:4146]should include VMI phase metrics for all running VMs", func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
-
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_")
-		fetcher.AddLabelFilter("phase", "Running")
-
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking the collected metrics")
-		for _, results := range metrics {
-			for _, metricResult := range results {
-				Expect(metricResult.Value).To(Equal(float64(len(preparedVMIs))))
-			}
-		}
-	})
-
-	Context("VMI eviction blocker status", func() {
-		var controllerMetricIPs []string
-
-		BeforeEach(func() {
-			virtControllerLeaderPodName := libinfra.GetLeader()
-			leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
-				context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
-			for _, ip := range leaderPod.Status.PodIPs {
-				controllerMetricIPs = append(controllerMetricIPs, ip.IP)
-			}
-		})
-
-		AfterEach(func() {
-			controllerMetricIPs = nil
-		})
-
-		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-			ip := libnet.GetIP(controllerMetricIPs, family)
-
-			metricsPayload := libmonitoring.GetKubevirtVMMetricsByIP(pod, ip) //nolint:staticcheck
-
-			fetcher := metricsutil.NewMetricsFetcher("")
-			fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
-
-			metrics, err := fetcher.LoadMetrics(metricsPayload)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
-
-			results := metrics["kubevirt_vmi_non_evictable"]
-			Expect(results).ToNot(BeEmpty())
-			Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
-		},
-			Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
-			Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
-		)
 	})
 
 	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {

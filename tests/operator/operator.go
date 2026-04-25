@@ -76,7 +76,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -95,6 +94,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libhypervisor"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -406,8 +406,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(&newVirtualMachineInstancesPerNode))
 
-			kvmLauncherResources := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
-			kvmDeviceName := services.ConstructHypervisorResourceName(kvmLauncherResources)
+			hypervisorDevice := libhypervisor.GetHypervisorDeviceName(virtClient)
+			hypervisorResource := k8sv1.ResourceName(services.K8sDevicePrefix + "/" + hypervisorDevice)
 
 			newVMIPerNodePatch, err := patch.New(
 				patch.WithAdd("/spec/configuration/virtualMachineInstancesPerNode", newVirtualMachineInstancesPerNode)).GeneratePayload()
@@ -419,13 +419,13 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Waiting for virt-operator to apply changes to component")
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
-			By("Test that worker nodes have the correct allocatable kvm devices according to virtualMachineInstancesPerNode setting")
+			By("Test that worker nodes have the correct allocatable hypervisor devices according to virtualMachineInstancesPerNode setting")
 			Eventually(func() error {
-				nodesWithKvm := libnode.GetNodesWithKVM()
-				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[kvmDeviceName]
-					if int(kvmDevices.Value()) != newVirtualMachineInstancesPerNode {
-						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %d, got: %d", node.Name, newVirtualMachineInstancesPerNode, kvmDevices.Value())
+				nodesWithHypervisor := libnode.GetNodesWithHypervisor(hypervisorDevice)
+				for _, node := range nodesWithHypervisor {
+					hypervisorDevices, _ := node.Status.Allocatable[hypervisorResource]
+					if int(hypervisorDevices.Value()) != newVirtualMachineInstancesPerNode {
+						return fmt.Errorf("node %s does not have the expected allocatable hypervisor %s devices: %d, got: %d", node.Name, hypervisorDevice, newVirtualMachineInstancesPerNode, hypervisorDevices.Value())
 					}
 				}
 				return nil
@@ -442,15 +442,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Waiting for virt-operator to apply changes to component")
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
-			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
-			const defaultKvmDevices = "1k"
-			defaultKvmDevicesQuant := resource.MustParse(defaultKvmDevices)
-			kvmDeviceKey := k8sv1.ResourceName(kvmDeviceName)
+			By("Check that worker nodes resumed the default amount of allocatable hypervisor devices")
+			const defaultHypervisorDevices = "1k"
+			defaultHypervisorDevicesQuant := resource.MustParse(defaultHypervisorDevices)
 
 			Eventually(func(g Gomega) {
-				nodesWithKvm := libnode.GetNodesWithKVM()
-				for _, node := range nodesWithKvm {
-					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(kvmDeviceKey, defaultKvmDevicesQuant), "node %s does not have the expected allocatable kvm devices", node.Name)
+				nodesWithHypervisor := libnode.GetNodesWithHypervisor(hypervisorDevice)
+				for _, node := range nodesWithHypervisor {
+					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(hypervisorResource, defaultHypervisorDevicesQuant), "node %s does not have the expected allocatable hypervisor %s devices", node.Name, hypervisorDevice)
 				}
 			}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})
@@ -1036,9 +1035,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
 			BeforeEach(func() {
-				allKvInfraPodsAreReady(originalKv)
-				sanityCheckDeploymentsExist()
-
 				By("setting the right uninstall strategy")
 				patchBytes, err := patch.New(patch.WithAdd("/spec/uninstallStrategy", v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist)).GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
@@ -1048,6 +1044,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 					return kv.Spec.UninstallStrategy, err
 				}, 60*time.Second, time.Second).Should(Equal(v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist))
+
+				By("waiting for the operator to finish reconciling after the patch")
+				allKvInfraPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
 			})
 
 			AfterEach(func() {
@@ -1060,11 +1060,15 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 					return kv.Spec.UninstallStrategy, err
 				}, 60*time.Second, time.Second).Should(BeEmpty())
+
+				By("waiting for the operator to finish reconciling after the patch")
+				allKvInfraPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
 			})
 
 			It("[test_id:3683]should be blocked if a workload exists", func() {
 				By("creating a simple VMI")
-				vmi := libvmifact.NewAlpine()
+				vmi := libvmifact.NewGuestless()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1151,7 +1155,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(handlerImageName).To(ContainSubstring(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
-			vmi := libvmifact.NewAlpine()
+			vmi := libvmifact.NewGuestless()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -1396,7 +1400,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				)
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
-				vmi := libvmifact.NewAlpine()
+				vmi := libvmifact.NewGuestless()
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -1819,24 +1823,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("with VMExport feature gate toggled", func() {
-
-		AfterEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.VMExportGate)
-			testsuite.WaitExportProxyReady()
-		})
-
-		It("should delete and recreate virt-exportproxy", func() {
-			testsuite.WaitExportProxyReady()
-			kvconfig.DisableFeatureGate(featuregate.VMExportGate)
-
-			Eventually(func() error {
-				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
-				return err
-			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-		})
-	})
-
 	Context("with ContainerPathVolumes feature gate toggled", func() {
 
 		AfterEach(func() {
@@ -1957,7 +1943,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				fetchVMI := matcher.ThisVMI(vmi)
 				psaRelatedErrorDetected := false

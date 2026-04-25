@@ -107,7 +107,7 @@ var _ = Describe("Annotations Generator", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(defaultNetworkName)),
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(&sriovNIC, customMACAddress)),
+				libvmi.WithInterface(libvmi.InterfaceWithMac(sriovNIC, customMACAddress)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(defaultNetworkName, defaultNetworkAttachmentDefinitionName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 			)

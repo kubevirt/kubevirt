@@ -49,7 +49,9 @@ const (
 	//#### Tiger VNC ####
 	//# https://github.com/TigerVNC/tigervnc/releases
 	// Compatible with multiple Tiger VNC versions
-	MACOS_TIGER_VNC_PATTERN = `/Applications/TigerVNC Viewer *.app/Contents/MacOS/TigerVNC Viewer`
+	MACOS_TIGER_VNC_LEGACY_PATTERN = `/Applications/TigerVNC Viewer *.app/Contents/MacOS/TigerVNC Viewer`
+	// Tiger VNC 1.16.0+ changed the default app name
+	MACOS_TIGER_VNC_PATTERN = `/Applications/TigerVNC.app/Contents/MacOS/vncviewer`
 
 	//#### Chicken VNC ####
 	//# https://sourceforge.net/projects/chicken/
@@ -87,9 +89,8 @@ func NewCommand() *cobra.Command {
 		"--preserve-session: This option will preserve an existing VNC session instead of dropping it.")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
-	cmd.Flags().StringVar(&vncType, "vnc-type", "", "--vnc-type=tiger: Specify the type of VNC viewer to use (tiger, chicken, real, remote-viewer). Must provide --vnc-path")
-	cmd.Flags().StringVar(&vncPath, "vnc-path", "", "--vnc-path=/path/to/vnc: Specify the path to the VNC viewer executable. Must provide --vnc-type")
-	cmd.MarkFlagsRequiredTogether("vnc-type", "vnc-path")
+	cmd.Flags().StringVar(&vncType, "vnc-type", "", "--vnc-type=tiger: Specify the type of VNC viewer to use (tiger, chicken, real, remote-viewer). If --vnc-path is not provided, the binary is looked up in $PATH")
+	cmd.Flags().StringVar(&vncPath, "vnc-path", "", "--vnc-path=/path/to/vnc: Specify the path to the VNC viewer executable. Optional if the binary is in $PATH")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.AddCommand(screenshot.NewScreenshotCommand())
 	return cmd
@@ -219,12 +220,41 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getUserSpecifiedVnc(ctx context.Context, osType, vncType, vncPath string, port int) (string, []string, error) {
-	if _, err := os.Stat(vncPath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil, fmt.Errorf("specified VNC path does not exist: %s", vncPath)
+func resolveVncBinary(vncType, vncPath string) (string, error) {
+	if vncPath != "" {
+		if _, err := os.Stat(vncPath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("specified VNC path does not exist: %s", vncPath)
+			}
+			return "", fmt.Errorf("error checking VNC path: %v", err)
 		}
-		return "", nil, fmt.Errorf("error checking VNC path: %v", err)
+		return vncPath, nil
+	}
+
+	var bin string
+	switch vncType {
+	case "tiger":
+		bin = TIGER_VNC
+	case "remote-viewer":
+		bin = REMOTE_VIEWER
+	case "chicken":
+		bin = MACOS_CHICKEN_VNC
+	case "real":
+		bin = MACOS_REAL_VNC
+	default:
+		return "", fmt.Errorf("unsupported vnc-type: %s", vncType)
+	}
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return "", fmt.Errorf("could not find %s in $PATH: %v", bin, err)
+	}
+	return path, nil
+}
+
+func getUserSpecifiedVnc(ctx context.Context, osType, vncType, vncPath string, port int) (string, []string, error) {
+	resolvedPath, err := resolveVncBinary(vncType, vncPath)
+	if err != nil {
+		return "", nil, err
 	}
 
 	var args []string
@@ -254,13 +284,17 @@ func getUserSpecifiedVnc(ctx context.Context, osType, vncType, vncPath string, p
 	default:
 		return "", nil, fmt.Errorf("virtctl does not support VNC on %v", osType)
 	}
-	return vncPath, args, nil
+	return resolvedPath, args, nil
 }
 
 func getAutoDetectedVnc(osType string, port int) (string, []string, error) {
 	switch osType {
 	case "darwin":
-		if matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
+		if _, err := os.Stat(MACOS_TIGER_VNC_PATTERN); err == nil {
+			return MACOS_TIGER_VNC_PATTERN, tigerVncArgs(port), nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", nil, err
+		} else if matches, err := filepath.Glob(MACOS_TIGER_VNC_LEGACY_PATTERN); err == nil && len(matches) > 0 {
 			return matches[len(matches)-1], tigerVncArgs(port), nil
 		} else if err == filepath.ErrBadPattern {
 			return "", nil, err
@@ -295,7 +329,7 @@ func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 	vncBin := ""
 	osType := runtime.GOOS
 
-	if vncType != "" && vncPath != "" {
+	if vncType != "" {
 		vncBin, args, err = getUserSpecifiedVnc(ctx, osType, vncType, vncPath, port)
 	} else {
 		vncBin, args, err = getAutoDetectedVnc(osType, port)
@@ -322,7 +356,6 @@ func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 	}
 	errChan <- err
 }
-
 func tigerVncArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf(listenAddressFmt, port))
 	if log.Log.Verbosity(4) {

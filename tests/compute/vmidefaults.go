@@ -121,7 +121,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 					Type:  api.AddressCCW,
 					CSSID: "0xfe",
 					SSID:  "0x0",
-					DevNo: "0x0007",
+					DevNo: "0x0006",
 				}
 			}
 			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
@@ -155,7 +155,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 					Type:  api.AddressCCW,
 					CSSID: "0xfe",
 					SSID:  "0x0",
-					DevNo: "0x0007",
+					DevNo: "0x0006",
 				}
 			}
 			if period > 0 {
@@ -211,7 +211,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 
 		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
 			vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

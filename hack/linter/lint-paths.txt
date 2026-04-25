@@ -7,8 +7,10 @@ cmd/virtctl
 cmd/virt-exportserver
 cmd/virt-operator
 pkg/controller/testing
+pkg/downwardmetrics/scraper
 pkg/instancetype
 pkg/libvmi
+pkg/monitoring/metrics
 pkg/monitoring/rules
 pkg/network/admitter
 pkg/network/controllers
@@ -80,6 +82,7 @@ tests/libconfigmap
 tests/libdomain
 tests/libinstancetype
 tests/libkubevirt
+tests/libmonitoring
 tests/libnamespace
 tests/libnet
 tests/libnode
@@ -90,6 +93,7 @@ tests/libssh
 tests/libvmifact
 tests/libvmops
 tests/libwait
+tests/monitoring
 tests/network
 tests/numa
 tests/usb

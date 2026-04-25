@@ -46,7 +46,7 @@ import (
 	kubectlutil "k8s.io/kubectl/pkg/util"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -459,7 +459,7 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return err
 	}
 
-	printToOutput("VirtualMachineExport '%s/%s' created succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	printToOutput("VirtualMachineExport '%s/%s' created successfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -473,7 +473,7 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return nil
 	}
 
-	printToOutput("VirtualMachineExport '%s/%s' deleted succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	printToOutput("VirtualMachineExport '%s/%s' deleted successfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -492,7 +492,7 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 			time.Sleep(2 * time.Second)
 		}
 	}
-	return fmt.Errorf("retry count reached, exiting unsuccesfully")
+	return fmt.Errorf("retry count reached, exiting unsuccessfully")
 }
 
 func downloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (bool, error) {
@@ -606,7 +606,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 		return false, err
 	}
 
-	printToOutput("Download finished succesfully\n")
+	printToOutput("Download finished successfully\n")
 
 	return true, nil
 }
@@ -1071,7 +1071,6 @@ func translateServicePortToTargetPort(localPort string, remotePort string, svc k
 // waitForExportServiceToBeReady waits until the vmexport service is ready for port-forwarding
 func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
 	service := &k8sv1.Service{}
-	serviceName := fmt.Sprintf("virt-export-%s", vmeInfo.Name)
 	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil || vmexport == nil {
@@ -1080,6 +1079,12 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 
 		if vmexport.Status == nil || vmexport.Status.Phase != exportv1.Ready {
 			printToOutput("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
+			return false, nil
+		}
+
+		serviceName := vmexport.Status.ServiceName
+		if serviceName == "" {
+			printToOutput("waiting for VM Export %s service name to be set...\n", vmeInfo.Name)
 			return false, nil
 		}
 

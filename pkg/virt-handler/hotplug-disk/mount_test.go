@@ -244,6 +244,21 @@ var _ = Describe("HotplugVolume", func() {
 			_, err = os.Stat(filepath.Join(tempDir, "test"))
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("writePathToMountRecord should not duplicate existing entry", func() {
+			duplicatePath := record.MountTargetEntries[0].TargetFile
+			originalLength := len(record.MountTargetEntries)
+			originalBytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			Expect(err).ToNot(HaveOccurred())
+
+			err = m.writePathToMountRecord(duplicatePath, vmi, record)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(record.MountTargetEntries).To(HaveLen(originalLength))
+
+			updatedBytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedBytes).To(Equal(originalBytes))
+		})
 	})
 
 	Context("block devices", func() {
@@ -930,6 +945,58 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", targetFilePath)
 			_, err = os.Stat(blockVolume)
 			Expect(err).To(HaveOccurred(), "block device volume still exists %s", blockVolume)
+		})
+
+		It("Unmount, if failed, should continue for other volumes", func() {
+			badPath, err := newFile(targetPodPath, "badvolume.img")
+			Expect(err).ToNot(HaveOccurred())
+			goodPath, err := newFile(targetPodPath, "goodvolume.img")
+			Expect(err).ToNot(HaveOccurred())
+			badPathAbs := unsafepath.UnsafeAbsolute(badPath.Raw())
+			goodPathAbs := unsafepath.UnsafeAbsolute(goodPath.Raw())
+
+			record := &vmiMountTargetRecord{
+				MountTargetEntries: []vmiMountTargetEntry{
+					{TargetFile: badPathAbs},
+					{TargetFile: goodPathAbs},
+				},
+			}
+			Expect(m.setMountTargetRecord(vmi, record)).To(Succeed())
+
+			// Inject block probe failure
+			DeferCleanup(func() {
+				isBlockDevice = orgIsBlockDevice
+			})
+			isBlockDevice = func(path *safepath.Path) (bool, error) {
+				if unsafepath.UnsafeAbsolute(path.Raw()) == badPathAbs {
+					return false, fmt.Errorf("block probe error")
+				}
+				return false, nil
+			}
+
+			isMounted = func(path *safepath.Path) (bool, error) {
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(goodPathAbs))
+				return true, nil
+			}
+			unmountCommand = func(diskPath *safepath.Path) ([]byte, error) {
+				Expect(unsafepath.UnsafeAbsolute(diskPath.Raw())).To(Equal(goodPathAbs))
+				return []byte("Success"), nil
+			}
+
+			err = m.Unmount(vmi, cgroupManagerMock)
+			Expect(err).To(HaveOccurred())
+
+			_, err = os.Stat(goodPathAbs)
+			Expect(err).To(HaveOccurred(), "filesystem volume file still exists %s", goodPathAbs)
+			_, err = os.Stat(badPathAbs)
+			Expect(err).ToNot(HaveOccurred(), "failed volume should remain %s", badPathAbs)
+
+			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			Expect(err).ToNot(HaveOccurred())
+			updated := &vmiMountTargetRecord{}
+			Expect(json.Unmarshal(bytes, updated)).To(Succeed())
+			Expect(updated.MountTargetEntries).To(HaveLen(1))
+			Expect(updated.MountTargetEntries[0].TargetFile).To(Equal(badPathAbs))
 		})
 
 		It("Should not do anything if vmi has no hotplug volumes", func() {

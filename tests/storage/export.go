@@ -46,10 +46,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -97,7 +98,7 @@ const (
 	inUseReason               = "InUse"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
 
-	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
+	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1/namespaces/%s/virtualmachineexports/%s%s"
 
 	tlsKey           = "tls.key"
 	tlsCert          = "tls.crt"
@@ -234,8 +235,9 @@ var _ = Describe(SIG("Export", func() {
 	}
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
+		const prefix = "export-token-"
 		var err error
-		secret := libsecret.New(fmt.Sprintf("export-token-%s", name), libsecret.DataString{"token": name})
+		secret := libsecret.New(fmt.Sprintf("%s%s", prefix, name[:min(len(name), validation.DNS1035LabelMaxLength-len(prefix))]), libsecret.DataString{"token": name})
 		token, err = virtClient.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return token
@@ -1440,6 +1442,84 @@ var _ = Describe(SIG("Export", func() {
 		checkExportSecretRef(export)
 		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		verifyKubevirtInternal(export, export.Name, export.Namespace, restoreName)
+	})
+
+	It("should export a restored VM disk as raw image, not archive", decorators.RequiresSnapshotStorageClass, func() {
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		Expect(err).ToNot(HaveOccurred())
+		if sc == "" {
+			Fail("Fail test when storage with snapshot is not present")
+		}
+
+		By("Creating a DataVolume to populate a PVC with a bootable disk")
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+				libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem)),
+			libdv.WithForceBindAnnotation(),
+		)
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libstorage.EventuallyDV(dv, 180, HaveSucceeded())
+
+		By("Creating a VM that references the PVC directly")
+		vmi := libvmi.New(
+			libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
+			libvmi.WithMemoryRequest("128Mi"),
+		)
+		vm := libvmi.NewVirtualMachine(vmi)
+		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating a snapshot of the stopped VM")
+		snapshot := newSnapshot(vm)
+		_, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		waitSnapshotReady(snapshot)
+		defer deleteSnapshot(snapshot)
+
+		By("Restoring the VM from the snapshot")
+		restore := &snapshotv1.VirtualMachineRestore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "restore-" + vm.Name,
+			},
+			Spec: snapshotv1.VirtualMachineRestoreSpec{
+				Target: k8sv1.TypedLocalObjectReference{
+					APIGroup: virtpointer.P("kubevirt.io"),
+					Kind:     "VirtualMachine",
+					Name:     vm.Name,
+				},
+				VirtualMachineSnapshotName: snapshot.Name,
+			},
+		}
+		restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() bool {
+			restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return restore.Status != nil && restore.Status.Complete != nil && *restore.Status.Complete
+		}, 180*time.Second, time.Second).Should(BeTrue())
+
+		By("Getting the restored PVC name from the VM spec")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vm.Spec.Template.Spec.Volumes).ToNot(BeEmpty())
+		restoredPVCName := vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName
+
+		By("Verifying the restored PVC should have the contentType annotation")
+		restoredPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restoredPVCName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(restoredPVC.Annotations).To(HaveKey(annContentType))
+
+		By("Exporting the restored VM and verifying kubevirt content type format")
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		export = waitForReadyExport(export)
+		verifyKubevirtInternal(export, export.Name, export.Namespace, restoredPVCName)
 	})
 
 	addDataVolumeDisk := func(vm *v1.VirtualMachine, diskName, dataVolumeName string) *v1.VirtualMachine {

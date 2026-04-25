@@ -44,7 +44,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -98,7 +98,7 @@ var _ = Describe("MemoryDump", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 
 		cdiConfig := &cdiv1.CDIConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -400,6 +400,7 @@ var _ = Describe("MemoryDump", func() {
 							}},
 						},
 					},
+					ServiceName:    "virt-export-" + fmt.Sprintf("export-%s-%s", vmName, pvcName),
 					TokenSecretRef: &secret.Name,
 				},
 			}
@@ -468,7 +469,7 @@ var _ = Describe("MemoryDump", func() {
 			Expect(outputData).To(HaveLen(length))
 		})
 
-		It("should call download memory dump and decompress succesfully", func() {
+		It("should call download memory dump and decompress successfully", func() {
 			server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, err := w.Write([]byte{
 					0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
@@ -487,7 +488,7 @@ var _ = Describe("MemoryDump", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -507,7 +508,7 @@ var _ = Describe("MemoryDump", func() {
 			}
 
 			vme.Status.Links.Internal = vme.Status.Links.External
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Services(metav1.NamespaceDefault).Create(context.Background(), service, metav1.CreateOptions{})
@@ -528,7 +529,7 @@ var _ = Describe("MemoryDump", func() {
 			Entry("with port-forward specifying default number on local port", setFlag(memorydump.LocalPortFlag, "0")),
 		)
 
-		It("should fail download memory dump if not completed succesfully", func() {
+		It("should fail download memory dump if not completed successfully", func() {
 			const errMsg = "memory dump failed: test err"
 			memorydump.WaitForMemoryDumpCompleteFn = func(_ kubecli.KubevirtClient, _, _ string, _, _ time.Duration) (string, error) {
 				return pvcName, errors.New(errMsg)

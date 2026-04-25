@@ -54,7 +54,7 @@ var _ = Describe(compute.SIG("Migrate subresource", func() {
 		Expect(len(nodes.Items)).To(BeNumerically(">", 1), "Migration tests require at least 2 nodes")
 
 		By("Creating a VM with RunStrategyAlways")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
+		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), libvmi.WithRunStrategy(v1.RunStrategyAlways))
@@ -83,7 +83,7 @@ var _ = Describe(compute.SIG("Migrate subresource", func() {
 			Fail("Migration tests require at least 2 nodes")
 		}
 		By("Creating a VM with RunStrategyAlways")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
+		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), libvmi.WithRunStrategy(v1.RunStrategyAlways))

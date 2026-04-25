@@ -434,6 +434,7 @@ func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOpti
 		*backupOptions.BackupKey,
 		backupOptions.BackupName,
 		backupOptions.BackupStartTime,
+		m.registerNBD,
 	)
 	if err := tunnel.Start(); err != nil {
 		return fmt.Errorf("failed to initialize backup tunnel: %w", err)

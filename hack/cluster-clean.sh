@@ -34,6 +34,10 @@ function delete_kubevirt_cr() {
     set +e
     _kubectl -n ${namespace} delete kv kubevirt --timeout=10s --ignore-not-found || true
     _kubectl -n cdi delete service cdi-uploadproxy-nodeport || true
+    # Remove webhook registrations so they don't block the finalizer patch
+    # (the backing service may already be gone after the graceful delete above)
+    _kubectl delete validatingwebhookconfiguration,mutatingwebhookconfiguration -l operator.kubevirt.io --ignore-not-found
+    _kubectl delete validatingwebhookconfiguration,mutatingwebhookconfiguration -l kubevirt.io --ignore-not-found
     patch_remove_finalizers -n ${namespace} kv kubevirt
     set -e
 }
@@ -98,7 +102,7 @@ function delete_resources() {
             local name="${arr[0]}"
             patch_remove_finalizers customresourcedefinitions ${name}
         done
-        _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
+        _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv -l ${label}
     done
 
     _kubectl delete priorityclass kubevirt-cluster-critical --ignore-not-found

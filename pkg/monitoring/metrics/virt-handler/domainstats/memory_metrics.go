@@ -32,21 +32,27 @@ var (
 	memoryAvailable = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_available_bytes",
-			Help: "Amount of usable memory as seen by the domain. This value may not be accurate if a balloon driver is in use or if the guest OS does not initialize all assigned pages",
+			Help: "Amount of usable memory as seen by the domain. " +
+				"This value may not be accurate if a balloon driver is in use " +
+				"or if the guest OS does not initialize all assigned pages",
 		},
 	)
 
 	memoryUnused = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_unused_bytes",
-			Help: "The amount of memory left completely unused by the system. Memory that is available but used for reclaimable caches should NOT be reported as free.",
+			Help: "The amount of memory left completely unused by the system. " +
+				"Memory that is available but used for reclaimable caches " +
+				"should NOT be reported as free.",
 		},
 	)
 
 	memoryCached = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_cached_bytes",
-			Help: "The amount of memory that is being used to cache I/O and is available to be reclaimed, corresponds to the sum of `Buffers` + `Cached` + `SwapCached` in `/proc/meminfo`.",
+			Help: "The amount of memory that is being used to cache I/O " +
+				"and is available to be reclaimed, corresponds to the sum of " +
+				"`Buffers` + `Cached` + `SwapCached` in `/proc/meminfo`.",
 		},
 	)
 
@@ -67,14 +73,20 @@ var (
 	memoryPgmajfaultTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_pgmajfault_total",
-			Help: "The number of page faults when disk IO was required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is required, it is considered as major fault.",
+			Help: "The number of page faults when disk IO was required. " +
+				"Page faults occur when a process makes a valid access to virtual memory " +
+				"that is not available. When servicing the page fault, if disk IO is required, " +
+				"it is considered as major fault.",
 		},
 	)
 
 	memoryPgminfaultTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_pgminfault_total",
-			Help: "The number of other page faults, when disk IO was not required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is NOT required, it is considered as minor fault.",
+			Help: "The number of other page faults, when disk IO was not required. " +
+				"Page faults occur when a process makes a valid access to virtual memory " +
+				"that is not available. When servicing the page fault, if disk IO is NOT required, " +
+				"it is considered as minor fault.",
 		},
 	)
 
@@ -88,7 +100,9 @@ var (
 	memoryUsableBytes = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_usable_bytes",
-			Help: "The amount of memory which can be reclaimed by balloon without pushing the guest system to swap, corresponds to 'Available' in /proc/meminfo.",
+			Help: "The amount of memory which can be reclaimed by balloon " +
+				"without pushing the guest system to swap, " +
+				"corresponds to 'Available' in /proc/meminfo.",
 		},
 	)
 

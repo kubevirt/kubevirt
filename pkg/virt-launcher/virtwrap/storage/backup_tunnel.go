@@ -42,8 +42,6 @@ import (
 	"k8s.io/utils/clock"
 
 	"kubevirt.io/client-go/log"
-
-	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
 )
 
 const (
@@ -69,13 +67,14 @@ type backupTunnelManager struct {
 	backupKey       string
 	backupName      string
 	backupStartTime *metav1.Time
+	registerNBD     RegisterNBDFunc
 
 	mu     sync.Mutex
 	server *grpc.Server
 	cancel context.CancelFunc
 }
 
-func newBackupTunnelManager(targetAddr, serverName, nbdSocket, caCert, backupCert, backupKey, backupName string, backupStartTime *metav1.Time) *backupTunnelManager {
+func newBackupTunnelManager(targetAddr, serverName, nbdSocket, caCert, backupCert, backupKey, backupName string, backupStartTime *metav1.Time, registerNBD RegisterNBDFunc) *backupTunnelManager {
 	return &backupTunnelManager{
 		targetAddr:      targetAddr,
 		serverName:      serverName,
@@ -85,6 +84,7 @@ func newBackupTunnelManager(targetAddr, serverName, nbdSocket, caCert, backupCer
 		caCert:          caCert,
 		backupCert:      backupCert,
 		backupKey:       backupKey,
+		registerNBD:     registerNBD,
 	}
 }
 
@@ -186,7 +186,7 @@ func (m *backupTunnelManager) establishAndServe(ctx context.Context, nbdSocketCh
 			PermitWithoutStream: true,
 		}),
 	)
-	nbdv1.RegisterNBDServer(srv, NewNBDClient(m.nbdSocket))
+	m.registerNBD(srv, m.nbdSocket)
 
 	m.mu.Lock()
 	m.server = srv

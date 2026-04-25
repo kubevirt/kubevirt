@@ -96,6 +96,7 @@ aliases:
     - akalenyu
     - ShellyKa13
     - alromeros
+    - Acedus
   sig-storage-emeritus_approvers:
     - alicefr
 
@@ -195,3 +196,17 @@ aliases:
   #
   sig-architecture-approvers: []
   sig-architecture-reviewers: []
+
+  #
+  # SIG Control plane
+  # Responsible for the development and enhancement of
+  # KubeVirt control plane.
+  sig-control-plane-approvers: []
+  sig-control-plane-reviewers:
+    - akalenyu
+    - Barakmor1
+    - dasionov
+    - lyarwood
+    - mhenriks
+    - orelmisan
+    - xpivarc

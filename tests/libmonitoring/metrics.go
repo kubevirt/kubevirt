@@ -38,7 +38,7 @@ func RegisterAllMetrics() error {
 		return err
 	}
 
-	// Create dummy worqueue metrics
+	// Create dummy workqueue metrics
 	workqueueMetricsProvider := workqueue.NewPrometheusMetricsProvider()
 	workqueueMetricsProvider.NewAddsMetric("")
 	workqueueMetricsProvider.NewDepthMetric("")

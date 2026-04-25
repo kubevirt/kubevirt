@@ -113,7 +113,10 @@ func (fc fakeCollector) Collect(_ []*k6tv1.VirtualMachineInstance, scraper colle
 	return nil, true
 }
 
-func fakeCollect(scraper collector.MetricsScraper, wg *sync.WaitGroup, vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats) {
+func fakeCollect(
+	scraper collector.MetricsScraper, wg *sync.WaitGroup,
+	vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats,
+) {
 	defer wg.Done()
 
 	dScraper := scraper.(*DomainstatsScraper)

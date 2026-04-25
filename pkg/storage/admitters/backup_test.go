@@ -183,10 +183,10 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 					PvcName: pointer.P("test-pvc"),
 				},
 				Status: &backupv1.VirtualMachineBackupStatus{
-					Conditions: []backupv1.Condition{
+					Conditions: []metav1.Condition{
 						{
-							Type:   backupv1.ConditionProgressing,
-							Status: corev1.ConditionTrue,
+							Type:   string(backupv1.ConditionProgressing),
+							Status: metav1.ConditionTrue,
 						},
 					},
 				},
@@ -225,10 +225,10 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 					PvcName: pointer.P("test-pvc"),
 				},
 				Status: &backupv1.VirtualMachineBackupStatus{
-					Conditions: []backupv1.Condition{
+					Conditions: []metav1.Condition{
 						{
-							Type:   backupv1.ConditionDone,
-							Status: corev1.ConditionTrue,
+							Type:   string(backupv1.ConditionDone),
+							Status: metav1.ConditionTrue,
 						},
 					},
 				},

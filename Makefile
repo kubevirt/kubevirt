@@ -193,8 +193,11 @@ builder-build:
 builder-publish:
 	./hack/builder/publish.sh
 
-builder-build-cs10:
-	./hack/builder/build-cs10.sh
+builder-build-centos-stream-10:
+	./hack/builder/build-centos-stream-10.sh
+
+builder-publish-centos-stream-10:
+	./hack/builder/publish-centos-stream-10.sh
 
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
@@ -246,6 +249,12 @@ gofumpt:
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
 
+vmlog-checker:
+	@echo "Building vmlog-checker..."
+	@CGO_ENABLED=0 go build -o tools/vmlog-checker/vmlog-checker tools/vmlog-checker/main.go
+	@echo "Built successfully: tools/vmlog-checker/vmlog-checker"
+	@echo "Usage: ./tools/vmlog-checker/vmlog-checker --log <file> [options]"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -287,4 +296,5 @@ update-generated-api-testdata:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	vmlog-checker \
 	$(NULL)

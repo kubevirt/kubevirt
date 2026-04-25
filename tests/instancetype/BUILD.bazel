@@ -3,16 +3,20 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "inference.go",
         "instancetype.go",
+        "memory_overcommit.go",
         "reference_policy.go",
+        "requirements.go",
+        "revisions.go",
         "upgrade.go",
+        "webhook.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/instancetype",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/instancetype/upgrade:go_default_library",
         "//pkg/libdv:go_default_library",
