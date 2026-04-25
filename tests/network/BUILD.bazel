@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "bindingplugin.go",
         "bindingplugin_macvtap.go",
-        "bindingplugin_passt.go",
         "bindingplugin_slirp.go",
         "dual_stack_cluster.go",
         "framework.go",
