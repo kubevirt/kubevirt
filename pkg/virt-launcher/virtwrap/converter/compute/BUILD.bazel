@@ -65,6 +65,7 @@ go_test(
         "memory_test.go",
         "os_test.go",
         "panic_devices_test.go",
+        "reboot_policy_test.go",
         "rng_test.go",
         "sound_test.go",
         "sysinfo_test.go",
