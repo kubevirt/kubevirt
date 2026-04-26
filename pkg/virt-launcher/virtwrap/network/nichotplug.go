@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"libvirt.org/go/libvirt"
@@ -246,6 +247,11 @@ func WithNetworkIfacesResources(
 		if domErr != nil {
 			return nil, domErr
 		}
+		// The read-back spec still includes placeholder interfaces at this point;
+		// realIfaceCount (from the original spec) ensures they are excluded from
+		// the occupied-bus calculation so their ports remain hotpluggable.
+		realIfaceCount := len(domainSpec.Devices.Interfaces)
+		disableHotplugOnOccupiedRootPorts(domainSpecWithoutIfacePlaceholders, realIfaceCount)
 		domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
 		// Only the devices are taken into account because some parameters are not assured to be returned when
 		// getting the domain spec (e.g. the `qemu:commandline` section).
@@ -276,6 +282,81 @@ func newInterfacePlaceholder(index int, modelType string) api.Interface {
 			Managed: "no",
 		},
 	}
+}
+
+func disableHotplugOnOccupiedRootPorts(spec *api.DomainSpec, realIfaceCount int) {
+	occupiedBuses := collectOccupiedPCIBuses(spec, realIfaceCount)
+
+	for i, controller := range spec.Devices.Controllers {
+		if controller.Model != api.ControllerModelPCIeRootPort {
+			continue
+		}
+		idx, err := strconv.Atoi(controller.Index)
+		if err != nil {
+			continue
+		}
+		if _, occupied := occupiedBuses[idx]; occupied {
+			if spec.Devices.Controllers[i].Target == nil {
+				spec.Devices.Controllers[i].Target = &api.ControllerTarget{}
+			}
+			spec.Devices.Controllers[i].Target.Hotplug = "off"
+		}
+	}
+}
+
+func collectOccupiedPCIBuses(spec *api.DomainSpec, realIfaceCount int) map[int]struct{} {
+	addrs := collectDevicePCIAddresses(spec, realIfaceCount)
+
+	buses := make(map[int]struct{}, len(addrs))
+	for _, addr := range addrs {
+		if addr == nil || addr.Bus == "" {
+			continue
+		}
+		if bus, err := strconv.ParseInt(strings.TrimPrefix(addr.Bus, "0x"), 16, 32); err == nil {
+			buses[int(bus)] = struct{}{}
+		}
+	}
+	return buses
+}
+
+func collectDevicePCIAddresses(spec *api.DomainSpec, realIfaceCount int) []*api.Address {
+	var addrs []*api.Address
+	for i, iface := range spec.Devices.Interfaces {
+		if i >= realIfaceCount {
+			break
+		}
+		addrs = append(addrs, iface.Address)
+	}
+	for i := range spec.Devices.Disks {
+		addrs = append(addrs, spec.Devices.Disks[i].Address)
+	}
+	for _, controller := range spec.Devices.Controllers {
+		if controller.Model == api.ControllerModelPCIeRoot ||
+			controller.Model == api.ControllerModelPCIeRootPort ||
+			controller.Model == api.ControllerModelPCIeExpanderBus {
+			continue
+		}
+		addrs = append(addrs, controller.Address)
+	}
+	for i := range spec.Devices.Inputs {
+		addrs = append(addrs, spec.Devices.Inputs[i].Address)
+	}
+	for i := range spec.Devices.Watchdogs {
+		addrs = append(addrs, spec.Devices.Watchdogs[i].Address)
+	}
+	for i := range spec.Devices.HostDevices {
+		addrs = append(addrs, spec.Devices.HostDevices[i].Address)
+	}
+	if spec.Devices.Ballooning != nil {
+		addrs = append(addrs, spec.Devices.Ballooning.Address)
+	}
+	if spec.Devices.Rng != nil {
+		addrs = append(addrs, spec.Devices.Rng.Address)
+	}
+	if spec.Devices.Memory != nil {
+		addrs = append(addrs, spec.Devices.Memory.Address)
+	}
+	return addrs
 }
 
 func isLinkStateEqual(iface1, iface2 api.Interface) bool {
