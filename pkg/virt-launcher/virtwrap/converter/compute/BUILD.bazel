@@ -19,6 +19,7 @@ go_library(
         "os.go",
         "panic_devices.go",
         "qemu_cmd.go",
+        "reboot_policy.go",
         "rng.go",
         "sound.go",
         "sysinfo.go",

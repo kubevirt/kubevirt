@@ -1076,6 +1076,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
 		compute.MemoryConfigurator{},
+		compute.RebootPolicyDomainConfigurator{},
 	}
 
 	switch c.HypervisorName {
@@ -1246,17 +1247,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			}
 		} else {
 			log.Log.Infof("Skipping PCIe root complex placement: architecture %s does not support PCIe placement", c.Architecture.GetArchitecture())
-		}
-	}
-
-	// In case the RebootPolicy is not set, we rely on libvirt default behavior
-	// that is to reboot the guest silently.
-	if vmi.Spec.Domain.RebootPolicy != nil {
-		switch *vmi.Spec.Domain.RebootPolicy {
-		case v1.RebootPolicyTerminate:
-			domain.Spec.OnReboot = api.DomainOnRebootDestroy
-		case v1.RebootPolicyReboot:
-			domain.Spec.OnReboot = api.DomainOnRebootRestart
 		}
 	}
 
