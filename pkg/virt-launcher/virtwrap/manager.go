@@ -1065,7 +1065,7 @@ func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]
 	if err != nil {
 		return nil, err
 	}
-	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath)
+	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.NewMetadataReader())
 	if err != nil {
 		return nil, err
 	}
@@ -1215,7 +1215,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.NewMetadataReader())
 		if err != nil {
 			return nil, err
 		}

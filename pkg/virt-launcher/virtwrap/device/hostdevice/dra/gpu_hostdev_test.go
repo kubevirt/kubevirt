@@ -22,6 +22,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/dra/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -29,21 +30,22 @@ import (
 var _ = Describe("CreateDRAGPUHostDevices", func() {
 	var (
 		tempDir string
+		reader  drautil.MetadataReader
 	)
 
 	BeforeEach(func() {
 		var err error
 		tempDir, err = os.MkdirTemp("", "dra-gpu-test")
 		Expect(err).ToNot(HaveOccurred())
+		reader = drautil.NewMetadataReaderWithBasePath(tempDir)
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
 	})
 
-	// KEP-5304 path: {base}/{claimName}/{requestName}/{driver}-metadata.json
 	createMetadataFile := func(claimName, requestName, driver string, md *metadata.DeviceMetadata) {
-		dir := filepath.Join(tempDir, claimName, requestName)
+		dir := filepath.Join(tempDir, "resourceclaims", claimName, requestName)
 		Expect(os.MkdirAll(dir, 0755)).To(Succeed())
 
 		data, err := json.Marshal(md)
@@ -64,7 +66,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(BeEmpty())
 		})
@@ -77,7 +79,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -119,7 +121,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -140,7 +142,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -182,7 +184,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -204,7 +206,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -247,7 +249,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(1))
 
@@ -269,7 +271,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("pgpu-claim", "gpu", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pgpu-claim",
@@ -290,7 +292,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("vgpu-claim", "vgpu", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "vgpu-claim",
@@ -342,7 +344,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hostDevices).To(HaveLen(2))
 
@@ -372,7 +374,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: "v1alpha1",
+					APIVersion: "metadata.resource.k8s.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -423,7 +425,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 				},
 			}
 
-			hostDevices, err := CreateDRAGPUHostDevices(vmi, tempDir)
+			hostDevices, err := CreateDRAGPUHostDevices(vmi, reader)
 			Expect(err).To(HaveOccurred())
 			Expect(hostDevices).To(BeNil())
 		})
