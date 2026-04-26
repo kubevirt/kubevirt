@@ -30,13 +30,15 @@ type RebootPolicyDomainConfigurator struct{}
 func (r RebootPolicyDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	// In case the RebootPolicy is not set, we rely on libvirt default behavior
 	// that is to reboot the guest silently.
-	if vmi.Spec.Domain.RebootPolicy != nil {
-		switch *vmi.Spec.Domain.RebootPolicy {
-		case v1.RebootPolicyTerminate:
-			domain.Spec.OnReboot = api.DomainOnRebootDestroy
-		case v1.RebootPolicyReboot:
-			domain.Spec.OnReboot = api.DomainOnRebootRestart
-		}
+	if vmi.Spec.Domain.RebootPolicy == nil {
+		return nil
+	}
+
+	switch *vmi.Spec.Domain.RebootPolicy {
+	case v1.RebootPolicyTerminate:
+		domain.Spec.OnReboot = api.DomainOnRebootDestroy
+	case v1.RebootPolicyReboot:
+		domain.Spec.OnReboot = api.DomainOnRebootRestart
 	}
 
 	return nil
