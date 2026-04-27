@@ -461,6 +461,9 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	elapsed := now - m.start
 
 	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+	if stats.DataRemainingSet {
+		m.remainingData = stats.DataRemaining
+	}
 	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
 		m.lastProgressUpdate = now
 	}
@@ -597,10 +600,6 @@ func (m *migrationMonitor) startMonitor() {
 		if err != nil {
 			logger.Reason(err).Info("failed to get domain job info, will retry")
 			continue
-		}
-
-		if jobStats.DataRemainingSet {
-			m.remainingData = jobStats.DataRemaining
 		}
 
 		uid := MigrationUID(vmi)
