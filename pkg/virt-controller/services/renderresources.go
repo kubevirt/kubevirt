@@ -161,18 +161,15 @@ func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
 
 func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
-		res := r.ResourceRequirements()
 		for _, g := range gpus {
 			if g.DeviceName == "" && g.ClaimRequest != nil {
-				requestResourceClaims(&res, &k8sv1.ResourceClaim{
+				claim := k8sv1.ResourceClaim{
 					Name:    *g.ClaimRequest.ClaimName,
 					Request: *g.ClaimRequest.RequestName,
-				})
+				}
+				r.resourceClaims = append(r.resourceClaims, claim)
 			}
 		}
-		copyResources(res.Limits, r.calculatedLimits)
-		copyResources(res.Requests, r.calculatedRequests)
-		copyResourceClaims(&res, &r.resourceClaims)
 	}
 }
 
@@ -193,18 +190,15 @@ func WithHostDevicesDevicePlugins(hostDevices []v1.HostDevice) ResourceRendererO
 // WithHostDevicesDRA adds ResourceClaims for HostDevices provisioned via DRA.
 func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
-		resources := r.ResourceRequirements()
 		for _, hd := range hostDevices {
 			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
-				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
+				claim := k8sv1.ResourceClaim{
 					Name:    *hd.ClaimRequest.ClaimName,
 					Request: *hd.ClaimRequest.RequestName,
-				})
+				}
+				r.resourceClaims = append(r.resourceClaims, claim)
 			}
 		}
-		copyResources(resources.Limits, r.calculatedLimits)
-		copyResources(resources.Requests, r.calculatedRequests)
-		copyResourceClaims(&resources, &r.resourceClaims)
 	}
 }
 
@@ -394,29 +388,6 @@ func WithPersistentReservation() ResourceRendererOption {
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value
-	}
-}
-
-func requestResourceClaims(resources *k8sv1.ResourceRequirements, claim *k8sv1.ResourceClaim) {
-	if resources.Claims == nil {
-		resources.Claims = []k8sv1.ResourceClaim{*claim}
-		return
-	}
-	resources.Claims = append(resources.Claims, *claim)
-}
-
-func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.ResourceClaim) {
-	existing := make(map[string]struct{})
-	for _, c := range *claims {
-		existing[c.Name] = struct{}{}
-	}
-
-	for _, value := range resources.Claims {
-		if _, found := existing[value.Name]; found {
-			continue // skip duplicates by Name
-		}
-		*claims = append(*claims, value)
-		existing[value.Name] = struct{}{}
 	}
 }
 
