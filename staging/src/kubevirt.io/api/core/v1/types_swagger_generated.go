@@ -636,6 +636,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"configuration":           "holds kubevirt configurations.\nsame as the virt-configMap",
 		"infra":                   "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
 		"workloads":               "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"workerPools":             "WorkerPools configures additional virt-handler DaemonSets targeting\nspecific nodes with custom images, matched to VMIs via device and\nlabel selectors.\nRequires the WorkerPools feature gate to be enabled.\n+listType=atomic\n+optional",
 	}
 }
 
@@ -1003,6 +1004,32 @@ func (TLSConfiguration) SwaggerDoc() map[string]string {
 		"":              "TLSConfiguration holds TLS options",
 		"minTLSVersion": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.\nProtocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known\nvulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE\n+kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13",
 		"ciphers":       "+listType=set",
+	}
+}
+
+func (WorkerPoolConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "WorkerPoolConfig defines configuration for an additional virt-handler\nDaemonSet that targets specific nodes with custom images and automatically\nmatches VMIs via device and label selectors.",
+		"name":              "name is a unique identifier appended to \"virt-handler\" to form the\nDaemonSet name. For example, \"gpu\" results in a DaemonSet named\n\"virt-handler-gpu\".\n+kubebuilder:validation:Required\n+kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`\n+kubebuilder:validation:MaxLength=48",
+		"virtHandlerImage":  "virtHandlerImage overrides the virt-handler container image for this\npool's DaemonSet. If not specified, the default virt-handler image is used.\n+optional",
+		"virtLauncherImage": "virtLauncherImage overrides the virt-launcher image used by virt-launcher\npods on nodes served by this pool's handler. If not specified, the default\nvirt-launcher image is used.\n+optional",
+		"nodeSelector":      "nodeSelector specifies labels that must match a node's labels for this\npool's DaemonSet pods to be scheduled on that node. When a VMI matches\nthis pool's selector, the nodeSelector is also merged into the\nvirt-launcher pod's node affinity.\n+kubebuilder:validation:Required\n+kubebuilder:validation:MinProperties=1",
+		"selector":          "selector defines the criteria for matching VMIs to this pool. A VMI\nmatches if any of the selector's criteria are met (OR semantics).\n+kubebuilder:validation:Required",
+	}
+}
+
+func (WorkerPoolSelector) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "WorkerPoolSelector defines the criteria for matching VMIs to a pool.\nDeviceNames and VMLabels are OR'd: if either matches, the pool applies.",
+		"deviceNames": "deviceNames matches VMIs that request any of the listed device names\nvia spec.domain.devices.gpus[].deviceName or\nspec.domain.devices.hostDevices[].deviceName.\n+listType=atomic\n+optional",
+		"vmLabels":    "vmLabels matches VMIs whose labels contain all of the specified\nkey-value pairs.\n+optional",
+	}
+}
+
+func (WorkerPoolVMLabels) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "WorkerPoolVMLabels matches VMIs by label selectors.",
+		"matchLabels": "matchLabels is a map of key-value pairs. A VMI matches if all\nentries are present in the VMI's labels.\n+kubebuilder:validation:MinProperties=1",
 	}
 }
 

@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -640,8 +641,21 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Daemonsets
 	for _, daemonSet := range r.targetStrategy.DaemonSets() {
+		// Apply anti-affinity to primary handler when pools are configured
+		if daemonSet.Name == "virt-handler" && len(r.kv.Spec.WorkerPools) > 0 &&
+			r.isFeatureGateEnabled(featuregate.WorkerPools) {
+			daemonSet = daemonSet.DeepCopy()
+			components.ApplyPoolAntiAffinityToPrimaryHandler(daemonSet, r.kv.Spec.WorkerPools)
+		}
 		finished, err := r.syncDaemonSet(daemonSet)
 		if !finished || err != nil {
+			return false, err
+		}
+	}
+
+	// create/update worker pool DaemonSets
+	if r.isFeatureGateEnabled(featuregate.WorkerPools) {
+		if err := r.syncWorkerPoolDaemonSets(); err != nil {
 			return false, err
 		}
 	}
@@ -667,6 +681,65 @@ func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
 	if err := r.clientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{}); err != nil {
 		r.expectations.Deployment.DeletionObserved(r.kvKey, key)
 		return err
+	}
+
+	return nil
+}
+
+// syncWorkerPoolDaemonSets creates or updates DaemonSets for each worker pool
+// and deletes pool DaemonSets that are no longer in the KubeVirt spec.
+func (r *Reconciler) syncWorkerPoolDaemonSets() error {
+	// Find the primary virt-handler DaemonSet from the install strategy
+	var primaryDS *appsv1.DaemonSet
+	for _, ds := range r.targetStrategy.DaemonSets() {
+		if ds.Name == "virt-handler" {
+			primaryDS = ds
+			break
+		}
+	}
+	if primaryDS == nil {
+		return fmt.Errorf("primary virt-handler DaemonSet not found in install strategy")
+	}
+
+	// Build a set of expected pool DaemonSet names
+	expectedPoolDS := make(map[string]bool)
+	for i := range r.kv.Spec.WorkerPools {
+		pool := &r.kv.Spec.WorkerPools[i]
+		poolDS := components.NewWorkerPoolDaemonSet(primaryDS, pool, r.kv.Namespace)
+		expectedPoolDS[poolDS.Name] = true
+
+		finished, err := r.syncDaemonSet(poolDS)
+		if !finished || err != nil {
+			return err
+		}
+	}
+
+	// Delete pool DaemonSets that are no longer in the spec
+	objects := r.stores.DaemonSetCache.List()
+	for _, obj := range objects {
+		ds, ok := obj.(*appsv1.DaemonSet)
+		if !ok || ds.DeletionTimestamp != nil {
+			continue
+		}
+		// Only consider DaemonSets with the worker pool label
+		if _, hasLabel := ds.Labels[v1.WorkerPoolLabel]; !hasLabel {
+			continue
+		}
+		if expectedPoolDS[ds.Name] {
+			continue
+		}
+		key, err := controller.KeyFunc(ds)
+		if err != nil {
+			return err
+		}
+		r.expectations.DaemonSet.AddExpectedDeletion(r.kvKey, key)
+		err = r.clientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, metav1.DeleteOptions{})
+		if err != nil {
+			r.expectations.DaemonSet.DeletionObserved(r.kvKey, key)
+			log.Log.Errorf("Failed to delete worker pool daemonset %s: %v", ds.Name, err)
+			return err
+		}
+		log.Log.Infof("Deleted worker pool daemonset %s", ds.Name)
 	}
 
 	return nil
@@ -891,6 +964,10 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	objects = r.stores.DaemonSetCache.List()
 	for _, obj := range objects {
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
+			// Skip worker pool DaemonSets - they are managed by syncWorkerPoolDaemonSets
+			if _, hasLabel := ds.Labels[v1.WorkerPoolLabel]; hasLabel {
+				continue
+			}
 			found := false
 			for _, targetDs := range r.targetStrategy.DaemonSets() {
 				if targetDs.Name == ds.Name && targetDs.Namespace == ds.Namespace {

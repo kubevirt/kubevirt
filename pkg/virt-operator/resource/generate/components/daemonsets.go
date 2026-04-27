@@ -403,3 +403,98 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	return daemonset
 
 }
+
+// NewWorkerPoolDaemonSet creates a new virt-handler DaemonSet for a worker pool.
+// The DaemonSet is named "virt-handler-<pool.Name>" and uses the pool's image
+// overrides and nodeSelector.
+func NewWorkerPoolDaemonSet(primaryDS *appsv1.DaemonSet, pool *virtv1.WorkerPoolConfig, namespace string) *appsv1.DaemonSet {
+	dsName := VirtHandlerName + "-" + pool.Name
+
+	ds := primaryDS.DeepCopy()
+	ds.Name = dsName
+	ds.ResourceVersion = ""
+	ds.UID = ""
+	ds.CreationTimestamp = metav1.Time{}
+
+	// Set the pool label on the DaemonSet and its template
+	if ds.Labels == nil {
+		ds.Labels = make(map[string]string)
+	}
+	ds.Labels[virtv1.WorkerPoolLabel] = pool.Name
+
+	if ds.Spec.Template.Labels == nil {
+		ds.Spec.Template.Labels = make(map[string]string)
+	}
+	ds.Spec.Template.Labels[virtv1.WorkerPoolLabel] = pool.Name
+
+	// Update the selector to include the pool label
+	ds.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"kubevirt.io":          VirtHandlerName,
+			virtv1.WorkerPoolLabel: pool.Name,
+		},
+	}
+
+	// Override virt-handler image if specified
+	if pool.VirtHandlerImage != "" && len(ds.Spec.Template.Spec.Containers) > 0 {
+		ds.Spec.Template.Spec.Containers[0].Image = pool.VirtHandlerImage
+	}
+
+	// Apply the pool's nodeSelector
+	ds.Spec.Template.Spec.NodeSelector = pool.NodeSelector
+
+	return ds
+}
+
+// ApplyPoolAntiAffinityToPrimaryHandler adds anti-affinity to the primary
+// virt-handler DaemonSet so it does not schedule on nodes targeted by worker
+// pool DaemonSets.
+func ApplyPoolAntiAffinityToPrimaryHandler(primaryDS *appsv1.DaemonSet, pools []virtv1.WorkerPoolConfig) {
+	if len(pools) == 0 {
+		return
+	}
+
+	// Collect all nodeSelector keys from pools as anti-affinity terms
+	var matchExpressions []corev1.NodeSelectorRequirement
+	for _, pool := range pools {
+		for key, value := range pool.NodeSelector {
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: corev1.NodeSelectorOpNotIn,
+				Values:   []string{value},
+			})
+		}
+	}
+
+	if len(matchExpressions) == 0 {
+		return
+	}
+
+	affinity := primaryDS.Spec.Template.Spec.Affinity
+	if affinity == nil {
+		affinity = &corev1.Affinity{}
+		primaryDS.Spec.Template.Spec.Affinity = affinity
+	}
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+
+	// Append anti-affinity terms (one expression per pool's nodeSelector entry)
+	existing := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if len(existing.NodeSelectorTerms) == 0 {
+		existing.NodeSelectorTerms = []corev1.NodeSelectorTerm{
+			{MatchExpressions: matchExpressions},
+		}
+	} else {
+		// Merge into existing terms
+		for i := range existing.NodeSelectorTerms {
+			existing.NodeSelectorTerms[i].MatchExpressions = append(
+				existing.NodeSelectorTerms[i].MatchExpressions,
+				matchExpressions...,
+			)
+		}
+	}
+}

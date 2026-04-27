@@ -48,6 +48,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/poolmatcher"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -242,6 +243,72 @@ func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, er
 
 func (t *TemplateService) GetLauncherImage() string {
 	return t.launcherImage
+}
+
+// getEffectiveLauncherImage returns the launcher image for a VMI, considering
+// worker pool overrides when the feature gate is enabled.
+func (t *TemplateService) getEffectiveLauncherImage(vmi *v1.VirtualMachineInstance) string {
+	pools := t.clusterConfig.GetWorkerPools()
+	return poolmatcher.GetLauncherImageForVMI(pools, vmi, t.launcherImage)
+}
+
+// overrideLauncherImage replaces all container images in the pod that use the
+// default launcher image with the pool-specific override.
+func overrideLauncherImage(pod *k8sv1.Pod, defaultImage, overrideImage string) {
+	if defaultImage == overrideImage {
+		return
+	}
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Image == defaultImage {
+			pod.Spec.Containers[i].Image = overrideImage
+		}
+	}
+	for i := range pod.Spec.InitContainers {
+		if pod.Spec.InitContainers[i].Image == defaultImage {
+			pod.Spec.InitContainers[i].Image = overrideImage
+		}
+	}
+}
+
+// mergePoolNodeSelector adds the pool's nodeSelector as a required node affinity
+// on the pod so it is scheduled on nodes matching the pool's DaemonSet.
+func mergePoolNodeSelector(pod *k8sv1.Pod, nodeSelector map[string]string) {
+	if len(nodeSelector) == 0 {
+		return
+	}
+
+	var matchExpressions []k8sv1.NodeSelectorRequirement
+	for key, value := range nodeSelector {
+		matchExpressions = append(matchExpressions, k8sv1.NodeSelectorRequirement{
+			Key:      key,
+			Operator: k8sv1.NodeSelectorOpIn,
+			Values:   []string{value},
+		})
+	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+	}
+
+	existing := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if len(existing.NodeSelectorTerms) == 0 {
+		existing.NodeSelectorTerms = []k8sv1.NodeSelectorTerm{
+			{MatchExpressions: matchExpressions},
+		}
+	} else {
+		for i := range existing.NodeSelectorTerms {
+			existing.NodeSelectorTerms[i].MatchExpressions = append(
+				existing.NodeSelectorTerms[i].MatchExpressions,
+				matchExpressions...,
+			)
+		}
+	}
 }
 
 func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -703,6 +770,16 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, sidecarVolumes...)
+
+	// Apply worker pool overrides if a pool matches this VMI
+	pools := t.clusterConfig.GetWorkerPools()
+	if pool := poolmatcher.MatchVMIToWorkerPool(pools, vmi); pool != nil {
+		if pool.VirtLauncherImage != "" {
+			overrideLauncherImage(&pod, t.launcherImage, pool.VirtLauncherImage)
+		}
+		mergePoolNodeSelector(&pod, pool.NodeSelector)
+		pod.Annotations[v1.WorkerPoolLabel] = pool.Name
+	}
 
 	return &pod, nil
 }

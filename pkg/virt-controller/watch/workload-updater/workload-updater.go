@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	"kubevirt.io/kubevirt/pkg/poolmatcher"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
@@ -310,11 +311,21 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	// either the VMI is either running or done migrating.
 	if vmi.Status.LauncherContainerImageVersion == "" {
 		return false
-	} else if vmi.Status.LauncherContainerImageVersion != c.launcherImage {
+	}
+
+	expectedImage := c.getExpectedLauncherImage(vmi)
+	if vmi.Status.LauncherContainerImageVersion != expectedImage {
 		return true
 	}
 
 	return false
+}
+
+// getExpectedLauncherImage returns the launcher image expected for a VMI,
+// considering worker pool overrides when the feature gate is enabled.
+func (c *WorkloadUpdateController) getExpectedLauncherImage(vmi *virtv1.VirtualMachineInstance) string {
+	pools := c.clusterConfig.GetWorkerPools()
+	return poolmatcher.GetLauncherImageForVMI(pools, vmi, c.launcherImage)
 }
 
 func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {

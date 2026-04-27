@@ -22,6 +22,8 @@ package virtconfig
 import (
 	"slices"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -239,4 +241,21 @@ func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
 
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
+}
+
+func (config *ClusterConfig) WorkerPoolsEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.WorkerPools)
+}
+
+// GetWorkerPools returns the worker pool configs from the KubeVirt CR if the
+// feature gate is enabled, otherwise returns nil.
+func (config *ClusterConfig) GetWorkerPools() []v1.WorkerPoolConfig {
+	if !config.WorkerPoolsEnabled() {
+		return nil
+	}
+	kv := config.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return nil
+	}
+	return kv.Spec.WorkerPools
 }

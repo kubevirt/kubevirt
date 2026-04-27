@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/pointer:go_default_library",
+        "//pkg/poolmatcher:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",
