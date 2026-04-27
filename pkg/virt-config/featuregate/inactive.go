@@ -124,6 +124,7 @@ const (
 	// Owner: sig-compute
 	// Alpha: v1.0.0
 	// Deprecated: v1.8.0
+	// Discontinued: v1.9.0
 	//
 	// DisableMediatedDevicesHandling disables the handling of mediated
 	// devices, its creation and deletion
@@ -178,7 +179,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
+	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Discontinued, Message: "DisableMDEVConfiguration has been discontinued since v1.9.0. Please use the mediatedDevicesConfiguration.enabled field instead."})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 }

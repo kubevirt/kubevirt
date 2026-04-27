@@ -22,7 +22,6 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -197,16 +196,17 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
 
-		It("Should make sure that no mdev is removed if the feature is gated", func() {
+		It("Should make sure that no mdev is removed if the feature is disabled via the configuration", func() {
 
-			By("Adding feature gate to disable mdevs handling")
+			By("Disabling mdevs handling via the configuration")
 
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, featuregate.DisableMediatedDevicesHandling)
+			enabled := false
+			config.MediatedDevicesConfiguration.Enabled = &enabled
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Removing the mediated devices configuration and expecting no devices being removed")
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
-			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{Enabled: &enabled}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
