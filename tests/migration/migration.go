@@ -3404,6 +3404,35 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}, 60*time.Second, 1*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceMigrationRejectedByResourceQuota))
 		})
 	})
+	Describe("with a guest-agent-ping liveness probe", func() {
+		// Regression test for probe suppression on the migration target pod.
+		// Before the fix, the QEMU guest agent was unreachable on the target
+		// pod while it was receiving the incoming migration, causing the
+		// Kubernetes liveness probe to fail. Because virt-launcher pods use
+		// restartPolicy: Never, the failed probe kills the compute container
+		// and the pod enters Failed phase, aborting the migration.
+		It("should complete migration without the liveness probe killing the target pod", func() {
+			By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
+			vmi := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithResourceMemory(fedoraVMSize),
+				libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),
+			)
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Waiting for the guest agent to connect")
+			Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Starting a migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Confirming the VMI migrated successfully and is still running")
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+		})
+	})
 })
 
 func createResourceQuota(resourceQuota *k8sv1.ResourceQuota) *k8sv1.ResourceQuota {

@@ -262,6 +262,19 @@ func WithStartStrategy(startStrategy v1.StartStrategy) Option {
 	}
 }
 
+func WithGuestAgentPingLivenessProbe(initialDelaySeconds, periodSeconds, failureThreshold int32) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.LivenessProbe = &v1.Probe{
+			Handler: v1.Handler{
+				GuestAgentPing: &v1.GuestAgentPing{},
+			},
+			InitialDelaySeconds: initialDelaySeconds,
+			PeriodSeconds:       periodSeconds,
+			FailureThreshold:    failureThreshold,
+		}
+	}
+}
+
 func WithoutSerialConsole() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		enabled := false
