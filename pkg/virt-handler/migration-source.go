@@ -490,7 +490,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	if vmi.Status.MigrationState.AbortRequested {
-		err = c.handleMigrationAbort(vmi, client)
+		err = c.handleMigrationAbort(vmi, domain, client)
 		return err
 	}
 
@@ -618,8 +618,17 @@ func (c *MigrationSourceController) updateDomainFunc(_, new interface{}) {
 	}
 }
 
-func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress || vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
+func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient) error {
+	// Check both the VMI status and the domain metadata to avoid redundant cancel RPCs.
+	// The domain metadata reflects the launcher's abort status before the API server round-trip.
+	abortHandled := func(status v1.MigrationAbortStatus) bool {
+		return status == v1.MigrationAbortInProgress || status == v1.MigrationAbortSucceeded
+	}
+	if abortHandled(vmi.Status.MigrationState.AbortStatus) {
+		return nil
+	}
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil &&
+		abortHandled(v1.MigrationAbortStatus(domain.Spec.Metadata.KubeVirt.Migration.AbortStatus)) {
 		return nil
 	}
 
