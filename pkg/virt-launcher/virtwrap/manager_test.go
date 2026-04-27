@@ -1883,6 +1883,53 @@ var _ = Describe("Manager", func() {
 			monitor.startMonitor(make(chan error, 1))
 			Eventually(abortStatus, 2*time.Second, 100*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
+		DescribeTable("migration should be canceled when GetJobStats does not report progress", func(stubGetJobStats func()) {
+			migrationDone := make(chan struct{})
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 150,
+			}
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			now := metav1.Now()
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			metadataCache.Migration.Store(migrationMetadata)
+
+			manager := &LibvirtDomainManager{
+				virConn:       mockLibvirt.VirtConnection,
+				virtShareDir:  testVirtShareDir,
+				metadataCache: metadataCache,
+				cpuSetGetter:  fakeCpuSetGetter,
+			}
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			stubGetJobStats()
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
+			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
+				close(migrationDone)
+				return nil
+			})
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor.startMonitor(make(chan error, 1))
+		},
+			Entry("because GetJobStats keeps failing", func() {
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(nil, fmt.Errorf("persistent stats error"))
+			}),
+			Entry("because GetJobStats always returns JOB_NONE", func() {
+				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(
+					&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			}),
+		)
 		It("migration should be canceled if timeout has been reached", func() {
 			migrationDone := make(chan struct{})
 			var migrationData = 32479827394
