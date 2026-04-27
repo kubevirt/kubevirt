@@ -21,7 +21,6 @@ package virtwrap
 
 import (
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -330,13 +329,11 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
 	}
 
-	if err := l.setMigrationAbortStatus(v1.MigrationAbortInProgress); err != nil {
-		if errors.Is(err, domainerrors.MigrationAbortInProgressError) {
-			return nil
-		}
-		return err
+	if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
+		return nil
 	}
 
+	l.setMigrationAbortStatus(v1.MigrationAbortInProgress)
 	l.asyncMigrationAbort(vmi)
 	return nil
 }
@@ -398,8 +395,11 @@ func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, ab
 	return l.setMigrationResultHelper(failed, reason, abortStatus)
 }
 
-func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(false, "", abortStatus)
+func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) {
+	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+		migrationMetadata.AbortStatus = string(abortStatus)
+	})
+	log.Log.V(2).Infof("set migration abort status in metadata: %s", l.metadataCache.Migration.String())
 }
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
