@@ -353,8 +353,8 @@ func (GPU) SwaggerDoc() map[string]string {
 
 func (ClaimRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"claimName":   "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this\ndevice is allocated\n+optional",
-		"requestName": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this\ndevice is requested\n+optional",
+		"claimName":   "ClaimName references the name of an entry in the\nVMI's spec.resourceClaims[] array. The referenced\nentry may use either resourceClaimName or\nresourceClaimTemplateName.",
+		"requestName": "RequestName specifies which request from the\nResourceClaim/ResourceClaimTemplate spec.devices.requests array this\nclaim request corresponds to.",
 	}
 }
 
