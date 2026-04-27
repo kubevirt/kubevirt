@@ -217,11 +217,6 @@ const (
 	// allowing users to opt out of aggregating KubeVirt ClusterRoles to the default Kubernetes roles.
 	OptOutRoleAggregation = "OptOutRoleAggregation"
 
-	// LiveUpdateNADRef enables dynamic modification of NAD references for secondary networks on running VMs.
-	// Owner: SIG network
-	// Beta: v1.8
-	LiveUpdateNADRef = "LiveUpdateNADRef"
-
 	// Owner: @csomani1
 	// Alpha: v1.8.0
 	//
@@ -271,6 +266,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 }
