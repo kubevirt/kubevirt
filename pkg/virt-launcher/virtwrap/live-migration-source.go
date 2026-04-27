@@ -439,14 +439,16 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
-	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
-	if stats.DataRemainingSet {
-		m.remainingData = stats.DataRemaining
+	if stats != nil && stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
+		m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+		if stats.DataRemainingSet {
+			m.remainingData = stats.DataRemaining
+		}
+		if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
+			m.lastProgressUpdate = now
+		}
+		m.progressWatermark = m.remainingData
 	}
-	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
-		m.lastProgressUpdate = now
-	}
-	m.progressWatermark = m.remainingData
 
 	switch {
 	case m.isMigrationPostCopy():
@@ -563,20 +565,17 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 
 		jobStats, err := dom.GetJobStats(0)
 		if err != nil {
-			logger.Reason(err).Info("failed to get domain job info, will retry")
-			continue
+			logger.Reason(err).Info("failed to get domain job info")
+			jobStats = nil
 		}
 
-		uid := MigrationUID(vmi)
-		switch jobStats.Type {
-		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			m.processInflightMigration(dom, jobStats)
+		m.processInflightMigration(dom, jobStats)
+
+		if jobStats != nil && jobStats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				LogMigrationInfo(logger, uid, jobStats)
+				LogMigrationInfo(logger, MigrationUID(vmi), jobStats)
 			}
-		case libvirt.DOMAIN_JOB_NONE:
-			logger.Info("Migration job is not active")
 		}
 	}
 }
