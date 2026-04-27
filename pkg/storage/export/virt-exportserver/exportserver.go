@@ -284,9 +284,11 @@ func (s *exportServer) buildServer() *http.Server {
 	}
 
 	return &http.Server{
-		Addr:      s.ListenAddr,
-		Handler:   rootHandler,
-		TLSConfig: tlsConfig,
+		Addr:              s.ListenAddr,
+		Handler:           rootHandler,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 }
 

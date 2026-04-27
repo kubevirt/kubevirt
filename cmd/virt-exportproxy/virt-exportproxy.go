@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"regexp"
+	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -98,7 +99,9 @@ func (app *exportProxyApp) Run() {
 		TLSConfig: appTLSConfig,
 		// Disable HTTP/2
 		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	if err := server.ListenAndServeTLS("", ""); err != nil {
