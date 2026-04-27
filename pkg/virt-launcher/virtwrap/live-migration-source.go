@@ -553,7 +553,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	}
 }
 
-func (m *migrationMonitor) startMonitor() {
+func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	vmi := m.vmi
 
 	m.start = time.Now().UTC().UnixNano()
@@ -567,11 +567,11 @@ func (m *migrationMonitor) startMonitor() {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		logger.Reason(err).Error(liveMigrationFailed)
-		m.l.setMigrationResult(true, fmt.Sprintf("%v", err), "")
+		ready <- fmt.Errorf("migration monitor failed to look up domain: %v", err)
 		return
 	}
 	defer dom.Free()
+	close(ready)
 
 	logInterval := 0
 
@@ -1053,7 +1053,14 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	}
 
 	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
-	go monitor.startMonitor()
+	monitorReady := make(chan error, 1)
+	go monitor.startMonitor(monitorReady)
+
+	if err := <-monitorReady; err != nil {
+		log.Log.Object(vmi).Reason(err).Error("migration monitor failed to start")
+		l.setMigrationResult(true, err.Error(), "")
+		return
+	}
 
 	err := l.migrateHelper(vmi, options)
 	if err != nil {
