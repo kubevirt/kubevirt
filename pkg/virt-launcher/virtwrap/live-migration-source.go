@@ -470,6 +470,12 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) {
 	logger := log.Log.Object(m.vmi)
 
+	// only send abort if one is not in progress already or if a previous attempt failed
+	shouldAbort := func() bool {
+		migration, _ := m.l.metadataCache.Migration.Load()
+		return migration.AbortStatus == "" || migration.AbortStatus == string(v1.MigrationAbortFailed)
+	}
+
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
@@ -545,7 +551,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// It usually indicates a problem with the network or qemu's connection handling.
 		// In this case, we abort the migration directly without trying to pause/post-copy,
 		// since the problem is highly unlikely to be caused by a high dirty rate.
-		if migration, _ := m.l.metadataCache.Migration.Load(); migration.AbortStatus == "" {
+		if shouldAbort() {
 			progressDelay := now - m.lastProgressUpdate
 			logger.Warningf("Aborting migration: stuck for %d seconds", progressDelay/int64(time.Second))
 			m.l.cancelMigration(m.vmi)
@@ -556,7 +562,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// if the total migration time exceeds an acceptable
 		// limit, then the migration will get aborted, but
 		// only if post copy migration hasn't been enabled
-		if migration, _ := m.l.metadataCache.Migration.Load(); migration.AbortStatus == "" {
+		if shouldAbort() {
 			logger.Warningf("Aborting migration: not completed after %d seconds", m.acceptableCompletionTime)
 			m.l.cancelMigration(m.vmi)
 		}
@@ -669,17 +675,18 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 
 func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstance) {
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
-
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
+			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 			return
 		}
 		defer dom.Free()
 		jobInfo, err := dom.GetJobInfo()
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
+			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 			return
 		}
 		if jobInfo.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
@@ -691,6 +698,9 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			}
 			l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
+		} else {
+			log.Log.Object(vmi).Infof("migration job is not active (type=%d), nothing to abort", jobInfo.Type)
+			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 		}
 	}(l, vmi)
 }
