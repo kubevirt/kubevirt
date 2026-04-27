@@ -51,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
-	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -351,29 +350,16 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string) {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
 	if !exists {
-		// nothing to report if migration metadata is empty
-		return nil
-	}
-
-	metaAbortStatus := migrationMetadata.AbortStatus
-	if abortStatus != "" {
-		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
-			return domainerrors.MigrationAbortInProgressError
-		}
-	}
-
-	if metaAbortStatus == string(v1.MigrationAbortInProgress) &&
-		abortStatus != v1.MigrationAbortFailed &&
-		abortStatus != v1.MigrationAbortSucceeded {
-		return domainerrors.MigrationAbortInProgressError
+		log.Log.Errorf("setMigrationResult called but migration metadata is empty")
+		return
 	}
 
 	if migrationMetadata.EndTimestamp != nil {
-		// the migration result has already been reported and should not be overwritten
-		return nil
+		log.Log.Errorf("setMigrationResult called but migration result has already been reported at %v", migrationMetadata.EndTimestamp)
+		return
 	}
 
 	if failed {
@@ -391,13 +377,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 			migrationMetadata.FailureReason = reason
 		}
 
-		migrationMetadata.AbortStatus = string(abortStatus)
-
-		if abortStatus == "" || abortStatus == v1.MigrationAbortSucceeded {
-			// only mark the migration as complete if there was no abortion or
-			// the abortion succeeded
-			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
-		}
+		migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
 	})
 
 	logger := log.Log.V(2)
@@ -405,11 +385,6 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 		logger = logger.V(4)
 	}
 	logger.Infof("set migration result in metadata: %s", l.metadataCache.Migration.String())
-	return nil
-}
-
-func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(failed, reason, abortStatus)
 }
 
 func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) {
@@ -1055,7 +1030,7 @@ func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
 func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 	if shouldImmediatelyFailMigration(vmi) {
 		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-		l.setMigrationResult(true, "Failed migration to satisfy functional test condition", "")
+		l.setMigrationResult(true, "Failed migration to satisfy functional test condition")
 		return
 	}
 
@@ -1073,19 +1048,19 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 
 	if err := <-monitorReady; err != nil {
 		log.Log.Object(vmi).Reason(err).Error("migration monitor failed to start")
-		l.setMigrationResult(true, err.Error(), "")
+		l.setMigrationResult(true, err.Error())
 		return
 	}
 
 	err := l.migrateHelper(vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
-		l.setMigrationResult(true, err.Error(), "")
+		l.setMigrationResult(true, err.Error())
 		return
 	}
 
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
-	l.setMigrationResult(false, "", "")
+	l.setMigrationResult(false, "")
 }
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
