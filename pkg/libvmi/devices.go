@@ -20,6 +20,7 @@
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -113,6 +114,24 @@ func WithVideo(videoType string) Option {
 		vmi.Spec.Domain.Devices.Video = &v1.VideoDevice{
 			Type: videoType,
 		}
+	}
+}
+
+func WithGPU(gpu v1.GPU) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, gpu)
+	}
+}
+
+func WithHostDevice(hostDevice v1.HostDevice) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices, hostDevice)
+	}
+}
+
+func WithResourceClaim(claim k8sv1.PodResourceClaim) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.ResourceClaims = append(vmi.Spec.ResourceClaims, claim)
 	}
 }
 
