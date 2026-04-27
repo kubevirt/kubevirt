@@ -36,6 +36,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -633,7 +634,75 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
+	if err == nil {
+		return nil
+	}
+	if isGuestAgentUnavailableError(err) && (l.isLiveMigrationInProgress() || l.isPausedButHealthy(domainName)) {
+		log.Log.V(4).Infof("GuestPing for %s failed with %v but the VM is healthy although paused on this pod; suppressing probe error", domainName, err)
+		return nil
+	}
 	return err
+}
+
+// isGuestAgentUnavailableError returns true when the error from QemuAgentCommand
+// indicates that the guest agent is unreachable rather than a libvirt or
+// connection issue unrelated to the guest state.
+func isGuestAgentUnavailableError(err error) bool {
+	var libvirtErr libvirt.Error
+	if !errors.As(err, &libvirtErr) {
+		return false
+	}
+	switch libvirtErr.Code {
+	case libvirt.ERR_AGENT_UNRESPONSIVE, libvirt.ERR_NO_DOMAIN:
+		// ERR_AGENT_UNRESPONSIVE: guest agent not responding (pre-copy target,
+		// post-copy source).
+		// ERR_NO_DOMAIN: domain not yet present on the target before pages start
+		// flowing (prepareMigrationTarget has run but migration has not begun).
+		return true
+	}
+	return false
+}
+
+// isLiveMigrationInProgress returns true when migration metadata indicates a
+// live migration has been started but not yet completed on this pod.
+func (l *LibvirtDomainManager) isLiveMigrationInProgress() bool {
+	m, exists := l.metadataCache.Migration.Load()
+	return exists && m.StartTimestamp != nil && m.EndTimestamp == nil
+}
+
+// isPausedButHealthy returns true when domain state indicates
+// that the VM is paused although in an healthy condition.
+func (l *LibvirtDomainManager) isPausedButHealthy(domainName string) bool {
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			// Domain not found at this stage is likely the target pod for a migration where the domain has still to be created
+			return true
+		}
+		return false
+	}
+	defer domain.Free()
+
+	state, reason, err := domain.GetState()
+	if err != nil {
+		// An error on GetState here likely means the domain terminated under our feet.
+		// Probably the last probe before declaring pod dead, but to let it die peacefully
+		return true
+	}
+
+	healthyPausedReasons := []api.StateChangeReason{
+		api.ReasonPausedUser,
+		api.ReasonPausedMigration,
+		api.ReasonPausedSave,
+		api.ReasonPausedDump,
+		api.ReasonPausedFromSnapshot,
+		api.ReasonPausedShuttingDown,
+		api.ReasonPausedSnapshot,
+		api.ReasonPausedStartingUp,
+		api.ReasonPausedPostcopy,
+	}
+
+	return state == libvirt.DOMAIN_PAUSED && slices.Contains(healthyPausedReasons, util.ConvReason(state, reason))
 }
 
 func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {
