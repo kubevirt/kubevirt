@@ -1015,9 +1015,8 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 	l.abortWg.Wait() // wait for in-flight cancellation
 	if err != nil {
-		l.setMigrationResult(true, err.Error(), "")
-		log.Log.Object(vmi).Errorf("migration failed with error: %v", err)
-		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
+		log.Log.Object(vmi).Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
+		return err
 	}
 
 	log.Log.Object(vmi).Info("migration completed successfully")
@@ -1056,16 +1055,13 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 	}
 
-	// From here on out, any error encountered must be sent to the
-	// migrationError channel which is processed by the liveMigrationMonitor
-	// go routine.
 	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
 	go monitor.startMonitor()
 
 	err := l.migrateHelper(vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
-		migrationErrorChan <- err
+		l.setMigrationResult(true, err.Error(), "")
 		return
 	}
 
