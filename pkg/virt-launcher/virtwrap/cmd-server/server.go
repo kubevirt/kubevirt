@@ -493,6 +493,56 @@ func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 	return response, nil
 }
 
+func (l *Launcher) GetBlockJobsStatus(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.BlockJobsStatusResponse, error) {
+	response := &cmdv1.BlockJobsStatusResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	status, err := l.domainManager.GetDomainBlockJobsStatus()
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if blockJobsStatus, err := json.Marshal(status); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal block jobs status")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+	} else {
+		response.BlockJobsStatus = string(blockJobsStatus)
+	}
+
+	return response, nil
+}
+
+func (l *Launcher) GetJobsStatus(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.JobsStatusResponse, error) {
+	response := &cmdv1.JobsStatusResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	status, err := l.domainManager.GetDomainJobsStatus()
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if jobsStatus, err := json.Marshal(status); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal jobs status")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+	} else {
+		response.JobsStatus = string(jobsStatus)
+	}
+
+	return response, nil
+}
+
 func (l *Launcher) GetDomainDirtyRateStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DirtyRateStatsResponse, error) {
 	response := &cmdv1.DirtyRateStatsResponse{
 		Response: &cmdv1.Response{

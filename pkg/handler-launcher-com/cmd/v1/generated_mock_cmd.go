@@ -161,6 +161,26 @@ func (mr *MockCmdClientMockRecorder) GetAppliedVMIChecksum(ctx, in any, opts ...
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockCmdClient)(nil).GetAppliedVMIChecksum), varargs...)
 }
 
+// GetBlockJobsStatus mocks base method.
+func (m *MockCmdClient) GetBlockJobsStatus(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*BlockJobsStatusResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetBlockJobsStatus", varargs...)
+	ret0, _ := ret[0].(*BlockJobsStatusResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockJobsStatus indicates an expected call of GetBlockJobsStatus.
+func (mr *MockCmdClientMockRecorder) GetBlockJobsStatus(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockJobsStatus", reflect.TypeOf((*MockCmdClient)(nil).GetBlockJobsStatus), varargs...)
+}
+
 // GetDomain mocks base method.
 func (m *MockCmdClient) GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error) {
 	m.ctrl.T.Helper()
@@ -259,6 +279,26 @@ func (mr *MockCmdClientMockRecorder) GetGuestInfo(ctx, in any, opts ...any) *gom
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockCmdClient)(nil).GetGuestInfo), varargs...)
+}
+
+// GetJobsStatus mocks base method.
+func (m *MockCmdClient) GetJobsStatus(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*JobsStatusResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetJobsStatus", varargs...)
+	ret0, _ := ret[0].(*JobsStatusResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetJobsStatus indicates an expected call of GetJobsStatus.
+func (mr *MockCmdClientMockRecorder) GetJobsStatus(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsStatus", reflect.TypeOf((*MockCmdClient)(nil).GetJobsStatus), varargs...)
 }
 
 // GetLaunchMeasurement mocks base method.
@@ -835,6 +875,21 @@ func (mr *MockCmdServerMockRecorder) GetAppliedVMIChecksum(arg0, arg1 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockCmdServer)(nil).GetAppliedVMIChecksum), arg0, arg1)
 }
 
+// GetBlockJobsStatus mocks base method.
+func (m *MockCmdServer) GetBlockJobsStatus(arg0 context.Context, arg1 *EmptyRequest) (*BlockJobsStatusResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockJobsStatus", arg0, arg1)
+	ret0, _ := ret[0].(*BlockJobsStatusResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockJobsStatus indicates an expected call of GetBlockJobsStatus.
+func (mr *MockCmdServerMockRecorder) GetBlockJobsStatus(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockJobsStatus", reflect.TypeOf((*MockCmdServer)(nil).GetBlockJobsStatus), arg0, arg1)
+}
+
 // GetDomain mocks base method.
 func (m *MockCmdServer) GetDomain(arg0 context.Context, arg1 *EmptyRequest) (*DomainResponse, error) {
 	m.ctrl.T.Helper()
@@ -908,6 +963,21 @@ func (m *MockCmdServer) GetGuestInfo(arg0 context.Context, arg1 *EmptyRequest) (
 func (mr *MockCmdServerMockRecorder) GetGuestInfo(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockCmdServer)(nil).GetGuestInfo), arg0, arg1)
+}
+
+// GetJobsStatus mocks base method.
+func (m *MockCmdServer) GetJobsStatus(arg0 context.Context, arg1 *EmptyRequest) (*JobsStatusResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetJobsStatus", arg0, arg1)
+	ret0, _ := ret[0].(*JobsStatusResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetJobsStatus indicates an expected call of GetJobsStatus.
+func (mr *MockCmdServerMockRecorder) GetJobsStatus(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsStatus", reflect.TypeOf((*MockCmdServer)(nil).GetJobsStatus), arg0, arg1)
 }
 
 // GetLaunchMeasurement mocks base method.

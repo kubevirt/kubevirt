@@ -234,6 +234,43 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(domStats.UUID).To(Equal(domainStats.UUID))
 		})
 
+		It("should return block jobs status", func() {
+			expectedStatus := virtwrap.QueryBlockJobsResult{
+				Return: []virtwrap.BlockJobStatus{
+					{
+						Device: "vda",
+						Status: "running",
+						Ready:  true,
+					},
+				},
+				ID: "job-1",
+			}
+
+			domainManager.EXPECT().GetDomainBlockJobsStatus().Return(expectedStatus, nil)
+			fetchedStatus, err := client.GetBlockJobsStatus()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedStatus).To(Equal(expectedStatus))
+		})
+
+		It("should return jobs status", func() {
+			expectedStatus := virtwrap.QueryJobsResult{
+				Return: []virtwrap.JobStatus{
+					{
+						ID:              "job-1",
+						Type:            "mirror",
+						Status:          "running",
+						CurrentProgress: 10,
+						TotalProgress:   100,
+					},
+				},
+			}
+
+			domainManager.EXPECT().GetDomainJobsStatus().Return(expectedStatus, nil)
+			fetchedStatus, err := client.GetJobsStatus()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedStatus).To(Equal(expectedStatus))
+		})
+
 		It("should return full user list", func() {
 			userList := []v1.VirtualMachineInstanceGuestOSUser{
 				{

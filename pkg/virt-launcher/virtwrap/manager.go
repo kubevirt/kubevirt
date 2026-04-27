@@ -58,6 +58,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"encoding/json"
+
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -145,6 +147,8 @@ type DomainManager interface {
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
 	GetDomainStats() (*stats.DomainStats, error)
+	GetDomainBlockJobsStatus() (api.QueryBlockJobsResult, error)
+	GetDomainJobsStatus() (api.QueryJobsResult, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
 	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
@@ -2931,4 +2935,86 @@ func (l *LibvirtDomainManager) MigrationProxy(action cmdv1.MigrationProxyAction)
 	default:
 		return fmt.Errorf("unsupported action %d", action)
 	}
+}
+
+func (l *LibvirtDomainManager) getFirstDomainForStatusQuery() (cli.VirDomain, bool, error) {
+	doms, err := l.virConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(doms) == 0 {
+		return nil, false, nil
+	}
+
+	for i := 1; i < len(doms); i++ {
+		if err := doms[i].Free(); err != nil {
+			log.Log.Reason(err).Warning("Error freeing a domain")
+		}
+	}
+
+	return doms[0], true, nil
+}
+
+func (l *LibvirtDomainManager) GetDomainBlockJobsStatus() (api.QueryBlockJobsResult, error) {
+	dom, exists, err := l.getFirstDomainForStatusQuery()
+	if err != nil {
+		return api.QueryBlockJobsResult{}, err
+	}
+	if !exists {
+		return api.QueryBlockJobsResult{Return: []api.BlockJobStatus{}}, nil
+	}
+	defer dom.Free()
+
+	return l.GetBlockJobsStatus(dom)
+}
+
+func (l *LibvirtDomainManager) GetBlockJobsStatus(dom cli.VirDomain) (api.QueryBlockJobsResult, error) {
+	name, err := dom.GetName()
+	if err != nil {
+		return api.QueryBlockJobsResult{}, err
+	}
+	res, err := l.virConn.QemuMonitorCommand(`{"execute": "query-block-jobs"}`, name)
+	if err != nil {
+		return api.QueryBlockJobsResult{}, fmt.Errorf("failed to get block jobs: %w", err)
+	}
+
+	result := api.QueryBlockJobsResult{}
+	err = json.Unmarshal([]byte(res), &result)
+	if err != nil {
+		return api.QueryBlockJobsResult{}, fmt.Errorf("failed to unmarshal block jobs: %w", err)
+	}
+
+	return result, nil
+}
+
+func (l *LibvirtDomainManager) GetDomainJobsStatus() (api.QueryJobsResult, error) {
+	dom, exists, err := l.getFirstDomainForStatusQuery()
+	if err != nil {
+		return api.QueryJobsResult{}, err
+	}
+	if !exists {
+		return api.QueryJobsResult{}, nil
+	}
+	defer dom.Free()
+
+	return l.GetJobsStatus(dom)
+}
+
+func (l *LibvirtDomainManager) GetJobsStatus(dom cli.VirDomain) (api.QueryJobsResult, error) {
+	name, err := dom.GetName()
+	if err != nil {
+		return api.QueryJobsResult{}, err
+	}
+	res, err := l.virConn.QemuMonitorCommand(`{"execute": "query-jobs"}`, name)
+	if err != nil {
+		return api.QueryJobsResult{}, fmt.Errorf("failed to get jobs: %w", err)
+	}
+
+	result := api.QueryJobsResult{}
+	err = json.Unmarshal([]byte(res), &result)
+	if err != nil {
+		return api.QueryJobsResult{}, fmt.Errorf("failed to unmarshal jobs: %w", err)
+	}
+
+	return result, nil
 }

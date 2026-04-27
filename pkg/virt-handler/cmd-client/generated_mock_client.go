@@ -143,6 +143,21 @@ func (mr *MockLauncherClientMockRecorder) GetAppliedVMIChecksum() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockLauncherClient)(nil).GetAppliedVMIChecksum))
 }
 
+// GetBlockJobsStatus mocks base method.
+func (m *MockLauncherClient) GetBlockJobsStatus() (api.QueryBlockJobsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockJobsStatus")
+	ret0, _ := ret[0].(api.QueryBlockJobsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockJobsStatus indicates an expected call of GetBlockJobsStatus.
+func (mr *MockLauncherClientMockRecorder) GetBlockJobsStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockJobsStatus", reflect.TypeOf((*MockLauncherClient)(nil).GetBlockJobsStatus))
+}
+
 // GetDomain mocks base method.
 func (m *MockLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	m.ctrl.T.Helper()
@@ -218,6 +233,21 @@ func (m *MockLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgen
 func (mr *MockLauncherClientMockRecorder) GetGuestInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockLauncherClient)(nil).GetGuestInfo))
+}
+
+// GetJobsStatus mocks base method.
+func (m *MockLauncherClient) GetJobsStatus() (api.QueryJobsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetJobsStatus")
+	ret0, _ := ret[0].(api.QueryJobsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetJobsStatus indicates an expected call of GetJobsStatus.
+func (mr *MockLauncherClientMockRecorder) GetJobsStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsStatus", reflect.TypeOf((*MockLauncherClient)(nil).GetJobsStatus))
 }
 
 // GetLaunchMeasurement mocks base method.

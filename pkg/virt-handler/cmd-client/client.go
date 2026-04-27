@@ -101,6 +101,8 @@ type LauncherClient interface {
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
+	GetBlockJobsStatus() (api.QueryBlockJobsResult, error)
+	GetJobsStatus() (api.QueryJobsResult, error)
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
@@ -600,6 +602,58 @@ func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) 
 		exists = true
 	}
 	return stats, exists, nil
+}
+
+func (c *VirtLauncherClient) GetBlockJobsStatus() (api.QueryBlockJobsResult, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	blockJobsResponse, err := c.v1client.GetBlockJobsStatus(ctx, request)
+	var response *cmdv1.Response
+	if blockJobsResponse != nil {
+		response = blockJobsResponse.Response
+	}
+
+	if err = handleError(err, "GetBlockJobsStatus", response); err != nil || blockJobsResponse == nil {
+		return api.QueryBlockJobsResult{}, err
+	}
+
+	status := api.QueryBlockJobsResult{}
+	if blockJobsResponse.BlockJobsStatus != "" {
+		if err := json.Unmarshal([]byte(blockJobsResponse.BlockJobsStatus), &status); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling block jobs status")
+			return api.QueryBlockJobsResult{}, err
+		}
+	}
+
+	return status, nil
+}
+
+func (c *VirtLauncherClient) GetJobsStatus() (api.QueryJobsResult, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	jobsResponse, err := c.v1client.GetJobsStatus(ctx, request)
+	var response *cmdv1.Response
+	if jobsResponse != nil {
+		response = jobsResponse.Response
+	}
+
+	if err = handleError(err, "GetJobsStatus", response); err != nil || jobsResponse == nil {
+		return api.QueryJobsResult{}, err
+	}
+
+	status := api.QueryJobsResult{}
+	if jobsResponse.JobsStatus != "" {
+		if err := json.Unmarshal([]byte(jobsResponse.JobsStatus), &status); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling jobs status")
+			return api.QueryJobsResult{}, err
+		}
+	}
+
+	return status, nil
 }
 
 func (c *VirtLauncherClient) Ping() error {

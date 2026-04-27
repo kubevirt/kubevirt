@@ -131,6 +131,21 @@ func (mr *MockDomainManagerMockRecorder) GetAppliedVMIChecksum() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockDomainManager)(nil).GetAppliedVMIChecksum))
 }
 
+// GetDomainBlockJobsStatus mocks base method.
+func (m *MockDomainManager) GetDomainBlockJobsStatus() (api.QueryBlockJobsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDomainBlockJobsStatus")
+	ret0, _ := ret[0].(api.QueryBlockJobsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDomainBlockJobsStatus indicates an expected call of GetDomainBlockJobsStatus.
+func (mr *MockDomainManagerMockRecorder) GetDomainBlockJobsStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDomainBlockJobsStatus", reflect.TypeOf((*MockDomainManager)(nil).GetDomainBlockJobsStatus))
+}
+
 // GetDomainDirtyRateStats mocks base method.
 func (m *MockDomainManager) GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error) {
 	m.ctrl.T.Helper()
@@ -144,6 +159,21 @@ func (m *MockDomainManager) GetDomainDirtyRateStats(calculationDuration time.Dur
 func (mr *MockDomainManagerMockRecorder) GetDomainDirtyRateStats(calculationDuration any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDomainDirtyRateStats", reflect.TypeOf((*MockDomainManager)(nil).GetDomainDirtyRateStats), calculationDuration)
+}
+
+// GetDomainJobsStatus mocks base method.
+func (m *MockDomainManager) GetDomainJobsStatus() (api.QueryJobsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDomainJobsStatus")
+	ret0, _ := ret[0].(api.QueryJobsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDomainJobsStatus indicates an expected call of GetDomainJobsStatus.
+func (mr *MockDomainManagerMockRecorder) GetDomainJobsStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDomainJobsStatus", reflect.TypeOf((*MockDomainManager)(nil).GetDomainJobsStatus))
 }
 
 // GetDomainStats mocks base method.
