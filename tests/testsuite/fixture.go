@@ -85,6 +85,10 @@ func SynchronizedAfterTestSuiteCleanup() {
 		deleteFakeKWOKNodes()
 	}
 
+	if flags.DeployTestingInfrastructureFlag {
+		WipeTestingInfrastructure()
+	}
+
 	libnode.CleanNodes()
 }
 
