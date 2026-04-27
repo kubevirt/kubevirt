@@ -1019,9 +1019,6 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return err
 	}
 
-	log.Log.Object(vmi).Info("migration completed successfully")
-	l.setMigrationResult(false, "", "")
-
 	return nil
 }
 
@@ -1066,6 +1063,7 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	}
 
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
+	l.setMigrationResult(false, "", "")
 }
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
