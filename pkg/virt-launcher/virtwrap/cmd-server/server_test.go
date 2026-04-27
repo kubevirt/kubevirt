@@ -22,6 +22,7 @@ package cmdserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -35,6 +36,7 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -89,6 +91,20 @@ var _ = Describe("Virt remote commands", func() {
 			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, &cmdv1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
 
 			Expect(client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+		})
+
+		It("should signal early exit when startup sync misses claim request metadata", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			vmi.Status.Phase = v1.Scheduled
+			_ = os.Unsetenv(receivedEarlyExitSignalEnvVar)
+			defer os.Unsetenv(receivedEarlyExitSignalEnvVar)
+
+			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, &cmdv1.VirtualMachineOptions{}).
+				Return(nil, fmt.Errorf("sync failed: %w", drautil.ErrMissingClaimRequestMetadata))
+
+			Expect(client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})).NotTo(Succeed())
+			_, found := os.LookupEnv(receivedEarlyExitSignalEnvVar)
+			Expect(found).To(BeTrue())
 		})
 
 		It("should kill a vmi", func() {
