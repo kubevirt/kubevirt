@@ -19,10 +19,47 @@ To easily define this on VM spec, specify `guestAgentPing: {}` in VM's readiness
 > Note: You can only define one of the type of probe.
 
 
-**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail. 
-Many images don't enabled the agent by default so make sure you either run one that does or enable it. 
+**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail.
+Many images don't enable the agent by default so make sure you either run one that does or enable it.
 
 Make sure to provide enough delay and failureThreshold for the VM and the agent to be online.
+
+### Automatic probe suppression
+
+The `guestAgentPing` probe is automatically suppressed whenever the guest agent is unreachable for a reason that does not indicate a real guest fault. Suppression returns a synthetic success so that Kubernetes does not restart the pod or consider the VM unhealthy.
+
+#### During live migration
+
+During live migration the probe is suppressed on any virt-launcher pod where a ping to the guest agent fails with an unreachable-guest error:
+
+- **Pre-copy phase** — the guest is paused on the *target* pod while it receives incoming memory pages; it is still running on the source pod.
+- **Post-copy phase** — the guest is paused on the *source* pod, with execution handed off to the target; it is running on the target pod.
+
+Because the probe is implemented as a Kubernetes exec probe running inside each pod's compute container, kubelet executes it on both pods simultaneously. KubeVirt detects the migration-in-progress condition on each pod and returns a synthetic success so that Kubernetes does not restart the pod before it is terminated at the end of the migration.
+
+#### While the VM is paused
+
+When a VM is paused for an intentional or transient reason, the guest agent is unreachable by design. KubeVirt suppresses `guestAgentPing` probe failures in these cases so that a user-initiated pause (or an internal platform pause such as snapshotting or save/restore) does not cause Kubernetes to kill the pod.
+
+Suppression applies when the domain is paused for any of the following reasons:
+
+| Libvirt pause reason | Typical cause |
+|---|---|
+| `User` | `virtctl pause` / API pause request |
+| `Migration` | Pre-copy migration (source domain paused for handoff) |
+| `Save` | VM state save |
+| `Dump` | Memory dump / core dump |
+| `FromSnapshot` | Domain restored from a snapshot, not yet resumed |
+| `ShuttingDown` | Graceful shutdown in progress |
+| `Snapshot` | Live snapshot in progress |
+| `StartingUp` | Domain paused during initial startup |
+| `Postcopy` | Post-copy migration |
+
+Probe failures are **not** suppressed when the domain is paused due to a fault — `IOError`, `Crashed`, or `PostcopyFailed` — because these indicate a genuine guest problem that the probe should surface.
+
+#### Other probe types
+
+Other probe types (`exec`, `httpGet`, `tcpSocket`) are **not** suppressed in any of the above situations. Their failure semantics are consistent with those of regular Kubernetes pods, and the existing `initialDelaySeconds` / `failureThreshold` knobs are the right way to tune their tolerance.
 
 ### Example
 
