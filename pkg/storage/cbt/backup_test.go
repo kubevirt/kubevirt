@@ -1376,35 +1376,6 @@ var _ = Describe("Backup Controller", func() {
 			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupCompletedWithWarningEvent)))
 		})
 
-		It("should add Deleting condition when backup has deletion timestamp", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			backup.Finalizers = []string{vmBackupFinalizer}
-			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
-			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []metav1.Condition{
-					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-				},
-			}
-
-			addBackup(backup)
-
-			statusUpdated := false
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update := action.(testing.UpdateAction)
-				if update.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				statusUpdated = true
-				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionDeleting))).To(BeTrue())
-				return true, updateObj, nil
-			})
-
-			err := controller.updateStatus(backup, nil, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statusUpdated).To(BeTrue())
-		})
-
 		It("should not update when status unchanged", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{

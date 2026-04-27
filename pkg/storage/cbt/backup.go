@@ -74,7 +74,6 @@ const (
 	backupExportInitiated                = "Backup export has been initiated, waiting for export links"
 	backupExportReady                    = "Backup export is ready to pull"
 	backupAborting                       = "Backup is aborting"
-	backupDeleting                       = "Backup is being deleted"
 	backupCompleted                      = "Successfully completed VirtualMachineBackup"
 	backupFailed                         = "Backup has failed: %s"
 	backupCompletedWithWarningMsg        = "Completed VirtualMachineBackup, warning: %s"
@@ -1010,11 +1009,6 @@ func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBack
 		if syncInfo.checkpointName != nil {
 			backupOut.Status.CheckpointName = syncInfo.checkpointName
 		}
-	}
-
-	if isBackupDeleting(backupOut) && controller.HasFinalizer(backupOut, vmBackupFinalizer) {
-		logger.Info("update backup is deleting")
-		meta.SetStatusCondition(&backupOut.Status.Conditions, newCondition(string(backupv1.ConditionDeleting), metav1.ConditionTrue, "Deleting", backupDeleting))
 	}
 
 	if !equality.Semantic.DeepEqual(backup.Status, backupOut.Status) {
