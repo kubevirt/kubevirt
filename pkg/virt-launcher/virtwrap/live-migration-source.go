@@ -654,7 +654,9 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 }
 
 func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstance) {
+	l.abortWg.Add(1)
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+		defer l.abortWg.Done()
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
@@ -1011,6 +1013,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	}
 
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
+	l.abortWg.Wait() // wait for in-flight cancellation
 	if err != nil {
 		l.setMigrationResult(true, err.Error(), "")
 		log.Log.Object(vmi).Errorf("migration failed with error: %v", err)
