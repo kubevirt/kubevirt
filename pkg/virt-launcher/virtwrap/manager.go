@@ -1147,10 +1147,14 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
 		}
 
+		// TDX Secure Boot uses stateless ROM with embedded keys, so libvirt's
+		// secure="yes" loader attribute (which implies SMM) must not be set.
+		secureLoader := secureBoot && !tdx
+
 		efiConf = &convertertypes.EFIConfiguration{
 			EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
 			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
-			SecureLoader: secureBoot,
+			SecureLoader: secureLoader,
 		}
 	}
 
