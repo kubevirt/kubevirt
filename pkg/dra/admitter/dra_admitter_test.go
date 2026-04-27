@@ -1060,6 +1060,38 @@ var _ = Describe("DRA Admitter", func() {
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(BeEmpty())
 		})
+
+		It("should reject when GPU and HostDevice share the same claimName/requestName pair", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []k8sv1.PodResourceClaim{
+					{Name: "shared-claim"},
+				},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						GPUs: []v1.GPU{{
+							Name: "gpu1",
+							ClaimRequest: &v1.ClaimRequest{
+								ClaimName:   ptr.To("shared-claim"),
+								RequestName: ptr.To("shared-req"),
+							},
+						}},
+						HostDevices: []v1.HostDevice{{
+							Name: "hd1",
+							ClaimRequest: &v1.ClaimRequest{
+								ClaimName:   ptr.To("shared-claim"),
+								RequestName: ptr.To("shared-req"),
+							},
+						}},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
+			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName pair"))
+			Expect(causes[0].Message).To(ContainSubstring("between GPUs[0] and HostDevices[0]"))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0]"))
+		})
 	})
 
 	Context("Validator methods", func() {
