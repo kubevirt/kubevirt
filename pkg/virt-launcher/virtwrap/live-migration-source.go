@@ -78,7 +78,7 @@ type migrationMonitor struct {
 	vmi     *v1.VirtualMachineInstance
 	options *cmdclient.MigrationOptions
 
-	migrationErr chan error
+	migrationDone <-chan struct{}
 
 	start              int64
 	lastProgressUpdate int64
@@ -402,12 +402,12 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationA
 	return l.setMigrationResultHelper(false, "", abortStatus)
 }
 
-func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
+func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
 	monitor := &migrationMonitor{
 		l:                        l,
 		vmi:                      vmi,
 		options:                  options,
-		migrationErr:             migrationErr,
+		migrationDone:            migrationDone,
 		progressWatermark:        0,
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
@@ -571,29 +571,15 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 		return
 	}
 	defer dom.Free()
-	close(ready)
+	close(ready) // signal we're ready to monitor migration
 
 	logInterval := 0
 
 	for {
-		var ok bool
-		err = nil
 		select {
-		case err, ok = <-m.migrationErr:
-			if !ok {
-				return
-			}
-		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
-		}
-
-		if err != nil {
-			logger.Reason(err).Error(liveMigrationFailed)
-			var abortStatus v1.MigrationAbortStatus
-			if strings.Contains(err.Error(), "canceled by client") {
-				abortStatus = v1.MigrationAbortSucceeded
-			}
-			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
+		case <-m.migrationDone:
 			return
+		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
 		jobStats, err := dom.GetJobStats(0)
@@ -1044,15 +1030,15 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		return
 	}
 
-	migrationErrorChan := make(chan error, 1)
-	defer close(migrationErrorChan)
+	migrationDone := make(chan struct{})
+	defer close(migrationDone)
 
 	log.Log.Object(vmi).Infof("Initiating live migration.")
 	if options.UnsafeMigration {
 		log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 	}
 
-	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
+	monitor := newMigrationMonitor(vmi, l, options, migrationDone)
 	monitorReady := make(chan error, 1)
 	go monitor.startMonitor(monitorReady)
 
