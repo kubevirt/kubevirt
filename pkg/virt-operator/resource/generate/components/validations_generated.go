@@ -26923,6 +26923,7 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
           x-kubernetes-map-type: atomic
         targetReadinessPolicy:
+          default: WaitGracePeriod
           description: |-
             TargetReadinessPolicy defines how to handle the restore in case
             the target is not ready

@@ -387,6 +387,7 @@ type VirtualMachineRestoreSpec struct {
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 
 	// +optional
+	// +kubebuilder:default=WaitGracePeriod
 	// +kubebuilder:validation:Enum=StopTarget;WaitGracePeriod;FailImmediate;WaitEventually
 	TargetReadinessPolicy *TargetReadinessPolicy `json:"targetReadinessPolicy,omitempty"`
 
