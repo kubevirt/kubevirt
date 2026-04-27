@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -325,10 +324,16 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
 	migration, _ := l.metadataCache.Migration.Load()
 	if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
-		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
+		log.Log.Object(vmi).Infof("cancel migration ignored: vmi is not migrating")
+		return nil
 	}
 
-	if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
+	switch v1.MigrationAbortStatus(migration.AbortStatus) {
+	case v1.MigrationAbortInProgress:
+		log.Log.Object(vmi).Infof("cancel migration ignored: abort is already in progress")
+		return nil
+	case v1.MigrationAbortSucceeded:
+		log.Log.Object(vmi).Infof("cancel migration ignored: abort already succeeded")
 		return nil
 	}
 

@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -625,10 +624,6 @@ func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineI
 	}
 
 	if err := client.CancelVirtualMachineMigration(vmi); err != nil {
-		if err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
-			// If migration did not even start there is no need to cancel it
-			c.logger.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
-		}
 		return err
 	}
 
