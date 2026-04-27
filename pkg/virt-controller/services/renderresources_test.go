@@ -367,6 +367,90 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims[0].Request).To(Equal("gpu-request"))
 		})
 
+		It("should preserve HostDevice DRA claims with same name and different requests", func() {
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-a"),
+					},
+				},
+				{
+					Name: "dra-host-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-b"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "request-a"},
+				{Name: "shared-claim", Request: "request-b"},
+			}))
+		})
+
+		It("should preserve GPU DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-a"),
+					},
+				},
+				{
+					Name: "dra-gpu-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-b"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "request-a"},
+				{Name: "shared-claim", Request: "request-b"},
+			}))
+		})
+
+		It("should preserve mixed GPU and HostDevice DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("gpu-request"),
+					},
+				},
+			}
+
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("hostdev-request"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus), WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "gpu-request"},
+				{Name: "shared-claim", Request: "hostdev-request"},
+			}))
+		})
+
 		It("Unified functions should not interfere with other renderer options", func() {
 			cpuRequest := resource.MustParse("100m")
 			memoryRequest := resource.MustParse("128Mi")
