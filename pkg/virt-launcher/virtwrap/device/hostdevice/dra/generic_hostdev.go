@@ -64,12 +64,12 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([]ap
 }
 
 func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v1.VirtualMachineInstanceSpec) (*api.HostDevice, error) {
-	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || *hd.ClaimRequest.ClaimName == "" || hd.ClaimRequest.RequestName == nil || *hd.ClaimRequest.RequestName == "" {
+	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == "" || hd.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("HostDevice %s has incomplete ClaimRequest", hd.Name)
 	}
 
-	claimName := *hd.ClaimRequest.ClaimName
-	requestName := *hd.ClaimRequest.RequestName
+	claimName := hd.ClaimRequest.ClaimName
+	requestName := hd.ClaimRequest.RequestName
 	resourceClaims := vmiSpecs.ResourceClaims
 
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a

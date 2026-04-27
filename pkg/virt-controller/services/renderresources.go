@@ -165,8 +165,8 @@ func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
 		for _, g := range gpus {
 			if g.DeviceName == "" && g.ClaimRequest != nil {
 				requestResourceClaims(&res, &k8sv1.ResourceClaim{
-					Name:    *g.ClaimRequest.ClaimName,
-					Request: *g.ClaimRequest.RequestName,
+					Name:    g.ClaimRequest.ClaimName,
+					Request: g.ClaimRequest.RequestName,
 				})
 			}
 		}
@@ -195,10 +195,10 @@ func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
 		resources := r.ResourceRequirements()
 		for _, hd := range hostDevices {
-			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
+			if hd.DeviceName == "" && hd.ClaimRequest != nil {
 				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
-					Name:    *hd.ClaimRequest.ClaimName,
-					Request: *hd.ClaimRequest.RequestName,
+					Name:    hd.ClaimRequest.ClaimName,
+					Request: hd.ClaimRequest.RequestName,
 				})
 			}
 		}

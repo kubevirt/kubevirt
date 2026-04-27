@@ -212,7 +212,7 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 	for _, id := range draDevs {
 		valid := true
 		cr := id.device.getClaimRequest()
-		if cr.ClaimName == nil || *cr.ClaimName == "" {
+		if cr.ClaimName == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("claimName is required for DRA %s", cfg.typeName),
@@ -220,7 +220,7 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 			})
 			valid = false
 		}
-		if cr.RequestName == nil || *cr.RequestName == "" {
+		if cr.RequestName == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("requestName is required for DRA %s", cfg.typeName),
@@ -236,7 +236,7 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 	claimRequestPairs := sets.New[string]()
 	for _, id := range validDRA {
 		cr := id.device.getClaimRequest()
-		key := *cr.ClaimName + "/" + *cr.RequestName
+		key := cr.ClaimName + "/" + cr.RequestName
 		if claimRequestPairs.Has(key) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueDuplicate,
@@ -249,7 +249,7 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 
 	claimNames := sets.New[string]()
 	for _, id := range validDRA {
-		claimNames.Insert(*id.device.getClaimRequest().ClaimName)
+		claimNames.Insert(id.device.getClaimRequest().ClaimName)
 	}
 
 	return causes, claimNames
