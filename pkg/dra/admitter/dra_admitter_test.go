@@ -25,7 +25,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -89,8 +88,8 @@ var _ = Describe("DRA Admitter", func() {
 							Name:       "gpu1",
 							DeviceName: "vfio.gpu.example.com",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -112,8 +111,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -139,7 +138,7 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								RequestName: ptr.To("req1"),
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -160,8 +159,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To(""),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -182,7 +181,7 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName: ptr.To("claim1"),
+								ClaimName: "claim1",
 							},
 						}},
 					},
@@ -203,8 +202,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To(""),
+								ClaimName:   "claim1",
+								RequestName: "",
 							},
 						}},
 					},
@@ -252,8 +251,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -274,8 +273,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -296,15 +295,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim2"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim2",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -331,8 +330,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -354,15 +353,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim2"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim2",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -388,15 +387,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -419,15 +418,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim1",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -453,8 +452,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-gpu",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -482,20 +481,20 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{
 							{
 								Name:         "gpu-invalid",
-								ClaimRequest: &v1.ClaimRequest{RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{RequestName: "req1"},
 							},
 							{
 								Name: "gpu-a",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu-dup",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -547,8 +546,8 @@ var _ = Describe("DRA Admitter", func() {
 							Name:       "hd1",
 							DeviceName: "vfio.device.example.com",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -570,8 +569,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -597,7 +596,7 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								RequestName: ptr.To("req1"),
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -618,8 +617,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To(""),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -640,7 +639,7 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName: ptr.To("claim1"),
+								ClaimName: "claim1",
 							},
 						}},
 					},
@@ -661,8 +660,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To(""),
+								ClaimName:   "claim1",
+								RequestName: "",
 							},
 						}},
 					},
@@ -707,8 +706,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -734,8 +733,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -757,15 +756,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "hd1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "hd2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim2"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim2",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -791,15 +790,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "hd1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "hd2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -822,15 +821,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "hd1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "hd2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim1",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -857,8 +856,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -887,7 +886,7 @@ var _ = Describe("DRA Admitter", func() {
 							},
 							{
 								Name:         "dra-hd-invalid",
-								ClaimRequest: &v1.ClaimRequest{RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{RequestName: "req1"},
 							},
 						},
 					},
@@ -913,8 +912,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd-a",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
@@ -924,8 +923,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd-dup",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -985,15 +984,15 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("gpu-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "gpu-claim",
+								RequestName: "req1",
 							},
 						}},
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("hd-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "hd-claim",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -1013,15 +1012,15 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("gpu-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "gpu-claim",
+								RequestName: "req1",
 							},
 						}},
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("hd-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "hd-claim",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -1043,15 +1042,15 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("shared-claim"),
-								RequestName: ptr.To("gpu-req"),
+								ClaimName:   "shared-claim",
+								RequestName: "gpu-req",
 							},
 						}},
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("shared-claim"),
-								RequestName: ptr.To("hd-req"),
+								ClaimName:   "shared-claim",
+								RequestName: "hd-req",
 							},
 						}},
 					},
@@ -1072,8 +1071,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -1092,8 +1091,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},

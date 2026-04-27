@@ -109,8 +109,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 							GPUs: []v1.GPU{{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							}},
 						},
@@ -172,8 +172,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 							GPUs: []v1.GPU{{
 								Name: "vgpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							}},
 						},
@@ -237,8 +237,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 							GPUs: []v1.GPU{{
 								Name: "vgpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							}},
 						},
@@ -324,15 +324,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 								{
 									Name: "pgpu0",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("pgpu"),
-										RequestName: ptr.To("gpu"),
+										ClaimName:   "pgpu",
+										RequestName: "gpu",
 									},
 								},
 								{
 									Name: "vgpu0",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("vgpu"),
-										RequestName: ptr.To("vgpu"),
+										ClaimName:   "vgpu",
+										RequestName: "vgpu",
 									},
 								},
 							},
@@ -405,15 +405,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 								{
 									Name: "gpu1",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("claim1"),
-										RequestName: ptr.To("req1"),
+										ClaimName:   "claim1",
+										RequestName: "req1",
 									},
 								},
 								{
 									Name: "gpu2",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("claim2"),
-										RequestName: ptr.To("req2"),
+										ClaimName:   "claim2",
+										RequestName: "req2",
 									},
 								},
 							},

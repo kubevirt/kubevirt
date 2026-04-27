@@ -3864,8 +3864,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name:       "gpu",
 					DeviceName: "nvidia-gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("my-gpu-claim"),
-						RequestName: pointer.P("request-1"),
+						ClaimName:   "my-gpu-claim",
+						RequestName: "request-1",
 					},
 				},
 			}
@@ -3887,8 +3887,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{
 					Name: "gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("my-gpu-claim"),
-						RequestName: pointer.P("request-1"),
+						ClaimName:   "my-gpu-claim",
+						RequestName: "request-1",
 					},
 				},
 			}
@@ -3911,8 +3911,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{
 					Name: "gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("my-gpu-claim"),
-						RequestName: pointer.P("request-1"),
+						ClaimName:   "my-gpu-claim",
+						RequestName: "request-1",
 					},
 				},
 			}
@@ -3936,8 +3936,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{
 					Name: "gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("my-gpu-claim"),
-						RequestName: pointer.P("request-1"),
+						ClaimName:   "my-gpu-claim",
+						RequestName: "request-1",
 					},
 				},
 			}
