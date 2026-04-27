@@ -1813,7 +1813,7 @@ var _ = Describe("Manager", func() {
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration abort should be retried after transient failure", func() {
 			migrationErrorChan := make(chan error)
@@ -1880,7 +1880,7 @@ var _ = Describe("Manager", func() {
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 			Eventually(abortStatus, 2*time.Second, 100*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
 		It("migration should be canceled if timeout has been reached", func() {
@@ -1931,7 +1931,7 @@ var _ = Describe("Manager", func() {
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should switch to PostCopy", func() {
 			migrationErrorChan := make(chan error)
@@ -1979,7 +1979,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).Return(nil)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 		})
 
 		It("migration should switch to PostCopy eventually", func() {
@@ -2042,7 +2042,7 @@ var _ = Describe("Manager", func() {
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should switch to Paused if AllowWorkloadDisruption is allowed and PostCopy is not", func() {
 			migrationErrorChan := make(chan error)
@@ -2093,7 +2093,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().Suspend().Times(1).Return(nil)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should be canceled if Paused workload didn't migrate until timeout was reached", func() {
 			migrationErrorChan := make(chan error)
@@ -2150,7 +2150,7 @@ var _ = Describe("Manager", func() {
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 		})
 		// This is incomplete as it is not verifying that we abort. Previously it wasn't even testing anything at all
 		It("migration should be canceled when requested", func() {
@@ -2256,7 +2256,7 @@ var _ = Describe("Manager", func() {
 			)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
+			monitor.startMonitor(make(chan error, 1))
 			Eventually(func() string {
 				migration, _ := metadataCache.Migration.Load()
 				return migration.AbortStatus
@@ -2302,10 +2302,34 @@ var _ = Describe("Manager", func() {
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			done := make(chan struct{})
 			go func() {
-				monitor.startMonitor()
+				monitor.startMonitor(make(chan error, 1))
 				close(done)
 			}()
 			Eventually(done, 5*time.Second).Should(BeClosed())
+		})
+		It("monitor should signal error on ready channel if domain lookup fails", func() {
+			migrationErrorChan := make(chan error)
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 150,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+
+			manager := &LibvirtDomainManager{
+				virConn:       mockLibvirt.VirtConnection,
+				virtShareDir:  testVirtShareDir,
+				metadataCache: metadataCache,
+				cpuSetGetter:  fakeCpuSetGetter,
+			}
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, fmt.Errorf("domain not found"))
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			ready := make(chan error, 1)
+			monitor.startMonitor(ready)
+			Expect(ready).To(Receive(MatchError(ContainSubstring("domain not found"))))
 		})
 	})
 
