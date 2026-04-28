@@ -4,9 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "backup.go",
+        "backup_target_pvc.go",
         "backuptracker.go",
         "cbt.go",
-        "push-target-pvc.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/cbt",
     visibility = ["//visibility:public"],
@@ -50,11 +50,11 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "backup_target_pvc_test.go",
         "backup_test.go",
         "backuptracker_test.go",
         "cbt_suite_test.go",
         "cbt_test.go",
-        "push-target-pvc_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
