@@ -50,7 +50,7 @@ const (
 	defaultTlsKeyFilePath  = "/etc/virt-exportproxy/certificates/tls.key"
 
 	apiGroup           = "export.kubevirt.io"
-	apiVersions        = "v1beta1|v1"
+	apiVersions        = "v1alpha1|v1beta1|v1"
 	exportResourceName = "virtualmachineexports"
 )
 
