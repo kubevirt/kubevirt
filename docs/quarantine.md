@@ -45,6 +45,38 @@ We will consider test failures only in jobs where less than 5 tests failed, so
 that we don't take into account systemic failures caused for instance by an
 infrastructure problem.
 
+### Lifecycle
+
+Once a quarantine PR is merged, the following timeline applies:
+
+| Milestone      | Deadline               | Action                                                                  |
+|----------------|------------------------|-------------------------------------------------------------------------|
+| SIG assignment | Within 2 days of merge | Owning SIG is identified and a tracking issue is created                |
+| Fix window     | 4 weeks from merge     | SIG provides a fix and the test meets de-quarantine criteria            |
+| Warning        | 3 weeks from merge     | SIG is notified that the test will be deleted in 1 week if no fix lands |
+| Expiration     | 6 weeks from merge     | If no fix has been provided, the test is deleted                        |
+
+These deadlines apply to all quarantined tests, including release blockers.
+
+#### Example timeline
+
+```mermaid
+gantt
+    title Quarantine Test Lifecycle
+    dateFormat YYYY-MM-DD
+    tickInterval 1week
+
+    section Windows
+        SIG assignment              :vert, m1, 2026-05-01, 0d
+        Warning to SIG              :vert, m2, 2026-05-20, 0d
+        Fix deadline                :vert, m3, 2026-05-27, 0d
+        Test expiration (deletion)  :vert, m4, 2026-06-10, 0d
+        SIG assignment window             :active, sig, 2026-04-29, 2d
+        Fix window                        :fix, 2026-04-29, 28d
+        Warning period (fix or delete)    :crit, warn, 2026-05-20, 21d
+```
+
+
 ### Putting tests in quarantine
 
 A test must be put in quarantine when any of these conditions is met:
@@ -69,6 +101,20 @@ consecutive executions with the fix pass the test can be removed from the batch.
 Each quarantined test must have a team owner. The PR will add the text
 `[sig-{compute,network,storage,operator}]` to each test's description and
 the proper label decorator.
+
+#### Tracking issues
+
+Every quarantined test must have a corresponding GitHub issue. The quarantine
+PR must reference the tracking issue. The tracking issue must include:
+
+* Labels: `kind/flake`, `priority/critical-urgent`, and the owning SIG label
+  (e.g. `sig/compute`)
+* Quarantine entry date (date the quarantine PR was merged)
+* An individual assignee from the owning SIG
+* The quarantine deadline (6 weeks from entry date)
+
+The owning SIG must provide a status update on the tracking issue every 2 weeks.
+If no update is provided, sig-ci will ping the SIG lead on the issue.
 
 #### Quarantining release blockers
 
@@ -107,6 +153,24 @@ again. A member of the team assigned to each
 quarantined test will propose a PR to remove the text `[QUARANTINE]` and the
 label decorator from the test description in the code.
 After merging this PR the test will be out of quarantine.
+
+#### Fix deadline
+
+The owning SIG has 4 weeks from the date the quarantine PR is merged to provide
+a fix. The fix must bring the test's failure rate to 0.1% or less, as described
+above.
+
+At the 3-week mark, the owning SIG will be notified that the test is approaching
+its expiration deadline.
+
+#### Test expiration
+
+If no fix has been provided within 6 weeks of the quarantine PR being merged,
+the test will be deleted. A quarantined test that cannot be stabilized within
+this window is not providing value to the suite and should be removed.
+
+This policy applies equally to all quarantined tests, including those marked
+as release blockers.
 
 # Test Lane Quarantine
 
