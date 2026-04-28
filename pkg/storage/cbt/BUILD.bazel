@@ -7,6 +7,7 @@ go_library(
         "backup_target_pvc.go",
         "backuptracker.go",
         "cbt.go",
+        "pull_mode.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/cbt",
     visibility = ["//visibility:public"],
