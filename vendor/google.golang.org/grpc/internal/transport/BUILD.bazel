@@ -35,6 +35,7 @@ go_library(
         "//vendor/google.golang.org/grpc/internal/metadata:go_default_library",
         "//vendor/google.golang.org/grpc/internal/pretty:go_default_library",
         "//vendor/google.golang.org/grpc/internal/proxyattributes:go_default_library",
+        "//vendor/google.golang.org/grpc/internal/stats:go_default_library",
         "//vendor/google.golang.org/grpc/internal/status:go_default_library",
         "//vendor/google.golang.org/grpc/internal/syscall:go_default_library",
         "//vendor/google.golang.org/grpc/internal/transport/networktype:go_default_library",
