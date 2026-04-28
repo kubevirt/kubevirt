@@ -45,7 +45,7 @@ var _ = Describe("ParseCPUMask", func() {
 		Entry("whitespace in mask entries", "0, 1, 2", map[string]MaskType{
 			"0": Enabled, "1": Enabled, "2": Enabled,
 		}),
-		Entry("negation before range preserves negation", "^1,0-3", map[string]MaskType{
+		Entry("range does not override previously set entries", "^1,0-3", map[string]MaskType{
 			"0": Enabled, "1": Disabled, "2": Enabled, "3": Enabled,
 		}),
 		Entry("negation after range overrides range", "0-3,^1", map[string]MaskType{
@@ -68,6 +68,7 @@ var _ = Describe("ParseCPUMask", func() {
 		Entry("leading comma", ",0", "invalid mask value"),
 		Entry("trailing comma", "0,", "invalid mask value"),
 		Entry("whitespace-only entry", "0, ,2", "invalid mask value"),
+		Entry("negated range is invalid", "^0-3", "invalid mask value"),
 	)
 })
 
@@ -82,7 +83,7 @@ var _ = Describe("IsEnabled", func() {
 		Entry("disabled CPU via negation", "0-3,^2", "2", false),
 		Entry("CPU not in mask", "0-3", "10", false),
 		Entry("single set CPU is enabled", "5", "5", true),
-		Entry("unset CPU with non-empty mask", "^2", "0", false),
+		Entry("absent CPU with non-empty mask", "^2", "0", false),
 		Entry("negated-only CPU is disabled", "^0", "0", false),
 	)
 
