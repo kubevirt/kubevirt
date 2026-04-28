@@ -66,13 +66,8 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 		podnic.podInterfaceName = ifaceLink.Attrs().Name
 	}
 
-	if network.Pod != nil && network.Name != "default" {
-		log.DefaultLogger().Infof("Skipping DHCP configurator for network %q", network.Name)
-		podnic.dhcpConfigurator = nil
-	} else {
-		log.DefaultLogger().Infof("Creating DHCP configurator for network %q", network.Name)
-		podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
-	}
+	log.DefaultLogger().Infof("DHCP configurator is disabled for network %q", network.Name)
+	podnic.dhcpConfigurator = nil
 	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain, domainAttachment)
 
 	return podnic, nil
