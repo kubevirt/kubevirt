@@ -427,6 +427,7 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/sev/setupsession",
 					"virtualmachineinstances/sev/injectlaunchsecret",
+					"expand-vm-spec",
 				},
 				Verbs: []string{
 					"update",
