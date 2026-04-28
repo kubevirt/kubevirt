@@ -61,6 +61,12 @@ if [[ ! $TARGET =~ .*kind.* ]]; then
   export KUBEVIRT_PSA="true"
 fi
 
+# Temporarily disabled: minikube provider is in development and not ready for use
+if [[ $TARGET =~ .*minikube.* ]]; then
+  echo "ERROR: Minikube target is currently not enabled"
+  exit 1
+fi
+
 case "$TARGET" in
   *windows*)
     echo "picking the default provider for windows tests"
