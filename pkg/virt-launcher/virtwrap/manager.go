@@ -2267,7 +2267,6 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 	gaInfo := l.agentData.GetGA()
 
 	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-		GAVersion:         gaInfo.Version,
 		SupportedCommands: gaInfo.SupportedCommands,
 		Hostname:          sysInfo.Hostname,
 		FSFreezeStatus:    fsFreezestatus.Status,

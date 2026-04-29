@@ -292,8 +292,8 @@ var _ = Describe(SIG("GuestAgent info", func() {
 
 				return guestInfo.Hostname != "" &&
 					guestInfo.Timezone != "" &&
-					guestInfo.GAVersion != "" &&
 					guestInfo.OS.Name != "" &&
+					len(guestInfo.SupportedCommands) > 0 &&
 					len(guestInfo.FSInfo.Filesystems) > 0
 
 			}).WithTimeout(guestAgentConnectTimeout).
