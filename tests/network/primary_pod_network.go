@@ -25,7 +25,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -64,22 +63,8 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 
 		Context("VMI connected to the pod network using bridge binding", func() {
 			When("Guest Agent exists", func() {
-				var (
-					vmi   *v1.VirtualMachineInstance
-					vmiIP = func() string {
-						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IP")
-						return vmi.Status.Interfaces[0].IP
-					}
+				var vmi *v1.VirtualMachineInstance
 
-					vmiIPs = func() []string {
-						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IPs")
-						return vmi.Status.Interfaces[0].IPs
-					}
-				)
 				BeforeEach(func() {
 					libnet.SkipWhenClusterNotSupportIpv4()
 					var err error
@@ -93,17 +78,17 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 					libwait.WaitForSuccessfulVMIStart(vmi)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
-
-				It("should report PodIP/s on interface status", func() {
+				It("should report PodIP on interface status", func() {
 					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 
-					Eventually(vmiIP, 2*time.Minute, 5*time.Second).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
-					var podIPs []string
-					for _, ip := range vmiPod.Status.PodIPs {
-						podIPs = append(podIPs, ip.IP)
-					}
-					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(Equal(podIPs), "should contain VMI Status IP as Pod status IPs")
+					Eventually(func() error {
+						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+						return libnet.ValidateVMIandPodIPv4Match(updatedVMI, vmiPod)
+					}, 2*time.Minute, 5*time.Second).Should(Succeed())
 				})
 			})
 		})
