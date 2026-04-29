@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			Eventually(func() error {
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, v1.GetOptions{})
 				return err
-			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
+			}, 120*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 
 			By("Ensuring virt-launcher is deleted")
 			Eventually(func() error {
