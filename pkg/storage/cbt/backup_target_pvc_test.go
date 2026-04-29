@@ -135,11 +135,8 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				return testVMI, nil
 			})
 
-			syncInfo := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(attachTargetPVCMsg, testPVCName, testVMI.Name)))
+			err := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should successfully attach utility volume with Replace operation when list has existing volumes", func() {
@@ -166,9 +163,8 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				return testVMI, nil
 			})
 
-			syncInfo := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
+			err := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -176,8 +172,8 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 		It("should return nil when utilityVolumes is empty", func() {
 			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{}
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitializingEvent)
-			Expect(syncInfo).To(BeNil())
+			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should remove only the backup-target-pvc volume with Replace operation", func() {
@@ -212,11 +208,8 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				return testVMI, nil
 			})
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitiatedEvent)
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(detachTargetPVCMsg, testVMI.Name)))
+			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should use Remove operation when no volumes remain after detach", func() {
@@ -243,28 +236,24 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				return testVMI, nil
 			})
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitiatedEvent)
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(detachTargetPVCMsg, testVMI.Name)))
+			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
 	Context("verifyBackupTargetPVC", func() {
 		It("should fail when PVC name is nil", func() {
-			syncInfo := backupController.verifyBackupTargetPVC(nil, "default")
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err.Error()).To(ContainSubstring("nil"))
+			reason, err := backupController.verifyBackupTargetPVC(nil, "default")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("nil"))
+			Expect(reason).To(BeEmpty())
 		})
 
-		It("should fail when PVC doesn't exist in store", func() {
+		It("should return reason when PVC doesn't exist in store", func() {
 			nonExistentPVC := "non-existent-pvc"
-			syncInfo := backupController.verifyBackupTargetPVC(&nonExistentPVC, "default")
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(pvcNotFoundMsg, "default", nonExistentPVC)))
+			reason, err := backupController.verifyBackupTargetPVC(&nonExistentPVC, "default")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reason).To(ContainSubstring(fmt.Sprintf(pvcNotFoundMsg, "default", nonExistentPVC)))
 		})
 
 		It("should fail when PVC is block mode", func() {
@@ -279,10 +268,10 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			}
 			backupController.pvcStore.Add(pvc)
 
-			syncInfo := backupController.verifyBackupTargetPVC(&testPVCName, "default")
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err.Error()).To(ContainSubstring("block"))
+			reason, err := backupController.verifyBackupTargetPVC(&testPVCName, "default")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("block"))
+			Expect(reason).To(BeEmpty())
 		})
 
 		It("should succeed when PVC is filesystem mode", func() {
@@ -297,8 +286,9 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			}
 			backupController.pvcStore.Add(pvc)
 
-			syncInfo := backupController.verifyBackupTargetPVC(&testPVCName, "default")
-			Expect(syncInfo).To(BeNil())
+			reason, err := backupController.verifyBackupTargetPVC(&testPVCName, "default")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reason).To(BeEmpty())
 		})
 	})
 
@@ -314,10 +304,9 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				gomock.Any(),
 			).Return(nil, fmt.Errorf("attach patch failed"))
 
-			syncInfo := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err.Error()).To(ContainSubstring("attach patch failed"))
+			err := backupController.attachBackupTargetPVC(testVMI, testPVCName, testBackupVolumeName)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("attach patch failed"))
 		})
 
 		It("should handle patch errors during detach", func() {
@@ -339,10 +328,9 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				gomock.Any(),
 			).Return(nil, fmt.Errorf("detach patch failed"))
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitiatedEvent)
-			Expect(syncInfo).NotTo(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err.Error()).To(ContainSubstring("detach patch failed"))
+			err := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("detach patch failed"))
 		})
 	})
 })
