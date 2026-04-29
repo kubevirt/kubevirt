@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -524,15 +524,20 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	if migrationConfiguration.AllowWorkloadDisruption == nil {
 		migrationConfiguration.AllowWorkloadDisruption = pointer.P(*migrationConfiguration.AllowPostCopy)
 	}
+	if migrationConfiguration.MaxDowntime == nil {
+		migrationConfiguration.MaxDowntime = pointer.P(virtconfig.DefaultMigrationMaxDowntime)
+	}
 
 	options := &cmdclient.MigrationOptions{
 		Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
 		ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
 		CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
+		MaxDowntime:             *migrationConfiguration.MaxDowntime,
 		UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
 		AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 		AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
+		StallDetectionEnabled:   c.clusterConfig.MigrationStallDetectionEnabled(),
 	}
 
 	configureParallelMigrationThreads(options, vmi)
@@ -625,7 +630,7 @@ func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineI
 	}
 
 	if err := client.CancelVirtualMachineMigration(vmi); err != nil {
-		if err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
+		if err.Error() == migrationutils.CancelMigrationFailedVmiNotMigratingErr {
 			// If migration did not even start there is no need to cancel it
 			c.logger.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
 		}

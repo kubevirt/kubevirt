@@ -288,10 +288,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Bandwidth:                resource.MustParse("0Mi"),
 				ProgressTimeout:          150,
 				CompletionTimeoutPerGiB:  50,
+				MaxDowntime:              virtconfig.DefaultMigrationMaxDowntime,
 				UnsafeMigration:          false,
 				AllowPostCopy:            true,
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
+				StallDetectionEnabled:    false,
 				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
@@ -588,6 +590,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			Bandwidth:                resource.MustParse("0Mi"),
 			ProgressTimeout:          virtconfig.MigrationProgressTimeout,
 			CompletionTimeoutPerGiB:  virtconfig.MigrationCompletionTimeoutPerGiB,
+			MaxDowntime:              virtconfig.DefaultMigrationMaxDowntime,
 			UnsafeMigration:          virtconfig.DefaultUnsafeMigrationOverride,
 			AllowPostCopy:            virtconfig.MigrationAllowPostCopy,
 			ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),

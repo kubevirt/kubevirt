@@ -3344,9 +3344,13 @@ type MigrationConfiguration struct {
 	// If the timeout is reached, the migration will be either paused, switched
 	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
-	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
-	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
-	// then considered stuck and therefore cancelled. Defaults to 150
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=2000000
+	// MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
+	// Defaults to 900
+	MaxDowntime *int64 `json:"maxDowntime,omitempty"`
+	// ProgressTimeout is the number of seconds used by migration convergence detection to decide when
+	// pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
 	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
 	// UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
 	// for utility volumes to be detached. If utility volumes are still present after this timeout,

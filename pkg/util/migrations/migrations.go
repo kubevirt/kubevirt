@@ -16,12 +16,13 @@ import (
 const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
 
 const (
-	QueuePriorityRunning           int = 1000
-	QueuePrioritySystemCritical    int = 100
-	QueuePriorityUserTriggered     int = 50
-	QueuePrioritySystemMaintenance int = 20
-	QueuePriorityDefault           int = 0
-	QueuePriorityPending           int = -100
+	QEMUMaxMigrationDowntimeMS     int64 = 2_000_000
+	QueuePriorityRunning           int   = 1000
+	QueuePrioritySystemCritical    int   = 100
+	QueuePriorityUserTriggered     int   = 50
+	QueuePrioritySystemMaintenance int   = 20
+	QueuePriorityDefault           int   = 0
+	QueuePriorityPending           int   = -100
 )
 
 func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
