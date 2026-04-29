@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	dario.cat/mergo v1.0.2
 	github.com/cheggaaa/pb/v3 v3.1.0
+	github.com/cilium/ebpf v0.17.3
 	github.com/containernetworking/cni v1.3.0
 	github.com/containernetworking/plugins v1.7.1
 	github.com/containers/common v0.64.2
@@ -93,7 +94,6 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cilium/ebpf v0.17.3 // indirect
 	github.com/coreos/go-systemd/v22 v22.6.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
