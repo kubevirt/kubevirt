@@ -232,6 +232,42 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 	)
+
+	DescribeTable("should configure virtio-serial controller based on serial console setting", func(vmiOpts []libvmi.Option, expectedControllers []api.Controller) {
+		var domain api.Domain
+
+		// withHotplugDisabled() is applied to all entries to prevent the SCSI controller
+		// from being added (hotplug enabled triggers SCSI), keeping the test focused on the
+		// virtio-serial controller only.
+		vmi := libvmi.New(append([]libvmi.Option{withHotplugDisabled()}, vmiOpts...)...)
+
+		configurator := compute.NewControllersDomainConfigurator(
+			compute.ControllersWithUSBNeeded(!usbNeeded),
+			compute.ControllersWithVirtioSerialModel("virtio-test-model"),
+			compute.ControllersWithControllerDriver(nil),
+		)
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		Expect(domain).To(Equal(newDomainWithControllers(expectedControllers)))
+	},
+		Entry("when serial console is enabled by default (nil)",
+			nil,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
+		Entry("when serial console is explicitly enabled",
+			[]libvmi.Option{withSerialConsole()},
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
+		Entry("when serial console is disabled",
+			[]libvmi.Option{libvmi.WithoutSerialConsole()},
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+			}),
+	)
 })
 
 func newDomainWithControllers(controllers []api.Controller) api.Domain {
@@ -247,5 +283,12 @@ func newDomainWithControllers(controllers []api.Controller) api.Domain {
 func withHotplugDisabled() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.DisableHotplug = true
+	}
+}
+
+func withSerialConsole() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		enabled := true
+		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
 	}
 }
