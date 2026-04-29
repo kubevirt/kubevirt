@@ -29,7 +29,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -124,10 +124,10 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			vmiInterface.EXPECT().Patch(
 				context.Background(),
 				testVMI.Name,
-				k8stypes.JSONPatchType,
+				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt k8stypes.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchStr := string(data)
 				Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
 				Expect(patchStr).To(ContainSubstring("\"op\":\"add\""))
@@ -155,10 +155,10 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			vmiInterface.EXPECT().Patch(
 				context.Background(),
 				testVMI.Name,
-				k8stypes.JSONPatchType,
+				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt k8stypes.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchStr := string(data)
 				Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
 				Expect(patchStr).To(ContainSubstring("\"op\":\"replace\""))
@@ -201,10 +201,10 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			vmiInterface.EXPECT().Patch(
 				context.Background(),
 				testVMI.Name,
-				k8stypes.JSONPatchType,
+				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt k8stypes.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchStr := string(data)
 				Expect(patchStr).To(ContainSubstring("\"op\":\"replace\""))
 				Expect(patchStr).To(ContainSubstring("other-utility-volume"))
@@ -233,10 +233,10 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			vmiInterface.EXPECT().Patch(
 				context.Background(),
 				testVMI.Name,
-				k8stypes.JSONPatchType,
+				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
-			).DoAndReturn(func(ctx context.Context, name string, pt k8stypes.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			).DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchStr := string(data)
 				Expect(patchStr).To(ContainSubstring("\"op\":\"remove\""))
 				Expect(patchStr).To(ContainSubstring("/spec/utilityVolumes"))
@@ -309,7 +309,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			vmiInterface.EXPECT().Patch(
 				gomock.Any(),
 				gomock.Any(),
-				k8stypes.JSONPatchType,
+				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
 			).Return(nil, fmt.Errorf("attach patch failed"))
@@ -334,7 +334,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 			vmiInterface.EXPECT().Patch(
 				gomock.Any(),
 				gomock.Any(),
-				k8stypes.JSONPatchType,
+				types.JSONPatchType,
 				gomock.Any(),
 				gomock.Any(),
 			).Return(nil, fmt.Errorf("detach patch failed"))

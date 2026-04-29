@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -210,10 +210,6 @@ func (ctrl *VMBackupController) handleBackup(obj interface{}) {
 	}
 }
 
-func cacheKeyFunc(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
-}
-
 func (ctrl *VMBackupController) handleUpdateVMI(oldObj, newObj interface{}) {
 	ovmi, ok := oldObj.(*v1.VirtualMachineInstance)
 	if !ok {
@@ -228,7 +224,7 @@ func (ctrl *VMBackupController) handleUpdateVMI(oldObj, newObj interface{}) {
 	if equality.Semantic.DeepEqual(ovmi.Status, nvmi.Status) {
 		return
 	}
-	key := cacheKeyFunc(nvmi.Namespace, nvmi.Name)
+	key := types.NamespacedName{Namespace: nvmi.Namespace, Name: nvmi.Name}.String()
 
 	// Find backups directly referencing this VMI
 	keys, err := ctrl.backupInformer.GetIndexer().IndexKeys("vmi", key)
@@ -269,7 +265,7 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 		return
 	}
 
-	key := cacheKeyFunc(tracker.Namespace, tracker.Name)
+	key := types.NamespacedName{Namespace: tracker.Namespace, Name: tracker.Name}.String()
 
 	// Enqueue tracker for checkpoint redefinition if needed
 	if trackerNeedsCheckpointRedefinition(tracker) {
@@ -338,7 +334,7 @@ func getOwnerVMBackupKey(obj metav1.Object) string {
 	var key string
 	if ownerRef != nil {
 		if ownerRef.Kind == backupv1.VirtualMachineBackupGroupVersionKind.Kind && ownerRef.APIVersion == backupv1.VirtualMachineBackupGroupVersionKind.GroupVersion().String() {
-			key = controller.NamespacedKey(obj.GetNamespace(), ownerRef.Name)
+			key = types.NamespacedName{Namespace: obj.GetNamespace(), Name: ownerRef.Name}.String()
 		}
 	}
 	return key
@@ -793,7 +789,7 @@ func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachi
 		return backup, err
 	}
 
-	return ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 }
 
 func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMachineBackup) *SyncInfo {
@@ -811,7 +807,7 @@ func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMa
 		return syncInfoError(err)
 	}
 
-	_, err = ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to patch backup to remove finalizer: %w", err)
 		log.Log.With("VirtualMachineBackup", backup.Name).Error(err.Error())
@@ -832,7 +828,7 @@ func (ctrl *VMBackupController) getBackupTracker(backup *backupv1.VirtualMachine
 		return nil, nil
 	}
 
-	objKey := cacheKeyFunc(backup.Namespace, backup.Spec.Source.Name)
+	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()
 	obj, exists, err := ctrl.backupTrackerInformer.GetStore().GetByKey(objKey)
 	if err != nil {
 		log.Log.With("VirtualMachineBackup", backup.Name).Errorf("Failed to get BackupTracker from store: %v", err)
@@ -857,7 +853,7 @@ func (ctrl *VMBackupController) getBackupTracker(backup *backupv1.VirtualMachine
 }
 
 func (ctrl *VMBackupController) getVMI(namespace, sourceName string) (*v1.VirtualMachineInstance, bool, error) {
-	objKey := cacheKeyFunc(namespace, sourceName)
+	objKey := types.NamespacedName{Namespace: namespace, Name: sourceName}.String()
 
 	obj, exists, err := ctrl.vmiStore.GetByKey(objKey)
 	if err != nil {
@@ -872,7 +868,7 @@ func (ctrl *VMBackupController) getVMI(namespace, sourceName string) (*v1.Virtua
 }
 
 func (ctrl *VMBackupController) sourceVMExists(backup *backupv1.VirtualMachineBackup, sourceName string) (bool, error) {
-	objKey := cacheKeyFunc(backup.Namespace, sourceName)
+	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: sourceName}.String()
 	_, exists, err := ctrl.vmStore.GetByKey(objKey)
 	if err != nil {
 		err = fmt.Errorf("failed to get VM from store: %w", err)
@@ -927,7 +923,7 @@ func (ctrl *VMBackupController) removeSourceBackupInProgress(vmi *v1.VirtualMach
 		return syncInfoError(err)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to remove BackupInProgress from VMI %s/%s: %w", vmi.Namespace, vmi.Name, err)
 		log.Log.Error(err.Error())
@@ -968,7 +964,7 @@ func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMach
 		return err
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		log.Log.Errorf("Failed to update source backup in progress: %s", err)
 		return err
@@ -1084,7 +1080,7 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	_, err = ctrl.client.VirtualMachineBackupTracker(namespace).Patch(
 		context.Background(),
 		tracker.Name,
-		k8stypes.JSONPatchType,
+		types.JSONPatchType,
 		patchBytes,
 		metav1.PatchOptions{},
 		"status",
