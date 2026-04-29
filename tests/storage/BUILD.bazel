@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "backup.go",
         "datavolume.go",
         "declarative-hotplug.go",
         "events.go",
@@ -30,6 +31,7 @@ go_library(
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/velero:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
