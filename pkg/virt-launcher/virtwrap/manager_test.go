@@ -3814,6 +3814,44 @@ var _ = Describe("Manager helper functions", func() {
 
 	})
 
+	Context("isPVCBacked", func() {
+		It("should return true when volume has PersistentVolumeClaimInfo", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					VolumeStatus: []v1.VolumeStatus{
+						{
+							Name:                      "pvc-disk",
+							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{},
+						},
+					},
+				},
+			}
+			Expect(isPVCBacked("pvc-disk", vmi)).To(BeTrue())
+		})
+
+		It("should return false when volume has no PersistentVolumeClaimInfo", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					VolumeStatus: []v1.VolumeStatus{
+						{
+							Name: "containerdisk",
+						},
+					},
+				},
+			}
+			Expect(isPVCBacked("containerdisk", vmi)).To(BeFalse())
+		})
+
+		It("should return false when volume is not found", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					VolumeStatus: []v1.VolumeStatus{},
+				},
+			}
+			Expect(isPVCBacked("nonexistent", vmi)).To(BeFalse())
+		})
+	})
+
 	Context("possibleGuestSize", func() {
 
 		var properDisk api.Disk

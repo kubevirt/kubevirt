@@ -939,9 +939,21 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	return domain, err
 }
 
+func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == volumeName && vs.PersistentVolumeClaimInfo != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
+		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+			continue
+		}
 		if shouldExpandOffline(disk) {
 			ds := disksource.Resolve(disk)
 			possibleGuestSize, ok := possibleGuestSize(disk, ds)
@@ -1435,6 +1447,9 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Resize and notify the VM about changed disks
 	for _, disk := range domain.Spec.Devices.Disks {
+		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+			continue
+		}
 		ds := disksource.Resolve(disk)
 		if ok, possibleGuestSize := shouldExpandOnline(dom, disk, ds); ok {
 			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
