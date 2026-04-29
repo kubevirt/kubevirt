@@ -26,7 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/types"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -62,7 +62,7 @@ func (ctrl *VMBackupController) verifyBackupTargetPVC(pvcName *string, namespace
 		log.Log.Error(backupTargetPVCNameNilMsg)
 		return syncInfoError(fmt.Errorf("%s", backupTargetPVCNameNilMsg))
 	}
-	objKey := cacheKeyFunc(namespace, *pvcName)
+	objKey := types.NamespacedName{Namespace: namespace, Name: *pvcName}.String()
 	obj, exists, err := ctrl.pvcStore.GetByKey(objKey)
 	if err != nil {
 		err = fmt.Errorf("error getting PVC from store: %w", err)
@@ -77,7 +77,7 @@ func (ctrl *VMBackupController) verifyBackupTargetPVC(pvcName *string, namespace
 		}
 	}
 	pvc := obj.(*corev1.PersistentVolumeClaim)
-	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
+	if storagetypes.IsPVCBlock(pvc.Spec.VolumeMode) {
 		return syncInfoError(fmt.Errorf(backupTargetPVCBlockModeMsg, namespace, *pvcName))
 	}
 
@@ -153,7 +153,7 @@ func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInst
 		return syncInfoError(err)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		failedPatchErr := fmt.Errorf(failedTargetPVCAttach, err)
 		log.Log.Object(vmi).Errorf("%s", failedPatchErr.Error())
@@ -197,7 +197,7 @@ func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInst
 		return syncInfoError(failedPatchErr)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		failedPatchErr := fmt.Errorf(failedTargetPVCDetach, err)
 		log.Log.Object(vmi).Errorf("Failed to patch VMI: %s", failedPatchErr.Error())
