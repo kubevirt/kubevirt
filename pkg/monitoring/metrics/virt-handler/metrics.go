@@ -46,7 +46,7 @@ func SetupMetrics(
 		return err
 	}
 
-	if err := operatormetrics.RegisterMetrics(versionMetrics, machineTypeMetrics); err != nil {
+	if err := operatormetrics.RegisterMetrics(componentMetrics, versionMetrics, machineTypeMetrics); err != nil {
 		return err
 	}
 	SetVersionInfo()
