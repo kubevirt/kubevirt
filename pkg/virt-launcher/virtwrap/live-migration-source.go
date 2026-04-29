@@ -66,6 +66,56 @@ const (
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
 )
 
+const (
+	defaultMaxDowntimeMs           = 1050
+	defaultInitialDowntimeMs       = 150
+	defaultDowntimeSteps           = 7
+	defaultStartAfterIteration     = 3
+	defaultDowntimeCooldownSeconds = 10
+)
+
+type downtimeTuningConfig struct {
+	MaxDowntimeMs           uint64
+	InitialMs               uint64
+	Steps                   int
+	StartAfterIteration     uint64
+	DowntimeCooldownSeconds int
+}
+
+func downtimeTuning(exp *v1.ExperimentalMigrationConfiguration) *downtimeTuningConfig {
+	if exp == nil {
+		return nil
+	}
+	if exp.MaxDowntimeMs == nil && exp.DowntimeInitialMs == nil && exp.DowntimeSteps == nil &&
+		exp.DowntimeStartAfterIteration == nil && exp.DowntimeStepsCooldownSeconds == nil {
+		return nil
+	}
+
+	cfg := &downtimeTuningConfig{
+		MaxDowntimeMs:           defaultMaxDowntimeMs,
+		InitialMs:               defaultInitialDowntimeMs,
+		Steps:                   defaultDowntimeSteps,
+		StartAfterIteration:     defaultStartAfterIteration,
+		DowntimeCooldownSeconds: defaultDowntimeCooldownSeconds,
+	}
+	if exp.MaxDowntimeMs != nil {
+		cfg.MaxDowntimeMs = min(*exp.MaxDowntimeMs, 2000000) // QEMU max
+	}
+	if exp.DowntimeInitialMs != nil {
+		cfg.InitialMs = *exp.DowntimeInitialMs
+	}
+	if exp.DowntimeSteps != nil {
+		cfg.Steps = max(*exp.DowntimeSteps, 1)
+	}
+	if exp.DowntimeStartAfterIteration != nil {
+		cfg.StartAfterIteration = *exp.DowntimeStartAfterIteration
+	}
+	if exp.DowntimeStepsCooldownSeconds != nil {
+		cfg.DowntimeCooldownSeconds = max(*exp.DowntimeStepsCooldownSeconds, 1)
+	}
+	return cfg
+}
+
 type migrationDisks struct {
 	shared         map[string]bool
 	generated      map[string]bool
@@ -87,11 +137,37 @@ type migrationMonitor struct {
 	progressTimeout          int64
 	acceptableCompletionTime int64
 	migrationFailedWithError error
+
+	downtimeTuning      *downtimeTuningConfig
+	currentDowntimeMs   uint64
+	lastTunedAt         time.Time
+	downtimeInitialized bool
 }
 
 type inflightMigrationAborted struct {
 	message     string
 	abortStatus v1.MigrationAbortStatus
+}
+
+// Maps API compression enums to the libvirt VIR_MIGRATE_PARAM_COMPRESSION method names.
+var libvirtCompressionMethods = map[v1.MigrationCompression]string{
+	v1.MigrationCompressionZstd: "zstd",
+}
+
+func shouldCompressMigration(options *cmdclient.MigrationOptions) (bool, string) {
+	if options.Experimental == nil || options.Experimental.Compression == nil {
+		return false, ""
+	}
+	compression := *options.Experimental.Compression
+	if compression == v1.MigrationCompressionNone {
+		return false, ""
+	}
+	method, ok := libvirtCompressionMethods[compression]
+	if !ok {
+		log.Log.Warningf("Unsupported migration compression method %q, compression will be disabled", compression)
+		return false, ""
+	}
+	return true, method
 }
 
 func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
@@ -114,6 +190,9 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 	}
 	if shouldConfigureParallel, _ := shouldConfigureParallelMigration(options); shouldConfigureParallel {
 		migrateFlags |= libvirt.MIGRATE_PARALLEL
+	}
+	if shouldCompress, _ := shouldCompressMigration(options); shouldCompress {
+		migrateFlags |= libvirt.MIGRATE_COMPRESSED
 	}
 
 	return migrateFlags
@@ -415,6 +494,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
 		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		downtimeTuning:           downtimeTuning(options.Experimental),
 	}
 
 	return monitor
@@ -498,6 +578,52 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 	return nil
 }
 
+func (m *migrationMonitor) tuneDowntime(dom cli.VirDomain, iteration uint64) {
+	cfg := m.downtimeTuning
+	if cfg == nil {
+		return
+	}
+
+	logger := log.Log.Object(m.vmi)
+
+	if !m.downtimeInitialized {
+		m.currentDowntimeMs = cfg.InitialMs
+		if err := dom.MigrateSetMaxDowntime(m.currentDowntimeMs, 0); err != nil {
+			logger.Reason(err).Warning("Failed to set initial max_downtime")
+			return
+		}
+		logger.Infof("Downtime tuning: set initial max_downtime to %dms", m.currentDowntimeMs)
+		m.downtimeInitialized = true
+		return
+	}
+
+	if iteration >= cfg.StartAfterIteration && m.lastTunedAt.IsZero() {
+		m.lastTunedAt = time.Now()
+	}
+	if m.lastTunedAt.IsZero() || time.Since(m.lastTunedAt) < time.Duration(cfg.DowntimeCooldownSeconds)*time.Second {
+		return
+	}
+	if m.currentDowntimeMs >= cfg.MaxDowntimeMs {
+		return
+	}
+
+	step := cfg.MaxDowntimeMs / uint64(cfg.Steps)
+	if step < 1 {
+		step = 1
+	}
+	m.currentDowntimeMs += step
+	if m.currentDowntimeMs > cfg.MaxDowntimeMs {
+		m.currentDowntimeMs = cfg.MaxDowntimeMs
+	}
+	m.lastTunedAt = time.Now()
+
+	if err := dom.MigrateSetMaxDowntime(m.currentDowntimeMs, 0); err != nil {
+		logger.Reason(err).Warningf("Failed to set max_downtime to %dms", m.currentDowntimeMs)
+		return
+	}
+	logger.Infof("Downtime tuning: iteration %d, set max_downtime to %dms", iteration, m.currentDowntimeMs)
+}
+
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
 	logger := log.Log.Object(m.vmi)
 
@@ -510,6 +636,10 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		m.lastProgressUpdate = now
 	}
 	m.progressWatermark = m.remainingData
+
+	if stats.MemIterationSet {
+		m.tuneDowntime(dom, stats.MemIteration)
+	}
 
 	switch {
 	case m.isMigrationPostCopy():
@@ -709,14 +839,20 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 		return bytes * 8 / 1000000
 	}
 
+	compressionInfo := ""
+	if info.DataProcessed > 0 && info.MemNormalBytes > info.DataProcessed {
+		ratio := float64(info.MemNormalBytes) / float64(info.DataProcessed)
+		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
-		`DiskMbps:%d`,
+		`DiskMbps:%d%s`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
-		bpsToMbps(info.DiskBps),
+		bpsToMbps(info.DiskBps), compressionInfo,
 	))
 }
 
@@ -835,6 +971,12 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		params.DisksURISet = true
 		params.MigrateDisksDetectZeroesList = copyDisks
 		params.MigrateDisksDetectZeroesSet = true
+	}
+
+	if shouldCompress, method := shouldCompressMigration(options); shouldCompress {
+		params.CompressionSet = true
+		params.Compression = method
+		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", method)
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)

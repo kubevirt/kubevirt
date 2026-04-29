@@ -3376,6 +3376,53 @@ type MigrationConfiguration struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// Experimental holds advanced migration knobs gated behind the
+	// AdvancedLiveMigration feature gate. The entire section is ignored
+	// when the gate is disabled.
+	//+optional
+	Experimental *ExperimentalMigrationConfiguration `json:"experimental,omitempty"`
+}
+
+// MigrationCompression selects the compression algorithm for the live
+// migration data stream.
+// +kubebuilder:validation:Enum=none;zstd
+type MigrationCompression string
+
+const (
+	MigrationCompressionNone MigrationCompression = "none"
+	MigrationCompressionZstd MigrationCompression = "zstd"
+)
+
+// ExperimentalMigrationConfiguration holds migration knobs that are
+// gated behind the AdvancedLiveMigration feature gate. Fields may
+// graduate to top-level or be removed in future versions.
+type ExperimentalMigrationConfiguration struct {
+	// Compression selects the algorithm for compressing the live migration
+	// data stream. When omitted (nil) or set to "none", compression is
+	// disabled.
+	//+optional
+	Compression *MigrationCompression `json:"compression,omitempty"`
+	// MaxDowntimeMs is the maximum allowed downtime in milliseconds for the
+	// final switchover phase of the migration. Defaults to the cluster-level
+	// setting when nil.
+	//+optional
+	MaxDowntimeMs *uint64 `json:"maxDowntimeMs,omitempty"`
+	// DowntimeInitialMs is the initial max_downtime value in milliseconds
+	// set at the start of migration. Tuning steps increase from this value.
+	//+optional
+	DowntimeInitialMs *uint64 `json:"downtimeInitialMs,omitempty"`
+	// DowntimeSteps is the number of equal increments used to ramp from
+	// DowntimeInitialMs to MaxDowntimeMs.
+	//+optional
+	DowntimeSteps *int `json:"downtimeSteps,omitempty"`
+	// DowntimeStartAfterIteration is the memory copy iteration after which
+	// downtime tuning begins.
+	//+optional
+	DowntimeStartAfterIteration *uint64 `json:"downtimeStartAfterIteration,omitempty"`
+	// DowntimeStepsCooldownSeconds is the minimum interval in seconds
+	// between successive downtime increases.
+	//+optional
+	DowntimeStepsCooldownSeconds *int `json:"downtimeStepsCooldownSeconds,omitempty"`
 }
 
 // DiskVerification holds container disks verification limits

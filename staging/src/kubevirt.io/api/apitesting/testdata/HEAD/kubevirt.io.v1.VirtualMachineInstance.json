@@ -1004,7 +1004,15 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "experimental": {
+          "compression": "compressionValue",
+          "maxDowntimeMs": 18446744073709551603,
+          "downtimeInitialMs": 18446744073709551599,
+          "downtimeSteps": -13,
+          "downtimeStartAfterIteration": 18446744073709551589,
+          "downtimeStepsCooldownSeconds": -28
+        }
       },
       "targetCPUSet": [
         -12
