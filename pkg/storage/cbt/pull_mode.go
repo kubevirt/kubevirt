@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
@@ -156,7 +157,7 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 }
 
 func (ctrl *VMBackupController) getOrCreateBackupExport(vmi *v1.VirtualMachineInstance, backup *backupv1.VirtualMachineBackup) (*SyncInfo, *exportv1.VirtualMachineExport) {
-	objKey := cacheKeyFunc(backup.Namespace, backup.Name)
+	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
 	obj, exists, err := ctrl.vmExportStore.GetByKey(objKey)
 	if err != nil {
 		err = fmt.Errorf("error getting VMExport from store: %w", err)
@@ -206,7 +207,7 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 }
 
 func (ctrl *VMBackupController) waitForBackupExportReady(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) *SyncInfo {
-	objKey := cacheKeyFunc(backup.Namespace, backup.Name)
+	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
 	obj, exists, err := ctrl.vmExportStore.GetByKey(objKey)
 	if err != nil {
 		err = fmt.Errorf("error getting VMExport from store: %w", err)
@@ -269,7 +270,7 @@ func (ctrl *VMBackupController) waitForBackupExportReady(backup *backupv1.Virtua
 }
 
 func (ctrl *VMBackupController) validateExportHealth(backup *backupv1.VirtualMachineBackup) *SyncInfo {
-	objKey := cacheKeyFunc(backup.Namespace, backup.Name)
+	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
 	_, exists, err := ctrl.vmExportStore.GetByKey(objKey)
 	if err != nil {
 		return syncInfoError(fmt.Errorf("error getting VMExport from store: %w", err))
@@ -314,7 +315,7 @@ func (ctrl *VMBackupController) handlePullModeTTLExpiry(backup *backupv1.Virtual
 }
 
 func (ctrl *VMBackupController) cleanupBackupExport(backup *backupv1.VirtualMachineBackup) *SyncInfo {
-	objKey := cacheKeyFunc(backup.Namespace, backup.Name)
+	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
 	_, exists, err := ctrl.vmExportStore.GetByKey(objKey)
 	if err != nil {
 		return syncInfoError(fmt.Errorf("error getting VMExport from store during TTL expiry: %w", err))

@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -63,8 +63,8 @@ const (
 )
 
 var (
-	vmUID     k8stypes.UID = "vm-uid"
-	backupUID k8stypes.UID = "backup-uid"
+	vmUID     types.UID = "vm-uid"
+	backupUID types.UID = "backup-uid"
 )
 
 var _ = Describe("Backup Controller", func() {
@@ -227,7 +227,7 @@ var _ = Describe("Backup Controller", func() {
 			_, err = kubevirtClient.BackupV1alpha1().VirtualMachineBackups(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
-		key := fmt.Sprintf("%s/%s", backup.Namespace, backup.Name)
+		key := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
 		controller.backupQueue.Add(key)
 	}
 
@@ -263,15 +263,15 @@ var _ = Describe("Backup Controller", func() {
 				"vmi": func(obj interface{}) ([]string, error) {
 					backup := obj.(*backupv1.VirtualMachineBackup)
 					if backup.Spec.Source.Kind == v1.VirtualMachineGroupVersionKind.Kind {
-						return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)}, nil
+						return []string{types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()}, nil
 					}
-					key := fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)
+					key := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()
 					return []string{key}, nil
 				},
 				"backupTracker": func(obj interface{}) ([]string, error) {
 					backup := obj.(*backupv1.VirtualMachineBackup)
 					if backup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
-						return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)}, nil
+						return []string{types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()}, nil
 					}
 					return nil, nil
 				},
@@ -282,7 +282,7 @@ var _ = Describe("Backup Controller", func() {
 			cache.Indexers{
 				"vmi": func(obj interface{}) ([]string, error) {
 					tracker := obj.(*backupv1.VirtualMachineBackupTracker)
-					return []string{fmt.Sprintf("%s/%s", tracker.Namespace, tracker.Spec.Source.Name)}, nil
+					return []string{types.NamespacedName{Namespace: tracker.Namespace, Name: tracker.Spec.Source.Name}.String()}, nil
 				},
 			},
 		)
@@ -334,7 +334,7 @@ var _ = Describe("Backup Controller", func() {
 			backup.Spec.Source.Name = ""
 
 			addBackup(backup)
-			err := controller.execute(fmt.Sprintf("%s/%s", testNamespace, backupName))
+			err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backup.Name}.String())
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(errSourceNameEmpty))
 		})
@@ -668,7 +668,7 @@ var _ = Describe("Backup Controller", func() {
 			patched := false
 			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patchAction := action.(testing.PatchAction)
-				Expect(patchAction.GetPatchType()).To(Equal(k8stypes.JSONPatchType))
+				Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
 				patched = true
 
 				updatedBackup := backup.DeepCopy()
@@ -842,7 +842,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.pvcStore.Add(pvc)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
 			syncInfo := controller.sync(backup)
@@ -913,7 +913,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
 			syncInfo := controller.sync(backup)
@@ -938,7 +938,7 @@ var _ = Describe("Backup Controller", func() {
 
 			conflictErr := errors.NewApplyConflict([]metav1.StatusCause{}, "conflict error")
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(nil, conflictErr)
 
 			syncInfo := controller.sync(backup)
@@ -1042,7 +1042,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmiCanceled)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmiCanceled, nil)
 
 			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -1073,7 +1073,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
 			syncInfo := controller.sync(backup)
@@ -1101,7 +1101,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmiDetached)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmiDetached, nil)
 
 			syncInfo := controller.sync(backup)
@@ -1130,7 +1130,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(nil, fmt.Errorf("patch failed"))
 
 			syncInfo := controller.handleBackupInitiation(backup, vmi, nil, log.DefaultLogger())
@@ -1462,8 +1462,8 @@ var _ = Describe("Backup Controller", func() {
 
 			patched := false
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 					patched = true
 					Expect(string(patchBytes)).To(ContainSubstring("backupStatus"))
 					Expect(string(patchBytes)).To(ContainSubstring(backupName))
@@ -1546,8 +1546,8 @@ var _ = Describe("Backup Controller", func() {
 
 		patchCalled := false
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchCalled = true
 				Expect(string(patchBytes)).To(ContainSubstring("utilityVolumes"))
 				Expect(string(patchBytes)).To(ContainSubstring(pvcName))
@@ -1735,8 +1735,8 @@ var _ = Describe("Backup Controller", func() {
 		// Expect detach patch
 		patchCalled := false
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchCalled = true
 				Expect(string(patchBytes)).To(ContainSubstring("utilityVolumes"))
 				return vmi, nil
@@ -1782,8 +1782,8 @@ var _ = Describe("Backup Controller", func() {
 		// Expect patch to remove backup status
 		patchCalled := false
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				patchCalled = true
 				Expect(string(patchBytes)).To(ContainSubstring("backupStatus"))
 				Expect(string(patchBytes)).To(ContainSubstring("remove"))
@@ -1840,7 +1840,7 @@ var _ = Describe("Backup Controller", func() {
 
 			// Expect patch to remove backup status from VMI
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
 			// Expect patch to update backupTracker with checkpoint and volumes info
@@ -1930,7 +1930,7 @@ var _ = Describe("Backup Controller", func() {
 
 		// Expect VMI patch for detaching PVC (cleanup returns early)
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 			Return(vmi, nil)
 
 		syncInfo := controller.sync(backup)
@@ -2315,7 +2315,7 @@ var _ = Describe("Backup Controller", func() {
 			})
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
 			controller.sync(backup)
