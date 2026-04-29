@@ -589,7 +589,7 @@ genrule(
 
 filegroup(
     name = "coverage_files",
-    srcs = glob(["bazel-out/k8-fastbuild/testlogs/**/coverage.dat"]),
+    srcs = glob(["bazel-out/k8-fastbuild*/testlogs/**/coverage.dat"]),
 )
 
 genrule(
