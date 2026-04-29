@@ -53,6 +53,29 @@ func ValidateVMIandPodIPMatch(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod)
 	return nil
 }
 
+// ValidateVMIandPodIPv4Match Checks that the vmi pod and vmi scheme have matching IPv4 for primary interface
+// This is used for bridge binding where IPv6 addresses may differ (guest configures its own IPv6)
+func ValidateVMIandPodIPv4Match(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod) error {
+	if len(vmi.Status.Interfaces) == 0 {
+		return fmt.Errorf("VMI has no interfaces")
+	}
+
+	if vmi.Status.Interfaces[0].IP != vmiPod.Status.PodIP {
+		return fmt.Errorf("VMI Status.Interfaces[0].IP %s does not match pod's Status.PodIP %s",
+			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
+	}
+
+	podIPv4 := GetPodIPByFamily(vmiPod, k8sv1.IPv4Protocol)
+	vmiIPv4 := GetIP(vmi.Status.Interfaces[0].IPs, k8sv1.IPv4Protocol)
+
+	if vmiIPv4 != podIPv4 {
+		return fmt.Errorf("VMI IPv4 %s does not match pod's IPv4 %s (VMI IPs: %v, Pod IPs: %v)",
+			vmiIPv4, podIPv4, vmi.Status.Interfaces[0].IPs, vmiPod.Status.PodIPs)
+	}
+
+	return nil
+}
+
 // AssertAllPodIPsReportedOnVMI checks that each Pod IP is present in the VMI reported IPs
 func AssertAllPodIPsReportedOnVMI(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod) error {
 	if vmi.Status.Interfaces[0].IP != vmiPod.Status.PodIP {
