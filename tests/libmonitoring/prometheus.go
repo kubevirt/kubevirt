@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -36,12 +37,21 @@ import (
 )
 
 const (
-	statusSuccess           = "success"
-	defaultGomegaOffset     = 2
-	readBufferSize          = 1024
-	defaultAlertTimeout     = 120 * time.Second
-	defaultAlertWaitTimeout = 5 * time.Minute
-	defaultMetricsPort      = 8443
+	statusSuccess                   = "success"
+	defaultGomegaOffset             = 2
+	readBufferSize                  = 1024
+	defaultAlertTimeout             = 120 * time.Second
+	defaultAlertWaitTimeout         = 5 * time.Minute
+	defaultMetricsPort              = 8443
+	prometheusPortForwardTargetPort = 9090
+)
+
+var (
+	portForwardRe = regexp.MustCompile(
+		fmt.Sprintf(`Forwarding from 127\.0\.0\.1:(\d+) -> %d`, prometheusPortForwardTargetPort),
+	)
+
+	alertRangeVectorRe = regexp.MustCompile(`\[\d+m\]`)
 )
 
 type AlertRequestResult struct {
@@ -94,8 +104,8 @@ func WaitForMetricValueWithLabels(
 		return i
 	}, 3*time.Minute, 1*time.Second).Should(
 		Equal(expectedValue),
-		"Metric %s with labels %v has value %f, not the expected %f",
-		metric, labels, expectedValue, expectedValue,
+		"Metric %s with labels %v did not reach the expected value %f",
+		metric, labels, expectedValue,
 	)
 }
 
@@ -164,7 +174,7 @@ func labelsMatch(pr testing.PromResult, labels map[string]string) bool {
 }
 
 func fetchMetric(cli kubecli.KubevirtClient, query string) (*QueryRequestResult, error) {
-	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query?query=%s", query))
+	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query?query=%s", url.QueryEscape(query)))
 
 	var result QueryRequestResult
 	err := json.Unmarshal(bodyBytes, &result)
@@ -187,7 +197,7 @@ func QueryRange(
 ) (*QueryRequestResult, error) {
 	endpoint := fmt.Sprintf(
 		"/query_range?query=%s&start=%d&end=%d&step=%d",
-		query, start.Unix(), end.Unix(), int(step.Seconds()),
+		url.QueryEscape(query), start.Unix(), end.Unix(), int(step.Seconds()),
 	)
 	bodyBytes := DoPrometheusHTTPRequest(cli, endpoint)
 
@@ -205,18 +215,17 @@ func QueryRange(
 }
 
 func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte {
-	monitoringNs := getMonitoringNs(cli)
+	monitoringNs := getMonitoringNs()
 	token := getAuthorizationToken(cli, monitoringNs)
 
 	var result []byte
 	if checks.IsOpenShift() {
-		url := getPrometheusURLForOpenShift()
-		result = doHTTPRequest(url, endpoint, token)
+		promURL := getPrometheusURLForOpenShift()
+		result = doHTTPRequest(promURL, endpoint, token)
 	} else {
-		const targetPort = 9090
 		Eventually(func() error {
 			_, cmd, cmdErr := clientcmd.CreateCommandWithNS(monitoringNs, "kubectl",
-				"port-forward", "service/prometheus-k8s", fmt.Sprintf(":%d", targetPort))
+				"port-forward", "service/prometheus-k8s", fmt.Sprintf(":%d", prometheusPortForwardTargetPort))
 			if cmdErr != nil {
 				return cmdErr
 			}
@@ -227,11 +236,11 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 			if startErr := cmd.Start(); startErr != nil {
 				return startErr
 			}
-			sourcePort := WaitForPortForwardCmd(stdout, targetPort)
 			defer func() { _ = KillPortForwardCommand(cmd) }()
+			sourcePort := WaitForPortForwardCmd(stdout)
 
-			url := fmt.Sprintf("http://localhost:%d", sourcePort)
-			result = doHTTPRequest(url, endpoint, token)
+			promURL := fmt.Sprintf("http://localhost:%d", sourcePort)
+			result = doHTTPRequest(promURL, endpoint, token)
 			return nil
 		}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
 	}
@@ -251,7 +260,7 @@ func getPrometheusURLForOpenShift() string {
 	return fmt.Sprintf("https://%s", route.Spec.Host)
 }
 
-func doHTTPRequest(url, endpoint, token string) []byte {
+func doHTTPRequest(promURL, endpoint, token string) []byte {
 	var result []byte
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -262,7 +271,7 @@ func doHTTPRequest(url, endpoint, token string) []byte {
 		req, err := http.NewRequestWithContext(
 			context.Background(),
 			"GET",
-			fmt.Sprintf("%s/api/v1/%s", url, endpoint),
+			fmt.Sprintf("%s/api/v1/%s", promURL, endpoint),
 			http.NoBody,
 		)
 		if err != nil {
@@ -317,7 +326,7 @@ func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) stri
 	return token
 }
 
-func getMonitoringNs(cli kubecli.KubevirtClient) string {
+func getMonitoringNs() string {
 	if checks.IsOpenShift() {
 		return "openshift-monitoring"
 	}
@@ -327,15 +336,14 @@ func getMonitoringNs(cli kubecli.KubevirtClient) string {
 
 // WaitForPortForwardCmd reads kubectl's stdout until it sees the "Forwarding from"
 // readiness line, then returns the OS-assigned local port number.
-// kubectl prints "Forwarding from 127.0.0.1:<localPort> -> <dst>" once the tunnel is ready.
-func WaitForPortForwardCmd(stdout io.ReadCloser, dst int) int {
-	re := regexp.MustCompile(fmt.Sprintf(`Forwarding from 127\.0\.0\.1:(\d+) -> %d`, dst))
+// kubectl prints "Forwarding from 127.0.0.1:<localPort> -> <targetPort>" once the tunnel is ready.
+func WaitForPortForwardCmd(stdout io.ReadCloser) int {
 	var m []string
 	Eventually(func() []string {
 		tmp := make([]byte, readBufferSize)
 		_, err := stdout.Read(tmp)
 		Expect(err).NotTo(HaveOccurred())
-		m = re.FindStringSubmatch(string(tmp))
+		m = portForwardRe.FindStringSubmatch(string(tmp))
 		return m
 	}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
 	port, err := strconv.Atoi(m[1])
@@ -395,7 +403,6 @@ func WaitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ..
 
 func ReduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
 	newRules := getPrometheusAlerts(virtClient)
-	re := regexp.MustCompile(`\[\d+m\]`)
 
 	var gs []promv1.RuleGroup
 	zeroMinutes := promv1.Duration("0m")
@@ -406,7 +413,7 @@ func ReduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
 			rule.DeepCopyInto(&r)
 			if r.Alert != "" {
 				r.For = &zeroMinutes
-				r.Expr = intstr.FromString(re.ReplaceAllString(r.Expr.String(), `[1m]`))
+				r.Expr = intstr.FromString(alertRangeVectorRe.ReplaceAllString(r.Expr.String(), `[1m]`))
 				r.Expr = intstr.FromString(strings.ReplaceAll(r.Expr.String(), ">= 300", ">= 0"))
 			}
 			rs = append(rs, r)
