@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -64,22 +65,8 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 
 		Context("VMI connected to the pod network using bridge binding", func() {
 			When("Guest Agent exists", func() {
-				var (
-					vmi   *v1.VirtualMachineInstance
-					vmiIP = func() string {
-						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IP")
-						return vmi.Status.Interfaces[0].IP
-					}
+				var vmi *v1.VirtualMachineInstance
 
-					vmiIPs = func() []string {
-						var err error
-						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IPs")
-						return vmi.Status.Interfaces[0].IPs
-					}
-				)
 				BeforeEach(func() {
 					libnet.SkipWhenClusterNotSupportIpv4()
 					var err error
@@ -94,16 +81,16 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
-				It("should report PodIP/s on interface status", func() {
+				It("should report PodIP on interface status, with GuestAgent infoSource", func() {
 					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 
-					Eventually(vmiIP, 2*time.Minute, 5*time.Second).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
-					var podIPs []string
-					for _, ip := range vmiPod.Status.PodIPs {
-						podIPs = append(podIPs, ip.IP)
-					}
-					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(Equal(podIPs), "should contain VMI Status IP as Pod status IPs")
+					Eventually(func(g Gomega) {
+						updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(vmispec.ContainsInfoSource(updatedVMI.Status.Interfaces[0].InfoSource, vmispec.InfoSourceGuestAgent)).To(BeTrue(), "interface infoSource should include guest agent")
+						g.Expect(updatedVMI.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP))
+					}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 				})
 			})
 		})
