@@ -21,7 +21,19 @@ package core
 
 // Map from capability keys to their definitions
 var capabilityDefinitions = map[CapabilityKey]Capability{
-	// Add capabilities here as they are defined
+	// Experimental capabilities guarded by feature gates
+	CapVsock:                     CapVsockDef,
+	CapVirtiofsStorage:           CapVirtiofsStorageDef,
+	CapDownwardMetricsVolume:     CapDownwardMetricsVolumeDef,
+	CapDownwardMetricsDevice:     CapDownwardMetricsDeviceDef,
+	CapDeclarativeHotplugVolumes: CapDeclarativeHotplugVolumesDef,
+	CapNUMAGuestMapping:          CapNUMAGuestMappingDef,
+	CapHostDevicesPassthrough:    CapHostDevicesPassthroughDef,
+	CapHostDisk:                  CapHostDiskDef,
+	CapIgnitionSupport:           CapIgnitionSupportDef,
+	CapSidecarHooks:              CapSidecarHooksDef,
+	CapRebootPolicy:              CapRebootPolicyDef,
+	CapReservedOverheadMemlock:   CapReservedOverheadMemlockDef,
 }
 
 // Getter function to retrieve the definition of a capability by its key
