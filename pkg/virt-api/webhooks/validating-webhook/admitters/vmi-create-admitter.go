@@ -1471,7 +1471,10 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	causes = append(causes, storageadmitters.ValidateDisks(field.Child("devices").Child("disks"), spec.Devices.Disks)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
-	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) {
+	// TDX uses stateless firmware with Secure Boot keys embedded in the ROM;
+	// it does not need SMM to protect UEFI variable writes.
+	tdxEnabled := spec.LaunchSecurity != nil && spec.LaunchSecurity.TDX != nil
+	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) && !tdxEnabled {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
