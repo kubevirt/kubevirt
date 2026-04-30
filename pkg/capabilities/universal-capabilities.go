@@ -19,9 +19,90 @@
 
 package capabilities
 
+import (
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
+
 func RegisterUniversalCapabilities() {
 	// Register capability support levels for universal platforms
-	// TODO
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapVsock, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Vsock support is experimental on this platform.",
+		GatedBy: featuregate.VSOCKGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapVirtiofsStorage, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "VirtioFS storage support is experimental on this platform.",
+		GatedBy: featuregate.VirtIOFSStorageVolumeGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapDownwardMetricsVolume, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Downward metrics volume support is experimental on this platform.",
+		GatedBy: featuregate.DownwardMetricsFeatureGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapDownwardMetricsDevice, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Downward metrics device support is experimental on this platform.",
+		GatedBy: featuregate.DownwardMetricsFeatureGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapDeclarativeHotplugVolumes, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Declarative hotplug volumes support is experimental on this platform.",
+		GatedBy: featuregate.DeclarativeHotplugVolumesGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapHostDevicesPassthrough, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Host devices passthrough support is experimental on this platform.",
+		GatedBy: featuregate.HostDevicesGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapHostDisk, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Host disk support is experimental on this platform.",
+		GatedBy: featuregate.HostDiskGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapIgnitionSupport, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Ignition support is experimental on this platform.",
+		GatedBy: featuregate.IgnitionGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapSidecarHooks, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Sidecar hooks support is experimental on this platform.",
+		GatedBy: featuregate.SidecarGate,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapPersistentReservation, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Persistent reservation support is experimental on this platform.",
+		GatedBy: featuregate.PersistentReservation,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapVideoConfig, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Video configuration support is experimental on this platform.",
+		GatedBy: featuregate.VideoConfig,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapRebootPolicy, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Reboot policy support is experimental on this platform.",
+		GatedBy: featuregate.RebootPolicy,
+	})
+
+	core_capabilities.AddPlatformCapabilitySupport(core_capabilities.Universal, core_capabilities.CapReservedOverheadMemlock, core_capabilities.CapabilitySupport{
+		Level:   core_capabilities.Experimental,
+		Message: "Reserved overhead memlock support is experimental on this platform.",
+		GatedBy: featuregate.ReservedOverheadMemlock,
+	})
 }
 
 func init() {

@@ -21,7 +21,21 @@ package capabilities
 
 // Define a struct to hold a map from capability keys to their definitions
 var CapabilityDefinitions = map[CapabilityKey]Capability{
-	// Add capabilities here as they are defined
+	// Experimental capabilities guarded by feature gates
+	CapVsock:                     CapVsockDef,
+	CapVirtiofsStorage:           CapVirtiofsStorageDef,
+	CapDownwardMetricsVolume:     CapDownwardMetricsVolumeDef,
+	CapDownwardMetricsDevice:     CapDownwardMetricsDeviceDef,
+	CapDeclarativeHotplugVolumes: CapDeclarativeHotplugVolumesDef,
+	CapNUMAGuestMapping:          CapNUMAGuestMappingDef,
+	CapHostDevicesPassthrough:    CapHostDevicesPassthroughDef,
+	CapHostDisk:                  CapHostDiskDef,
+	CapIgnitionSupport:           CapIgnitionSupportDef,
+	CapSidecarHooks:              CapSidecarHooksDef,
+	CapPersistentReservation:     CapPersistentReservationDef,
+	CapVideoConfig:               CapVideoConfigDef,
+	CapRebootPolicy:              CapRebootPolicyDef,
+	CapReservedOverheadMemlock:   CapReservedOverheadMemlockDef,
 }
 
 // Define a struct to hold a map from platform information to the support levels of capabilities
