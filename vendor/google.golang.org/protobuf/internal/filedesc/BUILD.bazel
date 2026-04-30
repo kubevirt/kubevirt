@@ -11,6 +11,7 @@ go_library(
         "desc_list_gen.go",
         "editions.go",
         "placeholder.go",
+        "presence.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/internal/filedesc",
     importpath = "google.golang.org/protobuf/internal/filedesc",
