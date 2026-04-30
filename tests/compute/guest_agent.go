@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
 
@@ -296,14 +295,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 		})
 
 		It("[test_id:1677]VMI condition should signal agent presence", func() {
-			freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-			Expect(freshVMI.Status.Conditions).To(
-				ContainElement(
-					MatchFields(
-						IgnoreExtras,
-						Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-				"agent should already be connected")
+			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "agent should already be connected")
 		})
 
 		It("[test_id:4626]should have guestosinfo in status when agent is present", func() {
