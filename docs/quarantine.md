@@ -49,12 +49,13 @@ infrastructure problem.
 
 Once a quarantine PR is merged, the following timeline applies:
 
-| Milestone      | Deadline               | Action                                                                  |
-|----------------|------------------------|-------------------------------------------------------------------------|
-| SIG assignment | Within 2 days of merge | Owning SIG is identified and a tracking issue is created                |
-| Fix window     | 4 weeks from merge     | SIG provides a fix and the test meets de-quarantine criteria            |
-| Warning        | 3 weeks from merge     | SIG is notified that the test will be deleted in 1 week if no fix lands |
-| Expiration     | 6 weeks from merge     | If no fix has been provided, the test is deleted                        |
+| Milestone              | Deadline                                 | Action                                                                   |
+|------------------------|------------------------------------------|--------------------------------------------------------------------------|
+| SIG assignment         | 2 days from merge                        | SIG chair assigned as tracking issue owner; delegates within 2 days      |
+| Warning                | 3 weeks from merge                       | SIG is notified that the fix deadline expires in 1 week                  |
+| Fix deadline           | 4 weeks from merge                       | Fix must land; merge hold begins if not                                  |
+| Extension (optional)   | Up to 2 weeks after fix deadline         | Assignee must request with a concrete plan                               |
+| Test deletion          | 6 weeks from merge (or end of extension) | sig-ci opens a PR to delete the test                                     |
 
 These deadlines apply to all quarantined tests, including release blockers.
 
@@ -69,11 +70,12 @@ gantt
     section Windows
         SIG assignment              :vert, m1, 2026-05-01, 0d
         Warning to SIG              :vert, m2, 2026-05-20, 0d
-        Fix deadline                :vert, m3, 2026-05-27, 0d
-        Test expiration (deletion)  :vert, m4, 2026-06-10, 0d
+        Fix deadline / merge hold   :vert, m3, 2026-05-27, 0d
+        Test deletion               :vert, m4, 2026-06-10, 0d
         SIG assignment window             :active, sig, 2026-04-29, 2d
         Fix window                        :fix, 2026-04-29, 28d
-        Warning period (fix or delete)    :crit, warn, 2026-05-20, 21d
+        Warning period                    :crit, warn, 2026-05-20, 7d
+        Merge hold + extension window     :crit, ext, 2026-05-27, 14d
 ```
 
 
@@ -110,11 +112,14 @@ PR must reference the tracking issue. The tracking issue must include:
 * Labels: `kind/flake`, `priority/critical-urgent`, and the owning SIG label
   (e.g. `sig/compute`)
 * Quarantine entry date (date the quarantine PR was merged)
-* An individual assignee from the owning SIG
+* The SIG chair is assigned as initial owner of the tracking issue
+* The SIG chair either retains ownership or delegates to a specific individual
+  within 2 days
+* The assignee decides whether to fix or delete the test within the fix window
 * The quarantine deadline (6 weeks from entry date)
 
 The owning SIG must provide a status update on the tracking issue every 2 weeks.
-If no update is provided, sig-ci will ping the SIG lead on the issue.
+If no update is provided, sig-ci will ping the SIG chair on the issue.
 
 #### Quarantining release blockers
 
@@ -160,14 +165,33 @@ The owning SIG has 4 weeks from the date the quarantine PR is merged to provide
 a fix. The fix must bring the test's failure rate to 0.1% or less, as described
 above.
 
-At the 3-week mark, the owning SIG will be notified that the test is approaching
-its expiration deadline.
+At the 3-week mark, the owning SIG will be notified that the fix deadline
+expires in 1 week.
+
+#### Extension
+
+The assignee may request a one-time extension of up to 2 weeks by updating
+the tracking issue before the fix deadline. The extension must include a
+concrete plan for resolution. If the extension expires without a fix, sig-ci
+proceeds with deletion.
+
+#### Enforcement escalation
+
+Before test deletion, sig-ci may apply graduated enforcement:
+
+1. **Warning** (3 weeks): SIG is notified the fix deadline is approaching.
+2. **Merge hold** (4 weeks, if no fix): New feature and refactoring PRs from
+   the owning SIG are held from merging until the flaky test is resolved.
+   Bug fixes and test fixes are exempt. This mirrors the existing
+   [test lane quarantine](#test-lane-quarantine) policy.
+3. **Test deletion** (6 weeks, or after extension): sig-ci opens a deletion PR.
 
 #### Test expiration
 
-If no fix has been provided within 6 weeks of the quarantine PR being merged,
-the test will be deleted. A quarantined test that cannot be stabilized within
-this window is not providing value to the suite and should be removed.
+If no fix has been provided within the deadline (including any granted
+extension), sig-ci will open a PR to delete the test and ensure it is merged.
+A quarantined test that cannot be stabilized within this window is not providing
+value to the suite and should be removed.
 
 This policy applies equally to all quarantined tests, including those marked
 as release blockers.
