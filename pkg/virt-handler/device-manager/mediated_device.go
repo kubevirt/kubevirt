@@ -203,8 +203,8 @@ func (dpi *MediatedDevicePlugin) healthCheckFunc() error {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
-	dirName := filepath.Dir(devicePath)
-	err = watcher.Add(dirName)
+	deviceDir := filepath.Dir(devicePath)
+	err = watcher.Add(deviceDir)
 	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
@@ -226,8 +226,8 @@ func (dpi *MediatedDevicePlugin) healthCheckFunc() error {
 		monitoredDevices[vfioDevice] = dev.ID
 	}
 
-	dirName = filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
+	socketDir := filepath.Dir(dpi.socketPath)
+	err = watcher.Add(socketDir)
 
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
