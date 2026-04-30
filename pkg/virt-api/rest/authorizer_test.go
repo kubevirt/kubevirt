@@ -224,6 +224,32 @@ var _ = Describe("Authorizer", func() {
 				Entry("subresource v1alpha3 dump profiler", "/apis/subresources.kubevirt.io/v1alpha3/dump-cluster-profiler"),
 			)
 
+			DescribeTable("should use correct subresource in SAR", func(pathSuffix, expectedSubresource string) {
+				allowedFn = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+					Expect(sar.Spec.ResourceAttributes).ToNot(BeNil())
+					Expect(sar.Spec.ResourceAttributes.Subresource).To(Equal(expectedSubresource))
+					sar.Status.Allowed = true
+					return sar, nil
+				}
+
+				req.Request.Method = http.MethodGet
+				req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachineinstances/testvmi/" + pathSuffix
+				result, _, err := app.Authorize(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(BeTrue())
+			},
+				Entry("single-segment: console", "console", "console"),
+				Entry("single-segment: vnc", "vnc", "vnc"),
+				Entry("deep: vnc/screenshot", "vnc/screenshot", "vnc/screenshot"),
+				Entry("deep: sev/fetchcertchain", "sev/fetchcertchain", "sev/fetchcertchain"),
+				Entry("deep: sev/querylaunchmeasurement", "sev/querylaunchmeasurement", "sev/querylaunchmeasurement"),
+				Entry("deep: sev/setupsession", "sev/setupsession", "sev/setupsession"),
+				Entry("deep: sev/injectlaunchsecret", "sev/injectlaunchsecret", "sev/injectlaunchsecret"),
+				Entry("deep: evacuate/cancel", "evacuate/cancel", "evacuate/cancel"),
+				Entry("portforward with port", "portforward/8080", "portforward"),
+				Entry("portforward with port and protocol", "portforward/8080/tcp", "portforward"),
+			)
+
 			DescribeTable("should reject all users for unknown endpoint paths", func(path string) {
 				req.Request.URL.Path = path
 				result, _, err := app.Authorize(req)
