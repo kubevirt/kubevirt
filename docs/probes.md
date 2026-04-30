@@ -19,10 +19,21 @@ To easily define this on VM spec, specify `guestAgentPing: {}` in VM's readiness
 > Note: You can only define one of the type of probe.
 
 
-**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail. 
-Many images don't enabled the agent by default so make sure you either run one that does or enable it. 
+**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail.
+Many images don't enable the agent by default so make sure you either run one that does or enable it.
 
 Make sure to provide enough delay and failureThreshold for the VM and the agent to be online.
+
+### Behaviour during live migration
+
+During live migration the `guestAgentPing` probe is automatically suppressed on any virt-launcher pod where a ping to the guest agent fails with an unreachable-guest error:
+
+- **Pre-copy phase** — the guest is paused on the *target* pod while it receives incoming memory pages; it is still running on the source pod.
+- **Post-copy phase** — the guest is paused on the *source* pod, with execution handed off to the target; it is running on the target pod.
+
+Because the probe is implemented as a Kubernetes exec probe running inside each pod's compute container, kubelet executes it on both pods simultaneously. KubeVirt detects the migration-in-progress condition on each pod and returns a synthetic success so that Kubernetes does not restart the pod before it is terminated at the end of the migration.
+
+Other probe types (`exec`, `httpGet`, `tcpSocket`) are **not** suppressed during migration. Their failure semantics during migration are consistent with those of regular Kubernetes pods, and the existing `initialDelaySeconds` / `failureThreshold` knobs are the right way to tune their tolerance.
 
 ### Example
 

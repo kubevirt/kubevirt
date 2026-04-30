@@ -574,7 +574,7 @@ func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "Handler defines a specific action that should be taken",
 		"exec":           "One and only one of the following should be specified.\nExec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.\nIf the guest agent is not available, this probe will fail.\n+optional",
-		"guestAgentPing": "GuestAgentPing contacts the qemu-guest-agent for availability checks.\n+optional",
+		"guestAgentPing": "GuestAgentPing contacts the qemu-guest-agent for availability checks.\nDuring live migration the probe is suppressed on any pod where the guest\nis not actually running: the target pod in pre-copy phase (VM paused,\nreceiving memory pages) and the source pod in post-copy phase (VM paused,\nexecution handed off to target). Once migration completes those pods are\nterminated.\n+optional",
 		"httpGet":        "HTTPGet specifies the http request to perform.\n+optional",
 		"tcpSocket":      "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
 	}
