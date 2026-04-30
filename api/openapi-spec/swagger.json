@@ -18636,7 +18636,7 @@
       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
      },
      "guestAgentVersion": {
-      "description": "deprecated",
+      "description": "Deprecated: please use SupportedCommands to determine compatibility",
       "type": "string"
      },
      "hostname": {

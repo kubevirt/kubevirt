@@ -27272,7 +27272,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 					},
 					"guestAgentVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "deprecated",
+							Description: "Deprecated: please use SupportedCommands to determine compatibility",
 							Type:        []string{"string"},
 							Format:      "",
 						},

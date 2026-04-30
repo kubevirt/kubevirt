@@ -2807,7 +2807,7 @@ type EvacuateCancelOptions struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineInstanceGuestAgentInfo struct {
 	metav1.TypeMeta `json:",inline"`
-	// deprecated
+	// Deprecated: please use SupportedCommands to determine compatibility
 	GAVersion string `json:"guestAgentVersion,omitempty"`
 	// Return command list the guest agent supports
 	// +listType=atomic
