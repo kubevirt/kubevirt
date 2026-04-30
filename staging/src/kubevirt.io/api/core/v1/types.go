@@ -1400,6 +1400,11 @@ const (
 	// This annotation is set by virt-handler based on the cluster configuration.
 	QGSSocketPathAnnotation = "kubevirt.io/qgs-socket-path"
 
+	// PauseGuestAgentProbesAnnotation, when set to "true" on a VMI, causes
+	// virt-launcher to short-circuit GuestAgentPing probe calls and return
+	// immediate success without contacting the QEMU guest agent.
+	PauseGuestAgentProbesAnnotation string = "kubevirt.io/pause-guest-agent-probes"
+
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
 	// This label will be applied to the following virt pods:

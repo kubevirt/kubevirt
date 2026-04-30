@@ -3024,6 +3024,90 @@ var _ = Describe("Manager", func() {
 				Expect(manager.GuestPing(testDomainName)).To(Succeed())
 			})
 		})
+
+		Context("when guest agent probes are paused by annotation", func() {
+			It("should return success without calling QemuAgentCommand", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				manager.(*LibvirtDomainManager).guestAgentProbePaused.Store(true)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should resume normal probe behavior when unpaused", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				manager.(*LibvirtDomainManager).guestAgentProbePaused.Store(true)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+
+				manager.(*LibvirtDomainManager).guestAgentProbePaused.Store(false)
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", nil)
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+		})
+	})
+
+	Context("syncGuestAgentProbePaused", func() {
+		It("should set paused to true when annotation is present", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						v1.PauseGuestAgentProbesAnnotation: "true",
+					},
+				},
+			}
+			ldm.syncGuestAgentProbePaused(vmi)
+			Expect(ldm.guestAgentProbePaused.Load()).To(BeTrue())
+		})
+
+		It("should set paused to false when annotation is absent", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			ldm.guestAgentProbePaused.Store(true)
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			}
+			ldm.syncGuestAgentProbePaused(vmi)
+			Expect(ldm.guestAgentProbePaused.Load()).To(BeFalse())
+		})
+
+		It("should set paused to false when annotation value is not 'true'", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						v1.PauseGuestAgentProbesAnnotation: "false",
+					},
+				},
+			}
+			ldm.syncGuestAgentProbePaused(vmi)
+			Expect(ldm.guestAgentProbePaused.Load()).To(BeFalse())
+		})
+
+		It("should set paused to false when annotation value is empty string", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						v1.PauseGuestAgentProbesAnnotation: "",
+					},
+				},
+			}
+			ldm.syncGuestAgentProbePaused(vmi)
+			Expect(ldm.guestAgentProbePaused.Load()).To(BeFalse())
+		})
+
+		It("should handle nil annotations map", func() {
+			manager, _ := newLibvirtDomainManagerDefault()
+			ldm := manager.(*LibvirtDomainManager)
+			ldm.guestAgentProbePaused.Store(true)
+			vmi := &v1.VirtualMachineInstance{}
+			ldm.syncGuestAgentProbePaused(vmi)
+			Expect(ldm.guestAgentProbePaused.Load()).To(BeFalse())
+		})
 	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
