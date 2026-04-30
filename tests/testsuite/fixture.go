@@ -43,12 +43,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libhypervisor"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -119,7 +119,7 @@ func SynchronizedBeforeTestSetup() []byte {
 		createFakeKWOKNodes()
 	}
 
-	EnsureKVMPresent()
+	EnsureHypervisorPresent()
 	AdjustKubeVirtResource()
 	EnsureKubevirtReady()
 
@@ -219,13 +219,17 @@ func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	return allowEmulation
 }
 
-func EnsureKVMPresent() {
+func EnsureHypervisorPresent() {
 	virtClient := kubevirt.Client()
 
 	if !shouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		// Construct hypervisor K8s resource name, e.g. devices.kubevirt.io/kvm
+		hypervisorDevice := libhypervisor.GetHypervisorDeviceName(virtClient)
+		hypervisorResource := k8sv1.ResourceName(services.K8sDevicePrefix + "/" + hypervisorDevice)
 
 		EventuallyWithOffset(1, func() bool {
 			ready := true
@@ -234,16 +238,15 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmLauncherResources := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
-				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.ConstructHypervisorResourceName(kvmLauncherResources)]
+				hypervisorDevAllocatable, ok1 := virtHandlerNode.Status.Allocatable[hypervisorResource]
 
 				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok1 && ok2
-				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
+				ready = ready && (hypervisorDevAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
+			fmt.Sprintf("Both %s and vhost-net devices are required for testing, but are not present on cluster nodes", hypervisorDevice))
 	}
 }
 
@@ -291,6 +294,10 @@ func createFakeKWOKNodes() {
 }
 
 func newFakeKWOKNode(nodeName string) *k8sv1.Node {
+	// Construct hypervisor K8s resource name, e.g. devices.kubevirt.io/kvm
+	hypervisorDevice := libhypervisor.GetHypervisorDeviceName(kubevirt.Client())
+	hypervisorResource := k8sv1.ResourceName(services.K8sDevicePrefix + "/" + hypervisorDevice)
+
 	return &k8sv1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -335,7 +342,7 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 				k8sv1.ResourceMemory:            resource.MustParse("256Gi"),
 				k8sv1.ResourceEphemeralStorage:  resource.MustParse("100Gi"),
 				k8sv1.ResourcePods:              resource.MustParse("110"),
-				"devices.kubevirt.io/kvm":       resource.MustParse("1k"),
+				hypervisorResource:              resource.MustParse("1k"),
 				"devices.kubevirt.io/tun":       resource.MustParse("1k"),
 				"devices.kubevirt.io/vhost-net": resource.MustParse("1k"),
 			},
@@ -344,7 +351,7 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 				k8sv1.ResourceMemory:            resource.MustParse("256Gi"),
 				k8sv1.ResourceEphemeralStorage:  resource.MustParse("100Gi"),
 				k8sv1.ResourcePods:              resource.MustParse("110"),
-				"devices.kubevirt.io/kvm":       resource.MustParse("1k"),
+				hypervisorResource:              resource.MustParse("1k"),
 				"devices.kubevirt.io/tun":       resource.MustParse("1k"),
 				"devices.kubevirt.io/vhost-net": resource.MustParse("1k"),
 			},
