@@ -165,8 +165,8 @@ func (plugin *USBDevicePlugin) healthCheckFunc() error {
 		}
 	}
 
-	dirName := filepath.Dir(plugin.socketPath)
-	if err := watcher.Add(dirName); err != nil {
+	socketDir := filepath.Dir(plugin.socketPath)
+	if err := watcher.Add(socketDir); err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	} else if _, err = os.Stat(plugin.socketPath); err != nil {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)

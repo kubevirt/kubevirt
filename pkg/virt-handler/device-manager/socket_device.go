@@ -186,8 +186,8 @@ func (dpi *SocketDevicePlugin) healthCheckFunc() error {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
-	socketDir := filepath.Dir(dpi.devicePath)
-	err = watcher.Add(socketDir)
+	deviceDir := filepath.Dir(devicePath)
+	err = watcher.Add(deviceDir)
 	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
@@ -202,6 +202,7 @@ func (dpi *SocketDevicePlugin) healthCheckFunc() error {
 	}
 	logger.Infof("device '%s' is present.", devicePath)
 
+	socketDir := filepath.Dir(dpi.socketPath)
 	err = watcher.Add(socketDir)
 
 	if err != nil {
