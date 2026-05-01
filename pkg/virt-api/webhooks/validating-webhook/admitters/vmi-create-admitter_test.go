@@ -432,7 +432,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
 		})
 
-		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
+		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, featureGate string, unsupportedField string) {
 			vmi := newBaseVmi()
 			vmi.Annotations = annotations
 
@@ -443,16 +443,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring(expectedMsg))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal(unsupportedField))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring(fmt.Sprintf("feature gate '%s' is not enabled", featureGate)))
 		},
 			Entry("without ExperimentalIgnitionSupport feature gate enabled",
 				map[string]string{v1.IgnitionAnnotation: "fake-data"},
-				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.IgnitionAnnotation),
+				featuregate.IgnitionGate,
+				fmt.Sprintf("metadata.annotations.%s", v1.IgnitionAnnotation),
 			),
 			Entry("without sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
-				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
+				featuregate.SidecarGate,
+				fmt.Sprintf("metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
 		)
 
@@ -1241,13 +1244,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			vmi := libvmi.New(vmiOption)
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			causes := ValidateCapabilities(vmi, config)
 
 			if shouldAllow {
 				Expect(causes).To(BeEmpty())
 			} else {
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems"))
+				// The error is expected to be caused by the first filesystem
+				Expect(causes[0].Field).To(Equal("spec.domain.devices.filesystems[0]"))
 			}
 
 		},
@@ -1269,9 +1273,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			causes := ValidateCapabilities(vmi, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices"))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		})
 
 		It("should accept host devices that are not permitted in the hostdev config", func() {
@@ -1553,10 +1558,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				ReservedOverhead: &v1.ReservedOverhead{},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			causes := ValidateCapabilities(vmi, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.memory.reservedOverhead"))
-			Expect(causes[0].Message).To(Equal("Reserved overhead memlock feature gate is not enabled in kubevirt-config"))
+			Expect(causes[0].Field).To(Equal("spec.domain.memory.reservedOverhead"))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		})
 
 	})
@@ -2005,7 +2010,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with downwardmetrics virtio serial", func() {
 		var vmi *v1.VirtualMachineInstance
 		validate := func() []metav1.StatusCause {
-			return validateDownwardMetrics(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			return ValidateCapabilities(vmi, config)
 		}
 
 		BeforeEach(func() {
@@ -2022,9 +2027,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject if feature gate is not enabled", func() {
 			causes := validate()
 			Expect(causes).To(HaveLen(1))
-			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueInvalid,
-				Field:   "fake.domain.devices.downwardMetrics",
-				Message: "downwardMetrics virtio serial is not allowed: DownwardMetrics feature gate is not enabled"}))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.downwardMetrics"))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 		})
 	})
 
@@ -2873,9 +2877,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			It("should reject when the feature gate is disabled", func() {
 				disableFeatureGates()
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				causes := ValidateCapabilities(vmi, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.VSOCKGate)))
+				Expect(causes[0].Field).To(Equal("spec.domain.devices.autoattachVSOCK"))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 			})
 		})
 	})
@@ -3543,9 +3548,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			It("should reject when the feature gate is disabled", func() {
 				disableFeatureGates()
 				addLunDiskWithPersistentReservation(vmi)
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				causes := ValidateCapabilities(vmi, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.PersistentReservation)))
+				Expect(causes[0].Field).To(Equal("spec.domain.devices.disks[0].lun.reservation"))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
 			})
 		})
 	})
@@ -3730,11 +3736,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject when the feature gate is disabled", func() {
 			disableFeatureGates()
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			causes := ValidateCapabilities(vmi, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig)))
-			Expect(causes[0].Field).To(Equal("fake.video"))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.video"))
 		})
 
 		It("should reject when autoattachGraphicsDevice is set to false", func() {
@@ -3825,11 +3830,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			)
 			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			causes := ValidateCapabilities(vmi, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy)))
-			Expect(causes[0].Field).To(Equal("fake.domain.rebootPolicy"))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+			Expect(causes[0].Field).To(Equal("spec.domain.rebootPolicy"))
 		})
 	})
 
