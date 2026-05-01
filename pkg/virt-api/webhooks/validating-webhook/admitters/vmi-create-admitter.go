@@ -26,6 +26,7 @@ import (
 	"net"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -46,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -118,6 +120,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, validateSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	}
 
+	causes = append(causes, ValidateCapabilities(vmi, admitter.ClusterConfig)...)
+
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -168,6 +172,65 @@ func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.Virtua
 			Message: fmt.Sprintf("unsupported architecture: %s", arch),
 			Field:   field.Child("architecture").String(),
 		})
+	}
+
+	return causes
+}
+
+func ValidateCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	// Get the hypervisor in use from cluster configuration
+	hypervisor := config.GetHypervisor()
+	arch := vmi.Spec.Architecture
+
+	// Retrieve the capability support information for the given hypervisor and architecture
+	supports := core_capabilities.GetCapabilitiesSupportForPlatform(hypervisor.Name, arch)
+
+	// Sort the capabilities by key to ensure deterministic order of validation and error reporting
+	var sortedCapabilities []core_capabilities.CapabilityKey
+	for capKey := range supports {
+		sortedCapabilities = append(sortedCapabilities, capKey)
+	}
+	sort.Slice(sortedCapabilities, func(i, j int) bool {
+		return sortedCapabilities[i] < sortedCapabilities[j]
+	})
+
+	// Validate the capabilities in the spec against the supported capabilities
+	for _, capKey := range sortedCapabilities {
+		capSupport := supports[capKey]
+		capabilityDef, found := core_capabilities.GetCapabilityDefinition(capKey)
+		if !found {
+			// If the capability definition is not found, skip validation for this capability
+			continue
+		}
+
+		// Check if this capability is required by the VMI and get all field paths where it's used
+		fieldPaths := capabilityDef.GetRequiredFields(vmi)
+		if len(fieldPaths) > 0 {
+			switch capSupport.Level {
+			case core_capabilities.Unsupported:
+				// Add error cause for each field path that uses this unsupported capability
+				for _, fieldPath := range fieldPaths {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: capSupport.Message,
+						Field:   fieldPath.String(),
+					})
+				}
+			case core_capabilities.Experimental:
+				if capSupport.GatedBy != "" && !config.IsFeatureGateEnabled(capSupport.GatedBy) {
+					// Add error cause for each field path that requires this experimental capability
+					for _, fieldPath := range fieldPaths {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: capSupport.Message + fmt.Sprintf(". But feature gate '%s' is not enabled", capSupport.GatedBy),
+							Field:   fieldPath.String(),
+						})
+					}
+				}
+			}
+		}
 	}
 
 	return causes
