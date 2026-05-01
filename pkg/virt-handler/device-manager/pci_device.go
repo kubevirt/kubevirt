@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	v1 "kubevirt.io/api/core/v1"
@@ -54,8 +53,8 @@ type PCIDevicePlugin struct {
 	iommuToPCIMap map[string]string
 }
 
-func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
-	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
+func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *DevicePlugin {
+	serverSock := strings.Replace(resourceName, "/", "-", -1)
 	iommuToPCIMap := make(map[string]string)
 
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
@@ -63,22 +62,15 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         devs,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			socketPath:   serverSock,
-			devicePath:   vfioDevicePath,
 			resourceName: resourceName,
 			deviceRoot:   util.HostRootMount,
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
+			devicePath:   vfioDevicePath,
+			socketPath:   SocketPath(serverSock),
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
-	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
-	dpi.allocateDP = dpi.allocateDPFunc
-	dpi.deviceNameByID = dpi.deviceNameByIDFunc
-	return dpi
+
+	return newDevicePlugin(dpi)
 }
 
 func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
@@ -101,7 +93,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 	return
 }
 
-func (dpi *PCIDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *PCIDevicePlugin) allocateDP(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
@@ -128,7 +120,7 @@ func (dpi *PCIDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.Alloc
 	return resp, nil
 }
 
-func (dpi *PCIDevicePlugin) deviceNameByIDFunc(monDevId string) string {
+func (dpi *PCIDevicePlugin) deviceNameByID(monDevId string) string {
 	pciID, ok := dpi.iommuToPCIMap[monDevId]
 	if !ok {
 		pciID = "not recognized"
@@ -155,7 +147,7 @@ func setupVFIOMonitoredDevices(deviceRoot, devicePath string, devs []*pluginapi.
 	return nil
 }
 
-func (dpi *PCIDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+func (dpi *PCIDevicePlugin) setupMonitoredDevices(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }
 

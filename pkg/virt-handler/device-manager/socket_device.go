@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"kubevirt.io/client-go/log"
@@ -39,8 +38,9 @@ import (
 
 type SocketDevicePlugin struct {
 	*DevicePluginBase
-	p        permissionManager
-	executor selinux.Executor
+	p            permissionManager
+	executor     selinux.Executor
+	healthChecks bool
 }
 
 func (dpi *SocketDevicePlugin) setSocketPermissions() error {
@@ -91,69 +91,70 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *SocketDevicePlugin {
-	socketRoot := "/"
+func newSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool, healthChecks bool) *DevicePlugin {
+	deviceRoot := "/"
 	if useHostRootMount {
-		socketRoot = util.HostRootMount
+		deviceRoot = util.HostRootMount
 	}
 	dpi := &SocketDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         []*pluginapi.Device{},
-			healthUpdate: make(chan struct{}, 1),
 			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-			socketPath:   SocketPath(strings.Replace(socketName, "/", "-", -1)),
-			deviceRoot:   socketRoot,
+			deviceRoot:   deviceRoot,
 			devicePath:   filepath.Join(socketDir, socketFile),
+			socketPath:   SocketPath(strings.Replace(socketName, "/", "-", -1)),
 		},
-		p:        p,
-		executor: executor,
+		p:            p,
+		executor:     executor,
+		healthChecks: healthChecks,
 	}
 
-	dpi.deviceNameByID = dpi.deviceNameByIDFunc
-	dpi.allocateDP = dpi.allocateDPFunc
-	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
-
-	// If permission manager and executor are not provided, we assume that device doesn't need any permissions configured.
-	if dpi.p != nil && executor != nil {
-		dpi.configurePermissions = func(_ *safepath.Path) error {
-			// Set directory permissions first
-			if err := dpi.setSocketDirectoryPermissions(); err != nil {
-				return err
-			}
-			// Then set socket permissions
-			return dpi.setSocketPermissions()
-		}
+	health := pluginapi.Unhealthy
+	if !healthChecks {
+		health = pluginapi.Healthy
 	}
 
 	for i := range maxDevices {
 		deviceId := socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
-			Health: pluginapi.Unhealthy,
+			Health: health,
 		})
 	}
 
-	return dpi
+	return newDevicePlugin(dpi)
+}
+
+func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *DevicePlugin {
+	return newSocketDevicePlugin(socketName, socketDir, socketFile, maxDevices, executor, p, useHostRootMount, true)
 }
 
 // NewOptionalSocketDevicePlugin creates a SocketDevicePlugin where health checks are overriden to always return healthy
-func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *SocketDevicePlugin {
-	dpi := NewSocketDevicePlugin(socketName, socketDir, socket, maxDevices, executor, p, useHostRootMount)
-	// override initial device health to healthy
-	for _, dev := range dpi.devs {
-		dev.Health = pluginapi.Healthy
-	}
-	dpi.mutateHealthUpdate = func(_ string, _ string, _ bool) (bool, error) {
-		return true, nil
-	}
-	return dpi
+func NewOptionalSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *DevicePlugin {
+	return newSocketDevicePlugin(socketName, socketDir, socketFile, maxDevices, executor, p, useHostRootMount, false)
 }
 
-func (dpi *SocketDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *SocketDevicePlugin) configurePermissions(_ *safepath.Path) error {
+	if dpi.p == nil || dpi.executor == nil {
+		return fmt.Errorf("permission manager and executor are not provided")
+	}
+	// Set directory permissions first
+	if err := dpi.setSocketDirectoryPermissions(); err != nil {
+		return err
+	}
+	// Then set socket permissions
+	return dpi.setSocketPermissions()
+}
+
+func (dpi *SocketDevicePlugin) updateHealth(_ string, _ string, healthy bool) (bool, error) {
+	if dpi.healthChecks {
+		return healthy, nil
+	} else {
+		return true, nil
+	}
+}
+
+func (dpi *SocketDevicePlugin) allocateDP(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Socket Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Socket Allocate: request: %v", r.ContainerRequests)
 
@@ -172,7 +173,7 @@ func (dpi *SocketDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi.
 	return &response, nil
 }
 
-func (dpi *SocketDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+func (dpi *SocketDevicePlugin) setupMonitoredDevices(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	logger := log.DefaultLogger()
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	socketDir := filepath.Dir(devicePath)
@@ -188,7 +189,7 @@ func (dpi *SocketDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watch
 	return nil
 }
 
-func (dpi *SocketDevicePlugin) deviceNameByIDFunc(_ string) string {
+func (dpi *SocketDevicePlugin) deviceNameByID(_ string) string {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	return fmt.Sprintf("socket device (%s)", devicePath)
 }

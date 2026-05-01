@@ -40,7 +40,7 @@ import (
 var _ = Describe("Socket device", func() {
 	var (
 		workDir     string
-		dpi         *SocketDevicePlugin
+		dpi         *DevicePlugin
 		stop        chan struct{}
 		sockDevPath string
 	)
@@ -54,8 +54,8 @@ var _ = Describe("Socket device", func() {
 		mockExec, mockPermManager := socketDeviceMocks()
 		dpi = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager, false)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
-		createFile(dpi.socketPath)
+		dpi.contract.(*SocketDevicePlugin).socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		createFile(dpi.contract.getSocketPath())
 		dpi.done = make(chan struct{})
 		stop = make(chan struct{})
 		dpi.stop = stop
@@ -77,23 +77,23 @@ var _ = Describe("Socket device", func() {
 		}()
 
 		By("waiting for initial healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
-		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+		Expect(os.Remove(dpi.contract.getSocketPath())).To(Succeed())
 
 		Eventually(errChan, 500*time.Millisecond).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
 		By("Confirming that the device begins as unhealthy")
-		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
+		expectAllDevHealthIs(dpi.contract.getDevices(), pluginapi.Unhealthy)
 
 		By("waiting for initial healthcheck to send Healthy message")
 		healthCheckContext, err := dpi.setupHealthCheckContext()
 		Expect(err).ToNot(HaveOccurred())
 		go dpi.healthCheck(healthCheckContext)
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
 		By("Removing a (fake) device node")
@@ -101,14 +101,14 @@ var _ = Describe("Socket device", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
 
 		By("Creating a new (fake) device node")
 		createFile(sockDevPath)
 
 		By("waiting for healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 	})
 
@@ -122,10 +122,10 @@ var _ = Describe("Socket device", func() {
 		// Re-create dpi with failing executor
 		dpi = NewSocketDevicePlugin("test", workDir, socket, 1, failingMockExec, newPermissionManager(), false)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		dpi.contract.(*SocketDevicePlugin).socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		dpi.stop = stop
 
-		_, err := os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		_, err := os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 		Expect(err).ToNot(HaveOccurred())
 
 		healthCheckContext, err := dpi.setupHealthCheckContext()
@@ -133,7 +133,7 @@ var _ = Describe("Socket device", func() {
 		go dpi.healthCheck(healthCheckContext)
 
 		By("Confirming that the device reports unhealthy due to SELinux failure")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
 	})
 
@@ -143,7 +143,7 @@ var _ = Describe("Socket device", func() {
 		defer watcher.Close()
 
 		monitoredDevices := make(map[string]string)
-		err = dpi.setupMonitoredDevicesFunc(watcher, monitoredDevices)
+		err = dpi.contract.setupMonitoredDevices(watcher, monitoredDevices)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(monitoredDevices).To(HaveLen(1))
@@ -159,7 +159,7 @@ var _ = Describe("Socket device", func() {
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
 
-		err := badDpi.setupMonitoredDevicesFunc(watcher, make(map[string]string))
+		err := badDpi.contract.setupMonitoredDevices(watcher, make(map[string]string))
 		Expect(err).To(MatchError(ContainSubstring("failed to add the device parent directory")))
 	})
 
@@ -167,13 +167,13 @@ var _ = Describe("Socket device", func() {
 		allocateRequest := &pluginapi.AllocateRequest{
 			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
 				{
-					DevicesIDs: []string{dpi.devs[0].ID},
+					DevicesIDs: []string{dpi.contract.getDevices()[0].ID},
 				},
 			},
 		}
 
 		allocateResponse, err := dpi.Allocate(context.Background(), allocateRequest)
-		socketDir := filepath.Dir(dpi.devicePath)
+		socketDir := filepath.Dir(dpi.contract.(*SocketDevicePlugin).devicePath)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(allocateResponse.ContainerResponses).To(HaveLen(1))
 		Expect(allocateResponse.ContainerResponses[0].Mounts).To(HaveLen(1))
@@ -184,7 +184,7 @@ var _ = Describe("Socket device", func() {
 })
 
 var _ = Describe("Optional socket device", func() {
-	var dpi *SocketDevicePlugin
+	var dpi *DevicePlugin
 	var sockDevPath string
 	const socket = "fake-test.sock"
 
@@ -197,11 +197,12 @@ var _ = Describe("Optional socket device", func() {
 		dpi = NewOptionalSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager, false)
 		Expect(dpi).ToNot(BeNil())
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
-		createFile(dpi.socketPath)
+		dpi.contract.(*SocketDevicePlugin).socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		createFile(dpi.contract.getSocketPath())
 		dpi.done = make(chan struct{})
 		stop := make(chan struct{})
 		dpi.stop = stop
+		dpi.skipDupHealthChecks = false
 		DeferCleanup(func() { close(stop) })
 	})
 
@@ -214,10 +215,10 @@ var _ = Describe("Optional socket device", func() {
 		}()
 
 		By("waiting for initial healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
-		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+		Expect(os.Remove(dpi.contract.getSocketPath())).To(Succeed())
 
 		Eventually(errChan, 500*time.Millisecond).Should(Receive(Not(HaveOccurred())))
 	})
@@ -228,17 +229,17 @@ var _ = Describe("Optional socket device", func() {
 		go dpi.healthCheck(healthCheckContext)
 
 		By("Confirming that the device begins as healthy")
-		expectAllDevHealthIs(dpi.devs, pluginapi.Healthy)
+		expectAllDevHealthIs(dpi.contract.getDevices(), pluginapi.Healthy)
 
 		By("waiting for initial healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
 		By("Removing a (fake) device node")
 		Expect(os.Remove(sockDevPath)).To(Succeed())
 
 		By("when update is triggered should still report healthy")
-		Eventually(dpi.healthUpdate, 500*time.Millisecond).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 500*time.Millisecond).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 	})
 })

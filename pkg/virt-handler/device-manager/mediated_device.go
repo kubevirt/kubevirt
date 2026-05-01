@@ -20,14 +20,12 @@
 package device_manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-
-	"context"
 
 	"github.com/fsnotify/fsnotify"
 	v1 "kubevirt.io/api/core/v1"
@@ -53,10 +51,9 @@ type MediatedDevicePlugin struct {
 	iommuToMDEVMap map[string]string
 }
 
-func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
+func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *DevicePlugin {
 	s := strings.Split(resourceName, "/")
 	mdevTypeName := s[1]
-	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
 
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
@@ -64,22 +61,15 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	dpi := &MediatedDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         devs,
-			socketPath:   serverSock,
 			resourceName: resourceName,
-			devicePath:   vfioDevicePath,
 			deviceRoot:   util.HostRootMount,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
+			devicePath:   vfioDevicePath,
+			socketPath:   SocketPath(mdevTypeName),
 		},
 		iommuToMDEVMap: iommuToMDEVMap,
 	}
-	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
-	dpi.deviceNameByID = dpi.deviceNameByIDFunc
-	dpi.allocateDP = dpi.allocateDPFunc
-	return dpi
+
+	return newDevicePlugin(dpi)
 }
 
 func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string) (devs []*pluginapi.Device) {
@@ -102,7 +92,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 	return
 }
 
-func (dpi *MediatedDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *MediatedDevicePlugin) allocateDP(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
@@ -190,7 +180,7 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 	return mdevsMap
 }
 
-func (dpi *MediatedDevicePlugin) deviceNameByIDFunc(monDevId string) string {
+func (dpi *MediatedDevicePlugin) deviceNameByID(monDevId string) string {
 	mdev, ok := dpi.iommuToMDEVMap[monDevId]
 	if !ok {
 		mdev = "not recognized"
@@ -198,7 +188,7 @@ func (dpi *MediatedDevicePlugin) deviceNameByIDFunc(monDevId string) string {
 	return fmt.Sprintf("mediated device (mdev=%s, id=%s)", mdev, monDevId)
 }
 
-func (dpi *MediatedDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+func (dpi *MediatedDevicePlugin) setupMonitoredDevices(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	// setupVFIOMonitoredDevices is a helper function defined in pci_device.go
 	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }

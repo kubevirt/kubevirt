@@ -82,7 +82,7 @@ var _ = Describe("USB Device", func() {
 	const resourceName2 = "testing.usb/another"
 
 	var (
-		dpi     *USBDevicePlugin
+		dpi     *DevicePlugin
 		stop    chan struct{}
 		workDir string
 	)
@@ -104,8 +104,8 @@ var _ = Describe("USB Device", func() {
 		}
 		dpi = NewUSBDevicePlugin(resourceName1, workDir, devices, newPermissionManager())
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
-		createFile(dpi.socketPath)
+		dpi.contract.(*USBDevicePlugin).socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		createFile(dpi.contract.getSocketPath())
 		stop = make(chan struct{})
 		dpi.stop = stop
 		dpi.skipDupHealthChecks = false
@@ -117,7 +117,7 @@ var _ = Describe("USB Device", func() {
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 
 		errChan := make(chan error, 1)
 		healthCheckContext, err := dpi.setupHealthCheckContext()
@@ -127,28 +127,28 @@ var _ = Describe("USB Device", func() {
 		}()
 
 		By("waiting for initial healthchecks to send Healthy message for each device")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
-		for i := range dpi.devs {
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
+		for i := range dpi.contract.getDevices() {
 			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
 		}
 
-		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+		Expect(os.Remove(dpi.contract.getSocketPath())).To(Succeed())
 
 		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 
 		By("Confirming that the device begins as unhealthy")
-		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
+		expectAllDevHealthIs(dpi.contract.getDevices(), pluginapi.Unhealthy)
 
 		By("waiting for initial healthchecks to send Healthy message")
 		healthCheckContext, err := dpi.setupHealthCheckContext()
 		Expect(err).ToNot(HaveOccurred())
 		go dpi.healthCheck(healthCheckContext)
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
-		for i := range dpi.devs {
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
+		for i := range dpi.contract.getDevices() {
 			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
 		}
 
@@ -156,9 +156,9 @@ var _ = Describe("USB Device", func() {
 		usbDevicePath1 := filepath.Join(workDir, usbs[0].DevicePath)
 		usbDevicePath2 := filepath.Join(workDir, usbs[1].DevicePath)
 		Expect(os.Remove(usbDevicePath1)).To(Succeed())
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(os.Remove(usbDevicePath2)).To(Succeed())
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 
 		By("healthcheck resolve as Unhealthy")
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
@@ -174,7 +174,7 @@ var _ = Describe("USB Device", func() {
 
 		By("waiting for healthcheck to send Unhealthy message")
 		// Since only one of the two devices in the group is healthy, the healthcheck should send Unhealthy
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
 		Expect(dpi.getDevHealthByIndex(1)).To(Equal(pluginapi.Healthy))
 
@@ -183,34 +183,34 @@ var _ = Describe("USB Device", func() {
 
 		By("waiting for healthcheck to send Healthy message")
 		// Since both devices in the group are now healthy, the healthcheck should send Healthy
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 		Expect(dpi.getDevHealthByIndex(1)).To(Equal(pluginapi.Healthy))
 	})
 
 	It("Should report group unhealthy when one device in the group is down", func() {
-		// dpi.devs[0] is a device group containing usbs[0] and usbs[1]
-		deviceID := dpi.devs[0].ID
+		// dpi.contract.getDevices()[0] is a device group containing usbs[0] and usbs[1]
+		deviceID := dpi.contract.getDevices()[0].ID
 		devicePath1 := filepath.Join(workDir, usbs[0].DevicePath)
 		devicePath2 := filepath.Join(workDir, usbs[1].DevicePath)
 
 		By("reporting 1/2 devices in group healthy")
-		healthy, err := dpi.mutateHealthUpdateFunc(deviceID, devicePath1, true)
+		healthy, err := dpi.contract.updateHealth(deviceID, devicePath1, true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(healthy).To(BeFalse(), "group should stay unhealthy while second device is still unreported (unhealthy)")
 
 		By("reporting 2/2 devices in group healthy")
-		healthy, err = dpi.mutateHealthUpdateFunc(deviceID, devicePath2, true)
+		healthy, err = dpi.contract.updateHealth(deviceID, devicePath2, true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(healthy).To(BeTrue(), "group should be healthy when all devices in the group are healthy")
 
 		By("reporting 1/2 device in group unhealthy")
-		healthy, err = dpi.mutateHealthUpdateFunc(deviceID, devicePath1, false)
+		healthy, err = dpi.contract.updateHealth(deviceID, devicePath1, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(healthy).To(BeFalse(), "one device down in the group should make the whole group unhealthy")
 
 		By("reporting second device healthy while first device is still unhealthy")
-		healthy, err = dpi.mutateHealthUpdateFunc(deviceID, devicePath2, true)
+		healthy, err = dpi.contract.updateHealth(deviceID, devicePath2, true)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(healthy).To(BeFalse(), "since first device is still unhealthy, the group should stay unhealthy")
 	})
@@ -397,7 +397,7 @@ var _ = Describe("USB Device", func() {
 		defer watcher.Close()
 
 		monitoredDevices := make(map[string]string)
-		err = dpi.setupMonitoredDevicesFunc(watcher, monitoredDevices)
+		err = dpi.contract.setupMonitoredDevices(watcher, monitoredDevices)
 		Expect(err).ToNot(HaveOccurred())
 
 		for i := range len(usbs) {
@@ -417,7 +417,7 @@ var _ = Describe("USB Device", func() {
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
 
-		err := badPlugin.setupMonitoredDevicesFunc(watcher, make(map[string]string))
+		err := badPlugin.contract.setupMonitoredDevices(watcher, make(map[string]string))
 		Expect(err).To(MatchError(ContainSubstring("failed to watch device")))
 	})
 
@@ -425,7 +425,7 @@ var _ = Describe("USB Device", func() {
 		allocateRequest := &pluginapi.AllocateRequest{
 			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
 				{
-					DevicesIDs: []string{dpi.devs[0].ID},
+					DevicesIDs: []string{dpi.contract.getDevices()[0].ID},
 				},
 			},
 		}

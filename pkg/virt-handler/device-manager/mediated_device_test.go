@@ -267,7 +267,7 @@ var _ = Describe("Mediated Device", func() {
 
 var _ = Describe("Mediated Device Health check validation", func() {
 	var workDir string
-	var dpi *MediatedDevicePlugin
+	var dpi *DevicePlugin
 	var stop chan struct{}
 	var vfioDeviceDir string
 
@@ -294,10 +294,10 @@ var _ = Describe("Mediated Device Health check validation", func() {
 			},
 		}
 		dpi = NewMediatedDevicePlugin(mdevs, fakeMdevResourceName)
-		dpi.socketPath = filepath.Join(workDir, "test.sock")
+		dpi.contract.(*MediatedDevicePlugin).socketPath = filepath.Join(workDir, "test.sock")
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.deviceRoot = workDir
-		dpi.devicePath = "/dev/vfio"
+		dpi.contract.(*MediatedDevicePlugin).deviceRoot = workDir
+		dpi.contract.(*MediatedDevicePlugin).devicePath = "/dev/vfio"
 		stop = make(chan struct{})
 		dpi.stop = stop
 		dpi.skipDupHealthChecks = false
@@ -309,7 +309,7 @@ var _ = Describe("Mediated Device Health check validation", func() {
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 
 		errChan := make(chan error, 1)
 		healthCheckContext, err := dpi.setupHealthCheckContext()
@@ -319,29 +319,29 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		}()
 
 		By("waiting for initial healthchecks to send Healthy message for each device")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
-		for i := range dpi.devs {
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
+		for i := range dpi.contract.getDevices() {
 			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
 		}
 
-		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+		Expect(os.Remove(dpi.contract.getSocketPath())).To(Succeed())
 
 		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 		vfioDevicePath := filepath.Join(vfioDeviceDir, fakeIommuGroup)
 
 		By("Confirming that the device begins as unhealthy")
-		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
+		expectAllDevHealthIs(dpi.contract.getDevices(), pluginapi.Unhealthy)
 
 		By("waiting for initial healthchecks to send Healthy message")
 		healthCheckContext, err := dpi.setupHealthCheckContext()
 		Expect(err).ToNot(HaveOccurred())
 		go dpi.healthCheck(healthCheckContext)
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
-		for i := range dpi.devs {
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
+		for i := range dpi.contract.getDevices() {
 			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
 		}
 
@@ -349,8 +349,8 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		os.Remove(vfioDevicePath)
 
 		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
-		for i := range dpi.devs {
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
+		for i := range dpi.contract.getDevices() {
 			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Unhealthy))
 		}
 
@@ -358,8 +358,8 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		createFile(vfioDevicePath)
 
 		By("waiting for healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
-		for i := range dpi.devs {
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
+		for i := range dpi.contract.getDevices() {
 			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
 		}
 	})
@@ -370,27 +370,27 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		Expect(os.WriteFile(filepath.Join(vfioDir, "0"), []byte{}, 0644)).To(Succeed())
 
 		dpi := NewMediatedDevicePlugin([]*MDEV{{iommuGroup: "0"}}, fakeMdevResourceName)
-		dpi.deviceRoot = workDir
-		dpi.devicePath = "/dev/vfio"
+		dpi.contract.(*MediatedDevicePlugin).deviceRoot = workDir
+		dpi.contract.(*MediatedDevicePlugin).devicePath = "/dev/vfio"
 
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
 
 		monitoredDevices := make(map[string]string)
-		Expect(dpi.setupMonitoredDevicesFunc(watcher, monitoredDevices)).To(Succeed())
+		Expect(dpi.contract.setupMonitoredDevices(watcher, monitoredDevices)).To(Succeed())
 		Expect(monitoredDevices).To(HaveLen(1))
 		Expect(watcher.WatchList()).To(ContainElement(vfioDir))
 	})
 
 	It("Should return error if device directory cannot be watched", func() {
 		dpi := NewMediatedDevicePlugin([]*MDEV{{iommuGroup: "0"}}, fakeMdevResourceName)
-		dpi.deviceRoot = "/nonexistent"
-		dpi.devicePath = "/dev/vfio"
+		dpi.contract.(*MediatedDevicePlugin).deviceRoot = "/nonexistent"
+		dpi.contract.(*MediatedDevicePlugin).devicePath = "/dev/vfio"
 
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
 
-		err := dpi.setupMonitoredDevicesFunc(watcher, make(map[string]string))
+		err := dpi.contract.setupMonitoredDevices(watcher, make(map[string]string))
 		Expect(err).To(MatchError(ContainSubstring("failed to add device directory")))
 	})
 

@@ -35,10 +35,19 @@ import (
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
+// genericPluginPermFailure embeds *GenericDevicePlugin and overrides configurePermissions for tests.
+type genericPluginPermFailure struct {
+	*GenericDevicePlugin
+}
+
+func (*genericPluginPermFailure) configurePermissions(_ *safepath.Path) error {
+	return fmt.Errorf("mock permission error")
+}
+
 var _ = Describe("Generic Device", func() {
 	var (
 		workDir    string
-		dpi        *GenericDevicePlugin
+		dpi        *DevicePlugin
 		devicePath string
 		stop       chan struct{}
 	)
@@ -50,9 +59,9 @@ var _ = Describe("Generic Device", func() {
 		createFile(devicePath)
 
 		dpi = NewGenericDevicePlugin("foo", workDir, devicePath, 1, "rw", true)
-		dpi.socketPath = filepath.Join(workDir, "test.sock")
+		dpi.contract.(*GenericDevicePlugin).socketPath = filepath.Join(workDir, "test.sock")
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.deviceRoot = "/"
+		dpi.contract.(*GenericDevicePlugin).deviceRoot = "/"
 		stop = make(chan struct{})
 		dpi.stop = stop
 		dpi.skipDupHealthChecks = false
@@ -64,7 +73,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 
 		errChan := make(chan error, 1)
 		healthCheckContext, err := dpi.setupHealthCheckContext()
@@ -74,56 +83,54 @@ var _ = Describe("Generic Device", func() {
 		}()
 
 		By("waiting for initial healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
-		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+		Expect(os.Remove(dpi.contract.getSocketPath())).To(Succeed())
 
 		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
 
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 
 		By("Confirming that the device begins as unhealthy")
-		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
+		expectAllDevHealthIs(dpi.contract.getDevices(), pluginapi.Unhealthy)
 
 		By("waiting for initial healthcheck to send Healthy message")
 		healthCheckContext, err := dpi.setupHealthCheckContext()
 		Expect(err).ToNot(HaveOccurred())
 		go dpi.healthCheck(healthCheckContext)
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
 		By("Removing a (fake) device node")
 		os.Remove(devicePath)
 
 		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
 
 		By("Creating a new (fake) device node")
 		createFile(devicePath)
 
 		By("waiting for healthcheck to send Healthy message")
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 	})
 
 	It("Should mark device unhealthy if ConfigurePermissions fails", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.contract.getSocketPath(), os.O_RDONLY|os.O_CREATE, 0666)
 
-		// Mock ConfigurePermissions to fail
-		dpi.configurePermissions = func(_ *safepath.Path) error {
-			return fmt.Errorf("mock permission error")
-		}
+		gp := dpi.contract.(*GenericDevicePlugin)
+		dpi.contract = &genericPluginPermFailure{GenericDevicePlugin: gp}
 
 		By("waiting for initial healthcheck to send Unhealthy message due to permission failure")
 		healthCheckContext, err := dpi.setupHealthCheckContext()
 		Expect(err).ToNot(HaveOccurred())
 		go dpi.healthCheck(healthCheckContext)
-		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Eventually(dpi.healthUpdateChan, 5*time.Second).Should(Receive())
 		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
 	})
 
@@ -133,7 +140,7 @@ var _ = Describe("Generic Device", func() {
 		defer watcher.Close()
 
 		monitoredDevices := make(map[string]string)
-		err = dpi.setupMonitoredDevicesFunc(watcher, monitoredDevices)
+		err = dpi.contract.setupMonitoredDevices(watcher, monitoredDevices)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(monitoredDevices).To(HaveLen(1))
@@ -142,12 +149,12 @@ var _ = Describe("Generic Device", func() {
 
 	It("Should return error if device directory cannot be watched", func() {
 		badDpi := NewGenericDevicePlugin("foo", workDir, "/nonexistent/device", 1, "rw", true)
-		badDpi.deviceRoot = "/"
+		badDpi.contract.(*GenericDevicePlugin).deviceRoot = "/"
 
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
 
-		err := badDpi.setupMonitoredDevicesFunc(watcher, make(map[string]string))
+		err := badDpi.contract.setupMonitoredDevices(watcher, make(map[string]string))
 		Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
 	})
 
@@ -155,7 +162,7 @@ var _ = Describe("Generic Device", func() {
 		allocateRequest := &pluginapi.AllocateRequest{
 			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
 				{
-					DevicesIDs: []string{dpi.devs[0].ID},
+					DevicesIDs: []string{dpi.contract.getDevices()[0].ID},
 				},
 			},
 		}

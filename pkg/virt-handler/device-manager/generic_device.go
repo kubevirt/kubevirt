@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"kubevirt.io/client-go/log"
@@ -39,20 +38,14 @@ type GenericDevicePlugin struct {
 	permissions string
 }
 
-func NewGenericDevicePlugin(deviceName string, deviceRoot string, devicePath string, maxDevices int, permissions string, preOpen bool) *GenericDevicePlugin {
-	serverSock := SocketPath(deviceName)
+func NewGenericDevicePlugin(deviceName string, deviceRoot string, devicePath string, maxDevices int, permissions string, preOpen bool) *DevicePlugin {
 	dpi := &GenericDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         []*pluginapi.Device{},
-			socketPath:   serverSock,
+			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, deviceName),
 			deviceRoot:   deviceRoot,
 			devicePath:   devicePath,
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, deviceName),
-			initialized:  false,
-			lock:         &sync.Mutex{},
+			socketPath:   SocketPath(deviceName),
 		},
 		preOpen:     preOpen,
 		permissions: permissions,
@@ -65,14 +58,11 @@ func NewGenericDevicePlugin(deviceName string, deviceRoot string, devicePath str
 			Health: pluginapi.Unhealthy,
 		})
 	}
-	dpi.deviceNameByID = dpi.deviceNameByIDFunc
-	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
-	dpi.setupDevicePlugin = dpi.setupDevicePluginFunc
-	dpi.allocateDP = dpi.allocateDPFunc
-	return dpi
+
+	return newDevicePlugin(dpi)
 }
 
-func (dpi *GenericDevicePlugin) setupDevicePluginFunc() error {
+func (dpi *GenericDevicePlugin) setupDevicePlugin() error {
 	// The kernel module(s) for some devices, like tun and vhost-net, auto-load when needed.
 	// That need is identified by the first access to their main device node.
 	// Opening and closing the device nodes here will trigger any necessary modprobe.
@@ -86,7 +76,7 @@ func (dpi *GenericDevicePlugin) setupDevicePluginFunc() error {
 	return nil
 }
 
-func (dpi *GenericDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *GenericDevicePlugin) allocateDP(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
@@ -103,7 +93,7 @@ func (dpi *GenericDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi
 	return &response, nil
 }
 
-func (dpi *GenericDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+func (dpi *GenericDevicePlugin) setupMonitoredDevices(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	deviceDirPath := filepath.Dir(devicePath)
 	// Note: Directly watching the device path is not recommended and instead we watch the directory path
@@ -115,7 +105,7 @@ func (dpi *GenericDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watc
 	return nil
 }
 
-func (dpi *GenericDevicePlugin) deviceNameByIDFunc(_ string) string {
+func (dpi *GenericDevicePlugin) deviceNameByID(_ string) string {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	return fmt.Sprintf("generic device (%s)", devicePath)
 }

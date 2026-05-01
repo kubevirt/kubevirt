@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -110,7 +109,7 @@ func devicesToKubeVirtDevicePlugin(pluginDevs []*PluginDevices) []*pluginapi.Dev
 	return devices
 }
 
-func (plugin *USBDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+func (plugin *USBDevicePlugin) setupMonitoredDevices(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	watchedDirs := make(map[string]struct{})
 	for _, pd := range plugin.devices {
 		for _, usb := range pd.Devices {
@@ -137,7 +136,7 @@ func (plugin *USBDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watch
 	return nil
 }
 
-func (plugin *USBDevicePlugin) mutateHealthUpdateFunc(deviceID string, devicePath string, healthy bool) (bool, error) {
+func (plugin *USBDevicePlugin) updateHealth(deviceID string, devicePath string, healthy bool) (bool, error) {
 	// a device is healthy when all devices in the usb device group are healthy
 	pluginDevices := plugin.FindDevice(deviceID)
 	if pluginDevices == nil {
@@ -159,7 +158,7 @@ func (plugin *USBDevicePlugin) mutateHealthUpdateFunc(deviceID string, devicePat
 }
 
 // Interface to allocate requested Device, exported by ListAndWatch
-func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (plugin *USBDevicePlugin) allocateDP(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	allocResponse := new(pluginapi.AllocateResponse)
 	env := make(map[string]string)
 	for _, request := range allocRequest.ContainerRequests {
@@ -179,10 +178,8 @@ func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *p
 				if err != nil {
 					return nil, fmt.Errorf("error opening the device %s: %v", dev.DevicePath, err)
 				}
-				if plugin.configurePermissions != nil {
-					if err = plugin.configurePermissions(spath); err != nil {
-						return nil, fmt.Errorf("error configuring the permission the device %s during allocation: %v", dev.DevicePath, err)
-					}
+				if err = plugin.configurePermissions(spath); err != nil {
+					return nil, fmt.Errorf("error configuring the permission the device %s during allocation: %v", dev.DevicePath, err)
 				}
 				// We might have more than one USB device per resource name
 				key := util.ResourceNameToEnvVar(v1.USBResourcePrefix, plugin.resourceName)
@@ -405,7 +402,7 @@ func discoverAllowedUSBDevices(usbs []v1.USBHostDevice) map[string][]*PluginDevi
 	return plugins
 }
 
-func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []*PluginDevices, p permissionManager) *USBDevicePlugin {
+func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []*PluginDevices, p permissionManager) *DevicePlugin {
 	s := strings.Split(resourceName, "/")
 	resourceID := s[0]
 	if len(s) > 1 {
@@ -416,37 +413,30 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 	usb := &USBDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         devs,
-			socketPath:   SocketPath(resourceID),
+			resourceName: resourceName,
 			deviceRoot:   deviceRoot,
 			devicePath:   pathToUSBDevices,
-			resourceName: resourceName,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
+			socketPath:   SocketPath(resourceID),
 		},
 		devices: pluginDevices,
 		p:       p,
 		logger:  log.Log.With("subcomponent", resourceID),
 	}
-	usb.setupMonitoredDevices = usb.setupMonitoredDevicesFunc
-	usb.deviceNameByID = usb.deviceNameByIDFunc
-	// If permission manager is not provided, we assume that device doesn't need any permissions configured.
-	if p != nil {
-		usb.configurePermissions = func(dp *safepath.Path) error {
-			err := usb.p.ChownAtNoFollow(dp, util.NonRootUID, util.NonRootUID)
-			if err != nil {
-				return fmt.Errorf("error setting the ownership of the device: %v", err)
-			}
-			return nil
-		}
-	}
-	usb.allocateDP = usb.allocateDPFunc
-	usb.mutateHealthUpdate = usb.mutateHealthUpdateFunc
-	return usb
+
+	return newDevicePlugin(usb)
 }
 
-func (plugin *USBDevicePlugin) deviceNameByIDFunc(devGroupID string) string {
+func (plugin *USBDevicePlugin) configurePermissions(dp *safepath.Path) error {
+	if plugin.p == nil {
+		return fmt.Errorf("permission manager is not configured")
+	}
+	err := plugin.p.ChownAtNoFollow(dp, util.NonRootUID, util.NonRootUID)
+	if err != nil {
+		return fmt.Errorf("error setting the ownership of the device: %v", err)
+	}
+	return nil
+}
+
+func (plugin *USBDevicePlugin) deviceNameByID(devGroupID string) string {
 	return fmt.Sprintf("USB device group (%s)", devGroupID)
 }
