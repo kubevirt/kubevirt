@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "common.go",
         "device_controller.go",
+        "device_plugin.go",
         "device_plugin_base.go",
         "generated_mock_common.go",
         "generic_device.go",
