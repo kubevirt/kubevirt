@@ -824,14 +824,7 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	}
 
 	// Check for the migration network address in the pod annotations.
-	ips := r.getIpsFromAnnotations(pod)
-	if len(ips) == 0 && pod.Status.PodIPs != nil {
-		// Did not find annotations, use the pod ip address instead
-		ips = make([]string, len(pod.Status.PodIPs))
-		for i, podIP := range pod.Status.PodIPs {
-			ips[i] = podIP.IP
-		}
-	}
+	ips := multus.GetMigrationNetworkIPs(pod, v1.MigrationInterfaceName)
 	if len(ips) == 0 {
 		return nil
 	}
@@ -848,20 +841,5 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		addresses[i] = fmt.Sprintf("%s:%d", ip, port)
 	}
 	r.kv.Status.SynchronizationAddresses = addresses
-	return nil
-}
-
-func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	networkStatuses := multus.NetworkStatusesFromPod(pod)
-	for _, networkStatus := range networkStatuses {
-		if networkStatus.Interface == v1.MigrationInterfaceName {
-			if len(networkStatus.IPs) == 0 {
-				break
-			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
-			return networkStatus.IPs
-		}
-	}
-	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
 	return nil
 }

@@ -22,6 +22,7 @@ package testsuite
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,6 +45,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -189,6 +191,53 @@ func EnsureDefaultKubevirtReadyWithTimeout(timeout time.Duration) {
 	EnsureKubevirtReadyWithTimeout(kv, timeout)
 }
 
+func ensureSynchronizationAddressesPointToRunningPods(virtClient kubecli.KubevirtClient, kv *v1.KubeVirt) error {
+	if len(kv.Status.SynchronizationAddresses) == 0 {
+		return nil
+	}
+
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "kubevirt.io=virt-synchronization-controller",
+	})
+	if err != nil {
+		return err
+	}
+
+	runningPodIPs := make(map[string]bool)
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != k8sv1.PodRunning || pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		// Extract IPs the same way virt-operator does: check migration network first,
+		// fall back to pod network IPs if migration network is not configured
+		ips := multus.GetMigrationNetworkIPs(&pod, v1.MigrationInterfaceName)
+		for _, ip := range ips {
+			runningPodIPs[ip] = true
+		}
+	}
+
+	// If no running pods, this is likely a transient state (e.g., during feature gate disable).
+	// Return nil to allow Eventually to retry until CR is updated.
+	if len(runningPodIPs) == 0 {
+		return nil
+	}
+
+	for _, addr := range kv.Status.SynchronizationAddresses {
+		ip, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			// Address might not have a port, treat whole string as IP
+			ip = addr
+		}
+		if runningPodIPs[ip] {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("synchronizationAddresses %v do not match any running pod IPs %v",
+		kv.Status.SynchronizationAddresses, runningPodIPs)
+}
+
 func EnsureKubevirtReadyWithTimeout(kv *v1.KubeVirt, timeout time.Duration) {
 	virtClient := kubevirt.Client()
 
@@ -210,6 +259,15 @@ func EnsureKubevirtReadyWithTimeout(kv *v1.KubeVirt, timeout time.Duration) {
 				return kv.ObjectMeta.Generation == *kv.Status.ObservedGeneration
 			}),
 		), "One of the Kubevirt control-plane components is not ready.")
+
+	// Ensure synchronization addresses point to running pods, not terminating ones
+	Eventually(func() error {
+		foundKV, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		return ensureSynchronizationAddressesPointToRunningPods(virtClient, foundKV)
+	}, timeout, 1*time.Second).Should(Succeed(), "synchronizationAddresses should point to running pods")
 }
 
 func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
