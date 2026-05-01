@@ -405,18 +405,24 @@ func requestResourceClaims(resources *k8sv1.ResourceRequirements, claim *k8sv1.R
 	resources.Claims = append(resources.Claims, *claim)
 }
 
+type claimKey struct {
+	name    string
+	request string
+}
+
 func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.ResourceClaim) {
-	existing := make(map[string]struct{})
+	existing := make(map[claimKey]struct{})
 	for _, c := range *claims {
-		existing[c.Name] = struct{}{}
+		existing[claimKey{c.Name, c.Request}] = struct{}{}
 	}
 
 	for _, value := range resources.Claims {
-		if _, found := existing[value.Name]; found {
-			continue // skip duplicates by Name
+		key := claimKey{value.Name, value.Request}
+		if _, found := existing[key]; found {
+			continue
 		}
 		*claims = append(*claims, value)
-		existing[value.Name] = struct{}{}
+		existing[key] = struct{}{}
 	}
 }
 
