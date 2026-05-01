@@ -221,6 +221,8 @@ func (dpi *DevicePlugin) healthCheck(healthCtx healthCheckContext) error {
 		return err
 	}
 
+	resourceName := dpi.contract.getResourceName()
+
 	// Loop and watch for device changes
 	for {
 		select {
@@ -234,21 +236,21 @@ func (dpi *DevicePlugin) healthCheck(healthCtx healthCheckContext) error {
 				friendlyName := dpi.contract.deviceNameByID(monDevId)
 				switch event.Op {
 				case fsnotify.Create:
-					logger.Infof("monitored device '%s' with resource %s appeared", friendlyName, dpi.contract.getResourceName())
+					logger.Infof("monitored device '%s' with resource %s appeared", friendlyName, resourceName)
 					// Try to configure permissions before marking the device as healthy.
 					succeeded := dpi.configurePermissionsAndReportSuccess(event.Name)
 					if !succeeded {
-						logger.Warningf("failed to configure permissions for monitored device '%s' with resource %s", friendlyName, dpi.contract.getResourceName())
+						logger.Warningf("failed to configure permissions for monitored device '%s' with resource %s", friendlyName, resourceName)
 					}
 					dpi.reportHealth(friendlyName, monDevId, event.Name, succeeded, healthCtx.lastKnownHealth)
 				case fsnotify.Remove:
-					logger.Infof("monitored device '%s' with resource %s was deleted", friendlyName, dpi.contract.getResourceName())
+					logger.Infof("monitored device '%s' with resource %s was deleted", friendlyName, resourceName)
 					dpi.reportHealth(friendlyName, monDevId, event.Name, false, healthCtx.lastKnownHealth)
 				case fsnotify.Rename:
-					logger.Infof("monitored device '%s' with resource %s was renamed", friendlyName, dpi.contract.getResourceName())
+					logger.Infof("monitored device '%s' with resource %s was renamed", friendlyName, resourceName)
 					dpi.reportHealth(friendlyName, monDevId, event.Name, false, healthCtx.lastKnownHealth)
 				case fsnotify.Chmod:
-					logger.Infof("monitored device '%s' with resource %s had its permissions modified", friendlyName, dpi.contract.getResourceName())
+					logger.Infof("monitored device '%s' with resource %s had its permissions modified", friendlyName, resourceName)
 				}
 			} else if event.Op == fsnotify.Create {
 				// If the created path is a parent of any monitored device, add it to the watcher
@@ -262,7 +264,7 @@ func (dpi *DevicePlugin) healthCheck(healthCtx healthCheckContext) error {
 					_ = dpi.doStaticHealthCheck(healthCtx.monitoredDevices, healthCtx.lastKnownHealth, event.Name)
 				}
 			} else if event.Name == dpi.contract.getSocketPath() && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device '%s' was removed, kubelet probably restarted.", dpi.contract.getResourceName())
+				logger.Infof("device socket file for device '%s' was removed, kubelet probably restarted.", resourceName)
 				return nil
 			}
 		}
