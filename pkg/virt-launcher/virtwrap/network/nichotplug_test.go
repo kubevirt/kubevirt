@@ -368,6 +368,154 @@ var _ = Describe("interface link state update", func() {
 	)
 })
 
+var _ = Describe("disableHotplugOnOccupiedRootPorts", func() {
+	pciAddr := func(bus string) *api.Address {
+		return &api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: bus, Slot: "0x00", Function: "0x0"}
+	}
+
+	rootPort := func(index string) api.Controller {
+		return api.Controller{
+			Type:  api.ControllerTypePCI,
+			Index: index,
+			Model: api.ControllerModelPCIeRootPort,
+		}
+	}
+
+	expectHotplugOff := func(controller api.Controller, desc string) {
+		ExpectWithOffset(1, controller.Target).NotTo(BeNil(), desc)
+		ExpectWithOffset(1, controller.Target.Hotplug).To(Equal("off"), desc)
+	}
+
+	expectHotplugUnchanged := func(controller api.Controller, desc string) {
+		ExpectWithOffset(1, controller.Target).To(BeNil(), desc)
+	}
+
+	It("should disable hotplug on occupied ports and leave empty ones unchanged", func() {
+		spec := &api.DomainSpec{
+			Devices: api.Devices{
+				Controllers: []api.Controller{
+					{Type: api.ControllerTypePCI, Index: "0", Model: api.ControllerModelPCIeRoot},
+					rootPort("1"),
+					rootPort("2"),
+					rootPort("3"),
+				},
+				Interfaces: []api.Interface{{Address: pciAddr("0x01")}},
+				Ballooning: &api.MemBalloon{Address: pciAddr("0x02")},
+			},
+		}
+
+		disableHotplugOnOccupiedRootPorts(spec, 1)
+
+		expectHotplugOff(spec.Devices.Controllers[1], "port with NIC")
+		expectHotplugOff(spec.Devices.Controllers[2], "port with balloon")
+		expectHotplugUnchanged(spec.Devices.Controllers[3], "empty port")
+	})
+
+	It("should detect all PCI device types", func() {
+		spec := &api.DomainSpec{
+			Devices: api.Devices{
+				Controllers: []api.Controller{
+					{Type: api.ControllerTypePCI, Index: "0", Model: api.ControllerModelPCIeRoot},
+					rootPort("1"), rootPort("2"), rootPort("3"), rootPort("4"),
+					rootPort("5"), rootPort("6"), rootPort("7"), rootPort("8"),
+					rootPort("9"),
+				},
+				Interfaces:  []api.Interface{{Address: pciAddr("0x01")}},
+				Disks:       []api.Disk{{Address: pciAddr("0x02")}},
+				Inputs:      []api.Input{{Address: pciAddr("0x03")}},
+				Watchdogs:   []api.Watchdog{{Address: pciAddr("0x04")}},
+				HostDevices: []api.HostDevice{{Address: pciAddr("0x05")}},
+				Ballooning:  &api.MemBalloon{Address: pciAddr("0x06")},
+				Rng:         &api.Rng{Address: pciAddr("0x07")},
+				Memory:      &api.MemoryDevice{Address: pciAddr("0x08")},
+			},
+		}
+
+		disableHotplugOnOccupiedRootPorts(spec, 1)
+
+		for _, idx := range []int{1, 2, 3, 4, 5, 6, 7, 8} {
+			expectHotplugOff(spec.Devices.Controllers[idx], fmt.Sprintf("controller %d", idx))
+		}
+		expectHotplugUnchanged(spec.Devices.Controllers[9], "empty port")
+	})
+
+	It("should not modify non-pcie-root-port controllers", func() {
+		spec := &api.DomainSpec{
+			Devices: api.Devices{
+				Controllers: []api.Controller{
+					{Type: api.ControllerTypePCI, Index: "0", Model: api.ControllerModelPCIeRoot},
+					{Type: "usb", Index: "0", Model: "none"},
+					{Type: "scsi", Index: "0", Model: "virtio-scsi", Address: pciAddr("0x05")},
+				},
+			},
+		}
+
+		disableHotplugOnOccupiedRootPorts(spec, 0)
+
+		for _, ctrl := range spec.Devices.Controllers {
+			Expect(ctrl.Target).To(BeNil())
+		}
+	})
+
+	It("should create Target when nil on an occupied root port", func() {
+		spec := &api.DomainSpec{
+			Devices: api.Devices{
+				Controllers: []api.Controller{
+					{Type: api.ControllerTypePCI, Index: "1", Model: api.ControllerModelPCIeRootPort},
+				},
+				Interfaces: []api.Interface{{Address: pciAddr("0x01")}},
+			},
+		}
+
+		disableHotplugOnOccupiedRootPorts(spec, 1)
+
+		expectHotplugOff(spec.Devices.Controllers[0], "occupied port with nil Target")
+	})
+
+	It("should mark a root port as occupied when a child controller sits on its bus", func() {
+		spec := &api.DomainSpec{
+			Devices: api.Devices{
+				Controllers: []api.Controller{
+					{Type: api.ControllerTypePCI, Index: "0", Model: api.ControllerModelPCIeRoot},
+					rootPort("1"),
+					rootPort("5"),
+					{Type: "scsi", Index: "0", Model: "virtio-scsi", Address: pciAddr("0x05")},
+				},
+				Interfaces: []api.Interface{{Address: pciAddr("0x01")}},
+			},
+		}
+
+		disableHotplugOnOccupiedRootPorts(spec, 1)
+
+		expectHotplugOff(spec.Devices.Controllers[1], "NIC on bus 1")
+		expectHotplugOff(spec.Devices.Controllers[2], "SCSI controller on bus 5")
+	})
+
+	It("should exclude placeholder interfaces from the occupied-bus calculation", func() {
+		spec := &api.DomainSpec{
+			Devices: api.Devices{
+				Controllers: []api.Controller{
+					{Type: api.ControllerTypePCI, Index: "0", Model: api.ControllerModelPCIeRoot},
+					rootPort("1"),
+					rootPort("2"),
+					rootPort("3"),
+				},
+				Interfaces: []api.Interface{
+					{Address: pciAddr("0x01")},
+					{Address: pciAddr("0x02")},
+					{Address: pciAddr("0x03")},
+				},
+			},
+		}
+
+		disableHotplugOnOccupiedRootPorts(spec, 1)
+
+		expectHotplugOff(spec.Devices.Controllers[1], "real NIC on bus 1")
+		expectHotplugUnchanged(spec.Devices.Controllers[2], "placeholder on bus 2")
+		expectHotplugUnchanged(spec.Devices.Controllers[3], "placeholder on bus 3")
+	})
+})
+
 type libvirtClientResult struct {
 	expectedError           error
 	expectedAttachedDevices int
