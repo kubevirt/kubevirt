@@ -23,17 +23,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -73,6 +69,7 @@ type USBDevicePlugin struct {
 	*DevicePluginBase
 	update  chan struct{}
 	devices []*PluginDevices
+	p       permissionManager
 	logger  *log.FilteredLogger
 }
 
@@ -88,51 +85,6 @@ func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *Plu
 		isHealthy: true,
 		Devices:   usbdevs,
 	}
-}
-
-func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
-	plugin.stop = stop
-
-	err := plugin.cleanup()
-	if err != nil {
-		return fmt.Errorf("error on cleanup: %v", err)
-	}
-
-	sock, err := net.Listen("unix", plugin.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer plugin.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(plugin.server, plugin)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- plugin.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(plugin.socketPath, 5*time.Second)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = plugin.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- plugin.healthCheck()
-	}()
-
-	plugin.setInitialized(true)
-	plugin.logger.Infof("%s device plugin started", plugin.resourceName)
-	err = <-errChan
-
-	return err
 }
 
 func (pd *PluginDevices) toKubeVirtDevicePlugin() *pluginapi.Device {
@@ -184,46 +136,7 @@ func (plugin *USBDevicePlugin) devicesToKubeVirtDevicePlugin() []*pluginapi.Devi
 	return devices
 }
 
-func (plugin *USBDevicePlugin) GetInitialized() bool {
-	plugin.lock.Lock()
-	defer plugin.lock.Unlock()
-	return plugin.initialized
-}
-
-func (plugin *USBDevicePlugin) setInitialized(initialized bool) {
-	plugin.lock.Lock()
-	plugin.initialized = initialized
-	plugin.lock.Unlock()
-}
-
-func (plugin *USBDevicePlugin) GetDeviceName() string {
-	return plugin.resourceName
-}
-
-func (plugin *USBDevicePlugin) stopDevicePlugin() error {
-	defer func() {
-		select {
-		case <-plugin.done:
-			return
-		default:
-			close(plugin.done)
-		}
-	}()
-
-	// Give the device plugin one second to properly deregister
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	select {
-	case <-plugin.deregistered:
-	case <-ticker.C:
-	}
-
-	plugin.server.Stop()
-	plugin.setInitialized(false)
-	return plugin.cleanup()
-}
-
-func (plugin *USBDevicePlugin) healthCheck() error {
+func (plugin *USBDevicePlugin) healthCheckFunc() error {
 	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -234,11 +147,11 @@ func (plugin *USBDevicePlugin) healthCheck() error {
 	watchedDirs := make(map[string]struct{})
 	for _, pd := range plugin.devices {
 		for _, usb := range pd.Devices {
-			usbDevicePath := filepath.Join(util.HostRootMount, usb.DevicePath)
+			usbDevicePath := filepath.Join(plugin.deviceRoot, usb.DevicePath)
 			usbDeviceDirPath := filepath.Dir(usbDevicePath)
 			if _, exists := watchedDirs[usbDeviceDirPath]; !exists {
 				if err := watcher.Add(usbDeviceDirPath); err != nil {
-					return fmt.Errorf("failed to watch device %s parent directory: %s", usbDevicePath, err)
+					return fmt.Errorf("failed to watch device %s's directory: %s", usbDevicePath, err)
 				}
 				watchedDirs[usbDeviceDirPath] = struct{}{}
 			}
@@ -252,8 +165,8 @@ func (plugin *USBDevicePlugin) healthCheck() error {
 		}
 	}
 
-	dirName := filepath.Dir(plugin.socketPath)
-	if err := watcher.Add(dirName); err != nil {
+	socketDir := filepath.Dir(plugin.socketPath)
+	if err := watcher.Add(socketDir); err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	} else if _, err = os.Stat(plugin.socketPath); err != nil {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
@@ -282,34 +195,6 @@ func (plugin *USBDevicePlugin) healthCheck() error {
 			}
 		}
 	}
-}
-
-func (plugin *USBDevicePlugin) register() error {
-	conn, err := grpc.Dial(pluginapi.KubeletSocket,
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
-		grpc.WithTimeout(5*time.Second),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
-	)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(plugin.socketPath),
-		ResourceName: plugin.GetDeviceName(),
-	}
-
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // Interface to expose Devices: IDs, health and Topology
@@ -350,7 +235,7 @@ func (plugin *USBDevicePlugin) ListAndWatch(_ *pluginapi.Empty, lws pluginapi.De
 }
 
 // Interface to allocate requested Device, exported by ListAndWatch
-func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	allocResponse := new(pluginapi.AllocateResponse)
 	env := make(map[string]string)
 	for _, request := range allocRequest.ContainerRequests {
@@ -366,9 +251,9 @@ func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *plugina
 
 			deviceSpecs := []*pluginapi.DeviceSpec{}
 			for _, dev := range pluginDevices.Devices {
-				spath, err := safepath.JoinAndResolveWithRelativeRoot(util.HostRootMount, dev.DevicePath)
+				spath, err := safepath.JoinAndResolveWithRelativeRoot(plugin.deviceRoot, dev.DevicePath)
 				if err != nil {
-					return nil, fmt.Errorf("error opening the socket %s: %v", dev.DevicePath, err)
+					return nil, fmt.Errorf("error opening the device %s: %v", dev.DevicePath, err)
 				}
 
 				err = safepath.ChownAtNoFollow(spath, util.NonRootUID, util.NonRootUID)
@@ -597,7 +482,7 @@ func discoverAllowedUSBDevices(usbs []v1.USBHostDevice) map[string][]*PluginDevi
 	return plugins
 }
 
-func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *USBDevicePlugin {
+func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []*PluginDevices, p permissionManager) *USBDevicePlugin {
 	s := strings.Split(resourceName, "/")
 	resourceID := s[0]
 	if len(s) > 1 {
@@ -607,6 +492,8 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 	usb := &USBDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			socketPath:   SocketPath(resourceID),
+			deviceRoot:   deviceRoot,
+			devicePath:   pathToUSBDevices,
 			resourceName: resourceName,
 			initialized:  false,
 			lock:         &sync.Mutex{},
@@ -615,7 +502,16 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 			deregistered: make(chan struct{}),
 		},
 		devices: pluginDevices,
+		p:       p,
 		logger:  log.Log.With("subcomponent", resourceID),
 	}
+	usb.deviceNameByID = usb.deviceNameByIDFunc
+	usb.allocateDP = usb.allocateDPFunc
+	usb.devs = usb.devicesToKubeVirtDevicePlugin()
+	usb.healthCheck = usb.healthCheckFunc
 	return usb
+}
+
+func (plugin *USBDevicePlugin) deviceNameByIDFunc(devGroupID string) string {
+	return fmt.Sprintf("USB device group (%s)", devGroupID)
 }

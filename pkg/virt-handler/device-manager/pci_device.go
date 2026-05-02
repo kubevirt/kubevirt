@@ -23,15 +23,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -58,52 +55,6 @@ type PCIDevicePlugin struct {
 	iommuToPCIMap map[string]string
 }
 
-func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	logger := log.DefaultLogger()
-	dpi.stop = stop
-
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
-
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- dpi.healthCheck()
-	}()
-
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-
-	return err
-}
-
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
 	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
 	iommuToPCIMap := make(map[string]string)
@@ -125,6 +76,9 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
+	dpi.allocateDP = dpi.allocateDPFunc
+	dpi.deviceNameByID = dpi.deviceNameByIDFunc
+	dpi.healthCheck = dpi.healthCheckFunc
 	return dpi
 }
 
@@ -148,7 +102,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 	return
 }
 
-func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *PCIDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
@@ -175,7 +129,7 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 	return resp, nil
 }
 
-func (dpi *PCIDevicePlugin) healthCheck() error {
+func (dpi *PCIDevicePlugin) healthCheckFunc() error {
 	logger := log.DefaultLogger()
 	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
@@ -188,8 +142,8 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 
 	// Start watching the files before we check for their existence to avoid races
-	dirName := filepath.Dir(devicePath)
-	err = watcher.Add(dirName)
+	deviceDir := filepath.Dir(devicePath)
+	err = watcher.Add(deviceDir)
 	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
@@ -211,8 +165,8 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 		monitoredDevices[vfioDevice] = dev.ID
 	}
 
-	dirName = filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
+	socketDir := filepath.Dir(dpi.socketPath)
+	err = watcher.Add(socketDir)
 
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
@@ -253,9 +207,20 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 	}
 }
 
+func (dpi *PCIDevicePlugin) deviceNameByIDFunc(monDevId string) string {
+	pciID, ok := dpi.iommuToPCIMap[monDevId]
+	if !ok {
+		pciID = "not recognized"
+	}
+	return fmt.Sprintf("PCI device (pciAddr=%s, id=%s)", pciID, monDevId)
+}
+
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	pciDevicesMap := make(map[string][]*PCIDevice)
-	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
 		if info.IsDir() {
 			return nil
 		}
