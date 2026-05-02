@@ -33,6 +33,7 @@ import (
 type fakeConfigChecker struct {
 	gpuDRAEnabled        bool
 	hostDeviceDRAEnabled bool
+	networkDRAEnabled    bool
 }
 
 func (f *fakeConfigChecker) GPUsWithDRAGateEnabled() bool {
@@ -41,6 +42,10 @@ func (f *fakeConfigChecker) GPUsWithDRAGateEnabled() bool {
 
 func (f *fakeConfigChecker) HostDevicesWithDRAEnabled() bool {
 	return f.hostDeviceDRAEnabled
+}
+
+func (f *fakeConfigChecker) NetworkDevicesWithDRAGateEnabled() bool {
+	return f.networkDRAEnabled
 }
 
 var _ = Describe("DRA Admitter", func() {

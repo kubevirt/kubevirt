@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
@@ -91,6 +92,7 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 		}
+		spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "claim1"}}
 		spec.Networks = []v1.Network{
 			{
 				Name: "default",
@@ -102,14 +104,17 @@ var _ = Describe("Validate network source", func() {
 				},
 			},
 		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
 	})
 
 	It("should reject when resourceClaim is combined with another network type", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+		}
+		spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "claim1"}}
 		spec.Networks = []v1.Network{
 			{
 				Name: "default",
@@ -123,7 +128,7 @@ var _ = Describe("Validate network source", func() {
 			},
 		}
 
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
+		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true, networkDRAEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
