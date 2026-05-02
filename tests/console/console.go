@@ -21,12 +21,17 @@ package console
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"github.com/onsi/ginkgo/v2"
@@ -47,6 +52,9 @@ const (
 	UTFPosEscape        = "\u001b\\[[0-9]+;[0-9]+H"
 
 	consoleConnectionTimeout = 30 * time.Second
+	sendTimeout              = 3 * time.Second
+	guestAgentTimeout        = 4 * time.Minute
+	guestAgentPollInterval   = 2 * time.Second
 )
 
 var (
@@ -216,7 +224,6 @@ func NewExpecter(
 				timeout.String(),
 			)
 	}
-	timeout -= serialConsoleCreateDuration
 
 	go func() {
 		resCh <- con.Stream(kvcorev1.StreamOptions{
@@ -225,7 +232,7 @@ func NewExpecter(
 		})
 	}()
 
-	opts = append(opts, expect.SendTimeout(timeout), expect.Verbose(true), expect.VerboseWriter(ginkgo.GinkgoWriter))
+	opts = append(opts, expect.SendTimeout(sendTimeout), expect.Verbose(true), expect.VerboseWriter(ginkgo.GinkgoWriter))
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
 		Out: expecterReader,
@@ -300,4 +307,20 @@ func RetValueWithPrompt(retcode string) string {
 
 func RetValue(retcode string) string {
 	return `[\r\n]` + retcode + CRLF
+}
+
+func WaitForGuestAgentConnected(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) error {
+	return virtwait.PollImmediately(guestAgentPollInterval, guestAgentTimeout, func(ctx context.Context) (done bool, err error) {
+		updatedVMI, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(ctx, vmi.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		for _, condition := range updatedVMI.Status.Conditions {
+			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
 }
