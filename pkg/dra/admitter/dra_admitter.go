@@ -27,6 +27,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -39,6 +40,7 @@ type Validator struct {
 type DRAConfigChecker interface {
 	GPUsWithDRAGateEnabled() bool
 	HostDevicesWithDRAEnabled() bool
+	NetworkDevicesWithDRAGateEnabled() bool
 }
 
 func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, configChecker DRAConfigChecker) *Validator {
@@ -83,12 +85,31 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 	hdCauses, hdClaimNames, hdClaimRequestPairs := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices, checker)
 	causes = append(causes, hdCauses...)
 
+	netClaimRequestPairs := netadmitter.ExtractDRANetworkClaimRequestTupleFirstIndex(spec, checker)
+
+	seenPairSources := map[string]string{}
+	for key, gpuIdx := range gpuClaimRequestPairs {
+		seenPairSources[key] = fmt.Sprintf("GPU[%d]", gpuIdx)
+	}
+
 	for key, hdIdx := range hdClaimRequestPairs {
 		if gpuIdx, found := gpuClaimRequestPairs[key]; found {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueDuplicate,
 				Message: fmt.Sprintf("duplicate claimName/requestName pair %q between GPUs[%d] and HostDevices[%d]", key, gpuIdx, hdIdx),
 				Field:   field.Child("domain", "devices", "hostDevices").Index(hdIdx).String(),
+			})
+			continue
+		}
+		seenPairSources[key] = fmt.Sprintf("HostDevice[%d]", hdIdx)
+	}
+
+	for key, netIdx := range netClaimRequestPairs {
+		if source, found := seenPairSources[key]; found {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate claimName/requestName combination %q already used by %s", key, source),
+				Field:   field.Child("networks").Index(netIdx).String(),
 			})
 		}
 	}
