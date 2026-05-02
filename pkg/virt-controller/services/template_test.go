@@ -225,6 +225,43 @@ var _ = Describe("Template", func() {
 			return vmi
 		}
 
+		Context("DRA network resource claims", func() {
+			const (
+				computeContainerName = "compute"
+				vmiName              = "testvmi"
+			)
+
+			It("should add network DRA claim to compute container resources when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: "net-claim", Request: "net-request"},
+				}))
+
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:                      "net-claim",
+						ResourceClaimTemplateName: ptr.To("net-claim-template"),
+					},
+				}))
+			})
+
+			It("should not add network DRA claim to compute container resources when feature gate is disabled", func() {
+				config, _, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(BeEmpty())
+			})
+		})
+
 		Context("Use emulation", func() {
 			const (
 				testNamespace        = "default"
@@ -6120,6 +6157,36 @@ func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{sriovInterface}
 
+	return vmi
+}
+
+func newVMIWithDRANetwork(name string) *v1.VirtualMachineInstance {
+	vmi := api.NewMinimalVMI(name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{
+			Name: "dra-net",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				SRIOV: &v1.InterfaceSRIOV{},
+			},
+		},
+	}
+	vmi.Spec.Networks = []v1.Network{
+		{
+			Name: "dra-net",
+			NetworkSource: v1.NetworkSource{
+				ResourceClaim: &v1.ClaimRequest{
+					ClaimName:   "net-claim",
+					RequestName: "net-request",
+				},
+			},
+		},
+	}
+	vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+		{
+			Name:                      "net-claim",
+			ResourceClaimTemplateName: ptr.To("net-claim-template"),
+		},
+	}
 	return vmi
 }
 
