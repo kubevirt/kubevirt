@@ -114,7 +114,8 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 		_, err := core.Services(service.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Service.LowerExpectations(r.kvKey, 1, 0)
-			return false, fmt.Errorf("unable to create service %+v: %v", service, err)
+			log.Log.V(2).Infof("failed to create service %s: %+v", service.Name, service)
+			return false, fmt.Errorf("unable to create service %s: %v", service.Name, err)
 		}
 
 		return false, nil
@@ -135,7 +136,8 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 
 	patchBytes, err := generateServicePatch(cachedService, service)
 	if err != nil {
-		return false, fmt.Errorf("unable to generate service endpoint patch operations for %+v: %v", service, err)
+		log.Log.V(2).Infof("failed to generate service endpoint patch for %s: %+v", service.Name, service)
+		return false, fmt.Errorf("unable to generate service endpoint patch operations for %s: %v", service.Name, err)
 	}
 
 	if len(patchBytes) == 0 {
@@ -145,7 +147,8 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 
 	_, err = core.Services(service.Namespace).Patch(context.Background(), service.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
+		log.Log.V(2).Infof("failed to patch service %s: %+v", service.Name, service)
+		return false, fmt.Errorf("unable to patch service %s: %v", service.Name, err)
 	}
 
 	log.Log.V(2).Infof("service %v patched", service.GetName())
@@ -260,7 +263,8 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		_, err := r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Secrets.LowerExpectations(r.kvKey, 1, 0)
-			return nil, fmt.Errorf("unable to create secret %+v: %v", secret, err)
+			log.Log.V(2).Infof("failed to create secret %s: %+v", secret.Name, secret)
+			return nil, fmt.Errorf("unable to create secret %s: %v", secret.Name, err)
 		}
 
 		return crt, nil
@@ -281,7 +285,8 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 
 	_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to patch secret %+v: %v", secret, err)
+		log.Log.V(2).Infof("failed to patch secret %s: %+v", secret.Name, secret)
+		return nil, fmt.Errorf("unable to patch secret %s: %v", secret.Name, err)
 	}
 
 	log.Log.V(2).Infof("secret %v updated", secret.GetName())
@@ -378,12 +383,14 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	if !exists {
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
+			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
+			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 	} else {
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to update configMap %+v: %v", configMap, err)
+			log.Log.V(2).Infof("failed to update configMap %s: %+v", configMap.Name, configMap)
+			return fmt.Errorf("unable to update configMap %s: %v", configMap.Name, err)
 		}
 	}
 	return nil
@@ -554,7 +561,8 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 		_, err := core.ServiceAccounts(r.kv.Namespace).Create(context.Background(), sa, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ServiceAccount.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+			log.Log.V(2).Infof("failed to create serviceaccount %s: %+v", sa.Name, sa)
+			return fmt.Errorf("unable to create serviceaccount %s: %v", sa.Name, err)
 		}
 		log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
 		return nil
@@ -578,7 +586,8 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 
 	_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, labelAnnotationPatch, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
+		log.Log.V(2).Infof("failed to patch serviceaccount %s: %+v", sa.Name, sa)
+		return fmt.Errorf("unable to patch serviceaccount %s: %v", sa.Name, err)
 	}
 
 	log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
@@ -704,7 +713,8 @@ func (r *Reconciler) createExternalKubeVirtCAConfigMap(configMap *corev1.ConfigM
 		configMap.Data = map[string]string{components.CABundleKey: ""}
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
+			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
+			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 	}
 	return nil
@@ -732,7 +742,8 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
-			return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
+			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
+			return nil, fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 
 		return []byte(configMap.Data[components.CABundleKey]), nil
@@ -764,7 +775,8 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 
 	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
+		log.Log.V(2).Infof("failed to patch configMap %s: %+v", configMap.Name, configMap)
+		return nil, fmt.Errorf("unable to patch configMap %s: %v", configMap.Name, err)
 	}
 
 	log.Log.V(2).Infof("configMap %v updated", configMap.GetName())
