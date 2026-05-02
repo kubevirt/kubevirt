@@ -366,7 +366,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("should not warn if configuration nil", warnNotExpected, nil),
 		)
 
-		DescribeTable("should raise warning when a deprecated feature-gate is enabled", func(featureGate, expectedWarning string) {
+		DescribeTable("should raise warning when a feature-gate is enabled", func(featureGate, expectedWarning string) {
 			kv := v1.KubeVirt{}
 			kvBytes, err := json.Marshal(kv)
 			Expect(err).ToNot(HaveOccurred())
@@ -391,12 +391,14 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}))
 		},
-			Entry("with LiveMigration", featuregate.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
-			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
-			Entry("with NonRoot", featuregate.NonRoot, fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
-			Entry("with PSA", featuregate.PSA, fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
-			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
-			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
+			Entry("with CPUManager", featuregate.CPUManager, fmt.Sprintf(featuregate.WarningPatternActive, featuregate.CPUManager, featuregate.Alpha)),
+			Entry("with ImageVolume", featuregate.ImageVolume, fmt.Sprintf(featuregate.WarningPatternActive, featuregate.ImageVolume, featuregate.Beta)),
+			Entry("with LiveMigration", featuregate.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPatternDeprecated, featuregate.LiveMigrationGate, featuregate.GA)),
+			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPatternDeprecated, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
+			Entry("with NonRoot", featuregate.NonRoot, fmt.Sprintf(featuregate.WarningPatternDeprecated, featuregate.NonRoot, featuregate.GA)),
+			Entry("with PSA", featuregate.PSA, fmt.Sprintf(featuregate.WarningPatternDeprecated, featuregate.PSA, featuregate.GA)),
+			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPatternDeprecated, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
+			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPatternDeprecated, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
 			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
