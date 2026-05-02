@@ -451,6 +451,33 @@ var _ = Describe("Resource pod spec renderer", func() {
 			}))
 		})
 
+		It("should handle networks with DRA resources in API", func() {
+			networks := []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   pointer.P("net-claim"),
+							RequestName: pointer.P("net-request"),
+						},
+					},
+				},
+				{
+					Name: "pod-net",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithNetworksDRA(networks))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("net-claim"))
+			Expect(claims[0].Request).To(Equal("net-request"))
+		})
+
 		It("Unified functions should not interfere with other renderer options", func() {
 			cpuRequest := resource.MustParse("100m")
 			memoryRequest := resource.MustParse("128Mi")
@@ -498,9 +525,22 @@ var _ = Describe("Resource pod spec renderer", func() {
 				},
 			}
 
+			networks := []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   pointer.P("net-claim"),
+							RequestName: pointer.P("net-request"),
+						},
+					},
+				},
+			}
+
 			rr = NewResourceRenderer(limits, requests,
 				WithGPUsDRA(gpus),
 				WithHostDevicesDRA(hostDevices),
+				WithNetworksDRA(networks),
 			)
 
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
@@ -509,7 +549,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
 
 			claims = rr.Claims()
-			Expect(claims).To(HaveLen(2))
+			Expect(claims).To(HaveLen(3))
 
 			claimNames := make(map[string]string)
 			for _, claim := range claims {
@@ -518,6 +558,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 			Expect(claimNames).To(HaveKeyWithValue("gpu-claim", "gpu-request"))
 			Expect(claimNames).To(HaveKeyWithValue("hostdev-claim", "hostdev-request"))
+			Expect(claimNames).To(HaveKeyWithValue("net-claim", "net-request"))
 		})
 	})
 
