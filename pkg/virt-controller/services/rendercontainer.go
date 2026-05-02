@@ -291,5 +291,23 @@ func requiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 		capabilities = append(capabilities, CAP_SYS_NICE)
 	}
 
+	if hasDRADevices(vmi) {
+		capabilities = append(capabilities, CAP_IPC_LOCK, CAP_SYS_RAWIO)
+	}
+
 	return capabilities
+}
+
+func hasDRADevices(vmi *v1.VirtualMachineInstance) bool {
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		if gpu.ClaimRequest != nil {
+			return true
+		}
+	}
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		if hd.ClaimRequest != nil {
+			return true
+		}
+	}
+	return false
 }
