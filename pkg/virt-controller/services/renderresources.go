@@ -202,6 +202,23 @@ func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 	}
 }
 
+// WithNetworksDRA adds ResourceClaims for Networks provisioned via DRA.
+func WithNetworksDRA(networks []v1.Network) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		for _, net := range networks {
+			if netvmispec.IsDRANetwork(net) &&
+				net.NetworkSource.ResourceClaim.ClaimName != nil &&
+				net.NetworkSource.ResourceClaim.RequestName != nil {
+				claim := k8sv1.ResourceClaim{
+					Name:    *net.NetworkSource.ResourceClaim.ClaimName,
+					Request: *net.NetworkSource.ResourceClaim.RequestName,
+				}
+				r.resourceClaims = append(r.resourceClaims, claim)
+			}
+		}
+	}
+}
+
 func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
