@@ -729,6 +729,14 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 		},
 	}
 
+	container.SecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.P(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+	}
+
 	return deployment
 }
 
@@ -817,6 +825,14 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 			corev1.ResourceCPU:    resource.MustParse("5m"),
 			corev1.ResourceMemory: resource.MustParse("150Mi"),
 		},
+	}
+
+	container.SecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.P(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
 	return deployment
