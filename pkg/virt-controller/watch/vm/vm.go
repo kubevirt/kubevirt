@@ -3046,6 +3046,20 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
 	}
 
+	if vmi != nil {
+		vmiIfacesByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
+		for i, currentIface := range currentVM.Spec.Template.Spec.Domain.Devices.Interfaces {
+			vmiIface, exists := vmiIfacesByName[currentIface.Name]
+			if !exists || currentIface.MacAddress == "" || currentIface.MacAddress != vmiIface.MacAddress {
+				continue
+			}
+			if i < len(lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces) &&
+				lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces[i].Name == currentIface.Name {
+				lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces[i].MacAddress = currentIface.MacAddress
+			}
+		}
+	}
+
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true

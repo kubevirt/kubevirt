@@ -240,3 +240,7 @@ func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
 }
+
+func (config *ClusterConfig) VMPersistentMACsEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VMPersistentMACs)
+}

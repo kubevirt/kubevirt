@@ -35,8 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -44,13 +44,17 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const linuxBridgeName = "supadupabr"
+const (
+	linuxBridgeName              = "supadupabr"
+	kubemacpoolVMOptOutLabel     = "mutatevirtualmachines.kubemacpool.io"
+)
 
 type hotplugMethod string
 
@@ -92,6 +96,15 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 		var hotPluggedVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
+			By("Enabling VMPersistentMACs feature gate")
+			config.EnableFeatureGate(featuregate.VMPersistentMACs)
+
+			By("Opting out of kubemacpool to ensure MAC persistence is tested")
+			Expect(libnamespace.AddLabelToNamespace(kubevirt.Client(), testsuite.GetTestNamespace(nil), kubemacpoolVMOptOutLabel, "ignore")).To(Succeed())
+			DeferCleanup(func() {
+				Expect(libnamespace.RemoveLabelFromNamespace(kubevirt.Client(), testsuite.GetTestNamespace(nil), kubemacpoolVMOptOutLabel)).To(Succeed())
+			})
+
 			By("Creating a VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
@@ -146,11 +159,30 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
+			By("capturing MAC addresses before migration")
+			preMigrationVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(context.Background(), hotPluggedVMI.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			preMigrationMACs := map[string]string{}
+			for _, ifaceStatus := range preMigrationVMI.Status.Interfaces {
+				preMigrationMACs[ifaceStatus.Name] = ifaceStatus.MAC
+			}
+
 			By("migrating the VMI")
 			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
 			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migrationUID)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
+
+			By("verifying MAC addresses are preserved after migration")
+			Eventually(func(g Gomega) {
+				postMigrationVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(context.Background(), hotPluggedVMI.Name, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(postMigrationVMI.Status.Interfaces).NotTo(BeEmpty())
+				for _, ifaceStatus := range postMigrationVMI.Status.Interfaces {
+					g.Expect(ifaceStatus.MAC).To(Equal(preMigrationMACs[ifaceStatus.Name]),
+						"MAC address for interface %s should be preserved after migration", ifaceStatus.Name)
+				}
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
