@@ -1,0 +1,4 @@
+exports_files(
+    ["vm-state-clone-handler.sh"],
+    visibility = ["//visibility:public"],
+)
