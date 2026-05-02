@@ -38,14 +38,21 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
 var defaultBackoffTime = []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
 
+type devicePlugin interface {
+	Start(stop <-chan struct{}) error
+	GetResourceName() string
+	GetInitialized() bool
+}
+
 type controlledDevice struct {
-	devicePlugin Device
+	devicePlugin devicePlugin
 	started      bool
 	stopChan     chan struct{}
 	backoff      []time.Duration
@@ -60,7 +67,7 @@ func (c *controlledDevice) Start() {
 
 	logger := log.DefaultLogger()
 	dev := c.devicePlugin
-	deviceName := dev.GetDeviceName()
+	deviceName := dev.GetResourceName()
 	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
@@ -105,19 +112,19 @@ func (c *controlledDevice) Stop() {
 }
 
 func (c *controlledDevice) GetName() string {
-	return c.devicePlugin.GetDeviceName()
+	return c.devicePlugin.GetResourceName()
 }
 
-func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permissions string) []Device {
+func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permissions string) []devicePlugin {
 	var permanentDevicePluginPaths = map[string]string{
 		hypervisorDevice: "/dev/" + hypervisorDevice,
 		"tun":            "/dev/net/tun",
 		"vhost-net":      "/dev/vhost-net",
 	}
 
-	ret := make([]Device, 0, len(permanentDevicePluginPaths))
+	ret := make([]devicePlugin, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
-		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != hypervisorDevice))
+		ret = append(ret, NewGenericDevicePlugin(name, util.HostRootMount, path, maxDevices, permissions, name != hypervisorDevice))
 	}
 	return ret
 }
@@ -128,7 +135,7 @@ type DeviceControllerInterface interface {
 }
 
 type DeviceController struct {
-	permanentPlugins         map[string]Device
+	permanentPlugins         map[string]devicePlugin
 	startedPlugins           map[string]controlledDevice
 	startedPluginsMutex      sync.Mutex
 	host                     string
@@ -151,13 +158,13 @@ func NewDeviceController(
 	host string,
 	maxDevices int,
 	permissions string,
-	permanentPlugins []Device,
+	permanentPlugins []devicePlugin,
 	clusterConfig *virtconfig.ClusterConfig,
 	nodeStore cache.Store,
 ) *DeviceController {
-	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
+	permanentPluginsMap := make(map[string]devicePlugin, len(permanentPlugins))
 	for i := range permanentPlugins {
-		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
+		permanentPluginsMap[permanentPlugins[i].GetResourceName()] = permanentPlugins[i]
 	}
 
 	controller := &DeviceController{
@@ -182,7 +189,7 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	return err == nil
 }
 
-func (c *DeviceController) updateTdxDevice() (Device, error) {
+func (c *DeviceController) updateTdxDevice() (devicePlugin, error) {
 	maxTDXVMs, err := cgroup.GetMiscCapacity("tdx")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get TDX capacity from misc.capacity: %v", err)
@@ -191,10 +198,10 @@ func (c *DeviceController) updateTdxDevice() (Device, error) {
 		socketPath := c.virtConfig.GetQGSSocketPath()
 		socketDir := path.Dir(socketPath)
 		socketFile := path.Base(socketPath)
-		var tdxPlugin Device
+		var tdxPlugin devicePlugin
 		var err error
 		if c.virtConfig.RequireQGS() {
-			tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
+			tdxPlugin = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
 		} else {
 			tdxPlugin = NewOptionalSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
 		}
@@ -205,8 +212,8 @@ func (c *DeviceController) updateTdxDevice() (Device, error) {
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
-func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
-	var permittedDevices []Device
+func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
+	var permittedDevices []devicePlugin
 
 	if c.virtConfig.WorkloadEncryptionTDXEnabled() {
 		tdxPlugin, err := c.updateTdxDevice()
@@ -230,18 +237,14 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		if dev.IsAllowed() {
 			permittedDevices = append(
 				permittedDevices,
-				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
+				NewGenericDevicePlugin(dev.Name, util.HostRootMount, dev.Path, c.maxDevices, c.permissions, true),
 			)
 		}
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {
-		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager(), false)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
-		} else {
-			permittedDevices = append(permittedDevices, d)
-		}
+		d := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, newPermissionManager(), false)
+		permittedDevices = append(permittedDevices, d)
 	}
 
 	hostDevs := c.virtConfig.GetPermittedHostDevices()
@@ -288,7 +291,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	}
 
 	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
-		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, util.HostRootMount, pluginDevices, newPermissionManager()))
 	}
 
 	return permittedDevices
@@ -302,8 +305,8 @@ func removeSelectorSpaces(selectorName string) string {
 	return typeNameStr
 }
 
-func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {
-	devicePluginsToRun := make(map[string]Device)
+func (c *DeviceController) splitPermittedDevices(devices []devicePlugin) (map[string]devicePlugin, map[string]struct{}) {
+	devicePluginsToRun := make(map[string]devicePlugin)
 	devicePluginsToStop := make(map[string]struct{})
 
 	// generate a map of currently started device plugins
@@ -315,10 +318,10 @@ func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]D
 	}
 
 	for _, device := range devices {
-		if _, isRunning := c.startedPlugins[device.GetDeviceName()]; !isRunning {
-			devicePluginsToRun[device.GetDeviceName()] = device
+		if _, isRunning := c.startedPlugins[device.GetResourceName()]; !isRunning {
+			devicePluginsToRun[device.GetResourceName()] = device
 		} else {
-			delete(devicePluginsToStop, device.GetDeviceName())
+			delete(devicePluginsToStop, device.GetResourceName())
 		}
 	}
 
@@ -456,7 +459,7 @@ func (c *DeviceController) refreshPermittedDevices() {
 	c.mdevRefreshWG.Done()
 }
 
-func (c *DeviceController) startDevice(resourceName string, dev Device) {
+func (c *DeviceController) startDevice(resourceName string, dev devicePlugin) {
 	c.stopDevice(resourceName)
 	controlledDev := controlledDevice{
 		devicePlugin: dev,
