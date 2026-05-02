@@ -1364,6 +1364,58 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	return oldSpec, nil
 }
 
+// diskUpdateRecord holds the old and new disk spec for a completed UpdateDeviceFlags call
+type diskUpdateRecord struct {
+	oldDisk api.Disk
+	newDisk api.Disk
+}
+
+// rollbackDetachedDisks re-attaches disks that were successfully detached earlier in the same syncDisks call
+func rollbackDetachedDisks(dom cli.VirDomain, disks []api.Disk, logger *log.FilteredLogger) {
+	for i := len(disks) - 1; i >= 0; i-- {
+		disk := disks[i]
+		attachBytes, err := xml.Marshal(disk)
+		if err != nil {
+			logger.Reason(err).Errorf("rollback: failed to marshal disk %s for re-attachment", disk.Alias.GetName())
+			continue
+		}
+		if err := dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+			logger.Reason(err).Errorf("rollback: failed to re-attach disk %s after partial detach failure", disk.Alias.GetName())
+		}
+	}
+}
+
+// rollbackAttachedDisks detaches disks that were successfully attached earlier in the same syncDisks call
+func rollbackAttachedDisks(dom cli.VirDomain, disks []api.Disk, logger *log.FilteredLogger) {
+	for i := len(disks) - 1; i >= 0; i-- {
+		disk := disks[i]
+		detachBytes, err := xml.Marshal(disk)
+		if err != nil {
+			logger.Reason(err).Errorf("rollback: failed to marshal disk %s for detachment", disk.Alias.GetName())
+			continue
+		}
+		if err := dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+			logger.Reason(err).Errorf("rollback: failed to detach disk %s after partial attach failure", disk.Alias.GetName())
+		}
+	}
+}
+
+// rollbackUpdatedDisks reverts UpdateDeviceFlags calls that succeeded earlier in
+// the same syncDisks call by re-applying each disk's previous spec.
+func rollbackUpdatedDisks(dom cli.VirDomain, records []diskUpdateRecord, logger *log.FilteredLogger) {
+	for i := len(records) - 1; i >= 0; i-- {
+		old := records[i].oldDisk
+		revertBytes, err := xml.Marshal(old)
+		if err != nil {
+			logger.Reason(err).Errorf("rollback: failed to marshal old spec for disk %s", old.Alias.GetName())
+			continue
+		}
+		if err := dom.UpdateDeviceFlags(strings.ToLower(string(revertBytes)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+			logger.Reason(err).Errorf("rollback: failed to revert update for disk %s", old.Alias.GetName())
+		}
+	}
+}
+
 func (l *LibvirtDomainManager) syncDisks(
 	domain *api.Domain,
 	spec *api.DomainSpec,
@@ -1372,6 +1424,9 @@ func (l *LibvirtDomainManager) syncDisks(
 ) error {
 	logger := log.Log.Object(vmi)
 
+	// detachedDisks accumulates every disk that was successfully detached
+	var detachedDisks []api.Disk
+
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		volumeName := detachDisk.Alias.GetName()
@@ -1379,23 +1434,36 @@ func (l *LibvirtDomainManager) syncDisks(
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
 		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
 		if err := storage.DeleteQCOW2Overlay(vmi, volumeName); err != nil {
 			logger.Reason(err).Error("deleting CBT overlay")
+			// The disk is already detached from libvirt; re-attach it before
+			// returning so the domain's device tree remains consistent.
+			rollbackDetachedDisks(dom, append(detachedDisks, detachDisk), logger)
 			return err
 		}
+		detachedDisks = append(detachedDisks, detachDisk)
 	}
+
+	// attachedDisks accumulates every disk that was successfully attached so
+	// that they can be detached if a later operation in this sync fails.
+	var attachedDisks []api.Disk
+
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		ds := disksource.Resolve(attachDisk)
 		allowAttach, err := checkIfDiskReadyToUse(ds.BackendPath())
 		if err != nil {
+			rollbackAttachedDisks(dom, attachedDisks, logger)
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
 		if !allowAttach {
@@ -1405,6 +1473,8 @@ func (l *LibvirtDomainManager) syncDisks(
 		// set drivers cache mode
 		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
 		if err != nil {
+			rollbackAttachedDisks(dom, attachedDisks, logger)
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
 		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
@@ -1412,14 +1482,29 @@ func (l *LibvirtDomainManager) syncDisks(
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")
+			rollbackAttachedDisks(dom, attachedDisks, logger)
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
 		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
+			rollbackAttachedDisks(dom, attachedDisks, logger)
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
+		attachedDisks = append(attachedDisks, attachDisk)
 	}
+
+	// Build a lookup of domain's current disk specs by target device
+	oldDiskByTarget := make(map[string]api.Disk, len(domain.Spec.Devices.Disks))
+	for _, d := range domain.Spec.Devices.Disks {
+		oldDiskByTarget[d.Target.Device] = d
+	}
+
+	// updatedDisks accumulates every disk that was successfully updated
+	var updatedDisks []diskUpdateRecord
+
 	// Look up all the disks to UPDATE
 	for _, updateDisk := range getUpdatedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		ds := disksource.Resolve(updateDisk)
@@ -1427,6 +1512,9 @@ func (l *LibvirtDomainManager) syncDisks(
 		if sourceFile != "" {
 			allowUpdate, err := checkIfDiskReadyToUse(sourceFile)
 			if err != nil {
+				rollbackUpdatedDisks(dom, updatedDisks, logger)
+				rollbackAttachedDisks(dom, attachedDisks, logger)
+				rollbackDetachedDisks(dom, detachedDisks, logger)
 				return err
 			}
 			if !allowUpdate {
@@ -1439,14 +1527,23 @@ func (l *LibvirtDomainManager) syncDisks(
 		updateBytes, err := xml.Marshal(updateDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling updated disk failed")
+			rollbackUpdatedDisks(dom, updatedDisks, logger)
+			rollbackAttachedDisks(dom, attachedDisks, logger)
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
 
 		err = dom.UpdateDeviceFlags(strings.ToLower(string(updateBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("updating device")
+			rollbackUpdatedDisks(dom, updatedDisks, logger)
+			rollbackAttachedDisks(dom, attachedDisks, logger)
+			rollbackDetachedDisks(dom, detachedDisks, logger)
 			return err
 		}
+
+		oldDisk := oldDiskByTarget[updateDisk.Target.Device]
+		updatedDisks = append(updatedDisks, diskUpdateRecord{oldDisk: oldDisk, newDisk: updateDisk})
 	}
 
 	// Resize and notify the VM about changed disks
