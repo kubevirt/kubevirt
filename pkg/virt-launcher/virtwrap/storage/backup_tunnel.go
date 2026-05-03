@@ -29,11 +29,9 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -42,6 +40,8 @@ import (
 	"k8s.io/utils/clock"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 )
 
 const (
@@ -58,16 +58,27 @@ const (
 
 var h2DummyAddr = &net.TCPAddr{}
 
+type socketWatcher interface {
+	Run()
+	Close()
+	Events() <-chan filewatcher.Event
+	Errors() <-chan error
+}
+
+type establishAndServeFunc func(ctx context.Context) error
+
 type backupTunnelManager struct {
-	targetAddr      string
-	serverName      string
-	nbdSocket       string
-	caCert          string
-	backupCert      string
-	backupKey       string
-	backupName      string
-	backupStartTime *metav1.Time
-	registerNBD     RegisterNBDFunc
+	targetAddr        string
+	serverName        string
+	nbdSocket         string
+	caCert            string
+	backupCert        string
+	backupKey         string
+	backupName        string
+	backupStartTime   *metav1.Time
+	sockWatcher       socketWatcher
+	registerNBD       RegisterNBDFunc
+	establishAndServe establishAndServeFunc
 
 	mu     sync.Mutex
 	server *grpc.Server
@@ -75,7 +86,7 @@ type backupTunnelManager struct {
 }
 
 func newBackupTunnelManager(targetAddr, serverName, nbdSocket, caCert, backupCert, backupKey, backupName string, backupStartTime *metav1.Time, registerNBD RegisterNBDFunc) *backupTunnelManager {
-	return &backupTunnelManager{
+	m := &backupTunnelManager{
 		targetAddr:      targetAddr,
 		serverName:      serverName,
 		nbdSocket:       nbdSocket,
@@ -84,30 +95,28 @@ func newBackupTunnelManager(targetAddr, serverName, nbdSocket, caCert, backupCer
 		caCert:          caCert,
 		backupCert:      backupCert,
 		backupKey:       backupKey,
+		sockWatcher:     filewatcher.New(nbdSocket, time.Second),
 		registerNBD:     registerNBD,
 	}
+	m.establishAndServe = m.doEstablishAndServe
+	return m
 }
 
 func (m *backupTunnelManager) Start() error {
+	if _, err := os.Stat(m.nbdSocket); err != nil {
+		return fmt.Errorf("cannot initialize backup tunnel: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	m.mu.Lock()
 	m.cancel = cancel
 	m.mu.Unlock()
 
-	nbdSocketCh, err := m.watchSocket(ctx)
-	if err != nil {
-		cancel()
-		return fmt.Errorf("failed to initialize socket watcher: %w", err)
-	}
-
 	go func() {
 		defer cancel()
-		if err := m.run(ctx, nbdSocketCh); err != nil {
-			log.Log.Reason(err).Error("backup tunnel stopped with terminal error")
-		}
+		m.run(ctx)
 	}()
-
 	return nil
 }
 
@@ -124,7 +133,38 @@ func (m *backupTunnelManager) IsMatch(name string, startTime *metav1.Time) bool 
 	return m.backupName == name && m.backupStartTime.Equal(startTime)
 }
 
-func (m *backupTunnelManager) run(ctx context.Context, nbdSocketCh <-chan struct{}) error {
+func (m *backupTunnelManager) run(ctx context.Context) {
+	m.sockWatcher.Run()
+	defer m.sockWatcher.Close()
+
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	go func() {
+		for {
+			select {
+			case ev, ok := <-m.sockWatcher.Events():
+				if !ok || ev&filewatcher.Remove != 0 {
+					log.Log.Infof("NBD socket %s removed, stopping backup tunnel", m.nbdSocket)
+					cancel(fmt.Errorf("NBD socket %s removed", m.nbdSocket))
+					return
+				}
+			case err, ok := <-m.sockWatcher.Errors():
+				if !ok {
+					return
+				}
+				log.Log.Reason(err).Error("backup tunnel file watcher error")
+				if _, statErr := os.Stat(m.nbdSocket); statErr != nil {
+					log.Log.Reason(statErr).Errorf("NBD socket %s not accessible after watcher error, stopping", m.nbdSocket)
+					cancel(fmt.Errorf("NBD socket %s not accessible after watcher error: %w", m.nbdSocket, err))
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	delayFn := wait.Backoff{
 		Duration: defaultTunnelInit,
 		Cap:      defaultTunnelCap,
@@ -133,20 +173,10 @@ func (m *backupTunnelManager) run(ctx context.Context, nbdSocketCh <-chan struct
 	}.DelayWithReset(&clock.RealClock{}, defaultTunnelReset)
 
 	err := delayFn.Until(ctx, true, true, func(ctx context.Context) (bool, error) {
-		select {
-		case <-nbdSocketCh:
-			log.Log.Infof("NBD socket %s removed, stopping backup tunnel", m.nbdSocket)
-			return false, fmt.Errorf("NBD socket removed")
-		default:
-			if _, err := os.Stat(m.nbdSocket); errors.Is(err, os.ErrNotExist) {
-				log.Log.Infof("NBD socket %s not found, stopping backup tunnel", m.nbdSocket)
-				return false, fmt.Errorf("NBD socket not found")
-			}
-			if err := m.establishAndServe(ctx, nbdSocketCh); err != nil {
-				log.Log.Reason(err).Warning("backup tunnel connection lost, retrying")
-			}
-			return false, nil
+		if err := m.establishAndServe(ctx); err != nil {
+			log.Log.Reason(err).Warning("backup tunnel connection lost, retrying")
 		}
+		return false, nil
 	})
 
 	if err != nil && !errors.Is(err, context.Canceled) {
@@ -154,7 +184,6 @@ func (m *backupTunnelManager) run(ctx context.Context, nbdSocketCh <-chan struct
 	}
 
 	m.stopServer()
-	return nil
 }
 
 func (m *backupTunnelManager) stopServer() {
@@ -166,7 +195,7 @@ func (m *backupTunnelManager) stopServer() {
 	}
 }
 
-func (m *backupTunnelManager) establishAndServe(ctx context.Context, nbdSocketCh <-chan struct{}) error {
+func (m *backupTunnelManager) doEstablishAndServe(ctx context.Context) error {
 	url := fmt.Sprintf("https://%s", m.targetAddr)
 
 	tlsConfig, err := m.prepareTLSConfig()
@@ -195,7 +224,7 @@ func (m *backupTunnelManager) establishAndServe(ctx context.Context, nbdSocketCh
 	log.Log.Infof("backup tunnel: connected via CONNECT to %s, serving NBD", url)
 
 	serveDone := make(chan struct{})
-	go m.manageGracefulShutdown(ctx, srv, nbdSocketCh, serveDone)
+	go m.manageGracefulShutdown(ctx, srv, serveDone)
 
 	closed := make(chan struct{})
 	wrapped := &closeNotifyConn{Conn: conn, closed: closed}
@@ -277,10 +306,9 @@ func (m *backupTunnelManager) openConnectTunnel(ctx context.Context, targetURL s
 	return &h2ClientConn{r: resp.Body, w: pw, t: transport}, nil
 }
 
-func (m *backupTunnelManager) manageGracefulShutdown(ctx context.Context, srv *grpc.Server, nbdSocketCh <-chan struct{}, serveDone <-chan struct{}) {
+func (m *backupTunnelManager) manageGracefulShutdown(ctx context.Context, srv *grpc.Server, serveDone <-chan struct{}) {
 	select {
 	case <-ctx.Done():
-	case <-nbdSocketCh:
 	case <-serveDone:
 		return
 	}
@@ -296,50 +324,6 @@ func (m *backupTunnelManager) manageGracefulShutdown(ctx context.Context, srv *g
 	case <-time.After(defaultGracefulShutdownTimeout):
 		srv.Stop()
 	}
-}
-
-func (m *backupTunnelManager) watchSocket(ctx context.Context) (<-chan struct{}, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create inotify watcher: %w", err)
-	}
-	socketDir := filepath.Dir(m.nbdSocket)
-	if err := watcher.Add(socketDir); err != nil {
-		watcher.Close()
-		return nil, fmt.Errorf("failed to watch directory %s: %w", socketDir, err)
-	}
-	ch := make(chan struct{})
-
-	go func() {
-		defer func() {
-			watcher.Close()
-			close(ch)
-			log.Log.Infof("backup tunnel socket watcher stopped for %s", m.nbdSocket)
-		}()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Name == m.nbdSocket && event.Op&(fsnotify.Remove|fsnotify.Rename) != 0 {
-					log.Log.Infof("backup tunnel socket %s removed or renamed (op=%s)", event.Name, event.Op)
-					return
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Log.Reason(err).Error("backup tunnel fsnotify watcher error")
-				return
-			}
-		}
-	}()
-
-	return ch, nil
 }
 
 type h2ClientConn struct {
