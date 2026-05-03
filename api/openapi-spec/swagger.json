@@ -22111,6 +22111,9 @@
      },
      "appendIndexToSecretRefs": {
       "type": "boolean"
+     },
+     "setHostnameToVMName": {
+      "type": "boolean"
      }
     }
    },

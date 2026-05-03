@@ -33032,6 +33032,12 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref co
 							Format: "",
 						},
 					},
+					"setHostnameToVMName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -33593,6 +33599,12 @@ func schema_kubevirtio_api_pool_v1beta1_VirtualMachinePoolNameGeneration(ref com
 						},
 					},
 					"appendIndexToSecretRefs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"setHostnameToVMName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
