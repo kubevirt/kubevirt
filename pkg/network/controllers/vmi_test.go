@@ -499,6 +499,43 @@ var _ = Describe("Status Update", func() {
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
+
+	It("Should keep existing DRA interface statuses when Multus network-status is missing", func() {
+		const (
+			draClaimName  = "sriov"
+			redIfaceName  = "red"
+			redRequest    = "vf1"
+			blueIfaceName = "blue"
+			blueRequest   = "vf2"
+		)
+
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultNetworkName, InfoSource: vmispec.InfoSourceDomainAndGA},
+			{Name: redIfaceName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+			{Name: blueIfaceName, MAC: "aa:ad:ba:be:00:02", InterfaceName: "eth2", InfoSource: vmispec.InfoSourceDomainAndGA},
+		}
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(redIfaceName)),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(blueIfaceName)),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, redRequest)),
+			libvmi.WithNetwork(libvmi.DRANetwork(blueIfaceName, draClaimName, blueRequest)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
+
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
+
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
+			{Name: redIfaceName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+			{Name: blueIfaceName, MAC: "aa:ad:ba:be:00:02", InterfaceName: "eth2", InfoSource: vmispec.InfoSourceDomainAndGA},
+		}
+
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
 })
 
 func newPodFromVMI(vmi *v1.VirtualMachineInstance, annotations map[string]string) *k8scorev1.Pod {
