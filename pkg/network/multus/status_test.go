@@ -130,6 +130,132 @@ var _ = Describe("Network Status", func() {
 			),
 		)
 	})
+
+	Context("GetMigrationNetworkIPs", func() {
+		const (
+			migrationInterface = "migration0"
+			podIP              = "10.244.0.50"
+			podIPv6            = "fd10:244::32"
+			migrationIP        = "172.21.42.5"
+			migrationIPv6      = "2001:db8::1"
+		)
+
+		DescribeTable("should extract IPs correctly", func(pod *k8scorev1.Pod, expectedIPs []string) {
+			Expect(multus.GetMigrationNetworkIPs(pod, migrationInterface)).To(Equal(expectedIPs))
+		},
+			Entry("when migration network has IPv4 address",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							networkv1.NetworkStatusAnnot: `[` +
+								`{"name":"k8s-pod-network","interface":"eth0","ips":["` + podIP + `"],"default":true},` +
+								`{"name":"migration-net","interface":"` + migrationInterface + `","ips":["` + migrationIP + `"]}` +
+								`]`,
+						},
+					},
+					Status: k8scorev1.PodStatus{
+						PodIP: podIP,
+						PodIPs: []k8scorev1.PodIP{
+							{IP: podIP},
+						},
+					},
+				},
+				[]string{migrationIP},
+			),
+			Entry("when migration network has both IPv4 and IPv6 addresses",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							networkv1.NetworkStatusAnnot: `[` +
+								`{"name":"k8s-pod-network","interface":"eth0","ips":["` + podIP + `","` + podIPv6 + `"],"default":true},` +
+								`{"name":"migration-net","interface":"` + migrationInterface + `","ips":["` + migrationIP + `","` + migrationIPv6 + `"]}` +
+								`]`,
+						},
+					},
+					Status: k8scorev1.PodStatus{
+						PodIP: podIP,
+						PodIPs: []k8scorev1.PodIP{
+							{IP: podIP},
+							{IP: podIPv6},
+						},
+					},
+				},
+				[]string{migrationIP, migrationIPv6},
+			),
+			Entry("when migration network is not configured, should return pod IPs",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							networkv1.NetworkStatusAnnot: `[` +
+								`{"name":"k8s-pod-network","interface":"eth0","ips":["` + podIP + `","` + podIPv6 + `"],"default":true}` +
+								`]`,
+						},
+					},
+					Status: k8scorev1.PodStatus{
+						PodIP: podIP,
+						PodIPs: []k8scorev1.PodIP{
+							{IP: podIP},
+							{IP: podIPv6},
+						},
+					},
+				},
+				[]string{podIP, podIPv6},
+			),
+			Entry("when migration network exists but has no IPs, should return pod IPs",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							networkv1.NetworkStatusAnnot: `[` +
+								`{"name":"k8s-pod-network","interface":"eth0","ips":["` + podIP + `"],"default":true},` +
+								`{"name":"migration-net","interface":"` + migrationInterface + `","ips":[]}` +
+								`]`,
+						},
+					},
+					Status: k8scorev1.PodStatus{
+						PodIP: podIP,
+						PodIPs: []k8scorev1.PodIP{
+							{IP: podIP},
+						},
+					},
+				},
+				[]string{podIP},
+			),
+			Entry("when no network status annotations, should return pod IPs",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+					Status: k8scorev1.PodStatus{
+						PodIP: podIP,
+						PodIPs: []k8scorev1.PodIP{
+							{IP: podIP},
+						},
+					},
+				},
+				[]string{podIP},
+			),
+			Entry("when only single pod IP is available (no PodIPs slice)",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+					Status: k8scorev1.PodStatus{
+						PodIP: podIP,
+					},
+				},
+				[]string{podIP},
+			),
+			Entry("when pod has no IPs at all, should return nil",
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+					Status: k8scorev1.PodStatus{},
+				},
+				nil,
+			),
+		)
+	})
 })
 
 func newStubPod(annotations map[string]string) *k8scorev1.Pod {
