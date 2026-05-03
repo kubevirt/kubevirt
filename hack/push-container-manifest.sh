@@ -27,6 +27,27 @@ fi
 
 fail_if_cri_bin_missing
 
+function push_manifest_with_retry() {
+    local max_retries=5
+    local sleep_between=30
+    local attempt=1
+
+    while [ "${attempt}" -le "${max_retries}" ]; do
+        echo "INFO: manifest push attempt ${attempt}/${max_retries}: ${KUBEVIRT_CRI} manifest push $*"
+        if ${KUBEVIRT_CRI} manifest push "$@"; then
+            echo "INFO: manifest push succeeded on attempt ${attempt}"
+            return 0
+        fi
+        if [ "${attempt}" -eq "${max_retries}" ]; then
+            echo "ERROR: manifest push failed after ${max_retries} attempts"
+            return 1
+        fi
+        echo "WARNING: attempt ${attempt} failed, retrying in ${sleep_between}s..."
+        sleep "${sleep_between}"
+        attempt=$(( attempt + 1 ))
+    done
+}
+
 function podman_push_manifest() {
     image=$1
     # FIXME: Workaround https://github.com/containers/podman/issues/18360 and remove once https://github.com/containers/podman/commit/bab4217cd16be609ac35ccf3061d1e34f787856f is released
@@ -41,7 +62,8 @@ function podman_push_manifest() {
             echo "Warning: Image ${TAGGED_IMAGE} does not exist, skipping"
         fi
     done
-    ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+    push_manifest_with_retry --all \
+        "${DOCKER_PREFIX}/${image}:${DOCKER_TAG}" "${DOCKER_PREFIX}/${image}:${DOCKER_TAG}"
 }
 
 function docker_push_manifest() {
@@ -58,7 +80,7 @@ function docker_push_manifest() {
     done
     echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
-    ${KUBEVIRT_CRI} manifest push ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+    push_manifest_with_retry "${DOCKER_PREFIX}/${image}:${DOCKER_TAG}"
 }
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
