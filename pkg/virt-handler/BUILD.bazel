@@ -85,6 +85,8 @@ go_test(
     timeout = "long",
     srcs = [
         "cbt_test.go",
+        "controller_test.go",
+        "guestagent_test.go",
         "migration-source_test.go",
         "migration-target_test.go",
         "migration_test.go",
