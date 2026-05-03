@@ -50,11 +50,7 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		secondary2LogicalNetName = "bridge2"
 		nadName                  = "bridge-nad"
 	)
-	const (
-		waitForGAConnectedTimout        = 6 * time.Minute
-		waitForGAConnectedRetryInterval = 3 * time.Second
-	)
-	const waitForExpectedIfaceStatusesTimeout = 60 * time.Second
+
 	BeforeEach(func() {
 		testNamespace := testsuite.GetTestNamespace(nil)
 		_, err := libnet.CreateNetAttachDef(context.Background(), testNamespace,
@@ -95,8 +91,8 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVM(vm)).
-			WithTimeout(waitForGAConnectedTimout).
-			WithPolling(waitForGAConnectedRetryInterval).
+			WithTimeout(6 * time.Minute).
+			WithPolling(3 * time.Second).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -108,16 +104,21 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(60 * time.Second).
+			Should(ConsistOf(expectedIfaceStatuses))
 
-		timeout := 5 * time.Second
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkUp), 5*time.Second,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), 5*time.Second,
+		)).To(Succeed())
 
 		By("flipping the state of both interfaces")
 
@@ -134,16 +135,21 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(60 * time.Second).
+			Should(ConsistOf(expectedIfaceStatuses))
 
-		timeout = 30 * time.Second
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), 30*time.Second,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkUp), 30*time.Second,
+		)).To(Succeed())
 	})
 
 	It("status and guest should show iface is down when vm with ifaces down is migrated", func() {
@@ -179,8 +185,8 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVM(vm)).
-			WithTimeout(waitForGAConnectedTimout).
-			WithPolling(waitForGAConnectedRetryInterval).
+			WithTimeout(6 * time.Minute).
+			WithPolling(3 * time.Second).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -192,16 +198,21 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		}
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(60 * time.Second).
+			Should(ConsistOf(expectedIfaceStatuses))
 
-		timeout := 5 * time.Second
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), 5*time.Second,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), 5*time.Second,
+		)).To(Succeed())
 
 		By("migrating the vmi")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -212,16 +223,21 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
-			fetchedVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
+			fetchedVMI, getErr := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if getErr != nil {
+				return nil, getErr
 			}
 			return normalizeIfaceStatuses(fetchedVMI.Status.Interfaces), nil
-		}).WithTimeout(waitForExpectedIfaceStatusesTimeout).Should(ConsistOf(expectedIfaceStatuses))
+		}).
+			WithTimeout(60 * time.Second).
+			Should(ConsistOf(expectedIfaceStatuses))
 
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), 5*time.Second,
+		)).To(Succeed())
+		Expect(console.RunCommand(
+			vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), 5*time.Second,
+		)).To(Succeed())
 	})
 }))
 

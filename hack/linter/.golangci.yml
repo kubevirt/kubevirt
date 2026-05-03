@@ -75,9 +75,25 @@ linters:
       ignored-functions:
         - ^Eventually$
         - ^EventuallyWithOffset$
+        - ^Consistently$
+        - ^ConsistentlyWithOffset$
+        - ^Expect$
         - ^ExpectWithOffset$
         - ^console\.ExpectBatch$
         - ^console\.RunCommand$
+        - ^time\.After$
+        - ^time\.Sleep$
+        - ^time\.Tick$
+      ignored-numbers:
+        - '0'
+        - '1'
+        - '2'
+        - '3'
+        - '6'
+        - '15'
+        - '60'
+        - '100'
+        - '1000'
     nolintlint:
       require-explanation: false # don't require an explanation for nolint directives
       require-specific: false # don't require nolint directives to be specific about which linter is being skipped
@@ -112,7 +128,6 @@ linters:
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
       - tests/network/hotplug_sriov\.go$
-      - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
@@ -149,7 +164,6 @@ formatters:
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
       - tests/network/hotplug_sriov\.go$
-      - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
