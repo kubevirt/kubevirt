@@ -409,7 +409,7 @@ var _ = Describe("netpod", func() {
 		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 			Iface:  &vmiIface,
 			PodIP:  primaryIPv4Address,
-			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+			PodIPs: []string{primaryIPv4Address},
 		}))
 
 		expDHCPConfig, err := expectedDHCPConfig(
@@ -562,7 +562,7 @@ var _ = Describe("netpod", func() {
 		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
 			Iface:  &vmiIface,
 			PodIP:  primaryIPv4Address,
-			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+			PodIPs: []string{primaryIPv4Address},
 		}))
 
 		expDHCPConfig, err := expectedDHCPConfig(

@@ -26,11 +26,13 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -292,7 +294,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface,
 				networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
 				if staticIPVm2 == "" || staticIPVm1 == "" {
-					ipam := map[string]string{"type": "host-local", "subnet": ptpSubnet}
+					ipam := map[string]interface{}{"type": "host-local", "subnet": ptpSubnet}
 					Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
 				}
 
@@ -449,6 +451,71 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				const timeout = time.Second * 5
 				Expect(console.RunCommand(vmiOne, fmt.Sprintf("ip addr show eth0 | grep %s\n", interfacesByName["default"].MAC), timeout)).To(Succeed())
 				Expect(console.RunCommand(vmiOne, fmt.Sprintf("ip addr show eth1 | grep %s\n", interfacesByName[linuxBridgeIfaceName].MAC), timeout)).To(Succeed())
+			})
+
+			It("should show guest IPv6 in status, not pod IPAM IPv6", func() {
+				const (
+					secondaryPodIPv4Subnet = "10.10.10.0/24"
+					secondaryPodIPv6Subnet = "fd10:0:2::0/120"
+					secondaryPodIPv4Prefix = "10.10.10."
+					secondaryPodIPv6Prefix = "fd10:0:2::"
+					secondaryGuestIPv6     = "2001:db8:1::1"
+					secondaryGuestIface    = "eth1"
+				)
+
+				ipam := map[string]interface{}{
+					"type": "host-local",
+					"ranges": [][]map[string]interface{}{
+						{{"subnet": secondaryPodIPv4Subnet}},
+						{{"subnet": secondaryPodIPv6Subnet}},
+					},
+				}
+				Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
+
+				networkData, err := cloudinit.NewNetworkData(
+					cloudinit.WithEthernet(secondaryGuestIface, cloudinit.WithAddresses(secondaryGuestIPv6+"/64")),
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				vmi := libvmifact.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithIPAMIfaceName)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithIPAMIfaceName, linuxBridgeVlan100WithIPAMNetwork)),
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+				)
+
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				Eventually(matcher.ThisVMI(vmi)).
+					WithTimeout(2 * time.Minute).
+					WithPolling(2 * time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).
+						Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Interfaces
+				}).
+					WithTimeout(1 * time.Minute).
+					WithPolling(5 * time.Second).
+					Should(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Name":       Equal(linuxBridgeWithIPAMIfaceName),
+							"InfoSource": ContainSubstring(vmispec.InfoSourceGuestAgent),
+							"IPs": And(
+								ContainElement(secondaryGuestIPv6),
+								Not(ContainElement(ContainSubstring(secondaryPodIPv6Prefix))),
+								ContainElement(ContainSubstring(secondaryPodIPv4Prefix)),
+							),
+							"InterfaceName": Equal(secondaryGuestIface),
+						}),
+					))
+
 			})
 
 			It("should have the correct MTU on the secondary interface with no dhcp server", func() {
@@ -718,7 +785,7 @@ func indexInterfaceStatusByName(vmi *v1.VirtualMachineInstance) map[string]v1.Vi
 	return interfaceStatusByName
 }
 
-func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool) error {
+func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string, vlan int, ipam map[string]interface{}, macSpoofCheck bool) error {
 	netAttachDef := libnet.NewBridgeNetAttachDef(
 		networkName,
 		bridgeName,

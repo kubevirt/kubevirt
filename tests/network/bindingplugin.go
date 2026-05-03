@@ -205,7 +205,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			netAttachDef := libnet.NewBridgeNetAttachDef(
 				linuxBridgeNADName,
 				"br10",
-				libnet.WithIPAM(map[string]string{
+				libnet.WithIPAM(map[string]interface{}{
 					"type":   "host-local",
 					"subnet": "10.1.1.0/24",
 				}),

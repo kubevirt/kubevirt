@@ -131,7 +131,7 @@ func WithMacSpoofChk(enabled bool) pluginConfOption {
 	}
 }
 
-func WithIPAM(ipam map[string]string) pluginConfOption {
+func WithIPAM(ipam map[string]interface{}) pluginConfOption {
 	return func(conf map[string]interface{}) {
 		conf["ipam"] = ipam
 	}

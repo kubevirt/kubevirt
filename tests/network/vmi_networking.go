@@ -100,7 +100,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(outboundVMI, outboundVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(libnet.ValidateVMIandPodIPMatch(outboundVMI, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
+				Expect(libnet.ValidateVMIandPodIPv4Match(outboundVMI, vmiPod)).To(Succeed(), "Should have matching IPv4 between pod and vmi")
 
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
