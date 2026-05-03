@@ -1087,11 +1087,10 @@ func (vca *VirtControllerApp) AddFlags() {
 		"Number of goroutines to run for clone controller")
 
 	flag.StringSliceVar(&vca.additionalLauncherAnnotationsSync, "additional-launcher-annotations-sync", []string{},
-		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
+		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Supports prefix wildcards via the '*' suffix (for example 'vendor.io/*'). Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
 
 	flag.StringSliceVar(&vca.additionalLauncherLabelsSync, "additional-launcher-labels-sync", []string{},
-		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
-
+		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Supports prefix wildcards via the '*' suffix (for example 'vendor.io/*'). Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
 	flag.IntVar(&vca.backupControllerThreads, "backup-controller-threads", defaultBackupControllerThreads,
 		"Number of goroutines to run for backup controller")
 }
