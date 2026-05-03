@@ -336,8 +336,7 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 // See https://issues.redhat.com/browse/RHEL-117250
 type TargetMigrationMonitor struct {
 	c             cli.Connection
-	events        chan watch.Event
-	vmi           *v1.VirtualMachineInstance
+	logger        *log.FilteredLogger
 	domain        *api.Domain
 	metadataCache *metadata.Cache
 	notifier      MigrationEventNotifier
@@ -350,16 +349,14 @@ type MigrationEventNotifier interface {
 
 func NewTargetMigrationMonitor(
 	c cli.Connection,
-	events chan watch.Event,
-	vmi *v1.VirtualMachineInstance,
+	logger *log.FilteredLogger,
 	domain *api.Domain,
 	metadataCache *metadata.Cache,
 	notifier MigrationEventNotifier,
 ) *TargetMigrationMonitor {
 	return &TargetMigrationMonitor{
 		c:             c,
-		events:        events,
-		vmi:           vmi,
+		logger:        logger,
 		domain:        domain,
 		metadataCache: metadataCache,
 		notifier:      notifier}
@@ -370,7 +367,7 @@ var retryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Sec
 func (m *TargetMigrationMonitor) StartMonitor() {
 	go func() {
 		var err error
-		domName := api.VMINamespaceKeyFunc(m.vmi)
+		domName := m.domain.Spec.Name
 		for attempt := 0; attempt <= len(retryDelays); attempt++ {
 			err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(context context.Context) (bool, error) {
 				dom, err := m.c.LookupDomainByName(domName)
@@ -380,7 +377,7 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 				defer dom.Free()
 				jobInfo, err := dom.GetJobInfo()
 				if err != nil {
-					log.Log.Object(m.vmi).V(4).Reason(err).Info("Failed to get domain job info")
+					m.logger.V(4).Reason(err).Info("Failed to get domain job info")
 					// This can happen if the current job doesn't support `GetJobInfo()`, let's try again
 					return false, nil
 				}
@@ -388,19 +385,19 @@ func (m *TargetMigrationMonitor) StartMonitor() {
 					// No migration job is currently running
 					return true, nil
 				}
-				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d)", jobInfo.Type)
+				m.logger.V(4).Infof("Incoming migration job active (type %d)", jobInfo.Type)
 				return false, nil
 			})
 			if err == nil || attempt == len(retryDelays) {
 				break
 			}
-			log.Log.Object(m.vmi).Info("A migration job is still active, retrying after delay")
+			m.logger.Info("A migration job is still active, retrying after delay")
 			time.Sleep(retryDelays[attempt])
 		}
 		if err != nil {
-			log.Log.Object(m.vmi).Info("Error polling libvirt, setting EndTimestamp anyway to unblock migration")
+			m.logger.Info("Error polling libvirt, setting EndTimestamp anyway to unblock migration")
 		} else {
-			log.Log.Object(m.vmi).Info("Incoming migration job completed, setting EndTimestamp")
+			m.logger.Info("Incoming migration job completed, setting EndTimestamp")
 		}
 		setEndTimestamp(m.metadataCache)
 		event := watch.Event{Type: watch.Modified, Object: m.domain}
