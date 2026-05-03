@@ -950,6 +950,290 @@ var _ = Describe("Validating VM Admitter", func() {
 			false),
 	)
 
+	It("should reject hotpluggable volume when DeclarativeHotplugVolumes feature gate is not enabled", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name:       "hotplugdisk",
+			DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "scsi"}},
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "hotplugdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+					Hotpluggable:                      true,
+				},
+			},
+		})
+
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.P(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Message).To(ContainSubstring("feature gate is not enabled"))
+	})
+
+	DescribeTable("should validate declarative hotplug disk configuration", func(disk v1.Disk, volume v1.Volume, isValid bool) {
+		enableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+		DeferCleanup(disableFeatureGates)
+
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmi.Name,
+				Namespace: vmi.Namespace,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.P(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(Equal(isValid))
+	},
+		Entry("should accept disk with scsi bus",
+			v1.Disk{
+				Name: "hotplugdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "scsi"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			true),
+		Entry("should accept disk with virtio bus",
+			v1.Disk{
+				Name: "hotplugdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "virtio"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			true),
+		Entry("should accept LUN with scsi bus",
+			v1.Disk{
+				Name: "hotpluglun",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{Bus: "scsi"},
+				},
+			},
+			v1.Volume{
+				Name: "hotpluglun",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			true),
+		Entry("should reject disk with sata bus",
+			v1.Disk{
+				Name: "hotplugdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "sata"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			false),
+		Entry("should reject disk with usb bus",
+			v1.Disk{
+				Name: "hotplugdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "usb"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			false),
+		Entry("should reject LUN with virtio bus",
+			v1.Disk{
+				Name: "hotpluglun",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{Bus: "virtio"},
+				},
+			},
+			v1.Volume{
+				Name: "hotpluglun",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			false),
+		Entry("should reject CDRom device type",
+			v1.Disk{
+				Name: "hotplugcdrom",
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{Bus: "scsi"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugcdrom",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			false),
+		Entry("should skip validation for non-hotpluggable volume",
+			v1.Disk{
+				Name: "regulardisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "sata"},
+				},
+			},
+			v1.Volume{
+				Name: "regulardisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      false,
+					},
+				},
+			},
+			true),
+		Entry("should accept DataVolume hotplug with scsi bus",
+			v1.Disk{
+				Name: "hotplugdv",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "scsi"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdv",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name:         "test-dv",
+						Hotpluggable: true,
+					},
+				},
+			},
+			true),
+		Entry("should reject DataVolume hotplug with sata bus",
+			v1.Disk{
+				Name: "hotplugdv",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "sata"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdv",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name:         "test-dv",
+						Hotpluggable: true,
+					},
+				},
+			},
+			false),
+		Entry("should reject dedicated IOThreads without virtio bus",
+			v1.Disk{
+				Name:              "hotplugdisk",
+				DedicatedIOThread: pointer.P(true),
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "scsi"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			false),
+		Entry("should accept dedicated IOThreads with virtio bus",
+			v1.Disk{
+				Name:              "hotplugdisk",
+				DedicatedIOThread: pointer.P(true),
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "virtio"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			true),
+		Entry("should reject invalid boot order",
+			v1.Disk{
+				Name:      "hotplugdisk",
+				BootOrder: pointer.P(uint(0)),
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: "scsi"},
+				},
+			},
+			v1.Volume{
+				Name: "hotplugdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test"},
+						Hotpluggable:                      true,
+					},
+				},
+			},
+			false),
+	)
+
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
