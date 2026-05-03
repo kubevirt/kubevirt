@@ -245,6 +245,15 @@ var _ = Describe("Clone", func() {
 			return true, nil, nil
 		})
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+
+		mockExpandSpec := kubecli.NewMockExpandSpecInterface(ctrl)
+		mockExpandSpec.EXPECT().ForVirtualMachine(gomock.Any()).DoAndReturn(func(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+			return vm, nil
+		}).AnyTimes()
+		mockExpandSpec.EXPECT().ForSnapshotVirtualMachine(gomock.Any()).DoAndReturn(func(vm *snapshotv1.VirtualMachine) (*snapshotv1.VirtualMachine, error) {
+			return vm, nil
+		}).AnyTimes()
+		virtClient.EXPECT().ExpandSpec(gomock.Any()).Return(mockExpandSpec).AnyTimes()
 	})
 
 	sanityExecute := func() {

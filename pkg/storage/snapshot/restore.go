@@ -701,13 +701,29 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	return t.reconcileSpec(restoredVM)
 }
 
+// expandSnapshotVM expands a snapshot VM spec by resolving instancetype/preference references.
+// Returns the expanded VM or an error if expansion fails.
+func (t *vmRestoreTarget) expandSnapshotVM(snapshotVM *snapshotv1.VirtualMachine) (*snapshotv1.VirtualMachine, error) {
+	return t.controller.Client.ExpandSpec(snapshotVM.Namespace).ForSnapshotVirtualMachine(snapshotVM)
+}
+
 func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualMachine) (bool, error) {
-	if !backendstorage.IsBackendStorageNeeded(snapshotVM) {
+	// Expand the snapshot VM spec to resolve instancetype/preference references.
+	vmToCheck := snapshotVM
+	expandedVM, err := t.expandSnapshotVM(snapshotVM)
+	if err != nil {
+		// If expansion fails, fall back to the original snapshot VM spec.
+		log.Log.Reason(err).Warningf("Failed to expand snapshot VM %s/%s for backend storage check, using unexpanded spec", snapshotVM.Namespace, snapshotVM.Name)
+	} else {
+		vmToCheck = expandedVM
+	}
+
+	if !backendstorage.IsBackendStorageNeeded(vmToCheck) {
 		return true, nil
 	}
 
 	// Retrieve only the backend volume
-	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(vmToCheck, t.controller.Client, storageutils.WithBackendVolume)
 	if err != nil {
 		// Not checking for ErrNoBackendPVC, simply returning
 		// error as backend PVC should exist now
@@ -1301,8 +1317,6 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 			BlockOwnerDeletion: pointer.P(true),
 		},
 	})
-
-	return
 }
 
 func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
@@ -1332,7 +1346,21 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 
 func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	// Target should always exist at this point, just nil check for safety.
-	if target.Exists() && backendstorage.IsBackendStorageNeeded(target.VirtualMachine()) {
+	if !target.Exists() {
+		return nil
+	}
+
+	// Expand the target VM spec to resolve instancetype/preference references.
+	vmToCheck := target.VirtualMachine()
+	expandedVM, err := ctrl.Client.ExpandSpec(vmToCheck.Namespace).ForVirtualMachine(vmToCheck)
+	if err != nil {
+		// If expansion fails, fall back to the original VM spec.
+		log.Log.Reason(err).Warningf("Failed to expand VM %s/%s for backend storage check, using unexpanded spec", vmToCheck.Namespace, vmToCheck.Name)
+	} else {
+		vmToCheck = expandedVM
+	}
+
+	if backendstorage.IsBackendStorageNeeded(vmToCheck) {
 		pvcs, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", restoreCleanupBackendPVCLabel, getCleanupLabelValue(vmRestore)),
 		})

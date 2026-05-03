@@ -320,6 +320,15 @@ var _ = Describe("Restore controller", func() {
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
+			mockExpandSpec := kubecli.NewMockExpandSpecInterface(ctrl)
+			mockExpandSpec.EXPECT().ForVirtualMachine(gomock.Any()).DoAndReturn(func(vm *kubevirtv1.VirtualMachine) (*kubevirtv1.VirtualMachine, error) {
+				return vm, nil
+			}).AnyTimes()
+			mockExpandSpec.EXPECT().ForSnapshotVirtualMachine(gomock.Any()).DoAndReturn(func(vm *snapshotv1.VirtualMachine) (*snapshotv1.VirtualMachine, error) {
+				return vm, nil
+			}).AnyTimes()
+			virtClient.EXPECT().ExpandSpec(gomock.Any()).Return(mockExpandSpec).AnyTimes()
+
 			k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
 				return true, nil, nil

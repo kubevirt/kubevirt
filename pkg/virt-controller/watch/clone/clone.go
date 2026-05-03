@@ -173,7 +173,23 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
-		if backendstorage.IsBackendStorageNeeded(sourceVM) {
+
+		// Expand the source VM spec to resolve instancetype/preference references.
+		// This ensures that preference-applied fields like persistent TPM/EFI
+		// are visible when checking for backend storage requirements.
+		vmToCheck := sourceVM
+		if sourceVM.Spec.Instancetype != nil || sourceVM.Spec.Preference != nil {
+			expandedVM, err := ctrl.client.ExpandSpec(sourceVM.Namespace).ForVirtualMachine(sourceVM)
+			if err != nil {
+				// If expansion fails, fall back to the original VM spec.
+				// This maintains backward compatibility for VMs without instancetype/preference.
+				log.Log.Reason(err).Warningf("Failed to expand source VM %s/%s for backend storage check, using unexpanded spec", sourceVM.Namespace, sourceVM.Name)
+			} else {
+				vmToCheck = expandedVM
+			}
+		}
+
+		if backendstorage.IsBackendStorageNeeded(vmToCheck) {
 			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
 		}
 		cloneInfo.sourceVm = sourceVM
@@ -489,7 +505,17 @@ func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.Virtua
 		return nil
 	}
 
-	if backendstorage.IsBackendStorageNeeded(vm) {
+	// Expand the snapshot VM spec to resolve instancetype/preference references.
+	vmToCheck := vm
+	expandedVM, err := ctrl.expandSnapshotVM(vm)
+	if err != nil {
+		// If expansion fails, fall back to the original snapshot VM spec.
+		log.Log.Reason(err).Warningf("Failed to expand snapshot VM %s/%s for backend storage check, using unexpanded spec", vm.Namespace, vm.Name)
+	} else {
+		vmToCheck = expandedVM
+	}
+
+	if backendstorage.IsBackendStorageNeeded(vmToCheck) {
 		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
 	}
 
@@ -665,6 +691,12 @@ func (ctrl *VMCloneController) cleanupRestore(vmClone *clone.VirtualMachineClone
 func (ctrl *VMCloneController) logAndRecord(vmClone *clone.VirtualMachineClone, event Event, msg string) {
 	ctrl.recorder.Eventf(vmClone, corev1.EventTypeNormal, string(event), msg)
 	log.Log.Object(vmClone).Infof("%s", msg)
+}
+
+// expandSnapshotVM expands a snapshot VM spec by resolving instancetype/preference references.
+// Returns the expanded VM or an error if expansion fails.
+func (ctrl *VMCloneController) expandSnapshotVM(snapshotVM *snapshotv1.VirtualMachine) (*snapshotv1.VirtualMachine, error) {
+	return ctrl.client.ExpandSpec(snapshotVM.Namespace).ForSnapshotVirtualMachine(snapshotVM)
 }
 
 func (ctrl *VMCloneController) getTargetType(vmClone *clone.VirtualMachineClone) cloneTargetType {

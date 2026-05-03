@@ -953,7 +953,14 @@ func (vca *VirtControllerApp) initCloneController() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
 	vca.vmCloneController, err = clonecontroller.NewVmCloneController(
-		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, vca.vmSnapshotContentInformer, vca.persistentVolumeClaimInformer, recorder,
+		vca.clientSet,
+		vca.vmCloneInformer,
+		vca.vmSnapshotInformer,
+		vca.vmRestoreInformer,
+		vca.vmInformer,
+		vca.vmSnapshotContentInformer,
+		vca.persistentVolumeClaimInformer,
+		recorder,
 	)
 	if err != nil {
 		panic(err)

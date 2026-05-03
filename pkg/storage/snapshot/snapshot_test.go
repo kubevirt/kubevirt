@@ -414,6 +414,12 @@ var _ = Describe("Snapshot controlleer", func() {
 			virtClient.EXPECT().VirtualMachine(testNamespace).Return(vmInterface).AnyTimes()
 			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiInterface).AnyTimes()
 
+			mockExpandSpec := kubecli.NewMockExpandSpecInterface(ctrl)
+			mockExpandSpec.EXPECT().ForVirtualMachine(gomock.Any()).DoAndReturn(func(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+				return vm, nil
+			}).AnyTimes()
+			virtClient.EXPECT().ExpandSpec(gomock.Any()).Return(mockExpandSpec).AnyTimes()
+
 			vmSnapshotClient = kubevirtfake.NewSimpleClientset()
 			virtClient.EXPECT().VirtualMachineSnapshot(testNamespace).
 				Return(vmSnapshotClient.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
