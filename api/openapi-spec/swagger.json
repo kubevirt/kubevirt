@@ -18687,7 +18687,7 @@
       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
      },
      "guestAgentVersion": {
-      "description": "GAVersion is a version of currently installed guest agent",
+      "description": "Deprecated: please use SupportedCommands to determine compatibility",
       "type": "string"
      },
      "hostname": {

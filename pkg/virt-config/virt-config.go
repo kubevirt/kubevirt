@@ -234,10 +234,6 @@ func (c *ClusterConfig) GetDefaultRuntimeClass() string {
 	return c.GetConfig().DefaultRuntimeClass
 }
 
-func (c *ClusterConfig) GetSupportedAgentVersions() []string {
-	return c.GetConfig().SupportedGuestAgentVersions
-}
-
 func (c *ClusterConfig) GetOVMFPath(arch string) string {
 	oldOvmfPath := c.GetConfig().OVMFPath
 	if oldOvmfPath != "" {

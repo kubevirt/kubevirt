@@ -743,7 +743,7 @@ func (EvacuateCancelOptions) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-		"guestAgentVersion": "GAVersion is a version of currently installed guest agent",
+		"guestAgentVersion": "Deprecated: please use SupportedCommands to determine compatibility",
 		"supportedCommands": "Return command list the guest agent supports\n+listType=atomic",
 		"hostname":          "Hostname represents FQDN of a guest",
 		"os":                "OS contains the guest operating system information",

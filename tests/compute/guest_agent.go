@@ -41,8 +41,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -328,8 +326,8 @@ var _ = Describe(SIG("GuestAgent info", func() {
 
 				return guestInfo.Hostname != "" &&
 					guestInfo.Timezone != "" &&
-					guestInfo.GAVersion != "" &&
 					guestInfo.OS.Name != "" &&
+					len(guestInfo.SupportedCommands) > 0 &&
 					len(guestInfo.FSInfo.Filesystems) > 0
 
 			}).WithTimeout(guestAgentConnectTimeout).
@@ -368,6 +366,39 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			}).WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2*time.Second).
 				Should(BeTrue(), "Should have some filesystem")
+		})
+		It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
+			agentVMI := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithCloudInitNoCloud(
+					libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")),
+				),
+			)
+			By("Starting a VirtualMachineInstance")
+			agentVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+			libwait.WaitForSuccessfulVMIStart(agentVMI)
+
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
+		})
+
+		It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
+			agentVMI := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithCloudInitNoCloud(
+					libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")),
+				),
+			)
+			By("Starting a VirtualMachineInstance")
+			agentVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+			libwait.WaitForSuccessfulVMIStart(agentVMI)
+
+			By("VMI has the guest agent connected condition")
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("fetching the VMI after agent has connected")
+			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 	})
 
@@ -409,50 +440,6 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			}).WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2*time.Second).
 				Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
-		})
-	})
-
-	Context("with cluster config changes", Serial, func() {
-		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-
-			config := kv.Spec.Configuration
-			config.SupportedGuestAgentVersions = []string{"X.*"}
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-		})
-
-		It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-			agentVMI := libvmifact.NewFedora(
-				libnet.WithMasqueradeNetworking(),
-				libvmi.WithCloudInitNoCloud(
-					libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")),
-				),
-			)
-			By("Starting a VirtualMachineInstance")
-			agentVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-			libwait.WaitForSuccessfulVMIStart(agentVMI)
-
-			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
-		})
-
-		It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
-			agentVMI := libvmifact.NewFedora(
-				libnet.WithMasqueradeNetworking(),
-				libvmi.WithCloudInitNoCloud(
-					libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")),
-				),
-			)
-			By("Starting a VirtualMachineInstance")
-			agentVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-			libwait.WaitForSuccessfulVMIStart(agentVMI)
-
-			By("VMI has the guest agent connected condition")
-			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			By("fetching the VMI after agent has connected")
-			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 	})
 }))
