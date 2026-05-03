@@ -21,7 +21,6 @@ package virtwrap
 
 import (
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -43,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -52,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
-	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -78,7 +75,7 @@ type migrationMonitor struct {
 	vmi     *v1.VirtualMachineInstance
 	options *cmdclient.MigrationOptions
 
-	migrationErr chan error
+	migrationDone <-chan struct{}
 
 	start              int64
 	lastProgressUpdate int64
@@ -87,11 +84,6 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
-}
-
-type inflightMigrationAborted struct {
-	message     string
-	abortStatus v1.MigrationAbortStatus
 }
 
 func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
@@ -332,46 +324,36 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
 	migration, _ := l.metadataCache.Migration.Load()
 	if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
-		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
+		log.Log.Object(vmi).Infof("cancel migration ignored: vmi is not migrating")
+		return nil
 	}
 
-	if err := l.setMigrationAbortStatus(v1.MigrationAbortInProgress); err != nil {
-		if errors.Is(err, domainerrors.MigrationAbortInProgressError) {
-			return nil
-		}
-		return err
+	switch v1.MigrationAbortStatus(migration.AbortStatus) {
+	case v1.MigrationAbortInProgress:
+		log.Log.Object(vmi).Infof("cancel migration ignored: abort is already in progress")
+		return nil
+	case v1.MigrationAbortSucceeded:
+		log.Log.Object(vmi).Infof("cancel migration ignored: abort already succeeded")
+		return nil
 	}
 
+	l.setMigrationAbortStatus(v1.MigrationAbortInProgress)
 	l.asyncMigrationAbort(vmi)
 	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string) {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
 	if !exists {
-		// nothing to report if migration metadata is empty
-		return nil
-	}
-
-	metaAbortStatus := migrationMetadata.AbortStatus
-	if abortStatus != "" {
-		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
-			return domainerrors.MigrationAbortInProgressError
-		}
-	}
-
-	if metaAbortStatus == string(v1.MigrationAbortInProgress) &&
-		abortStatus != v1.MigrationAbortFailed &&
-		abortStatus != v1.MigrationAbortSucceeded {
-		return domainerrors.MigrationAbortInProgressError
+		log.Log.Errorf("setMigrationResult called but migration metadata is empty")
+		return
 	}
 
 	if migrationMetadata.EndTimestamp != nil {
-		// the migration result has already been reported and should not be overwritten
-		return nil
+		log.Log.Errorf("setMigrationResult called but migration result has already been reported at %v", migrationMetadata.EndTimestamp)
+		return
 	}
 
-	// Improve the error message when the volume migration fails because the destination size is smaller than the source volume
 	if failed && strings.Contains(standardizeSpaces(reason), "has to be smaller or equal to the actual size of the containing file") {
 		reason = fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v", reason)
 	}
@@ -382,13 +364,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 			migrationMetadata.FailureReason = reason
 		}
 
-		migrationMetadata.AbortStatus = string(abortStatus)
-
-		if abortStatus == "" || abortStatus == v1.MigrationAbortSucceeded {
-			// only mark the migration as complete if there was no abortion or
-			// the abortion succeeded
-			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
-		}
+		migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
 	})
 
 	logger := log.Log.V(2)
@@ -396,23 +372,21 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 		logger = logger.V(4)
 	}
 	logger.Infof("set migration result in metadata: %s", l.metadataCache.Migration.String())
-	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(failed, reason, abortStatus)
+func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) {
+	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+		migrationMetadata.AbortStatus = string(abortStatus)
+	})
+	log.Log.V(2).Infof("set migration abort status in metadata: %s", l.metadataCache.Migration.String())
 }
 
-func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(false, "", abortStatus)
-}
-
-func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
+func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
 	monitor := &migrationMonitor{
 		l:                        l,
 		vmi:                      vmi,
 		options:                  options,
-		migrationErr:             migrationErr,
+		migrationDone:            migrationDone,
 		progressWatermark:        0,
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
@@ -459,18 +433,22 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 	return true
 }
 
-func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
+func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) {
 	logger := log.Log.Object(m.vmi)
 
-	// Migration is running
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
-	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
-	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
-		m.lastProgressUpdate = now
+	if stats != nil && stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
+		m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+		if stats.DataRemainingSet {
+			m.remainingData = stats.DataRemaining
+		}
+		if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
+			m.lastProgressUpdate = now
+		}
+		m.progressWatermark = m.remainingData
 	}
-	m.progressWatermark = m.remainingData
 
 	switch {
 	case m.isMigrationPostCopy():
@@ -490,7 +468,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			err := dom.MigrateStartPostCopy(0)
 			if err != nil {
 				logger.Reason(err).Error("failed to start post migration")
-				return nil
+				return
 			}
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 		} else if virtutil.IsVFIOVMI(m.vmi) {
@@ -498,18 +476,17 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			// TODO: once the VGPULiveMigration featuregate graduates
 			//  (and even possibly other VFIO live migration featuregates)
 			//  we should consider merging this with the "else" case below.
-			// Setting a very high max downtime causes QEMU to
-			//  trigger its internal switchover, which pauses vCPUs and
-			//  transitions VFIO devices to _STOP_COPY. This is more
-			//  correct than dom.Suspend() which only pauses vCPUs but
-			//  leaves VFIO devices in _RUNNING with perpetual dirty
-			//  page reporting.
+			// Setting a very high max downtime causes QEMU to trigger its
+			// internal switchover, which pauses vCPUs and transitions VFIO
+			// devices to _STOP_COPY. This is more correct than dom.Suspend()
+			// which only pauses vCPUs but leaves VFIO devices in _RUNNING
+			// with perpetual dirty page reporting.
 			maxDowntimeSec := m.acceptableCompletionTime * 2
 			// qemu doesn't allow max downtime larger than 2000s
 			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, 2_000_000), 0)
 			if err != nil {
 				logger.Reason(err).Error("Setting max downtime failed.")
-				return nil
+				return
 			}
 			logger.Infof("Set max downtime to %ds for %s", maxDowntimeSec, m.vmi.GetObjectMeta().GetName())
 
@@ -523,7 +500,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			err := dom.Suspend()
 			if err != nil {
 				logger.Reason(err).Error("Signalling suspension failed.")
-				return nil
+				return
 			}
 			logger.Infof("Signaled pause for %s", m.vmi.GetObjectMeta().GetName())
 
@@ -539,38 +516,25 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// It usually indicates a problem with the network or qemu's connection handling.
 		// In this case, we abort the migration directly without trying to pause/post-copy,
 		// since the problem is highly unlikely to be caused by a high dirty rate.
-		err := dom.AbortJob()
-		if err != nil {
-			logger.Reason(err).Error("failed to abort migration")
-			return nil
+		if migration, _ := m.l.metadataCache.Migration.Load(); migration.AbortStatus == "" || migration.AbortStatus == string(v1.MigrationAbortFailed) {
+			progressDelay := now - m.lastProgressUpdate
+			logger.Warningf("Aborting migration: stuck for %d seconds", progressDelay/int64(time.Second))
+			m.l.cancelMigration(m.vmi)
 		}
 
-		progressDelay := now - m.lastProgressUpdate
-		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration stuck for %d seconds and has been aborted", progressDelay/int64(time.Second))
-		aborted.abortStatus = v1.MigrationAbortSucceeded
-		return aborted
 	case m.shouldTriggerTimeout(elapsed):
 		// check the overall migration time
 		// if the total migration time exceeds an acceptable
 		// limit, then the migration will get aborted, but
 		// only if post copy migration hasn't been enabled
-		err := dom.AbortJob()
-		if err != nil {
-			logger.Reason(err).Error("failed to abort migration")
-			return nil
+		if migration, _ := m.l.metadataCache.Migration.Load(); migration.AbortStatus == "" || migration.AbortStatus == string(v1.MigrationAbortFailed) {
+			logger.Warningf("Aborting migration: not completed after %d seconds", m.acceptableCompletionTime)
+			m.l.cancelMigration(m.vmi)
 		}
-
-		aborted := &inflightMigrationAborted{}
-		aborted.message = fmt.Sprintf("Live migration is not completed after %d seconds and has been aborted", m.acceptableCompletionTime)
-		aborted.abortStatus = v1.MigrationAbortSucceeded
-		return aborted
 	}
-
-	return nil
 }
 
-func (m *migrationMonitor) startMonitor() {
+func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	vmi := m.vmi
 
 	m.start = time.Now().UTC().UnixNano()
@@ -584,60 +548,34 @@ func (m *migrationMonitor) startMonitor() {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		logger.Reason(err).Error(liveMigrationFailed)
-		m.l.setMigrationResult(true, fmt.Sprintf("%v", err), "")
+		ready <- fmt.Errorf("migration monitor failed to look up domain: %v", err)
 		return
 	}
 	defer dom.Free()
+	close(ready) // signal we're ready to monitor migration
 
 	logInterval := 0
 
 	for {
-		var ok bool
-		err = nil
 		select {
-		case err, ok = <-m.migrationErr:
-			if !ok {
-				return
-			}
-		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
-		}
-
-		if err != nil {
-			logger.Reason(err).Error(liveMigrationFailed)
-			var abortStatus v1.MigrationAbortStatus
-			if strings.Contains(err.Error(), "canceled by client") {
-				abortStatus = v1.MigrationAbortSucceeded
-			}
-			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
+		case <-m.migrationDone:
 			return
+		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
 		jobStats, err := dom.GetJobStats(0)
 		if err != nil {
-			logger.Reason(err).Info("failed to get domain job info, will retry")
-			continue
+			logger.Reason(err).Info("failed to get domain job info")
+			jobStats = nil
 		}
 
-		if jobStats.DataRemainingSet {
-			m.remainingData = jobStats.DataRemaining
-		}
+		m.processInflightMigration(dom, jobStats)
 
-		uid := MigrationUID(vmi)
-		switch jobStats.Type {
-		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			aborted := m.processInflightMigration(dom, jobStats)
-			if aborted != nil {
-				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
-				m.l.setMigrationResult(true, aborted.message, aborted.abortStatus)
-				return
-			}
+		if jobStats != nil && jobStats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				LogMigrationInfo(logger, uid, jobStats)
+				LogMigrationInfo(logger, MigrationUID(vmi), jobStats)
 			}
-		case libvirt.DOMAIN_JOB_NONE:
-			logger.Info("Migration job is not active")
 		}
 	}
 }
@@ -680,18 +618,21 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 }
 
 func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstance) {
+	l.abortWg.Add(1)
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
-
+		defer l.abortWg.Done()
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
+			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 			return
 		}
 		defer dom.Free()
 		jobInfo, err := dom.GetJobInfo()
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
+			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 			return
 		}
 		if jobInfo.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
@@ -701,8 +642,11 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 				l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 				return
 			}
-			l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+			l.setMigrationAbortStatus(v1.MigrationAbortSucceeded)
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
+		} else {
+			log.Log.Object(vmi).Infof("migration job is not active (type=%d), nothing to abort", jobInfo.Type)
+			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 		}
 	}(l, vmi)
 }
@@ -1033,14 +977,11 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	}
 
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
+	l.abortWg.Wait() // wait for in-flight cancellation
 	if err != nil {
-		l.setMigrationResult(true, err.Error(), "")
-		log.Log.Object(vmi).Errorf("migration failed with error: %v", err)
-		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
+		log.Log.Object(vmi).Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
+		return err
 	}
-
-	log.Log.Object(vmi).Info("migration completed successfully")
-	l.setMigrationResult(false, "", "")
 
 	return nil
 }
@@ -1063,32 +1004,37 @@ func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
 func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 	if shouldImmediatelyFailMigration(vmi) {
 		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
-		l.setMigrationResult(true, "Failed migration to satisfy functional test condition", "")
+		l.setMigrationResult(true, "Failed migration to satisfy functional test condition")
 		return
 	}
 
-	migrationErrorChan := make(chan error, 1)
-	defer close(migrationErrorChan)
+	migrationDone := make(chan struct{})
+	defer close(migrationDone)
 
 	log.Log.Object(vmi).Infof("Initiating live migration.")
 	if options.UnsafeMigration {
 		log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 	}
 
-	// From here on out, any error encountered must be sent to the
-	// migrationError channel which is processed by the liveMigrationMonitor
-	// go routine.
-	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
-	go monitor.startMonitor()
+	monitor := newMigrationMonitor(vmi, l, options, migrationDone)
+	monitorReady := make(chan error, 1)
+	go monitor.startMonitor(monitorReady)
+
+	if err := <-monitorReady; err != nil {
+		log.Log.Object(vmi).Reason(err).Error("migration monitor failed to start")
+		l.setMigrationResult(true, err.Error())
+		return
+	}
 
 	err := l.migrateHelper(vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
-		migrationErrorChan <- err
+		l.setMigrationResult(true, err.Error())
 		return
 	}
 
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
+	l.setMigrationResult(false, "")
 }
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {

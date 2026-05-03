@@ -28,24 +28,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	"k8s.io/apimachinery/pkg/watch"
 	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/log"
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
-
-type eventNotifier struct {
-}
-
-func (e eventNotifier) SendEvent(_ watch.Event) error {
-	return nil
-}
-
-func (e eventNotifier) UpdateEvents(_ watch.Event) {
-}
 
 var _ = Describe("client", func() {
 	var shareDir string
@@ -73,12 +63,10 @@ var _ = Describe("client", func() {
 			}, domainJobError
 		}).AnyTimes()
 		mockLibvirt.DomainEXPECT().Free().Return(nil).AnyTimes()
-		eventChan := make(chan watch.Event, 100)
 		vmi := api2.NewMinimalVMI("fake-vmi")
 		domain := api.NewMinimalDomain("test")
 		metadataCache := metadata.NewCache()
-		notifier := &eventNotifier{}
-		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, eventChan, vmi, domain, metadataCache, notifier)
+		monitor := NewTargetMigrationMonitor(mockLibvirt.VirtConnection, log.Log.Object(vmi), domain, metadataCache)
 		monitor.StartMonitor()
 
 		By("Ensuring that nothing gets added to the metadata cache as long as the migration is running")

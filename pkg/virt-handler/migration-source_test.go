@@ -386,7 +386,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	Context("handleMigrationAbort", func() {
 		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance) {
 			client.EXPECT().CancelVirtualMachineMigration(vmi)
-			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+			Expect(controller.handleMigrationAbort(vmi, nil, client)).To(Succeed())
 			testutils.ExpectEvent(recorder, VMIAbortingMigration)
 		},
 			Entry("when the request failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
@@ -405,7 +405,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		)
 		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance) {
 
-			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+			Expect(controller.handleMigrationAbort(vmi, nil, client)).To(Succeed())
 		},
 			Entry("when the request succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
@@ -431,7 +431,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 						AbortRequested: true,
 					}))))
 			client.EXPECT().CancelVirtualMachineMigration(vmi).Return(fmt.Errorf(errMsg))
-			Expect(controller.handleMigrationAbort(vmi, client)).To(MatchError(errMsg))
+			Expect(controller.handleMigrationAbort(vmi, nil, client)).To(MatchError(errMsg))
 		})
 
 		It("should abort vmi migration vmi when migration object indicates deletion", func() {
