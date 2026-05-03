@@ -225,7 +225,8 @@ func NewExpecter(
 		})
 	}()
 
-	opts = append(opts, expect.SendTimeout(timeout), expect.Verbose(true), expect.VerboseWriter(ginkgo.GinkgoWriter))
+	opts = append(opts, expect.SendTimeout(timeout), expect.Verbose(true), expect.VerboseWriter(ginkgo.GinkgoWriter)) // expect.CheckDuration(time.Millisecond*200),
+
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
 		Out: expecterReader,
