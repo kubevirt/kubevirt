@@ -437,6 +437,42 @@ var _ = Describe("Resource pod spec renderer", func() {
 		})
 	})
 
+	Context("validatePermittedHostDevices", func() {
+		DescribeTable("should validate GPUs correctly based on DRA gate", func(gpu v1.GPU, draEnabled bool, expectError bool) {
+			featureGates := []string{}
+			if draEnabled {
+				featureGates = append(featureGates, "GPUsWithDRA")
+			}
+
+			kvConfig := &v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: featureGates,
+				},
+				PermittedHostDevices: &v1.PermittedHostDevices{},
+			}
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+			vmiSpec := &v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						GPUs: []v1.GPU{gpu},
+					},
+				},
+			}
+			
+			err := validatePermittedHostDevices(vmiSpec, clusterConfig)
+			if expectError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("Standard GPU + Gate OFF", v1.GPU{Name: "gpu1", DeviceName: "nvidia-gpu"}, false, true),
+			Entry("Standard GPU + Gate ON", v1.GPU{Name: "gpu1", DeviceName: "nvidia-gpu"}, true, true),
+			Entry("DRA GPU (No DeviceName) + Gate ON", v1.GPU{Name: "gpu1", ClaimRequest: &v1.ClaimRequest{ClaimName: pointer.P("claim")}}, true, false),
+			Entry("Invalid GPU (No DeviceName) + Gate OFF", v1.GPU{Name: "gpu1"}, false, true),
+		)
+	})
+
 	It("WithSEV option adds SEV device resource", func() {
 		sevResourceKey := kubev1.ResourceName("devices.kubevirt.io/sev")
 		rr = NewResourceRenderer(nil, nil, WithSEV())
