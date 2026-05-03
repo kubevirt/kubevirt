@@ -1184,7 +1184,7 @@ func (app *virtAPIApp) Run() {
 	app.prepareCertManager()
 
 	// Run informers for webhooks usage
-	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.virtCli, app.aggregatorClient, app.namespace)
 
 	kubeVirtInformer := kubeInformerFactory.KubeVirt()
 	// Wire up health check trigger
