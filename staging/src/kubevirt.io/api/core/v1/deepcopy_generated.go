@@ -3663,6 +3663,11 @@ func (in *NetworkSource) DeepCopyInto(out *NetworkSource) {
 		*out = new(MultusNetwork)
 		**out = **in
 	}
+	if in.ResourceClaim != nil {
+		in, out := &in.ResourceClaim, &out.ResourceClaim
+		*out = new(ClaimRequest)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

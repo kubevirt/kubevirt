@@ -189,6 +189,16 @@ func (config *ClusterConfig) ConfigurableHypervisorEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ConfigurableHypervisor)
 }
 
+func (config *ClusterConfig) NetworkDevicesWithDRAGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate)
+}
+
+func (config *ClusterConfig) AnyDeviceDRAGateEnabled() bool {
+	return config.GPUsWithDRAGateEnabled() ||
+		config.HostDevicesWithDRAEnabled() ||
+		config.NetworkDevicesWithDRAGateEnabled()
+}
+
 func (config *ClusterConfig) PCINUMAAwareTopologyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PCINUMAAwareTopologyEnabled)
 }

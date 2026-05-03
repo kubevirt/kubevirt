@@ -936,7 +936,8 @@ func (Network) SwaggerDoc() map[string]string {
 
 func (NetworkSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the source resource that will be connected to the vm.\nOnly one of its members may be specified.",
+		"":              "Represents the source resource that will be connected to the vm.\nOnly one of its members may be specified.",
+		"resourceClaim": "ResourceClaim represents a network resource requested\nvia a VMI spec.resourceClaims[] entry, backed by either a\nKubernetes ResourceClaim or ResourceClaimTemplate.\nThis field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.\nThis feature is in alpha.",
 	}
 }
 

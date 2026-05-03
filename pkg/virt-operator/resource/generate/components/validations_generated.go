@@ -7520,6 +7520,25 @@ var CRDsValidation map[string]string = map[string]string{
                               Default 10.0.2.0/24 if not specified.
                             type: string
                         type: object
+                      resourceClaim:
+                        description: |-
+                          ResourceClaim represents a network resource requested
+                          via a VMI spec.resourceClaims[] entry, backed by either a
+                          Kubernetes ResourceClaim or ResourceClaimTemplate.
+                          This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+                          This feature is in alpha.
+                        properties:
+                          claimName:
+                            description: |-
+                              ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                              device is allocated
+                            type: string
+                          requestName:
+                            description: |-
+                              RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                              device is requested
+                            type: string
+                        type: object
                     required:
                     - name
                     type: object
@@ -7690,7 +7709,8 @@ var CRDsValidation map[string]string = map[string]string{
                     This is an alpha field and requires enabling the
                     DynamicResourceAllocation feature gate in kubernetes
                      https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-                    This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                    This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
+                    or NetworkDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
                     description: |-
@@ -13626,6 +13646,25 @@ var CRDsValidation map[string]string = map[string]string{
                       Default 10.0.2.0/24 if not specified.
                     type: string
                 type: object
+              resourceClaim:
+                description: |-
+                  ResourceClaim represents a network resource requested
+                  via a VMI spec.resourceClaims[] entry, backed by either a
+                  Kubernetes ResourceClaim or ResourceClaimTemplate.
+                  This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+                  This feature is in alpha.
+                properties:
+                  claimName:
+                    description: |-
+                      ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                      device is allocated
+                    type: string
+                  requestName:
+                    description: |-
+                      RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                      device is requested
+                    type: string
+                type: object
             required:
             - name
             type: object
@@ -13796,7 +13835,8 @@ var CRDsValidation map[string]string = map[string]string{
             This is an alpha field and requires enabling the
             DynamicResourceAllocation feature gate in kubernetes
              https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-            This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+            This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
+            or NetworkDevicesWithDRA is enabled.
             This feature is in alpha.
           items:
             description: |-
@@ -20069,6 +20109,25 @@ var CRDsValidation map[string]string = map[string]string{
                               Default 10.0.2.0/24 if not specified.
                             type: string
                         type: object
+                      resourceClaim:
+                        description: |-
+                          ResourceClaim represents a network resource requested
+                          via a VMI spec.resourceClaims[] entry, backed by either a
+                          Kubernetes ResourceClaim or ResourceClaimTemplate.
+                          This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+                          This feature is in alpha.
+                        properties:
+                          claimName:
+                            description: |-
+                              ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                              device is allocated
+                            type: string
+                          requestName:
+                            description: |-
+                              RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                              device is requested
+                            type: string
+                        type: object
                     required:
                     - name
                     type: object
@@ -20239,7 +20298,8 @@ var CRDsValidation map[string]string = map[string]string{
                     This is an alpha field and requires enabling the
                     DynamicResourceAllocation feature gate in kubernetes
                      https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-                    This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                    This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
+                    or NetworkDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
                     description: |-
@@ -25195,6 +25255,25 @@ var CRDsValidation map[string]string = map[string]string{
                                       Default 10.0.2.0/24 if not specified.
                                     type: string
                                 type: object
+                              resourceClaim:
+                                description: |-
+                                  ResourceClaim represents a network resource requested
+                                  via a VMI spec.resourceClaims[] entry, backed by either a
+                                  Kubernetes ResourceClaim or ResourceClaimTemplate.
+                                  This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+                                  This feature is in alpha.
+                                properties:
+                                  claimName:
+                                    description: |-
+                                      ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                                      device is allocated
+                                    type: string
+                                  requestName:
+                                    description: |-
+                                      RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                                      device is requested
+                                    type: string
+                                type: object
                             required:
                             - name
                             type: object
@@ -25365,7 +25444,8 @@ var CRDsValidation map[string]string = map[string]string{
                             This is an alpha field and requires enabling the
                             DynamicResourceAllocation feature gate in kubernetes
                              https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-                            This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                            This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
+                            or NetworkDevicesWithDRA is enabled.
                             This feature is in alpha.
                           items:
                             description: |-
@@ -30788,6 +30868,25 @@ var CRDsValidation map[string]string = map[string]string{
                                           Default 10.0.2.0/24 if not specified.
                                         type: string
                                     type: object
+                                  resourceClaim:
+                                    description: |-
+                                      ResourceClaim represents a network resource requested
+                                      via a VMI spec.resourceClaims[] entry, backed by either a
+                                      Kubernetes ResourceClaim or ResourceClaimTemplate.
+                                      This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+                                      This feature is in alpha.
+                                    properties:
+                                      claimName:
+                                        description: |-
+                                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                                          device is allocated
+                                        type: string
+                                      requestName:
+                                        description: |-
+                                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                                          device is requested
+                                        type: string
+                                    type: object
                                 required:
                                 - name
                                 type: object
@@ -30959,7 +31058,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 This is an alpha field and requires enabling the
                                 DynamicResourceAllocation feature gate in kubernetes
                                  https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-                                This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                                This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
+                                or NetworkDevicesWithDRA is enabled.
                                 This feature is in alpha.
                               items:
                                 description: |-
