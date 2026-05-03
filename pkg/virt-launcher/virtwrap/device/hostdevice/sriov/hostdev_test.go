@@ -140,6 +140,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
+				Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 			}
 			hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
 			expectHostDevice2 := api.HostDevice{
@@ -147,6 +148,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
+				Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
 		})
@@ -164,6 +166,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
+				Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 			}
 			hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x02", Function: "0x0"}
 			expectHostDevice2 := api.HostDevice{
@@ -171,6 +174,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
+				Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
 		})
@@ -189,6 +193,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
+				Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 				Address: &guestPCIAddress1,
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
@@ -223,6 +228,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Address: expectedGuestPCIAddress1,
 					Type:    api.HostDevicePCI,
 					Managed: "no",
+					Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 				}
 
 				expectHostDevice2 := api.HostDevice{
@@ -231,6 +237,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Address: expectedGuestPCIAddress2,
 					Type:    api.HostDevicePCI,
 					Managed: "no",
+					Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 				}
 
 				Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
@@ -263,6 +270,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 				Source:    api.HostDeviceSource{Address: &hostPCIAddress1},
 				Type:      api.HostDevicePCI,
 				Managed:   "no",
+				Driver:    &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 				BootOrder: &api.BootOrder{Order: *iface.BootOrder},
 			}
 			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
@@ -293,6 +301,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Source:    api.HostDeviceSource{Address: &hostPCIAddress1},
 					Type:      api.HostDevicePCI,
 					Managed:   "no",
+					Driver:    &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 					BootOrder: expectedBootOrder1,
 				}
 
@@ -301,6 +310,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 					Source:    api.HostDeviceSource{Address: &hostPCIAddress2},
 					Type:      api.HostDevicePCI,
 					Managed:   "no",
+					Driver:    &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 					BootOrder: expectedBootOrder2,
 				}
 

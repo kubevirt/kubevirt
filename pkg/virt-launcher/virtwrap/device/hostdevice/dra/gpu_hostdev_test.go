@@ -125,6 +125,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			dev := hostDevices[0]
 			Expect(dev.Type).To(Equal(api.HostDevicePCI))
 			Expect(dev.Managed).To(Equal("no"))
+			Expect(dev.Driver).ToNot(BeNil())
+			Expect(dev.Driver.Name).To(Equal(api.DriverVFIOPCI))
 			Expect(dev.Alias).ToNot(BeNil())
 			Expect(dev.Alias.GetName()).To(Equal(AliasPrefix + "gpu1"))
 			Expect(dev.Source.Address).ToNot(BeNil())

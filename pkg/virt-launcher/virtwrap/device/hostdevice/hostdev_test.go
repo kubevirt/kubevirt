@@ -20,6 +20,7 @@
 package hostdevice_test
 
 import (
+	"encoding/xml"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -117,6 +118,7 @@ var _ = Describe("HostDevice", func() {
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
+			Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 		}
 		const pciAddress1 = "0000:81:01.1"
 		hostPCIAddress2 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
@@ -125,6 +127,7 @@ var _ = Describe("HostDevice", func() {
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
+			Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 		}
 
 		It("creates 2 PCI devices that share the same resource", func() {
@@ -150,6 +153,21 @@ var _ = Describe("HostDevice", func() {
 			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
+		})
+
+		It("serializes PCI device with vfio driver", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
+			}
+			pool.AddResource(resourceName0, pciAddress0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevices).To(HaveLen(1))
+
+			devXML, err := xml.Marshal(hostDevices[0])
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(devXML)).To(ContainSubstring("driver name=\"vfio\""))
 		})
 	})
 

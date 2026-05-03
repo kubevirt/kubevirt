@@ -128,6 +128,9 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
+			Driver: &api.HostDeviceDriver{
+				Name: api.DriverVFIOPCI,
+			},
 		}, nil
 	}
 

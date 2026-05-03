@@ -132,6 +132,9 @@ func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress strin
 		Source:  api.HostDeviceSource{Address: hostAddr},
 		Type:    api.HostDevicePCI,
 		Managed: "no",
+		Driver: &api.HostDeviceDriver{
+			Name: api.DriverVFIOPCI,
+		},
 	}
 	return domainHostDevice, nil
 }
