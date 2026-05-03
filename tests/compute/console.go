@@ -123,6 +123,19 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 				_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(MatchError("Timeout trying to connect to the virtual machine instance"))
 			})
+
+			It("should stay connected during high serial output", func() {
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				command := "for i in $(seq 1 50000); do echo \"line $i\"; done; echo \"DONE\""
+
+				By("Running high-output command and expecting it to finish")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: command + "\n"},
+					&expect.BExp{R: "DONE"},
+				}, 300)).To(Succeed())
+			})
 		})
 
 		Context("without a serial console", func() {
