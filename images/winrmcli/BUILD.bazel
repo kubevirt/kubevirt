@@ -1,5 +1,6 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 gazelle(name = "gazelle")
@@ -13,11 +14,16 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+layer_from_tar(
+    name = "winrm-cli-layer",
+    src = ":winrm-cli-tar",
+)
+
+image_manifest(
     name = "winrmcli-image",
     base = "//images:kubevirt-testing-base",
-    tars = [
-        ":winrm-cli-tar",
+    layers = [
+        ":winrm-cli-layer",
     ],
     visibility = ["//visibility:public"],
 )

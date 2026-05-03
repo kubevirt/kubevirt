@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
@@ -34,22 +35,42 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+layer_from_tar(
+    name = "sidecar-shim-layer",
+    src = ":sidecar-shim-tar",
+)
+
+layer_from_tar(
+    name = "sidecar-shim-rpm-layer-x86_64",
+    src = "//rpm:sidecar-shim_x86_64",
+)
+
+layer_from_tar(
+    name = "sidecar-shim-rpm-layer-aarch64",
+    src = "//rpm:sidecar-shim_aarch64",
+)
+
+layer_from_tar(
+    name = "sidecar-shim-rpm-layer-s390x",
+    src = "//rpm:sidecar-shim_s390x",
+)
+
+image_manifest(
     name = "sidecar-shim-image",
     base = "//:passwd-image",
     entrypoint = ["/sidecar-shim"],
-    tars = select({
+    layers = select({
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:sidecar-shim_s390x",
-            ":sidecar-shim-tar",
+            ":sidecar-shim-rpm-layer-s390x",
+            ":sidecar-shim-layer",
         ],
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:sidecar-shim_aarch64",
-            ":sidecar-shim-tar",
+            ":sidecar-shim-rpm-layer-aarch64",
+            ":sidecar-shim-layer",
         ],
         "//conditions:default": [
-            "//rpm:sidecar-shim_x86_64",
-            ":sidecar-shim-tar",
+            ":sidecar-shim-rpm-layer-x86_64",
+            ":sidecar-shim-layer",
         ],
     }),
     visibility = ["//visibility:public"],
