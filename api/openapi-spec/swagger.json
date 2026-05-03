@@ -13981,6 +13981,34 @@
      }
     }
    },
+   "v1.Bandwidth": {
+    "type": "object",
+    "properties": {
+     "inbound": {
+      "$ref": "#/definitions/v1.BandwidthParams"
+     },
+     "outbound": {
+      "$ref": "#/definitions/v1.BandwidthParams"
+     }
+    }
+   },
+   "v1.BandwidthParams": {
+    "type": "object",
+    "properties": {
+     "average": {
+      "description": "Average rate in bytes/sec",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "burst": {
+      "description": "Burst size in bytes",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "peak": {
+      "description": "Peak rate in bytes/sec",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     }
+    }
+   },
    "v1.BlockSize": {
     "description": "BlockSize provides the option to change the block size presented to the VM for a disk. Only one of its members may be specified.",
     "type": "object",
@@ -15719,6 +15747,10 @@
       "description": "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes in PCI addresses assigned to the device. This value is required to be unique across all devices and be between 1 and (16*1024-1).",
       "type": "integer",
       "format": "int32"
+     },
+     "bandwidth": {
+      "description": "Bandwidth allows setting QoS limits for the interface",
+      "$ref": "#/definitions/v1.Bandwidth"
      },
      "binding": {
       "description": "Binding specifies the binding plugin that will be used to connect the interface to the guest. It provides an alternative to InterfaceBindingMethod. version: 1alphav1",

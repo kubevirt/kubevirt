@@ -356,6 +356,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ArchSpecificConfiguration":                                               schema_kubevirtio_api_core_v1_ArchSpecificConfiguration(ref),
 		"kubevirt.io/api/core/v1.AuthorizedKeysFile":                                                      schema_kubevirtio_api_core_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/api/core/v1.BIOS":                                                                    schema_kubevirtio_api_core_v1_BIOS(ref),
+		"kubevirt.io/api/core/v1.Bandwidth":                                                               schema_kubevirtio_api_core_v1_Bandwidth(ref),
+		"kubevirt.io/api/core/v1.BandwidthParams":                                                         schema_kubevirtio_api_core_v1_BandwidthParams(ref),
 		"kubevirt.io/api/core/v1.BlockSize":                                                               schema_kubevirtio_api_core_v1_BlockSize(ref),
 		"kubevirt.io/api/core/v1.Bootloader":                                                              schema_kubevirtio_api_core_v1_Bootloader(ref),
 		"kubevirt.io/api/core/v1.CDRomTarget":                                                             schema_kubevirtio_api_core_v1_CDRomTarget(ref),
@@ -18824,6 +18826,62 @@ func schema_kubevirtio_api_core_v1_BIOS(ref common.ReferenceCallback) common.Ope
 	}
 }
 
+func schema_kubevirtio_api_core_v1_Bandwidth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"inbound": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.BandwidthParams"),
+						},
+					},
+					"outbound": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.BandwidthParams"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.BandwidthParams"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_BandwidthParams(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"average": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Average rate in bytes/sec",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"peak": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Peak rate in bytes/sec",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"burst": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Burst size in bytes",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_BlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22197,12 +22255,18 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"bandwidth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Bandwidth allows setting QoS limits for the interface",
+							Ref:         ref("kubevirt.io/api/core/v1.Bandwidth"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasstBinding", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
+			"kubevirt.io/api/core/v1.Bandwidth", "kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasstBinding", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
 	}
 }
 
