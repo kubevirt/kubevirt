@@ -70,28 +70,33 @@ import (
 )
 
 const (
-	containerDisks   = "container-disks"
-	hotplugDisks     = "hotplug-disks"
-	hookSidecarSocks = "hook-sidecar-sockets"
-	varRun           = "/var/run"
-	virtBinDir       = "virt-bin-share-dir"
-	hotplugDisk      = "hotplug-disk"
-	virtExporter     = "virt-exporter"
+	containerDisks       = "container-disks"
+	hotplugDisks         = "hotplug-disks"
+	hookSidecarSocks     = "hook-sidecar-sockets"
+	varRun               = "/var/run"
+	virtBinDir           = "virt-bin-share-dir"
+	hotplugDisk          = "hotplug-disk"
+	virtExporter         = "virt-exporter"
+	triggerPodAnnotation = "trigger-for"
 )
 
-const K8sDevicePrefix = "devices.kubevirt.io"
-const TunDevice = K8sDevicePrefix + "/tun"
-const VhostNetDevice = K8sDevicePrefix + "/vhost-net"
-const VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
-const PrDevice = K8sDevicePrefix + "/pr-helper"
-const SevDeviceName = "sev"
-const TdxDeviceName = "tdx"
-const SevDevice = K8sDevicePrefix + "/" + SevDeviceName
-const TdxDevice = K8sDevicePrefix + "/" + TdxDeviceName
+const (
+	K8sDevicePrefix  = "devices.kubevirt.io"
+	TunDevice        = K8sDevicePrefix + "/tun"
+	VhostNetDevice   = K8sDevicePrefix + "/vhost-net"
+	VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
+	PrDevice         = K8sDevicePrefix + "/pr-helper"
+	SevDeviceName    = "sev"
+	TdxDeviceName    = "tdx"
+	SevDevice        = K8sDevicePrefix + "/" + SevDeviceName
+	TdxDevice        = K8sDevicePrefix + "/" + TdxDeviceName
+)
 
-const debugLogs = "debugLogs"
-const logVerbosity = "logVerbosity"
-const virtiofsDebugLogs = "virtiofsdDebugLogs"
+const (
+	debugLogs         = "debugLogs"
+	logVerbosity      = "logVerbosity"
+	virtiofsDebugLogs = "virtiofsdDebugLogs"
+)
 
 const qemuTimeoutJitterRange = 120
 
@@ -186,7 +191,8 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 		Operator: k8sv1.NodeSelectorOpDoesNotExist,
 	}
 	term := k8sv1.NodeSelectorTerm{
-		MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement},
+	}
 
 	nodeAffinity := &k8sv1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
@@ -207,7 +213,6 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
 			}
 		}
-
 	} else if affinity != nil {
 		affinity.NodeAffinity = nodeAffinity
 	} else {
@@ -389,11 +394,14 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if tempPod {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
-		command = []string{"/bin/bash",
+		command = []string{
+			"/bin/bash",
 			"-c",
-			"echo", "bound PVCs"}
+			"echo", "bound PVCs",
+		}
 	} else {
-		command = []string{"/usr/bin/virt-launcher-monitor",
+		command = []string{
+			"/usr/bin/virt-launcher-monitor",
 			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
 			"--name", domain,
 			"--uid", string(vmi.UID),
@@ -514,7 +522,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			volumeSource := k8sv1.VolumeSource{
 				ConfigMap: &k8sv1.ConfigMapVolumeSource{
 					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
-					DefaultMode:          pointer.P(int32(0755)),
+					DefaultMode:          pointer.P(int32(0o755)),
 				},
 			}
 			vol := k8sv1.Volume{
@@ -566,7 +574,8 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
-		initContainerCommand := []string{"/usr/bin/cp", "--preserve=all",
+		initContainerCommand := []string{
+			"/usr/bin/cp", "--preserve=all",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
 		}
@@ -786,10 +795,11 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		WithResourceRequirements(resources),
 		WithArgs(requestedHookSidecar.Args),
 		WithExtraEnvVars([]k8sv1.EnvVar{
-			k8sv1.EnvVar{
+			{
 				Name:  hooks.ContainerNameEnvVar,
 				Value: sidecarName,
-			}}),
+			},
+		}),
 	}
 
 	var mounts []k8sv1.VolumeMount
@@ -908,7 +918,6 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		t.containerDiskDir,
 		t.virtShareDir,
 		volumeOpts...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -967,6 +976,18 @@ func gracePeriodInSeconds(vmi *v1.VirtualMachineInstance) int64 {
 
 func sidecarContainerName(i int) string {
 	return fmt.Sprintf("hook-sidecar-%d", i)
+}
+
+// AttachmentPodIsTrigger determines if a pod is a trigger pod and if it is, which volume it is triggering.
+func (t *TemplateService) AttachmentPodIsTrigger(pod *k8sv1.Pod) (bool, string) {
+	ephemeral, ok := pod.Annotations[v1.EphemeralProvisioningObject]
+	if !ok || ephemeral != "true" {
+		return false, ""
+	}
+
+	targetVolume := pod.Annotations[triggerPodAnnotation]
+
+	return true, targetVolume
 }
 
 func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
@@ -1109,9 +1130,11 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
-		command = []string{"/bin/bash",
+		command = []string{
+			"/bin/bash",
 			"-c",
-			"exit", "0"}
+			"exit", "0",
+		}
 	} else {
 		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
@@ -1120,6 +1143,9 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 	if tempPod {
 		// mark pod as temp - only used for provisioning
 		annotationsList[v1.EphemeralProvisioningObject] = "true"
+
+		// indicate which volume is being triggered
+		annotationsList[triggerPodAnnotation] = volume.Name
 	}
 
 	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
@@ -1127,7 +1153,7 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "hp-volume-",
+			GenerateName: "hp-trigger-",
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
 					Group:   k8sv1.SchemeGroupVersion.Group,
@@ -1306,7 +1332,6 @@ func NewTemplateService(launcherImage string,
 	namespaceStore cache.Store,
 	opts ...templateServiceOption,
 ) *TemplateService {
-
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
 	svc := TemplateService{

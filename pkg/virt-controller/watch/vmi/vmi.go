@@ -77,7 +77,6 @@ func NewController(templateService templateService,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
-
 	c := &Controller{
 		templateService: templateService,
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -194,6 +193,7 @@ type templateService interface {
 	RenderHotplugAttachmentPodTemplate(volumes []*virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
 	GetLauncherImage() string
+	AttachmentPodIsTrigger(pod *k8sv1.Pod) (bool, string)
 }
 
 type annotationsGenerator interface {
@@ -304,10 +304,8 @@ func (c *Controller) Execute() bool {
 }
 
 func (c *Controller) execute(key string) error {
-
 	// Fetch the latest Vm state from cache
 	obj, exists, err := c.vmiIndexer.GetByKey(key)
-
 	if err != nil {
 		return err
 	}

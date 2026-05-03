@@ -321,7 +321,6 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 }
 
 func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
-
 	// current pod is the most recent pod created on the current VMI node
 	// OR the most recent pod created if no VMI node is set.
 
@@ -359,7 +358,6 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k
 }
 
 func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodIndexer cache.Indexer) int {
-
 	objs, err := vmiPodIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return 0
@@ -434,7 +432,6 @@ func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.Virtual
 		}
 		migration.Status.MigrationState.SourcePod = sourcePod.Name
 	}
-
 }
 
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
@@ -471,6 +468,7 @@ func VMIHasHotplugMemory(vmi *v1.VirtualMachineInstance) bool {
 	return vmiHasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 }
 
+// AttachmentPods returns all attachment pods, including ephemeral trigger pods.
 func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod, error) {
 	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
 	if err != nil {
@@ -509,7 +507,6 @@ func IsPodReady(pod *k8sv1.Pod) bool {
 			if containerStatus.State.Running == nil {
 				return false
 			}
-
 		} else if containerStatus.Ready == false {
 			return false
 		}
@@ -555,6 +552,7 @@ func isPodFailed(pod *k8sv1.Pod) bool {
 func PodExists(pod *k8sv1.Pod) bool {
 	return pod != nil
 }
+
 func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
 	hotplugVolumes := make([]*v1.Volume, 0)
 	podVolumes := virtlauncherPod.Spec.Volumes
