@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -370,7 +371,9 @@ func (app *VirtOperatorApp) Run() {
 			TLSConfig: promTLSConfig,
 			// Disable HTTP/2
 			// See CVE-2023-44487
-			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+			TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       60 * time.Second,
 		}
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
@@ -417,8 +420,10 @@ func (app *VirtOperatorApp) Run() {
 	tlsConfig := kvtls.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven, app.clusterConfig)
 
 	webhookServer := &http.Server{
-		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 8444),
-		TLSConfig: tlsConfig,
+		Addr:              fmt.Sprintf("%s:%d", app.BindAddress, 8444),
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	var mux http.ServeMux

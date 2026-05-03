@@ -556,7 +556,9 @@ func (vca *VirtControllerApp) Run() {
 			TLSConfig: promTLSConfig,
 			// Disable HTTP/2
 			// See CVE-2023-44487
-			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+			TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       60 * time.Second,
 		}
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
