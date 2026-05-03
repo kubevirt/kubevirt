@@ -1,0 +1,43 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
+ARG DISTROLESS_BASE_IMAGE=gcr.io/distroless/base-debian12:latest
+ARG BUILD_ARCH=amd64
+ARG CENTOS_STREAM_VERSION=9
+
+FROM ${BUILDER_IMAGE} AS builder
+ARG BUILD_ARCH
+ARG CENTOS_STREAM_VERSION=9
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+COPY . .
+
+# libguestfs-tools only supports x86_64 and s390x
+RUN case ${BUILD_ARCH} in \
+        amd64|x86_64) BAZEL_ARCH="x86_64" ;; \
+        s390x|crossbuild-s390x) BAZEL_ARCH="s390x" ;; \
+        *) echo "ERROR: libguestfs-tools not supported for ${BUILD_ARCH}"; exit 1 ;; \
+    esac && \
+    export KUBEVIRT_BOOTSTRAPPING=true && \
+    bazel build --config=cs${CENTOS_STREAM_VERSION} //rpm:libguestfs-tools_${BAZEL_ARCH} && \
+    bazel build //cmd/libguestfs:appliance_layer_${BAZEL_ARCH} && \
+    mkdir -p /rootfs /tmp/appliance && \
+    tar -xf bazel-bin/rpm/libguestfs-tools_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /rootfs && \
+    tar -xf bazel-bin/cmd/libguestfs/appliance_layer_${BAZEL_ARCH}.tar -C /tmp/appliance/
+
+RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
+
+FROM ${DISTROLESS_BASE_IMAGE}
+
+COPY --from=builder /rootfs/ /
+
+COPY --from=builder /tmp/appliance/ /
+
+COPY --from=builder --chmod=0755 /workspace/cmd/libguestfs/entrypoint.sh /entrypoint.sh
+
+COPY --from=builder /workspace/.version /.version
+
+COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
+
+USER 1001
+
+ENTRYPOINT ["/entrypoint.sh"]

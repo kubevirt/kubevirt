@@ -1,0 +1,8 @@
+ARG TESTING_BASE_IMAGE=quay.io/kubevirt/kubevirt-testing-base:latest
+
+FROM ${TESTING_BASE_IMAGE}
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+USER 1001

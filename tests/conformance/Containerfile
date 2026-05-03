@@ -1,0 +1,31 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    BIN_NAME=conformance KUBEVIRT_NO_BAZEL=true hack/build-go.sh install tests/conformance
+
+RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd && \
+    cp /workspace/.version /workspace/get-version
+
+FROM gcr.io/distroless/base-debian12:latest
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+COPY --from=builder /workspace/_out/cmd/conformance/conformance /usr/bin/conformance
+
+COPY --from=builder /workspace/get-version /get-version
+
+COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
+
+USER 1001
+
+ENTRYPOINT ["/usr/bin/conformance"]
