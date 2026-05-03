@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -552,7 +553,15 @@ func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 			TTY:       true,
 		}, scheme.ParameterCodec,
 	)
-	exec, err := remotecommand.NewSPDYExecutor(client.config, "POST", req.URL())
+	spdyExec, err := remotecommand.NewSPDYExecutor(client.config, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	wsExec, err := remotecommand.NewWebSocketExecutor(client.config, "POST", req.URL().String())
+	if err != nil {
+		return err
+	}
+	exec, err := remotecommand.NewFallbackExecutor(wsExec, spdyExec, httpstream.IsUpgradeFailure)
 	if err != nil {
 		return err
 	}
