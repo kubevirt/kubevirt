@@ -2628,6 +2628,10 @@ func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, cl
 		return err
 	}
 
+	if !c.clusterConfig.AdvancedLiveMigrationEnabled() {
+		clusterMigrationConfiguration.Experimental = nil
+	}
+
 	if isUpdated {
 		vmi.Status.MigrationState.MigrationPolicyName = &matchedPolicy.Name
 		vmi.Status.MigrationState.MigrationConfiguration = clusterMigrationConfiguration

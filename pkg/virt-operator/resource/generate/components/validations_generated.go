@@ -1410,6 +1410,22 @@ var CRDsValidation map[string]string = map[string]string{
                     When set to true, DisableTLS will disable the additional layer of live migration encryption
                     provided by KubeVirt. This is usually a bad idea. Defaults to false
                   type: boolean
+                experimental:
+                  description: |-
+                    Experimental holds advanced migration knobs gated behind the
+                    AdvancedLiveMigration feature gate. The entire section is ignored
+                    when the gate is disabled.
+                  properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
+                  type: object
                 matchSELinuxLevelOnMigration:
                   description: |-
                     By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
@@ -4108,6 +4124,22 @@ var CRDsValidation map[string]string = map[string]string{
         completionTimeoutPerGiB:
           format: int64
           type: integer
+        experimental:
+          description: |-
+            ExperimentalMigrationConfiguration holds migration knobs that are
+            gated behind the AdvancedLiveMigration feature gate. Fields may
+            graduate to top-level or be removed in future versions.
+          properties:
+            compression:
+              description: |-
+                Compression selects the algorithm for compressing the live migration
+                data stream. When omitted (nil) or set to "none", compression is
+                disabled.
+              enum:
+              - none
+              - zstd
+              type: string
+          type: object
         selectors:
           properties:
             namespaceSelector:
@@ -15073,6 +15105,22 @@ var CRDsValidation map[string]string = map[string]string{
                     When set to true, DisableTLS will disable the additional layer of live migration encryption
                     provided by KubeVirt. This is usually a bad idea. Defaults to false
                   type: boolean
+                experimental:
+                  description: |-
+                    Experimental holds advanced migration knobs gated behind the
+                    AdvancedLiveMigration feature gate. The entire section is ignored
+                    when the gate is disabled.
+                  properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
+                  type: object
                 matchSELinuxLevelOnMigration:
                   description: |-
                     By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
@@ -15676,6 +15724,22 @@ var CRDsValidation map[string]string = map[string]string{
                     When set to true, DisableTLS will disable the additional layer of live migration encryption
                     provided by KubeVirt. This is usually a bad idea. Defaults to false
                   type: boolean
+                experimental:
+                  description: |-
+                    Experimental holds advanced migration knobs gated behind the
+                    AdvancedLiveMigration feature gate. The entire section is ignored
+                    when the gate is disabled.
+                  properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
+                  type: object
                 matchSELinuxLevelOnMigration:
                   description: |-
                     By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.

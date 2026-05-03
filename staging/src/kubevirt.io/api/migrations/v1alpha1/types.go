@@ -53,6 +53,8 @@ type MigrationPolicySpec struct {
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 	//+optional
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	//+optional
+	Experimental *k6tv1.ExperimentalMigrationConfiguration `json:"experimental,omitempty"`
 }
 
 type LabelSelector map[string]string
@@ -108,6 +110,10 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 		// For backward compatibility, AllowWorkloadDisruption will follow the
 		// value of AllowPostCopy, if not explicitly set
 		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowPostCopy
+	}
+	if policySpec.Experimental != nil {
+		changed = true
+		clusterMigrationConfigurations.Experimental = policySpec.Experimental.DeepCopy()
 	}
 
 	return changed, nil
