@@ -1317,7 +1317,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Creating another KubeVirt object")
 			_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
-			Expect(err).To(MatchError(ContainSubstring("Kubevirt is already created")))
+			Expect(err).To(MatchError(ContainSubstring("kubevirt is already created")))
 		})
 
 		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
