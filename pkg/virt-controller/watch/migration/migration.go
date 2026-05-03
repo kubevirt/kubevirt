@@ -782,11 +782,15 @@ func (c *Controller) processMigrationPhase(
 	case virtv1.MigrationWaitingForSync:
 		if vmi.IsMigrationSourceSynchronized() {
 			migrationCopy.Status.Phase = virtv1.MigrationPending
+		} else if err := c.checkSyncPhaseTimeout(migration, migrationCopy, virtv1.MigrationWaitingForSync); err != nil {
+			return err
 		}
 	case virtv1.MigrationSynchronizing:
 		if vmi.IsMigrationSynchronized(migration) {
 			// Sync happened, switch to MigrationPendingTargetVMI
 			migrationCopy.Status.Phase = virtv1.MigrationPending
+		} else if err := c.checkSyncPhaseTimeout(migration, migrationCopy, virtv1.MigrationSynchronizing); err != nil {
+			return err
 		}
 	case virtv1.MigrationScheduling:
 		if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
@@ -1541,6 +1545,60 @@ func timeSinceCreationSeconds(objectMeta *metav1.ObjectMeta) int64 {
 	}
 
 	return seconds
+}
+
+// timeSincePhaseTransitionSeconds returns the number of seconds that have elapsed
+func timeSincePhaseTransitionSeconds(migration *virtv1.VirtualMachineInstanceMigration, phase virtv1.VirtualMachineInstanceMigrationPhase) int64 {
+	for _, ts := range migration.Status.PhaseTransitionTimestamps {
+		if ts.Phase == phase {
+			now := time.Now().UTC().Unix()
+			enteredAt := ts.PhaseTransitionTimestamp.Time.UTC().Unix()
+			seconds := now - enteredAt
+			if seconds < 0 {
+				return 0
+			}
+			return seconds
+		}
+	}
+	return 0
+}
+
+// checkSyncPhaseTimeout enforces a deadline on decentralized migration phases that wait for
+// virt-handler synchronization 
+func (c *Controller) checkSyncPhaseTimeout(
+	migration *virtv1.VirtualMachineInstanceMigration,
+	migrationCopy *virtv1.VirtualMachineInstanceMigration,
+	phase virtv1.VirtualMachineInstanceMigrationPhase,
+) error {
+	timeout := virtconfig.MigrationSyncTimeoutSeconds
+	elapsed := timeSincePhaseTransitionSeconds(migration, phase)
+
+	if elapsed == 0 {
+		// Phase transition timestamp not yet persisted
+		return nil
+	}
+
+	if elapsed >= timeout {
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason,
+			"Migration stuck in %s phase for %d seconds (timeout: %d seconds). "+
+				"virt-handler may have crashed or encountered a network partition.",
+			phase, elapsed, timeout)
+		log.Log.Object(migration).Warningf(
+			"Migration stuck in %s phase for %d seconds, exceeding sync timeout of %d seconds.",
+			phase, elapsed, timeout)
+		return c.failMigration(migrationCopy)
+	}
+
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return err
+	}
+	remaining := time.Duration(timeout-elapsed) * time.Second
+	c.Queue.AddWithOpts(priorityqueue.AddOpts{
+		Priority: pointer.P(migrationsutil.QueuePriorityRunning),
+		After:    remaining,
+	}, migrationKey)
+	return nil
 }
 
 func (c *Controller) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, message string) error {
