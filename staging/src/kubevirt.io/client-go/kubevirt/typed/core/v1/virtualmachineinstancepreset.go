@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	corev1 "kubevirt.io/api/core/v1"
+	applyconfigurationscorev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -47,18 +48,19 @@ type VirtualMachineInstancePresetInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineInstancePresetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstancePreset, err error)
+	Apply(ctx context.Context, virtualMachineInstancePreset *applyconfigurationscorev1.VirtualMachineInstancePresetApplyConfiguration, opts metav1.ApplyOptions) (result *corev1.VirtualMachineInstancePreset, err error)
 	VirtualMachineInstancePresetExpansion
 }
 
 // virtualMachineInstancePresets implements VirtualMachineInstancePresetInterface
 type virtualMachineInstancePresets struct {
-	*gentype.ClientWithList[*corev1.VirtualMachineInstancePreset, *corev1.VirtualMachineInstancePresetList]
+	*gentype.ClientWithListAndApply[*corev1.VirtualMachineInstancePreset, *corev1.VirtualMachineInstancePresetList, *applyconfigurationscorev1.VirtualMachineInstancePresetApplyConfiguration]
 }
 
 // newVirtualMachineInstancePresets returns a VirtualMachineInstancePresets
 func newVirtualMachineInstancePresets(c *KubevirtV1Client, namespace string) *virtualMachineInstancePresets {
 	return &virtualMachineInstancePresets{
-		gentype.NewClientWithList[*corev1.VirtualMachineInstancePreset, *corev1.VirtualMachineInstancePresetList](
+		gentype.NewClientWithListAndApply[*corev1.VirtualMachineInstancePreset, *corev1.VirtualMachineInstancePresetList, *applyconfigurationscorev1.VirtualMachineInstancePresetApplyConfiguration](
 			"virtualmachineinstancepresets",
 			c.RESTClient(),
 			scheme.ParameterCodec,

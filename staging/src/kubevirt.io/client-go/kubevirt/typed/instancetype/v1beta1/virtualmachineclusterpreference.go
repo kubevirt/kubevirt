@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	applyconfigurationsinstancetypev1beta1 "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -47,18 +48,19 @@ type VirtualMachineClusterPreferenceInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*instancetypev1beta1.VirtualMachineClusterPreferenceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *instancetypev1beta1.VirtualMachineClusterPreference, err error)
+	Apply(ctx context.Context, virtualMachineClusterPreference *applyconfigurationsinstancetypev1beta1.VirtualMachineClusterPreferenceApplyConfiguration, opts v1.ApplyOptions) (result *instancetypev1beta1.VirtualMachineClusterPreference, err error)
 	VirtualMachineClusterPreferenceExpansion
 }
 
 // virtualMachineClusterPreferences implements VirtualMachineClusterPreferenceInterface
 type virtualMachineClusterPreferences struct {
-	*gentype.ClientWithList[*instancetypev1beta1.VirtualMachineClusterPreference, *instancetypev1beta1.VirtualMachineClusterPreferenceList]
+	*gentype.ClientWithListAndApply[*instancetypev1beta1.VirtualMachineClusterPreference, *instancetypev1beta1.VirtualMachineClusterPreferenceList, *applyconfigurationsinstancetypev1beta1.VirtualMachineClusterPreferenceApplyConfiguration]
 }
 
 // newVirtualMachineClusterPreferences returns a VirtualMachineClusterPreferences
 func newVirtualMachineClusterPreferences(c *InstancetypeV1beta1Client) *virtualMachineClusterPreferences {
 	return &virtualMachineClusterPreferences{
-		gentype.NewClientWithList[*instancetypev1beta1.VirtualMachineClusterPreference, *instancetypev1beta1.VirtualMachineClusterPreferenceList](
+		gentype.NewClientWithListAndApply[*instancetypev1beta1.VirtualMachineClusterPreference, *instancetypev1beta1.VirtualMachineClusterPreferenceList, *applyconfigurationsinstancetypev1beta1.VirtualMachineClusterPreferenceApplyConfiguration](
 			"virtualmachineclusterpreferences",
 			c.RESTClient(),
 			scheme.ParameterCodec,

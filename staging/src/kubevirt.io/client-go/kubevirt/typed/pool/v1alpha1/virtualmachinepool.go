@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
+	applyconfigurationspoolv1alpha1 "kubevirt.io/client-go/applyconfigurations/pool/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachinePoolInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*poolv1alpha1.VirtualMachinePoolList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *poolv1alpha1.VirtualMachinePool, err error)
+	Apply(ctx context.Context, virtualMachinePool *applyconfigurationspoolv1alpha1.VirtualMachinePoolApplyConfiguration, opts v1.ApplyOptions) (result *poolv1alpha1.VirtualMachinePool, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachinePool *applyconfigurationspoolv1alpha1.VirtualMachinePoolApplyConfiguration, opts v1.ApplyOptions) (result *poolv1alpha1.VirtualMachinePool, err error)
 	VirtualMachinePoolExpansion
 }
 
 // virtualMachinePools implements VirtualMachinePoolInterface
 type virtualMachinePools struct {
-	*gentype.ClientWithList[*poolv1alpha1.VirtualMachinePool, *poolv1alpha1.VirtualMachinePoolList]
+	*gentype.ClientWithListAndApply[*poolv1alpha1.VirtualMachinePool, *poolv1alpha1.VirtualMachinePoolList, *applyconfigurationspoolv1alpha1.VirtualMachinePoolApplyConfiguration]
 }
 
 // newVirtualMachinePools returns a VirtualMachinePools
 func newVirtualMachinePools(c *PoolV1alpha1Client, namespace string) *virtualMachinePools {
 	return &virtualMachinePools{
-		gentype.NewClientWithList[*poolv1alpha1.VirtualMachinePool, *poolv1alpha1.VirtualMachinePoolList](
+		gentype.NewClientWithListAndApply[*poolv1alpha1.VirtualMachinePool, *poolv1alpha1.VirtualMachinePoolList, *applyconfigurationspoolv1alpha1.VirtualMachinePoolApplyConfiguration](
 			"virtualmachinepools",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/clone/v1alpha1"
-	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
+	clonev1alpha1 "kubevirt.io/client-go/applyconfigurations/clone/v1alpha1"
+	typedclonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 )
 
 // fakeVirtualMachineClones implements VirtualMachineCloneInterface
 type fakeVirtualMachineClones struct {
-	*gentype.FakeClientWithList[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList, *clonev1alpha1.VirtualMachineCloneApplyConfiguration]
 	Fake *FakeCloneV1alpha1
 }
 
-func newFakeVirtualMachineClones(fake *FakeCloneV1alpha1, namespace string) clonev1alpha1.VirtualMachineCloneInterface {
+func newFakeVirtualMachineClones(fake *FakeCloneV1alpha1, namespace string) typedclonev1alpha1.VirtualMachineCloneInterface {
 	return &fakeVirtualMachineClones{
-		gentype.NewFakeClientWithList[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList, *clonev1alpha1.VirtualMachineCloneApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("virtualmachineclones"),

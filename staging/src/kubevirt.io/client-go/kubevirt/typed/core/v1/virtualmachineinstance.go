@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	corev1 "kubevirt.io/api/core/v1"
+	applyconfigurationscorev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -47,18 +48,19 @@ type VirtualMachineInstanceInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineInstanceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstance, err error)
+	Apply(ctx context.Context, virtualMachineInstance *applyconfigurationscorev1.VirtualMachineInstanceApplyConfiguration, opts metav1.ApplyOptions) (result *corev1.VirtualMachineInstance, err error)
 	VirtualMachineInstanceExpansion
 }
 
 // virtualMachineInstances implements VirtualMachineInstanceInterface
 type virtualMachineInstances struct {
-	*gentype.ClientWithList[*corev1.VirtualMachineInstance, *corev1.VirtualMachineInstanceList]
+	*gentype.ClientWithListAndApply[*corev1.VirtualMachineInstance, *corev1.VirtualMachineInstanceList, *applyconfigurationscorev1.VirtualMachineInstanceApplyConfiguration]
 }
 
 // newVirtualMachineInstances returns a VirtualMachineInstances
 func newVirtualMachineInstances(c *KubevirtV1Client, namespace string) *virtualMachineInstances {
 	return &virtualMachineInstances{
-		gentype.NewClientWithList[*corev1.VirtualMachineInstance, *corev1.VirtualMachineInstanceList](
+		gentype.NewClientWithListAndApply[*corev1.VirtualMachineInstance, *corev1.VirtualMachineInstanceList, *applyconfigurationscorev1.VirtualMachineInstanceApplyConfiguration](
 			"virtualmachineinstances",
 			c.RESTClient(),
 			scheme.ParameterCodec,
