@@ -584,12 +584,6 @@ func (app *virtHandlerApp) shouldChangeRateLimiter() {
 
 // Update virt-handler rate limiter
 func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
-	enabled := app.clusterConfig.KubevirtSeccompProfileEnabled()
-	if !enabled {
-		log.DefaultLogger().Info("Kubevirt Seccomp profile is not enabled")
-		return
-	}
-
 	if err := seccomp.InstallPolicy(app.KubeletRoot); err != nil {
 		log.DefaultLogger().Errorf("Failed to install Kubevirt Seccomp profile, %v", err)
 		return

@@ -1859,76 +1859,18 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context(" Seccomp configuration", Serial, func() {
-
+	Context("Seccomp configuration", Serial, func() {
 		Context("Kubevirt profile", func() {
-			var nodeName string
-
 			const expectedSeccompProfilePath = "/proc/1/root/var/lib/kubelet/seccomp/kubevirt/kubevirt.json"
 
-			enableSeccompFeature := func() {
-				//Disable feature first to simulate addition
-				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
-				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
-			}
-
-			disableSeccompFeature := func() {
-				//Enable feature first to simulate removal
-				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
-				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
-			}
-
-			enableKubevirtProfile := func(enable bool) {
-				nodeName = libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
-
-				By("Removing profile if present")
-				_, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/rm", "-f", expectedSeccompProfilePath})
-				Expect(err).NotTo(HaveOccurred())
-
-				By(fmt.Sprintf("Configuring KubevirtSeccompProfile feature gate to %t", enable))
-				if enable {
-					enableSeccompFeature()
-				} else {
-					disableSeccompFeature()
-				}
-
-				vmProfile := &v1.VirtualMachineInstanceProfile{
-					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
-					},
-				}
-				if !enable {
-					vmProfile = nil
-
-				}
-
-				kv := libkubevirt.GetCurrentKv(virtClient)
-				kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
-					VirtualMachineInstanceProfile: vmProfile,
-				}
-
-				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-			}
-
 			It("should install Kubevirt policy", func() {
-				enableKubevirtProfile(true)
+				nodeName := libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
 
 				By("Expecting to see the profile")
 				Eventually(func() error {
 					_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
 					return err
 				}, 1*time.Minute, 1*time.Second).Should(Not(HaveOccurred()))
-			})
-
-			It("should not install Kubevirt policy", func() {
-				enableKubevirtProfile(false)
-
-				By("Expecting to not see the profile")
-				Consistently(func() error {
-					_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
-					return err
-				}, 1*time.Minute, 1*time.Second).Should(MatchError(Or(ContainSubstring("No such file"), ContainSubstring("container not found"))))
-				Expect(err).To(MatchError(ContainSubstring("No such file")))
 			})
 		})
 

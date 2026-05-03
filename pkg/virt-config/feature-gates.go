@@ -125,10 +125,6 @@ func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VSOCKGate)
 }
 
-func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
-}
-
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PersistentReservation)
 }
