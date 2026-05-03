@@ -21,11 +21,13 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -157,11 +159,12 @@ var _ = Describe(SIG("Infosource", func() {
 
 			networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceMac)
 			Expect(networkInterface).NotTo(BeNil(), "interface not found")
-			Expect(networkInterface.IP).NotTo(BeEmpty())
 
 			guestInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceNewMac)
 			Expect(guestInterface).NotTo(BeNil(), "interface not found")
 			Expect(guestInterface.IP).NotTo(BeEmpty())
+
+			Expect(validateIPPresentInNonIPv6OnlyCluster(networkInterface, guestInterface)).To(Succeed())
 
 			for i := range vmi.Status.Interfaces {
 				vmi.Status.Interfaces[i].IP = ""
@@ -184,10 +187,27 @@ func dummyInterfaceExists(vmi *v1.VirtualMachineInstance) bool {
 
 func manipulateGuestLinksScript(eth0NewMac, dummyInterfaceMac string) string {
 	changeEth0Mac := "ip link set dev eth0 address " + eth0NewMac + "\n"
+	addIPv6ToEth0 := "ip addr add fd10:0:2::2/120 dev eth0\n"
 	createDummyInterface := "ip link add " + dummyInterfaceName + " type dummy\n" +
 		"ip link set dev " + dummyInterfaceName + " address " + dummyInterfaceMac + "\n"
 	moveEth2ToOtherNS := "ip netns add testns\n" +
 		"ip link set eth2 netns testns\n"
 
-	return "#!/bin/bash\n" + changeEth0Mac + createDummyInterface + moveEth2ToOtherNS
+	return "#!/bin/bash\n" + changeEth0Mac + addIPv6ToEth0 + createDummyInterface + moveEth2ToOtherNS
+}
+
+func validateIPPresentInNonIPv6OnlyCluster(oldMacIface, newMacIface *v1.VirtualMachineInstanceNetworkInterface) error {
+	if newMacIface.IP != "" && hasOnlyIPv6(newMacIface.IPs) {
+		return nil
+	}
+	if oldMacIface.IP == "" {
+		return fmt.Errorf("interface with MAC %s missing IP address in non-IPv6-only cluster (new MAC has IP=%s, IPs=%v)",
+			oldMacIface.MAC, newMacIface.IP, newMacIface.IPs)
+	}
+	return nil
+}
+
+func hasOnlyIPv6(ips []string) bool {
+	return libnet.GetIP(ips, k8sv1.IPv6Protocol) != "" &&
+		libnet.GetIP(ips, k8sv1.IPv4Protocol) == ""
 }
