@@ -2720,6 +2720,112 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
+
+			It("should accept when all AuthorKey, IdBlock, and IdAuth are set together", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.AuthorKey = "author-key-value"
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = "id-block-value"
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = "id-auth-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when all AuthorKey, IdBlock, and IdAuth are empty", func() {
+				// All fields are empty by default
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject when only AuthorKey is set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.AuthorKey = "author-key-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey, IdBlock, and IdAuth must all be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when only IdBlock is set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = "id-block-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey, IdBlock, and IdAuth must all be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when only IdAuth is set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = "id-auth-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey, IdBlock, and IdAuth must all be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when only AuthorKey and IdBlock are set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.AuthorKey = "author-key-value"
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = "id-block-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey, IdBlock, and IdAuth must all be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when only AuthorKey and IdAuth are set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.AuthorKey = "author-key-value"
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = "id-auth-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey, IdBlock, and IdAuth must all be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when only IdBlock and IdAuth are set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = "id-block-value"
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = "id-auth-value"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey, IdBlock, and IdAuth must all be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when KernelHashes is set without kernel boot", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.KernelHashes = "yes"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("KernelHashes requires direct kernel boot"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.kernelHashes"))
+			})
+
+			It("should accept when KernelHashes is set with kernel boot configured", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.KernelHashes = "yes"
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(false),
+						},
+					},
+					KernelBoot: &v1.KernelBoot{
+						Container: &v1.KernelBootContainer{
+							Image:      "registry.example.com/kernel:latest",
+							KernelPath: "/boot/vmlinuz",
+							InitrdPath: "/boot/initrd",
+						},
+					},
+				}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when KernelHashes is empty (not set)", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.KernelHashes = ""
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
 		})
 	})
 

@@ -7201,6 +7201,23 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          properties:
+                            authorKey:
+                              type: string
+                            cbitpos:
+                              type: string
+                            idAuth:
+                              type: string
+                            idBlock:
+                              type: string
+                            kernelHashes:
+                              type: string
+                            policy:
+                              type: string
+                            reducedPhysBits:
+                              type: string
+                            vcek:
+                              type: string
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
@@ -9896,6 +9913,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                authorKey:
+                  type: string
+                cbitpos:
+                  type: string
+                idAuth:
+                  type: string
+                idBlock:
+                  type: string
+                kernelHashes:
+                  type: string
+                policy:
+                  type: string
+                reducedPhysBits:
+                  type: string
+                vcek:
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
@@ -13309,6 +13343,23 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  properties:
+                    authorKey:
+                      type: string
+                    cbitpos:
+                      type: string
+                    idAuth:
+                      type: string
+                    idBlock:
+                      type: string
+                    kernelHashes:
+                      type: string
+                    policy:
+                      type: string
+                    reducedPhysBits:
+                      type: string
+                    vcek:
+                      type: string
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
@@ -17184,6 +17235,23 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  properties:
+                    authorKey:
+                      type: string
+                    cbitpos:
+                      type: string
+                    idAuth:
+                      type: string
+                    idBlock:
+                      type: string
+                    kernelHashes:
+                      type: string
+                    policy:
+                      type: string
+                    reducedPhysBits:
+                      type: string
+                    vcek:
+                      type: string
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
@@ -19750,6 +19818,23 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          properties:
+                            authorKey:
+                              type: string
+                            cbitpos:
+                              type: string
+                            idAuth:
+                              type: string
+                            idBlock:
+                              type: string
+                            kernelHashes:
+                              type: string
+                            policy:
+                              type: string
+                            reducedPhysBits:
+                              type: string
+                            vcek:
+                              type: string
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
@@ -21312,6 +21397,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                authorKey:
+                  type: string
+                cbitpos:
+                  type: string
+                idAuth:
+                  type: string
+                idBlock:
+                  type: string
+                kernelHashes:
+                  type: string
+                policy:
+                  type: string
+                reducedPhysBits:
+                  type: string
+                vcek:
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
@@ -24873,6 +24975,23 @@ var CRDsValidation map[string]string = map[string]string{
                                 snp:
                                   description: AMD SEV-SNP flags defined by the SEV-SNP
                                     specifications.
+                                  properties:
+                                    authorKey:
+                                      type: string
+                                    cbitpos:
+                                      type: string
+                                    idAuth:
+                                      type: string
+                                    idBlock:
+                                      type: string
+                                    kernelHashes:
+                                      type: string
+                                    policy:
+                                      type: string
+                                    reducedPhysBits:
+                                      type: string
+                                    vcek:
+                                      type: string
                                   type: object
                                 tdx:
                                   description: Intel Trust Domain Extensions (TDX).
@@ -30464,6 +30583,23 @@ var CRDsValidation map[string]string = map[string]string{
                                     snp:
                                       description: AMD SEV-SNP flags defined by the
                                         SEV-SNP specifications.
+                                      properties:
+                                        authorKey:
+                                          type: string
+                                        cbitpos:
+                                          type: string
+                                        idAuth:
+                                          type: string
+                                        idBlock:
+                                          type: string
+                                        kernelHashes:
+                                          type: string
+                                        policy:
+                                          type: string
+                                        reducedPhysBits:
+                                          type: string
+                                        vcek:
+                                          type: string
                                       type: object
                                     tdx:
                                       description: Intel Trust Domain Extensions (TDX).
