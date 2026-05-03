@@ -193,6 +193,10 @@ func admitHotplug(
 
 func admitHotplugCPU(oldCPUTopology, newCPUTopology *v1.CPU) *admissionv1.AdmissionResponse {
 
+	if oldCPUTopology == nil || newCPUTopology == nil {
+		return nil
+	}
+
 	if oldCPUTopology.MaxSockets != newCPUTopology.MaxSockets {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
