@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirtxml"
 
@@ -35,6 +36,7 @@ import (
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
@@ -217,6 +219,156 @@ var _ = Describe("Live migration source", func() {
 
 			Entry("returns error when no path is set in source",
 				&libvirtxml.DomainDiskSource{}, "", true),
+		)
+	})
+
+	Context("updateFilePathsToNewDomain", func() {
+		targetNS := "target-ns"
+		vmi := &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "source-ns",
+			},
+			Status: v1.VirtualMachineInstanceStatus{
+				MigrationState: &v1.VirtualMachineInstanceMigrationState{
+					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							DomainNamespace: &targetNS,
+						},
+					},
+				},
+			},
+		}
+
+		DescribeTable("namespace replacement in disk file paths",
+			func(source api.DiskSource, expectedFile, expectedDataStoreFile string) {
+				domSpec := &api.DomainSpec{
+					Devices: api.Devices{
+						Disks: []api.Disk{
+							{Alias: api.NewUserDefinedAlias("disk0"), Source: source},
+						},
+					},
+				}
+				updateFilePathsToNewDomain(vmi, domSpec)
+				Expect(domSpec.Devices.Disks[0].Source.File).To(Equal(expectedFile))
+				if expectedDataStoreFile != "" {
+					Expect(domSpec.Devices.Disks[0].Source.DataStore.Source.File).To(Equal(expectedDataStoreFile))
+				}
+			},
+			Entry("plain file path containing source namespace is rewritten to target namespace",
+				api.DiskSource{File: "source-ns/my-vm/disk.img"},
+				"target-ns/my-vm/disk.img", ""),
+
+			Entry("plain file path without namespace is left unchanged",
+				api.DiskSource{File: "disk.img"},
+				"disk.img", ""),
+
+			Entry("overlay disk: overlay qcow2 file containing namespace is rewritten",
+				api.DiskSource{
+					File: "source-ns/cbt/vol.qcow2",
+					DataStore: &api.DataStore{
+						Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
+					},
+				},
+				"target-ns/cbt/vol.qcow2",
+				"/var/run/kubevirt-private/vmi-disks/vol/disk.img"),
+
+			Entry("overlay disk: DataStore backing file containing namespace is rewritten",
+				api.DiskSource{
+					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
+					DataStore: &api.DataStore{
+						Source: &api.DiskSource{File: "source-ns/vol/disk.img"},
+					},
+				},
+				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
+				"target-ns/vol/disk.img"),
+
+			Entry("overlay disk: both qcow2 and DataStore backing file contain namespace, both rewritten",
+				api.DiskSource{
+					File: "source-ns/cbt/vol.qcow2",
+					DataStore: &api.DataStore{
+						Source: &api.DiskSource{File: "source-ns/vol/disk.img"},
+					},
+				},
+				"target-ns/cbt/vol.qcow2",
+				"target-ns/vol/disk.img"),
+
+			Entry("overlay disk: DataStore backing file without namespace is left unchanged",
+				api.DiskSource{
+					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
+					DataStore: &api.DataStore{
+						Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
+					},
+				},
+				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
+				"/var/run/kubevirt-private/vmi-disks/vol/disk.img"),
+		)
+	})
+
+	Context("convertDisks", func() {
+		DescribeTable("syncing spec file paths into migratable libvirt XML",
+			func(specSource api.DiskSource, libvirtSource *libvirtxml.DomainDiskSource,
+				expectedFile, expectedDataStoreFile string) {
+				domSpec := &api.DomainSpec{
+					Devices: api.Devices{
+						Disks: []api.Disk{
+							{Alias: api.NewUserDefinedAlias("disk0"), Source: specSource},
+						},
+					},
+				}
+				domcfg := &libvirtxml.Domain{
+					Devices: &libvirtxml.DomainDeviceList{
+						Disks: []libvirtxml.DomainDisk{
+							{Alias: &libvirtxml.DomainAlias{Name: "ua-disk0"}, Source: libvirtSource},
+						},
+					},
+				}
+				Expect(convertDisks(domSpec, domcfg)).To(Succeed())
+				Expect(domcfg.Devices.Disks[0].Source.File.File).To(Equal(expectedFile))
+				if expectedDataStoreFile != "" {
+					Expect(domcfg.Devices.Disks[0].Source.DataStore.Source.File.File).To(Equal(expectedDataStoreFile))
+				}
+			},
+			Entry("plain file disk: spec path overwrites stale libvirt XML path",
+				api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
+				&libvirtxml.DomainDiskSource{
+					File: &libvirtxml.DomainDiskSourceFile{File: "/var/run/kubevirt-private/vmi-disks/vol/old-disk.img"},
+				},
+				"/var/run/kubevirt-private/vmi-disks/vol/disk.img", ""),
+
+			Entry("CBT overlay disk with file backend: both qcow2 and backing store overwrite stale libvirt XML",
+				api.DiskSource{
+					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
+					DataStore: &api.DataStore{
+						Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/vol/disk.img"},
+					},
+				},
+				&libvirtxml.DomainDiskSource{
+					File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/old-vol.qcow2"},
+					DataStore: &libvirtxml.DomainDiskDataStore{
+						Source: &libvirtxml.DomainDiskSource{
+							File: &libvirtxml.DomainDiskSourceFile{File: "/var/run/kubevirt-private/vmi-disks/vol/old-disk.img"},
+						},
+					},
+				},
+				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
+				"/var/run/kubevirt-private/vmi-disks/vol/disk.img"),
+
+			Entry("CBT overlay disk with block backend: only qcow2 overwritten, block backend unchanged",
+				api.DiskSource{
+					File: "/var/lib/libvirt/qemu/cbt/vol.qcow2",
+					DataStore: &api.DataStore{
+						Source: &api.DiskSource{Dev: "/dev/vol"},
+					},
+				},
+				&libvirtxml.DomainDiskSource{
+					File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/old-vol.qcow2"},
+					DataStore: &libvirtxml.DomainDiskDataStore{
+						Source: &libvirtxml.DomainDiskSource{
+							Block: &libvirtxml.DomainDiskSourceBlock{Dev: "/dev/vol"},
+						},
+					},
+				},
+				"/var/lib/libvirt/qemu/cbt/vol.qcow2", ""),
 		)
 	})
 })

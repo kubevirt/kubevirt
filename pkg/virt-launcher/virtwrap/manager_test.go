@@ -4073,6 +4073,83 @@ var _ = Describe("Manager helper functions", func() {
 			Entry("filesystem source and block destination with hostdisks", false, true, volHostDisk),
 			Entry("block source and filesystem destination with hostdisks", true, false, volHostDisk),
 		)
+
+		DescribeTable("replace filesystem and block migrated volumes with CBT overlay", func(isSrcBlock, isDstBlock bool) {
+			retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
+				return 2028994560, nil
+			}
+			getDiskVirtualSizeFunc = retDiskSize
+
+			cbtOverlayPath := "/var/lib/libvirt/qemu/cbt/" + testvol + ".qcow2"
+			var backendSrc *libvirtxml.DomainDiskSource
+			if isSrcBlock {
+				backendSrc = &libvirtxml.DomainDiskSource{Block: &libvirtxml.DomainDiskSourceBlock{Dev: getBlockPath(testvol)}}
+			} else {
+				backendSrc = &libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: getFsImagePath(testvol)}}
+			}
+			dom := &libvirtxml.Domain{
+				Devices: &libvirtxml.DomainDeviceList{
+					Disks: []libvirtxml.DomainDisk{
+						{
+							Source: &libvirtxml.DomainDiskSource{
+								File:      &libvirtxml.DomainDiskSourceFile{File: cbtOverlayPath},
+								DataStore: &libvirtxml.DomainDiskDataStore{Source: backendSrc},
+							},
+							Alias: &libvirtxml.DomainAlias{Name: fmt.Sprintf("ua-%s", testvol)},
+						},
+					},
+				},
+			}
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{volPVC},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					MigratedVolumes: []v1.StorageMigratedVolumeInfo{
+						{
+							VolumeName: testvol,
+						},
+					},
+					VolumeStatus: []v1.VolumeStatus{
+						{
+							Name:                      testvol,
+							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimName: src},
+						},
+					},
+				},
+			}
+			if isSrcBlock {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo = &infoBlock
+			} else {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo = &infoFs
+			}
+			if isDstBlock {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo = &infoBlock
+			} else {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo = &infoFs
+			}
+
+			err := configureLocalDiskToMigrate(dom, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			diskSrc := dom.Devices.Disks[0].Source
+			Expect(diskSrc.File).NotTo(BeNil())
+			Expect(diskSrc.File.File).To(Equal(cbtOverlayPath))
+			Expect(diskSrc.DataStore).NotTo(BeNil())
+			Expect(diskSrc.DataStore.Source).NotTo(BeNil())
+			if isDstBlock {
+				Expect(diskSrc.DataStore.Source.File).To(BeNil())
+				Expect(diskSrc.DataStore.Source.Block).NotTo(BeNil())
+				Expect(diskSrc.DataStore.Source.Block.Dev).To(Equal(getBlockPath(testvol)))
+			} else {
+				Expect(diskSrc.DataStore.Source.Block).To(BeNil())
+				Expect(diskSrc.DataStore.Source.File).NotTo(BeNil())
+				Expect(diskSrc.DataStore.Source.File.File).To(Equal(getFsImagePath(testvol)))
+			}
+		},
+			Entry("filesystem source and block destination", false, true),
+			Entry("block source and filesystem destination", true, false),
+		)
 	})
 
 	Context("shouldConfigureParallelMigration", func() {
