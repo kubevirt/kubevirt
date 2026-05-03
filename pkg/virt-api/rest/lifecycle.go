@@ -40,7 +40,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -436,6 +435,14 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 			writeError(errors.NewBadRequest(fmt.Sprintf("gracePeriod has to be greater or equal to 0")), response)
 			return
 		}
+
+		// Patch the VMI directly with the grace period annotation
+		patchData := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%d"}}}`, controller.GracePeriodOverrideAnnotation, *bodyStruct.GracePeriodSeconds))
+		_, err := app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), name, types.MergePatchType, patchData, metav1.PatchOptions{})
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
 	}
 
 	vm, statusErr := app.fetchVirtualMachine(name, namespace)
@@ -486,30 +493,6 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 			writeError(errors.NewInternalError(err), response)
 		}
 		return
-	}
-
-	// Only force restart with GracePeriodSeconds=0 is supported for now
-	// Here we are deleting the Pod because CRDs don't support gracePeriodSeconds at the moment
-	if bodyStruct.GracePeriodSeconds != nil {
-		if *bodyStruct.GracePeriodSeconds == 0 {
-			vmiPodname, err := app.findPod(namespace, vmi)
-			if err != nil {
-				writeError(errors.NewInternalError(err), response)
-				return
-			}
-			if vmiPodname == "" {
-				response.WriteHeader(http.StatusAccepted)
-				return
-			}
-			// set terminationGracePeriod to 1 (which is the shorted safe restart period) and delete the VMI pod to trigger a swift restart.
-			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(1))})
-			if err != nil {
-				if !errors.IsNotFound(err) {
-					writeError(errors.NewInternalError(err), response)
-					return
-				}
-			}
-		}
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -624,6 +607,15 @@ func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineIn
 }
 
 func (app *SubresourceAPIApp) patchVMStatusStopped(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, response *restful.Response, bodyStruct *v1.StopOptions) (error, error) {
+	if bodyStruct.GracePeriod != nil && vmi != nil {
+		patchData := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%d"}}}`, controller.GracePeriodOverrideAnnotation, *bodyStruct.GracePeriod))
+		_, err := app.virtCli.VirtualMachineInstance(vm.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			log.Log.Object(vm).Reason(err).Errorf("Failed to patch VMI with grace period override")
+			writeError(errors.NewInternalError(err), response)
+			return nil, err
+		}
+	}
 	patchBytes, err := getChangeRequestJson(vm,
 		v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
 	if err != nil {
