@@ -24,15 +24,12 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
-	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
-
-const defaultState = cache.PodIfaceNetworkPreparationPending
 
 type podNIC struct {
 	vmi              *v1.VirtualMachineInstance
