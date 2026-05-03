@@ -37,15 +37,14 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
-	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 
+	// Empty importing to register universal capabilities
+	_ "kubevirt.io/kubevirt/pkg/capabilities"
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -118,6 +117,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, validateSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	}
 
+	causes = append(causes, ValidateCapabilities(vmi, admitter.ClusterConfig)...)
+
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -167,6 +168,51 @@ func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.Virtua
 			Message: fmt.Sprintf("unsupported architecture: %s", arch),
 			Field:   field.Child("architecture").String(),
 		})
+	}
+
+	return causes
+}
+
+func ValidateCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	// Get the hypervisor in use from cluster configuration
+	hypervisor := config.GetHypervisor()
+	arch := vmi.Spec.Architecture
+
+	// Retrieve the capability support information for the given hypervisor and architecture
+	supports := core_capabilities.GetCapabilitiesSupportForPlatform(hypervisor.Name, arch)
+
+	// Validate the capabilities in the spec against the supported capabilities
+	for capKey, capSupport := range supports {
+		capabilityDef := core_capabilities.CapabilityDefinitions[capKey]
+
+		// Check if this capability is required by the VMI and get all field paths where it's used
+		fieldPaths := capabilityDef.GetRequiredFields(vmi)
+		if len(fieldPaths) > 0 {
+			switch capSupport.Level {
+			case core_capabilities.Unsupported:
+				// Add error cause for each field path that uses this unsupported capability
+				for _, fieldPath := range fieldPaths {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: capSupport.Message,
+						Field:   fieldPath.String(),
+					})
+				}
+			case core_capabilities.Experimental:
+				if capSupport.GatedBy != "" && !config.IsFeatureGateEnabled(capSupport.GatedBy) {
+					// Add error cause for each field path that requires this experimental capability
+					for _, fieldPath := range fieldPaths {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueNotSupported,
+							Message: capSupport.Message + fmt.Sprintf(". But feature gate '%s' is not enabled", capSupport.GatedBy),
+							Field:   fieldPath.String(),
+						})
+					}
+				}
+			}
+		}
 	}
 
 	return causes
@@ -227,57 +273,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateMDEVRamFB(field, spec)...)
-	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
-	causes = append(causes, validateVSOCK(field, spec, config)...)
-	causes = append(causes, validatePersistentReservation(field, spec, config)...)
-	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
-	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateVideoConfig(field, spec, config)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
-	causes = append(causes, validateRebootPolicy(field, spec, config)...)
-	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
-
-	return causes
-}
-
-func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.Filesystems == nil {
-		return causes
-	}
-
-	volumes := storagetypes.GetVolumesByName(spec)
-
-	for _, fs := range spec.Domain.Devices.Filesystems {
-		volume, ok := volumes[fs.Name]
-		if !ok {
-			continue
-		}
-
-		if storagetypes.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled()) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",
-				Field:   field.Child("domain", "devices", "filesystems").String(),
-			})
-		}
-	}
-
-	return causes
-}
-
-func validateDownwardMetrics(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
-	// Check if serial and feature gate is enabled
-	if downwardmetrics.HasDevice(spec) && !config.DownwardMetricsEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "downwardMetrics virtio serial is not allowed: DownwardMetrics feature gate is not enabled",
-			Field:   field.Child("domain", "devices", "downwardMetrics").String(),
-		})
-	}
 
 	return causes
 }
@@ -543,18 +542,6 @@ func validateMDEVRamFB(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 			Field:   field.Child("GPUs").String(),
 		})
 
-	}
-	return causes
-}
-
-func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if spec.Domain.Devices.HostDevices != nil && !config.HostDevicesPassthroughEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Host Devices feature gate is not enabled in kubevirt-config",
-			Field:   field.Child("HostDevices").String(),
-		})
 	}
 	return causes
 }
@@ -1242,7 +1229,6 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 
 func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *metav1.ObjectMeta, config *virtconfig.ClusterConfig, isKubeVirtServiceAccount bool) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	annotations := metadata.Annotations
 	labels := metadata.Labels
 	// Validate kubevirt.io labels presence. Restricted labels allowed
 	// to be created only by known service accounts
@@ -1254,26 +1240,6 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 				Field:   field.Child("labels").String(),
 			})
 		}
-	}
-
-	// Validate ignition feature gate if set when the corresponding annotation is found
-	if annotations[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config, invalid entry %s",
-				field.Child("annotations").Child(v1.IgnitionAnnotation).String()),
-			Field: field.Child("annotations").String(),
-		})
-	}
-
-	// Validate sidecar feature gate if set when the corresponding annotation is found
-	if annotations[hooks.HookSidecarListAnnotationName] != "" && !config.SidecarEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
-				field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
-			Field: field.Child("annotations").String(),
-		})
 	}
 
 	return causes
@@ -2001,40 +1967,6 @@ func validateSpecTopologySpreadConstraints(field *k8sfield.Path, spec *v1.Virtua
 	return causes
 }
 
-func validateVSOCK(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if spec.Domain.Devices.AutoattachVSOCK == nil || !*spec.Domain.Devices.AutoattachVSOCK {
-		return causes
-	}
-
-	if !config.VSOCKEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VSOCKGate),
-			Field:   field.Child("domain", "devices", "autoattachVSOCK").String(),
-		})
-	}
-
-	return causes
-}
-
-func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if !reservation.HasVMISpecPersistentReservation(spec) {
-		return causes
-	}
-
-	if !config.PersistentReservationEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.PersistentReservation),
-			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
-		})
-	}
-
-	return causes
-}
-
 func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if spec.Domain.CPU != nil && spec.Domain.CPU.MaxSockets != 0 {
@@ -2053,15 +1985,6 @@ func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 	var causes []metav1.StatusCause
 
 	if spec.Domain.Devices.Video == nil {
-		return causes
-	}
-
-	if !config.VideoConfigEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig),
-			Field:   field.Child("video").String(),
-		})
 		return causes
 	}
 
@@ -2113,44 +2036,6 @@ func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 		if cause := validatePanicDeviceModel(field.Child("domain", "devices", "panicDevices").Index(idx).Child("model"), panicDevice.Model); cause != nil {
 			causes = append(causes, *cause)
 		}
-	}
-
-	return causes
-}
-
-func validateRebootPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
-	if spec.Domain.RebootPolicy == nil {
-		return causes
-	}
-
-	if !config.RebootPolicyEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy),
-			Field:   field.Child("domain", "rebootPolicy").String(),
-		})
-		return causes
-	}
-
-	return causes
-}
-
-func validateReservedOverheadMemlock(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
-	if spec.Domain.Memory == nil {
-		return causes
-	}
-
-	if spec.Domain.Memory.ReservedOverhead != nil && !config.ReservedOverheadMemlockEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Reserved overhead memlock feature gate is not enabled in kubevirt-config",
-			Field:   field.Child("domain", "memory", "reservedOverhead").String(),
-		})
-		return causes
 	}
 
 	return causes
