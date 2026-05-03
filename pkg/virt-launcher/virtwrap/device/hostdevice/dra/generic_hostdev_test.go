@@ -93,7 +93,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "hd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
@@ -148,7 +148,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "vhd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
@@ -205,7 +205,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "vhd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
@@ -263,10 +263,10 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "hd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}, {
 								Name:         "hd2",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim2"), RequestName: ptr.To("req2")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim2", RequestName: "req2"},
 							}},
 						},
 					},

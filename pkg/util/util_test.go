@@ -89,8 +89,8 @@ var _ = Describe("Host Device VMI Predicates", func() {
 							{
 								Name: "hostdev1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   pointer.P("hostdev-claim"),
-									RequestName: pointer.P("hostdev-request"),
+									ClaimName:   "hostdev-claim",
+									RequestName: "hostdev-request",
 								},
 							},
 						},
