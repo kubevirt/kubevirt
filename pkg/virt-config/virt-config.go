@@ -30,8 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -502,7 +500,7 @@ func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 	if mdevConfig != nil && mdevConfig.Enabled != nil {
 		return !*mdevConfig.Enabled
 	}
-	return c.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
+	return false
 }
 
 func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {

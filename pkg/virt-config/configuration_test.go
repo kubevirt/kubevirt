@@ -19,7 +19,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -777,27 +776,10 @@ var _ = Describe("test configuration", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kubevirtConfig)
 		Expect(clusterConfig.MediatedDevicesHandlingDisabled()).To(Equal(expectedHandling))
 	},
-		Entry("should return true when Enabled is false and FG missing",
+		Entry("should return true when Enabled is false",
 			&v1.KubeVirtConfiguration{
 				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
 					Enabled: pointer.P(false),
-				},
-			},
-			true,
-		),
-		Entry("should return true when MediatedDevicesConfiguration is nil and FG is present",
-			&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
-				},
-			},
-			true,
-		),
-		Entry("should return true when Enabled is nil and FG is present",
-			&v1.KubeVirtConfiguration{
-				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{},
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
 				},
 			},
 			true,
@@ -810,27 +792,13 @@ var _ = Describe("test configuration", func() {
 			},
 			false,
 		),
-		Entry("should return false when Enabled is explicitly true even when FG is present",
+		Entry("should return false when Enabled is nil",
 			&v1.KubeVirtConfiguration{
-				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
-					Enabled: pointer.P(true),
-				},
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
-				},
+				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{},
 			},
 			false,
 		),
-		Entry("should return false when MediatedDevicesConfiguration is nil and FG missing",
-			&v1.KubeVirtConfiguration{
-				MediatedDevicesConfiguration: nil,
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{},
-				},
-			},
-			false,
-		),
-		Entry("should return false when MediatedDevicesConfiguration and DeveloperConfiguration are nil",
+		Entry("should return false when MediatedDevicesConfiguration is nil",
 			&v1.KubeVirtConfiguration{},
 			false,
 		),
