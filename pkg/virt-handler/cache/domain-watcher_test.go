@@ -20,14 +20,13 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/watch"
-	k8scache "k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 )
 
 var _ = Describe("Domain Watcher", func() {
@@ -62,42 +61,38 @@ var _ = Describe("Domain Watcher", func() {
 			notifyServerMaxConsecutiveFails = 1
 			notifyServerHealthyRunTime = 1 * time.Hour
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			d := &domainWatcher{
-				virtShareDir:        GinkgoT().TempDir(),
-				watchdogTimeout:     10,
 				unresponsiveSockets: make(map[string]int64),
-				resyncPeriod:        1 * time.Hour,
-				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store, ...time.Duration) error {
-					return fmt.Errorf("permanent failure")
-				},
-				eventChan: make(chan watch.Event, 100),
-				stopChan:  make(chan struct{}),
+				consecutiveFails:    new(int),
+				result:              make(chan watch.Event, 100),
+				cancel:              cancel,
 			}
 			d.wg.Add(1)
 
-			Expect(d.worker).To(PanicWith(
+			runServer := func(_ context.Context, _ chan watch.Event) error {
+				return fmt.Errorf("permanent failure")
+			}
+			Expect(func() { d.worker(ctx, runServer, 1*time.Hour, 10) }).To(PanicWith(
 				ContainSubstring("domain notify server reached max consecutive failures")))
 		})
 	})
 
 	Context("Stop() idempotency", func() {
 		It("should not panic when Stop is called twice", func() {
-			d := &domainWatcher{
-				virtShareDir:        GinkgoT().TempDir(),
-				watchdogTimeout:     1,
-				unresponsiveSockets: make(map[string]int64),
-				resyncPeriod:        1 * time.Hour,
-				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store, ...time.Duration) error {
+			d := newDomainWatcher(
+				context.Background(),
+				func(context.Context, chan watch.Event) error {
 					return fmt.Errorf("injected error")
 				},
-			}
+				1,
+				1*time.Hour,
+				nil,
+				new(int),
+			)
 
-			Expect(d.startBackground()).To(Succeed())
-			Eventually(func() bool {
-				d.lock.Lock()
-				defer d.lock.Unlock()
-				return !d.backgroundWatcherStarted
-			}, 5*time.Second).Should(BeTrue())
+			Eventually(d.result).Should(BeClosed())
 
 			Expect(func() { d.Stop() }).ShouldNot(Panic())
 			Expect(func() { d.Stop() }).ShouldNot(Panic())

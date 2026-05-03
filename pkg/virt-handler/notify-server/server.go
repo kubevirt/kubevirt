@@ -123,7 +123,7 @@ func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventReq
 	return response, nil
 }
 
-func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store, watchInterval ...time.Duration) error {
+func RunServer(virtShareDir string, stopChan <-chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store, watchInterval ...time.Duration) error {
 	interval := socketCheckInterval
 	if len(watchInterval) > 0 {
 		interval = watchInterval[0]
