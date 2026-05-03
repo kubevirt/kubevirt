@@ -32599,11 +32599,17 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 							Format:      "",
 						},
 					},
+					"launchSecurity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines the preferred LaunchSecurity",
+							Ref:         ref("kubevirt.io/api/core/v1.LaunchSecurity"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/instancetype/v1beta1.CPUPreferences", "kubevirt.io/api/instancetype/v1beta1.ClockPreferences", "kubevirt.io/api/instancetype/v1beta1.DevicePreferences", "kubevirt.io/api/instancetype/v1beta1.FeaturePreferences", "kubevirt.io/api/instancetype/v1beta1.FirmwarePreferences", "kubevirt.io/api/instancetype/v1beta1.MachinePreferences", "kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements", "kubevirt.io/api/instancetype/v1beta1.VolumePreferences"},
+			"kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/instancetype/v1beta1.CPUPreferences", "kubevirt.io/api/instancetype/v1beta1.ClockPreferences", "kubevirt.io/api/instancetype/v1beta1.DevicePreferences", "kubevirt.io/api/instancetype/v1beta1.FeaturePreferences", "kubevirt.io/api/instancetype/v1beta1.FirmwarePreferences", "kubevirt.io/api/instancetype/v1beta1.MachinePreferences", "kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements", "kubevirt.io/api/instancetype/v1beta1.VolumePreferences"},
 	}
 }
 

@@ -10607,6 +10607,40 @@ var CRDsValidation map[string]string = map[string]string{
                 Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
+        launchSecurity:
+          description: Optionally defines the preferred LaunchSecurity
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
+                policy:
+                  description: |-
+                    Guest policy flags as defined in AMD SEV API specification.
+                    Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
+                  properties:
+                    encryptedState:
+                      description: |-
+                        SEV-ES is required.
+                        Defaults to false.
+                      type: boolean
+                  type: object
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
+              type: object
+          type: object
         machine:
           description: Machine optionally defines preferences associated with the
             Machine attribute of a VirtualMachineInstance DomainSpec
@@ -26882,6 +26916,40 @@ var CRDsValidation map[string]string = map[string]string{
 
                 Deprecated: Will be removed with v1beta2 or v1
               type: boolean
+          type: object
+        launchSecurity:
+          description: Optionally defines the preferred LaunchSecurity
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
+                policy:
+                  description: |-
+                    Guest policy flags as defined in AMD SEV API specification.
+                    Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
+                  properties:
+                    encryptedState:
+                      description: |-
+                        SEV-ES is required.
+                        Defaults to false.
+                      type: boolean
+                  type: object
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
+              type: object
           type: object
         machine:
           description: Machine optionally defines preferences associated with the
