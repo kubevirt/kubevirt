@@ -149,10 +149,6 @@ func (config *ClusterConfig) LibvirtHooksServerAndClientEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.LibvirtHooksServerAndClient)
 }
 
-func (config *ClusterConfig) VideoConfigEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VideoConfig)
-}
-
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
