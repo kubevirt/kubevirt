@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/naming"
 )
 
 type controllerRevisionFinder interface {
@@ -62,7 +63,8 @@ func (f *revisionFinder) FindPreference(vm *virtv1.VirtualMachine) (*appsv1.Cont
 			return nil, err
 		}
 		// Only return the found CR if it is for the referenced instance type
-		if label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]; ok && label == vm.Spec.Preference.Name {
+		label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]
+		if ok && label == naming.TruncateLabelValue(vm.Spec.Preference.Name) {
 			return cr, nil
 		}
 	}

@@ -21,6 +21,7 @@ package revision_test
 
 import (
 	"context"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
@@ -41,6 +43,7 @@ import (
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	"kubevirt.io/kubevirt/pkg/instancetype/naming"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -675,6 +678,66 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
 			})
+		})
+	})
+
+	Context("GenerateName", func() {
+		It("should return unchanged name when within DNS subdomain limit", func() {
+			name := revision.GenerateName("vm", "instancetype", "v1beta1", "uid-1234", 1)
+			Expect(name).To(Equal("vm-instancetype-v1beta1-uid-1234-1"))
+		})
+
+		It("should truncate and hash when name exceeds DNS subdomain limit", func() {
+			longResourceName := strings.Repeat("a", 253)
+			name := revision.GenerateName("vm", longResourceName, "v1beta1", resourceUID, resourceGeneration)
+			Expect(name).To(HaveLen(validation.DNS1123SubdomainMaxLength))
+		})
+
+		It("should be deterministic", func() {
+			longResourceName := strings.Repeat("a", 253)
+			name1 := revision.GenerateName("vm", longResourceName, "v1beta1", resourceUID, resourceGeneration)
+			name2 := revision.GenerateName("vm", longResourceName, "v1beta1", resourceUID, resourceGeneration)
+			Expect(name1).To(Equal(name2))
+		})
+
+		It("should produce different names for different inputs", func() {
+			longResourceName1 := strings.Repeat("a", 253)
+			longResourceName2 := strings.Repeat("b", 253)
+			name1 := revision.GenerateName("vm", longResourceName1, "v1beta1", resourceUID, resourceGeneration)
+			name2 := revision.GenerateName("vm", longResourceName2, "v1beta1", resourceUID, resourceGeneration)
+			Expect(name1).ToNot(Equal(name2))
+		})
+	})
+
+	Context("CreateControllerRevision with long names", func() {
+		It("should truncate label value for long cluster instancetype names", func() {
+			longName := strings.Repeat("a", 100)
+			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       apiinstancetype.ClusterSingularResourceName,
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       longName,
+					UID:        resourceUID,
+					Generation: resourceGeneration,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
+					},
+				},
+			}
+			vm := kubecli.NewMinimalVM("testvm")
+			vm.Namespace = k8sv1.NamespaceDefault
+
+			cr, err := revision.CreateControllerRevision(vm, clusterInstancetype)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(cr.Name)).To(BeNumerically("<=", validation.DNS1123SubdomainMaxLength))
+			labelValue := cr.Labels[apiinstancetype.ControllerRevisionObjectNameLabel]
+			Expect(len(labelValue)).To(BeNumerically("<=", validation.LabelValueMaxLength))
+			Expect(labelValue).To(Equal(naming.TruncateLabelValue(longName)))
 		})
 	})
 })
