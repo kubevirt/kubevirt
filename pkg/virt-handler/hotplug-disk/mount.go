@@ -41,9 +41,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/cgroups"
 
-	"github.com/opencontainers/runc/libcontainer/devices"
+	devices "github.com/opencontainers/cgroups/devices/config"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -506,7 +506,7 @@ func (m *volumeMounter) updateBlockMajorMinor(dev uint64, allow bool, cgroupMana
 		return fmt.Errorf("failed to apply device rule %+v: cgroup manager is nil", *deviceRule)
 	}
 
-	err := cgroupManager.Set(&configs.Resources{
+	err := cgroupManager.Set(&cgroups.Resources{
 		Devices: []*devices.Rule{deviceRule},
 	})
 

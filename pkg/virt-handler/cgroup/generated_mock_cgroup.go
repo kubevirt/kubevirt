@@ -12,8 +12,7 @@ package cgroup
 import (
 	reflect "reflect"
 
-	cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	configs "github.com/opencontainers/runc/libcontainer/configs"
+	cgroups "github.com/opencontainers/cgroups"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -129,7 +128,7 @@ func (mr *MockManagerMockRecorder) GetCpuSet() *gomock.Call {
 }
 
 // Set mocks base method.
-func (m *MockManager) Set(r *configs.Resources) error {
+func (m *MockManager) Set(r *cgroups.Resources) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Set", r)
 	ret0, _ := ret[0].(error)
@@ -180,6 +179,20 @@ func (m *MockruncManager) EXPECT() *MockruncManagerMockRecorder {
 	return m.recorder
 }
 
+// AddPid mocks base method.
+func (m *MockruncManager) AddPid(subcgroup string, pid int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddPid", subcgroup, pid)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddPid indicates an expected call of AddPid.
+func (mr *MockruncManagerMockRecorder) AddPid(subcgroup, pid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPid", reflect.TypeOf((*MockruncManager)(nil).AddPid), subcgroup, pid)
+}
+
 // Apply mocks base method.
 func (m *MockruncManager) Apply(pid int) error {
 	m.ctrl.T.Helper()
@@ -223,7 +236,7 @@ func (mr *MockruncManagerMockRecorder) Exists() *gomock.Call {
 }
 
 // Freeze mocks base method.
-func (m *MockruncManager) Freeze(state configs.FreezerState) error {
+func (m *MockruncManager) Freeze(state cgroups.FreezerState) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Freeze", state)
 	ret0, _ := ret[0].(error)
@@ -252,10 +265,10 @@ func (mr *MockruncManagerMockRecorder) GetAllPids() *gomock.Call {
 }
 
 // GetCgroups mocks base method.
-func (m *MockruncManager) GetCgroups() (*configs.Cgroup, error) {
+func (m *MockruncManager) GetCgroups() (*cgroups.Cgroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCgroups")
-	ret0, _ := ret[0].(*configs.Cgroup)
+	ret0, _ := ret[0].(*cgroups.Cgroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -267,10 +280,10 @@ func (mr *MockruncManagerMockRecorder) GetCgroups() *gomock.Call {
 }
 
 // GetFreezerState mocks base method.
-func (m *MockruncManager) GetFreezerState() (configs.FreezerState, error) {
+func (m *MockruncManager) GetFreezerState() (cgroups.FreezerState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFreezerState")
-	ret0, _ := ret[0].(configs.FreezerState)
+	ret0, _ := ret[0].(cgroups.FreezerState)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -355,7 +368,7 @@ func (mr *MockruncManagerMockRecorder) Path(arg0 any) *gomock.Call {
 }
 
 // Set mocks base method.
-func (m *MockruncManager) Set(r *configs.Resources) error {
+func (m *MockruncManager) Set(r *cgroups.Resources) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Set", r)
 	ret0, _ := ret[0].(error)

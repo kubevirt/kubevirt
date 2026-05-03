@@ -8,15 +8,20 @@ import (
 	"runtime"
 	"syscall"
 
-	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
-	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/link"
+	runc_cgroups "github.com/opencontainers/cgroups"
+	_ "github.com/opencontainers/cgroups/devices"
+	runc_fs "github.com/opencontainers/cgroups/fs"
+	runc_fs2 "github.com/opencontainers/cgroups/fs2"
+	"golang.org/x/sys/unix"
 
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
-func decodeResources(marshalledResourcesHash string) (*runc_configs.Resources, error) {
-	var unmarshalledResources runc_configs.Resources
+func decodeResources(marshalledResourcesHash string) (*runc_cgroups.Resources, error) {
+	var unmarshalledResources runc_cgroups.Resources
 
 	marshalledResources, err := base64.StdEncoding.DecodeString(marshalledResourcesHash)
 	if err != nil {
@@ -51,8 +56,8 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *runc_configs.Resources, isRootless bool, isV2 bool) error {
-	config := &runc_configs.Cgroup{
+func setCgroupResources(paths map[string]string, resources *runc_cgroups.Resources, isRootless bool, isV2 bool) error {
+	config := &runc_cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
 		Rootless:  isRootless,
@@ -73,7 +78,7 @@ func setCgroupResources(paths map[string]string, resources *runc_configs.Resourc
 	return nil
 }
 
-func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
+func setCgroupResourcesV1(paths map[string]string, resources *runc_cgroups.Resources, config *runc_cgroups.Cgroup) error {
 	return RunWithChroot(cgroupconsts.HostCgroupBasePath, func() error {
 		cgroupManager, err := runc_fs.NewManager(config, paths)
 		if err != nil {
@@ -83,8 +88,13 @@ func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resou
 	})
 }
 
-func setCgroupResourcesV2(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
+func setCgroupResourcesV2(paths map[string]string, resources *runc_cgroups.Resources, config *runc_cgroups.Cgroup) error {
 	for _, path := range paths {
+		if !resources.SkipDevices {
+			if err := attachDummyCgroupDeviceProg(path); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to attach dummy BPF program to %s: %v\n", path, err)
+			}
+		}
 		mgr, err := runc_fs2.NewManager(config, path)
 		if err != nil {
 			return fmt.Errorf("cannot create cgroups v2 manager. err: %v", err)
@@ -96,6 +106,45 @@ func setCgroupResourcesV2(paths map[string]string, resources *runc_configs.Resou
 	}
 
 	return nil
+}
+
+// attachDummyCgroupDeviceProg attaches a no-op allow-all BPF_CGROUP_DEVICE
+// program to the cgroup. This is a workaround for a cilium/ebpf bug where
+// ReplaceProgram (BPF_F_REPLACE) silently fails to replace the existing
+// program, causing two programs to be attached with AND logic.
+//
+// The opencontainers/cgroups library only uses the broken replace path when
+// exactly 1 program is attached. By adding a second program, we force it to
+// use the safe "attach new, detach all old" fallback instead.
+//
+// Remove when cilium/ebpf fixes BPF_F_REPLACE in RawAttachProgram.
+// Upstream issue: https://github.com/cilium/ebpf/issues/XXXX
+func attachDummyCgroupDeviceProg(cgroupPath string) error {
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type:    ebpf.CGroupDevice,
+		License: "MIT",
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 1),
+			asm.Return(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	dirFD, err := unix.Open(cgroupPath, unix.O_DIRECTORY|unix.O_RDONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(dirFD)
+
+	return link.RawAttachProgram(link.RawAttachProgramOptions{
+		Target:  dirFD,
+		Program: prog,
+		Attach:  ebpf.AttachCGroupDevice,
+		Flags:   unix.BPF_F_ALLOW_MULTI,
+	})
 }
 
 // RunWithChroot changes the root directory (via "chroot") into newPath, then
