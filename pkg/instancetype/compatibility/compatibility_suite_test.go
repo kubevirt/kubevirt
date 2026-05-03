@@ -21,11 +21,9 @@ package compatibility_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestCompatibility(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compatibility Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

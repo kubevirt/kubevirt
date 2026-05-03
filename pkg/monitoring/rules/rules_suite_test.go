@@ -21,11 +21,9 @@ package rules_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestRules(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Rules Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

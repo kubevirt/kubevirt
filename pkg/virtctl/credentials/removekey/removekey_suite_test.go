@@ -3,11 +3,9 @@ package removekey_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestRemoveKey(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "RemoveKey Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
