@@ -70,6 +70,30 @@ var _ = Describe("netstat", func() {
 		Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 	})
 
+	It("UpdateStatus succeeds with empty IP when pod interface cache file is missing", func() {
+		const primaryNetworkName = "primary"
+
+		// Add the interface to the VMI spec and domain spec, but not to a cache file
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(
+			setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+		)
+		setup.Vmi.Spec.Networks = append(
+			setup.Vmi.Spec.Networks,
+			newVMISpecPodNetwork(primaryNetworkName),
+		)
+		setup.Domain.Spec.Devices.Interfaces = append(
+			setup.Domain.Spec.Devices.Interfaces,
+			newDomainSpecIface(primaryNetworkName, ""),
+		)
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(HaveLen(1))
+		Expect(setup.Vmi.Status.Interfaces[0].Name).To(Equal(primaryNetworkName))
+		Expect(setup.Vmi.Status.Interfaces[0].IP).To(BeEmpty())
+	})
+
 	Context("with volatile cache", func() {
 		const (
 			primaryNetworkName = "primary"
