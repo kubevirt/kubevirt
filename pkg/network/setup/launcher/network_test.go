@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package launcher
 
 import (
 	. "github.com/onsi/ginkgo/v2"
