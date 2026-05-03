@@ -1049,6 +1049,13 @@ type EphemeralVolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// Capacity specifies the virtual size of the ephemeral disk overlay.
+	// If set, the qcow2 overlay will be created with this virtual size,
+	// allowing the guest to see a larger disk than the backing PVC.
+	// The overlay is sparse and only consumes space for written data.
+	// If omitted, the overlay defaults to the size of the backing PVC.
+	// +optional
+	Capacity *resource.Quantity `json:"capacity,omitempty"`
 }
 
 // EmptyDisk represents a temporary disk which shares the vmis lifecycle.
