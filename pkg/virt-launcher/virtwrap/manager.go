@@ -74,7 +74,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netsetup "kubevirt.io/kubevirt/pkg/network/unprivileged"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"

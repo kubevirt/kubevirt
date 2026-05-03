@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package unprivileged
 
 import (
 	. "github.com/onsi/ginkgo/v2"

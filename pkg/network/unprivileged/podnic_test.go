@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package network
+package unprivileged
 
 import (
 	"fmt"

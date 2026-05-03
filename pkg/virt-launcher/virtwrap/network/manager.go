@@ -25,7 +25,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netsetup "kubevirt.io/kubevirt/pkg/network/unprivileged"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
