@@ -1452,6 +1452,34 @@ var _ = Describe("Converter", func() {
 			Expect(dom.Spec.MemoryBacking.Source.Type).To(Equal("memfd"))
 		})
 
+		It("should enable shared memfd memory backing for vhost-user disks", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "vhostdisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "vhostdisk",
+				VolumeSource: v1.VolumeSource{
+					VhostUser: &v1.VhostUserVolumeSource{
+						ClaimName: "test-vhostdisk",
+						Type:      v1.VhostUserDiskTypeBlk,
+						Socket:    v1.VhostUserSocket{Path: "nbs.sock"},
+					},
+				},
+			})
+
+			dom := &api.Domain{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(dom.Spec.MemoryBacking).ToNot(BeNil())
+			Expect(dom.Spec.MemoryBacking.Access).ToNot(BeNil())
+			Expect(dom.Spec.MemoryBacking.Access.Mode).To(Equal("shared"))
+			Expect(dom.Spec.MemoryBacking.Source).ToNot(BeNil())
+			Expect(dom.Spec.MemoryBacking.Source.Type).To(Equal("memfd"))
+		})
+
 		DescribeTable("usb controller", func(arch, bus string, matcher types.GomegaMatcher) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = v1.InputBus(bus)

@@ -81,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/vhostuser"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -920,8 +921,12 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("failed to craete downwardMetric disk: %v", err)
 	}
 
+	vhostDisksMap := vhostuser.BuildDiskMap(vmi)
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
+		if vhostDisksMap[domain.Spec.Devices.Disks[i].Alias.GetName()] {
+			continue
+		}
 		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
 		if err != nil {
 			return domain, err
@@ -1394,20 +1399,24 @@ func (l *LibvirtDomainManager) syncDisks(
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		ds := disksource.Resolve(attachDisk)
-		allowAttach, err := checkIfDiskReadyToUse(ds.BackendPath())
-		if err != nil {
-			return err
-		}
-		if !allowAttach {
-			continue
+		if !vhostDisksMap[attachDisk.Alias.GetName()] {
+			allowAttach, err := checkIfDiskReadyToUse(ds.BackendPath())
+			if err != nil {
+				return err
+			}
+			if !allowAttach {
+				continue
+			}
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
-		// set drivers cache mode
-		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
-		if err != nil {
-			return err
+		if !vhostDisksMap[attachDisk.Alias.GetName()] {
+			// set drivers cache mode
+			err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
+			if err != nil {
+				return err
+			}
+			converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {

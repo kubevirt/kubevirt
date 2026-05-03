@@ -38,6 +38,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/vhostuser"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
@@ -373,7 +374,7 @@ func (m *volumeMounter) isDirectoryMounted(vmi *v1.VirtualMachineInstance, volum
 	}
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.Name == volumeName {
-			return volume.MemoryDump != nil
+			return volume.MemoryDump != nil || vhostuser.IsVhostUserVolumeSource(&volume)
 		}
 	}
 	return false

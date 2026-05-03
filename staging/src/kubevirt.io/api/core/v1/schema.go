@@ -806,6 +806,35 @@ type Disk struct {
 	ChangedBlockTracking *bool `json:"changedBlockTracking,omitempty"`
 }
 
+type VhostUserDiskType string
+
+const (
+	VhostUserDiskTypeBlk VhostUserDiskType = "blk"
+)
+
+// VhostUserVolumeSource describes a volume exposed to the guest via a vhost-user unix socket.
+type VhostUserVolumeSource struct {
+	// ClaimName is the name of the PVC backing this vhost-user volume.
+	ClaimName string `json:"claimName"`
+	// Type identifies the vhost-user backend type.
+	// Currently only blk is supported.
+	Type VhostUserDiskType `json:"type,omitempty"`
+	// Socket identifies the vhost-user unix socket endpoint.
+	Socket VhostUserSocket `json:"socket"`
+	// Queues configures the number of request queues exposed to the guest.
+	// +optional
+	Queues *uint `json:"queues,omitempty"`
+	// ReconnectTimeoutSeconds controls how long QEMU should keep retrying reconnects.
+	// +optional
+	ReconnectTimeoutSeconds *uint `json:"reconnectTimeoutSeconds,omitempty"`
+}
+
+// VhostUserSocket describes how to locate a vhost-user unix socket relative to the root of the associated volume.
+type VhostUserSocket struct {
+	// Path is the path to the socket file relative to the root of the associated volume.
+	Path string `json:"path"`
+}
+
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
 type CustomBlockSize struct {
 	Logical            uint  `json:"logical,omitempty"`
@@ -948,6 +977,9 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// VhostUser represents a PVC-backed volume exposed to the guest via a vhost-user endpoint.
+	// +optional
+	VhostUser *VhostUserVolumeSource `json:"vhostUser,omitempty"`
 	// CloudInitNoCloud represents a cloud-init NoCloud user-data source.
 	// The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
 	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html

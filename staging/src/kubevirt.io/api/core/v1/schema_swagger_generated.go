@@ -398,6 +398,24 @@ func (Disk) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VhostUserVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                        "VhostUserVolumeSource describes a volume exposed to the guest via a vhost-user unix socket.",
+		"claimName":               "ClaimName is the name of the PVC backing this vhost-user volume.",
+		"type":                    "Type identifies the vhost-user backend type.\nCurrently only blk is supported.",
+		"socket":                  "Socket identifies the vhost-user unix socket endpoint.",
+		"queues":                  "Queues configures the number of request queues exposed to the guest.\n+optional",
+		"reconnectTimeoutSeconds": "ReconnectTimeoutSeconds controls how long QEMU should keep retrying reconnects.\n+optional",
+	}
+}
+
+func (VhostUserSocket) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "VhostUserSocket describes how to locate a vhost-user unix socket relative to the root of the associated volume.",
+		"path": "Path is the path to the socket file relative to the root of the associated volume.",
+	}
+}
+
 func (CustomBlockSize) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
@@ -490,6 +508,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
 		"hostDisk":              "HostDisk represents a disk created on the cluster level\n+optional",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"vhostUser":             "VhostUser represents a PVC-backed volume exposed to the guest via a vhost-user endpoint.\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"cloudInitConfigDrive":  "CloudInitConfigDrive represents a cloud-init Config Drive user-data source.\nThe Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html\n+optional",
 		"sysprep":               "Represents a Sysprep volume source.\n+optional",

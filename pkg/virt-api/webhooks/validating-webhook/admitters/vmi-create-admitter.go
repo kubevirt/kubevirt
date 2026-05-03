@@ -214,8 +214,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
+	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
+	causes = append(causes, validateVhostUserDisks(field.Child("domain", "devices", "disks"), spec.Domain.Devices.Disks, spec.Volumes)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
 	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
 
@@ -1465,7 +1466,7 @@ func smmFeatureEnabled(features *v1.Features) bool {
 	return features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)
 }
 
-func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
+func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, storageadmitters.ValidateDisks(field.Child("devices").Child("disks"), spec.Devices.Disks)...)
@@ -1637,6 +1638,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		volumeSourceSetCount := 0
 		if volume.PersistentVolumeClaim != nil {
 			volumeSourceSetCount++
+		}
+		if volume.VhostUser != nil {
+			volumeSourceSetCount++
+			causes = append(causes, validateVhostUserVolumeSource(field.Index(idx).Child("vhostUser"), volume.VhostUser, config)...)
 		}
 		if volume.Sysprep != nil {
 			volumeSourceSetCount++
@@ -1905,6 +1910,116 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			Message: fmt.Sprintf("%s must have max one memory dump volume set", field.String()),
 			Field:   field.String(),
 		})
+	}
+
+	return causes
+}
+
+func validateVhostUserVolumeSource(field *k8sfield.Path, vhost *v1.VhostUserVolumeSource, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if vhost == nil {
+		return causes
+	}
+
+	if config == nil || !config.VhostUserDisksEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "VhostUserDisks feature gate is not enabled",
+			Field:   field.String(),
+		})
+		return causes
+	}
+
+	if vhost.ClaimName == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf(requiredFieldFmt, field.Child("claimName").String()),
+			Field:   field.Child("claimName").String(),
+		})
+	}
+
+	if vhost.Type != "" && vhost.Type != v1.VhostUserDiskTypeBlk {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("unsupported vhost-user disk type %q", vhost.Type),
+			Field:   field.Child("type").String(),
+		})
+	}
+
+	if vhost.Socket.Path == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf(requiredFieldFmt, field.Child("socket", "path").String()),
+			Field:   field.Child("socket", "path").String(),
+		})
+	} else {
+		cleanPath := filepath.Clean(vhost.Socket.Path)
+		if filepath.IsAbs(vhost.Socket.Path) || cleanPath == ".." || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "vhost-user socket path must be relative to the root of the associated volume",
+				Field:   field.Child("socket", "path").String(),
+			})
+		}
+	}
+
+	return causes
+}
+
+func validateVhostUserDisks(field *k8sfield.Path, disks []v1.Disk, volumes []v1.Volume) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	volumeNameMap := make(map[string]*v1.Volume, len(volumes))
+	for i := range volumes {
+		volumeNameMap[volumes[i].Name] = &volumes[i]
+	}
+
+	for idx, disk := range disks {
+		diskField := field.Index(idx)
+		matchingVolume, ok := volumeNameMap[disk.Name]
+		if !ok || matchingVolume == nil || matchingVolume.VhostUser == nil {
+			continue
+		}
+
+		if disk.Disk == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "vhost-user disks are only supported for disk targets",
+				Field:   diskField.String(),
+			})
+		}
+
+		if disk.Disk == nil || disk.Disk.Bus != v1.DiskBusVirtio {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "vhost-user disks require virtio bus",
+				Field:   diskField.Child("disk", "bus").String(),
+			})
+		}
+
+		if disk.Cache != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "cache is not supported for vhost-user disks",
+				Field:   diskField.Child("cache").String(),
+			})
+		}
+
+		if disk.IO != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "io mode is not supported for vhost-user disks",
+				Field:   diskField.Child("io").String(),
+			})
+		}
+
+		if disk.ErrorPolicy != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "errorPolicy is not supported for vhost-user disks",
+				Field:   diskField.Child("errorPolicy").String(),
+			})
+		}
 	}
 
 	return causes

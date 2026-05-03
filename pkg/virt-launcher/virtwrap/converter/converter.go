@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/vhostuser"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
@@ -585,6 +586,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *convert
 		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
 	}
 
+	if source.VhostUser != nil {
+		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
+	}
+
 	if source.DataVolume != nil {
 		return Convert_v1_DataVolume_To_api_Disk(source.Name, disk, c)
 	}
@@ -1100,8 +1105,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			isMemfdRequired = true
 		}
 	}
-	// virtiofs require shared access
-	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
+	// virtiofs, passt, and vhost-user disks require shared access
+	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) || len(vhostuser.BuildDiskMap(vmi)) > 0 {
 		if domain.Spec.MemoryBacking == nil {
 			domain.Spec.MemoryBacking = &api.MemoryBacking{}
 		}
@@ -1190,6 +1195,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 
+		isVhostDisk := volume != nil && vhostuser.IsVhostUserVolumeSource(volume)
+		if isVhostDisk {
+			vhostuser.ApplyToDomainDisk(vmi, disk, *volume, &newDisk)
+		}
+
 		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, c.Architecture.GetArchitecture()); err != nil {
 			return err
 		}
@@ -1202,8 +1212,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if permReady || hotplugReady || emptyCDRom {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 		}
-		if err := setErrorPolicy(&disk, &newDisk); err != nil {
-			return err
+		if !isVhostDisk {
+			if err := setErrorPolicy(&disk, &newDisk); err != nil {
+				return err
+			}
 		}
 		if hasIOThreads {
 			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)

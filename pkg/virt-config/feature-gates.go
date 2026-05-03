@@ -221,6 +221,10 @@ func (config *ClusterConfig) TemplateEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.Template)
 }
 
+func (config *ClusterConfig) VhostUserDisksEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VhostUserDisksGate)
+}
+
 func (config *ClusterConfig) ContainerPathVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ContainerPathVolumesGate)
 }

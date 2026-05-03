@@ -312,7 +312,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
 			c.processHotplugVolumeStatus(vmi, volume.Name, pvcName, &status, attachmentPod)
 		}
-		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
+		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.VhostUser != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 			err = c.processPVCInfo(&status, pvcName, vmi.Namespace, false)
 			if err != nil {
 				return err

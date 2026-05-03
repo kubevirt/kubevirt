@@ -817,6 +817,11 @@ type DiskSecret struct {
 
 type ReadOnly struct{}
 
+type VhostReconnect struct {
+	Enabled string `xml:"enabled,attr,omitempty"`
+	Timeout string `xml:"timeout,attr,omitempty"`
+}
+
 type DiskSource struct {
 	Dev           string          `xml:"dev,attr,omitempty"`
 	File          string          `xml:"file,attr,omitempty"`
@@ -827,6 +832,9 @@ type DiskSource struct {
 	Reservations  *Reservations   `xml:"reservations,omitempty"`
 	Slices        []Slice         `xml:"slices,omitempty"`
 	DataStore     *DataStore      `xml:"dataStore,omitempty"`
+	Type          string          `xml:"type,attr,omitempty"`
+	Path          string          `xml:"path,attr,omitempty"`
+	Reconnect     *VhostReconnect `xml:"reconnect,omitempty"`
 }
 
 type DiskTarget struct {
