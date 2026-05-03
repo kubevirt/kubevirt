@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,9 +36,7 @@ import (
 var _ = Describe("Container disk", func() {
 	Context("image pull policy", func() {
 
-		var svc *TemplateService
-
-		BeforeEach(func() {
+		DescribeTable("should", func(image string, policy k8sv1.PullPolicy) {
 			ctrl := gomock.NewController(GinkgoT())
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -46,11 +45,13 @@ var _ = Describe("Container disk", func() {
 				},
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{},
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							DisabledFeatureGates: []string{featuregate.ImageVolume},
+						},
 					},
 				},
 			}, "amd64")
-			svc = NewTemplateService("kubevirt/virt-launcher",
+			svc := NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
 				"/var/run/kubevirt-ephemeral-disks",
@@ -65,9 +66,6 @@ var _ = Describe("Container disk", func() {
 				cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil),
 				cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil),
 			)
-		})
-
-		DescribeTable("should", func(image string, policy k8sv1.PullPolicy) {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testvmi", Namespace: "namespace1", UID: "1234",

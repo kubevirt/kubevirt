@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineClone Admitter", func() {
@@ -78,7 +79,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: make([]string, 0),
+						DisabledFeatureGates: []string{featuregate.SnapshotGate},
 					},
 				},
 			},

@@ -1228,18 +1228,8 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	return nil
 }
 
-func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
-	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
-		return false
-	}
-
-	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-
-	return false
+func (r *Reconciler) isFeatureGateEnabled(fg string) bool {
+	return featuregate.IsEnabled(fg, r.kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
