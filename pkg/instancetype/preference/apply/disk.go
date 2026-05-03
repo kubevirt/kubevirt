@@ -1,4 +1,3 @@
-//nolint:gocyclo
 /*
  * This file is part of the KubeVirt project
  *
@@ -35,27 +34,7 @@ func applyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, 
 		}
 
 		if vmiDisk.DiskDevice.Disk != nil {
-			if preferenceSpec.Devices.PreferredDiskBus != "" && vmiDisk.DiskDevice.Disk.Bus == "" {
-				vmiDisk.DiskDevice.Disk.Bus = preferenceSpec.Devices.PreferredDiskBus
-			}
-
-			if preferenceSpec.Devices.PreferredDiskBlockSize != nil && vmiDisk.BlockSize == nil {
-				vmiDisk.BlockSize = preferenceSpec.Devices.PreferredDiskBlockSize.DeepCopy()
-			}
-
-			if preferenceSpec.Devices.PreferredDiskCache != "" && vmiDisk.Cache == "" {
-				vmiDisk.Cache = preferenceSpec.Devices.PreferredDiskCache
-			}
-
-			if preferenceSpec.Devices.PreferredDiskIO != "" && vmiDisk.IO == "" {
-				vmiDisk.IO = preferenceSpec.Devices.PreferredDiskIO
-			}
-
-			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil &&
-				vmiDisk.DedicatedIOThread == nil &&
-				vmiDisk.DiskDevice.Disk.Bus == virtv1.DiskBusVirtio {
-				vmiDisk.DedicatedIOThread = pointer.P(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
-			}
+			applyDiskTargetPreferences(preferenceSpec, vmiDisk)
 		} else if vmiDisk.DiskDevice.CDRom != nil {
 			if preferenceSpec.Devices.PreferredCdromBus != "" && vmiDisk.DiskDevice.CDRom.Bus == "" {
 				vmiDisk.DiskDevice.CDRom.Bus = preferenceSpec.Devices.PreferredCdromBus
@@ -65,5 +44,29 @@ func applyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, 
 				vmiDisk.DiskDevice.LUN.Bus = preferenceSpec.Devices.PreferredLunBus
 			}
 		}
+	}
+}
+
+func applyDiskTargetPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiDisk *virtv1.Disk) {
+	if preferenceSpec.Devices.PreferredDiskBus != "" && vmiDisk.DiskDevice.Disk.Bus == "" {
+		vmiDisk.DiskDevice.Disk.Bus = preferenceSpec.Devices.PreferredDiskBus
+	}
+
+	if preferenceSpec.Devices.PreferredDiskBlockSize != nil && vmiDisk.BlockSize == nil {
+		vmiDisk.BlockSize = preferenceSpec.Devices.PreferredDiskBlockSize.DeepCopy()
+	}
+
+	if preferenceSpec.Devices.PreferredDiskCache != "" && vmiDisk.Cache == "" {
+		vmiDisk.Cache = preferenceSpec.Devices.PreferredDiskCache
+	}
+
+	if preferenceSpec.Devices.PreferredDiskIO != "" && vmiDisk.IO == "" {
+		vmiDisk.IO = preferenceSpec.Devices.PreferredDiskIO
+	}
+
+	if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil &&
+		vmiDisk.DedicatedIOThread == nil &&
+		vmiDisk.DiskDevice.Disk.Bus == virtv1.DiskBusVirtio {
+		vmiDisk.DedicatedIOThread = pointer.P(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
 	}
 }

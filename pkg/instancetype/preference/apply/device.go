@@ -1,4 +1,3 @@
-//nolint:gocyclo
 /*
  * This file is part of the KubeVirt project
  *
@@ -54,6 +53,18 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 		return
 	}
 
+	applyQueueAndVirtioPreferences(preferenceSpec, vmiSpec)
+	applyMiscellaneousDevicePreferences(preferenceSpec, vmiSpec)
+	applyVideoPreferences(preferenceSpec, vmiSpec)
+
+	ApplyAutoAttachPreferences(preferenceSpec, vmiSpec)
+	applyDiskPreferences(preferenceSpec, vmiSpec)
+	applyInterfacePreferences(preferenceSpec, vmiSpec)
+	applyInputPreferences(preferenceSpec, vmiSpec)
+	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
+}
+
+func applyQueueAndVirtioPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	// We only want to apply a preference bool when...
 	//
 	// 1. A preference has actually been provided
@@ -70,7 +81,9 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
 		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
 	}
+}
 
+func applyMiscellaneousDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
 	if preferenceSpec.Devices.PreferredDisableHotplug != nil {
 		vmiSpec.Domain.Devices.DisableHotplug = *preferenceSpec.Devices.PreferredDisableHotplug
@@ -87,7 +100,9 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	if preferenceSpec.Devices.PreferredTPM != nil && vmiSpec.Domain.Devices.TPM == nil {
 		vmiSpec.Domain.Devices.TPM = preferenceSpec.Devices.PreferredTPM.DeepCopy()
 	}
+}
 
+func applyVideoPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Devices.PreferredVideoType != nil {
 		if vmiSpec.Domain.Devices.Video == nil {
 			vmiSpec.Domain.Devices.Video = &virtv1.VideoDevice{}
@@ -96,12 +111,6 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 			vmiSpec.Domain.Devices.Video.Type = *preferenceSpec.Devices.PreferredVideoType
 		}
 	}
-
-	ApplyAutoAttachPreferences(preferenceSpec, vmiSpec)
-	applyDiskPreferences(preferenceSpec, vmiSpec)
-	applyInterfacePreferences(preferenceSpec, vmiSpec)
-	applyInputPreferences(preferenceSpec, vmiSpec)
-	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
 }
 
 func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
