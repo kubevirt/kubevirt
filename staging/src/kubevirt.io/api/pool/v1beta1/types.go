@@ -51,7 +51,7 @@ type VirtualMachinePool struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VirtualMachinePoolSpec   `json:"spec" valid:"required"`
+	Spec   VirtualMachinePoolSpec   `json:"spec"`
 	Status VirtualMachinePoolStatus `json:"status,omitempty"`
 }
 
@@ -61,7 +61,7 @@ type VirtualMachineTemplateSpec struct {
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineSpec contains the VirtualMachine specification.
-	Spec virtv1.VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
+	Spec virtv1.VirtualMachineSpec `json:"spec,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -112,10 +112,10 @@ type VirtualMachinePoolSpec struct {
 
 	// Label selector for pods. Existing Poolss whose pods are
 	// selected by this will be the ones affected by this deployment.
-	Selector *metav1.LabelSelector `json:"selector" valid:"required"`
+	Selector *metav1.LabelSelector `json:"selector"`
 
 	// Template describes the VM that will be created.
-	VirtualMachineTemplate *VirtualMachineTemplateSpec `json:"virtualMachineTemplate" valid:"required"`
+	VirtualMachineTemplate *VirtualMachineTemplateSpec `json:"virtualMachineTemplate"`
 
 	// Indicates that the pool is paused.
 	// +optional
