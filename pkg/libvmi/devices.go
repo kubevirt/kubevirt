@@ -38,6 +38,19 @@ func WithTablet(name string, bus v1.InputBus) Option {
 	}
 }
 
+// WithKeyboard adds keyboard device with given name and bus
+func WithKeyboard(name string, bus v1.InputBus) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs,
+			v1.Input{
+				Name: name,
+				Bus:  bus,
+				Type: v1.InputTypeKeyboard,
+			},
+		)
+	}
+}
+
 func WithAutoattachGraphicsDevice(enable bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &enable
