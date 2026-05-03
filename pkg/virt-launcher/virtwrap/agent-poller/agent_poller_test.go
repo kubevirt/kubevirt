@@ -28,6 +28,8 @@ import (
 
 	"libvirt.org/go/libvirt"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
@@ -73,6 +75,15 @@ var _ = Describe("Qemu agent poller", func() {
 				Hostname:   "test-host",
 				TimeZone:   &libvirt.DomainGuestInfoTimeZone{Name: "EST"},
 				Users:      []libvirt.DomainGuestInfoUser{{Name: "admin"}},
+				FileSystems: []libvirt.DomainGuestInfoFileSystem{{
+					Name:       "test",
+					MountPoint: "test",
+					FSType:     "file",
+					UsedBytes:  0,
+					TotalBytes: 0,
+					Disks:      []libvirt.DomainGuestInfoFileSystemDisk{{Serial: "test", Alias: "test"}},
+				}},
+				Disks: []libvirt.DomainGuestInfoDisk{{Alias: "test", GuestBus: v1.VirtIO}},
 			}
 			agentPoller := &AgentPoller{
 				Connection: mockLibvirt.VirtConnection,
@@ -83,7 +94,9 @@ var _ = Describe("Qemu agent poller", func() {
 				libvirt.DOMAIN_GUEST_INFO_OS |
 				libvirt.DOMAIN_GUEST_INFO_HOSTNAME |
 				libvirt.DOMAIN_GUEST_INFO_TIMEZONE |
-				libvirt.DOMAIN_GUEST_INFO_USERS
+				libvirt.DOMAIN_GUEST_INFO_USERS |
+				libvirt.DOMAIN_GUEST_INFO_DISKS |
+				libvirt.DOMAIN_GUEST_INFO_FILESYSTEM
 
 			mockLibvirt.DomainEXPECT().Free()
 			mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
@@ -102,6 +115,23 @@ var _ = Describe("Qemu agent poller", func() {
 
 			users := agentStore.GetUsers(1)
 			Expect(users[0].Name).To(Equal("admin"))
+
+			fs := agentStore.GetFS(1)
+			Expect(fs).To(ConsistOf(
+				api.Filesystem{
+					Name:       "test",
+					Mountpoint: "test",
+					Type:       "file",
+					UsedBytes:  0,
+					TotalBytes: 0,
+					Disk: []api.FSDisk{
+						{
+							Serial:  "test",
+							BusType: string(v1.VirtIO),
+						},
+					},
+				},
+			))
 		})
 	})
 
@@ -208,19 +238,6 @@ var _ = Describe("Qemu agent poller", func() {
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(*osInfo).To(Equal(fakeInfo))
-		})
-
-		It("should not fire an event for a new GET_FILESYSTEM", func() {
-			fakeFileSystemInfo := []api.Filesystem{
-				{
-					Name: "test",
-				},
-			}
-			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, fakeFileSystemInfo)
-
-			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{},
-			})))
 		})
 	})
 
