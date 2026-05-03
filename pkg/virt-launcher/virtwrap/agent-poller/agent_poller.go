@@ -50,6 +50,34 @@ const (
 	repeatingLogLevel = 3
 )
 
+var (
+	// Polled every 20 seconds
+	agentDataCommandsFrequent = []AgentCommand{
+		"guest-get-load",
+		"guest-get-cpustats",
+		"guest-get-diskstats",
+	}
+
+	// Polled every 1 minute
+	agentDataCommandsMedium = []AgentCommand{
+		"guest-get-time",
+		"guest-get-vcpus",
+		"guest-get-memory-blocks",
+		"guest-get-memory-block-info",
+		"guest-network-get-route",
+		"guest-network-get-interfaces",
+		"guest-get-users",
+	}
+
+	// Polled every 5 minutes
+	agentDataCommandsInfrequent = []AgentCommand{
+		"guest-get-osinfo",
+		"guest-get-disks",
+		"guest-get-host-name",
+		"guest-get-timezone",
+	}
+)
+
 // AgentUpdatedEvent fire up when data is changes in the store
 type AgentUpdatedEvent struct {
 	DomainInfo api.DomainGuestInfo
@@ -60,6 +88,7 @@ type AgentUpdatedEvent struct {
 // is a change of the data
 type AsyncAgentStore struct {
 	store        sync.Map
+	rawDataStore sync.Map
 	AgentUpdated chan AgentUpdatedEvent
 }
 
@@ -95,6 +124,10 @@ func (s *AsyncAgentStore) Store(key, value any) {
 			DomainInfo: domainInfo,
 		}
 	}
+}
+
+func (s *AsyncAgentStore) StoreRawData(key AgentCommand, value string) {
+	s.rawDataStore.Store(key, value)
 }
 
 // GetSysInfo returns the sysInfo information packed together.
@@ -222,6 +255,15 @@ func (s *AsyncAgentStore) GetLoad() *stats.DomainStatsLoad {
 	return &load
 }
 
+// GetAgentData returns the raw unparsed response for a given agent command key.
+func (s *AsyncAgentStore) GetAgentData(dataKey string) (string, bool) {
+	data, ok := s.rawDataStore.Load(AgentCommand(dataKey))
+	if !ok {
+		return "", false
+	}
+	return data.(string), true
+}
+
 // PollerWorker collects the data from the guest agent
 // only unique items are stored as configuration
 type PollerWorker struct {
@@ -312,6 +354,18 @@ func CreatePoller(
 			{
 				CallTick:      qemuAgentFSFreezeStatusInterval,
 				AgentCommands: []AgentCommand{GetFSFreezeStatus},
+			},
+			{
+				CallTick:      20 * time.Second,
+				AgentCommands: agentDataCommandsFrequent,
+			},
+			{
+				CallTick:      1 * time.Minute,
+				AgentCommands: agentDataCommandsMedium,
+			},
+			{
+				CallTick:      5 * time.Minute,
+				AgentCommands: agentDataCommandsInfrequent,
 			},
 			// Polling for guest info API
 			{
@@ -418,6 +472,8 @@ func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
 			// skip the command on error, it is not vital
 			continue
 		}
+
+		agentPoller.agentStore.StoreRawData(command, cmdResult)
 
 		switch command {
 		case GetFSFreezeStatus:

@@ -281,6 +281,21 @@ func (mr *MockLauncherClientMockRecorder) GetUsers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsers", reflect.TypeOf((*MockLauncherClient)(nil).GetUsers))
 }
 
+// GetVMStats mocks base method.
+func (m *MockLauncherClient) GetVMStats(request *v10.VMStatsRequest) (*v10.VMStatsResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVMStats", request)
+	ret0, _ := ret[0].(*v10.VMStatsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVMStats indicates an expected call of GetVMStats.
+func (mr *MockLauncherClientMockRecorder) GetVMStats(request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVMStats", reflect.TypeOf((*MockLauncherClient)(nil).GetVMStats), request)
+}
+
 // GuestPing mocks base method.
 func (m *MockLauncherClient) GuestPing(arg0 string, arg1 int32) error {
 	m.ctrl.T.Helper()

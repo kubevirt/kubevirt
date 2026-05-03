@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "info.go",
         "server.go",
+        "vmstats.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server",
     visibility = ["//visibility:public"],
@@ -30,6 +31,7 @@ go_test(
     srcs = [
         "cmd_server_suite_test.go",
         "server_test.go",
+        "vmstats_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",

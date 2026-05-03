@@ -60,6 +60,13 @@ type Launcher struct {
 	allowEmulation bool
 }
 
+func NewLauncher(domainManager virtwrap.DomainManager, allowEmulation bool) *Launcher {
+	return &Launcher{
+		domainManager:  domainManager,
+		allowEmulation: allowEmulation,
+	}
+}
+
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
 
 	response := &cmdv1.Response{
@@ -629,10 +636,7 @@ func RunServer(socketPath string,
 	}
 
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
-	server := &Launcher{
-		domainManager:  domainManager,
-		allowEmulation: allowEmulation,
-	}
+	server := NewLauncher(domainManager, allowEmulation)
 	registerInfoServer(grpcServer)
 
 	// register more versions as soon as needed
