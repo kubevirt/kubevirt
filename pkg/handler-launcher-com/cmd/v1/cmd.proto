@@ -123,6 +123,7 @@ message VirtualMachineOptions {
   ClusterConfig clusterConfig = 7;
   map<string, string> interfaceDomainAttachment = 8;
   map<string, InterfaceBindingMigration> interfaceMigration = 9;
+  map<string, uint32> containerDiskVolumeIndices = 10;
 }
 
 message VMIRequest {

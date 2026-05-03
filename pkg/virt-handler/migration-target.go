@@ -417,6 +417,45 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 	return nil
 }
 
+func (c *MigrationTargetController) getContainerDiskVolumeIndices(vmi *v1.VirtualMachineInstance) (map[string]uint32, error) {
+	if vmi.Status.VirtualMachineRevisionName == "" {
+		return nil, nil
+	}
+
+	cr, err := c.clientset.AppsV1().ControllerRevisions(vmi.Namespace).Get(
+		context.Background(),
+		vmi.Status.VirtualMachineRevisionName,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get ControllerRevision %s: %v",
+			vmi.Status.VirtualMachineRevisionName, err)
+	}
+
+	var vm v1.VirtualMachine
+	if err := json.Unmarshal(cr.Data.Raw, &vm); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ControllerRevision: %v", err)
+	}
+
+	currentIndices := map[string]int{}
+	for i, vol := range vmi.Spec.Volumes {
+		currentIndices[vol.Name] = i
+	}
+
+	indices := map[string]uint32{}
+	for i, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.ContainerDisk != nil {
+			if currentIdx, ok := currentIndices[volume.Name]; !ok || currentIdx != i {
+				indices[volume.Name] = uint32(i)
+			}
+		}
+	}
+	return indices, nil
+}
+
 // finalCleanup is the last thing we run on finished migrations.
 // If the function completes successfully:
 // - On failure, virt-launcher will be notified and the virt-handler-managed volumes will be unmounted
@@ -841,6 +880,13 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+
+	containerDiskIndices, err := c.getContainerDiskVolumeIndices(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to get container disk volume indices from ControllerRevision: %v", err), false
+	}
+
+	options.ContainerDiskVolumeIndices = containerDiskIndices
 
 	if c.clusterConfig.PasstBindingEnabled() {
 		if err = c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
