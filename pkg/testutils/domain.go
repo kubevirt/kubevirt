@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	_ "github.com/konflux-ci/coverport/instrumentation/go" // CoverPort coverage
 	"strings"
 
 	. "github.com/onsi/gomega"

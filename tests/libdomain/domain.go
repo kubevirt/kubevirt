@@ -20,6 +20,7 @@
 package libdomain
 
 import (
+	_ "github.com/konflux-ci/coverport/instrumentation/go" // CoverPort coverage
 	"context"
 	"encoding/xml"
 	"fmt"

@@ -20,6 +20,7 @@
 package network
 
 import (
+	_ "github.com/konflux-ci/coverport/instrumentation/go" // CoverPort coverage
 	"context"
 	"fmt"
 

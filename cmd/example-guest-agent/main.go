@@ -20,6 +20,7 @@
 package main
 
 import (
+	_ "github.com/konflux-ci/coverport/instrumentation/go" // CoverPort coverage
 	"context"
 	"crypto/tls"
 	"crypto/x509"

@@ -3,6 +3,7 @@ module kubevirt.io/kubevirt
 go 1.24.0
 
 require (
+	github.com/konflux-ci/coverport v0.0.0-00010101000000-000000000000
 	dario.cat/mergo v1.0.2
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/containernetworking/cni v1.2.3

@@ -19,6 +19,7 @@
 package apply
 
 import (
+	_ "github.com/konflux-ci/coverport/instrumentation/go" // CoverPort coverage
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
