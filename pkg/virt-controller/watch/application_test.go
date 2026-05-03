@@ -200,7 +200,7 @@ var _ = Describe("Application", func() {
 			config,
 			stubNetworkAnnotationsGenerator{},
 		)
-		app.snapshotController = &snapshot.VMSnapshotController{
+		snapshotCtrl := &snapshot.VMSnapshotController{
 			Client:                    virtClient,
 			VMSnapshotInformer:        vmSnapshotInformer,
 			VMSnapshotContentInformer: vmSnapshotContentInformer,
@@ -215,8 +215,10 @@ var _ = Describe("Application", func() {
 			Recorder:                  recorder,
 			ResyncPeriod:              60 * time.Second,
 		}
-		_ = app.snapshotController.Init()
-		app.restoreController = &snapshot.VMRestoreController{
+		_ = snapshotCtrl.Init()
+		app.storageControllers = append(app.storageControllers, storageControllerRunner{Name: "snapshot", Ctrl: snapshotCtrl, Threads: 6})
+
+		restoreCtrl := &snapshot.VMRestoreController{
 			Client:                    virtClient,
 			VMRestoreInformer:         vmRestoreInformer,
 			VMSnapshotInformer:        vmSnapshotInformer,
@@ -228,8 +230,10 @@ var _ = Describe("Application", func() {
 			DataVolumeInformer:        dataVolumeInformer,
 			Recorder:                  recorder,
 		}
-		_ = app.restoreController.Init()
-		app.exportController = &export.VMExportController{
+		_ = restoreCtrl.Init()
+		app.storageControllers = append(app.storageControllers, storageControllerRunner{Name: "restore", Ctrl: restoreCtrl, Threads: 3})
+
+		exportCtrl := &export.VMExportController{
 			Client:                      virtClient,
 			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			VMExportInformer:            vmExportInformer,
@@ -254,12 +258,15 @@ var _ = Describe("Application", func() {
 			ControllerRevisionInformer:  controllerRevisionInformer,
 			VMBackupInformer:            backupInformer,
 		}
-		_ = app.exportController.Init()
+		_ = exportCtrl.Init()
+		app.storageControllers = append(app.storageControllers, storageControllerRunner{Name: "export", Ctrl: exportCtrl, Threads: 3})
+
 		app.persistentVolumeClaimInformer = pvcInformer
 		app.nodeInformer = nodeInformer
 		app.resourceQuotaInformer = resourceQuotaInformer
 		app.namespaceInformer = namespaceInformer
-		app.vmCloneController, _ = clonecontroller.NewVmCloneController(
+
+		cloneCtrl, _ := clonecontroller.NewVmCloneController(
 			virtClient,
 			cloneInformer,
 			vmSnapshotInformer,
@@ -269,7 +276,9 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			recorder,
 		)
-		app.vmBackupController, _ = backup.NewVMBackupController(
+		app.storageControllers = append(app.storageControllers, storageControllerRunner{Name: "clone", Ctrl: cloneCtrl, Threads: 3})
+
+		backupCtrl, _ := backup.NewVMBackupController(
 			virtClient,
 			backupInformer,
 			backupTrackerInformer,
@@ -281,6 +290,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			"",
 		)
+		app.storageControllers = append(app.storageControllers, storageControllerRunner{Name: "backup", Ctrl: backupCtrl, Threads: 6})
 
 		app.readyChan = make(chan bool)
 
