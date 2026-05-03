@@ -27,6 +27,7 @@ import (
 
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,7 +136,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 				libvmi.WithPreference(preferenceName),
 			)
 
-			admitter = webhook.NewAdmitter(virtClient)
+			k8sClient := k8sfake.NewSimpleClientset()
+			admitter = webhook.NewAdmitter(virtClient, k8sClient)
 		})
 
 		It("should reject if instancetype fails to apply to VMI", func() {
