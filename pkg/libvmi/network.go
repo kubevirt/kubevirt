@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
+
 	kvirtv1 "kubevirt.io/api/core/v1"
 )
 
@@ -131,6 +133,28 @@ func MultusNetwork(name, nadName string) *kvirtv1.Network {
 	}
 }
 
+// DRANetwork returns a DRA-backed Network with resourceClaim source.
+func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
+	return &kvirtv1.Network{
+		Name: name,
+		NetworkSource: kvirtv1.NetworkSource{
+			ResourceClaim: &kvirtv1.ClaimRequest{
+				ClaimName:   &claimName,
+				RequestName: &requestName,
+			},
+		},
+	}
+}
+
+// WithResourceClaimTemplate adds a ResourceClaim reference using a template
+func WithResourceClaimTemplate(claimName, templateName string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.ResourceClaims = append(vmi.Spec.ResourceClaims, k8sv1.PodResourceClaim{
+			Name:                      claimName,
+			ResourceClaimTemplateName: &templateName,
+		})
+	}
+}
 // WithHostname sets the hostname parameter.
 func WithHostname(hostname string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {

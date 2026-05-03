@@ -20,6 +20,9 @@
 package annotations
 
 import (
+	"encoding/json"
+	"fmt"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -33,6 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+)
+
+const (
+	// DRANetworkMACsAnnotation contains a JSON map of network name to MAC address
+	// for DRA networks. This allows DRA drivers to configure MAC addresses on
+	// SR-IOV VFs without having access to the VMI spec.
+	DRANetworkMACsAnnotation = "kubevirt.io/dra-network-macs"
 )
 
 type clusterConfigurer interface {
@@ -85,6 +95,14 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		// both annotations do the same thing, but we need to support both for backward compatibility
 		annotations[istio.KubeVirtTrafficAnnotation] = defaultBridgeName
 		annotations[istio.RerouteVirtualInterfacesAnnotation] = defaultBridgeName
+	}
+
+	draNetworkMACs, err := generateDRANetworkMACsAnnotation(vmi)
+	if err != nil {
+		return nil, err
+	}
+	if draNetworkMACs != "" {
+		annotations[DRANetworkMACsAnnotation] = draNetworkMACs
 	}
 
 	return annotations, nil
@@ -185,6 +203,40 @@ func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
 	})
 
 	return len(interfacesWithMasqueradeBinding) > 0
+}
+
+func generateDRANetworkMACsAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
+	macMap := make(map[string]string)
+
+	for _, network := range vmi.Spec.Networks {
+		if network.NetworkSource.ResourceClaim == nil {
+			continue // Not a DRA network
+		}
+		if network.NetworkSource.ResourceClaim.ClaimName == nil || network.NetworkSource.ResourceClaim.RequestName == nil {
+			return "", fmt.Errorf("DRA network %q has nil claimName or requestName", network.Name)
+		}
+		if *network.NetworkSource.ResourceClaim.ClaimName == "" || *network.NetworkSource.ResourceClaim.RequestName == "" {
+			return "", fmt.Errorf("DRA network %q has empty claimName or requestName", network.Name)
+		}
+
+		iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, network.Name)
+		if iface != nil && iface.MacAddress != "" {
+			key := *network.NetworkSource.ResourceClaim.ClaimName + "/" + *network.NetworkSource.ResourceClaim.RequestName
+			macMap[key] = iface.MacAddress
+		}
+	}
+
+	if len(macMap) == 0 {
+		return "", nil
+	}
+
+	jsonBytes, err := json.Marshal(macMap)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to marshal DRA network MAC addresses to JSON")
+		return "", nil
+	}
+
+	return string(jsonBytes), nil
 }
 
 func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {

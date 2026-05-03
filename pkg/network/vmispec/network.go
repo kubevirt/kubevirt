@@ -56,7 +56,7 @@ func FilterNetworksSpec(nets []v1.Network, predicate func(i v1.Network) bool) []
 
 func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 	for i, network := range networks {
-		if !IsSecondaryMultusNetwork(network) {
+		if network.Pod != nil || (network.Multus != nil && network.Multus.Default) {
 			return &networks[i]
 		}
 	}
@@ -65,6 +65,19 @@ func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 
 func IsSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
+}
+
+func IsDRANetwork(net v1.Network) bool {
+	return net.NetworkSource.ResourceClaim != nil
+}
+
+func HasNetworkDRA(networks []v1.Network) bool {
+	for _, net := range networks {
+		if IsDRANetwork(net) {
+			return true
+		}
+	}
+	return false
 }
 
 func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {

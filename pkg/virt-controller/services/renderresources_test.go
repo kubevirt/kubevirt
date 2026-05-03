@@ -367,6 +367,117 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims[0].Request).To(Equal("gpu-request"))
 		})
 
+		It("should preserve HostDevice DRA claims with same name and different requests", func() {
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-a"),
+					},
+				},
+				{
+					Name: "dra-host-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-b"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "request-a"},
+				{Name: "shared-claim", Request: "request-b"},
+			}))
+		})
+
+		It("should preserve GPU DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-a"),
+					},
+				},
+				{
+					Name: "dra-gpu-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("request-b"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "request-a"},
+				{Name: "shared-claim", Request: "request-b"},
+			}))
+		})
+
+		It("should preserve mixed GPU and HostDevice DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("gpu-request"),
+					},
+				},
+			}
+
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("shared-claim"),
+						RequestName: pointer.P("hostdev-request"),
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus), WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "gpu-request"},
+				{Name: "shared-claim", Request: "hostdev-request"},
+			}))
+		})
+
+		It("should handle networks with DRA resources in API", func() {
+			networks := []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   pointer.P("net-claim"),
+							RequestName: pointer.P("net-request"),
+						},
+					},
+				},
+				{
+					Name: "pod-net",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithNetworksDRA(networks))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("net-claim"))
+			Expect(claims[0].Request).To(Equal("net-request"))
+		})
+
 		It("Unified functions should not interfere with other renderer options", func() {
 			cpuRequest := resource.MustParse("100m")
 			memoryRequest := resource.MustParse("128Mi")
@@ -414,9 +525,22 @@ var _ = Describe("Resource pod spec renderer", func() {
 				},
 			}
 
+			networks := []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   pointer.P("net-claim"),
+							RequestName: pointer.P("net-request"),
+						},
+					},
+				},
+			}
+
 			rr = NewResourceRenderer(limits, requests,
 				WithGPUsDRA(gpus),
 				WithHostDevicesDRA(hostDevices),
+				WithNetworksDRA(networks),
 			)
 
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
@@ -425,7 +549,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
 
 			claims = rr.Claims()
-			Expect(claims).To(HaveLen(2))
+			Expect(claims).To(HaveLen(3))
 
 			claimNames := make(map[string]string)
 			for _, claim := range claims {
@@ -434,6 +558,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 			Expect(claimNames).To(HaveKeyWithValue("gpu-claim", "gpu-request"))
 			Expect(claimNames).To(HaveKeyWithValue("hostdev-claim", "hostdev-request"))
+			Expect(claimNames).To(HaveKeyWithValue("net-claim", "net-request"))
 		})
 	})
 

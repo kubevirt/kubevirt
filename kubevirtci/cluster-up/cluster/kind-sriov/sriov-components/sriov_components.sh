@@ -146,7 +146,15 @@ function sriov_components::deploy() {
 }
 
 function sriov_components::deploy_dra() {
-  _kubectl create namespace "$SRIOV_DRA_NAMESPACE"
+  _kubectl create namespace "$SRIOV_DRA_NAMESPACE" || true
+  # First pass creates CRDs; the SriovResourcePolicy CR at the end will fail
+  # because its CRD isn't established yet -- that is expected, suppress the error.
+  _kubectl apply -f "$SRIOV_DRA_MANIFEST" || true
+  _kubectl wait --for=condition=established \
+    crd/sriovresourcepolicies.sriovnetwork.k8snetworkplumbingwg.io \
+    crd/deviceattributes.sriovnetwork.k8snetworkplumbingwg.io \
+    --timeout=60s
+  # Second pass: all CRDs are now established, so the CR applies cleanly.
   _kubectl apply -f "$SRIOV_DRA_MANIFEST"
 
   return 0

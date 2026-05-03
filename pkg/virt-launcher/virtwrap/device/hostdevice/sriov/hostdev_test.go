@@ -20,9 +20,18 @@
 package sriov_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+
+	"kubevirt.io/kubevirt/pkg/dra/metadata"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -42,6 +51,9 @@ import (
 const (
 	netname1 = "net1"
 	netname2 = "net2"
+
+	sriovDRADriverName       = "sriovnetwork.k8snetworkplumbingwg.io"
+	sriovDRAMetadataFileName = sriovDRADriverName + "-metadata.json"
 )
 
 var _ = Describe("SRIOV HostDevice", func() {
@@ -321,6 +333,182 @@ var _ = Describe("SRIOV HostDevice", func() {
 		)
 	})
 
+	Context("DRA SR-IOV creation", func() {
+		newDRAVMI := func(claimRefName, requestName string) *v1.VirtualMachineInstance {
+			iface := newSRIOVInterface(netname1)
+			iface.PciAddress = "0000:20:00.0"
+
+			return &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Interfaces: []v1.Interface{iface},
+						},
+					},
+					Networks: []v1.Network{{
+						Name: netname1,
+						NetworkSource: v1.NetworkSource{
+							ResourceClaim: &v1.ClaimRequest{
+								ClaimName:   ptr.To(claimRefName),
+								RequestName: ptr.To(requestName),
+							},
+						},
+					}},
+				},
+			}
+		}
+
+		It("uses metadata file path for direct ResourceClaim", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.3")).To(Succeed())
+
+			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(HaveLen(1))
+
+			expectedHostAddr, err := device.NewPciAddressField("0000:65:0a.3")
+			Expect(err).ToNot(HaveOccurred())
+			expectedGuestAddr, err := device.NewPciAddressField("0000:20:00.0")
+			Expect(err).ToNot(HaveOccurred())
+			expectedHostDevice := api.HostDevice{
+				Alias:   newSRIOVAlias(netname1),
+				Source:  api.HostDeviceSource{Address: expectedHostAddr},
+				Type:    api.HostDevicePCI,
+				Managed: "no",
+				Address: expectedGuestAddr,
+			}
+			Expect(devices).To(Equal([]api.HostDevice{expectedHostDevice}))
+		})
+
+		It("uses metadata file path for ResourceClaimTemplate-backed pod claim", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("generated-claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name: "generated-claim-ref",
+			}}
+			Expect(writeMetadataFile(tempDir, "resourceclaimtemplates", "generated-claim-ref", "vf", "0000:65:0a.4")).To(Succeed())
+
+			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(HaveLen(1))
+
+			expectedHostAddr, err := device.NewPciAddressField("0000:65:0a.4")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices[0].Source.Address).To(Equal(expectedHostAddr))
+		})
+
+		It("propagates boot order from DRA SR-IOV interface", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			bootOrder := uint(1)
+			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = &bootOrder
+			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.5")).To(Succeed())
+
+			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(HaveLen(1))
+			Expect(devices[0].BootOrder).To(Equal(&api.BootOrder{Order: bootOrder}))
+		})
+
+		It("does not set guest PCI address when DRA SR-IOV interface has no guest PCI address", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = ""
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.6")).To(Succeed())
+
+			devices, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(HaveLen(1))
+			Expect(devices[0].Address).To(BeNil())
+		})
+
+		It("fails when DRA SR-IOV interface has malformed guest PCI address", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "not-a-pci-address"
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "0000:65:0a.7")).To(Succeed())
+
+			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to interpret the guest PCI address for interface net1"))
+		})
+
+		It("fails when metadata file is missing for direct ResourceClaim", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+
+			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to resolve PCI address for SR-IOV DRA interface net1"))
+			Expect(err.Error()).To(ContainSubstring("failed to read metadata for claim \"manual-vf-claim\" request \"vf\""))
+		})
+
+		It("fails when metadata file contains malformed JSON", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			Expect(writeRawMetadataFile(
+				tempDir,
+				"resourceclaims",
+				"manual-vf-claim",
+				"vf",
+				`{"apiVersion":"metadata.resource.k8s.io/v1alpha1","kind":"DeviceMetadata","metadata":{"name":"manual-vf-claim"},"requests":[`,
+			)).To(Succeed())
+
+			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to resolve PCI address for SR-IOV DRA interface net1"))
+			Expect(err.Error()).To(ContainSubstring("read object from metadata stream"))
+		})
+
+		It("fails when metadata has invalid host pciBusID", func() {
+			tempDir := GinkgoT().TempDir()
+
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+				Name:              "claim-ref",
+				ResourceClaimName: ptr.To("manual-vf-claim"),
+			}}
+			Expect(writeMetadataFile(tempDir, "resourceclaims", "manual-vf-claim", "vf", "not-a-pci-address")).To(Succeed())
+
+			_, err := sriov.CreateDRAHostDevices(vmi, tempDir)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to create PCI address for SR-IOV DRA interface net1"))
+		})
+
+	})
+
 	Context("safe detachment", func() {
 		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias(netsriov.SRIOVAliasPrefix + "net1")}
 
@@ -417,6 +605,42 @@ func newSRIOVInterfaceWithBootOrder(name string, bootOrder uint) v1.Interface {
 	iface.BootOrder = &bootOrder
 
 	return iface
+}
+
+func writeRawMetadataFile(basePath, claimSubdir, claimName, requestName, metadataJSON string) error {
+	dir := filepath.Join(basePath, claimSubdir, claimName, requestName)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, sriovDRAMetadataFileName), []byte(metadataJSON), 0644)
+}
+
+func writeMetadataFile(basePath, claimSubdir, claimName, requestName, pciAddress string) error {
+	md := metadata.DeviceMetadata{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: metadata.APIVersionV1Alpha1,
+			Kind:       "DeviceMetadata",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: claimName,
+		},
+		Requests: []metadata.DeviceMetadataRequest{{
+			Name: requestName,
+			Devices: []metadata.Device{{
+				Driver: sriovDRADriverName,
+				Pool:   "pool0",
+				Name:   "dev0",
+				Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+					metadata.PCIBusIDAttribute: {StringValue: ptr.To(pciAddress)},
+				},
+			}},
+		}},
+	}
+	data, err := json.Marshal(md)
+	if err != nil {
+		return err
+	}
+	return writeRawMetadataFile(basePath, claimSubdir, claimName, requestName, string(data))
 }
 
 type stubPCIAddressPool struct {
