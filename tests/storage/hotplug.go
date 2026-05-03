@@ -2184,6 +2184,83 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeNolongerAccessible(vmi, device)
 		})
 	})
+
+	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
+	Context("with PCI hostdev", Serial, func() {
+		const deviceName = "example.org/soundcard"
+
+		BeforeEach(func() {
+			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "8086:2668",
+						ResourceName:      deviceName,
+					},
+				},
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+		})
+
+		AfterEach(func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+		})
+
+		It("should restart a VM after hotplugging a block volume", func() {
+			sc, exists := libstorage.GetRWOBlockStorageClass()
+			if !exists {
+				Skip("no RWO block storage class available")
+			}
+
+			vmiSpec := libvmifact.NewAlpineWithTestTooling()
+			vmiSpec.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{Name: "sound0", DeviceName: deviceName},
+			}
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways)),
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
+
+			dvBuilder := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), dvBuilder, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+			By("Hotplugging a block volume to the running VM")
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions("hotplug-vol", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				DataVolume: &v1.DataVolumeSource{Name: dv.Name},
+			}, false, false, ""))
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "hotplug-vol")
+
+			By("Restarting the VM")
+			vm = libvmops.StopVirtualMachine(vm)
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 300*time.Second, time.Second).Should(matcher.BeReady())
+		})
+	})
 }))
 
 func verifyVolumeAndDiskVMAdded(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeNames ...string) {

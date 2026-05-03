@@ -220,7 +220,70 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		}
 	}
 
+	// Device-plugin-provisioned devices (VFIO, USB) must be in the cgroup
+	// rule cache so they survive eBPF program rebuilds during hotplug.
+	for _, devDir := range []string{
+		filepath.Join("dev", "vfio"),
+		filepath.Join("dev", "bus", "usb"),
+	} {
+		rules, err := discoverDeviceRulesInDir(mountRoot, devDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover device rules in %s: %v", devDir, err)
+		}
+		vmiDeviceRules = append(vmiDeviceRules, rules...)
+	}
+
 	return vmiDeviceRules, nil
+}
+
+// discoverDeviceRulesInDir recursively scans a directory under the
+// container's filesystem and creates allow rules for all device nodes
+// found. These devices are provisioned by device plugins or the container
+// runtime and must be preserved in the v2 cgroup manager's rule cache so
+// they are not lost when the eBPF device filter is rebuilt by subsequent
+// Set() calls (e.g. during hotplug volume mounting).
+func discoverDeviceRulesInDir(mountRoot *safepath.Path, relPath string) ([]*devices.Rule, error) {
+	dirPath, err := safepath.JoinNoFollow(mountRoot, relPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var entries []os.DirEntry
+	err = dirPath.ExecuteNoFollow(func(path string) (err error) {
+		entries, err = os.ReadDir(path)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var rules []*devices.Rule
+	for _, entry := range entries {
+		if entry.IsDir() {
+			subRules, err := discoverDeviceRulesInDir(mountRoot, filepath.Join(relPath, entry.Name()))
+			if err != nil {
+				return nil, err
+			}
+			rules = append(rules, subRules...)
+			continue
+		}
+		devPath, err := safepath.JoinNoFollow(dirPath, entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		rule, err := newAllowedDeviceRule(devPath, getDeviceRwmPermissions())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create device rule for %s/%s: %v", relPath, entry.Name(), err)
+		}
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for %s/%s: %v", relPath, entry.Name(), rule)
+			rules = append(rules, rule)
+		}
+	}
+	return rules, nil
 }
 
 func newAllowedDeviceRule(devicePath *safepath.Path, devicePermissions devices.Permissions) (*devices.Rule, error) {
