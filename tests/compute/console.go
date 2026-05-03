@@ -53,26 +53,24 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 	}
 
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		Context("with a serial console", func() {
-			It("[test_id:1588]should return OS login", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-				expectConsoleOutput(
-					vmi,
-					"localhost login:",
-				)
-			})
-			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		Context("with a serial console", Ordered, decorators.OncePerOrderedCleanup, func() {
+			var vmi *v1.VirtualMachineInstance
 
+			BeforeAll(func() {
+				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
+			})
+
+			It("[test_id:1588]should return OS login", func() {
+				expectConsoleOutput(vmi, "localhost login:")
+			})
+
+			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				for i := 0; i < 5; i++ {
 					expectConsoleOutput(vmi, "login")
 				}
 			})
 
 			It("[test_id:1591]should close console connection when new console connection is opened", decorators.Conformance, func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
 				expectConsoleOutput(vmi, "login")
 
 				By("opening 1st console connection")
