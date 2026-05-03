@@ -2603,7 +2603,7 @@ var _ = Describe("Manager", func() {
 				LoginTime: 0,
 			},
 		})
-		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
+		agentStore.Store(agentpoller.FSInfoKey, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
@@ -2665,7 +2665,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes GetFilesystems", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
+		agentStore.Store(agentpoller.FSInfoKey, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
@@ -2692,7 +2692,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes generateCloudInitEmptyISO and succeeds", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
+		agentStore.Store(agentpoller.FSInfoKey, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
@@ -2738,7 +2738,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes generateCloudInitEmptyISO and fails", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
+		agentStore.Store(agentpoller.FSInfoKey, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
