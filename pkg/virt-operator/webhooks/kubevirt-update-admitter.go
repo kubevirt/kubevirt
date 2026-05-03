@@ -275,8 +275,35 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 				})
 			}
 		}
+	}
 
-		return statuses
+	if len(tlsConfiguration.Groups) > 0 {
+		for index, group := range tlsConfiguration.Groups {
+			if !kvtls.ValidTLSGroup(group) {
+				statuses = append(statuses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprintf("%s is not a valid TLS group", group),
+					Field:   fmt.Sprintf("spec.configuration.tlsConfiguration.groups#%d", index),
+				})
+			}
+		}
+
+		if len(statuses) == 0 && tlsConfiguration.MinTLSVersion != v1.VersionTLS13 {
+			hasClassicalGroup := false
+			for _, group := range tlsConfiguration.Groups {
+				if !kvtls.IsTLS13OnlyGroup(group) {
+					hasClassicalGroup = true
+					break
+				}
+			}
+			if !hasClassicalGroup {
+				statuses = append(statuses, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "At least one classical group (X25519, secp256r1, secp384r1, or secp521r1) is required when minTLSVersion is below VersionTLS13",
+					Field:   "spec.configuration.tlsConfiguration.groups",
+				})
+			}
+		}
 	}
 
 	return statuses

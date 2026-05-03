@@ -321,6 +321,9 @@
         "minTLSVersion": "minTLSVersionValue",
         "ciphers": [
           "ciphersValue"
+        ],
+        "groups": [
+          "groupsValue"
         ]
       },
       "seccompConfiguration": {

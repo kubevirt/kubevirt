@@ -1742,6 +1742,25 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                   type: array
                   x-kubernetes-list-type: set
+                groups:
+                  description: |-
+                    Groups defines the set of TLS supported groups (key exchange curves)
+                    offered during TLS handshakes. Uses IANA names from the TLS Supported
+                    Groups registry. When empty, Go's default curve preferences apply.
+                    Requires the TLSGroupPreferences feature gate to be enabled.
+                  items:
+                    description: |-
+                      TLSGroup defines a TLS supported group (key exchange curve) using IANA
+                      names from the TLS Supported Groups registry.
+                    enum:
+                    - X25519
+                    - secp256r1
+                    - secp384r1
+                    - secp521r1
+                    - X25519MLKEM768
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: set
                 minTLSVersion:
                   description: |-
                     MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.

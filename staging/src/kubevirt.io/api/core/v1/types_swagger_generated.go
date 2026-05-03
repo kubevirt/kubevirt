@@ -1003,6 +1003,7 @@ func (TLSConfiguration) SwaggerDoc() map[string]string {
 		"":              "TLSConfiguration holds TLS options",
 		"minTLSVersion": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.\nProtocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known\nvulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE\n+kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13",
 		"ciphers":       "+listType=set",
+		"groups":        "Groups defines the set of TLS supported groups (key exchange curves)\noffered during TLS handshakes. Uses IANA names from the TLS Supported\nGroups registry. When empty, Go's default curve preferences apply.\nRequires the TLSGroupPreferences feature gate to be enabled.\n+optional\n+listType=set",
 	}
 }
 

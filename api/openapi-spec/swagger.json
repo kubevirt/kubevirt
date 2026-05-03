@@ -17858,6 +17858,15 @@
       },
       "x-kubernetes-list-type": "set"
      },
+     "groups": {
+      "description": "Groups defines the set of TLS supported groups (key exchange curves) offered during TLS handshakes. Uses IANA names from the TLS Supported Groups registry. When empty, Go's default curve preferences apply. Requires the TLSGroupPreferences feature gate to be enabled.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "set"
+     },
      "minTLSVersion": {
       "description": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections. Protocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE",
       "type": "string"

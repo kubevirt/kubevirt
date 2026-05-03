@@ -241,6 +241,44 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 	})
 
+	Context("with TLSConfiguration groups", func() {
+		It("should reject unknown group name", func() {
+			causes := validateTLSConfiguration(&v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Groups:        []v1.TLSGroup{"INVALID_GROUP"},
+			})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal("INVALID_GROUP is not a valid TLS group"))
+			Expect(causes[0].Field).To(Equal("spec.configuration.tlsConfiguration.groups#0"))
+		})
+
+		It("should reject PQC-only groups when minTLSVersion is below TLS 1.3", func() {
+			causes := validateTLSConfiguration(&v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Groups:        []v1.TLSGroup{v1.TLSGroupX25519MLKEM768},
+			})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("At least one classical group"))
+			Expect(causes[0].Field).To(Equal("spec.configuration.tlsConfiguration.groups"))
+		})
+
+		It("should accept PQC-only groups when minTLSVersion is TLS 1.3", func() {
+			causes := validateTLSConfiguration(&v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS13,
+				Groups:        []v1.TLSGroup{v1.TLSGroupX25519MLKEM768},
+			})
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept valid groups with classical curve", func() {
+			causes := validateTLSConfiguration(&v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Groups:        []v1.TLSGroup{v1.TLSGroupX25519, v1.TLSGroupX25519MLKEM768},
+			})
+			Expect(causes).To(BeEmpty())
+		})
+	})
+
 	Context("with AdditionalGuestMemoryOverheadRatio", func() {
 		DescribeTable("the ratio must be parsable to float", func(unparsableRatio string) {
 			causes := validateGuestToRequestHeadroom(&unparsableRatio)

@@ -82,6 +82,100 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		const virtTemplatePodTLSPort = 9443
 		verifyTLSEnforcement(podsToTest, virtTemplatePodTLSPort, cipher)
 	})
+
+	Context("with TLSGroupPreferences feature gate", func() {
+		BeforeEach(func() {
+			config.EnableFeatureGate(featuregate.TLSGroupPreferences)
+		})
+
+		It("should enforce configured TLS groups on kubevirt pod endpoints", func() {
+			By("Configuring groups to X25519 and secp256r1")
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{cipher.Name},
+				Groups:        []v1.TLSGroup{v1.TLSGroupX25519, v1.TLSGroupSecP256r1},
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+
+			By("Verifying connections with a configured group succeed")
+			const kubevirtPodTLSPort = 8443
+			verifyTLSGroupEnforcement(podsToTest, kubevirtPodTLSPort, []tls.CurveID{tls.CurveP256})
+		})
+
+		It("should reject connections offering only a non-configured group", func() {
+			By("Configuring groups to only X25519")
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{cipher.Name},
+				Groups:        []v1.TLSGroup{v1.TLSGroupX25519},
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+
+			By("Verifying connections offering only secp384r1 fail")
+			const kubevirtPodTLSPort = 8443
+			for i := range podsToTest {
+				func(i int, pod *k8sv1.Pod) {
+					stopChan := make(chan struct{})
+					defer close(stopChan)
+					const expectTimeout = 10 * time.Second
+					localPort := 8460 + i
+					Expect(libpod.ForwardPorts(pod, []string{fmt.Sprintf("%d:%d", localPort, kubevirtPodTLSPort)}, stopChan, expectTimeout)).To(Succeed())
+
+					rejectedTLSConfig := &tls.Config{
+						//nolint:gosec
+						InsecureSkipVerify: true,
+						MaxVersion:         tls.VersionTLS12,
+						CipherSuites:       kvtls.CipherSuiteIds([]string{cipher.Name}),
+						CurvePreferences:   []tls.CurveID{tls.CurveP384},
+					}
+					conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), rejectedTLSConfig)
+					Expect(err).To(HaveOccurred(), "Pod %s should reject non-configured curve", pod.Name)
+					Expect(conn).To(BeNil())
+				}(i, &podsToTest[i])
+			}
+		})
+
+		It("should use Go defaults when groups field is empty", func() {
+			By("Configuring TLS without groups")
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{cipher.Name},
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+
+			By("Verifying connections with secp384r1 succeed (Go default includes it)")
+			const kubevirtPodTLSPort = 8443
+			verifyTLSGroupEnforcement(podsToTest, kubevirtPodTLSPort, []tls.CurveID{tls.CurveP384})
+		})
+	})
+
+	Context("without TLSGroupPreferences feature gate", func() {
+		It("should ignore groups field when feature gate is disabled", func() {
+			By("Configuring groups without enabling the feature gate")
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{cipher.Name},
+				Groups:        []v1.TLSGroup{v1.TLSGroupX25519},
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+
+			By("Verifying connections with secp384r1 succeed (groups ignored, Go defaults apply)")
+			const kubevirtPodTLSPort = 8443
+			verifyTLSGroupEnforcement(podsToTest, kubevirtPodTLSPort, []tls.CurveID{tls.CurveP384})
+		})
+	})
 }))
 
 func listPods(labelSelectors ...string) []k8sv1.Pod {
@@ -95,6 +189,28 @@ func listPods(labelSelectors ...string) []k8sv1.Pod {
 		pods = append(pods, podList.Items...)
 	}
 	return pods
+}
+
+func verifyTLSGroupEnforcement(pods []k8sv1.Pod, containerPort int, clientCurves []tls.CurveID) {
+	for i := range pods {
+		func(i int, pod *k8sv1.Pod) {
+			stopChan := make(chan struct{})
+			defer close(stopChan)
+			const expectTimeout = 10 * time.Second
+			localPort := 8470 + i
+			Expect(libpod.ForwardPorts(pod, []string{fmt.Sprintf("%d:%d", localPort, containerPort)}, stopChan, expectTimeout)).To(Succeed())
+
+			tlsConfig := &tls.Config{
+				//nolint:gosec
+				InsecureSkipVerify: true,
+				MaxVersion:         tls.VersionTLS12,
+				CurvePreferences:   clientCurves,
+			}
+			conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), tlsConfig)
+			Expect(err).ToNot(HaveOccurred(), "Pod %s should accept configured curve", pod.Name)
+			Expect(conn).ToNot(BeNil())
+		}(i, &pods[i])
+	}
 }
 
 func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.CipherSuite) {
