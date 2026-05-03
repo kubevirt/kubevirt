@@ -21,6 +21,7 @@ package dra
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -136,7 +137,8 @@ var _ = Describe("DownwardAPIAttributes", func() {
 
 			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "missing-claim", "req1")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to read metadata"))
+			Expect(err.Error()).To(ContainSubstring("failed to read metadata for claim"))
+			Expect(errors.Is(err, ErrMissingClaimRequestMetadata)).To(BeTrue())
 		})
 	})
 
@@ -190,6 +192,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			_, err := GetPCIAddressForClaim(tempDir, resourceClaims, "my-claim", "missing-req")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to read metadata for claim"))
+			Expect(errors.Is(err, ErrMissingClaimRequestMetadata)).To(BeTrue())
 		})
 
 		It("should return error when pciBusID attribute not present", func() {

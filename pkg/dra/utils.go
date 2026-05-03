@@ -21,6 +21,7 @@ package dra
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,8 @@ import (
 	// TODO: Replace with k8s.io types when KEP-5304 is implemented in kubernetes
 	"kubevirt.io/kubevirt/pkg/dra/metadata"
 )
+
+var ErrMissingClaimRequestMetadata = errors.New("missing claim request metadata")
 
 // IsGPUDRA returns true if the GPU is a DRA GPU
 func IsGPUDRA(gpu v1.GPU) bool {
@@ -104,7 +107,7 @@ func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, cla
 			return &req.Devices[0], nil
 		}
 	}
-	return nil, fmt.Errorf("request %q not found in metadata for claim %q (available requests: %v)", requestName, md.Name, metadataRequestNames(md))
+	return nil, fmt.Errorf("request %q not found in metadata for claim %q (available requests: %v): %w", requestName, md.Name, metadataRequestNames(md), ErrMissingClaimRequestMetadata)
 }
 
 // resolveClaimMetadata reads the metadata file for a claim ref + request pair.
@@ -134,7 +137,7 @@ func readMetadataFromDir(basePath, claimName, requestName string) (*metadata.Dev
 		return nil, fmt.Errorf("failed to glob metadata for claim %q request %q: %w", claimName, requestName, err)
 	}
 	if len(matches) == 0 {
-		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: no files matching %s", claimName, requestName, pattern)
+		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: no files matching %s: %w", claimName, requestName, pattern, ErrMissingClaimRequestMetadata)
 	}
 	if len(matches) > 1 {
 		return nil, fmt.Errorf("found %d metadata files for claim %q request %q but KubeVirt only supports exactly one driver per request", len(matches), claimName, requestName)
