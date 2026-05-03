@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -45,7 +46,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithTPM(false),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 			By("Logging in")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

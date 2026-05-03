@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -316,7 +317,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())

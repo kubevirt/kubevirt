@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -32,14 +33,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const alpineStartupTimeout = libvmops.StartupTimeoutSecondsSmall
 const testString = "GuestConsoleTest3413254123535234523"
 
 var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func() {
 
-	var (
-		alpineVmi *v1.VirtualMachineInstance
-	)
+	var alpineVmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		alpineVmi = libvmifact.NewAlpine(libvmi.WithLogSerialConsole(true))
@@ -50,7 +48,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 		Context("set LogSerialConsole", func() {
 			It("it should exit cleanly when the shutdown is initiated by the guest", func() {
 				By("Starting a VMI")
-				vmi := libvmops.RunVMIAndExpectLaunch(alpineVmi, alpineStartupTimeout)
+				vmi := libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -88,7 +86,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 			var alpineCheck = "Welcome to Alpine Linux"
 
 			It("[QUARANTINE] it should fetch logs for a running VM with logs API", decorators.Quarantine, func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, alpineStartupTimeout)
+				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -100,7 +98,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 					logs, err := getConsoleLogs(virtlauncherPod)
 					g.Expect(err).ToNot(HaveOccurred())
 					return logs
-				}, alpineStartupTimeout*time.Second, 2*time.Second).Should(ContainSubstring(alpineCheck))
+				}, time.Duration(flags.StartupTimeoutSecondsSmall())*time.Second, 2*time.Second).Should(ContainSubstring(alpineCheck))
 
 				By("Obtaining the serial console, logging in and executing a command there")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -137,7 +135,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 			})
 
 			It("it should rotate the internal log files", decorators.Periodic, func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, alpineStartupTimeout)
+				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -167,7 +165,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 						k8sv1.ResourceMemory: resource.MustParse("256M"),
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, alpineStartupTimeout)
+				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
 				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 

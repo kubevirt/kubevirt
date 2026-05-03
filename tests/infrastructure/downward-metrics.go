@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -38,11 +39,9 @@ import (
 )
 
 var _ = Describe(SIG("downwardMetrics", func() {
-	const vmiStartTimeout = libvmops.StartupTimeoutSecondsXLarge
-
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 		vmi := libvmifact.NewFedora(via)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		metrics, err := metricsGetter(vmi)
@@ -64,7 +63,7 @@ var _ = Describe(SIG("downwardMetrics", func() {
 
 	It("metric ResourceProcessorLimit should be present", func() {
 		vmi := libvmifact.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		metrics, err := libinfra.GetDownwardMetricsDisk(vmi)
