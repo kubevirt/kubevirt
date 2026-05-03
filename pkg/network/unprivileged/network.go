@@ -17,17 +17,22 @@
  *
  */
 
-package network
+package unprivileged
 
 import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+type cacheCreator interface {
+	New(filePath string) *cache.Cache
+}
 
 type VMNetworkConfigurator struct {
 	vmi               *v1.VirtualMachineInstance

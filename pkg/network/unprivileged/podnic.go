@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package unprivileged
 
 import (
 	v1 "kubevirt.io/api/core/v1"

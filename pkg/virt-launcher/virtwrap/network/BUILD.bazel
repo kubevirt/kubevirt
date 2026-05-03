@@ -37,7 +37,7 @@ go_library(
         "//pkg/network/cache:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/namescheme:go_default_library",
-        "//pkg/network/setup:go_default_library",
+        "//pkg/network/unprivileged:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
