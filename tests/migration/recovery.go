@@ -146,7 +146,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 		By("Expecting the right PVC to be preserved")
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), keptPVC, k8smeta.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmi.Name))
+		Expect(pvc.Labels).NotTo(HaveKey("persistent-state-for"))
 	},
 		Entry("failure", decorators.NoFlakeCheck, false, false),
 		Entry("success", decorators.NoFlakeCheck, true, false),
@@ -167,7 +167,6 @@ func createPVCFor(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *k8s
 		ObjectMeta: k8smeta.ObjectMeta{
 			GenerateName:    backendstorage.PVCPrefix + "-" + vm.Name + "-",
 			OwnerReferences: ownerReferences,
-			Labels:          map[string]string{backendstorage.PVCPrefix: vm.Name},
 		},
 		Spec: k8score.PersistentVolumeClaimSpec{
 			AccessModes: []k8score.PersistentVolumeAccessMode{accessMode},

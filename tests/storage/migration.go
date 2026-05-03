@@ -153,8 +153,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		waitMigrationToNotExist := func(vmiName, ns string) {
 			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				ls := labels.Set{
-					virtv1.VolumesUpdateMigration: vmiName,
+					virtv1.VolumesUpdateMigration: string(vmi.UID),
 				}
 				migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
 					metav1.ListOptions{
@@ -530,8 +532,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				ls := labels.Set{
-					virtv1.VolumesUpdateMigration: vm.Name,
+					virtv1.VolumesUpdateMigration: string(vmi.UID),
 				}
 				migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
 					metav1.ListOptions{
@@ -723,7 +727,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			updateVMWithPVC(vm, volName, destPVC)
 			// let the workload updater creates some migration
 			time.Sleep(2 * time.Minute)
-			ls := labels.Set{virtv1.VolumesUpdateMigration: vm.Name}
+			vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			ls := labels.Set{virtv1.VolumesUpdateMigration: string(vmi.UID)}
 			migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
 				metav1.ListOptions{LabelSelector: ls.String()})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -913,8 +919,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 				var migration *v1.VirtualMachineInstanceMigration
 				Eventually(func() int {
+					vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 					ls := labels.Set{
-						virtv1.VolumesUpdateMigration: vm.Name,
+						virtv1.VolumesUpdateMigration: string(vmi.UID),
 					}
 					migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
 						metav1.ListOptions{
@@ -1362,8 +1370,10 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 
 func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string) {
 	Eventually(func() []virtv1.VirtualMachineInstanceMigration {
+		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		ls := labels.Set{
-			virtv1.VolumesUpdateMigration: vmiName,
+			virtv1.VolumesUpdateMigration: string(vmi.UID),
 		}
 		migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(), metav1.ListOptions{
 			LabelSelector: ls.String(),

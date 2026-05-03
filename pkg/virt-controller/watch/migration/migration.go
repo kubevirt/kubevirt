@@ -323,14 +323,6 @@ func (c *Controller) Execute() bool {
 	return true
 }
 
-func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigration) {
-	if migration.Labels == nil {
-		migration.Labels = map[string]string{virtv1.MigrationSelectorLabel: migration.Spec.VMIName}
-	} else if _, exist := migration.Labels[virtv1.MigrationSelectorLabel]; !exist {
-		migration.Labels[virtv1.MigrationSelectorLabel] = migration.Spec.VMIName
-	}
-}
-
 func (c *Controller) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
 	patchSet := patch.New()
 	if !equality.Semantic.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
@@ -389,8 +381,6 @@ func (c *Controller) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(migration) {
 		migration := migration.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(migration)
-		// Ensure the migration contains our selector label
-		ensureSelectorLabelPresent(migration)
 		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
 		return err
 	}

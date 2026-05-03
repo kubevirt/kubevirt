@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/openshift/library-go/pkg/build/naming"
 
@@ -106,24 +107,40 @@ func getBackendPVCName(obj metav1.Object, client kubecli.KubevirtClient) (string
 	case *v1.VirtualMachineInstance:
 		return backendstorage.CurrentPVCName(obj), nil
 	default:
-		// TODO: This could be way more simpler if the backend PVC name was accessible from the VM spec/status.
-		// Refactor this once the backend PVC is more accessible.
+		// For VM objects, scan PVCs by owner reference since the label-based lookup
+		// fails for long VM names (label values must be ≤63 bytes).
 		if client == nil {
 			return "", fmt.Errorf("no client provided")
 		}
-		pvcs, err := client.CoreV1().PersistentVolumeClaims(obj.GetNamespace()).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", backendstorage.PVCPrefix, obj.GetName()),
-		})
+		// List all PVCs in the namespace
+		allPVCs, err := client.CoreV1().PersistentVolumeClaims(obj.GetNamespace()).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return "", err
 		}
-		switch len(pvcs.Items) {
+
+		// Filter by owner reference and name prefix
+		var matchingPVCs []k8sv1.PersistentVolumeClaim
+		for _, pvc := range allPVCs.Items {
+			// Check for backend storage PVC name prefix
+			if !strings.HasPrefix(pvc.Name, backendstorage.PVCPrefix+"-") {
+				continue
+			}
+			// Check if owned by this VM
+			for _, ownerRef := range pvc.OwnerReferences {
+				if ownerRef.UID == obj.GetUID() {
+					matchingPVCs = append(matchingPVCs, pvc)
+					break
+				}
+			}
+		}
+
+		switch len(matchingPVCs) {
 		case 1:
-			return pvcs.Items[0].Name, nil
+			return matchingPVCs[0].Name, nil
 		case 0:
 			return "", ErrNoBackendPVC
 		default:
-			pvc, err := getNewestNonTerminatingPVC(pvcs.Items)
+			pvc, err := getNewestNonTerminatingPVC(matchingPVCs)
 			if err != nil {
 				return "", fmt.Errorf("no non-terminating PVC found")
 			}

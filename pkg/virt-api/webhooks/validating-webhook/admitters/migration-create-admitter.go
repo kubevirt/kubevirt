@@ -29,7 +29,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -72,23 +71,18 @@ func isMigratable(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineIn
 }
 
 func ensureNoMigrationConflict(ctx context.Context, virtClient kubevirt.Interface, vmiName string, namespace string) error {
-	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmiName))
+	list, err := virtClient.KubevirtV1().VirtualMachineInstanceMigrations(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
-	list, err := virtClient.KubevirtV1().VirtualMachineInstanceMigrations(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
-	})
-	if err != nil {
-		return err
-	}
-	if len(list.Items) > 0 {
-		for _, mig := range list.Items {
-			if mig.Status.Phase == v1.MigrationSucceeded || mig.Status.Phase == v1.MigrationFailed {
-				continue
-			}
-			return fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(mig.UID), mig.Spec.VMIName)
+	for _, mig := range list.Items {
+		if mig.Spec.VMIName != vmiName {
+			continue
 		}
+		if mig.Status.Phase == v1.MigrationSucceeded || mig.Status.Phase == v1.MigrationFailed {
+			continue
+		}
+		return fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(mig.UID), mig.Spec.VMIName)
 	}
 
 	return nil

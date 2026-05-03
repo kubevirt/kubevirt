@@ -32,7 +32,6 @@ import (
 	policy "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -83,17 +82,19 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			}).WithTimeout(20 * time.Second).WithPolling(1 * time.Second).Should(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
 
 			By("Waiting for a migration to be scheduled and to succeed")
-			labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
-			Expect(err).ToNot(HaveOccurred())
-			listOptions := metav1.ListOptions{
-				LabelSelector: labelSelector.String(),
-			}
-
 			Eventually(func(g Gomega) {
-				migrations, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(ctx, listOptions)
+				// List all migrations and filter by Spec.VMIName
+				allMigrations, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(ctx, metav1.ListOptions{})
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(migrations.Items).To(HaveLen(1))
-				g.Expect(migrations.Items[0].Status.Phase).To(Equal(v1.MigrationSucceeded))
+
+				var migrations []v1.VirtualMachineInstanceMigration
+				for _, migration := range allMigrations.Items {
+					if migration.Spec.VMIName == vmi.Name {
+						migrations = append(migrations, migration)
+					}
+				}
+				g.Expect(migrations).To(HaveLen(1))
+				g.Expect(migrations[0].Status.Phase).To(Equal(v1.MigrationSucceeded))
 			}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 
 			By("Ensuring for the eviction-in-progress annotation is not present on the final pod")
@@ -134,16 +135,19 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
 
 				By("Waiting for a migration to be scheduled and fail")
-				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
-				Expect(err).ToNot(HaveOccurred())
-				listOptions := metav1.ListOptions{
-					LabelSelector: labelSelector.String(),
-				}
 				Eventually(func(g Gomega) {
-					migrations, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(ctx, listOptions)
+					// List all migrations and filter by Spec.VMIName
+					allMigrations, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(ctx, metav1.ListOptions{})
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(migrations.Items).ToNot(BeEmpty())
-					for _, migration := range migrations.Items {
+
+					var migrations []v1.VirtualMachineInstanceMigration
+					for _, migration := range allMigrations.Items {
+						if migration.Spec.VMIName == vmi.Name {
+							migrations = append(migrations, migration)
+						}
+					}
+					g.Expect(migrations).ToNot(BeEmpty())
+					for _, migration := range migrations {
 						g.Expect(migration.Status.Phase).To(Equal(v1.MigrationFailed))
 					}
 				}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())

@@ -1238,7 +1238,6 @@ const (
 	VirtualMachineLabel               = AppLabel + "/vm"
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
-	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 	// RestoreRunStrategy is how to restore the run strategy of the VMI
 	RestoreRunStrategy = "kubevirt.io/restore-run-strategy"
 

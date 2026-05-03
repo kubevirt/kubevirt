@@ -24,7 +24,6 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -57,7 +56,7 @@ func RegisterDefaultOption(opt Option) {
 func randName() string {
 	const randomPostfixLen = 5
 	const prefix = "testvmi-"
-	const xLen = validation.DNS1035LabelMaxLength - randomPostfixLen - len(prefix) - 1
+	const xLen = 150
 	return prefix + rand.String(randomPostfixLen) + "-" + strings.Repeat("x", xLen)
 }
 

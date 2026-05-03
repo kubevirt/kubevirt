@@ -4965,6 +4965,95 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			),
 		)
 	})
+
+	Context("addPVC event handler", func() {
+		It("should enqueue VMI when backend PVC owned by VM is added", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vm := &virtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvm",
+					Namespace: vmi.Namespace,
+					UID:       "vm-uid-123",
+				},
+			}
+			vmi.OwnerReferences = []metav1.OwnerReference{
+				{
+					APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+					Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+					Name:       vm.Name,
+					UID:        vm.UID,
+					Controller: pointer.P(true),
+				},
+			}
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "persistent-state-for-testvmi-abc",
+					Namespace: vmi.Namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+							Name:       vm.Name,
+							UID:        vm.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+
+			addVirtualMachine(vmi)
+			controller.addPVC(pvc)
+
+			Expect(controller.Queue.Len()).To(Equal(1))
+			key, _ := controller.Queue.Get()
+			Expect(key).To(Equal(kvcontroller.NamespacedKey(vmi.Namespace, vmi.Name)))
+		})
+
+		It("should enqueue VMI when backend PVC owned by standalone VMI is added", func() {
+			vmi := newPendingVirtualMachine("standalone-vmi")
+			vmi.OwnerReferences = []metav1.OwnerReference{} // Standalone VMI
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "persistent-state-for-standalone-vmi-xyz",
+					Namespace: vmi.Namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: virtv1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+							Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+							Name:       vmi.Name,
+							UID:        vmi.UID,
+							Controller: pointer.P(true),
+						},
+					},
+				},
+			}
+
+			addVirtualMachine(vmi)
+			controller.addPVC(pvc)
+
+			Expect(controller.Queue.Len()).To(Equal(1))
+			key, _ := controller.Queue.Get()
+			Expect(key).To(Equal(kvcontroller.NamespacedKey(vmi.Namespace, vmi.Name)))
+		})
+
+		It("should not enqueue VMI when non-backend-storage PVC is added", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "regular-pvc",
+					Namespace: vmi.Namespace,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			queueLenBefore := controller.Queue.Len()
+			controller.addPVC(pvc)
+
+			// Queue length should not change for non-backend-storage PVC
+			// (unless it matches a DV, but this test doesn't set that up)
+			Expect(controller.Queue.Len()).To(Equal(queueLenBefore))
+		})
+	})
 })
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
