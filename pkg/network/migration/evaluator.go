@@ -70,8 +70,8 @@ func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc, clusterConfigur
 
 func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
 	pod *k8scorev1.Pod,
-) k8scorev1.ConditionStatus {
-	result := shouldVMIBeMarkedForAutoMigration(
+) (mig k8scorev1.ConditionStatus, msg string) {
+	result, reason := shouldVMIBeMarkedForAutoMigration(
 		vmi,
 		pod,
 		e.clusterConfigurer.LiveUpdateNADRefEnabled(),
@@ -79,28 +79,28 @@ func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
 
 	switch result {
 	case notRequired:
-		return k8scorev1.ConditionUnknown
+		return k8scorev1.ConditionUnknown, ""
 	case immediateMigration:
-		return k8scorev1.ConditionTrue
+		return k8scorev1.ConditionTrue, reason
 	case pendingMigration:
 		existingCondition := lookupMigrationRequiredCondition(vmi.Status.Conditions)
 		if existingCondition != nil &&
 			existingCondition.Status == k8scorev1.ConditionFalse &&
 			e.timeProvider().Sub(existingCondition.LastTransitionTime.Time) > DynamicNetworkControllerGracePeriod {
-			return k8scorev1.ConditionTrue
+			return k8scorev1.ConditionTrue, reason
 		}
 
-		return k8scorev1.ConditionFalse
+		return k8scorev1.ConditionFalse, ""
 	}
 
-	return k8scorev1.ConditionUnknown
+	return k8scorev1.ConditionUnknown, ""
 }
 
 func shouldVMIBeMarkedForAutoMigration(
 	vmi *v1.VirtualMachineInstance,
 	pod *k8scorev1.Pod,
 	isLiveUpdateNADRefEnabled bool,
-) migrationRequirementKind {
+) (mig migrationRequirementKind, msg string) {
 	ifaces := vmi.Spec.Domain.Devices.Interfaces
 	nets := vmi.Spec.Networks
 	ifaceStatuses := vmi.Status.Interfaces
@@ -119,11 +119,11 @@ func shouldVMIBeMarkedForAutoMigration(
 		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
 
 		if result := shouldMigrateOnIfaceHotplug(iface, ifaceStatusExists); result != notRequired {
-			return result
+			return result, "Live migration due to hotplug of Interface"
 		}
 
 		if result := shouldMigrateOnIfaceUnplug(iface, ifaceStatus, ifaceStatusExists); result != notRequired {
-			return result
+			return result, "Live migration due to hotunplug of Interface"
 		}
 
 		if !isLiveUpdateNADRefEnabled {
@@ -143,10 +143,10 @@ func shouldVMIBeMarkedForAutoMigration(
 		}
 
 		if !isNADNameEqual(net.Multus.NetworkName, podNetStatus.Name, namespace) {
-			return immediateMigration
+			return immediateMigration, "Live migration due to change in NAD reference"
 		}
 	}
-	return notRequired
+	return notRequired, ""
 }
 
 func shouldMigrateOnIfaceHotplug(iface v1.Interface, ifaceStatusExists bool) migrationRequirementKind {
