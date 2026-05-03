@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -63,9 +63,18 @@ const (
 )
 
 var (
-	vmUID     k8stypes.UID = "vm-uid"
-	backupUID k8stypes.UID = "backup-uid"
+	vmUID     types.UID = "vm-uid"
+	backupUID types.UID = "backup-uid"
 )
+
+func newCondition(condType string, status metav1.ConditionStatus, reason, message string) metav1.Condition {
+	return metav1.Condition{
+		Type:    condType,
+		Status:  status,
+		Reason:  reason,
+		Message: message,
+	}
+}
 
 var _ = Describe("Backup Controller", func() {
 	var (
@@ -227,7 +236,7 @@ var _ = Describe("Backup Controller", func() {
 			_, err = kubevirtClient.BackupV1alpha1().VirtualMachineBackups(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
-		key := fmt.Sprintf("%s/%s", backup.Namespace, backup.Name)
+		key := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
 		controller.backupQueue.Add(key)
 	}
 
@@ -251,6 +260,15 @@ var _ = Describe("Backup Controller", func() {
 		}
 	}
 
+	syncBackup := func(backup *backupv1.VirtualMachineBackup) (*backupv1.VirtualMachineBackup, error) {
+		backupCopy := backup.DeepCopy()
+		if backupCopy.Status == nil {
+			backupCopy.Status = &backupv1.VirtualMachineBackupStatus{}
+		}
+		err := controller.sync(backupCopy)
+		return backupCopy, err
+	}
+
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -263,15 +281,15 @@ var _ = Describe("Backup Controller", func() {
 				"vmi": func(obj interface{}) ([]string, error) {
 					backup := obj.(*backupv1.VirtualMachineBackup)
 					if backup.Spec.Source.Kind == v1.VirtualMachineGroupVersionKind.Kind {
-						return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)}, nil
+						return []string{types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()}, nil
 					}
-					key := fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)
+					key := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()
 					return []string{key}, nil
 				},
 				"backupTracker": func(obj interface{}) ([]string, error) {
 					backup := obj.(*backupv1.VirtualMachineBackup)
 					if backup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
-						return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)}, nil
+						return []string{types.NamespacedName{Namespace: backup.Namespace, Name: backup.Spec.Source.Name}.String()}, nil
 					}
 					return nil, nil
 				},
@@ -282,7 +300,7 @@ var _ = Describe("Backup Controller", func() {
 			cache.Indexers{
 				"vmi": func(obj interface{}) ([]string, error) {
 					tracker := obj.(*backupv1.VirtualMachineBackupTracker)
-					return []string{fmt.Sprintf("%s/%s", tracker.Namespace, tracker.Spec.Source.Name)}, nil
+					return []string{types.NamespacedName{Namespace: tracker.Namespace, Name: tracker.Spec.Source.Name}.String()}, nil
 				},
 			},
 		)
@@ -334,7 +352,7 @@ var _ = Describe("Backup Controller", func() {
 			backup.Spec.Source.Name = ""
 
 			addBackup(backup)
-			err := controller.execute(fmt.Sprintf("%s/%s", testNamespace, backupName))
+			err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backup.Name}.String())
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(errSourceNameEmpty))
 		})
@@ -355,21 +373,17 @@ var _ = Describe("Backup Controller", func() {
 			pvc := createPVC(pvcName)
 			controller.pvcStore.Add(pvc)
 
-			backupCalled := false
 			vmiInterface.EXPECT().
 				Backup(gomock.Any(), vmName, gomock.Any()).
 				DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
-					backupCalled = true
 					Expect(options.BackupName).To(Equal(backupName))
 					return nil
 				})
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-			Expect(syncInfo.backupType).To(Equal(backupv1.Full))
-			Expect(backupCalled).To(BeTrue())
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+			Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
 		})
 	})
 
@@ -387,23 +401,13 @@ var _ = Describe("Backup Controller", func() {
 			statusUpdated = true
 			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 
-			hasInitializing := false
+			Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
 			cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))
-			if cond != nil && cond.Status == metav1.ConditionTrue {
-				hasInitializing = true
-				Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(backupTrackerNotFoundMsg, backupTrackerName)))
-			}
-			Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition")
+			Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(backupTrackerNotFoundMsg, backupTrackerName)))
 			return true, updateObj, nil
 		})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-		Expect(syncInfo.reason).To(ContainSubstring(fmt.Sprintf(backupTrackerNotFoundMsg, backupTrackerName)))
-
-		err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
+		err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backupName}.String())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(statusUpdated).To(BeTrue())
 	})
@@ -431,23 +435,13 @@ var _ = Describe("Backup Controller", func() {
 			statusUpdated = true
 			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 
-			hasInitializing := false
+			Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
 			cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))
-			if cond != nil && cond.Status == metav1.ConditionTrue {
-				hasInitializing = true
-				Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
-			}
-			Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition")
+			Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
 			return true, updateObj, nil
 		})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-		Expect(syncInfo.reason).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
-
-		err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
+		err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backupName}.String())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(statusUpdated).To(BeTrue())
 	})
@@ -492,39 +486,33 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		Context("verifyVMIEligibleForBackup", func() {
-			It("should fail when VMI doesn't have CBT eligible volumes", func() {
+			It("should return reason when VMI doesn't have CBT eligible volumes", func() {
 				vmi := createVMI()
 				vmi.Spec.Volumes = []v1.Volume{}
-				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
+				reason := controller.verifyVMIEligibleForBackup(vmi)
+				Expect(reason).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
 			})
 
-			It("should fail when VMI doesn't have ChangedBlockTracking", func() {
+			It("should return reason when VMI doesn't have ChangedBlockTracking", func() {
 				vmi := createVMI()
 				vmi.Status.ChangedBlockTracking = nil
-				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+				reason := controller.verifyVMIEligibleForBackup(vmi)
+				Expect(reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
 			})
 
-			It("should fail when ChangedBlockTracking is not enabled", func() {
+			It("should return reason when ChangedBlockTracking is not enabled", func() {
 				vmi := createVMI()
 				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
 					State: v1.ChangedBlockTrackingDisabled,
 				}
-				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+				reason := controller.verifyVMIEligibleForBackup(vmi)
+				Expect(reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
 			})
 
-			It("should succeed when VMI has eligible volumes and CBT enabled", func() {
+			It("should return empty string when VMI has eligible volumes and CBT enabled", func() {
 				vmi := createVMI()
-				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
-				Expect(syncInfo).To(BeNil())
+				reason := controller.verifyVMIEligibleForBackup(vmi)
+				Expect(reason).To(BeEmpty())
 			})
 		})
 
@@ -533,10 +521,11 @@ var _ = Describe("Backup Controller", func() {
 				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 				controller.backupInformer.GetStore().Add(backup)
 
-				syncInfo := controller.sync(backup)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNotFoundMsg, testNamespace, vmName)))
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))
+				Expect(cond.Message).To(Equal(fmt.Sprintf(vmNotFoundMsg, testNamespace, vmName)))
 			})
 
 			It("should wait when VMI doesn't exist", func() {
@@ -545,10 +534,11 @@ var _ = Describe("Backup Controller", func() {
 				controller.vmStore.Add(vm)
 				controller.backupInformer.GetStore().Add(backup)
 
-				syncInfo := controller.sync(backup)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNotRunningMsg, vmName)))
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))
+				Expect(cond.Message).To(Equal(fmt.Sprintf(vmNotRunningMsg, vmName)))
 			})
 
 			It("should wait when VMI doesn't have CBT eligible volumes", func() {
@@ -560,10 +550,11 @@ var _ = Describe("Backup Controller", func() {
 				controller.vmiStore.Add(vmi)
 				controller.backupInformer.GetStore().Add(backup)
 
-				syncInfo := controller.sync(backup)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))
+				Expect(cond.Message).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
 			})
 
 			It("should wait when ChangedBlockTracking is not enabled", func() {
@@ -577,10 +568,11 @@ var _ = Describe("Backup Controller", func() {
 				controller.vmiStore.Add(vmi)
 				controller.backupInformer.GetStore().Add(backup)
 
-				syncInfo := controller.sync(backup)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionInitializing))
+				Expect(cond.Message).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
 			})
 
 			It("should wait when VMI is migrating and update initializing condition", func() {
@@ -604,23 +596,13 @@ var _ = Describe("Backup Controller", func() {
 					statusUpdated = true
 					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 
-					hasInitializing := false
+					Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))).To(BeTrue())
 					cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))
-					if cond != nil && cond.Status == metav1.ConditionTrue {
-						hasInitializing = true
-						Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
-					}
-					Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition with migration reason")
+					Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
 					return true, updateObj, nil
 				})
 
-				syncInfo := controller.sync(backup)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.err).ToNot(HaveOccurred())
-				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
-
-				err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
+				err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backupName}.String())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(statusUpdated).To(BeTrue())
 			})
@@ -641,19 +623,13 @@ var _ = Describe("Backup Controller", func() {
 				controller.pvcStore.Add(pvc)
 				controller.backupInformer.GetStore().Add(backup)
 
-				backupCalled := false
 				vmiInterface.EXPECT().
 					Backup(gomock.Any(), vmName, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
-						backupCalled = true
-						return nil
-					})
+					Return(nil)
 
-				syncInfo := controller.sync(backup)
-				Expect(syncInfo).ToNot(BeNil())
-				Expect(syncInfo.err).ToNot(HaveOccurred())
-				Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-				Expect(backupCalled).To(BeTrue())
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
 			})
 		})
 	})
@@ -668,7 +644,7 @@ var _ = Describe("Backup Controller", func() {
 			patched := false
 			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patchAction := action.(testing.PatchAction)
-				Expect(patchAction.GetPatchType()).To(Equal(k8stypes.JSONPatchType))
+				Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
 				patched = true
 
 				updatedBackup := backup.DeepCopy()
@@ -676,10 +652,9 @@ var _ = Describe("Backup Controller", func() {
 				return true, updatedBackup, nil
 			})
 
-			result, err := controller.addBackupFinalizer(backup)
+			err := controller.addBackupFinalizer(backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
-			Expect(result.Finalizers).To(ContainElement(vmBackupFinalizer))
 		})
 
 		It("should not re-add finalizer if already present", func() {
@@ -691,10 +666,8 @@ var _ = Describe("Backup Controller", func() {
 				return true, nil, fmt.Errorf("unexpected patch call")
 			})
 
-			result, err := controller.addBackupFinalizer(backup)
+			err := controller.addBackupFinalizer(backup)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(backup))
-			Expect(result.Finalizers).To(ContainElement(vmBackupFinalizer))
 		})
 	})
 
@@ -719,8 +692,8 @@ var _ = Describe("Backup Controller", func() {
 		controller.pvcStore.Add(pvc)
 
 		// No patch should be called - backup is done and cleanup is complete
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).To(BeNil())
+		_, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should cleanup when VMI backup status is missing", func() {
@@ -747,10 +720,11 @@ var _ = Describe("Backup Controller", func() {
 			Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Times(0)
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.event).To(Equal(backupFailedEvent))
-		Expect(syncInfo.reason).To(Equal(fmt.Sprintf(backupFailed, "VMI backup status was lost")))
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+		doneCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionDone))
+		Expect(doneCond.Message).To(ContainSubstring("VMI backup status was lost"))
 	})
 
 	Context("Backup deletion cleanup", func() {
@@ -780,14 +754,11 @@ var _ = Describe("Backup Controller", func() {
 			pvc := createPVC(pvcName)
 			controller.pvcStore.Add(pvc)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			// Should return includedVolumes without a completion event
-			Expect(syncInfo.event).To(BeEmpty())
-			Expect(syncInfo.includedVolumes).To(HaveLen(2))
-			Expect(syncInfo.includedVolumes[0].VolumeName).To(Equal("rootdisk"))
-			Expect(syncInfo.includedVolumes[1].VolumeName).To(Equal("datadisk"))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
+			Expect(backupCopy.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
+			Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
 		})
 
 		It("should not update includedVolumes when already set in backup status", func() {
@@ -815,9 +786,9 @@ var _ = Describe("Backup Controller", func() {
 			pvc := createPVC(pvcName)
 			controller.pvcStore.Add(pvc)
 
-			syncInfo := controller.sync(backup)
-			// Should return nil since volumes already set - no update needed
-			Expect(syncInfo).To(BeNil())
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 		})
 
 		It("should patch VMI to remove backup status when backup is completed", func() {
@@ -842,14 +813,12 @@ var _ = Describe("Backup Controller", func() {
 			controller.pvcStore.Add(pvc)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
-			syncInfo := controller.sync(backup)
-
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupCompletedEvent))
-			Expect(syncInfo.reason).To(Equal(backupCompleted))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
 		})
 
 		It("should remove finalizer when a completed backup is being deleted", func() {
@@ -871,9 +840,8 @@ var _ = Describe("Backup Controller", func() {
 				return true, updatedBackup, nil
 			})
 
-			syncInfo := controller.sync(backup)
-
-			Expect(syncInfo).To(BeNil())
+			_, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(finalizerPatched).To(BeTrue())
 		})
 	})
@@ -893,8 +861,8 @@ var _ = Describe("Backup Controller", func() {
 				return true, backup, nil
 			})
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).To(BeNil())
+			_, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
 
@@ -913,13 +881,14 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupFailedEvent))
-			Expect(syncInfo.reason).To(ContainSubstring("backup was deleted during initialization"))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+			doneCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionDone))
+			Expect(doneCond.Message).To(ContainSubstring("backup was deleted during initialization"))
 		})
 
 		It("should retry cleanup if it fails when backup is deleted during initialization", func() {
@@ -938,12 +907,11 @@ var _ = Describe("Backup Controller", func() {
 
 			conflictErr := errors.NewApplyConflict([]metav1.StatusCause{}, "conflict error")
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(nil, conflictErr)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).To(MatchError(conflictErr))
+			_, err := syncBackup(backup)
+			Expect(err).To(MatchError(conflictErr))
 		})
 	})
 
@@ -959,10 +927,12 @@ var _ = Describe("Backup Controller", func() {
 			vm := createVM(vmName)
 			controller.vmStore.Add(vm)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupFailedEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(backupFailed, "VMI was deleted during backup")))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+			doneCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionDone))
+			Expect(doneCond.Message).To(ContainSubstring("VMI was deleted during backup"))
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
 		})
 
 		It("should initiate abort if backup is deleted while progressing", func() {
@@ -989,10 +959,39 @@ var _ = Describe("Backup Controller", func() {
 					return nil
 				})
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupAbortingEvent))
-			Expect(syncInfo.reason).To(Equal(backupAborting))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionAborting))).To(BeTrue())
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupAbortingEvent)))
+		})
+
+		It("should record warning event when aborting a push-mode backup", func() {
+			backupTracker := createBackupTracker(backupTrackerName, vmName, "new-checkpoint")
+			controller.backupTrackerInformer.GetStore().Add(backupTracker)
+
+			backup := createBackupWithTracker(backupName, vmName, pvcName)
+			backup.Spec.Mode = pointer.P(backupv1.PushMode)
+			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+				},
+			}
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+			vmi := createInitializedVMI()
+			controller.vmiStore.Add(vmi)
+
+			vmiInterface.EXPECT().
+				Backup(gomock.Any(), vmName, gomock.Any()).
+				Return(nil)
+
+			syncBackup(backup)
+			var event string
+			Eventually(recorder.Events).Should(Receive(&event))
+			Expect(event).To(ContainSubstring(backupAbortingEvent))
+			Expect(event).To(ContainSubstring(string(corev1.EventTypeWarning)))
 		})
 
 		It("should wait if backup is already marked as aborting", func() {
@@ -1013,8 +1012,8 @@ var _ = Describe("Backup Controller", func() {
 			vmi := createInitializedVMI()
 			controller.vmiStore.Add(vmi)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).To(BeNil())
+			_, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should finalize backup as failed when abort completes", func() {
@@ -1042,7 +1041,7 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmiCanceled)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmiCanceled, nil)
 
 			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -1050,10 +1049,13 @@ var _ = Describe("Backup Controller", func() {
 				return true, nil, nil
 			})
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupFailedEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(backupFailed, "backup aborted")))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+			doneCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionDone))
+			Expect(doneCond.Message).To(ContainSubstring("backup aborted"))
+			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionAborting))).To(BeTrue())
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
 		})
 
 		It("should initiate cleanup if VMI stops running while progressing", func() {
@@ -1073,13 +1075,12 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-			Expect(syncInfo.reason).To(ContainSubstring("detaching"))
+			_, err := syncBackup(backup)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not done cleaning"))
 		})
 
 		It("should fail backup when cleanup completes for a stopped VMI", func() {
@@ -1101,28 +1102,32 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmiDetached)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmiDetached, nil)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupFailedEvent))
-			Expect(syncInfo.reason).To(ContainSubstring("VMI is not in a running state"))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+			doneCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionDone))
+			Expect(doneCond.Message).To(ContainSubstring("VMI is not in a running state"))
 		})
 	})
 
 	It("should fail backup when VMI is nil during completion check", func() {
-		syncInfo := controller.checkBackupCompletion(nil, nil, nil)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupFailedEvent))
-		Expect(syncInfo.reason).To(ContainSubstring("unexpected state: VMI is nil"))
+		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+		backup.Status = &backupv1.VirtualMachineBackupStatus{}
+		err := controller.checkBackupCompletion(backup, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backup.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+		doneCond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionDone))
+		Expect(doneCond.Message).To(ContainSubstring("unexpected state: VMI is nil"))
 	})
 
 	Context("handleBackupInitiation", func() {
 		It("should return error if updateSourceBackupInProgress fails", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{}
 
 			vm := createVM(vmName)
 			controller.vmStore.Add(vm)
@@ -1130,17 +1135,18 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmiStore.Add(vmi)
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(nil, fmt.Errorf("patch failed"))
 
-			syncInfo := controller.handleBackupInitiation(backup, vmi, nil, log.DefaultLogger())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err.Error()).To(ContainSubstring("failed to update source backup in progress"))
+			err := controller.handleBackupInitiation(backup, vmi, nil, log.DefaultLogger())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to update source backup in progress"))
 		})
 
 		It("should return error if Start backup command fails", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{}
 
 			vm := createVM(vmName)
 			controller.vmStore.Add(vm)
@@ -1153,320 +1159,10 @@ var _ = Describe("Backup Controller", func() {
 				Backup(gomock.Any(), vmName, gomock.Any()).
 				Return(fmt.Errorf("api error"))
 
-			syncInfo := controller.handleBackupInitiation(backup, vmi, nil, log.DefaultLogger())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err.Error()).To(ContainSubstring("failed to send Start backup command"))
+			err := controller.handleBackupInitiation(backup, vmi, nil, log.DefaultLogger())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to send Start backup command"))
 		})
-	})
-
-	Context("updateStatus", func() {
-		It("should initialize status when nil", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			Expect(backup.Status).To(BeNil())
-
-			addBackup(backup)
-
-			statusUpdated := false
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update := action.(testing.UpdateAction)
-				if update.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				statusUpdated = true
-				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				Expect(updateObj.Status).ToNot(BeNil())
-				Expect(updateObj.Status.Conditions).To(HaveLen(2))
-				return true, updateObj, nil
-			})
-
-			err := controller.updateStatus(backup, nil, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statusUpdated).To(BeTrue())
-		})
-
-		DescribeTable("should update to Progressing and set Type when backup initiated",
-			func(backupType backupv1.BackupType) {
-				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-				backup.Status = &backupv1.VirtualMachineBackupStatus{
-					Conditions: []metav1.Condition{
-						newCondition(string(backupv1.ConditionInitializing), metav1.ConditionTrue, "Initializing", ""),
-					},
-				}
-
-				addBackup(backup)
-
-				syncInfo := &SyncInfo{
-					event:      backupInitiatedEvent,
-					reason:     backupInProgress,
-					backupType: backupType,
-				}
-
-				statusUpdated := false
-				kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					update := action.(testing.UpdateAction)
-					if update.GetSubresource() != "status" {
-						return false, nil, nil
-					}
-					statusUpdated = true
-					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-					hasProgressing := false
-					cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionProgressing))
-					if cond != nil && cond.Status == metav1.ConditionTrue {
-						hasProgressing = true
-					}
-					Expect(hasProgressing).To(BeTrue())
-					Expect(updateObj.Status.Type).To(Equal(backupType))
-					return true, updateObj, nil
-				})
-
-				err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(statusUpdated).To(BeTrue())
-			},
-			Entry("Full backup type", backupv1.Full),
-			Entry("Incremental backup type", backupv1.Incremental),
-		)
-
-		DescribeTable("should update to Done when backup completed and preserve existing Type",
-			func(backupType backupv1.BackupType) {
-				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-				backup.Status = &backupv1.VirtualMachineBackupStatus{
-					Type: backupType, // Type was already set when backup was initiated
-					Conditions: []metav1.Condition{
-						newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-					},
-				}
-
-				addBackup(backup)
-
-				syncInfo := &SyncInfo{
-					event:  backupCompletedEvent,
-					reason: backupCompleted,
-				}
-
-				statusUpdated := false
-				kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					update := action.(testing.UpdateAction)
-					if update.GetSubresource() != "status" {
-						return false, nil, nil
-					}
-					statusUpdated = true
-					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-					Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
-						string(backupv1.ConditionDone))).To(BeTrue())
-					// Type should be preserved from when it was set at initiation
-					Expect(updateObj.Status.Type).To(Equal(backupType))
-					return true, updateObj, nil
-				})
-
-				err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(statusUpdated).To(BeTrue())
-			},
-			Entry("Full backup type", backupv1.Full),
-			Entry("Incremental backup type", backupv1.Incremental),
-		)
-
-		It("should add Aborting when backup is deleted while progressing", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []metav1.Condition{
-					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-				},
-			}
-			backup.DeletionTimestamp = pointer.P(metav1.Now())
-
-			addBackup(backup)
-
-			syncInfo := &SyncInfo{
-				event:  backupAbortingEvent,
-				reason: backupAborting,
-			}
-
-			statusUpdated := false
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update := action.(testing.UpdateAction)
-				if update.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				statusUpdated = true
-				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-
-				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
-					string(backupv1.ConditionProgressing))).To(BeTrue(), "backup should be Progressing")
-				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
-					string(backupv1.ConditionAborting))).To(BeTrue(), "backup should be Aborting")
-				return true, updateObj, nil
-			})
-
-			err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statusUpdated).To(BeTrue())
-			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupAbortingEvent)))
-		})
-
-		It("should update to Done and set Aborting to false if backup was aborted successfully", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []metav1.Condition{
-					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-					newCondition(string(backupv1.ConditionAborting), metav1.ConditionTrue, "Aborting", ""),
-				},
-			}
-			backup.DeletionTimestamp = pointer.P(metav1.Now())
-
-			addBackup(backup)
-
-			syncInfo := &SyncInfo{
-				event:  backupFailedEvent,
-				reason: fmt.Sprintf(backupFailed, "backup aborted"),
-			}
-
-			statusUpdated := false
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update := action.(testing.UpdateAction)
-				if update.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				statusUpdated = true
-				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
-					string(backupv1.ConditionDone))).To(BeTrue(), "backup should be done")
-				Expect(meta.IsStatusConditionFalse(updateObj.Status.Conditions,
-					string(backupv1.ConditionAborting))).To(BeTrue(), "backup was aborting and should have its Aborting condition set to false")
-				return true, updateObj, nil
-			})
-
-			err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statusUpdated).To(BeTrue())
-			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
-		})
-
-		It("should record warning event when backup completed with warning", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []metav1.Condition{
-					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-				},
-			}
-
-			addBackup(backup)
-
-			warningMsg := "Some volumes could not be quiesced"
-			syncInfo := &SyncInfo{
-				event:  backupCompletedWithWarningEvent,
-				reason: fmt.Sprintf(backupCompletedWithWarningMsg, warningMsg),
-			}
-
-			statusUpdated := false
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update := action.(testing.UpdateAction)
-				if update.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				statusUpdated = true
-				return true, update.GetObject(), nil
-			})
-
-			err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statusUpdated).To(BeTrue())
-
-			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupCompletedWithWarningEvent)))
-		})
-
-		It("should add Deleting condition when backup has deletion timestamp", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			backup.Finalizers = []string{vmBackupFinalizer}
-			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
-			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []metav1.Condition{
-					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-				},
-			}
-
-			addBackup(backup)
-
-			statusUpdated := false
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update := action.(testing.UpdateAction)
-				if update.GetSubresource() != "status" {
-					return false, nil, nil
-				}
-				statusUpdated = true
-				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionDeleting))).To(BeTrue())
-				return true, updateObj, nil
-			})
-
-			err := controller.updateStatus(backup, nil, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(statusUpdated).To(BeTrue())
-		})
-
-		It("should not update when status unchanged", func() {
-			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []metav1.Condition{
-					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-				},
-			}
-
-			addBackup(backup)
-
-			kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				Fail("Should not update when status unchanged")
-				return true, nil, fmt.Errorf("unexpected update call")
-			})
-
-			err := controller.updateStatus(backup, nil, log.DefaultLogger())
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		DescribeTable("should update IncludedVolumes in backup status",
-			func(event string, reason string, expectDoneCondition bool) {
-				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-				backup.Status = &backupv1.VirtualMachineBackupStatus{
-					Conditions: []metav1.Condition{
-						newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
-					},
-				}
-
-				addBackup(backup)
-
-				volumesInfo := []backupv1.BackupVolumeInfo{
-					{VolumeName: "rootdisk", DiskTarget: "vda"},
-					{VolumeName: "datadisk", DiskTarget: "vdb"},
-				}
-				syncInfo := &SyncInfo{
-					event:           event,
-					reason:          reason,
-					includedVolumes: volumesInfo,
-				}
-
-				statusUpdated := false
-				kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					update := action.(testing.UpdateAction)
-					if update.GetSubresource() != "status" {
-						return false, nil, nil
-					}
-					statusUpdated = true
-					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-					Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionDone))).To(Equal(expectDoneCondition))
-					Expect(updateObj.Status.IncludedVolumes).To(HaveLen(2))
-					Expect(updateObj.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
-					Expect(updateObj.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
-					return true, updateObj, nil
-				})
-
-				err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(statusUpdated).To(BeTrue())
-			},
-			Entry("when backup in progress (early update)", "", "", false),
-			Entry("when backup completed", backupCompletedEvent, backupCompleted, true),
-		)
 	})
 
 	Context("updateSourceBackupInProgress", func() {
@@ -1491,8 +1187,8 @@ var _ = Describe("Backup Controller", func() {
 
 			patched := false
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 					patched = true
 					Expect(string(patchBytes)).To(ContainSubstring("backupStatus"))
 					Expect(string(patchBytes)).To(ContainSubstring(backupName))
@@ -1522,35 +1218,39 @@ var _ = Describe("Backup Controller", func() {
 	})
 
 	Context("resolveCompletion", func() {
-		DescribeTable("should correctly resolve completion status",
-			func(isFailed bool, msg *string, expectedEvent string, expectedReason string) {
+		DescribeTable("should correctly resolve completion status and record event",
+			func(isFailed bool, msg *string, expectedDoneReason string, expectedMessageContains string, expectedEvent string) {
 				backup := createBackup(backupName, vmName, pvcName, backupv1.PullMode)
+				backup.Status = &backupv1.VirtualMachineBackupStatus{}
 
 				backupStatus := &v1.VirtualMachineInstanceBackupStatus{
 					Failed:    isFailed,
 					BackupMsg: msg,
 				}
 
-				syncInfo := resolveCompletion(backup, backupStatus)
+				controller.resolveCompletion(backup, backupStatus)
 
-				Expect(syncInfo.event).To(Equal(expectedEvent))
-				Expect(syncInfo.reason).To(Equal(expectedReason))
+				Expect(meta.IsStatusConditionTrue(backup.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+				doneCond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionDone))
+				Expect(doneCond.Reason).To(Equal(expectedDoneReason))
+				Expect(doneCond.Message).To(ContainSubstring(expectedMessageContains))
+				Eventually(recorder.Events).Should(Receive(ContainSubstring(expectedEvent)))
 			},
 			Entry("failure with a message",
 				true, pointer.P("disk error"),
-				backupFailedEvent, fmt.Sprintf(backupFailed, "disk error"),
+				"Failed", "disk error", backupFailedEvent,
 			),
 			Entry("failure without a message (nil check)",
 				true, nil,
-				backupFailedEvent, fmt.Sprintf(backupFailed, "unknown, no completion message"),
+				"Failed", "unknown, no completion message", backupFailedEvent,
 			),
 			Entry("success with a warning message",
 				false, pointer.P("quiesce failed"),
-				backupCompletedWithWarningEvent, fmt.Sprintf(backupCompletedWithWarningMsg, "quiesce failed"),
+				"CompletedWithWarning", "quiesce failed", backupCompletedWithWarningEvent,
 			),
 			Entry("success",
 				false, nil,
-				backupCompletedEvent, backupCompleted,
+				"Completed", backupCompleted, backupCompletedEvent,
 			),
 		)
 	})
@@ -1573,25 +1273,19 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		patchCalled := false
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
-				patchCalled = true
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				Expect(string(patchBytes)).To(ContainSubstring("utilityVolumes"))
 				Expect(string(patchBytes)).To(ContainSubstring(pvcName))
 				return vmi, nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-		Expect(syncInfo.reason).To(Equal(fmt.Sprintf(attachTargetPVCMsg, pvcName, vmName)))
-		Expect(patchCalled).To(BeTrue())
+		_, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should successfully initiate backup and return backupInitiatedEvent with Full type", func() {
+	It("should successfully initiate backup with Full type", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 		backup.Finalizers = []string{vmBackupFinalizer}
 
@@ -1604,11 +1298,9 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		backupCalled := false
 		vmiInterface.EXPECT().
 			Backup(gomock.Any(), vmName, gomock.Any()).
 			DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
-				backupCalled = true
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
@@ -1616,13 +1308,10 @@ var _ = Describe("Backup Controller", func() {
 				return nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-		Expect(syncInfo.reason).To(Equal(backupInProgress))
-		Expect(syncInfo.backupType).To(Equal(backupv1.Full))
-		Expect(backupCalled).To(BeTrue())
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
 	})
 
 	It("should initiate full backup when backupTracker exists but has no LatestCheckpoint", func() {
@@ -1641,11 +1330,9 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		backupCalled := false
 		vmiInterface.EXPECT().
 			Backup(gomock.Any(), vmName, gomock.Any()).
 			DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
-				backupCalled = true
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
@@ -1654,13 +1341,10 @@ var _ = Describe("Backup Controller", func() {
 				return nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-		Expect(syncInfo.reason).To(Equal(backupInProgress))
-		Expect(syncInfo.backupType).To(Equal(backupv1.Full))
-		Expect(backupCalled).To(BeTrue())
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
 	})
 
 	It("should initiate incremental backup when backupTracker has LatestCheckpoint", func() {
@@ -1679,11 +1363,9 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		backupCalled := false
 		vmiInterface.EXPECT().
 			Backup(gomock.Any(), vmName, gomock.Any()).
 			DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
-				backupCalled = true
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
@@ -1693,13 +1375,10 @@ var _ = Describe("Backup Controller", func() {
 				return nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-		Expect(syncInfo.reason).To(Equal(backupInProgress))
-		Expect(syncInfo.backupType).To(Equal(backupv1.Incremental))
-		Expect(backupCalled).To(BeTrue())
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.Type).To(Equal(backupv1.Incremental))
 	})
 
 	It("should initiate full backup with ForceFullBackup even with LatestCheckpoint", func() {
@@ -1719,11 +1398,9 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		backupCalled := false
 		vmiInterface.EXPECT().
 			Backup(gomock.Any(), vmName, gomock.Any()).
 			DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
-				backupCalled = true
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
@@ -1732,13 +1409,10 @@ var _ = Describe("Backup Controller", func() {
 				return nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-		Expect(syncInfo.reason).To(Equal(backupInProgress))
-		Expect(syncInfo.backupType).To(Equal(backupv1.Full))
-		Expect(backupCalled).To(BeTrue())
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
 	})
 
 	It("should initiate cleanup when backup completed", func() {
@@ -1761,22 +1435,15 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		// Expect detach patch
-		patchCalled := false
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
-				patchCalled = true
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				Expect(string(patchBytes)).To(ContainSubstring("utilityVolumes"))
 				return vmi, nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-		Expect(syncInfo.reason).To(Equal(fmt.Sprintf(detachTargetPVCMsg, vmName)))
-		Expect(patchCalled).To(BeTrue())
+		_, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should remove backup status from VMI and return completed event when already detached", func() {
@@ -1808,28 +1475,22 @@ var _ = Describe("Backup Controller", func() {
 		pvc := createPVC(pvcName)
 		controller.pvcStore.Add(pvc)
 
-		// Expect patch to remove backup status
-		patchCalled := false
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, name string, patchType k8stypes.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
-				patchCalled = true
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, name string, patchType types.PatchType, patchBytes []byte, opts metav1.PatchOptions, subresources ...string) (*v1.VirtualMachineInstance, error) {
 				Expect(string(patchBytes)).To(ContainSubstring("backupStatus"))
 				Expect(string(patchBytes)).To(ContainSubstring("remove"))
 				return vmi, nil
 			})
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		Expect(syncInfo.event).To(Equal(backupCompletedEvent))
-		Expect(syncInfo.reason).To(Equal(backupCompleted))
-		Expect(patchCalled).To(BeTrue())
-		Expect(syncInfo.includedVolumes).To(HaveLen(2))
-		Expect(syncInfo.includedVolumes[0].VolumeName).To(Equal("rootdisk"))
-		Expect(syncInfo.includedVolumes[1].VolumeName).To(Equal("datadisk"))
+		backupCopy, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
+		Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
+		Expect(backupCopy.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
+		Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
 		// checkpointName should NOT be populated since there's no BackupTracker
-		Expect(syncInfo.checkpointName).To(BeNil())
+		Expect(backupCopy.Status.CheckpointName).To(BeNil())
 	})
 
 	DescribeTable("should update backupTracker with checkpoint and volumes info when backup completes",
@@ -1869,7 +1530,7 @@ var _ = Describe("Backup Controller", func() {
 
 			// Expect patch to remove backup status from VMI
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
 			// Expect patch to update backupTracker with checkpoint and volumes info
@@ -1904,17 +1565,15 @@ var _ = Describe("Backup Controller", func() {
 			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
 				Return(kubevirtClient.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupCompletedEvent))
-			Expect(syncInfo.reason).To(Equal(backupCompleted))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionDone))).To(BeTrue())
 			Expect(trackerPatched).To(BeTrue())
-			Expect(syncInfo.includedVolumes).To(HaveLen(2))
-			Expect(syncInfo.includedVolumes[0].VolumeName).To(Equal("rootdisk"))
-			Expect(syncInfo.includedVolumes[0].DiskTarget).To(Equal("vda"))
-			Expect(syncInfo.includedVolumes[1].VolumeName).To(Equal("datadisk"))
-			Expect(syncInfo.includedVolumes[1].DiskTarget).To(Equal("vdb"))
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
+			Expect(backupCopy.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
+			Expect(backupCopy.Status.IncludedVolumes[0].DiskTarget).To(Equal("vda"))
+			Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
+			Expect(backupCopy.Status.IncludedVolumes[1].DiskTarget).To(Equal("vdb"))
 		},
 		Entry("when tracker has no previous checkpoint", "", "\"op\":\"add\""),
 		Entry("when tracker already has a checkpoint", "old-checkpoint", "\"op\":\"replace\""),
@@ -1959,16 +1618,11 @@ var _ = Describe("Backup Controller", func() {
 
 		// Expect VMI patch for detaching PVC (cleanup returns early)
 		vmiInterface.EXPECT().
-			Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+			Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 			Return(vmi, nil)
 
-		syncInfo := controller.sync(backup)
-		Expect(syncInfo).ToNot(BeNil())
-		Expect(syncInfo.err).ToNot(HaveOccurred())
-		// Cleanup returned early (detaching PVC)
-		Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
-		Expect(syncInfo.reason).To(ContainSubstring("detaching"))
-		// But backupTracker was still updated before cleanup
+		_, err := syncBackup(backup)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(trackerPatched).To(BeTrue())
 	})
 
@@ -2038,12 +1692,12 @@ var _ = Describe("Backup Controller", func() {
 			backup.Status.Conditions = append(backup.Status.Conditions,
 				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 
-			vmExport := createBackupVMExport(backup)
+			vmExport = createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Pending}
 			controller.vmExportStore.Add(vmExport)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).To(BeNil())
+			_, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should update includedVolumes when export is in Ready phase but the backup has no included volumes", func() {
@@ -2061,11 +1715,9 @@ var _ = Describe("Backup Controller", func() {
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = append(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes, volume)
 			controller.vmiStore.Update(vmi)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(BeEmpty())
-			Expect(syncInfo.includedVolumes).To(ContainElement(volume))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupCopy.Status.IncludedVolumes).To(ContainElement(volume))
 		})
 
 		It("should return an error when export is ready but has no links", func() {
@@ -2078,10 +1730,9 @@ var _ = Describe("Backup Controller", func() {
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Ready, Links: nil}
 			controller.vmExportStore.Add(vmExport)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err).To(MatchError(ContainSubstring("no backup links")))
+			_, err := syncBackup(backup)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("no backup links")))
 		})
 
 		It("should return an error when the export is ready but the cert is empty", func() {
@@ -2108,10 +1759,9 @@ var _ = Describe("Backup Controller", func() {
 			}
 			controller.vmExportStore.Add(vmExport)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err).To(MatchError(ContainSubstring("no cert exposed")))
+			_, err := syncBackup(backup)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("no cert exposed")))
 		})
 
 		It("should return ExportReady with populated endpoints using internal links", func() {
@@ -2135,15 +1785,14 @@ var _ = Describe("Backup Controller", func() {
 			}
 			controller.vmExportStore.Add(vmExport)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupExportReadyEvent))
-			Expect(syncInfo.caCert).ToNot(BeNil())
-			Expect(*syncInfo.caCert).ToNot(BeEmpty())
-			Expect(syncInfo.includedVolumes).To(HaveLen(1))
-			Expect(syncInfo.includedVolumes[0].DataEndpoint).To(Equal("/data"))
-			Expect(syncInfo.includedVolumes[0].MapEndpoint).To(Equal("/map"))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionExportReady))).To(BeTrue())
+			Expect(backupCopy.Status.EndpointCert).ToNot(BeNil())
+			Expect(*backupCopy.Status.EndpointCert).ToNot(BeEmpty())
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
+			Expect(backupCopy.Status.IncludedVolumes[0].DataEndpoint).To(Equal("/data"))
+			Expect(backupCopy.Status.IncludedVolumes[0].MapEndpoint).To(Equal("/map"))
 		})
 
 		It("should prioritize external links over internal links", func() {
@@ -2177,13 +1826,12 @@ var _ = Describe("Backup Controller", func() {
 			}
 			controller.vmExportStore.Add(vmExport)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupExportReadyEvent))
-			Expect(syncInfo.includedVolumes).To(HaveLen(1))
-			Expect(syncInfo.includedVolumes[0].DataEndpoint).To(Equal("/external/data"))
-			Expect(syncInfo.includedVolumes[0].MapEndpoint).To(Equal("/external/map"))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionExportReady))).To(BeTrue())
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
+			Expect(backupCopy.Status.IncludedVolumes[0].DataEndpoint).To(Equal("/external/data"))
+			Expect(backupCopy.Status.IncludedVolumes[0].MapEndpoint).To(Equal("/external/map"))
 		})
 
 		It("should map endpoints independently for multiple volumes", func() {
@@ -2219,11 +1867,10 @@ var _ = Describe("Backup Controller", func() {
 			}
 			controller.vmExportStore.Add(vmExport)
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.includedVolumes).To(HaveLen(2))
-			for _, vol := range syncInfo.includedVolumes {
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
+			for _, vol := range backupCopy.Status.IncludedVolumes {
 				Expect(vol.DataEndpoint).To(ContainSubstring(vol.VolumeName))
 				Expect(vol.MapEndpoint).To(ContainSubstring(vol.VolumeName))
 			}
@@ -2239,13 +1886,12 @@ var _ = Describe("Backup Controller", func() {
 			controller.vmExportStore.Add(unownedExport)
 
 			errMsg := fmt.Sprintf(exportExistsWithDifferentOwner, backupName, backupName)
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).To(HaveOccurred())
-			Expect(syncInfo.err).To(MatchError(ContainSubstring(errMsg)))
+			_, err := syncBackup(backup)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring(errMsg)))
 		})
 
-		It("should create a new export when none exists and return preparing export event", func() {
+		It("should create a new export when none exists and set preparing export conditions", func() {
 
 			kubevirtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				createAction := action.(testing.CreateAction)
@@ -2262,10 +1908,9 @@ var _ = Describe("Backup Controller", func() {
 				return false, nil, nil
 			})
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupPreparingVMExportEvent))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionExportInitiated))).To(BeTrue())
 		})
 
 		It("should set a TTL on the export that reflects elapsed time", func() {
@@ -2283,7 +1928,7 @@ var _ = Describe("Backup Controller", func() {
 				return false, nil, nil
 			})
 
-			controller.sync(backup)
+			syncBackup(backup)
 		})
 
 		It("should reset to Progressing condition when the export has disappeared", func() {
@@ -2291,11 +1936,9 @@ var _ = Describe("Backup Controller", func() {
 				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""),
 				newCondition(string(backupv1.ConditionExportReady), metav1.ConditionTrue, "ExportReady", ""),
 			)
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupPreparingVMExportEvent))
-			Expect(syncInfo.reason).To(Equal(backupPreparingVMExport))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionExportInitiated))).To(BeTrue())
 		})
 
 		It("should abort when backup is still in progress at TTL expiry", func() {
@@ -2311,11 +1954,11 @@ var _ = Describe("Backup Controller", func() {
 					return nil
 				})
 
-			syncInfo := controller.sync(backup)
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.err).ToNot(HaveOccurred())
-			Expect(syncInfo.event).To(Equal(backupAbortingEvent))
-			Expect(syncInfo.reason).To(ContainSubstring(backupTTLExpiredMsg))
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionAborting))).To(BeTrue())
+			abortCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionAborting))
+			Expect(abortCond.Message).To(ContainSubstring(backupTTLExpiredMsg))
 		})
 
 		It("should delete the export when the backup completed", func() {
@@ -2344,10 +1987,11 @@ var _ = Describe("Backup Controller", func() {
 			})
 
 			vmiInterface.EXPECT().
-				Patch(gomock.Any(), vmName, k8stypes.JSONPatchType, gomock.Any(), gomock.Any()).
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
-			controller.sync(backup)
+			_, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(deleteCalled).To(BeTrue())
 		})
 	})

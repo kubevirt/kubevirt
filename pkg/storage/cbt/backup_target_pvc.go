@@ -26,7 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/types"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -49,7 +49,6 @@ var (
 	failedTargetPVCAttach       = "failed to attach target backup pvc: %s"
 	failedTargetPVCDetach       = "failed to detach target backup pvc: %s"
 	attachTargetPVCMsg          = "attaching backup target pvc %s to vmi %s"
-	attachInProgressMsg         = "backup target PVC %s is being attached to VMI %s"
 	detachTargetPVCMsg          = "detaching backup target pvc from vmi %s"
 	backupTargetPVCBlockModeMsg = "backup target PVC must be a filesystem PVC, provided pvc %s/%s is block"
 	pvcNotFoundMsg              = "PVC %s/%s doesnt exist"
@@ -57,31 +56,25 @@ var (
 	backupTargetPVCNameNilMsg = "backup target PVC name is nil"
 )
 
-func (ctrl *VMBackupController) verifyBackupTargetPVC(pvcName *string, namespace string) *SyncInfo {
+func (ctrl *VMBackupController) verifyBackupTargetPVC(pvcName *string, namespace string) (string, error) {
 	if pvcName == nil {
-		log.Log.Error(backupTargetPVCNameNilMsg)
-		return syncInfoError(fmt.Errorf("%s", backupTargetPVCNameNilMsg))
+		return "", fmt.Errorf("%s", backupTargetPVCNameNilMsg)
 	}
-	objKey := cacheKeyFunc(namespace, *pvcName)
+	objKey := types.NamespacedName{Namespace: namespace, Name: *pvcName}.String()
 	obj, exists, err := ctrl.pvcStore.GetByKey(objKey)
 	if err != nil {
-		err = fmt.Errorf("error getting PVC from store: %w", err)
-		log.Log.Error(err.Error())
-		return syncInfoError(err)
+		return "", fmt.Errorf("error getting PVC from store: %w", err)
 	}
 
 	if !exists {
-		return &SyncInfo{
-			event:  backupInitializingEvent,
-			reason: fmt.Sprintf(pvcNotFoundMsg, namespace, *pvcName),
-		}
+		return fmt.Sprintf(pvcNotFoundMsg, namespace, *pvcName), nil
 	}
 	pvc := obj.(*corev1.PersistentVolumeClaim)
-	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-		return syncInfoError(fmt.Errorf(backupTargetPVCBlockModeMsg, namespace, *pvcName))
+	if storagetypes.IsPVCBlock(pvc.Spec.VolumeMode) {
+		return "", fmt.Errorf(backupTargetPVCBlockModeMsg, namespace, *pvcName)
 	}
 
-	return nil
+	return "", nil
 }
 
 func (ctrl *VMBackupController) backupTargetPVCAttached(vmi *v1.VirtualMachineInstance, volumeName string) bool {
@@ -116,14 +109,10 @@ func (ctrl *VMBackupController) backupTargetPVCDetached(vmi *v1.VirtualMachineIn
 	return true
 }
 
-func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInstance, pvcName string, volumeName string) *SyncInfo {
-	// Check if we already patched the VMI with the utilityVolume
+func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInstance, pvcName string, volumeName string) error {
 	for _, vol := range vmi.Spec.UtilityVolumes {
 		if vol.Name == volumeName {
-			return &SyncInfo{
-				event:  backupInitializingEvent,
-				reason: fmt.Sprintf(attachInProgressMsg, pvcName, vmi.Name),
-			}
+			return nil
 		}
 	}
 
@@ -148,28 +137,19 @@ func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInst
 
 	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
-		err = fmt.Errorf("failed to generate attach backup target PVC patch: %w", err)
-		log.Log.Error(err.Error())
-		return syncInfoError(err)
+		return fmt.Errorf("failed to generate attach backup target PVC patch: %w", err)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		failedPatchErr := fmt.Errorf(failedTargetPVCAttach, err)
-		log.Log.Object(vmi).Errorf("%s", failedPatchErr.Error())
-		return syncInfoError(failedPatchErr)
+		return fmt.Errorf(failedTargetPVCAttach, err)
 	}
 
-	pvcAttachMsg := fmt.Sprintf(attachTargetPVCMsg, pvcName, vmi.Name)
-	log.Log.Object(vmi).Infof("%s", pvcAttachMsg)
-
-	return &SyncInfo{
-		event:  backupInitializingEvent,
-		reason: pvcAttachMsg,
-	}
+	log.Log.Object(vmi).Infof(attachTargetPVCMsg, pvcName, vmi.Name)
+	return nil
 }
 
-func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInstance, volumeName string, event string) *SyncInfo {
+func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInstance, volumeName string) error {
 	if len(vmi.Spec.UtilityVolumes) == 0 {
 		return nil
 	}
@@ -192,23 +172,14 @@ func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInst
 
 	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
-		failedPatchErr := fmt.Errorf(failedTargetPVCDetach, err)
-		log.Log.Object(vmi).Errorf("Failed to generate patch: %s", failedPatchErr.Error())
-		return syncInfoError(failedPatchErr)
+		return fmt.Errorf(failedTargetPVCDetach, err)
 	}
 
-	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, k8stypes.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = ctrl.client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		failedPatchErr := fmt.Errorf(failedTargetPVCDetach, err)
-		log.Log.Object(vmi).Errorf("Failed to patch VMI: %s", failedPatchErr.Error())
-		return syncInfoError(failedPatchErr)
+		return fmt.Errorf(failedTargetPVCDetach, err)
 	}
 
-	pvcDetachMsg := fmt.Sprintf(detachTargetPVCMsg, vmi.Name)
-	log.Log.Object(vmi).Infof("%s", pvcDetachMsg)
-
-	return &SyncInfo{
-		event:  event,
-		reason: pvcDetachMsg,
-	}
+	log.Log.Object(vmi).Infof(detachTargetPVCMsg, vmi.Name)
+	return nil
 }

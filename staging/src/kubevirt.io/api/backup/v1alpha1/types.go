@@ -246,9 +246,6 @@ const (
 	// ConditionExportReady indicates the backup export is ready
 	ConditionExportReady ConditionType = "ExportReady"
 
-	// ConditionDeleting indicates the backup is deleting
-	ConditionDeleting ConditionType = "Deleting"
-
 	// ConditionAborting indicates the backup is aborting
 	ConditionAborting ConditionType = "Aborting"
 )
