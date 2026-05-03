@@ -77,6 +77,9 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 		return vm, nil
 	}
 
+	vmCopy := vm.DeepCopy()
+	backfillDefaultPodNetwork(vmCopy, vmi)
+
 	var (
 		vmiIfacesByName        map[string]v1.Interface
 		vmiIfaceStatusesByName map[string]v1.VirtualMachineInstanceNetworkInterface
@@ -99,7 +102,6 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 		vmiIfacesByName = vmispec.IndexInterfaceSpecByName(updatedVMI.Spec.Domain.Devices.Interfaces)
 	}
 
-	vmCopy := vm.DeepCopy()
 	ifaces, networks := clearDetachedIfacesFromVM(
 		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces,
 		vmCopy.Spec.Template.Spec.Networks,
@@ -220,6 +222,36 @@ func clearDetachedIfacesFromVMI(
 	}
 
 	return retainedIfaces, vmispec.FilterNetworksByInterfaces(specNets, retainedIfaces)
+}
+
+// backfillDefaultPodNetwork persists the default pod network and its interface
+// from a running VMI back to the VM spec. This handles VMs created before the
+// mutating webhook was updated to set network defaults at creation time.
+func backfillDefaultPodNetwork(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+	if vmi == nil {
+		return
+	}
+	if autoAttach := vm.Spec.Template.Spec.Domain.Devices.AutoattachPodInterface; autoAttach != nil && !*autoAttach {
+		return
+	}
+	if len(vm.Spec.Template.Spec.Networks) != 0 || len(vm.Spec.Template.Spec.Domain.Devices.Interfaces) != 0 {
+		return
+	}
+	podNetwork := vmispec.LookupPodNetwork(vmi.Spec.Networks)
+	if podNetwork == nil {
+		return
+	}
+	iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, podNetwork.Name)
+	if iface == nil {
+		return
+	}
+	vm.Spec.Template.Spec.Networks = []v1.Network{*podNetwork.DeepCopy()}
+	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{
+			Name:                   iface.Name,
+			InterfaceBindingMethod: *iface.InterfaceBindingMethod.DeepCopy(),
+		},
+	}
 }
 
 func clearDetachedIfacesFromVM(
