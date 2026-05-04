@@ -3899,6 +3899,7 @@ var _ = Describe("Manager helper functions", func() {
 			properDisk = api.Disk{
 				FilesystemOverhead: &fakePercent,
 				Capacity:           &fakeCapacity,
+				Alias:              api.NewUserDefinedAlias("test-disk"),
 			}
 		})
 

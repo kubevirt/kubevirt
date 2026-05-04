@@ -1003,7 +1003,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 	}
 
 	if disk.Capacity == nil {
-		log.DefaultLogger().Error("No disk capacity")
+		log.DefaultLogger().V(3).Infof("No disk capacity for disk %s, skipping expansion", disk.Alias.GetName())
 		return 0, false
 	}
 	if disk.FilesystemOverhead == nil {
