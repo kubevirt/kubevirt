@@ -18,6 +18,12 @@
 
 package resolver
 
+import (
+	"encoding/base64"
+	"sort"
+	"strings"
+)
+
 type addressMapEntry struct {
 	addr  Address
 	value any
@@ -135,4 +141,94 @@ func (a *AddressMap) Values() []any {
 		}
 	}
 	return ret
+}
+
+type endpointMapKey string
+
+// EndpointMap is a map of endpoints to arbitrary values keyed on only the
+// unordered set of address strings within an endpoint. This map is not thread
+// safe, thus it is unsafe to access concurrently. Must be created via
+// NewEndpointMap; do not construct directly.
+type EndpointMap struct {
+	endpoints map[endpointMapKey]endpointData
+}
+
+type endpointData struct {
+	// decodedKey stores the original key to avoid decoding when iterating on
+	// EndpointMap keys.
+	decodedKey Endpoint
+	value      any
+}
+
+// NewEndpointMap creates a new EndpointMap.
+func NewEndpointMap() *EndpointMap {
+	return &EndpointMap{
+		endpoints: make(map[endpointMapKey]endpointData),
+	}
+}
+
+// encodeEndpoint returns a string that uniquely identifies the unordered set of
+// addresses within an endpoint.
+func encodeEndpoint(e Endpoint) endpointMapKey {
+	addrs := make([]string, 0, len(e.Addresses))
+	// base64 encoding the address strings restricts the characters present
+	// within the strings. This allows us to use a delimiter without the need of
+	// escape characters.
+	for _, addr := range e.Addresses {
+		addrs = append(addrs, base64.StdEncoding.EncodeToString([]byte(addr.Addr)))
+	}
+	sort.Strings(addrs)
+	// " " should not appear in base64 encoded strings.
+	return endpointMapKey(strings.Join(addrs, " "))
+}
+
+// Get returns the value for the address in the map, if present.
+func (em *EndpointMap) Get(e Endpoint) (value any, ok bool) {
+	val, found := em.endpoints[encodeEndpoint(e)]
+	if found {
+		return val.value, true
+	}
+	return nil, false
+}
+
+// Set updates or adds the value to the address in the map.
+func (em *EndpointMap) Set(e Endpoint, value any) {
+	en := encodeEndpoint(e)
+	em.endpoints[en] = endpointData{
+		decodedKey: Endpoint{Addresses: e.Addresses},
+		value:      value,
+	}
+}
+
+// Len returns the number of entries in the map.
+func (em *EndpointMap) Len() int {
+	return len(em.endpoints)
+}
+
+// Keys returns a slice of all current map keys, as endpoints specifying the
+// addresses present in the endpoint keys, in which uniqueness is determined by
+// the unordered set of addresses. Thus, endpoint information returned is not
+// the full endpoint data (drops duplicated addresses and attributes) but can be
+// used for EndpointMap accesses.
+func (em *EndpointMap) Keys() []Endpoint {
+	ret := make([]Endpoint, 0, len(em.endpoints))
+	for _, en := range em.endpoints {
+		ret = append(ret, en.decodedKey)
+	}
+	return ret
+}
+
+// Values returns a slice of all current map values.
+func (em *EndpointMap) Values() []any {
+	ret := make([]any, 0, len(em.endpoints))
+	for _, val := range em.endpoints {
+		ret = append(ret, val.value)
+	}
+	return ret
+}
+
+// Delete removes the specified endpoint from the map.
+func (em *EndpointMap) Delete(e Endpoint) {
+	en := encodeEndpoint(e)
+	delete(em.endpoints, en)
 }
