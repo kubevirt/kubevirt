@@ -1,0 +1,28 @@
+{{ template "chart.header" . }}
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+## Installing
+
+Before you can install, you need to add the `kubevirt` repo to [Helm](https://helm.sh)
+
+```shell
+helm repo add kubevirt https://kubevirt.github.io/kubevirt
+helm repo update
+```
+
+Now you can install the chart:
+
+```shell
+helm upgrade kubevirt kubevirt/kubevirt-operator --install -n kubevirt --create-namespace
+```
+
+
+{{ template "chart.requirementsSection" . }}
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}

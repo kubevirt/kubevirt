@@ -102,3 +102,5 @@ done
 # Remove empty lines at the end of files which are added by go templating
 find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
+
+cp -f ${KUBEVIRT_DIR}/manifests/generated/kv-resource.yaml ${KUBEVIRT_DIR}/charts/kubevirt-operator/templates/crd.yaml

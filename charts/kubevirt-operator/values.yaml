@@ -1,0 +1,43 @@
+
+operator:
+  # -- Operator replicas
+  replicas: 2
+  image:
+    # -- Operator image registry
+    registry: quay.io
+    # -- Operator image repository
+    repository: kubevirt/virt-operator
+    # -- Operator image tag
+    # @default -- Chart's appVersion
+    tag: ""
+    # -- Operator image pull policy
+    pullPolicy: IfNotPresent
+  # -- image pull secret configs for existing image pull secrets
+  imagePullSecrets: []
+  # -- Arguments to pass to kubevirt-operator
+  args:
+    - --port
+    - "8443"
+    - -v
+    - "2"
+  # -- The Operator node selector
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Operator pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Operator container resources
+  resources:
+    requests:
+      cpu: 10m
+      memory: 450Mi
+  # -- Operator container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    seccompProfile:
+      type: RuntimeDefault

@@ -255,6 +255,21 @@ vmlog-checker:
 	@echo "Built successfully: tools/vmlog-checker/vmlog-checker"
 	@echo "Usage: ./tools/vmlog-checker/vmlog-checker --log <file> [options]"
 
+helm-docs:
+	@docker run --rm -v ${PWD}/charts:/helm-docs -w /helm-docs jnorwood/helm-docs:v1.14.2 -s file
+
+verify-helm-docs: helm-docs
+	@echo Checking helm charts are up to date... >&2
+	@git --no-pager diff charts
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make helm-docs".' >&2
+	@echo 'To correct this, locally run "make helm-docs", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code charts
+
+verify-helm-crds: $(eval SHELL:=/bin/bash)
+	@diff -uw <( helm template kubevirt-operator charts/kubevirt-operator \
+		-s templates/crd.yaml | grep -E -v "^#" ) \
+		manifests/generated/kv-resource.yaml
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -297,4 +312,7 @@ vmlog-checker:
 	rpm-deps-cs10 \
 	rpm-deps-all \
 	vmlog-checker \
+	helm-docs \
+	verify-helm-docs \
+	verify-helm-crds \
 	$(NULL)

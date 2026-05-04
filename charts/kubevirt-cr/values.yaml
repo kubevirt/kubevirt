@@ -1,0 +1,71 @@
+# -- Name used for KubeVirt resource
+fullnameOverride: kubevirt
+
+# -- Annotations to be added to the KubeVirt CR
+annotations: {}
+
+# -- Certificate rotate strategy configuration
+certificateRotateStrategy: {}
+
+configuration:
+  developerConfiguration:
+    # -- Developer configuration feature gates
+    featureGates: []
+  # -- Configuration image pull policy
+  imagePullPolicy: IfNotPresent
+
+# -- Image pull policy
+imagePullPolicy: IfNotPresent
+
+# -- Customize infra
+infra: {}
+
+# -- Customize workloads
+workloads: {}
+
+# -- Customize components
+customizeComponents: {}
+
+# -- Workload update strategy
+workloadUpdateStrategy: {}
+
+hooks:
+  # -- Enable post-install hooks
+  enable: true
+  image:
+    # -- hook image registry
+    registry: docker.io
+    # -- hook image repository
+    repository: portainer/kubectl-shell
+    # -- hook image tag
+    tag: '2.39.0'
+    # -- hook image pull policy
+    pullPolicy: IfNotPresent
+  # -- imagePullSecrets to use for existing secrets
+  imagePullSecrets: []
+  # -- Job labels to add to the hook job
+  jobLabels: {}
+  # -- Pod labels to add to the hook pod
+  podLabels: {}
+  # -- Pod annotations to add to the hook pod
+  podAnnotations: {}
+  # -- Pod-level security settings
+  # @default -- unprivileged
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Security context for the hook pod
+  # @default -- unprivileged
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    seccompProfile:
+      type: RuntimeDefault
+    privileged: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534

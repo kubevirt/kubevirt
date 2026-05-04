@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kubevirt-operator
+description: A Helm chart for the KubeVirt Operator
+type: application
+version: v1.8.2
+appVersion: "v1.8.2"

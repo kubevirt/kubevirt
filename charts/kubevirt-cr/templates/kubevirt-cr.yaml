@@ -1,0 +1,28 @@
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: {{ include "kubevirt-cr.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubevirt-cr.labels" . | nindent 4 }}
+  {{- if .Values.annotations }}
+  annotations:
+  {{- range $key, $value := .Values.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- end }}
+spec:
+  certificateRotateStrategy: {{- toYaml .Values.certificateRotateStrategy | nindent 4 }}
+  configuration:
+    developerConfiguration:
+      featureGates: {{- toYaml .Values.configuration.developerConfiguration.featureGates | nindent 8 }}
+    imagePullPolicy: {{ .Values.configuration.imagePullPolicy }}
+  customizeComponents: {{- toYaml .Values.customizeComponents | nindent 4 }}
+  imagePullPolicy: {{ .Values.imagePullPolicy }}
+  {{- with .Values.infra }}
+  infra: {{ toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.workloads }}
+  workloads: {{ toYaml . | nindent 4 }}
+  {{- end }}
+  workloadUpdateStrategy: {{- toYaml .Values.workloadUpdateStrategy | nindent 4 }}

@@ -1,0 +1,42 @@
+{{- if and .Values.hooks.enable }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    {{- include "kubevirt-cr.labels" . | nindent 4 }}
+  name: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - kubevirts
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    {{- include "kubevirt-cr.labels" . | nindent 4 }}
+  name: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+subjects:
+- kind: ServiceAccount
+  name: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

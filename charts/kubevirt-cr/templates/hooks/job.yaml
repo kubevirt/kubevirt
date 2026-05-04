@@ -1,0 +1,54 @@
+{{- if and .Values.hooks.enable }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    {{- include "kubevirt-cr.labels" . | nindent 4 }}
+    {{- with .Values.hooks.jobLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  name: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  template:
+    metadata:
+      {{- with .Values.hooks.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+      {{- with .Values.hooks.podLabels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+        {{- include "kubevirt-cr.selectorLabels" . | nindent 8 }}
+      name: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+    spec:
+      {{- with .Values.hooks.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      serviceAccountName: {{ printf "%s-wait" (include "kubevirt-cr.fullname" .) }}
+      {{- with .Values.hooks.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: wait-for-kubevirt
+        image: "{{ .Values.hooks.image.registry }}/{{ .Values.hooks.image.repository }}:{{ .Values.hooks.image.tag }}"
+        imagePullPolicy: {{ .Values.hooks.image.pullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -ex
+          kubectl -n {{ .Release.Namespace }} wait kubevirt {{ include "kubevirt-cr.fullname" . }} --for condition=Available
+        {{- with .Values.hooks.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+{{- end }}

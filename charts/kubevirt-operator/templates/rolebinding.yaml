@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    kubevirt.io: ""
+    {{- include "kubevirt-operator.labels" . | nindent 4 }}
+  name: {{ printf "%s-rolebinding" (include "kubevirt-operator.name" .) }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kubevirt-operator.name" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "kubevirt-operator.name" . }}
+  namespace: {{ .Release.Namespace }}
