@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"math"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,66 +33,82 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
 var _ = Describe("Live migration source", func() {
+	var ctrl *gomock.Controller
 	var libvirtDomainManager *LibvirtDomainManager
+	var mockConn *cli.MockConnection
+	var testDomainName string
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockConn = cli.NewMockConnection(ctrl)
+
+		vmi = &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-vmi",
+				Namespace: "test-namespace",
+			},
+			Status: v1.VirtualMachineInstanceStatus{
+				MigrationState: &v1.VirtualMachineInstanceMigrationState{
+					MigrationUID: types.UID(fmt.Sprintf("%v", GinkgoRandomSeed())),
+				},
+			},
+		}
+		testDomainName = api.VMINamespaceKeyFunc(vmi)
+
+		testVirtShareDir := fmt.Sprintf("fake-virt-share-%d", GinkgoRandomSeed())
+		testEphemeralDiskDir := fmt.Sprintf("fake-ephemeral-disk-%d", GinkgoRandomSeed())
+		ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
+		metadataCache := metadata.NewCache()
+
+		manager, _ := NewLibvirtDomainManager(
+			mockConn,
+			testVirtShareDir,
+			testEphemeralDiskDir,
+			nil, // agent store
+			virtconfig.DefaultARCHOVMFPath,
+			ephemeralDiskCreatorMock,
+			metadataCache,
+			nil, //stop chn
+			virtconfig.DefaultDiskVerificationMemoryLimitBytes,
+			fakeCpuSetGetter,
+			false, // image volume enabled
+			false, // libvirt hooks server and client enabled
+			nil,
+			v1.KvmHypervisorName,
+			nil,
+			"", false,
+			false, // firmware auto-selection
+		)
+		libvirtDomainManager = manager.(*LibvirtDomainManager)
+		libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	})
 
 	Context("Migration result", func() {
-		BeforeEach(func() {
-			vmi := &v1.VirtualMachineInstance{
-				Status: v1.VirtualMachineInstanceStatus{
-					MigrationState: &v1.VirtualMachineInstanceMigrationState{
-						MigrationUID: types.UID(fmt.Sprintf("%v", GinkgoRandomSeed())),
-					},
-				},
-			}
-
-			mockConn := &cli.MockConnection{}
-			testVirtShareDir := fmt.Sprintf("fake-virt-share-%d", GinkgoRandomSeed())
-			testEphemeralDiskDir := fmt.Sprintf("fake-ephemeral-disk-%d", GinkgoRandomSeed())
-			ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
-			metadataCache := metadata.NewCache()
-
-			manager, _ := NewLibvirtDomainManager(
-				mockConn,
-				testVirtShareDir,
-				testEphemeralDiskDir,
-				nil, // agent store
-				virtconfig.DefaultARCHOVMFPath,
-				ephemeralDiskCreatorMock,
-				metadataCache,
-				nil, //stop chn
-				virtconfig.DefaultDiskVerificationMemoryLimitBytes,
-				fakeCpuSetGetter,
-				false, // image volume enabled
-				false, // libvirt hooks server and client enabled
-				nil,
-				v1.KvmHypervisorName,
-				nil,
-				"", false,
-				false, // firmware auto-selection
-			)
-			libvirtDomainManager = manager.(*LibvirtDomainManager)
-			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
-		})
 
 		It("should only be set once", func() {
 			libvirtDomainManager.setMigrationResult(false, "")
@@ -814,6 +832,725 @@ var _ = Describe("Live migration source", func() {
 			Entry("migration using postcopy", "postCopy"),
 			Entry("migration of paused vmi", "paused"),
 		)
+	})
+
+	Context("Migration monitor stall detector", func() {
+		const (
+			testCompletionTimeSec  int64  = 300
+			testProgressTimeoutSec int64  = 25
+			testMaxDowntimeMs      uint64 = 900
+		)
+
+		var monitor *migrationMonitor
+		var sd *stallDetector
+
+		// gets the timestamp needed to exceed the timeout
+		pastTimeoutNs := func() int64 {
+			return (testCompletionTimeSec + 1) * int64(time.Second)
+		}
+
+		setupSuccessfulAbortContext := func(mockDomain *cli.MockVirDomain) {
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
+			mockDomain.EXPECT().AbortJob().Return(nil)
+			mockDomain.EXPECT().Free()
+		}
+
+		expectMigrationAbortSucceeded := func() {
+			Eventually(func() string {
+				migration, _ := libvirtDomainManager.metadataCache.Migration.Load()
+				return migration.AbortStatus
+			}).WithTimeout(500 * time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
+		}
+
+		BeforeEach(func() {
+			options := &cmdclient.MigrationOptions{}
+			sd = &stallDetector{
+				progressTimeoutSeconds:    testProgressTimeoutSec,
+				maxDowntimeMs:             testMaxDowntimeMs,
+				patienceWindowDecayFactor: patienceWindowDecayFactor,
+			}
+			monitor = &migrationMonitor{
+				l:                        libvirtDomainManager,
+				vmi:                      vmi,
+				options:                  options,
+				start:                    time.Now().UTC().UnixNano(),
+				acceptableCompletionTime: testCompletionTimeSec,
+				switchOverDeadline:       testCompletionTimeSec,
+				stallDetectionEnabled:    true,
+				stallDetector:            sd,
+			}
+		})
+
+		Describe("processInflightMigration", func() {
+			var ctrl *gomock.Controller
+			var mockDomain *cli.MockVirDomain
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				mockDomain = cli.NewMockVirDomain(ctrl)
+			})
+
+			It("should set initial max downtime to MaxDowntimeMs when it is lower than 300", func() {
+				monitor.options.MaxDowntimeMs = 150
+				monitor.stallDetector.initialMaxDowntimeSet = false
+
+				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(150), uint32(0)).Times(1).Return(nil)
+
+				stats := &libvirt.DomainJobInfo{}
+				monitor.processInflightMigration(mockDomain, stats, false)
+				Expect(monitor.stallDetector.initialMaxDowntimeSet).To(BeTrue())
+			})
+
+			It("should set initial max downtime to 300 when MaxDowntimeMs is higher than 300", func() {
+				monitor.options.MaxDowntimeMs = 5000
+				monitor.stallDetector.initialMaxDowntimeSet = false
+
+				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(300), uint32(0)).Times(1).Return(nil)
+
+				stats := &libvirt.DomainJobInfo{}
+				monitor.processInflightMigration(mockDomain, stats, false)
+				Expect(monitor.stallDetector.initialMaxDowntimeSet).To(BeTrue())
+			})
+
+			It("should invoke stall detection and trigger convergence action when stats indicate a stall at an iteration boundary", func() {
+				monitor.options.MaxDowntimeMs = testMaxDowntimeMs
+				sd.allowWorkloadDisruption = true
+				sd.initialMaxDowntimeSet = true
+				sd.ewmaBandwidthBps = 1000
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
+
+				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
+
+				stats := &libvirt.DomainJobInfo{
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemainingSet: true,
+					DataRemaining:    1000,
+					TimeElapsedSet:   true,
+					TimeElapsed:      30_000,
+					MemIterationSet:  true,
+					MemIteration:     5,
+				}
+				monitor.processInflightMigration(mockDomain, stats, true)
+				Expect(sd.stallDetected).To(BeTrue())
+				Expect(sd.switchoverInitiated).To(BeTrue())
+			})
+
+		})
+
+		Describe("shouldTriggerTimeout", func() {
+			It("when migration is paused, should use acceptableCompletionTime to calculate whether we timed out", func() {
+				monitor.l.updateVMIMigrationMode(v1.MigrationPaused)
+
+				Expect(monitor.shouldTriggerTimeout(testCompletionTimeSec * int64(time.Second))).To(BeFalse())
+				Expect(monitor.shouldTriggerTimeout(pastTimeoutNs())).To(BeTrue())
+			})
+
+			It("else use switchOverDeadline", func() {
+				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
+				monitor.switchOverDeadline = 200
+
+				Expect(monitor.shouldTriggerTimeout(200 * int64(time.Second))).To(BeFalse())
+				Expect(monitor.shouldTriggerTimeout(201 * int64(time.Second))).To(BeTrue())
+			})
+		})
+
+		Describe("shouldAssistMigrationToComplete", func() {
+			It("should always return false when stall detection is enabled", func() {
+				monitor.options.AllowWorkloadDisruption = true
+				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
+
+				Expect(monitor.shouldAssistMigrationToComplete(pastTimeoutNs())).To(BeFalse())
+
+				monitor.stallDetectionEnabled = false
+				Expect(monitor.shouldAssistMigrationToComplete(pastTimeoutNs())).To(BeTrue())
+			})
+		})
+
+		Describe("updateBandwidthEstimate", func() {
+			It("EWMA calculation is correct", func() {
+				sd.updateBandwidthEstimate(1000)
+				Expect(sd.ewmaBandwidthBps).To(Equal(float64(1000)))
+
+				sd.updateBandwidthEstimate(2000)
+				// alpha = 0.4
+				// new_ewma = 0.4 * 2000 + 0.6 * 1000 = 800 + 600 = 1400
+				Expect(sd.ewmaBandwidthBps).To(Equal(float64(1400)))
+
+				sd.updateBandwidthEstimate(500)
+				// new_ewma = 0.4 * 500 + 0.6 * 1400 = 200 + 840 = 1040
+				Expect(sd.ewmaBandwidthBps).To(Equal(float64(1040)))
+			})
+		})
+
+		Describe("updateCandidates", func() {
+			It("should skip candidates larger than minRecordOutsideWindow", func() {
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 100}
+				sd.updateCandidates(iterationRecord{elapsedMs: 10_000, remainingBytes: 110})
+				Expect(sd.minCandidates).To(BeEmpty())
+
+				sd.updateCandidates(iterationRecord{elapsedMs: 10_000, remainingBytes: 95})
+				Expect(sd.minCandidates).To(HaveLen(1))
+				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(95)))
+			})
+
+			It("should update candidates correctly and skip out of window min", func() {
+				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 2048})
+				Expect(sd.minCandidates).To(HaveLen(1))
+				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(2048)))
+				Expect(sd.minRecordOutsideWindow).To(Equal(iterationRecord{}))
+
+				sd.updateCandidates(iterationRecord{elapsedMs: 100_000, remainingBytes: 413})
+				Expect(sd.minCandidates).To(HaveLen(1))
+				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(413)))
+				Expect(sd.minRecordOutsideWindow).NotTo(Equal(iterationRecord{}))
+				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(2048)))
+			})
+
+			It("should skip candidates preceded by a smaller value", func() {
+				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 100})
+				sd.updateCandidates(iterationRecord{elapsedMs: 1000, remainingBytes: 150})
+				Expect(sd.minCandidates).To(HaveLen(1))
+				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(100)))
+			})
+
+			It("should age out candidates when they are too old", func() {
+				// progressTimeoutSeconds is 25, so progressTimeoutMs is 25000
+
+				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 500})
+				sd.updateCandidates(iterationRecord{elapsedMs: 5000, remainingBytes: 400})
+				sd.updateCandidates(iterationRecord{elapsedMs: 10000, remainingBytes: 300})
+				Expect(sd.minCandidates).To(HaveLen(3))
+				Expect(sd.minRecordOutsideWindow).To(Equal(iterationRecord{}))
+
+				// Advance time so the first two candidates (t=0, t=5000) age out.
+				// The smallest aged-out value (400) becomes minRecordOutsideWindow.
+				sd.updateCandidates(iterationRecord{elapsedMs: 30000, remainingBytes: 200})
+				Expect(sd.minCandidates).To(HaveLen(2))
+				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(300)))
+				Expect(sd.minCandidates[1].remainingBytes).To(Equal(uint64(200)))
+				Expect(sd.minRecordOutsideWindow).NotTo(Equal(iterationRecord{}))
+				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(400)))
+
+				// Age out all remaining candidates. minRecordOutsideWindow
+				// should update to the new global minimum (200).
+				sd.updateCandidates(iterationRecord{elapsedMs: 60000, remainingBytes: 100})
+				Expect(sd.minCandidates).To(HaveLen(1))
+				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(100)))
+				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(200)))
+			})
+		})
+
+		Describe("checkStallCondition", func() {
+			It("should return false when minRecordOutsideWindow isn't set", func() {
+				Expect(sd.checkStallCondition(100)).To(BeFalse())
+			})
+
+			It("should return false when not stalled", func() {
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
+				// threshold is 1000 * 0.96 = 960
+				Expect(sd.checkStallCondition(900)).To(BeFalse())
+			})
+
+			It("should return true when stalled", func() {
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
+				Expect(sd.checkStallCondition(970)).To(BeTrue())
+			})
+		})
+
+		Describe("findBestRemainingBytes", func() {
+			It("should find the min record", func() {
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 500}
+
+				// minRecordOutsideWindow is smallest
+				sd.minCandidates = []iterationRecord{
+					{remainingBytes: 600},
+					{remainingBytes: 700},
+				}
+				Expect(sd.findBestRemainingBytes()).To(Equal(uint64(500)))
+
+				// candidate is smallest
+				sd.minCandidates = []iterationRecord{
+					{remainingBytes: 600},
+					{remainingBytes: 400},
+				}
+				Expect(sd.findBestRemainingBytes()).To(Equal(uint64(400)))
+
+				// no candidates
+				sd.minCandidates = []iterationRecord{}
+				Expect(sd.findBestRemainingBytes()).To(Equal(uint64(500)))
+			})
+		})
+
+		Describe("relaxBestRemainingBytes", func() {
+			It("should progressively relax bestRemainingBytes to next smallest observed value", func() {
+				// Simulate stall detected at t=0 with a pre-stall best of 100.
+				sd.bestRemainingBytes = 100
+				sd.initializeRelaxationState(iterationRecord{elapsedMs: 0})
+				// relaxationPatienceMs = 25*1000 = 25000, deadline = 25000
+
+				// Push post-stall observations (all larger than the pre-stall best).
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 300})
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 500})
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 200})
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 600})
+
+				// Before the deadline: no relaxation.
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 10000, remainingBytes: 9999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(100)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(25000)))
+
+				// At the deadline: pop the smallest (200).
+				// patience = 25000/2 = 12500, new deadline = 25000+12500 = 37500
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 25000, remainingBytes: 9999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(200)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(12500)))
+
+				// At the next deadline: pop 300.
+				// patience = 12500/2 = 6250, new deadline = 37500+6250 = 43750
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 37500, remainingBytes: 9999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(300)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(6250)))
+
+				// At the next deadline: pop 500.
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 43750, remainingBytes: 9999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(500)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(3125)))
+
+				// At the next deadline: pop 600.
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 50000, remainingBytes: 9999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(600)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(1562)))
+			})
+
+			It("should pop on every call once patience reaches zero", func() {
+				sd.bestRemainingBytes = 100
+				sd.remainingBytesHistory = utilheap.NewMin[uint64]()
+
+				// Set a high deadline to accumulate history without popping
+				sd.relaxationDeadlineMs = 1000
+				sd.relaxationPatienceMs = 1000
+
+				// Push some values before the deadline
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 200})
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 100, remainingBytes: 300})
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 200, remainingBytes: 400})
+
+				// Ensure nothing popped yet
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(100)))
+
+				// Now simulate patience reaching 1ms and expiring
+				sd.relaxationPatienceMs = 1
+				sd.relaxationDeadlineMs = 0
+
+				// First call at t=300: deadline is 0, pops 200.
+				// patience = 1/2 = 0, new deadline = 300+0 = 300
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 300, remainingBytes: 999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(200)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
+
+				// Patience is now 0, so advancing by just 1ms still pops.
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 301, remainingBytes: 999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(300)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
+
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 302, remainingBytes: 999})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(400)))
+				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
+			})
+		})
+
+		Describe("processStallDetectionIteration", func() {
+			BeforeEach(func() {
+				sd.ewmaBandwidthBps = 1000
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
+			})
+
+			It("should detect a new stall and initialize relaxation state", func() {
+				// checkStallCondition: 1000 >= 1000 * 0.96 = 960 → stalled
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 1000})).To(BeTrue())
+				Expect(sd.stallDetected).To(BeTrue())
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(1000)))
+			})
+
+			It("should return true when stall is already detected", func() {
+				sd.stallDetected = true
+				sd.remainingBytesHistory = utilheap.NewMin[uint64]()
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 1000})).To(BeTrue())
+			})
+
+			It("should return false when not stalled", func() {
+				// checkStallCondition: 900 >= 1000 * 0.96 = 960 → not stalled
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 900})).To(BeFalse())
+				Expect(sd.stallDetected).To(BeFalse())
+			})
+
+			It("should return false when switchover is already initiated", func() {
+				sd.switchoverInitiated = true
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 900})).To(BeFalse())
+			})
+
+			It("should return false when bandwidth data is unavailable", func() {
+				sd.ewmaBandwidthBps = 0
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 900})).To(BeFalse())
+			})
+		})
+
+		Describe("decideAction", func() {
+			BeforeEach(func() {
+				sd.bestRemainingBytes = 0
+				sd.ewmaBandwidthBps = 1000
+			})
+
+			It("should return actionNothing when switchover was already initiated", func() {
+				sd.switchoverInitiated = true
+				action, _ := sd.decideAction(iterationRecord{}, 500, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionNothing))
+			})
+
+			It("should return actionNothing when not at a local minima", func() {
+				sd.bestRemainingBytes = 100
+				// target = 100 * 1.04 = 104; remaining 105 > 104
+				action, _ := sd.decideAction(iterationRecord{remainingBytes: 105}, 500, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionNothing))
+			})
+
+			It("should return actionNothing when migration cannot finish by deadline", func() {
+				action, _ := sd.decideAction(iterationRecord{}, 999_999, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionNothing))
+			})
+
+			It("should return actionPostCopy when AllowPostCopy is enabled and completable", func() {
+				sd.allowPostCopy = true
+				sd.allowWorkloadDisruption = true
+				action, _ := sd.decideAction(iterationRecord{}, 500, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionPostCopy))
+			})
+
+			It("should return actionHardStopAndCopy when AllowWorkloadDisruption is enabled and completable", func() {
+				sd.allowWorkloadDisruption = true
+				action, _ := sd.decideAction(iterationRecord{}, 500, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionHardStopAndCopy))
+			})
+
+			It("should return actionSoftStopAndCopy when estimated downtime is within max allowed downtime", func() {
+				action, _ := sd.decideAction(iterationRecord{}, uint32(sd.maxDowntimeMs), monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionSoftStopAndCopy))
+			})
+
+			It("should return actionSoftStopAndCopy when estimated downtime is within tolerable factor of max allowed downtime", func() {
+				action, _ := sd.decideAction(iterationRecord{}, uint32(sd.maxDowntimeMs)+100, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionSoftStopAndCopy))
+			})
+
+			It("should return actionAbort when estimated downtime far exceeds max allowed downtime", func() {
+				estimatedDowntimeMs := uint32(float64(sd.maxDowntimeMs)*preCopyPossibleFactor) + 1
+				action, _ := sd.decideAction(iterationRecord{}, estimatedDowntimeMs, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionAbort))
+			})
+
+			It("should fall through to actionHardStopAndCopy for VFIO VMI even when AllowPostCopy is true", func() {
+				sd.allowPostCopy = true
+				sd.allowWorkloadDisruption = true
+				sd.hasVFIO = true
+				action, _ := sd.decideAction(iterationRecord{}, 500, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionHardStopAndCopy))
+			})
+
+			It("should transition to a convergence action after bestRemainingBytes relaxes to current level", func() {
+				sd.bestRemainingBytes = 100
+				sd.remainingBytesHistory = utilheap.NewMin[uint64]()
+				sd.relaxationPatienceMs = 25_000
+				sd.relaxationDeadlineMs = 25_000
+
+				remainingBytes := uint64(200)
+				estimatedDowntimeMs := uint32(500)
+
+				// Before relaxation: 200 > 100 * 1.04 = 104 → not at local minima
+				action, _ := sd.decideAction(iterationRecord{remainingBytes: remainingBytes}, estimatedDowntimeMs, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionNothing))
+
+				// Push post-stall observations; deadline not yet reached
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 1000, remainingBytes: 200})
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 5000, remainingBytes: 300})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(100)))
+
+				// Exceed deadline → pops smallest (200) into bestRemainingBytes
+				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 25_000, remainingBytes: 400})
+				Expect(sd.bestRemainingBytes).To(Equal(uint64(200)))
+
+				// After relaxation: 200 <= 200 * 1.04 = 208 → at local minima
+				action, _ = sd.decideAction(iterationRecord{remainingBytes: remainingBytes}, estimatedDowntimeMs, monitor.start, testCompletionTimeSec)
+				Expect(action).To(Equal(actionSoftStopAndCopy))
+			})
+		})
+
+		Describe("triggerConvergenceAction", func() {
+			var ctrl *gomock.Controller
+			var mockDomain *cli.MockVirDomain
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				mockDomain = cli.NewMockVirDomain(ctrl)
+				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
+			})
+
+			It("should do nothing for actionNothing", func() {
+				monitor.triggerConvergenceAction(mockDomain, actionNothing, "test")
+				Expect(sd.switchoverInitiated).To(BeFalse())
+			})
+
+			It("should abort migration for actionAbort", func() {
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.triggerConvergenceAction(mockDomain, actionAbort, "test abort")
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				Expect(sd.switchoverInitiated).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("should start post-copy for actionPostCopy", func() {
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(1).Return(nil)
+
+				monitor.triggerConvergenceAction(mockDomain, actionPostCopy, "test post-copy")
+				Expect(sd.switchoverInitiated).To(BeTrue())
+				Expect(monitor.isMigrationPostCopy()).To(BeTrue())
+			})
+
+			It("should reset switchoverInitiated when MigrateStartPostCopy fails", func() {
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(1).Return(fmt.Errorf("post-copy failed"))
+
+				monitor.triggerConvergenceAction(mockDomain, actionPostCopy, "test post-copy")
+				Expect(sd.switchoverInitiated).To(BeFalse())
+				Expect(monitor.isMigrationPostCopy()).To(BeFalse())
+			})
+
+			It("should set max downtime to QEMUMaxMigrationDowntimeMS for actionHardStopAndCopy", func() {
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
+
+				monitor.triggerConvergenceAction(mockDomain, actionHardStopAndCopy, "test hard stop")
+				Expect(sd.switchoverInitiated).To(BeTrue())
+				elapsedSeconds := (time.Now().UTC().UnixNano() - monitor.start) / int64(time.Second)
+				Expect(monitor.switchOverDeadline).To(BeNumerically("~", elapsedSeconds+switchoverTimeout, 2))
+			})
+
+			It("should set max downtime to maxDowntimeMs for actionSoftStopAndCopy", func() {
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(sd.maxDowntimeMs), uint32(0)).Times(1).Return(nil)
+
+				monitor.triggerConvergenceAction(mockDomain, actionSoftStopAndCopy, "test soft stop")
+				Expect(sd.switchoverInitiated).To(BeTrue())
+				elapsedSeconds := (time.Now().UTC().UnixNano() - monitor.start) / int64(time.Second)
+				Expect(monitor.switchOverDeadline).To(BeNumerically("~", elapsedSeconds+switchoverTimeout, 2))
+			})
+
+			It("should reset switchoverInitiated when MigrateSetMaxDowntime fails for actionHardStopAndCopy", func() {
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(fmt.Errorf("set max downtime failed"))
+
+				monitor.triggerConvergenceAction(mockDomain, actionHardStopAndCopy, "test hard stop failure")
+				Expect(sd.switchoverInitiated).To(BeFalse())
+			})
+
+		})
+
+		Describe("reconcilePauseState", func() {
+			var ctrl *gomock.Controller
+			var mockDomain *cli.MockVirDomain
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				mockDomain = cli.NewMockVirDomain(ctrl)
+				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
+			})
+
+			It("should transition to MigrationPaused when domain is paused for migration", func() {
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_MIGRATION), nil)
+
+				monitor.reconcilePauseState(mockDomain)
+				Expect(monitor.isPausedMigration()).To(BeTrue())
+			})
+
+			It("should not transition when paused for a reason other than migration", func() {
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_USER), nil)
+
+				monitor.reconcilePauseState(mockDomain)
+				Expect(monitor.isPausedMigration()).To(BeFalse())
+			})
+
+			It("should not transition when already in post-copy mode even if libvirt briefly reports DOMAIN_PAUSED_MIGRATION", func() {
+				monitor.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_MIGRATION), nil)
+
+				monitor.reconcilePauseState(mockDomain)
+				Expect(monitor.isMigrationPostCopy()).To(BeTrue())
+				Expect(monitor.isPausedMigration()).To(BeFalse())
+			})
+
+			It("should not panic when GetState returns an error", func() {
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, 0, fmt.Errorf("connection lost"))
+
+				Expect(func() {
+					monitor.reconcilePauseState(mockDomain)
+				}).NotTo(Panic())
+				Expect(monitor.isPausedMigration()).To(BeFalse())
+			})
+		})
+
+		Describe("canFinishByDeadline", func() {
+			It("should return false when bandwidth data is unavailable", func() {
+				sd.ewmaBandwidthBps = 0
+				Expect(sd.canFinishByDeadline(0, 600, 100)).To(BeFalse())
+			})
+
+			It("should return true when estimated downtime fits within remaining budget", func() {
+				sd.ewmaBandwidthBps = 1000
+				// budget = (600 - 100) * 1000 = 500_000ms; 5000 <= 500_000
+				Expect(sd.canFinishByDeadline(100, 600, 5000)).To(BeTrue())
+			})
+
+			It("should return false when estimated downtime exceeds remaining budget", func() {
+				sd.ewmaBandwidthBps = 1000
+				// budget = (600 - 100) * 1000 = 500_000ms; 600_000 > 500_000
+				Expect(sd.canFinishByDeadline(100, 600, 600_000)).To(BeFalse())
+			})
+
+			It("should return false when elapsed exceeds deadline", func() {
+				sd.ewmaBandwidthBps = 1000
+				// budget = (600 - 700) * 1000 = -100_000ms; 100 > -100_000 is false... wait
+				// actually 100 <= -100_000 is false
+				Expect(sd.canFinishByDeadline(700, 600, 100)).To(BeFalse())
+			})
+
+			It("should return true when estimated downtime is zero", func() {
+				sd.ewmaBandwidthBps = 1000
+				Expect(sd.canFinishByDeadline(100, 600, 0)).To(BeTrue())
+			})
+		})
+
+		Describe("estimateDowntimeMs", func() {
+			DescribeTable("should estimate correctly",
+				func(ewmaBandwidthBps float64, remainingBytes uint64, expected uint32) {
+					sd.ewmaBandwidthBps = ewmaBandwidthBps
+					record := iterationRecord{remainingBytes: remainingBytes}
+					Expect(sd.estimateDowntimeMs(record)).To(Equal(expected))
+				},
+				Entry("returns 0 when bandwidth is zero",
+					float64(0), uint64(5000), uint32(0)),
+				Entry("returns 0 when remaining bytes is zero",
+					float64(2000), uint64(0), uint32(0)),
+				Entry("calculates correctly for typical values",
+					float64(2000), uint64(5000), uint32(2500)),
+				Entry("caps at MaxUint32 for extremely small bandwidth",
+					float64(0.001), uint64(math.MaxUint64), uint32(math.MaxUint32)),
+			)
+		})
+
+		Describe("processCompletionTimeouts", func() {
+			var ctrl *gomock.Controller
+			var mockDomain *cli.MockVirDomain
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				mockDomain = cli.NewMockVirDomain(ctrl)
+				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
+			})
+
+			It("should not trigger abort when timeout has not been reached", func() {
+				monitor.processCompletionTimeouts(mockDomain, 100*int64(time.Second), 0)
+				Expect(monitor.isAbortInProgress()).To(BeFalse())
+			})
+
+			It("should not re-trigger post-copy when already in post-copy mode", func() {
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+				monitor.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 0)
+			})
+
+			It("should start post-copy when AllowPostCopy is true and migration can finish by deadline", func() {
+				monitor.options.AllowPostCopy = true
+				sd.ewmaBandwidthBps = 1000
+
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(1).Return(nil)
+
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500)
+				Expect(monitor.isMigrationPostCopy()).To(BeTrue())
+				Expect(sd.switchoverInitiated).To(BeTrue())
+			})
+
+			It("should force switchover when AllowWorkloadDisruption is true and migration can finish by deadline", func() {
+				monitor.options.AllowWorkloadDisruption = true
+				sd.ewmaBandwidthBps = 1000
+
+				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
+
+				originalTimeout := monitor.acceptableCompletionTime
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500)
+				Expect(sd.switchoverInitiated).To(BeTrue())
+				Expect(monitor.acceptableCompletionTime).To(Equal(originalTimeout * 2))
+				elapsedSeconds := pastTimeoutNs() / int64(time.Second)
+				Expect(monitor.switchOverDeadline).To(Equal(elapsedSeconds + switchoverTimeout))
+			})
+
+			It("should trigger abort when AllowPostCopy is true but migration cannot finish by deadline", func() {
+				monitor.options.AllowPostCopy = true
+				sd.ewmaBandwidthBps = 100
+
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 999_999_999)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("should trigger abort when neither AllowPostCopy nor AllowWorkloadDisruption is set", func() {
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 0)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("should trigger abort directly when switchover was already initiated", func() {
+				monitor.options.AllowPostCopy = true
+				sd.ewmaBandwidthBps = 1000
+				sd.switchoverInitiated = true
+
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("should trigger abort when ewmaBandwidthBps is zero and timeout is reached", func() {
+				sd.ewmaBandwidthBps = 0
+
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 0)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("should eventually abort when MigrateSetMaxDowntime keeps failing until switchover is no longer completable", func() {
+				monitor.options.AllowWorkloadDisruption = true
+				sd.ewmaBandwidthBps = 1000
+				estimatedDowntimeMs := uint32(500)
+
+				mockDomain.EXPECT().MigrateSetMaxDowntime(migrationutils.QEMUMaxMigrationDowntimeMS, uint32(0)).Times(1).Return(fmt.Errorf("set max downtime failed"))
+
+				originalTimeout := monitor.acceptableCompletionTime
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), estimatedDowntimeMs)
+				Expect(sd.switchoverInitiated).To(BeFalse())
+				Expect(monitor.acceptableCompletionTime).To(Equal(originalTimeout))
+				Expect(monitor.isAbortInProgress()).To(BeFalse())
+
+				elapsedPastSwitchoverBudget := (monitor.acceptableCompletionTime*2 + 1) * int64(time.Second)
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, elapsedPastSwitchoverBudget, estimatedDowntimeMs)
+				Expect(sd.switchoverInitiated).To(BeFalse())
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+		})
 	})
 })
 

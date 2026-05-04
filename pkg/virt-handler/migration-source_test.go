@@ -423,7 +423,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortInProgress,
+						AbortStatus:    v1.MigrationAbortSucceeded,
 					})))),
 				nil,
 			),
@@ -431,7 +431,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
-						AbortStatus:    v1.MigrationAbortSucceeded,
+						AbortStatus:    v1.MigrationAbortInProgress,
 					})))),
 				nil,
 			),
@@ -575,6 +575,52 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Entry("if CPU is dedicated", nil, &v1.CPU{DedicatedCPUPlacement: true, Cores: 2, Sockets: 1, Threads: 1}),
 			)
 		})
+	})
+
+	It("should set StallDetectionEnabled to true when MigrationStallDetection feature gate is enabled", func() {
+		kv := &v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.PasstBinding, featuregate.MigrationStallDetection},
+			},
+		}
+		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+		vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:                     "othernode",
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     host,
+			MigrationUID:                   "123",
+			TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+		}
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			{
+				Type:   v1.VirtualMachineInstanceIsMigratable,
+				Status: k8sv1.ConditionTrue,
+			},
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+		const testIfaceName = "eth0"
+		domain.Status.Interfaces = []api.InterfaceStatus{
+			{InterfaceName: testIfaceName},
+		}
+		addVMI(vmi, domain)
+		client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+			Expect(options.StallDetectionEnabled).To(BeTrue())
+		}).Times(1).Return(nil)
+
+		sanityExecute()
+		testutils.ExpectEvent(recorder, VMIMigrating)
 	})
 
 	It("should migrate vmi once target address is known", func() {
