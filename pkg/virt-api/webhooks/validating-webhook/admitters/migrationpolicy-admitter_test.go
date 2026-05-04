@@ -95,6 +95,12 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("valid MaxDowntimeMs",
 			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(900))},
 		),
+		Entry("MaxDowntimeMs at maximum boundary",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(migrationutils.QEMUMaxMigrationDowntimeMS)},
+		),
+		Entry("MaxDowntimeMs at minimum boundary",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(1))},
+		),
 
 		Entry("zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
