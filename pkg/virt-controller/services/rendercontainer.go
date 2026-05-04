@@ -291,5 +291,9 @@ func requiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 		capabilities = append(capabilities, CAP_SYS_NICE)
 	}
 
+	if util.IsVFIOVMI(vmi) {
+		capabilities = append(capabilities, CAP_SYS_RESOURCE)
+	}
+
 	return capabilities
 }
