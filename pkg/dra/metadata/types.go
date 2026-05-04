@@ -59,3 +59,18 @@ const (
 	// Note: This is not yet standardized under resource.kubernetes.io
 	MDevUUIDAttribute = resourcev1.QualifiedName("mdevUUID")
 )
+
+// APIVersionV1Alpha1 is the JSON apiVersion string for KEP-5304 DRA device
+// metadata files this consumer recognizes. Will be replaced by upstream
+// types once KEP-5304 lands in kubernetes (see TODO in kubevirt.io/kubevirt/pkg/dra).
+const APIVersionV1Alpha1 = "metadata.resource.k8s.io/v1alpha1"
+
+var supportedAPIVersions = map[string]bool{
+	APIVersionV1Alpha1: true,
+}
+
+// IsSupportedAPIVersion reports whether the given apiVersion string can be
+// decoded by this consumer.
+func IsSupportedAPIVersion(v string) bool {
+	return supportedAPIVersions[v]
+}

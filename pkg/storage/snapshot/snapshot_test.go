@@ -980,6 +980,15 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 
+				vm.ObjectMeta.Annotations = map[string]string{}
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "disk2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						}},
+					},
+				})
 				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
 				vm.ObjectMeta.Generation = 2
 				pvcs := createPersistentVolumeClaims()
@@ -1067,6 +1076,73 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*createCalls).To(Equal(1))
 			})
 
+			It("should create online VirtualMachineSnapshotContent with volume migration", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createLockedVM()
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+				vmRevision := createVMRevision(vm)
+				crSource.Add(vmRevision)
+
+				vm.ObjectMeta.Annotations = map[string]string{}
+
+				vm.Spec.DataVolumeTemplates[0].Name = "alpine-dv-dest"
+				vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name = "alpine-dv-dest"
+
+				vmi := createVMI(vm)
+				vmi.Status.VirtualMachineRevisionName = vmRevisionName
+				vmiSource.Add(vmi)
+
+				vm.ObjectMeta.Generation = 2
+				pvcs := createPVCsForVM(vm)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
+
+				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				}
+				vmSource.Add(vm)
+				storageClass := createStorageClass()
+				storageClassSource.Add(storageClass)
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
+					SourceUID:  &vmUID,
+					ReadyToUse: pointer.P(false),
+					Phase:      snapshotv1.InProgress,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
+					},
+				}
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotNoGuestAgentIndication,
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+				}
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*createCalls).To(Equal(1))
+			})
+
 			It("should update VirtualMachineSnapshotStatus", func() {
 				vmSnapshotContent := createReadyVMSnapshotContent()
 
@@ -1121,6 +1197,56 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = pointer.P(true)
 				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotPartialSnapshotIndication,
+				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotPartialSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotPartialSnapshotIndication),
+					},
+				}
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Ready"),
+				}
+				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
+					IncludedVolumes: []string{diskName},
+					ExcludedVolumes: []string{"disk2"},
+				}
+
+				vmSource.Add(vm)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should not add partial snapshot indication when only non-snapshottable volumes are excluded", func() {
+				vmSnapshotContent := createReadyVMSnapshotContent()
+				vm := createLockedVM()
+				// Add a non-snapshottable volume (ConfigMap) that will be excluded
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "config-volume",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "test-config",
+							},
+						},
+					},
+				})
+				vmSnapshotContent.Spec.Source.VirtualMachine.Spec = *vm.Spec.DeepCopy()
+
+				vmSnapshot := createVMSnapshotInProgress()
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.SourceUID = &vmUID
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+				updatedSnapshot.Status.CreationTime = timeFunc()
+				updatedSnapshot.Status.ReadyToUse = pointer.P(true)
+				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.SourceIndications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
@@ -1129,7 +1255,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
-					ExcludedVolumes: []string{"disk2"},
+					ExcludedVolumes: []string{"config-volume"},
 				}
 
 				vmSource.Add(vm)

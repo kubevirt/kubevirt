@@ -328,7 +328,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/backup/v1alpha1.BackupCheckpoint":                                                schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref),
 		"kubevirt.io/api/backup/v1alpha1.BackupOptions":                                                   schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref),
 		"kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo":                                                schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref),
-		"kubevirt.io/api/backup/v1alpha1.Condition":                                                       schema_kubevirtio_api_backup_v1alpha1_Condition(ref),
 		"kubevirt.io/api/backup/v1alpha1.VirtualMachineBackup":                                            schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackup(ref),
 		"kubevirt.io/api/backup/v1alpha1.VirtualMachineBackupList":                                        schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupList(ref),
 		"kubevirt.io/api/backup/v1alpha1.VirtualMachineBackupSpec":                                        schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref),
@@ -17422,58 +17421,6 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 	}
 }
 
-func schema_kubevirtio_api_backup_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Condition defines conditions",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"lastProbeTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"lastTransitionTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"reason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"type", "status"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
 func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17656,7 +17603,10 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 					"conditions": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -17665,7 +17615,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/backup/v1alpha1.Condition"),
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
 									},
 								},
 							},
@@ -17708,7 +17658,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo", "kubevirt.io/api/backup/v1alpha1.Condition"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/backup/v1alpha1.BackupVolumeInfo"},
 	}
 }
 
@@ -21681,7 +21631,7 @@ func schema_kubevirtio_api_core_v1_Handler(ref common.ReferenceCallback) common.
 					},
 					"guestAgentPing": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks. Probe failures are automatically suppressed when the guest agent is unreachable for a non-fault reason: during live migration (guest paused on one pod while memory is transferred) and whenever the VM is paused for an intentional or transient reason such as a user pause, snapshot, save, or dump. Failures are not suppressed when the VM is paused due to a fault (IO error, crash, or postcopy failure).",
 							Ref:         ref("kubevirt.io/api/core/v1.GuestAgentPing"),
 						},
 					},
@@ -24921,7 +24871,7 @@ func schema_kubevirtio_api_core_v1_Probe(ref common.ReferenceCallback) common.Op
 					},
 					"guestAgentPing": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks.",
+							Description: "GuestAgentPing contacts the qemu-guest-agent for availability checks. Probe failures are automatically suppressed when the guest agent is unreachable for a non-fault reason: during live migration (guest paused on one pod while memory is transferred) and whenever the VM is paused for an intentional or transient reason such as a user pause, snapshot, save, or dump. Failures are not suppressed when the VM is paused due to a fault (IO error, crash, or postcopy failure).",
 							Ref:         ref("kubevirt.io/api/core/v1.GuestAgentPing"),
 						},
 					},

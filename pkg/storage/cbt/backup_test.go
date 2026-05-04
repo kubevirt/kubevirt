@@ -30,6 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -387,12 +388,10 @@ var _ = Describe("Backup Controller", func() {
 			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 
 			hasInitializing := false
-			for _, cond := range updateObj.Status.Conditions {
-				if cond.Type == backupv1.ConditionInitializing &&
-					cond.Status == corev1.ConditionTrue {
-					hasInitializing = true
-					Expect(cond.Reason).To(ContainSubstring(fmt.Sprintf(backupTrackerNotFoundMsg, backupTrackerName)))
-				}
+			cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))
+			if cond != nil && cond.Status == metav1.ConditionTrue {
+				hasInitializing = true
+				Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(backupTrackerNotFoundMsg, backupTrackerName)))
 			}
 			Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition")
 			return true, updateObj, nil
@@ -433,12 +432,10 @@ var _ = Describe("Backup Controller", func() {
 			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 
 			hasInitializing := false
-			for _, cond := range updateObj.Status.Conditions {
-				if cond.Type == backupv1.ConditionInitializing &&
-					cond.Status == corev1.ConditionTrue {
-					hasInitializing = true
-					Expect(cond.Reason).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
-				}
+			cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))
+			if cond != nil && cond.Status == metav1.ConditionTrue {
+				hasInitializing = true
+				Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
 			}
 			Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition")
 			return true, updateObj, nil
@@ -608,12 +605,10 @@ var _ = Describe("Backup Controller", func() {
 					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 
 					hasInitializing := false
-					for _, cond := range updateObj.Status.Conditions {
-						if cond.Type == backupv1.ConditionInitializing &&
-							cond.Status == corev1.ConditionTrue {
-							hasInitializing = true
-							Expect(cond.Reason).To(ContainSubstring(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
-						}
+					cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionInitializing))
+					if cond != nil && cond.Status == metav1.ConditionTrue {
+						hasInitializing = true
+						Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
 					}
 					Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition with migration reason")
 					return true, updateObj, nil
@@ -707,9 +702,9 @@ var _ = Describe("Backup Controller", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 		backup.Finalizers = []string{vmBackupFinalizer}
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Conditions: []backupv1.Condition{
-				{Type: backupv1.ConditionProgressing, Status: corev1.ConditionFalse},
-				{Type: backupv1.ConditionDone, Status: corev1.ConditionTrue},
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionFalse, "Progressing", ""),
+				newCondition(string(backupv1.ConditionDone), metav1.ConditionTrue, "Done", ""),
 			},
 		}
 
@@ -730,12 +725,12 @@ var _ = Describe("Backup Controller", func() {
 
 	It("should cleanup when VMI backup status is missing", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
-		backup.Finalizers = []string{vmBackupFinalizer}
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Conditions: []backupv1.Condition{
-				{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 			},
 		}
+		backup.Finalizers = []string{vmBackupFinalizer}
 
 		vm := createVM(vmName)
 		controller.vmStore.Add(vm)
@@ -763,8 +758,8 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 				// IncludedVolumes not yet set
 			}
@@ -802,8 +797,8 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 				IncludedVolumes: existingVolumes, // Already set
 			}
@@ -829,9 +824,9 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
-					{Type: backupv1.ConditionDone, Status: corev1.ConditionFalse},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+					newCondition(string(backupv1.ConditionDone), metav1.ConditionFalse, "Done", ""),
 				},
 			}
 			vm := createVM(vmName)
@@ -861,9 +856,9 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionFalse},
-					{Type: backupv1.ConditionDone, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionFalse, "Progressing", ""),
+					newCondition(string(backupv1.ConditionDone), metav1.ConditionTrue, "Done", ""),
 				},
 			}
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
@@ -956,8 +951,8 @@ var _ = Describe("Backup Controller", func() {
 		It("should fail backup if VMI is deleted while backup is progressing", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 
@@ -977,8 +972,8 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 
@@ -1007,9 +1002,9 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
-					newAbortingCondition(corev1.ConditionTrue, backupAborting),
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+					newCondition(string(backupv1.ConditionAborting), metav1.ConditionTrue, "Aborting", backupAborting),
 				},
 			}
 
@@ -1029,9 +1024,9 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
-					newAbortingCondition(corev1.ConditionTrue, backupAborting),
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+					newCondition(string(backupv1.ConditionAborting), metav1.ConditionTrue, "Aborting", backupAborting),
 				},
 			}
 
@@ -1064,8 +1059,8 @@ var _ = Describe("Backup Controller", func() {
 		It("should initiate cleanup if VMI stops running while progressing", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 			addBackup(backup)
@@ -1090,8 +1085,8 @@ var _ = Describe("Backup Controller", func() {
 		It("should fail backup when cleanup completes for a stopped VMI", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 			addBackup(backup)
@@ -1193,8 +1188,8 @@ var _ = Describe("Backup Controller", func() {
 			func(backupType backupv1.BackupType) {
 				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 				backup.Status = &backupv1.VirtualMachineBackupStatus{
-					Conditions: []backupv1.Condition{
-						{Type: backupv1.ConditionInitializing, Status: corev1.ConditionTrue},
+					Conditions: []metav1.Condition{
+						newCondition(string(backupv1.ConditionInitializing), metav1.ConditionTrue, "Initializing", ""),
 					},
 				}
 
@@ -1215,10 +1210,9 @@ var _ = Describe("Backup Controller", func() {
 					statusUpdated = true
 					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
 					hasProgressing := false
-					for _, cond := range updateObj.Status.Conditions {
-						if cond.Type == backupv1.ConditionProgressing && cond.Status == corev1.ConditionTrue {
-							hasProgressing = true
-						}
+					cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionProgressing))
+					if cond != nil && cond.Status == metav1.ConditionTrue {
+						hasProgressing = true
 					}
 					Expect(hasProgressing).To(BeTrue())
 					Expect(updateObj.Status.Type).To(Equal(backupType))
@@ -1238,8 +1232,8 @@ var _ = Describe("Backup Controller", func() {
 				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 				backup.Status = &backupv1.VirtualMachineBackupStatus{
 					Type: backupType, // Type was already set when backup was initiated
-					Conditions: []backupv1.Condition{
-						{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+					Conditions: []metav1.Condition{
+						newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 					},
 				}
 
@@ -1258,13 +1252,8 @@ var _ = Describe("Backup Controller", func() {
 					}
 					statusUpdated = true
 					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-					hasDone := false
-					for _, cond := range updateObj.Status.Conditions {
-						if cond.Type == backupv1.ConditionDone && cond.Status == corev1.ConditionTrue {
-							hasDone = true
-						}
-					}
-					Expect(hasDone).To(BeTrue())
+					Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
+						string(backupv1.ConditionDone))).To(BeTrue())
 					// Type should be preserved from when it was set at initiation
 					Expect(updateObj.Status.Type).To(Equal(backupType))
 					return true, updateObj, nil
@@ -1281,8 +1270,8 @@ var _ = Describe("Backup Controller", func() {
 		It("should add Aborting when backup is deleted while progressing", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 			backup.DeletionTimestamp = pointer.P(metav1.Now())
@@ -1302,18 +1291,11 @@ var _ = Describe("Backup Controller", func() {
 				}
 				statusUpdated = true
 				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				hasProgressing := false
-				hasAborting := false
-				for _, cond := range updateObj.Status.Conditions {
-					if cond.Type == backupv1.ConditionProgressing && cond.Status == corev1.ConditionTrue {
-						hasProgressing = true
-					}
-					if cond.Type == backupv1.ConditionAborting && cond.Status == corev1.ConditionTrue {
-						hasAborting = true
-					}
-				}
-				Expect(hasProgressing).To(BeTrue(), "backup should be Progressing")
-				Expect(hasAborting).To(BeTrue(), "backup should be Aborting")
+
+				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
+					string(backupv1.ConditionProgressing))).To(BeTrue(), "backup should be Progressing")
+				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
+					string(backupv1.ConditionAborting))).To(BeTrue(), "backup should be Aborting")
 				return true, updateObj, nil
 			})
 
@@ -1326,9 +1308,9 @@ var _ = Describe("Backup Controller", func() {
 		It("should update to Done and set Aborting to false if backup was aborted successfully", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
-					{Type: backupv1.ConditionAborting, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+					newCondition(string(backupv1.ConditionAborting), metav1.ConditionTrue, "Aborting", ""),
 				},
 			}
 			backup.DeletionTimestamp = pointer.P(metav1.Now())
@@ -1348,18 +1330,10 @@ var _ = Describe("Backup Controller", func() {
 				}
 				statusUpdated = true
 				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				hasDone := false
-				hasAbortingDone := false
-				for _, cond := range updateObj.Status.Conditions {
-					if cond.Type == backupv1.ConditionDone && cond.Status == corev1.ConditionTrue {
-						hasDone = true
-					}
-					if cond.Type == backupv1.ConditionAborting && cond.Status == corev1.ConditionFalse {
-						hasAbortingDone = true
-					}
-				}
-				Expect(hasDone).To(BeTrue(), "backup should be done")
-				Expect(hasAbortingDone).To(BeTrue(), "backup was aborting and should have its Aborting condition set to false")
+				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions,
+					string(backupv1.ConditionDone))).To(BeTrue(), "backup should be done")
+				Expect(meta.IsStatusConditionFalse(updateObj.Status.Conditions,
+					string(backupv1.ConditionAborting))).To(BeTrue(), "backup was aborting and should have its Aborting condition set to false")
 				return true, updateObj, nil
 			})
 
@@ -1372,8 +1346,8 @@ var _ = Describe("Backup Controller", func() {
 		It("should record warning event when backup completed with warning", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 
@@ -1407,8 +1381,8 @@ var _ = Describe("Backup Controller", func() {
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 
@@ -1422,13 +1396,7 @@ var _ = Describe("Backup Controller", func() {
 				}
 				statusUpdated = true
 				updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-				hasDeleting := false
-				for _, cond := range updateObj.Status.Conditions {
-					if cond.Type == backupv1.ConditionDeleting && cond.Status == corev1.ConditionTrue {
-						hasDeleting = true
-					}
-				}
-				Expect(hasDeleting).To(BeTrue())
+				Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionDeleting))).To(BeTrue())
 				return true, updateObj, nil
 			})
 
@@ -1440,8 +1408,8 @@ var _ = Describe("Backup Controller", func() {
 		It("should not update when status unchanged", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 
@@ -1460,8 +1428,8 @@ var _ = Describe("Backup Controller", func() {
 			func(event string, reason string, expectDoneCondition bool) {
 				backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 				backup.Status = &backupv1.VirtualMachineBackupStatus{
-					Conditions: []backupv1.Condition{
-						{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+					Conditions: []metav1.Condition{
+						newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 					},
 				}
 
@@ -1485,15 +1453,7 @@ var _ = Describe("Backup Controller", func() {
 					}
 					statusUpdated = true
 					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-					if expectDoneCondition {
-						hasDone := false
-						for _, cond := range updateObj.Status.Conditions {
-							if cond.Type == backupv1.ConditionDone && cond.Status == corev1.ConditionTrue {
-								hasDone = true
-							}
-						}
-						Expect(hasDone).To(BeTrue())
-					}
+					Expect(meta.IsStatusConditionTrue(updateObj.Status.Conditions, string(backupv1.ConditionDone))).To(Equal(expectDoneCondition))
 					Expect(updateObj.Status.IncludedVolumes).To(HaveLen(2))
 					Expect(updateObj.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
 					Expect(updateObj.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
@@ -1785,8 +1745,8 @@ var _ = Describe("Backup Controller", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 		backup.Finalizers = []string{vmBackupFinalizer}
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Conditions: []backupv1.Condition{
-				{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 			},
 		}
 
@@ -1823,8 +1783,8 @@ var _ = Describe("Backup Controller", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 		backup.Finalizers = []string{vmBackupFinalizer}
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Conditions: []backupv1.Condition{
-				{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 			},
 		}
 
@@ -1880,10 +1840,11 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
+
 			addBackup(backup)
 
 			vm := createVM(vmName)
@@ -1966,10 +1927,11 @@ var _ = Describe("Backup Controller", func() {
 		backup := createBackupWithTracker(backupName, vmName, pvcName)
 		backup.Finalizers = []string{vmBackupFinalizer}
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Conditions: []backupv1.Condition{
-				{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+			Conditions: []metav1.Condition{
+				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 			},
 		}
+
 		addBackup(backup)
 
 		vm := createVM(vmName)
@@ -2021,8 +1983,8 @@ var _ = Describe("Backup Controller", func() {
 			backup.CreationTimestamp = metav1.Now()
 			backup.Finalizers = []string{vmBackupFinalizer}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Conditions: []backupv1.Condition{
-					{Type: backupv1.ConditionProgressing, Status: corev1.ConditionTrue},
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
 			}
 			vmExport = createBackupVMExport(backup)
@@ -2073,7 +2035,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return nil when export is not yet in Ready phase", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 
 			vmExport := createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Pending}
@@ -2084,7 +2047,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should update includedVolumes when export is in Ready phase but the backup has no included volumes", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 
 			vmExport := createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Ready}
@@ -2105,7 +2069,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return an error when export is ready but has no links", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
 				DiskTarget: "vda",
@@ -2120,7 +2085,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return an error when the export is ready but the cert is empty", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
 				DiskTarget: "vda",
@@ -2149,7 +2115,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return ExportReady with populated endpoints using internal links", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
@@ -2180,7 +2147,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should prioritize external links over internal links", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
@@ -2219,7 +2187,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should map endpoints independently for multiple volumes", func() {
-			backup.Status.Conditions = append(backup.Status.Conditions, backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue})
+			backup.Status.Conditions = append(backup.Status.Conditions,
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""))
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{
 				{VolumeName: "rootdisk"},
 				{VolumeName: "datadisk"},
@@ -2319,8 +2288,8 @@ var _ = Describe("Backup Controller", func() {
 
 		It("should reset to Progressing condition when the export has disappeared", func() {
 			backup.Status.Conditions = append(backup.Status.Conditions,
-				backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue},
-				backupv1.Condition{Type: backupv1.ConditionExportReady, Status: corev1.ConditionTrue},
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""),
+				newCondition(string(backupv1.ConditionExportReady), metav1.ConditionTrue, "ExportReady", ""),
 			)
 			syncInfo := controller.sync(backup)
 			Expect(syncInfo).ToNot(BeNil())
@@ -2351,8 +2320,8 @@ var _ = Describe("Backup Controller", func() {
 
 		It("should delete the export when the backup completed", func() {
 			backup.Status.Conditions = append(backup.Status.Conditions,
-				backupv1.Condition{Type: backupv1.ConditionExportInitiated, Status: corev1.ConditionTrue},
-				backupv1.Condition{Type: backupv1.ConditionExportReady, Status: corev1.ConditionTrue},
+				newCondition(string(backupv1.ConditionExportInitiated), metav1.ConditionTrue, "ExportInitiated", ""),
+				newCondition(string(backupv1.ConditionExportReady), metav1.ConditionTrue, "ExportReady", ""),
 			)
 			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
 				State: v1.ChangedBlockTrackingEnabled,

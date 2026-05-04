@@ -10,6 +10,7 @@ go_library(
     importpath = "google.golang.org/grpc/encoding",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/google.golang.org/grpc/encoding/internal:go_default_library",
         "//vendor/google.golang.org/grpc/internal/grpcutil:go_default_library",
         "//vendor/google.golang.org/grpc/mem:go_default_library",
     ],

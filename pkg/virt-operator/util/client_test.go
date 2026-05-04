@@ -118,17 +118,41 @@ var _ = Describe("Operator Client", func() {
 		Describe("Adding a finalizer", func() {
 			Context("When another one already exists", func() {
 				It("Should add it", func() {
-					AddFinalizer(kv)
+					SetFinalizer(kv)
 					Expect(kv.Finalizers).To(HaveLen(2), "should have 2 finalizers")
 					Expect(kv.Finalizers[0]).To(Equal("oldFinalizer"), "should keep first old finalizer")
 					Expect(kv.Finalizers[1]).To(Equal(KubeVirtFinalizer), "should add new finalizer")
 				})
 				It("Should not add it again", func() {
-					AddFinalizer(kv)
+					SetFinalizer(kv)
+					SetFinalizer(kv)
 					Expect(kv.Finalizers).To(HaveLen(2), "should still have 2 finalizers")
 					Expect(kv.Finalizers[0]).To(Equal("oldFinalizer"), "should keep first old finalizer")
 					Expect(kv.Finalizers[1]).To(Equal(KubeVirtFinalizer), "should keep second old finalizer")
 				})
+				It("Should replace the deprecated finalizer on upgrade", func() {
+					kv.Finalizers = []string{deprecatedKubeVirtFinalizer}
+					SetFinalizer(kv)
+					Expect(kv.Finalizers).To(ConsistOf(KubeVirtFinalizer))
+				})
+			})
+		})
+
+		Describe("UnsetFinalizer", func() {
+			It("Should remove the current finalizer", func() {
+				kv.Finalizers = []string{KubeVirtFinalizer}
+				UnsetFinalizer(kv)
+				Expect(kv.Finalizers).To(BeEmpty())
+			})
+			It("Should remove the deprecated finalizer", func() {
+				kv.Finalizers = []string{deprecatedKubeVirtFinalizer}
+				UnsetFinalizer(kv)
+				Expect(kv.Finalizers).To(BeEmpty())
+			})
+			It("Should preserve finalizers from other controllers should they exist", func() {
+				kv.Finalizers = []string{"otherFinalizer", KubeVirtFinalizer}
+				UnsetFinalizer(kv)
+				Expect(kv.Finalizers).To(ConsistOf("otherFinalizer"))
 			})
 		})
 

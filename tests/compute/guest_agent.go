@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
 
@@ -220,6 +219,48 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 				Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
 		})
 	})
+
+	Context("Liveness probe with guest agent ping and user-paused VMI", func() {
+		It("should not kill the VMI while it is paused by the user", func() {
+			// Low FailureThreshold so that without the fix the probe would
+			// kill the VMI within a few probe cycles.
+			livenessProbe := &v1.Probe{
+				Handler:             v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}},
+				InitialDelaySeconds: 120,
+				PeriodSeconds:       5,
+				FailureThreshold:    2,
+			}
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+			By("Waiting for agent to connect")
+			Eventually(matcher.ThisVMI(vmi)).
+				WithTimeout(12 * time.Minute).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Pausing the VMI")
+			Expect(kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})).To(Succeed())
+			Eventually(matcher.ThisVMI(vmi)).
+				WithTimeout(30 * time.Second).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+
+			By("Verifying the VMI stays alive while paused (probe errors must be suppressed)")
+			// Wait long enough for several probe cycles to elapse.
+			Consistently(matcher.ThisVMI(vmi)).
+				WithTimeout(30 * time.Second).
+				WithPolling(2 * time.Second).
+				Should(Not(matcher.BeInPhase(v1.Failed)))
+
+			By("Unpausing the VMI")
+			Expect(kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})).To(Succeed())
+			Eventually(matcher.ThisVMI(vmi)).
+				WithTimeout(30 * time.Second).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+		})
+	})
 }))
 
 var _ = Describe(SIG("GuestAgent info", func() {
@@ -254,14 +295,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 		})
 
 		It("[test_id:1677]VMI condition should signal agent presence", func() {
-			freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-			Expect(freshVMI.Status.Conditions).To(
-				ContainElement(
-					MatchFields(
-						IgnoreExtras,
-						Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-				"agent should already be connected")
+			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "agent should already be connected")
 		})
 
 		It("[test_id:4626]should have guestosinfo in status when agent is present", func() {

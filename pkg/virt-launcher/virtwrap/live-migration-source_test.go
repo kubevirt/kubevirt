@@ -63,7 +63,7 @@ var _ = Describe("Live migration source", func() {
 				testVirtShareDir,
 				testEphemeralDiskDir,
 				nil, // agent store
-				"/usr/share/OVMF",
+				virtconfig.DefaultARCHOVMFPath,
 				ephemeralDiskCreatorMock,
 				metadataCache,
 				nil, //stop chn

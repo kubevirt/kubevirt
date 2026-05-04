@@ -8,7 +8,7 @@ filters:
       - approvers
     emeritus_approvers:
       - emeritus_approvers
-  "BUILD\\.bazel|.*\\.bzl|WORKSPACE":
+  "BUILD\\.bazel|.*\\.bzl|WORKSPACE|Makefile|\\.bazelrc|ci\\.bazelrc|\\.bazelversion|nogo_config\\.json":
     reviewers:
       - sig-buildsystem-reviewers
     approvers:

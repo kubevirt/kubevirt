@@ -48,23 +48,17 @@ const (
 
 type timeProviderFunc func() metav1.Time
 
-type clusterConfigurer interface {
-	LiveUpdateNADRefEnabled() bool
-}
-
 type Evaluator struct {
-	timeProvider      timeProviderFunc
-	clusterConfigurer clusterConfigurer
+	timeProvider timeProviderFunc
 }
 
-func NewEvaluator(clusterConfigurer clusterConfigurer) Evaluator {
-	return NewEvaluatorWithTimeProvider(metav1.Now, clusterConfigurer)
+func NewEvaluator() Evaluator {
+	return NewEvaluatorWithTimeProvider(metav1.Now)
 }
 
-func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc, clusterConfigurer clusterConfigurer) Evaluator {
+func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc) Evaluator {
 	return Evaluator{
-		timeProvider:      timeProvider,
-		clusterConfigurer: clusterConfigurer,
+		timeProvider: timeProvider,
 	}
 }
 
@@ -74,7 +68,6 @@ func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
 	result := shouldVMIBeMarkedForAutoMigration(
 		vmi,
 		pod,
-		e.clusterConfigurer.LiveUpdateNADRefEnabled(),
 	)
 
 	switch result {
@@ -99,7 +92,6 @@ func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
 func shouldVMIBeMarkedForAutoMigration(
 	vmi *v1.VirtualMachineInstance,
 	pod *k8scorev1.Pod,
-	isLiveUpdateNADRefEnabled bool,
 ) migrationRequirementKind {
 	ifaces := vmi.Spec.Domain.Devices.Interfaces
 	nets := vmi.Spec.Networks
@@ -124,10 +116,6 @@ func shouldVMIBeMarkedForAutoMigration(
 
 		if result := shouldMigrateOnIfaceUnplug(iface, ifaceStatus, ifaceStatusExists); result != notRequired {
 			return result
-		}
-
-		if !isLiveUpdateNADRefEnabled {
-			continue
 		}
 
 		net := netsByName[iface.Name]

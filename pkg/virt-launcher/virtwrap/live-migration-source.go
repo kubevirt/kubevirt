@@ -32,6 +32,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -86,7 +87,6 @@ type migrationMonitor struct {
 
 	progressTimeout          int64
 	acceptableCompletionTime int64
-	migrationFailedWithError error
 }
 
 type inflightMigrationAborted struct {
@@ -305,11 +305,8 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 
 func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
-	migrationUID := vmi.Status.MigrationState.MigrationUID
-	if vmi.Status.MigrationState.SourceState != nil {
-		migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
-	}
-	if exists && migrationMetadata.UID == migrationUID {
+	uid := MigrationUID(vmi)
+	if exists && migrationMetadata.UID == uid {
 		if migrationMetadata.EndTimestamp == nil {
 			// don't stop on currently executing migrations
 			return true, nil
@@ -323,7 +320,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 
 	now := metav1.Now()
 	m := api.MigrationMetadata{
-		UID:            migrationUID,
+		UID:            uid,
 		StartTimestamp: &now,
 		Mode:           migrationMode,
 	}
@@ -372,6 +369,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 	if migrationMetadata.EndTimestamp != nil {
 		// the migration result has already been reported and should not be overwritten
 		return nil
+	}
+
+	// Improve the error message when the volume migration fails because the destination size is smaller than the source volume
+	if failed && strings.Contains(standardizeSpaces(reason), "has to be smaller or equal to the actual size of the containing file") {
+		reason = fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v", reason)
 	}
 
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
@@ -455,47 +457,6 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 	}
 
 	return true
-}
-
-func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain) *libvirt.DomainJobInfo {
-	logger := log.Log.Object(m.vmi)
-	// check if an ongoing migration has been completed before we could capture the outcome
-	if m.lastProgressUpdate > m.start {
-		logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
-		// at this point the migration is over, but we don't know the result.
-		// check if we were trying to cancel this job. In this case, finalize the migration.
-		migration, _ := m.l.metadataCache.Migration.Load()
-		if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
-			logger.Info("Migration job was canceled")
-			return &libvirt.DomainJobInfo{
-				Type:             libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining:    m.remainingData,
-				DataRemainingSet: true,
-			}
-		}
-
-		// If the domain is active, it means that the migration has failed.
-		domainState, _, err := dom.GetState()
-		if err != nil {
-			logger.Reason(err).Error("failed to get domain state")
-			if libvirtError, ok := err.(libvirt.Error); ok &&
-				(libvirtError.Code == libvirt.ERR_NO_DOMAIN ||
-					libvirtError.Code == libvirt.ERR_OPERATION_INVALID) {
-				logger.Info("domain is not running on this node")
-				return nil
-			}
-		}
-		if domainState == libvirt.DOMAIN_RUNNING {
-			logger.Info("Migration job failed")
-			return &libvirt.DomainJobInfo{
-				Type:             libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining:    m.remainingData,
-				DataRemainingSet: true,
-			}
-		}
-	}
-	logger.Info("Migration job didn't start yet")
-	return nil
 }
 
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo) *inflightMigrationAborted {
@@ -610,7 +571,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 }
 
 func (m *migrationMonitor) startMonitor() {
-	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
 
 	m.start = time.Now().UTC().UnixNano()
@@ -633,50 +593,37 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
+		var ok bool
 		err = nil
 		select {
-		case err = <-m.migrationErr:
+		case err, ok = <-m.migrationErr:
+			if !ok {
+				return
+			}
 		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
-		if err != nil && m.migrationFailedWithError == nil {
-			logger.Reason(err).Error("Received a live migration error. Will check the latest migration status.")
-			m.migrationFailedWithError = err
-		} else if m.migrationFailedWithError != nil {
-			logger.Info("Didn't manage to get a job status. Post the received error and finalize.")
-			logger.Reason(m.migrationFailedWithError).Error(liveMigrationFailed)
+		if err != nil {
+			logger.Reason(err).Error(liveMigrationFailed)
 			var abortStatus v1.MigrationAbortStatus
-			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
+			if strings.Contains(err.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
-			// Improve the error message when the volume migration fails because the destination size is smaller then the source volume
-			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(standardizeSpaces(m.migrationFailedWithError.Error()),
-				"has to be smaller or equal to the actual size of the containing file") {
-				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v",
-					m.migrationFailedWithError), abortStatus)
-				return
-			}
-			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
+			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
 			return
 		}
 
-		jobStats := completedJobInfo
-		if jobStats == nil {
-			jobStats, err = dom.GetJobStats(0)
-			if err != nil {
-				logger.Reason(err).Warning("failed to get domain job info, will retry")
-				continue
-			}
+		jobStats, err := dom.GetJobStats(0)
+		if err != nil {
+			logger.Reason(err).Info("failed to get domain job info, will retry")
+			continue
 		}
 
 		if jobStats.DataRemainingSet {
 			m.remainingData = jobStats.DataRemaining
 		}
 
-		migrationUID := vmi.Status.MigrationState.MigrationUID
-		if vmi.Status.MigrationState.SourceState != nil {
-			migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
-		}
+		uid := MigrationUID(vmi)
 		switch jobStats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
 			aborted := m.processInflightMigration(dom, jobStats)
@@ -687,20 +634,26 @@ func (m *migrationMonitor) startMonitor() {
 			}
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				logMigrationInfo(logger, string(migrationUID), jobStats)
+				LogMigrationInfo(logger, uid, jobStats)
 			}
 		case libvirt.DOMAIN_JOB_NONE:
-			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
-		case libvirt.DOMAIN_JOB_CANCELLED:
-			logger.Info("Migration was canceled")
-			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
-			return
+			logger.Info("Migration job is not active")
 		}
 	}
 }
 
-// logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
-func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
+func MigrationUID(vmi *v1.VirtualMachineInstance) types.UID {
+	if s := vmi.Status.MigrationState; s != nil {
+		if s.SourceState != nil {
+			return s.SourceState.MigrationUID
+		}
+		return s.MigrationUID
+	}
+	return ""
+}
+
+// LogMigrationInfo logs the same migration info as `virsh -r domjobinfo`
+func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo) {
 	bToMiB := func(bytes uint64) uint64 {
 		return bytes / 1024 / 1024
 	}
@@ -709,13 +662,19 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 		return bytes * 8 / 1000000
 	}
 
+	// For completed jobs, Downtime is the final downtime, DowntimeNet contains the actual network overhead during the cutover
+	downtimeInfo := fmt.Sprintf("ExpectedDowntime:%dms", info.Downtime)
+	if info.DowntimeNetSet && info.DowntimeNet > 0 {
+		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
-		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
+		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
 		`DiskMbps:%d`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
-		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
+		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
 		bpsToMbps(info.DiskBps),
 	))
 }

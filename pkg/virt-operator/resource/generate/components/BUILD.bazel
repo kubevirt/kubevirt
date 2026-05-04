@@ -85,6 +85,7 @@ go_test(
         "apiservices_test.go",
         "components_suite_test.go",
         "crds_test.go",
+        "daemonsets_test.go",
         "deployments_test.go",
         "instancetypes_test.go",
         "routes_test.go",

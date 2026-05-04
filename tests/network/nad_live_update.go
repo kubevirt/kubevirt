@@ -66,7 +66,6 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		config.EnableFeatureGate("LiveUpdateNADRef")
 
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},

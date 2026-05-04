@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -107,7 +107,7 @@ func (admitter *VMBackupAdmitter) validateSingleBackup(vmBackup *backupv1.Virtua
 		}
 		// Reject if another backup is in progress for the same source
 		if equality.Semantic.DeepEqual(existingBackup.Spec.Source, vmBackup.Spec.Source) &&
-			!backup.IsBackupDone(existingBackup.Status) {
+			!cbt.IsBackupDone(existingBackup) {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("VirtualMachineBackup %q in progress for source", existingBackup.Name),

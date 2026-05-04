@@ -76,7 +76,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -95,6 +94,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libhypervisor"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -406,8 +406,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(&newVirtualMachineInstancesPerNode))
 
-			kvmLauncherResources := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
-			kvmDeviceName := services.ConstructHypervisorResourceName(kvmLauncherResources)
+			hypervisorDevice := libhypervisor.GetHypervisorDeviceName(virtClient)
+			hypervisorResource := k8sv1.ResourceName(services.K8sDevicePrefix + "/" + hypervisorDevice)
 
 			newVMIPerNodePatch, err := patch.New(
 				patch.WithAdd("/spec/configuration/virtualMachineInstancesPerNode", newVirtualMachineInstancesPerNode)).GeneratePayload()
@@ -419,13 +419,13 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Waiting for virt-operator to apply changes to component")
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
-			By("Test that worker nodes have the correct allocatable kvm devices according to virtualMachineInstancesPerNode setting")
+			By("Test that worker nodes have the correct allocatable hypervisor devices according to virtualMachineInstancesPerNode setting")
 			Eventually(func() error {
-				nodesWithKvm := libnode.GetNodesWithKVM()
-				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[kvmDeviceName]
-					if int(kvmDevices.Value()) != newVirtualMachineInstancesPerNode {
-						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %d, got: %d", node.Name, newVirtualMachineInstancesPerNode, kvmDevices.Value())
+				nodesWithHypervisor := libnode.GetNodesWithHypervisor(hypervisorDevice)
+				for _, node := range nodesWithHypervisor {
+					hypervisorDevices, _ := node.Status.Allocatable[hypervisorResource]
+					if int(hypervisorDevices.Value()) != newVirtualMachineInstancesPerNode {
+						return fmt.Errorf("node %s does not have the expected allocatable hypervisor %s devices: %d, got: %d", node.Name, hypervisorDevice, newVirtualMachineInstancesPerNode, hypervisorDevices.Value())
 					}
 				}
 				return nil
@@ -442,15 +442,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Waiting for virt-operator to apply changes to component")
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
-			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
-			const defaultKvmDevices = "1k"
-			defaultKvmDevicesQuant := resource.MustParse(defaultKvmDevices)
-			kvmDeviceKey := k8sv1.ResourceName(kvmDeviceName)
+			By("Check that worker nodes resumed the default amount of allocatable hypervisor devices")
+			const defaultHypervisorDevices = "1k"
+			defaultHypervisorDevicesQuant := resource.MustParse(defaultHypervisorDevices)
 
 			Eventually(func(g Gomega) {
-				nodesWithKvm := libnode.GetNodesWithKVM()
-				for _, node := range nodesWithKvm {
-					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(kvmDeviceKey, defaultKvmDevicesQuant), "node %s does not have the expected allocatable kvm devices", node.Name)
+				nodesWithHypervisor := libnode.GetNodesWithHypervisor(hypervisorDevice)
+				for _, node := range nodesWithHypervisor {
+					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(hypervisorResource, defaultHypervisorDevicesQuant), "node %s does not have the expected allocatable hypervisor %s devices", node.Name, hypervisorDevice)
 				}
 			}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})

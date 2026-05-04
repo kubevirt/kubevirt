@@ -529,7 +529,7 @@ var _ = Describe("Template", func() {
 				Expect(hasPodNameEnvVar).To(BeTrue())
 
 			},
-				Entry("on amd64", "amd64", "/usr/share/OVMF"),
+				Entry("on amd64", "amd64", virtconfig.DefaultARCHOVMFPath),
 				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
 			)
 
@@ -1127,7 +1127,7 @@ var _ = Describe("Template", func() {
 
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			},
-				Entry("on amd64", "amd64", "/usr/share/OVMF"),
+				Entry("on amd64", "amd64", virtconfig.DefaultARCHOVMFPath),
 				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
 			)
 

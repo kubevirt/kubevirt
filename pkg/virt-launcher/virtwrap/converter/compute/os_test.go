@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -113,8 +114,8 @@ var _ = Describe("OS Domain Configurator", func() {
 
 		BeforeEach(func() {
 			efiConfig = &compute.EFIConfiguration{
-				EFICode:      "/usr/share/OVMF/OVMF_CODE.fd",
-				EFIVars:      "/usr/share/OVMF/OVMF_VARS.fd",
+				EFICode:      filepath.Join(virtconfig.DefaultARCHOVMFPath, "OVMF_CODE.fd"),
+				EFIVars:      filepath.Join(virtconfig.DefaultARCHOVMFPath, "OVMF_VARS.fd"),
 				SecureLoader: false,
 			}
 		})

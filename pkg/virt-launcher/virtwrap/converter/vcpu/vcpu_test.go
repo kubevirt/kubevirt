@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	corev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -176,6 +177,43 @@ var _ = Describe("VCPU pinning", func() {
 			[]uint32{7, 6, 2, 8, 3, 9, 4, 10, 5, 11},
 		),
 	)
+
+	Describe("AdjustDomainForTopologyAndCPUSet", func() {
+		It("should succeed without modifying topology when VCPU metadata is absent", func() {
+			domain := &api.Domain{
+				Spec: api.DomainSpec{
+					CPU: api.CPU{
+						Topology: &api.CPUTopology{
+							Sockets: 1,
+							Cores:   1,
+							Threads: 1,
+						},
+					},
+				},
+			}
+			vmi := &corev1.VirtualMachineInstance{
+				Spec: corev1.VirtualMachineInstanceSpec{
+					Domain: corev1.DomainSpec{
+						CPU: &corev1.CPU{
+							Sockets:               1,
+							Cores:                 1,
+							Threads:               1,
+							MaxSockets:            2,
+							DedicatedCPUPlacement: true,
+						},
+					},
+				},
+			}
+			topology := hostTopology(1, 1, 0)
+			err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, []int{0}, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domain.Spec.CPU.Topology).ToNot(BeNil())
+			Expect(domain.Spec.CPU.Topology.Sockets).To(Equal(uint32(1)))
+			Expect(domain.Spec.CPU.Topology.Cores).To(Equal(uint32(1)))
+			Expect(domain.Spec.CPU.Topology.Threads).To(Equal(uint32(1)))
+			Expect(domain.Spec.VCPUs).To(BeNil())
+		})
+	})
 })
 
 func shuffleCPUSet(cpuSet ...int) []int {

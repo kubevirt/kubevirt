@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "kubernetes.go",
         "outputenricher.go",
+        "vmlog_reporter.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/reporter",
     visibility = ["//visibility:public"],
@@ -23,6 +24,7 @@ go_library(
         "//tests/libdomain:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/testsuite:go_default_library",
+        "//tests/vmlogchecker:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/config:go_default_library",

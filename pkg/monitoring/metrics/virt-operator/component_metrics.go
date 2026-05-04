@@ -21,19 +21,19 @@ package virtoperator
 import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 var (
-	operatorMetrics = []operatormetrics.Metric{
-		leaderGauge,
-		readyGauge,
+	componentMetrics = []operatormetrics.Metric{
+		virtOperatorLeading,
+		virtOperatorReady,
 	}
 
-	leaderGauge = operatormetrics.NewGauge(
+	virtOperatorLeading = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_virt_operator_leading_status",
 			Help: "Indication for an operating virt-operator.",
 		},
 	)
 
-	readyGauge = operatormetrics.NewGauge(
+	virtOperatorReady = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_virt_operator_ready_status",
 			Help: "Indication for a virt-operator that is ready to take the lead.",
@@ -41,10 +41,18 @@ var (
 	)
 )
 
-func SetLeader(isLeader bool) {
-	leaderGauge.Set(boolToFloat64(isLeader))
+func SetVirtOperatorLeading() {
+	virtOperatorLeading.Set(1)
 }
 
-func SetReady(isReady bool) {
-	readyGauge.Set(boolToFloat64(isReady))
+func SetVirtOperatorNotLeading() {
+	virtOperatorLeading.Set(0)
+}
+
+func SetVirtOperatorReady() {
+	virtOperatorReady.Set(1)
+}
+
+func SetVirtOperatorNotReady() {
+	virtOperatorReady.Set(0)
 }

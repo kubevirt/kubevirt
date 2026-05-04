@@ -56,6 +56,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -408,11 +409,16 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(key,
+	err = c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
 		domain,
 		domainExists)
+	_, localExists, _ := c.getVMIFromCache(key)
+	if !localExists {
+		metrics.ResetVMISync(key)
+	}
+	return err
 
 }
 
@@ -1094,6 +1100,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 	}
 
 	// Record an event on the VMI when the VMI's phase changes
@@ -2203,6 +2210,9 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 				return vmi.Status.Phase, err
 			} else if isUnresponsive {
+				if vmi.IsMigrationTarget() {
+					return v1.WaitingForSync, nil
+				}
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
 				return v1.Failed, nil
@@ -2211,6 +2221,9 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 		case !vmi.IsRunning() && !vmi.IsFinal():
 			return v1.Scheduled, nil
 		case !vmi.IsFinal():
+			if vmi.IsMigrationTarget() {
+				return v1.WaitingForSync, nil
+			}
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
 			return v1.Failed, nil

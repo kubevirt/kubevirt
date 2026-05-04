@@ -23,6 +23,7 @@ go_library(
         "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/labels:go_default_library",
+        "//pkg/monitoring/metrics/common/vmisync:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
         "//pkg/network/resources:go_default_library",
         "//pkg/util/hardware:go_default_library",

@@ -28,6 +28,7 @@ go_library(
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/hypervisor:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/monitoring/metrics/common/vmisync:go_default_library",
         "//pkg/network/domainspec:go_default_library",
         "//pkg/network/errors:go_default_library",
         "//pkg/network/setup:go_default_library",
