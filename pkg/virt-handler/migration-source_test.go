@@ -564,6 +564,59 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 	})
 
+	It("should set StallDetectionEnabled to true when MigrationStallDetection feature gate is enabled", func() {
+		kv := &v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.PasstBinding, featuregate.MigrationStallDetection},
+			},
+		}
+		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+		vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:                     "othernode",
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     host,
+			MigrationUID:                   "123",
+			TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+		}
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			{
+				Type:   v1.VirtualMachineInstanceIsMigratable,
+				Status: k8sv1.ConditionTrue,
+			},
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+		const testIfaceName = "eth0"
+		domain.Status.Interfaces = []api.InterfaceStatus{
+			{InterfaceName: testIfaceName},
+		}
+		addVMI(vmi, domain)
+		options := &cmdclient.MigrationOptions{
+			Bandwidth:                resource.MustParse("0Mi"),
+			ProgressTimeout:          virtconfig.MigrationProgressTimeout,
+			CompletionTimeoutPerGiB:  virtconfig.MigrationCompletionTimeoutPerGiB,
+			MaxDowntime:              virtconfig.DefaultMigrationMaxDowntime,
+			UnsafeMigration:          virtconfig.DefaultUnsafeMigrationOverride,
+			AllowPostCopy:            virtconfig.MigrationAllowPostCopy,
+			ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
+			StallDetectionEnabled:    true,
+		}
+		client.EXPECT().MigrateVirtualMachine(vmi, options)
+		sanityExecute()
+		testutils.ExpectEvent(recorder, VMIMigrating)
+	})
+
 	It("should migrate vmi once target address is known", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.UID = vmiTestUUID
