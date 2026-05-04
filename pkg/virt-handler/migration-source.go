@@ -200,14 +200,11 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 
 	if migrationMetadata.Failed {
+		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+		vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
 		vmi.Status.MigrationState.FailureReason = migrationMetadata.FailureReason
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
-	}
-
-	vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
-	if migrationMetadata.AbortStatus == string(v1.MigrationAbortSucceeded) {
-		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
 	}
 
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
