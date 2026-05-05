@@ -44,6 +44,14 @@ use_repo(bazeldnf_rpms, "kubevirt-rpms")
 # Python toolchain defined in //:py_toolchain (root BUILD.bazel)
 register_toolchains("//:py_toolchain")
 
+# Register Go CGO platforms as execution platforms.
+# Required in Bazel 9+: test toolchain resolution (@@bazel_tools//tools/test:default_test_toolchain_type)
+register_execution_platforms(
+    "@io_bazel_rules_go//go/toolchain:linux_amd64_cgo",
+    "@io_bazel_rules_go//go/toolchain:linux_arm64_cgo",
+    "@io_bazel_rules_go//go/toolchain:linux_s390x_cgo",
+)
+
 
 _http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
