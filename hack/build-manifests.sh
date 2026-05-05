@@ -34,9 +34,10 @@ mkdir -p "${TESTS_OUT_DIR}/tools"
 templator=${TESTS_OUT_DIR}/tools/manifest-templator
 
 if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
-    bazel run \
+    bazel build \
         --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
-        //:build-manifest-templator -- ${templator}
+        //tools/manifest-templator:templator
+    cp -f "${KUBEVIRT_DIR}/bazel-bin/tools/manifest-templator/templator_/templator" "${templator}"
 else
     (cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go_build && cp manifest-templator ${templator})
 fi
