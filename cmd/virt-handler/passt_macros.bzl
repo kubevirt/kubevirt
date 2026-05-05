@@ -1,5 +1,5 @@
-load("@bazeldnf//bazeldnf:defs.bzl", "tar2files")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:rpm_macros.bzl", "tar2files")
 
 def passt_repair_for_arch(arch):
     tar_label = "//rpm:passt_tree_{}".format(arch)

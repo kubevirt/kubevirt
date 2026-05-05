@@ -1,4 +1,5 @@
-load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf", "rpmtree", "tar2files")
+load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf", "rpmtree")
+load("//bazel:rpm_macros.bzl", "tar2files")
 load(":centos_stream.bzl", "centos_stream_alias", "centos_stream_config_settings")
 
 centos_stream_config_settings()
