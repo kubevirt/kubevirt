@@ -48,7 +48,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	runc_cgroups "github.com/opencontainers/cgroups"
+	"github.com/opencontainers/cgroups"
 	devices "github.com/opencontainers/cgroups/devices/config"
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
@@ -106,7 +106,7 @@ var _ = Describe("HotplugVolume", func() {
 			rule1.Allow == rule2.Allow
 	}
 
-	cgroupMockSet := func(r *runc_cgroups.Resources) {
+	cgroupMockSet := func(r *cgroups.Resources) {
 		if expectedCgroupRule == nil {
 			return
 		}

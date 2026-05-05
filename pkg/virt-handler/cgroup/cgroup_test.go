@@ -27,7 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	runc_cgroups "github.com/opencontainers/cgroups"
+	cgroups "github.com/opencontainers/cgroups"
 	devices "github.com/opencontainers/cgroups/devices/config"
 	"go.uber.org/mock/gomock"
 
@@ -47,11 +47,11 @@ var _ = Describe("cgroup manager", func() {
 	)
 
 	newMockManagerFromCtrl := func(ctrl *gomock.Controller, version CgroupVersion) (Manager, error) {
-		mockRuncCgroupManager := NewMockruncManager(ctrl)
-		mockRuncCgroupManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
+		mockCgroupsManager := NewMockcgroupsManager(ctrl)
+		mockCgroupsManager.EXPECT().GetPaths().DoAndReturn(func() map[string]string {
 			paths := make(map[string]string)
 
-			// See documentation here for more info: https://github.com/opencontainers/runc/blob/release-1.0/libcontainer/cgroups/cgroups.go#L48
+			// See documentation here for more info: https://github.com/opencontainers/cgroups/blob/main/cgroups.go
 			if version == V1 {
 				paths["devices"] = "/sys/fs/cgroup/devices"
 			} else {
@@ -61,20 +61,20 @@ var _ = Describe("cgroup manager", func() {
 			return paths
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *runc_cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
 			rulesDefined = r.Devices
 			subsystemPathsDefined = subsystemPaths
 			return nil
 		}
 
-		getCurrentlyDefinedRulesFunc := func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error) {
+		getCurrentlyDefinedRulesFunc := func(cgManager cgroups.Manager) ([]*devices.Rule, error) {
 			return rulesDefined, nil
 		}
 
 		if version == V1 {
-			return newCustomizedV1Manager(mockRuncCgroupManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+			return newCustomizedV1Manager(mockCgroupsManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 		} else {
-			return newCustomizedV2Manager(mockRuncCgroupManager, false, nil, execVirtChrootFunc)
+			return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc)
 		}
 	}
 
@@ -82,8 +82,8 @@ var _ = Describe("cgroup manager", func() {
 		return newMockManagerFromCtrl(ctrl, version)
 	}
 
-	newResourcesWithRule := func(rule *devices.Rule) *runc_cgroups.Resources {
-		return &runc_cgroups.Resources{
+	newResourcesWithRule := func(rule *devices.Rule) *cgroups.Resources {
+		return &cgroups.Resources{
 			Devices: []*devices.Rule{
 				rule,
 			},

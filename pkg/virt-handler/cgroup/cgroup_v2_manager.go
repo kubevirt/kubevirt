@@ -27,9 +27,9 @@ import (
 	"strconv"
 	"strings"
 
-	runc_cgroups "github.com/opencontainers/cgroups"
+	cgroups "github.com/opencontainers/cgroups"
 	devices "github.com/opencontainers/cgroups/devices/config"
-	runc_fs "github.com/opencontainers/cgroups/fs2"
+	cgroupfs2 "github.com/opencontainers/cgroups/fs2"
 
 	"kubevirt.io/client-go/log"
 
@@ -37,31 +37,31 @@ import (
 )
 
 type v2Manager struct {
-	runc_cgroups.Manager
+	cgroups.Manager
 	dirPath        string
 	isRootless     bool
 	deviceRules    []*devices.Rule
 	execVirtChroot execVirtChrootFunc
 }
 
-func newV2Manager(config *runc_cgroups.Cgroup, dirPath string) (Manager, error) {
-	runcManager, err := runc_fs.NewManager(config, dirPath)
+func newV2Manager(config *cgroups.Cgroup, dirPath string) (Manager, error) {
+	cgManager, err := cgroupfs2.NewManager(config, dirPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(runcManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups)
+	return newCustomizedV2Manager(cgManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups)
 }
 
 func newCustomizedV2Manager(
-	runcManager runc_cgroups.Manager,
+	cgManager cgroups.Manager,
 	isRootless bool,
 	deviceRules []*devices.Rule,
 	execVirtChroot execVirtChrootFunc,
 ) (Manager, error) {
 	manager := v2Manager{
-		runcManager,
-		runcManager.GetPaths()[""],
+		cgManager,
+		cgManager.GetPaths()[""],
 		isRootless,
 		append(deviceRules, GenerateDefaultDeviceRules()...),
 		execVirtChroot,
@@ -74,7 +74,7 @@ func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
 	return v.dirPath, nil
 }
 
-func (v *v2Manager) Set(r *runc_cgroups.Resources) error {
+func (v *v2Manager) Set(r *cgroups.Resources) error {
 	// We want to keep given resources untouched
 	resourcesToSet := *r
 
@@ -125,7 +125,7 @@ func (v *v2Manager) CreateChildCgroup(name string, subSystem string) error {
 
 	// Write "+subsystem" to cgroup.subtree_control
 	wVal := "+" + subSystem
-	err = runc_cgroups.WriteFile(subSysPath, "cgroup.subtree_control", wVal)
+	err = cgroups.WriteFile(subSysPath, "cgroup.subtree_control", wVal)
 	if err != nil {
 		return err
 	}
@@ -138,14 +138,14 @@ func (v *v2Manager) CreateChildCgroup(name string, subSystem string) error {
 	}
 
 	// Enable threaded cgroup controller
-	err = runc_cgroups.WriteFile(newGroupPath, "cgroup.type", "threaded")
+	err = cgroups.WriteFile(newGroupPath, "cgroup.type", "threaded")
 	if err != nil {
 		return err
 	}
 
 	// Write "+subsystem" to newcgroup/cgroup.subtree_control
 	wVal = "+" + subSystem
-	err = runc_cgroups.WriteFile(newGroupPath, "cgroup.subtree_control", wVal)
+	err = cgroups.WriteFile(newGroupPath, "cgroup.subtree_control", wVal)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (v *v2Manager) AttachTID(subSystem string, subCgroup string, tid int) error
 
 	wVal := strconv.Itoa(tid)
 
-	err = runc_cgroups.WriteFile(cgroupPath, "cgroup.threads", wVal)
+	err = cgroups.WriteFile(cgroupPath, "cgroup.threads", wVal)
 	if err != nil {
 		return err
 	}

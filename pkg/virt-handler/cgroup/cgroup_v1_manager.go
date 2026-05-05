@@ -31,35 +31,35 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	runc_cgroups "github.com/opencontainers/cgroups"
+	cgroups "github.com/opencontainers/cgroups"
 	devices "github.com/opencontainers/cgroups/devices/config"
-	runc_fs "github.com/opencontainers/cgroups/fs"
+	cgroupfs "github.com/opencontainers/cgroups/fs"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
 type v1Manager struct {
-	runc_cgroups.Manager
+	cgroups.Manager
 	controllerPaths          map[string]string
 	isRootless               bool
 	execVirtChroot           execVirtChrootFunc
 	getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc
 }
 
-func newV1Manager(config *runc_cgroups.Cgroup, controllerPaths map[string]string) (Manager, error) {
-	runcManager, err := runc_fs.NewManager(config, controllerPaths)
+func newV1Manager(config *cgroups.Cgroup, controllerPaths map[string]string) (Manager, error) {
+	cgManager, err := cgroupfs.NewManager(config, controllerPaths)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
-	return newCustomizedV1Manager(runcManager, config.Rootless, execVirtChrootCgroups, getCurrentlyDefinedRules)
+	return newCustomizedV1Manager(cgManager, config.Rootless, execVirtChrootCgroups, getCurrentlyDefinedRules)
 }
 
-func newCustomizedV1Manager(runcManager runc_cgroups.Manager, isRootless bool,
+func newCustomizedV1Manager(cgManager cgroups.Manager, isRootless bool,
 	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
 	manager := v1Manager{
-		runcManager,
-		runcManager.GetPaths(),
+		cgManager,
+		cgManager.GetPaths(),
 		isRootless,
 		execVirtChroot,
 		getCurrentlyDefinedRules,
@@ -76,7 +76,7 @@ func (v *v1Manager) GetBasePathToHostSubsystem(subsystem string) (string, error)
 	return filepath.Join(cgroupconsts.HostCgroupBasePath, subsystemPath), nil
 }
 
-func (v *v1Manager) Set(r *runc_cgroups.Resources) error {
+func (v *v1Manager) Set(r *cgroups.Resources) error {
 	// We want to keep given resources untouched
 	resourcesToSet := *r
 
@@ -105,14 +105,14 @@ func (v *v1Manager) GetCgroupVersion() CgroupVersion {
 	return V1
 }
 
-func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule, error) {
-	devicesPath, ok := runcManager.GetPaths()["devices"]
+func getCurrentlyDefinedRules(cgManager cgroups.Manager) ([]*devices.Rule, error) {
+	devicesPath, ok := cgManager.GetPaths()["devices"]
 	if !ok {
 		return nil, fmt.Errorf("devices subsystem's path is not defined for this manager")
 	}
 	devicesPath = filepath.Join(cgroupconsts.HostCgroupBasePath, devicesPath)
 
-	currentRulesStr, err := runc_cgroups.ReadFile(devicesPath, "devices.list")
+	currentRulesStr, err := cgroups.ReadFile(devicesPath, "devices.list")
 	if err != nil {
 		return nil, fmt.Errorf("error reading current rules: %v", err)
 	}
@@ -208,7 +208,7 @@ func (v *v1Manager) AttachTID(subSystem string, subCgroup string, tid int) error
 
 	wVal := strconv.Itoa(tid)
 
-	err = runc_cgroups.WriteFile(cgroupPath, "tasks", wVal)
+	err = cgroups.WriteFile(cgroupPath, "tasks", wVal)
 	if err != nil {
 		return err
 	}

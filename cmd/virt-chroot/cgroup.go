@@ -8,16 +8,16 @@ import (
 	"runtime"
 	"syscall"
 
-	runc_cgroups "github.com/opencontainers/cgroups"
+	cgroups "github.com/opencontainers/cgroups"
 	_ "github.com/opencontainers/cgroups/devices"
-	runc_fs "github.com/opencontainers/cgroups/fs"
-	runc_fs2 "github.com/opencontainers/cgroups/fs2"
+	cgroupfs "github.com/opencontainers/cgroups/fs"
+	cgroupfs2 "github.com/opencontainers/cgroups/fs2"
 
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
-func decodeResources(marshalledResourcesHash string) (*runc_cgroups.Resources, error) {
-	var unmarshalledResources runc_cgroups.Resources
+func decodeResources(marshalledResourcesHash string) (*cgroups.Resources, error) {
+	var unmarshalledResources cgroups.Resources
 
 	marshalledResources, err := base64.StdEncoding.DecodeString(marshalledResourcesHash)
 	if err != nil {
@@ -52,8 +52,8 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *runc_cgroups.Resources, isRootless bool, isV2 bool) error {
-	config := &runc_cgroups.Cgroup{
+func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool, isV2 bool) error {
+	config := &cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
 		Rootless:  isRootless,
@@ -74,9 +74,9 @@ func setCgroupResources(paths map[string]string, resources *runc_cgroups.Resourc
 	return nil
 }
 
-func setCgroupResourcesV1(paths map[string]string, resources *runc_cgroups.Resources, config *runc_cgroups.Cgroup) error {
+func setCgroupResourcesV1(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
 	return RunWithChroot(cgroupconsts.HostCgroupBasePath, func() error {
-		cgroupManager, err := runc_fs.NewManager(config, paths)
+		cgroupManager, err := cgroupfs.NewManager(config, paths)
 		if err != nil {
 			return fmt.Errorf("cannot create cgroups v1 manager. err: %v", err)
 		}
@@ -84,9 +84,9 @@ func setCgroupResourcesV1(paths map[string]string, resources *runc_cgroups.Resou
 	})
 }
 
-func setCgroupResourcesV2(paths map[string]string, resources *runc_cgroups.Resources, config *runc_cgroups.Cgroup) error {
+func setCgroupResourcesV2(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
 	for _, path := range paths {
-		mgr, err := runc_fs2.NewManager(config, path)
+		mgr, err := cgroupfs2.NewManager(config, path)
 		if err != nil {
 			return fmt.Errorf("cannot create cgroups v2 manager. err: %v", err)
 		}

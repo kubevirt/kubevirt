@@ -155,32 +155,32 @@ func (mr *MockManagerMockRecorder) SetCpuSet(subcgroup, cpulist any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCpuSet", reflect.TypeOf((*MockManager)(nil).SetCpuSet), subcgroup, cpulist)
 }
 
-// MockruncManager is a mock of runcManager interface.
-type MockruncManager struct {
+// MockcgroupsManager is a mock of cgroupsManager interface.
+type MockcgroupsManager struct {
 	ctrl     *gomock.Controller
-	recorder *MockruncManagerMockRecorder
+	recorder *MockcgroupsManagerMockRecorder
 	isgomock struct{}
 }
 
-// MockruncManagerMockRecorder is the mock recorder for MockruncManager.
-type MockruncManagerMockRecorder struct {
-	mock *MockruncManager
+// MockcgroupsManagerMockRecorder is the mock recorder for MockcgroupsManager.
+type MockcgroupsManagerMockRecorder struct {
+	mock *MockcgroupsManager
 }
 
-// NewMockruncManager creates a new mock instance.
-func NewMockruncManager(ctrl *gomock.Controller) *MockruncManager {
-	mock := &MockruncManager{ctrl: ctrl}
-	mock.recorder = &MockruncManagerMockRecorder{mock}
+// NewMockcgroupsManager creates a new mock instance.
+func NewMockcgroupsManager(ctrl *gomock.Controller) *MockcgroupsManager {
+	mock := &MockcgroupsManager{ctrl: ctrl}
+	mock.recorder = &MockcgroupsManagerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockruncManager) EXPECT() *MockruncManagerMockRecorder {
+func (m *MockcgroupsManager) EXPECT() *MockcgroupsManagerMockRecorder {
 	return m.recorder
 }
 
 // AddPid mocks base method.
-func (m *MockruncManager) AddPid(subcgroup string, pid int) error {
+func (m *MockcgroupsManager) AddPid(subcgroup string, pid int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddPid", subcgroup, pid)
 	ret0, _ := ret[0].(error)
@@ -188,13 +188,13 @@ func (m *MockruncManager) AddPid(subcgroup string, pid int) error {
 }
 
 // AddPid indicates an expected call of AddPid.
-func (mr *MockruncManagerMockRecorder) AddPid(subcgroup, pid any) *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) AddPid(subcgroup, pid any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPid", reflect.TypeOf((*MockruncManager)(nil).AddPid), subcgroup, pid)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPid", reflect.TypeOf((*MockcgroupsManager)(nil).AddPid), subcgroup, pid)
 }
 
 // Apply mocks base method.
-func (m *MockruncManager) Apply(pid int) error {
+func (m *MockcgroupsManager) Apply(pid int) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Apply", pid)
 	ret0, _ := ret[0].(error)
@@ -202,13 +202,13 @@ func (m *MockruncManager) Apply(pid int) error {
 }
 
 // Apply indicates an expected call of Apply.
-func (mr *MockruncManagerMockRecorder) Apply(pid any) *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) Apply(pid any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockruncManager)(nil).Apply), pid)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockcgroupsManager)(nil).Apply), pid)
 }
 
 // Destroy mocks base method.
-func (m *MockruncManager) Destroy() error {
+func (m *MockcgroupsManager) Destroy() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy")
 	ret0, _ := ret[0].(error)
@@ -216,13 +216,13 @@ func (m *MockruncManager) Destroy() error {
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockruncManagerMockRecorder) Destroy() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) Destroy() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockruncManager)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockcgroupsManager)(nil).Destroy))
 }
 
 // Exists mocks base method.
-func (m *MockruncManager) Exists() bool {
+func (m *MockcgroupsManager) Exists() bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exists")
 	ret0, _ := ret[0].(bool)
@@ -230,13 +230,13 @@ func (m *MockruncManager) Exists() bool {
 }
 
 // Exists indicates an expected call of Exists.
-func (mr *MockruncManagerMockRecorder) Exists() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) Exists() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockruncManager)(nil).Exists))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockcgroupsManager)(nil).Exists))
 }
 
 // Freeze mocks base method.
-func (m *MockruncManager) Freeze(state cgroups.FreezerState) error {
+func (m *MockcgroupsManager) Freeze(state cgroups.FreezerState) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Freeze", state)
 	ret0, _ := ret[0].(error)
@@ -244,13 +244,13 @@ func (m *MockruncManager) Freeze(state cgroups.FreezerState) error {
 }
 
 // Freeze indicates an expected call of Freeze.
-func (mr *MockruncManagerMockRecorder) Freeze(state any) *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) Freeze(state any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Freeze", reflect.TypeOf((*MockruncManager)(nil).Freeze), state)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Freeze", reflect.TypeOf((*MockcgroupsManager)(nil).Freeze), state)
 }
 
 // GetAllPids mocks base method.
-func (m *MockruncManager) GetAllPids() ([]int, error) {
+func (m *MockcgroupsManager) GetAllPids() ([]int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllPids")
 	ret0, _ := ret[0].([]int)
@@ -259,13 +259,13 @@ func (m *MockruncManager) GetAllPids() ([]int, error) {
 }
 
 // GetAllPids indicates an expected call of GetAllPids.
-func (mr *MockruncManagerMockRecorder) GetAllPids() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) GetAllPids() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPids", reflect.TypeOf((*MockruncManager)(nil).GetAllPids))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPids", reflect.TypeOf((*MockcgroupsManager)(nil).GetAllPids))
 }
 
 // GetCgroups mocks base method.
-func (m *MockruncManager) GetCgroups() (*cgroups.Cgroup, error) {
+func (m *MockcgroupsManager) GetCgroups() (*cgroups.Cgroup, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCgroups")
 	ret0, _ := ret[0].(*cgroups.Cgroup)
@@ -274,13 +274,13 @@ func (m *MockruncManager) GetCgroups() (*cgroups.Cgroup, error) {
 }
 
 // GetCgroups indicates an expected call of GetCgroups.
-func (mr *MockruncManagerMockRecorder) GetCgroups() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) GetCgroups() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCgroups", reflect.TypeOf((*MockruncManager)(nil).GetCgroups))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCgroups", reflect.TypeOf((*MockcgroupsManager)(nil).GetCgroups))
 }
 
 // GetFreezerState mocks base method.
-func (m *MockruncManager) GetFreezerState() (cgroups.FreezerState, error) {
+func (m *MockcgroupsManager) GetFreezerState() (cgroups.FreezerState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFreezerState")
 	ret0, _ := ret[0].(cgroups.FreezerState)
@@ -289,13 +289,13 @@ func (m *MockruncManager) GetFreezerState() (cgroups.FreezerState, error) {
 }
 
 // GetFreezerState indicates an expected call of GetFreezerState.
-func (mr *MockruncManagerMockRecorder) GetFreezerState() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) GetFreezerState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreezerState", reflect.TypeOf((*MockruncManager)(nil).GetFreezerState))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreezerState", reflect.TypeOf((*MockcgroupsManager)(nil).GetFreezerState))
 }
 
 // GetPaths mocks base method.
-func (m *MockruncManager) GetPaths() map[string]string {
+func (m *MockcgroupsManager) GetPaths() map[string]string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPaths")
 	ret0, _ := ret[0].(map[string]string)
@@ -303,13 +303,13 @@ func (m *MockruncManager) GetPaths() map[string]string {
 }
 
 // GetPaths indicates an expected call of GetPaths.
-func (mr *MockruncManagerMockRecorder) GetPaths() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) GetPaths() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPaths", reflect.TypeOf((*MockruncManager)(nil).GetPaths))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPaths", reflect.TypeOf((*MockcgroupsManager)(nil).GetPaths))
 }
 
 // GetPids mocks base method.
-func (m *MockruncManager) GetPids() ([]int, error) {
+func (m *MockcgroupsManager) GetPids() ([]int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPids")
 	ret0, _ := ret[0].([]int)
@@ -318,13 +318,13 @@ func (m *MockruncManager) GetPids() ([]int, error) {
 }
 
 // GetPids indicates an expected call of GetPids.
-func (mr *MockruncManagerMockRecorder) GetPids() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) GetPids() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPids", reflect.TypeOf((*MockruncManager)(nil).GetPids))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPids", reflect.TypeOf((*MockcgroupsManager)(nil).GetPids))
 }
 
 // GetStats mocks base method.
-func (m *MockruncManager) GetStats() (*cgroups.Stats, error) {
+func (m *MockcgroupsManager) GetStats() (*cgroups.Stats, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStats")
 	ret0, _ := ret[0].(*cgroups.Stats)
@@ -333,13 +333,13 @@ func (m *MockruncManager) GetStats() (*cgroups.Stats, error) {
 }
 
 // GetStats indicates an expected call of GetStats.
-func (mr *MockruncManagerMockRecorder) GetStats() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) GetStats() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStats", reflect.TypeOf((*MockruncManager)(nil).GetStats))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStats", reflect.TypeOf((*MockcgroupsManager)(nil).GetStats))
 }
 
 // OOMKillCount mocks base method.
-func (m *MockruncManager) OOMKillCount() (uint64, error) {
+func (m *MockcgroupsManager) OOMKillCount() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OOMKillCount")
 	ret0, _ := ret[0].(uint64)
@@ -348,13 +348,13 @@ func (m *MockruncManager) OOMKillCount() (uint64, error) {
 }
 
 // OOMKillCount indicates an expected call of OOMKillCount.
-func (mr *MockruncManagerMockRecorder) OOMKillCount() *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) OOMKillCount() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OOMKillCount", reflect.TypeOf((*MockruncManager)(nil).OOMKillCount))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OOMKillCount", reflect.TypeOf((*MockcgroupsManager)(nil).OOMKillCount))
 }
 
 // Path mocks base method.
-func (m *MockruncManager) Path(arg0 string) string {
+func (m *MockcgroupsManager) Path(arg0 string) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Path", arg0)
 	ret0, _ := ret[0].(string)
@@ -362,13 +362,13 @@ func (m *MockruncManager) Path(arg0 string) string {
 }
 
 // Path indicates an expected call of Path.
-func (mr *MockruncManagerMockRecorder) Path(arg0 any) *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) Path(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Path", reflect.TypeOf((*MockruncManager)(nil).Path), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Path", reflect.TypeOf((*MockcgroupsManager)(nil).Path), arg0)
 }
 
 // Set mocks base method.
-func (m *MockruncManager) Set(r *cgroups.Resources) error {
+func (m *MockcgroupsManager) Set(r *cgroups.Resources) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Set", r)
 	ret0, _ := ret[0].(error)
@@ -376,7 +376,7 @@ func (m *MockruncManager) Set(r *cgroups.Resources) error {
 }
 
 // Set indicates an expected call of Set.
-func (mr *MockruncManagerMockRecorder) Set(r any) *gomock.Call {
+func (mr *MockcgroupsManagerMockRecorder) Set(r any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockruncManager)(nil).Set), r)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockcgroupsManager)(nil).Set), r)
 }
