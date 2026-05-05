@@ -506,6 +506,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if c.requireVolumesUpdate(vmiCopy) {
 			c.syncVolumesUpdate(vmiCopy)
 		}
+		c.syncVolumeMigrationCancellation(vmiCopy)
 
 		c.syncMigrationRequiredCondition(vmiCopy, pod)
 

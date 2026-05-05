@@ -926,8 +926,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					By("Waiting for volume live migrate condition to appear")
-					Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceVolumesChange))
+					By("Waiting for volume migration to start")
+					Eventually(func() bool {
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return len(vmi.Status.MigratedVolumes) > 0
+					}, 1*time.Minute, 2*time.Second).Should(BeTrue())
 
 					By("Ensuring the vm doesn't have a RestartRequired condition")
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
