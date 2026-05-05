@@ -1,0 +1,59 @@
+# CoverPort Coverage Collection — Tekton Task
+# Run this task AFTER your e2e/integration tests.
+# It collects runtime coverage from instrumented pods and uploads to QualityFlow.
+#
+# No Codecov or SonarCloud dependency — coverage goes directly to your dashboard.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: coverport-collect-kubevirt
+  labels:
+    app.kubernetes.io/part-of: qualityflow
+spec:
+  description: Collect CoverPort runtime coverage from kubevirt/kubevirt pods
+  params:
+    - name: NAMESPACE
+      description: Namespace where instrumented pods run
+      type: string
+      default: "kubevirt"
+    - name: LABEL_SELECTOR
+      description: Label selector for target pods
+      type: string
+    - name: QUALITYFLOW_API_KEY
+      description: API key for QualityFlow dashboard
+      type: string
+      default: ""
+  steps:
+    - name: collect
+      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        NAMESPACE="$(params.NAMESPACE)"
+        SELECTOR="$(params.LABEL_SELECTOR)"
+        API_KEY="$(params.QUALITYFLOW_API_KEY)"
+
+        echo "Discovering pods: namespace=$NAMESPACE selector=$SELECTOR"
+        PODS=$(kubectl get pods -n "$NAMESPACE" -l "$SELECTOR" \
+          -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}')
+
+        [ -z "$PODS" ] && echo "No running pods found" && exit 1
+
+        for POD in $PODS; do
+          echo "Collecting from $POD..."
+          DATA=$(kubectl exec -n "$NAMESPACE" "$POD" -- \
+            curl -sf http://localhost:53700/coverage 2>/dev/null || echo "")
+          [ -z "$DATA" ] && echo "  Skip: no coverport" && continue
+
+          if [ -n "$API_KEY" ]; then
+            echo "$DATA" | curl -sk -X POST \
+              -H "Content-Type: application/json" \
+              -H "X-API-Key: $API_KEY" \
+              --data-binary @- \
+              "https://qualityflow-dashboard-cnv-quality-flow.apps.cnv2.engineering.redhat.com/api/coverage/upload?org=kubevirt&repo=kubevirt&commit=runtime-$(date +%s)&type=product"
+            echo "  Uploaded"
+          else
+            echo "$DATA" > "/tmp/$POD-coverage.json"
+            echo "  Saved to /tmp/$POD-coverage.json"
+          fi
+        done
