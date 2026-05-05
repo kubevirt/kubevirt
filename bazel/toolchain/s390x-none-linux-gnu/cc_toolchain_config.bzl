@@ -1,3 +1,5 @@
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+
 """
 C++ Toolchain Configuration for s390x (IBM System z)
 
@@ -158,5 +160,4 @@ def _impl(ctx):
 cc_toolchain_config = rule(
     implementation = _impl,
     attrs = {},
-    provides = [CcToolchainConfigInfo],
 )
