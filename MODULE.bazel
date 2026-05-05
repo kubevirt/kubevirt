@@ -3,25 +3,19 @@ module(
     version = "1.0.0",
 )
 
-
 # Go toolchain and Gazelle for Go build support
 bazel_dep(name = "rules_go", version = "0.60.0", repo_name = "io_bazel_rules_go")
 bazel_dep(name = "gazelle", version = "0.45.0", repo_name = "bazel_gazelle")
-
 bazel_dep(name = "rules_pkg", version = "1.2.0")
-
 bazel_dep(name = "rules_oci", version = "2.3.0")
-
 bazel_dep(name = "platforms", version = "1.0.0")
 
 # Python support - needed for Python build rules
 bazel_dep(name = "rules_python", version = "1.7.0")
-
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
 # C++ rules - required by bazeldnf for RPM build rules
 bazel_dep(name = "rules_cc", version = "0.2.18")
-
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2")
 
 # bazeldnf - RPM dependency management for Bazel
@@ -70,7 +64,6 @@ register_execution_platforms(
     "@io_bazel_rules_go//go/toolchain:linux_arm64_cgo",
     "@io_bazel_rules_go//go/toolchain:linux_s390x_cgo",
 )
-
 
 _http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -195,7 +188,6 @@ oci.pull(
     digest = "sha256:3d9f468750d90845a81608ea13c85237ea295c6295c911a99dc5e0504c8bc05b",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
-
 oci.pull(
     name = "alpine_with_test_tooling",
     digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
@@ -303,13 +295,13 @@ _go_repository(
 
 _go_repository(
     name = "com_github_packer_community_winrmcp",
-    commit = "c76d91c1e7db27b0868c5d09e292bb540616c9a2",
-    importpath = "github.com/packer-community/winrmcp",
     build_directives = [
         "gazelle:resolve go github.com/masterzen/winrm @com_github_masterzen_winrm//:winrm",
         "gazelle:resolve go github.com/nu7hatch/gouuid @com_github_nu7hatch_gouuid//:gouuid",
         "gazelle:resolve go github.com/dylanmei/iso8601 @com_github_dylanmei_iso8601//:iso8601",
     ],
+    commit = "c76d91c1e7db27b0868c5d09e292bb540616c9a2",
+    importpath = "github.com/packer-community/winrmcp",
 )
 
 _go_repository(
