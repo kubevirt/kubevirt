@@ -41,7 +41,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -140,8 +140,10 @@ var _ = Describe("Live migration source", func() {
 	})
 
 	Context("Migration abort status", func() {
+		var vmi *v1.VirtualMachineInstance
+
 		BeforeEach(func() {
-			vmi := &v1.VirtualMachineInstance{
+			vmi = &v1.VirtualMachineInstance{
 				Status: v1.VirtualMachineInstanceStatus{
 					MigrationState: &v1.VirtualMachineInstanceMigrationState{
 						MigrationUID: types.UID(fmt.Sprintf("%v", GinkgoRandomSeed())),
@@ -199,6 +201,46 @@ var _ = Describe("Live migration source", func() {
 			migrationMetadata, exists = libvirtDomainManager.metadataCache.Migration.Load()
 			Expect(exists).To(BeTrue())
 			Expect(migrationMetadata.AbortStatus).To(Equal(string(v1.MigrationAbortFailed)))
+		})
+		It("cancelMigration should no-op when migration has no StartTimestamp", func() {
+			libvirtDomainManager.metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, _ bool) {
+				m.StartTimestamp = nil
+			})
+			original, _ := libvirtDomainManager.metadataCache.Migration.Load()
+
+			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+
+			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(after.AbortStatus).To(Equal(original.AbortStatus))
+		})
+
+		It("cancelMigration should no-op when migration already has EndTimestamp", func() {
+			libvirtDomainManager.metadataCache.Migration.WithSafeBlock(func(m *api.MigrationMetadata, _ bool) {
+				m.EndTimestamp = pointer.P(metav1.Now())
+			})
+
+			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+
+			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(after.AbortStatus).To(Equal(""))
+		})
+
+		It("cancelMigration should no-op when abort is already in progress", func() {
+			libvirtDomainManager.setMigrationAbortStatus(v1.MigrationAbortInProgress)
+
+			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+
+			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(after.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)))
+		})
+
+		It("cancelMigration should no-op when abort already succeeded", func() {
+			libvirtDomainManager.setMigrationAbortStatus(v1.MigrationAbortSucceeded)
+
+			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+
+			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(after.AbortStatus).To(Equal(string(v1.MigrationAbortSucceeded)))
 		})
 	})
 
@@ -667,8 +709,8 @@ var _ = Describe("Live migration source", func() {
 			shouldConfigure, _ := shouldConfigureParallelMigration(options)
 			Expect(shouldConfigure).To(BeTrue())
 		},
-			Entry("with non-nil migration threads and post-copy not allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: virtpointer.P(uint(3)), AllowPostCopy: false}),
-			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: virtpointer.P(uint(3)), AllowPostCopy: true}),
+			Entry("with non-nil migration threads and post-copy not allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: pointer.P(uint(3)), AllowPostCopy: false}),
+			Entry("with non-nil migration threads and post-copy allowed", &cmdclient.MigrationOptions{ParallelMigrationThreads: pointer.P(uint(3)), AllowPostCopy: true}),
 		)
 	})
 
@@ -738,7 +780,7 @@ var _ = Describe("Live migration source", func() {
 
 				shouldConfigureParallel, parallelMigrationThreads := shouldConfigureParallelMigration(options)
 				if shouldConfigureParallel {
-					options.ParallelMigrationThreads = virtpointer.P(uint(parallelMigrationThreads))
+					options.ParallelMigrationThreads = pointer.P(uint(parallelMigrationThreads))
 				}
 
 				flags := generateMigrationFlags(isBlockMigration, isVmiPaused, options)
@@ -909,11 +951,11 @@ var _ = Describe("migratableDomXML", func() {
 				VolumeName: volName,
 				SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
 					ClaimName:  sourcePvcName,
-					VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
 				},
 				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
 					ClaimName:  destPvcName,
-					VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
 				},
 			},
 		}
