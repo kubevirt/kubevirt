@@ -16,7 +16,7 @@ require (
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/go-openapi/validate v0.20.2
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/glog v1.2.1
+	github.com/golang/glog v1.2.4
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/btree v1.1.3
@@ -60,14 +60,14 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.3.0
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
-	golang.org/x/crypto v0.31.0
-	golang.org/x/net v0.33.0
+	golang.org/x/crypto v0.32.0
+	golang.org/x/net v0.34.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/term v0.29.0
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.24.0
-	google.golang.org/grpc v1.65.0
+	google.golang.org/grpc v1.70.0
 	k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery v0.31.0
@@ -149,10 +149,10 @@ require (
 	go.mongodb.org/mongo-driver v1.8.4 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/mod v0.20.0 // indirect
-	golang.org/x/oauth2 v0.21.0 // indirect
+	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
+	google.golang.org/protobuf v1.36.4 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
@@ -211,3 +211,5 @@ replace (
 
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
+
+replace google.golang.org/grpc => github.com/openshift-sustaining/grpc-go v1.71.3-sec.1
