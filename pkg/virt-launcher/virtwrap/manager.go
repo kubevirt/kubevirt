@@ -36,6 +36,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -199,6 +200,10 @@ type LibvirtDomainManager struct {
 	metadataCache             *metadata.Cache
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
+
+	// Device aliasas are updated only through hotplug events and SyncVMI
+	devAliasMap  map[string]string
+	devAliasLock sync.RWMutex
 
 	cpuSetGetter                       func() ([]int, error)
 	imageVolumeFeatureGateEnabled      bool
@@ -624,6 +629,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("%s: %v", errMsgPrefix, hostdevice.AttachHostDevices(domain, sriovHostDevices))
 	}
 
+	l.refreshDeviceAliasMap(domain)
 	return nil
 }
 
@@ -634,7 +640,75 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
+	if err == nil {
+		return nil
+	}
+	if isGuestAgentUnavailableError(err) && (l.isLiveMigrationInProgress() || l.isPausedButHealthy(domainName)) {
+		log.Log.V(4).Infof("GuestPing for %s failed with %v but the VM is healthy although paused on this pod; suppressing probe error", domainName, err)
+		return nil
+	}
 	return err
+}
+
+// isGuestAgentUnavailableError returns true when the error from QemuAgentCommand
+// indicates that the guest agent is unreachable rather than a libvirt or
+// connection issue unrelated to the guest state.
+func isGuestAgentUnavailableError(err error) bool {
+	var libvirtErr libvirt.Error
+	if !errors.As(err, &libvirtErr) {
+		return false
+	}
+	switch libvirtErr.Code {
+	case libvirt.ERR_AGENT_UNRESPONSIVE, libvirt.ERR_NO_DOMAIN:
+		// ERR_AGENT_UNRESPONSIVE: guest agent not responding (pre-copy target,
+		// post-copy source).
+		// ERR_NO_DOMAIN: domain not yet present on the target before pages start
+		// flowing (prepareMigrationTarget has run but migration has not begun).
+		return true
+	}
+	return false
+}
+
+// isLiveMigrationInProgress returns true when migration metadata indicates a
+// live migration has been started but not yet completed on this pod.
+func (l *LibvirtDomainManager) isLiveMigrationInProgress() bool {
+	m, exists := l.metadataCache.Migration.Load()
+	return exists && m.StartTimestamp != nil && m.EndTimestamp == nil
+}
+
+// isPausedButHealthy returns true when domain state indicates
+// that the VM is paused although in an healthy condition.
+func (l *LibvirtDomainManager) isPausedButHealthy(domainName string) bool {
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			// Domain not found at this stage is likely the target pod for a migration where the domain has still to be created
+			return true
+		}
+		return false
+	}
+	defer domain.Free()
+
+	state, reason, err := domain.GetState()
+	if err != nil {
+		// An error on GetState here likely means the domain terminated under our feet.
+		// Probably the last probe before declaring pod dead, but to let it die peacefully
+		return true
+	}
+
+	healthyPausedReasons := []api.StateChangeReason{
+		api.ReasonPausedUser,
+		api.ReasonPausedMigration,
+		api.ReasonPausedSave,
+		api.ReasonPausedDump,
+		api.ReasonPausedFromSnapshot,
+		api.ReasonPausedShuttingDown,
+		api.ReasonPausedSnapshot,
+		api.ReasonPausedStartingUp,
+		api.ReasonPausedPostcopy,
+	}
+
+	return state == libvirt.DOMAIN_PAUSED && slices.Contains(healthyPausedReasons, util.ConvReason(state, reason))
 }
 
 func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {
@@ -865,9 +939,21 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	return domain, err
 }
 
+func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == volumeName && vs.PersistentVolumeClaimInfo != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
+		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+			continue
+		}
 		if shouldExpandOffline(disk) {
 			ds := disksource.Resolve(disk)
 			possibleGuestSize, ok := possibleGuestSize(disk, ds)
@@ -1073,10 +1159,14 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
 		}
 
+		// TDX Secure Boot uses stateless ROM with embedded keys, so libvirt's
+		// secure="yes" loader attribute (which implies SMM) must not be set.
+		secureLoader := secureBoot && !tdx
+
 		efiConf = &convertertypes.EFIConfiguration{
 			EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
 			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
-			SecureLoader: secureBoot,
+			SecureLoader: secureLoader,
 		}
 	}
 
@@ -1267,6 +1357,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	l.refreshDeviceAliasMap(dom)
 	l.syncGracePeriod(vmi)
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
@@ -1360,6 +1451,9 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Resize and notify the VM about changed disks
 	for _, disk := range domain.Spec.Devices.Disks {
+		if !isPVCBacked(disk.Alias.GetName(), vmi) {
+			continue
+		}
 		ds := disksource.Resolve(disk)
 		if ok, possibleGuestSize := shouldExpandOnline(dom, disk, ds); ok {
 			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
@@ -2039,6 +2133,34 @@ func (l *LibvirtDomainManager) GetDomainDirtyRateStats(calculationDuration time.
 	return dirtyRateStats, nil
 }
 
+func (l *LibvirtDomainManager) refreshDeviceAliasMap(dom cli.VirDomain) {
+	domSpec, err := util.GetDomainSpecWithFlags(dom, 0)
+	if err != nil {
+		log.Log.Reason(err).Warning("failed to refresh device alias map")
+		return
+	}
+	newMap := make(map[string]string)
+	for _, iface := range domSpec.Devices.Interfaces {
+		if iface.Target != nil && iface.Alias != nil {
+			newMap[iface.Target.Device] = iface.Alias.GetName()
+		}
+	}
+	for _, disk := range domSpec.Devices.Disks {
+		if disk.Target.Device != "" && disk.Alias != nil {
+			newMap[disk.Target.Device] = disk.Alias.GetName()
+		}
+	}
+	l.devAliasLock.Lock()
+	l.devAliasMap = newMap
+	l.devAliasLock.Unlock()
+}
+
+func (l *LibvirtDomainManager) getDeviceAliasMap() map[string]string {
+	l.devAliasLock.RLock()
+	defer l.devAliasLock.RUnlock()
+	return l.devAliasMap
+}
+
 func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
@@ -2048,8 +2170,24 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 		return nil, fmt.Errorf("failed to get domain stats: %v", err)
 	}
 
-	if l.agentData != nil {
-		for _, ds := range domstats {
+	aliasMap := l.getDeviceAliasMap()
+	for _, ds := range domstats {
+		for i, net := range ds.Net {
+			if net.NameSet {
+				if alias, ok := aliasMap[net.Name]; ok {
+					ds.Net[i].AliasSet = true
+					ds.Net[i].Alias = alias
+				}
+			}
+		}
+		for i, blk := range ds.Block {
+			if blk.NameSet {
+				if alias, ok := aliasMap[blk.Name]; ok {
+					ds.Block[i].Alias = alias
+				}
+			}
+		}
+		if l.agentData != nil {
 			ds.Load = l.agentData.GetLoad()
 		}
 	}

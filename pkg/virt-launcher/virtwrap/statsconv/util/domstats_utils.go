@@ -274,7 +274,6 @@ var Testdataexpected = `{
    ],
    "CPUMapSet": false,
    "CPUMap": null,
-   "NrVirtCpu": 0,
    "DirtyRate": {
      "CalcStatusSet": false,
      "CalcStatus": 0,

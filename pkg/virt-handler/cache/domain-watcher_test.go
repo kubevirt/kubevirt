@@ -67,7 +67,7 @@ var _ = Describe("Domain Watcher", func() {
 				watchdogTimeout:     10,
 				unresponsiveSockets: make(map[string]int64),
 				resyncPeriod:        1 * time.Hour,
-				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store) error {
+				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store, ...time.Duration) error {
 					return fmt.Errorf("permanent failure")
 				},
 				eventChan: make(chan watch.Event, 100),
@@ -87,7 +87,7 @@ var _ = Describe("Domain Watcher", func() {
 				watchdogTimeout:     1,
 				unresponsiveSockets: make(map[string]int64),
 				resyncPeriod:        1 * time.Hour,
-				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store) error {
+				runServer: func(string, chan struct{}, chan watch.Event, record.EventRecorder, k8scache.Store, ...time.Duration) error {
 					return fmt.Errorf("injected error")
 				},
 			}

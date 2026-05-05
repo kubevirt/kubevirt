@@ -142,6 +142,7 @@ deps-sync:
 
 rpm-deps:
 	SYNC_VENDOR=true hack/dockerized "KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION} CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} LIBNBD_VERSION=${LIBNBD_VERSION} ./hack/rpm-deps.sh"
+	$(MAKE) generate
 
 rpm-deps-cs9:
 	$(MAKE) rpm-deps KUBEVIRT_CENTOS_STREAM_VERSION=9
@@ -249,6 +250,12 @@ gofumpt:
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
 
+vmlog-checker:
+	@echo "Building vmlog-checker..."
+	@CGO_ENABLED=0 go build -o tools/vmlog-checker/vmlog-checker tools/vmlog-checker/main.go
+	@echo "Built successfully: tools/vmlog-checker/vmlog-checker"
+	@echo "Usage: ./tools/vmlog-checker/vmlog-checker --log <file> [options]"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -290,4 +297,5 @@ update-generated-api-testdata:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	vmlog-checker \
 	$(NULL)

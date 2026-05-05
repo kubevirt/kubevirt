@@ -439,6 +439,89 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
+	Context("mixed DRA and non-DRA GPUs", func() {
+		It("should reject a VMI with both DRA and non-DRA GPUs", func() {
+			checker.gpuDRAEnabled = true
+			spec := &v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						GPUs: []v1.GPU{
+							{
+								Name:       "dp-gpu",
+								DeviceName: "vfio.gpu.example.com",
+							},
+							{
+								Name: "dra-gpu",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   ptr.To("claim1"),
+									RequestName: ptr.To("req1"),
+								},
+							},
+						},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(ContainSubstring("both DRA and non-DRA GPUs"))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus"))
+		})
+	})
+
+	Context("GPU index accuracy", func() {
+		BeforeEach(func() {
+			checker.gpuDRAEnabled = true
+		})
+
+		It("should report correct index for duplicate when an invalid DRA GPU precedes it", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						GPUs: []v1.GPU{
+							{
+								Name:         "gpu-invalid",
+								ClaimRequest: &v1.ClaimRequest{RequestName: ptr.To("req1")},
+							},
+							{
+								Name: "gpu-a",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   ptr.To("claim1"),
+									RequestName: ptr.To("req1"),
+								},
+							},
+							{
+								Name: "gpu-dup",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   ptr.To("claim1"),
+									RequestName: ptr.To("req1"),
+								},
+							},
+						},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+
+			var claimNameCause, dupCause *metav1.StatusCause
+			for i := range causes {
+				switch causes[i].Type {
+				case metav1.CauseTypeFieldValueRequired:
+					claimNameCause = &causes[i]
+				case metav1.CauseTypeFieldValueDuplicate:
+					dupCause = &causes[i]
+				}
+			}
+
+			Expect(claimNameCause).NotTo(BeNil())
+			Expect(claimNameCause.Field).To(Equal("spec.domain.devices.gpus[0].claimName"))
+
+			Expect(dupCause).NotTo(BeNil())
+			Expect(dupCause.Field).To(Equal("spec.domain.devices.gpus[2]"))
+		})
+	})
+
 	Context("non-DRA (device-plugin) HostDevices", func() {
 		It("should accept a HostDevice with deviceName", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
@@ -756,6 +839,132 @@ var _ = Describe("DRA Admitter", func() {
 			}
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(BeEmpty())
+		})
+	})
+
+	Context("mixed DRA and non-DRA HostDevices", func() {
+		It("should accept a VMI with both DRA and non-DRA HostDevices", func() {
+			checker.hostDeviceDRAEnabled = true
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						HostDevices: []v1.HostDevice{
+							{
+								Name:       "dp-hd",
+								DeviceName: "vfio.device.example.com",
+							},
+							{
+								Name: "dra-hd",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   ptr.To("claim1"),
+									RequestName: ptr.To("req1"),
+								},
+							},
+						},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(BeEmpty())
+		})
+	})
+
+	Context("HostDevice index accuracy", func() {
+		BeforeEach(func() {
+			checker.hostDeviceDRAEnabled = true
+		})
+
+		It("should report correct index when non-DRA devices precede a DRA device with missing claimName", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						HostDevices: []v1.HostDevice{
+							{
+								Name:       "dp-hd",
+								DeviceName: "vfio.device.example.com",
+							},
+							{
+								Name:         "dra-hd-invalid",
+								ClaimRequest: &v1.ClaimRequest{RequestName: ptr.To("req1")},
+							},
+						},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
+			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[1].claimName"))
+		})
+
+		It("should report correct index for duplicate when non-DRA devices are interspersed", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						HostDevices: []v1.HostDevice{
+							{
+								Name:       "dp-hd",
+								DeviceName: "vfio.device.example.com",
+							},
+							{
+								Name: "dra-hd-a",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   ptr.To("claim1"),
+									RequestName: ptr.To("req1"),
+								},
+							},
+							{
+								Name:       "dp-hd-2",
+								DeviceName: "another.device.example.com",
+							},
+							{
+								Name: "dra-hd-dup",
+								ClaimRequest: &v1.ClaimRequest{
+									ClaimName:   ptr.To("claim1"),
+									RequestName: ptr.To("req1"),
+								},
+							},
+						},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
+			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName"))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[3]"))
+		})
+
+		It("should report correct index for invalid DRA HostDevice after non-DRA devices", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						HostDevices: []v1.HostDevice{
+							{
+								Name:       "dp-hd-1",
+								DeviceName: "vfio.device1.example.com",
+							},
+							{
+								Name:       "dp-hd-2",
+								DeviceName: "vfio.device2.example.com",
+							},
+							{
+								Name:         "dra-hd-invalid",
+								ClaimRequest: &v1.ClaimRequest{},
+							},
+						},
+					},
+				},
+			}
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(HaveLen(2))
+			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[2].claimName"))
+			Expect(causes[1].Field).To(Equal("spec.domain.devices.hostDevices[2].requestName"))
 		})
 	})
 

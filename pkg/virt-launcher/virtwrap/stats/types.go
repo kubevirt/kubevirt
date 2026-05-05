@@ -70,7 +70,6 @@ type DomainStats struct {
 	// extra stats
 	CPUMapSet bool
 	CPUMap    [][]bool
-	NrVirtCpu uint
 	DirtyRate *DomainStatsDirtyRate
 	Load      *DomainStatsLoad
 }

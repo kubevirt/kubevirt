@@ -7367,8 +7367,14 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        Probe failures are automatically suppressed when the guest agent is
+                        unreachable for a non-fault reason: during live migration (guest paused
+                        on one pod while memory is transferred) and whenever the VM is paused
+                        for an intentional or transient reason such as a user pause, snapshot,
+                        save, or dump. Failures are not suppressed when the VM is paused due to
+                        a fault (IO error, crash, or postcopy failure).
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -7565,8 +7571,14 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        Probe failures are automatically suppressed when the guest agent is
+                        unreachable for a non-fault reason: during live migration (guest paused
+                        on one pod while memory is transferred) and whenever the VM is paused
+                        for an intentional or transient reason such as a user pause, snapshot,
+                        save, or dump. Failures are not suppressed when the VM is paused due to
+                        a fault (IO error, crash, or postcopy failure).
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -9281,31 +9293,63 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         conditions:
           items:
-            description: Condition defines conditions
+            description: Condition contains details for one aspect of the current
+              state of this API Resource.
             properties:
-              lastProbeTime:
-                format: date-time
-                nullable: true
-                type: string
               lastTransitionTime:
+                description: |-
+                  lastTransitionTime is the last time the condition transitioned from one status to another.
+                  This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                 format: date-time
-                nullable: true
                 type: string
               message:
+                description: |-
+                  message is a human readable message indicating details about the transition.
+                  This may be an empty string.
+                maxLength: 32768
                 type: string
+              observedGeneration:
+                description: |-
+                  observedGeneration represents the .metadata.generation that the condition was set based upon.
+                  For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                  with respect to the current state of the instance.
+                format: int64
+                minimum: 0
+                type: integer
               reason:
+                description: |-
+                  reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                  Producers of specific condition types may define expected values and meanings for this field,
+                  and whether the values are considered a guaranteed API.
+                  The value should be a CamelCase string.
+                  This field may not be empty.
+                maxLength: 1024
+                minLength: 1
+                pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                 type: string
               status:
+                description: status of the condition, one of True, False, Unknown.
+                enum:
+                - "True"
+                - "False"
+                - Unknown
                 type: string
               type:
-                description: ConditionType is the const type for Conditions
+                description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                maxLength: 316
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                 type: string
             required:
+            - lastTransitionTime
+            - message
+            - reason
             - status
             - type
             type: object
           type: array
-          x-kubernetes-list-type: atomic
+          x-kubernetes-list-map-keys:
+          - type
+          x-kubernetes-list-type: map
         endpointCert:
           description: |-
             EndpointCert is the raw CACert that is to be used when connecting
@@ -13430,8 +13474,14 @@ var CRDsValidation map[string]string = map[string]string{
               format: int32
               type: integer
             guestAgentPing:
-              description: GuestAgentPing contacts the qemu-guest-agent for availability
-                checks.
+              description: |-
+                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                Probe failures are automatically suppressed when the guest agent is
+                unreachable for a non-fault reason: during live migration (guest paused
+                on one pod while memory is transferred) and whenever the VM is paused
+                for an intentional or transient reason such as a user pause, snapshot,
+                save, or dump. Failures are not suppressed when the VM is paused due to
+                a fault (IO error, crash, or postcopy failure).
               type: object
             httpGet:
               description: HTTPGet specifies the http request to perform.
@@ -13627,8 +13677,14 @@ var CRDsValidation map[string]string = map[string]string{
               format: int32
               type: integer
             guestAgentPing:
-              description: GuestAgentPing contacts the qemu-guest-agent for availability
-                checks.
+              description: |-
+                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                Probe failures are automatically suppressed when the guest agent is
+                unreachable for a non-fault reason: during live migration (guest paused
+                on one pod while memory is transferred) and whenever the VM is paused
+                for an intentional or transient reason such as a user pause, snapshot,
+                save, or dump. Failures are not suppressed when the VM is paused due to
+                a fault (IO error, crash, or postcopy failure).
               type: object
             httpGet:
               description: HTTPGet specifies the http request to perform.
@@ -14765,7 +14821,9 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 checksum:
                   description: Checksum is the checksum of the initrd file
-                  format: int32
+                  format: int64
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
               type: object
             kernelInfo:
@@ -14773,7 +14831,9 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 checksum:
                   description: Checksum is the checksum of the kernel image
-                  format: int32
+                  format: int64
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
               type: object
           type: object
@@ -15333,7 +15393,9 @@ var CRDsValidation map[string]string = map[string]string{
                   checksum:
                     description: Checksum is the checksum of the rootdisk or kernel
                       artifacts inside the containerdisk
-                    format: int32
+                    format: int64
+                    maximum: 4294967295
+                    minimum: 0
                     type: integer
                 type: object
               hotplugVolume:
@@ -19854,8 +19916,14 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        Probe failures are automatically suppressed when the guest agent is
+                        unreachable for a non-fault reason: during live migration (guest paused
+                        on one pod while memory is transferred) and whenever the VM is paused
+                        for an intentional or transient reason such as a user pause, snapshot,
+                        save, or dump. Failures are not suppressed when the VM is paused due to
+                        a fault (IO error, crash, or postcopy failure).
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -20052,8 +20120,14 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                     guestAgentPing:
-                      description: GuestAgentPing contacts the qemu-guest-agent for
-                        availability checks.
+                      description: |-
+                        GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                        Probe failures are automatically suppressed when the guest agent is
+                        unreachable for a non-fault reason: during live migration (guest paused
+                        on one pod while memory is transferred) and whenever the VM is paused
+                        for an intentional or transient reason such as a user pause, snapshot,
+                        save, or dump. Failures are not suppressed when the VM is paused due to
+                        a fault (IO error, crash, or postcopy failure).
                       type: object
                     httpGet:
                       description: HTTPGet specifies the http request to perform.
@@ -24968,8 +25042,14 @@ var CRDsValidation map[string]string = map[string]string{
                               format: int32
                               type: integer
                             guestAgentPing:
-                              description: GuestAgentPing contacts the qemu-guest-agent
-                                for availability checks.
+                              description: |-
+                                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                Probe failures are automatically suppressed when the guest agent is
+                                unreachable for a non-fault reason: during live migration (guest paused
+                                on one pod while memory is transferred) and whenever the VM is paused
+                                for an intentional or transient reason such as a user pause, snapshot,
+                                save, or dump. Failures are not suppressed when the VM is paused due to
+                                a fault (IO error, crash, or postcopy failure).
                               type: object
                             httpGet:
                               description: HTTPGet specifies the http request to perform.
@@ -25166,8 +25246,14 @@ var CRDsValidation map[string]string = map[string]string{
                               format: int32
                               type: integer
                             guestAgentPing:
-                              description: GuestAgentPing contacts the qemu-guest-agent
-                                for availability checks.
+                              description: |-
+                                GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                Probe failures are automatically suppressed when the guest agent is
+                                unreachable for a non-fault reason: during live migration (guest paused
+                                on one pod while memory is transferred) and whenever the VM is paused
+                                for an intentional or transient reason such as a user pause, snapshot,
+                                save, or dump. Failures are not suppressed when the VM is paused due to
+                                a fault (IO error, crash, or postcopy failure).
                               type: object
                             httpGet:
                               description: HTTPGet specifies the http request to perform.
@@ -26923,9 +27009,15 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
           x-kubernetes-map-type: atomic
         targetReadinessPolicy:
+          default: WaitGracePeriod
           description: |-
             TargetReadinessPolicy defines how to handle the restore in case
             the target is not ready
+          enum:
+          - StopTarget
+          - WaitGracePeriod
+          - FailImmediate
+          - WaitEventually
           type: string
         virtualMachineSnapshotName:
           type: string
@@ -30541,8 +30633,14 @@ var CRDsValidation map[string]string = map[string]string{
                                   format: int32
                                   type: integer
                                 guestAgentPing:
-                                  description: GuestAgentPing contacts the qemu-guest-agent
-                                    for availability checks.
+                                  description: |-
+                                    GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                    Probe failures are automatically suppressed when the guest agent is
+                                    unreachable for a non-fault reason: during live migration (guest paused
+                                    on one pod while memory is transferred) and whenever the VM is paused
+                                    for an intentional or transient reason such as a user pause, snapshot,
+                                    save, or dump. Failures are not suppressed when the VM is paused due to
+                                    a fault (IO error, crash, or postcopy failure).
                                   type: object
                                 httpGet:
                                   description: HTTPGet specifies the http request
@@ -30741,8 +30839,14 @@ var CRDsValidation map[string]string = map[string]string{
                                   format: int32
                                   type: integer
                                 guestAgentPing:
-                                  description: GuestAgentPing contacts the qemu-guest-agent
-                                    for availability checks.
+                                  description: |-
+                                    GuestAgentPing contacts the qemu-guest-agent for availability checks.
+                                    Probe failures are automatically suppressed when the guest agent is
+                                    unreachable for a non-fault reason: during live migration (guest paused
+                                    on one pod while memory is transferred) and whenever the VM is paused
+                                    for an intentional or transient reason such as a user pause, snapshot,
+                                    save, or dump. Failures are not suppressed when the VM is paused due to
+                                    a fault (IO error, crash, or postcopy failure).
                                   type: object
                                 httpGet:
                                   description: HTTPGet specifies the http request

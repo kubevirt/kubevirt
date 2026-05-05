@@ -43,7 +43,7 @@ import (
 
 const socketDialTimeout = 5
 
-type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error
+type runServerFunc func(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store, watchInterval ...time.Duration) error
 
 var (
 	notifyServerMaxConsecutiveFails = 10

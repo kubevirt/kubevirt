@@ -141,7 +141,7 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		}
 
 		// The name usually contain spaces which should be replaced with _
-		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+		typeNameStr := strings.ReplaceAll(string(rawName), " ", "_")
 		typeNameStr = strings.TrimSpace(typeNameStr)
 
 		// get this type's ID
@@ -246,7 +246,7 @@ func createMdevTypes(mdevType string, parentID string) error {
 func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool {
 
 	if rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
-		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+		typeNameStr := strings.ReplaceAll(string(rawName), " ", "_")
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		if _, exist := desiredTypesMap[typeNameStr]; exist {
 			return false
@@ -260,7 +260,7 @@ func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool
 	rawName := []byte(filepath.Base(originFile))
 
 	// The name usually contain spaces which should be replaced with _
-	typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+	typeNameStr := strings.ReplaceAll(string(rawName), " ", "_")
 	typeNameStr = strings.TrimSpace(typeNameStr)
 	if _, exist := desiredTypesMap[typeNameStr]; exist {
 		return false

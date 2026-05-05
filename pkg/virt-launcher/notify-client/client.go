@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -28,7 +29,6 @@ import (
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
-	virtutil "kubevirt.io/kubevirt/pkg/util"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -280,7 +280,7 @@ func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
 	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
 
-func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int) {
+func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int, nonRoot bool) {
 	if vmi == nil {
 		log.Log.Warning("Guest panic detected but VMI is nil, cannot emit K8s event")
 		return
@@ -293,7 +293,6 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 	}
 
 	domainName := util.DomainFromNamespaceName(vmi.Namespace, vmi.Name)
-	nonRoot := virtutil.IsNonRootVMI(vmi)
 	logPath := util.GetQemuLogPath(domainName, nonRoot)
 
 	panicInfo, err := util.ReadPanicInfoFromLog(logPath)
@@ -321,10 +320,10 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
-	metadataCache *metadata.Cache) {
+	metadataCache *metadata.Cache, nonRoot bool) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if isGuestPanicEvent(libvirtEvent.Event) {
-		e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail)
+		e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail, nonRoot)
 	}
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
@@ -443,6 +442,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
+	nonRoot bool,
 ) error {
 
 	eventChan := make(chan libvirtEvent, 10)
@@ -477,7 +477,7 @@ func (n *Notifier) StartDomainNotifier(
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 			case agentUpdate := <-agentStore.AgentUpdated:
@@ -487,7 +487,7 @@ func (n *Notifier) StartDomainNotifier(
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
 				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
@@ -510,6 +510,7 @@ func (n *Notifier) StartDomainNotifier(
 						vmi,
 						fsFreezeStatus,
 						metadataCache,
+						nonRoot,
 					)
 				}
 			}
@@ -702,16 +703,24 @@ func (n *Notifier) Close() {
 }
 
 func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
-	if jobCompletedEvent.Info.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP {
-		log.Log.V(3).Infof("Recieved a job completion event for operation %v", jobCompletedEvent.Info.Operation)
+	switch jobCompletedEvent.Info.Operation {
+	case libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT:
+		var uid types.UID
+		if migration, exists := metadataCache.Migration.Load(); exists {
+			uid = migration.UID
+		}
+		virtwrap.LogMigrationInfo(log.Log, uid, &jobCompletedEvent.Info)
+		return false
+	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
+		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
+		if value, exists := metadataCache.Backup.Load(); exists {
+			domain.Spec.Metadata.KubeVirt.Backup = &value
+		}
+		return true
+	default:
+		log.Log.V(3).Infof("Received a job completion event for operation %v", jobCompletedEvent.Info.Operation)
 		return false
 	}
-
-	storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
-	if value, exists := metadataCache.Backup.Load(); exists {
-		domain.Spec.Metadata.KubeVirt.Backup = &value
-	}
-	return true
 }
 
 func processLifecycleEvent(client *Notifier, domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, events chan watch.Event, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {

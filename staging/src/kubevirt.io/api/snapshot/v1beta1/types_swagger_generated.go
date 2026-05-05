@@ -150,7 +150,7 @@ func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
 		"target":                 "initially only VirtualMachine type supported",
-		"targetReadinessPolicy":  "+optional",
+		"targetReadinessPolicy":  "+optional\n+kubebuilder:default=WaitGracePeriod\n+kubebuilder:validation:Enum=StopTarget;WaitGracePeriod;FailImmediate;WaitEventually",
 		"volumeRestorePolicy":    "+optional",
 		"volumeOwnershipPolicy":  "+optional",
 		"volumeRestoreOverrides": "VolumeRestoreOverrides gives the option to change properties of each restored volume\nFor example, specifying the name of the restored volume, or adding labels/annotations to it\n+optional\n+listType=atomic",

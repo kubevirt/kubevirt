@@ -127,6 +127,34 @@ func (mr *MockDeviceHandlerMockRecorder) GetMdevParentPCIAddr(mdevUUID any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMdevParentPCIAddr", reflect.TypeOf((*MockDeviceHandler)(nil).GetMdevParentPCIAddr), mdevUUID)
 }
 
+// HasVGPUProfile mocks base method.
+func (m *MockDeviceHandler) HasVGPUProfile(basepath, pciAddress string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasVGPUProfile", basepath, pciAddress)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// HasVGPUProfile indicates an expected call of HasVGPUProfile.
+func (mr *MockDeviceHandlerMockRecorder) HasVGPUProfile(basepath, pciAddress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasVGPUProfile", reflect.TypeOf((*MockDeviceHandler)(nil).HasVGPUProfile), basepath, pciAddress)
+}
+
+// IsPhysicalFunction mocks base method.
+func (m *MockDeviceHandler) IsPhysicalFunction(basepath, pciAddress string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsPhysicalFunction", basepath, pciAddress)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsPhysicalFunction indicates an expected call of IsPhysicalFunction.
+func (mr *MockDeviceHandlerMockRecorder) IsPhysicalFunction(basepath, pciAddress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsPhysicalFunction", reflect.TypeOf((*MockDeviceHandler)(nil).IsPhysicalFunction), basepath, pciAddress)
+}
+
 // ReadMDEVAvailableInstances mocks base method.
 func (m *MockDeviceHandler) ReadMDEVAvailableInstances(mdevType, parentID string) (int, error) {
 	m.ctrl.T.Helper()

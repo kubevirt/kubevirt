@@ -1070,11 +1070,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithSCSIModel(scsiControllerModel),
 			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
 			compute.ControllersWithControllerDriver(controllerDriver),
+			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
 		compute.MemoryConfigurator{},
+		compute.RebootPolicyDomainConfigurator{},
 	}
 
 	switch c.HypervisorName {
@@ -1208,20 +1210,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
-			api.Controller{
-				Type:  "pci",
-				Index: "0",
-				Model: "pcie-root",
-				PCIHole64: &api.PCIHole64{
-					Value: 0,
-					Unit:  "KiB",
-				},
-			},
-		)
-	}
-
 	if vmi.Spec.Domain.CPU != nil {
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
@@ -1262,25 +1250,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	// In case the RebootPolicy is not set, we rely on libvirt default behavior
-	// that is to reboot the guest silently.
-	if vmi.Spec.Domain.RebootPolicy != nil {
-		switch *vmi.Spec.Domain.RebootPolicy {
-		case v1.RebootPolicyTerminate:
-			domain.Spec.OnReboot = api.DomainOnRebootDestroy
-		case v1.RebootPolicyReboot:
-			domain.Spec.OnReboot = api.DomainOnRebootRestart
-		}
-	}
-
 	return nil
-}
-
-func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
-		return strings.EqualFold(val, "true")
-	}
-	return false
 }
 
 func getPrefixFromBus(bus v1.DiskBus) string {

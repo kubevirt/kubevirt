@@ -233,10 +233,6 @@ func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.OptOutRoleAggregation)
 }
 
-func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.LiveUpdateNADRef)
-}
-
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
 }

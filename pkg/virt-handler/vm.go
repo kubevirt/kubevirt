@@ -56,6 +56,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -408,11 +409,16 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	return c.sync(key,
+	err = c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
 		domain,
 		domainExists)
+	_, localExists, _ := c.getVMIFromCache(key)
+	if !localExists {
+		metrics.ResetVMISync(key)
+	}
+	return err
 
 }
 
@@ -751,24 +757,21 @@ func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	}
 }
 
-func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
-
-	// Update the condition when GA is connected
-	channelConnected := false
+func guestAgentConnected(domain *api.Domain) bool {
 	if domain != nil {
 		for _, channel := range domain.Spec.Devices.Channels {
-			if channel.Target != nil {
-				c.logger.V(4).Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
-				if channel.Target.Name == "org.qemu.guest_agent.0" {
-					if channel.Target.State == "connected" {
-						channelConnected = true
-					}
-				}
-
+			if channel.Target != nil && channel.Target.Name == "org.qemu.guest_agent.0" &&
+				channel.Target.State == "connected" {
+				return true
 			}
 		}
 	}
+	return false
+}
 
+func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, channelConnected bool, condManager *controller.VirtualMachineInstanceConditionManager) error {
+
+	// Update the condition when GA is connected
 	switch {
 	case channelConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):
 		agentCondition := v1.VirtualMachineInstanceCondition{
@@ -1043,7 +1046,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
 	c.updateLiveMigrationConditions(vmi, condManager)
-	err := c.updateGuestAgentConditions(vmi, domain, condManager)
+	err := c.updateGuestAgentConditions(vmi, guestAgentConnected(domain), condManager)
 	if err != nil {
 		return err
 	}
@@ -1097,6 +1100,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 	}
 
 	// Record an event on the VMI when the VMI's phase changes
@@ -2206,6 +2210,9 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 				return vmi.Status.Phase, err
 			} else if isUnresponsive {
+				if vmi.IsMigrationTarget() {
+					return v1.WaitingForSync, nil
+				}
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
 				return v1.Failed, nil
@@ -2214,6 +2221,9 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 		case !vmi.IsRunning() && !vmi.IsFinal():
 			return v1.Scheduled, nil
 		case !vmi.IsFinal():
+			if vmi.IsMigrationTarget() {
+				return v1.WaitingForSync, nil
+			}
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
 			return v1.Failed, nil

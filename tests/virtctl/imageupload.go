@@ -54,7 +54,7 @@ const (
 	pvcSize = "100Mi"
 )
 
-var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, func() {
+var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, func() {
 	const (
 		timeout      = 180
 		randNameTail = 5

@@ -1059,7 +1059,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	}
 
 	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
-	util.AddFinalizer(kv)
+	util.SetFinalizer(kv)
 
 	//  delete old install strategies to ensure a clean re-creation
 	err = c.deleteAllOldInstallStrategies(config.GetKubeVirtVersion())
@@ -1196,7 +1196,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 		kv.Status.Phase = v1.KubeVirtPhaseDeleted
 
 		// remove finalizer
-		kv.Finalizers = nil
+		util.UnsetFinalizer(kv)
 
 		logger.Info("KubeVirt deleted")
 

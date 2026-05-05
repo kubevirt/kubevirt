@@ -210,9 +210,10 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// Type indicates if the backup was full or incremental
 	Type BackupType `json:"type,omitempty"`
+	// +listType=map
+	// +listMapKey=type
 	// +optional
-	// +listType=atomic
-	Conditions []Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// +optional
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
@@ -245,30 +246,9 @@ const (
 	// ConditionExportReady indicates the backup export is ready
 	ConditionExportReady ConditionType = "ExportReady"
 
-	// ConditionDeleting indicates the backup is deleteing
+	// ConditionDeleting indicates the backup is deleting
 	ConditionDeleting ConditionType = "Deleting"
 
 	// ConditionAborting indicates the backup is aborting
 	ConditionAborting ConditionType = "Aborting"
 )
-
-// Condition defines conditions
-type Condition struct {
-	Type ConditionType `json:"type"`
-
-	Status corev1.ConditionStatus `json:"status"`
-
-	// +optional
-	// +nullable
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
-
-	// +optional
-	// +nullable
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-
-	// +optional
-	Reason string `json:"reason,omitempty"`
-
-	// +optional
-	Message string `json:"message,omitempty"`
-}

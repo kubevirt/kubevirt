@@ -30,13 +30,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	routev1fake "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1/fake"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"go.uber.org/mock/gomock"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -2674,6 +2674,42 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
+		})
+
+		It("should replace deprecated finalizer with domain-qualified one on reconcile", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{"foregroundDeleteKubeVirt"},
+				},
+			}
+			enableTemplateFeatureGate(kv)
+			enableContainerPathVolumesFeatureGate(kv)
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+
+			job, err := kvTestData.controller.generateInstallStrategyJob(kv.Spec.Infra, util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			job.Status.CompletionTime = now()
+			kvTestData.addInstallStrategyJob(job)
+
+			kvTestData.deleteFromCache = false
+			kvTestData.shouldExpectJobDeletion()
+			kvTestData.shouldExpectKubeVirtFinalizersPatch(1)
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectCreations()
+
+			kvTestData.controller.Execute()
+
+			kv = kvTestData.getLatestKubeVirt(kv)
+			Expect(kv.ObjectMeta.Finalizers).To(ConsistOf(util.KubeVirtFinalizer))
 		})
 
 		It("should pause rollback until api server is rolled over.", func() {

@@ -48,6 +48,7 @@ go_library(
         "//vendor/google.golang.org/grpc/internal/balancerload:go_default_library",
         "//vendor/google.golang.org/grpc/internal/binarylog:go_default_library",
         "//vendor/google.golang.org/grpc/internal/channelz:go_default_library",
+        "//vendor/google.golang.org/grpc/internal/envconfig:go_default_library",
         "//vendor/google.golang.org/grpc/internal/grpcsync:go_default_library",
         "//vendor/google.golang.org/grpc/internal/grpcutil:go_default_library",
         "//vendor/google.golang.org/grpc/internal/idle:go_default_library",

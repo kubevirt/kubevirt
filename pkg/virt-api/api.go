@@ -1121,6 +1121,8 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 		errors <- server.ListenAndServeTLS("", "")
 	}()
 
+	metrics.SetVirtAPIReady()
+
 	// start graceful shutdown handler
 	go func() {
 		select {
@@ -1129,6 +1131,8 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 		case msg := <-app.reInitChan:
 			log.Log.Infof("Received signal to reInitialize virt-api [%s], initiating graceful shutdown", msg)
 		}
+
+		metrics.SetVirtAPINotReady()
 
 		// pause briefly to ensure the load balancer has had a chance to
 		// remove this endpoint from rotation due to pod.DeletionTimestamp != nil

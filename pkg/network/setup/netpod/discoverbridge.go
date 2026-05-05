@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func (n NetPod) storeBridgeBindingDHCPInterfaceData(currentStatus *nmstate.Status, podIfaceStatus nmstate.Interface, vmiSpecIface v1.Interface, podIfaceName string) error {
@@ -45,7 +46,11 @@ func (n NetPod) storeBridgeBindingDHCPInterfaceData(currentStatus *nmstate.Statu
 		}
 		dhcpConfig.IP = *addr
 
-		mac, err := resolveMacAddress(podIfaceStatus.MacAddress, vmiSpecIface.MacAddress)
+		var vmiStatusMAC string
+		if ifaceStatus := vmispec.LookupInterfaceStatusByName(n.vmiIfaceStatuses, vmiSpecIface.Name); ifaceStatus != nil {
+			vmiStatusMAC = ifaceStatus.MAC
+		}
+		mac, err := resolveMacAddress(podIfaceStatus.MacAddress, vmiStatusMAC, vmiSpecIface.MacAddress)
 		if err != nil {
 			return err
 		}
@@ -145,16 +150,14 @@ func filterIPv4RoutesByInterface(currentStatus *nmstate.Status, podIfaceName str
 	return linkRoutes, nil
 }
 
-func resolveMacAddress(macAddressFromCurrent string, macAddressFromVMISpec string) (net.HardwareAddr, error) {
-	macAddress := macAddressFromCurrent
+func resolveMacAddress(macAddressFromPod, macAddressFromVMIStatus, macAddressFromVMISpec string) (net.HardwareAddr, error) {
 	if macAddressFromVMISpec != "" {
-		macAddress = macAddressFromVMISpec
+		return net.ParseMAC(macAddressFromVMISpec)
 	}
-	mac, merr := net.ParseMAC(macAddress)
-	if merr != nil {
-		return nil, merr
+	if macAddressFromVMIStatus != "" {
+		return net.ParseMAC(macAddressFromVMIStatus)
 	}
-	return mac, nil
+	return net.ParseMAC(macAddressFromPod)
 }
 
 func isIPv6Family(ip net.IP) bool {

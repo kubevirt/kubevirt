@@ -30,8 +30,11 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "LowReadyVirtControllersCount",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_ready:sum < cluster:kubevirt_virt_controller_pods_running:count"),
-			For:   ptr.To(promv1.Duration("10m")),
+			Expr: intstr.FromString(
+				"cluster:kubevirt_virt_controller_ready:sum < cluster:kubevirt_virt_controller_pods_running:count " +
+					"and cluster:kubevirt_virt_controller_ready:sum > 0",
+			),
+			For: ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Some virt controllers are running but not ready.",
 			},

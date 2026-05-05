@@ -35,13 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type clusterConfigurer interface {
-	LiveUpdateNADRefEnabled() bool
-}
-
 type VMController struct {
-	clientset         kubevirt.Interface
-	clusterConfigurer clusterConfigurer
+	clientset kubevirt.Interface
 }
 
 type syncError struct {
@@ -65,10 +60,9 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMController(clientset kubevirt.Interface, clusterConfigurer clusterConfigurer) *VMController {
+func NewVMController(clientset kubevirt.Interface) *VMController {
 	return &VMController{
-		clientset:         clientset,
-		clusterConfigurer: clusterConfigurer,
+		clientset: clientset,
 	}
 }
 
@@ -87,7 +81,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
 
-		updatedVMI := syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName, v.clusterConfigurer.LiveUpdateNADRefEnabled())
+		updatedVMI := syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
 
 		if err := v.vmiInterfacesPatch(&updatedVMI.Spec, vmi); err != nil {
 			return vm, &syncError{
@@ -116,7 +110,6 @@ func syncVMIInterfaces(
 	vm *v1.VirtualMachine,
 	vmi *v1.VirtualMachineInstance,
 	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
-	isLiveUpdateNADRefEnabled bool,
 ) *v1.VirtualMachineInstance {
 	vmiCopy := vmi.DeepCopy()
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
@@ -127,9 +120,7 @@ func syncVMIInterfaces(
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
-	if isLiveUpdateNADRefEnabled {
-		vmiCopy.Spec.Networks = syncNetworks(vm.Spec.Template.Spec.Networks, vmiCopy.Spec.Networks)
-	}
+	vmiCopy.Spec.Networks = syncNetworks(vm.Spec.Template.Spec.Networks, vmiCopy.Spec.Networks)
 
 	return vmiCopy
 }

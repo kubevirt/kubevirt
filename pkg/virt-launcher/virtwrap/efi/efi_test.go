@@ -71,15 +71,31 @@ var _ = Describe("EFI environment detection", func() {
 				Expect(efiEnv.EFIVars(!secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, vars)))
 			}
 		},
-		Entry("SB and NoSB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICode, EFIVars, true, true),
+		Entry("SB and NoSB available, secboot code preferred for non-SB EFI", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, EFIVars, true, true),
 		Entry("Only SB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, "", true, false),
 		Entry("Only NoSB available", "x86_64", "", "", EFICode, EFIVars, false, true),
 		Entry("Arm64 EFI", "arm64", "", "", EFICodeAARCH64, EFIVarsAARCH64, false, true),
-		Entry("SB and NoSB available when OVMF_CODE.fd does not exist", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, EFIVars, true, true),
 		Entry("Only NoSB available when OVMF_CODE.fd and OVMF_VARS.secboot.fd do not exist", "x86_64", EFICodeSecureBoot, "", EFICodeSecureBoot, EFIVars, false, true),
 		Entry("EFI booting not available for x86_64", "x86_64", "", "", "", "", false, false),
 		Entry("EFI booting not available for arm64", "arm64", "", "", "", "", false, false),
 	)
+
+	It("should prefer OVMF_CODE.secboot.fd over OVMF_CODE.fd for non-SecureBoot EFI when both exist", func() {
+		ovmfPath := createEFIRoms(EFICodeSecureBoot, EFIVarsSecureBoot, EFICode, EFIVars)
+		defer os.RemoveAll(ovmfPath)
+
+		efiEnv := DetectEFIEnvironment("x86_64", ovmfPath)
+		Expect(efiEnv).ToNot(BeNil())
+
+		Expect(efiEnv.Bootable(!secureBootEnabled, None)).To(BeTrue())
+		Expect(efiEnv.Bootable(secureBootEnabled, None)).To(BeTrue())
+
+		// secboot firmware must be used for non-SB EFI so that guests report
+		// "SecureBoot disabled" rather than "This system doesn't support Secure Boot"
+		Expect(efiEnv.EFICode(!secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, EFICodeSecureBoot)))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, EFIVars)))
+		Expect(efiEnv.EFICode(secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, EFICodeSecureBoot)))
+	})
 
 	It("SEV and SEV-SNP EFI Roms", func() {
 		ovmfPath := createEFIRoms(EFICodeSEV, EFIVars, EFICodeSNP)

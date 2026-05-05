@@ -51,6 +51,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -410,6 +411,7 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 			}
 			return err
 		}
+		metrics.VMISynced(vmi.Namespace, vmi.Name)
 	}
 
 	return nil
@@ -555,6 +557,7 @@ func (c *MigrationTargetController) execute(key string) error {
 	if !vmiExists {
 		c.logger.V(4).Infof("vmi for key %v does not exists", key)
 		c.vmiExpectations.DeleteExpectations(key)
+		metrics.ResetVMISync(key)
 		return nil
 	}
 
@@ -1040,7 +1043,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
 		// and we are sure that all VMIs include the MemoryOverhead status field
 		overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-		requiredMemory = hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+		requiredMemory = hypervisor.NewLauncherHypervisorResources(c.clusterConfig.GetHypervisor().Name).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
 		requiredMemory.Add(
 			c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
 		)

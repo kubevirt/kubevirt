@@ -143,6 +143,13 @@ const (
 	//
 	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
 	PanicDevicesGate = "PanicDevices"
+
+	// Owner: sig-network
+	// Beta: v1.8.0
+	// GA: v1.9.0
+	//
+	// LiveUpdateNADRef enables dynamic modification of NAD references for secondary networks on running VMs.
+	LiveUpdateNADRef = "LiveUpdateNADRef"
 )
 
 func init() {
@@ -181,4 +188,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
 }

@@ -102,7 +102,7 @@ var _ = Describe(SIG("Services", func() {
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
 			})
 
-			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", decorators.WgS390x, func() {
+			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
 				tcpJob, err := createServiceConnectivityJob("wrongservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
 

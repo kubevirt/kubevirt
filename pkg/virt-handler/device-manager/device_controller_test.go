@@ -109,7 +109,12 @@ var _ = Describe("Device Controller", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockPCI = NewMockDeviceHandler(ctrl)
 		mockPCI.EXPECT().GetDevicePCIID(gomock.Any(), gomock.Any()).Return("1234:5678", nil).AnyTimes()
+
+		oldHandler := handler
 		handler = mockPCI
+		DeferCleanup(func() {
+			handler = oldHandler
+		})
 
 		fakeConfigMap, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			PermittedHostDevices: &v1.PermittedHostDevices{
