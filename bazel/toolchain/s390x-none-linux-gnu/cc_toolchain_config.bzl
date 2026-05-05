@@ -18,7 +18,6 @@ load(
     "tool_path",
 )
 
-
 # Action names used for organizing compiler/linker flags.
 # These are predefined by Bazel and correspond to specific compilation/linking phases.
 all_link_actions = [

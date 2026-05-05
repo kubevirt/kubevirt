@@ -40,10 +40,10 @@ def _get_all_compile_actions():
 def _get_tool_paths(tool_prefix):
     """
     Returns tool paths for a given tool prefix.
-    
+
     Args:
         tool_prefix: Prefix for tools (e.g., "aarch64-linux-gnu-", "x86_64-linux-gnu-", or "")
-    
+
     Returns:
         List of tool_path() rules
     """
@@ -62,7 +62,7 @@ def _get_tool_paths(tool_prefix):
 def _get_common_features():
     """
     Returns list of common compiler features.
-    
+
     Returns:
         List of feature() rules that apply to all architectures
     """
@@ -148,7 +148,7 @@ def _get_common_features():
 def _get_link_features():
     """
     Returns list of link-specific features.
-    
+
     Returns:
         List of feature() rules for linking
     """
@@ -177,26 +177,26 @@ def create_cc_toolchain_config(
         target_os = "linux"):
     """
     Creates a cc_toolchain_config provider for a specific architecture.
-    
+
     This function generates the configuration for a C++ toolchain targeting
     a specific architecture and OS. It parametrizes over tool prefix to handle
     different architectures (aarch64, s390x, x86_64) with minimal duplication.
-    
+
     Args:
         ctx: Rule context
         toolchain_identifier: Unique identifier for this toolchain (e.g., "aarch64-toolchain")
         tool_prefix: Prefix for cross-compiler tools (e.g., "aarch64-linux-gnu-", or "")
         target_cpu: Target CPU architecture (aarch64, s390x, x86_64)
         target_os: Target OS (default: "linux")
-    
+
     Returns:
         cc_toolchain_config provider
     """
     all_link_actions = _get_all_link_actions()
     all_compile_actions = _get_all_compile_actions()
-    
+
     tool_paths = _get_tool_paths(tool_prefix)
-    
+
     features = (
         _get_common_features() +
         _get_link_features() +
@@ -207,7 +207,7 @@ def create_cc_toolchain_config(
             ),
         ]
     )
-    
+
     return struct(
         ctx = ctx,
         features = features,

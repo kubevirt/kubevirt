@@ -24,7 +24,6 @@ all_link_actions = [
     ACTION_NAMES.cpp_link_nodeps_dynamic_library,
 ]
 
-
 all_compile_actions = [
     ACTION_NAMES.assemble,
     ACTION_NAMES.c_compile,

@@ -27,16 +27,18 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2")
 # bazeldnf - RPM dependency management for Bazel
 bazel_dep(name = "bazeldnf", version = "v0.99.2-rc1")
 
+# Package metadata and license rules - required by Gazelle 0.45+ when generating
+bazel_dep(name = "package_metadata", version = "0.0.7")
+bazel_dep(name = "rules_license", version = "1.0.0")
+
 # To update RPMs, run:
 #   bazel run @kubevirt-rpms//:update-lock-file
 bazeldnf_rpms = use_extension("@bazeldnf//bazeldnf:extensions.bzl", "bazeldnf")
-
 bazeldnf_rpms.config(
     name = "kubevirt-rpms",
-    lock_file = "//:rpms.json",
     ignore_deps = True,
+    lock_file = "//:rpms.json",
 )
-
 use_repo(bazeldnf_rpms, "kubevirt-rpms")
 
 # Python toolchain defined in //:py_toolchain (root BUILD.bazel)
@@ -44,6 +46,7 @@ register_toolchains("//:py_toolchain")
 
 
 _http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 _http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
 # rules_docker - used for passwd/group file generation in container builds.
@@ -138,13 +141,11 @@ oci.pull(
     digest = "sha256:1f144c77a9ecaaa132fc3037b4417d9f9fd0b7a50101c696af5cb186876aa2a3",
     image = "gcr.io/distroless/base-debian12",
 )
-
 oci.pull(
     name = "go_image_base_aarch64",
     digest = "sha256:092d065d29d72957dc7a85519c3f911d6ad233fe6b53e7a9f42891e6464cc7d9",
     image = "gcr.io/distroless/base-debian12",
 )
-
 oci.pull(
     name = "go_image_base_s390x",
     digest = "sha256:f17ca174b7738b7d065584558d7999c08bcc2658bd2d0ad324c47c8178272774",
@@ -157,13 +158,11 @@ oci.pull(
     digest = "sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
-
 oci.pull(
     name = "fedora_with_test_tooling_aarch64",
     digest = "sha256:3d5a2a95f7f9382dc6730073fe19a6b1bc668b424c362339c88c6a13dff2ef49",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
-
 oci.pull(
     name = "fedora_with_test_tooling_s390x",
     digest = "sha256:3d9f468750d90845a81608ea13c85237ea295c6295c911a99dc5e0504c8bc05b",
@@ -175,7 +174,6 @@ oci.pull(
     digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
-
 oci.pull(
     name = "alpine_with_test_tooling_s390x",
     digest = "sha256:1a52903133c00507607e8a82308a34923e89288d852762b9f4d5da227767e965",
@@ -216,37 +214,31 @@ oci.pull(
     digest = "sha256:f052d1ff68c11991363b2367f8c9f622276b9c85b4a5a023422c62ec96052bf4",
     image = "quay.io/kubevirt/virt-template-apiserver",
 )
-
 oci.pull(
     name = "virt_template_apiserver_aarch64",
     digest = "sha256:819ba032c6478f7e2e88abdf216e7fa9cc03ce8bf9ba5e67f5f747714a8064a2",
     image = "quay.io/kubevirt/virt-template-apiserver",
 )
-
 oci.pull(
     name = "virt_template_apiserver_s390x",
     digest = "sha256:5684c5fbda76bbb8779cc63dd621b8009c7ddd8f8a6cd6842c3162c4511bf134",
     image = "quay.io/kubevirt/virt-template-apiserver",
 )
-
 oci.pull(
     name = "virt_template_controller",
     digest = "sha256:481bdd4e14f27bec0fbcd3f77da397f3cd4367d8065f40aef9312db602526449",
     image = "quay.io/kubevirt/virt-template-controller",
 )
-
 oci.pull(
     name = "virt_template_controller_aarch64",
     digest = "sha256:afcab3b4b3370c343927fdc2eb756fb8ca009827336a79b760249cc74aa6bd24",
     image = "quay.io/kubevirt/virt-template-controller",
 )
-
 oci.pull(
     name = "virt_template_controller_s390x",
     digest = "sha256:4c3a60af6f688f3ef50a43d57d38de6e69a6faf26eacf535f9fb2251da167a4f",
     image = "quay.io/kubevirt/virt-template-controller",
 )
-
 use_repo(
     oci,
     "alpine-ext-kernel-boot-demo-container-base",
@@ -274,7 +266,7 @@ use_repo(
 # built directly with Bazel rules (not imported as Go library deps).
 # Used for building the winrmcli test image.
 
-_go_repository = use_repo_rule("@gazelle//:repo.bzl", "go_repository")
+_go_repository = use_repo_rule("@bazel_gazelle//:def.bzl", "go_repository")
 
 _go_repository(
     name = "com_github_masterzen_winrmcli",
