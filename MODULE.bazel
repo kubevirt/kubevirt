@@ -31,6 +31,13 @@ bazel_dep(name = "bazeldnf", version = "v0.99.2-rc1")
 bazel_dep(name = "package_metadata", version = "0.0.7")
 bazel_dep(name = "rules_license", version = "1.0.0")
 
+single_version_override(
+    module_name = "bazeldnf",
+    patch_strip = 1,
+    patches = ["//patches:bazeldnf-fallback-urls.patch"],
+    version = "v0.99.2-rc1",
+)
+
 # To update RPMs, run:
 #   bazel run @kubevirt-rpms//:update-lock-file
 bazeldnf_rpms = use_extension("@bazeldnf//bazeldnf:extensions.bzl", "bazeldnf")
