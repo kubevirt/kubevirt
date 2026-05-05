@@ -1372,6 +1372,18 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration garbage collection", func() {
+		createPod := func(name, ns string) {
+			pod := k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: ns,
+				},
+				Spec:   k8sv1.PodSpec{},
+				Status: k8sv1.PodStatus{},
+			}
+			_, err := kubeClient.CoreV1().Pods(ns).Create(context.Background(), &pod, metav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		}
 		DescribeTable("should garbage old finalized migration objects", func(phase v1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 
@@ -1456,25 +1468,55 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in running phase", v1.MigrationRunning),
 		)
 		It("should garbage collect oldest finalized migrations when exceeding buffer", func() {
-			// Setup: Create a VMI and 8 finalized migrations (buffer=5, expect 3 oldest deleted)
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addVirtualMachineInstance(vmi)
 
 			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
+			// Only the 3 oldest migrations (finalized-mig-0/1/2) exceed the garbage collection buffer (5) and are
+			// expected to be deleted below, along with their pods. Each of those 3 migrations gets its own
+			// source/target pods and a distinct MigrationState so that we can assert that pod cleanup depends on
+			// how the migration ended:
+			//  - finalized-mig-0 succeeded, so only its source pod (the old virt-launcher) is stale and gets
+			//    deleted, the target pod remains as the VMI's current virt-launcher.
+			//  - finalized-mig-1 failed, so only its target pod (the failed virt-launcher) is stale and gets
+			//    deleted, the source pod remains as the VMI's current virt-launcher.
+			//  - finalized-mig-2 never completed nor failed (its MigrationState is inconclusive), so neither pod
+			//    is touched to be safe.
+			// This doesn't perfectly reflect a real cluster, where the source/target pods of consecutive
+			// migrations would actually be shared (e.g. the target of migration N is the source of migration
+			// N+1), but it lets us verify each cleanup path independently.
+			By("Creating 8 finalized migrations, only the 3 oldest of which have associated pods")
 			for i := range 8 {
 				migName := fmt.Sprintf("finalized-mig-%d", i)
 				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
 				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				if i < 3 {
+					createPod(fmt.Sprintf("source-mig-%d", i), vmi.Namespace)
+					createPod(fmt.Sprintf("target-mig-%d", i), vmi.Namespace)
+					mig.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+						SourcePod: fmt.Sprintf("source-mig-%d", i),
+						TargetPod: fmt.Sprintf("target-mig-%d", i),
+					}
+					switch i {
+					case 0:
+						mig.Status.MigrationState.Completed = true
+						mig.Status.MigrationState.Failed = false
+					case 1:
+						mig.Status.MigrationState.Failed = true
+					default:
+						// migration 2 is left with neither Completed nor Failed set
+					}
+				}
 				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
 				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			// Call the function
+			By("Running garbage collection")
 			Expect(controller.garbageCollectFinalizedMigrations(vmi)).To(Succeed())
 
-			// Verify remaining migrations (newest 5)
+			By("Expecting only the newest 5 migrations to remain")
 			migrationList, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(migrationList.Items).To(WithTransform(func(migrations []v1.VirtualMachineInstanceMigration) []string {
@@ -1484,15 +1526,26 @@ var _ = Describe("Migration watcher", func() {
 				}
 				return migrationNames // No sort needed
 			}, ConsistOf("finalized-mig-3", "finalized-mig-4", "finalized-mig-5", "finalized-mig-6", "finalized-mig-7")))
+
+			By("Expecting the target pod of the succeeded migration, the source pod of the failed migration, and both pods of the inconclusive migration to remain")
+			podList, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(podList.Items).To(WithTransform(func(pods []k8sv1.Pod) []string {
+				var podNames []string
+				for _, pod := range pods {
+					podNames = append(podNames, pod.Name)
+				}
+				return podNames // No sort needed
+			}, ConsistOf("target-mig-0", "source-mig-1", "source-mig-2", "target-mig-2")))
 		})
 
 		It("should handle errors during garbage collection deletions", func() {
-			// Setup: Similar to above, but only 6 finalized (expect 1 deletion, but fail it)
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addVirtualMachineInstance(vmi)
 
 			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
+			By("Creating 6 finalized migrations, 1 above the garbage collection buffer")
 			for i := range 6 {
 				migName := fmt.Sprintf("finalized-mig-%d", i)
 				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
@@ -1502,12 +1555,12 @@ var _ = Describe("Migration watcher", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			// Mock deletion to fail
+			By("Making the migration deletion fail")
 			virtClientset.PrependReactor("delete", "virtualmachineinstancemigrations", func(action testing.Action) (handled bool, ret k8sruntime.Object, err error) {
 				return true, nil, fmt.Errorf("simulated deletion error")
 			})
 
-			// Call the function: Expect error propagation
+			By("Expecting the error to propagate")
 			err := controller.garbageCollectFinalizedMigrations(vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("simulated deletion error"))
