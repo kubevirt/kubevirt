@@ -14543,7 +14543,9 @@ var CRDsValidation map[string]string = map[string]string{
       properties:
         VSOCKCID:
           description: VSOCKCID is used to track the allocated VSOCK CID in the VM.
-          format: int32
+          format: int64
+          maximum: 4294967295
+          minimum: 0
           type: integer
         activePods:
           additionalProperties:
