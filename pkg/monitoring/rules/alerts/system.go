@@ -29,7 +29,7 @@ func systemAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "LowKVMNodesCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_kvm < 2)"),
+			Expr:  intstr.FromString("(cluster:kubevirt_nodes_allocatable:count > 1) and (cluster:kubevirt_nodes_with_kvm:count < 2)"),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				descriptionAnnotationKey: "Low number of nodes with KVM resource available.",
@@ -43,7 +43,7 @@ func systemAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "KubeVirtNoAvailableNodesToRunVMs",
 			Expr: intstr.FromString(
-				"((sum(kube_node_status_allocatable{resource='devices_kubevirt_io_kvm'}) or on() vector(0)) == 0 " +
+				"((cluster:kubevirt_nodes_with_kvm:count or on() vector(0)) == 0 " +
 					" and (sum(kubevirt_configuration_emulation_enabled) or on() vector(0)) == 0) " +
 					" or (sum(kube_node_labels{label_kubevirt_io_schedulable='true'} * on(node) group_left() (1 - kube_node_spec_unschedulable)) " +
 					" or on() vector(0)) == 0"),

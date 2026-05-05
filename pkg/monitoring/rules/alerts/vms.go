@@ -107,7 +107,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestVCPUQueueHighWarning",
-		Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 10"),
+		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum > 10"),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} CPU queue length > 10",
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 10",
@@ -119,7 +119,7 @@ var vmsAlerts = []promv1.Rule{
 	},
 	{
 		Alert: "GuestVCPUQueueHighCritical",
-		Expr:  intstr.FromString("kubevirt_vmi_guest_vcpu_queue > 20"),
+		Expr:  intstr.FromString("vmi:kubevirt_vmi_guest_queue_length:sum > 20"),
 		Annotations: map[string]string{
 			descriptionAnnotationKey: "VirtualMachineInstance {{ $labels.name }} CPU queue length > 20",
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 20",

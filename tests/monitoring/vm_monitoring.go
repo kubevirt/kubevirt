@@ -177,8 +177,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		}
 
 		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
-			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
-			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
+			totalMetric := fmt.Sprintf("vm:kubevirt_vmsnapshot_disks_restored:sum{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
+			bytesMetric := fmt.Sprintf("vm:kubevirt_vmsnapshot_restored_bytes:sum{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
 			numPVCs := 2.0
 
 			for i := 1.0; i < numPVCs+1; i++ {
@@ -317,7 +317,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 	})
 
 	Context("Cluster VM metrics", func() {
-		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
+		It("namespace:kubevirt_vm:sum should reflect the number of VMs", func() {
 			for i := 0; i < 5; i++ {
 				vmi := libvmifact.NewGuestless()
 				vm := libvmi.NewVirtualMachine(vmi)
@@ -325,7 +325,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_number_of_vms", 5, map[string]string{"namespace": testsuite.GetTestNamespace(nil)}, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "namespace:kubevirt_vm:sum", 5, map[string]string{"namespace": testsuite.GetTestNamespace(nil)}, 1)
 		})
 	})
 
