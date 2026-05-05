@@ -305,12 +305,11 @@ _go_repository(
     name = "com_github_packer_community_winrmcp",
     commit = "c76d91c1e7db27b0868c5d09e292bb540616c9a2",
     importpath = "github.com/packer-community/winrmcp",
-)
-
-_go_repository(
-    name = "com_github_masterzen_winrm_cli",
-    commit = "6f0c57dee4569c04f64c44c335752b415e5d73a7",
-    importpath = "github.com/masterzen/winrm-cli",
+    build_directives = [
+        "gazelle:resolve go github.com/masterzen/winrm @com_github_masterzen_winrm//:winrm",
+        "gazelle:resolve go github.com/nu7hatch/gouuid @com_github_nu7hatch_gouuid//:gouuid",
+        "gazelle:resolve go github.com/dylanmei/iso8601 @com_github_dylanmei_iso8601//:iso8601",
+    ],
 )
 
 _go_repository(
