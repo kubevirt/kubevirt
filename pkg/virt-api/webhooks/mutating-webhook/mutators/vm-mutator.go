@@ -96,7 +96,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, mutator.virtClient)
 
 	if ar.Request.Operation == admissionv1.Create {
-		if defaults.SupportsPCIeHotplug(vm.Spec.Template.Spec.Architecture) {
+		if defaults.SupportsPCIeHotplug(&vm.Spec.Template.Spec) {
 			setDefaultPciTopologyVersion(&vm.Spec.Template.ObjectMeta)
 		}
 	}

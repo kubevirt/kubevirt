@@ -57,7 +57,7 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 		return err
 	}
 
-	if defaults.SupportsPCIeHotplug(newVMI.Spec.Architecture) {
+	if defaults.SupportsPCIeHotplug(&newVMI.Spec) {
 		setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
 	}
 
