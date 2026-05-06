@@ -354,6 +354,8 @@ func Execute() {
 		panic(err)
 	}
 
+	app.clusterConfig.SetWorkerPoolStore(app.informerFactory.WorkerPool().GetStore())
+
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.isDRAEnabled = app.clusterConfig.GPUsWithDRAGateEnabled() || app.clusterConfig.HostDevicesWithDRAEnabled()
