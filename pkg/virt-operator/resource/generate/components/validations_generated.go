@@ -6650,6 +6650,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   none: Guest I/O not cached on the host, but may be kept in a disk cache.
                                   writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                                   writeback: Guest I/O cached on the host.
+                                  directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                                   Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                                 type: string
                               cdrom:
@@ -9261,6 +9262,7 @@ var CRDsValidation map[string]string = map[string]string{
                           none: Guest I/O not cached on the host, but may be kept in a disk cache.
                           writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                           writeback: Guest I/O cached on the host.
+                          directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                           Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                         type: string
                       cdrom:
@@ -12861,6 +12863,7 @@ var CRDsValidation map[string]string = map[string]string{
                           none: Guest I/O not cached on the host, but may be kept in a disk cache.
                           writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                           writeback: Guest I/O cached on the host.
+                          directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                           Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                         type: string
                       cdrom:
@@ -17076,6 +17079,7 @@ var CRDsValidation map[string]string = map[string]string{
                           none: Guest I/O not cached on the host, but may be kept in a disk cache.
                           writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                           writeback: Guest I/O cached on the host.
+                          directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                           Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                         type: string
                       cdrom:
@@ -19669,6 +19673,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   none: Guest I/O not cached on the host, but may be kept in a disk cache.
                                   writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                                   writeback: Guest I/O cached on the host.
+                                  directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                                   Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                                 type: string
                               cdrom:
@@ -24838,6 +24843,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           none: Guest I/O not cached on the host, but may be kept in a disk cache.
                                           writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                                           writeback: Guest I/O cached on the host.
+                                          directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                                           Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                                         type: string
                                       cdrom:
@@ -30516,6 +30522,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               none: Guest I/O not cached on the host, but may be kept in a disk cache.
                                               writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                                               writeback: Guest I/O cached on the host.
+                                              directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                                               Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                                             type: string
                                           cdrom:
@@ -33206,6 +33213,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       none: Guest I/O not cached on the host, but may be kept in a disk cache.
                                       writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
                                       writeback: Guest I/O cached on the host.
+                                      directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
                                       Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                                     type: string
                                   cdrom:
