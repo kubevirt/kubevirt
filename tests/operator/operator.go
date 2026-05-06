@@ -43,7 +43,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v83/github"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
 	appsv1 "k8s.io/api/apps/v1"
