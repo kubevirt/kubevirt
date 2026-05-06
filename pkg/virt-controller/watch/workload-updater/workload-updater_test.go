@@ -734,6 +734,94 @@ var _ = Describe("Workload Updater", func() {
 		)
 	})
 
+	Context("pool-aware outdated detection", func() {
+		It("should consider VMI outdated when its launcher image does not match default", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "old-image")
+			Expect(controller.isOutdated(vmi)).To(BeTrue())
+		})
+
+		It("should not consider VMI outdated when launcher image matches default", func() {
+			vmi := newVirtualMachineInstance("testvm", true, expectedImage)
+			Expect(controller.isOutdated(vmi)).To(BeFalse())
+		})
+
+		It("should not consider VMI outdated when launcher image is empty", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "")
+			Expect(controller.isOutdated(vmi)).To(BeFalse())
+		})
+
+		It("should not consider final VMI as outdated", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "old-image")
+			libvmistatus.Update(&vmi.Status, libvmistatus.WithPhase(v1.Succeeded))
+			Expect(controller.isOutdated(vmi)).To(BeFalse())
+		})
+
+		It("should use pool-specific launcher image when pools are configured", func() {
+			// Create a new controller with worker pools enabled
+			config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.WorkerPools},
+				},
+			})
+
+			// Create the KV object with worker pools
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-kv",
+					Namespace:       "kubevirt",
+					ResourceVersion: "1",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featuregate.WorkerPools},
+						},
+					},
+					WorkerPools: []v1.WorkerPoolConfig{
+						{
+							Name:              "gpu",
+							VirtLauncherImage: "custom-launcher:v1",
+							NodeSelector:      map[string]string{"gpu": "true"},
+							Selector: v1.WorkerPoolSelector{
+								DeviceNames: []string{"nvidia.com/A100"},
+							},
+						},
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+				},
+			}
+			kvStore.Add(kv)
+
+			ctrl := gomock.NewController(GinkgoT())
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			migrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
+			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
+
+			poolController, err := NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kvInformer, recorder, virtClient, config)
+			Expect(err).ToNot(HaveOccurred())
+
+			// VMI with GPU matching pool - should expect custom-launcher:v1
+			vmi := newVirtualMachineInstance("testvm-gpu", true, "custom-launcher:v1")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{DeviceName: "nvidia.com/A100"},
+			}
+			// VMI launcher matches pool image - should NOT be outdated
+			Expect(poolController.isOutdated(vmi)).To(BeFalse())
+
+			// VMI with GPU matching pool but running old default image - should be outdated
+			vmi2 := newVirtualMachineInstance("testvm-gpu2", true, expectedImage)
+			vmi2.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{DeviceName: "nvidia.com/A100"},
+			}
+			// VMI launcher matches default but pool says custom - should be outdated
+			Expect(poolController.isOutdated(vmi2)).To(BeTrue())
+		})
+	})
+
 	AfterEach(func() {
 		Expect(recorder.Events).To(BeEmpty())
 	})
