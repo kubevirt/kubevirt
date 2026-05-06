@@ -46,7 +46,7 @@ func (c *VirtualMachineController) detectPCITopologyAndAnnotate(vmi *v1.VirtualM
 		return nil
 	}
 
-	if !defaults.SupportsPCIeHotplug(vmi.Spec.Architecture) {
+	if !defaults.SupportsPCIeHotplug(&vmi.Spec) {
 		return nil
 	}
 
