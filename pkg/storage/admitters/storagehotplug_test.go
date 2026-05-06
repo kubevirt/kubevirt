@@ -290,6 +290,14 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 		return res
 	}
 
+	makeDisksWithInvalidCache := func(indexes ...int) []v1.Disk {
+		res := makeDisks(indexes...)
+		if len(res) > 0 {
+			res[len(res)-1].Cache = v1.DriverCache("potato")
+		}
+		return res
+	}
+
 	makeDisksInvalidBootOrder := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
 		if len(res) > 0 {
@@ -504,6 +512,14 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("mismatch between volumes declared (1) and required (2)", "")),
+		Entry("Should reject if we add disk with invalid cache mode",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksWithInvalidCache(0, 1),
+			makeDisks(0),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			makeExpected(`Hotplug configuration for [volume-name-1] has invalid cache mode "potato"`, "")),
 		Entry("Should reject if we add disk with invalid boot order",
 			makeVolumes(0, 1),
 			makeVolumes(0),
