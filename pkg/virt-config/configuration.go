@@ -282,6 +282,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 type ClusterConfig struct {
 	crdStore                         cache.Store
 	kubeVirtStore                    cache.Store
+	workerPoolStore                  cache.Store
 	namespace                        string
 	cpuArch                          string
 	lock                             *sync.Mutex
@@ -290,6 +291,10 @@ type ClusterConfig struct {
 	lastInvalidConfigResourceVersion string
 	lastValidConfigResourceVersion   string
 	configModifiedCallback           []ConfigModifiedFn
+}
+
+func (c *ClusterConfig) SetWorkerPoolStore(store cache.Store) {
+	c.workerPoolStore = store
 }
 
 func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {

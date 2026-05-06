@@ -21,6 +21,9 @@ package virtconfig
 
 import (
 	"slices"
+	"sort"
+
+	workerv1 "kubevirt.io/api/worker/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -239,4 +242,33 @@ func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
 
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
+}
+
+func (config *ClusterConfig) WorkerPoolsEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.WorkerPools)
+}
+
+// GetWorkerPools returns WorkerPool CRs sorted alphabetically by name if the
+// feature gate is enabled, otherwise returns nil.
+func (config *ClusterConfig) GetWorkerPools() []workerv1.WorkerPool {
+	if !config.WorkerPoolsEnabled() {
+		return nil
+	}
+	if config.workerPoolStore == nil {
+		return nil
+	}
+	items := config.workerPoolStore.List()
+	if len(items) == 0 {
+		return nil
+	}
+	pools := make([]workerv1.WorkerPool, 0, len(items))
+	for _, obj := range items {
+		if pool, ok := obj.(*workerv1.WorkerPool); ok {
+			pools = append(pools, *pool)
+		}
+	}
+	sort.Slice(pools, func(i, j int) bool {
+		return pools[i].Name < pools[j].Name
+	})
+	return pools
 }

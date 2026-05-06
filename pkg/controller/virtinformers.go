@@ -65,6 +65,8 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/api/snapshot"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	"kubevirt.io/api/worker"
+	workerv1 "kubevirt.io/api/worker/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -151,6 +153,9 @@ type KubeInformerFactory interface {
 
 	// Watches MigrationPolicy objects
 	MigrationPolicy() cache.SharedIndexInformer
+
+	// Watches WorkerPool objects
+	WorkerPool() cache.SharedIndexInformer
 
 	// Watches VirtualMachineClone objects
 	VirtualMachineClone() cache.SharedIndexInformer
@@ -842,6 +847,13 @@ func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
 	return f.getInformer("migrationPolicyInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().MigrationsV1alpha1().RESTClient(), migrations.ResourceMigrationPolicies, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &migrationsv1.MigrationPolicy{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) WorkerPool() cache.SharedIndexInformer {
+	return f.getInformer("workerPoolInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().WorkerV1alpha1().RESTClient(), worker.ResourceWorkerPools, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &workerv1.WorkerPool{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
