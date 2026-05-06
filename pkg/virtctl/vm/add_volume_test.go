@@ -179,6 +179,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 
@@ -279,6 +280,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 		})
