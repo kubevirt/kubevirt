@@ -20,7 +20,7 @@
 package version
 
 import (
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v83/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
