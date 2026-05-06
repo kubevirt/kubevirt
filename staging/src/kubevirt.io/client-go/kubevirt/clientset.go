@@ -39,6 +39,7 @@ import (
 	poolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	snapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
+	workerv1alpha1 "kubevirt.io/client-go/kubevirt/typed/worker/v1alpha1"
 )
 
 type Interface interface {
@@ -55,6 +56,7 @@ type Interface interface {
 	PoolV1beta1() poolv1beta1.PoolV1beta1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
 	SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface
+	WorkerV1alpha1() workerv1alpha1.WorkerV1alpha1Interface
 }
 
 // Clientset contains the clients for groups.
@@ -72,6 +74,7 @@ type Clientset struct {
 	poolV1beta1         *poolv1beta1.PoolV1beta1Client
 	snapshotV1alpha1    *snapshotv1alpha1.SnapshotV1alpha1Client
 	snapshotV1beta1     *snapshotv1beta1.SnapshotV1beta1Client
+	workerV1alpha1      *workerv1alpha1.WorkerV1alpha1Client
 }
 
 // BackupV1alpha1 retrieves the BackupV1alpha1Client
@@ -132,6 +135,11 @@ func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interfac
 // SnapshotV1beta1 retrieves the SnapshotV1beta1Client
 func (c *Clientset) SnapshotV1beta1() snapshotv1beta1.SnapshotV1beta1Interface {
 	return c.snapshotV1beta1
+}
+
+// WorkerV1alpha1 retrieves the WorkerV1alpha1Client
+func (c *Clientset) WorkerV1alpha1() workerv1alpha1.WorkerV1alpha1Interface {
+	return c.workerV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -226,6 +234,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.workerV1alpha1, err = workerv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -259,6 +271,7 @@ func New(c rest.Interface) *Clientset {
 	cs.poolV1beta1 = poolv1beta1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
 	cs.snapshotV1beta1 = snapshotv1beta1.New(c)
+	cs.workerV1alpha1 = workerv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

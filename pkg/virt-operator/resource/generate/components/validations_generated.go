@@ -32703,4 +32703,92 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"workerpool": `openAPIV3Schema:
+  description: |-
+    WorkerPool defines configuration for an additional virt-handler
+    DaemonSet that targets specific nodes with custom images and automatically
+    matches VMIs via device and label selectors.
+  properties:
+    apiVersion:
+      description: |-
+        APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      type: string
+    kind:
+      description: |-
+        Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated.
+        In CamelCase.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      type: string
+    metadata:
+      type: object
+    spec:
+      properties:
+        nodeSelector:
+          additionalProperties:
+            type: string
+          description: |-
+            nodeSelector specifies labels that must match a node's labels for this
+            pool's DaemonSet pods to be scheduled on that node. When a VMI matches
+            this pool's selector, the nodeSelector is also merged into the
+            virt-launcher pod's node affinity.
+          minProperties: 1
+          type: object
+        selector:
+          description: |-
+            selector defines the criteria for matching VMIs to this pool. A VMI
+            matches if any of the selector's criteria are met (OR semantics).
+          properties:
+            deviceNames:
+              description: |-
+                deviceNames matches VMIs that request any of the listed device names
+                via spec.domain.devices.gpus[].deviceName or
+                spec.domain.devices.hostDevices[].deviceName.
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+            vmLabels:
+              description: |-
+                vmLabels matches VMIs whose labels contain all of the specified
+                key-value pairs.
+              properties:
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: |-
+                    matchLabels is a map of key-value pairs. A VMI matches if all
+                    entries are present in the VMI's labels.
+                  minProperties: 1
+                  type: object
+              required:
+              - matchLabels
+              type: object
+          type: object
+        virtHandlerImage:
+          description: |-
+            virtHandlerImage overrides the virt-handler container image for this
+            pool's DaemonSet. If not specified, the default virt-handler image is used.
+          type: string
+        virtLauncherImage:
+          description: |-
+            virtLauncherImage overrides the virt-launcher image used by virt-launcher
+            pods on nodes served by this pool's handler. If not specified, the default
+            virt-launcher image is used.
+          type: string
+      required:
+      - nodeSelector
+      - selector
+      type: object
+    status:
+      nullable: true
+      type: object
+  required:
+  - spec
+  type: object
+`,
 }

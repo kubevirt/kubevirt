@@ -17,8 +17,10 @@ import (
 
 	"kubevirt.io/api/core"
 	"kubevirt.io/api/migrations"
+	"kubevirt.io/api/worker"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	workerv1 "kubevirt.io/api/worker/v1alpha1"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -311,6 +313,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	podEvictionValidatePath := PodEvictionValidatePath
 	statusValidatePath := StatusValidatePath
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
+	workerPoolCreateValidatePath := WorkerPoolCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 
@@ -877,6 +880,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
+				Name:                    "worker-pool-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{workerv1.SchemeGroupVersion.Group},
+						APIVersions: []string{workerv1.SchemeGroupVersion.Version},
+						Resources:   []string{worker.ResourceWorkerPools},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &workerPoolCreateValidatePath,
+					},
+				},
+			},
+			{
 				Name:                    "vm-clone-validator.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1"},
 				FailurePolicy:           &failurePolicy,
@@ -980,6 +1008,8 @@ const StatusValidatePath = "/status-validate"
 const PodEvictionValidatePath = "/pod-eviction-validate"
 
 const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
+
+const WorkerPoolCreateValidatePath = "/worker-pool-validate-create"
 
 const VMCloneCreateValidatePath = "/vm-clone-validate-create"
 

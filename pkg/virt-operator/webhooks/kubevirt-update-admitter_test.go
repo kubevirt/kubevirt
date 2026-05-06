@@ -27,12 +27,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -501,6 +503,246 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				[]string{"Gate1", "Gate2", "Gate3"},
 				"Gate1", "Gate2", "Gate3"),
 		)
+	})
+
+	Context("with WorkerPools", func() {
+		It("should reject pools when feature gate is not enabled", func() {
+			causes := validateWorkerPools(&v1.KubeVirtSpec{
+				WorkerPools: []v1.WorkerPoolConfig{
+					{
+						Name:             "test",
+						VirtHandlerImage: "img",
+						NodeSelector:     map[string]string{"k": "v"},
+						Selector:         v1.WorkerPoolSelector{DeviceNames: []string{"dev"}},
+					},
+				},
+			})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("feature gate"))
+		})
+
+		It("should reject duplicate pool names", func() {
+			causes := validateWorkerPools(&v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{"WorkerPools"},
+					},
+				},
+				WorkerPools: []v1.WorkerPoolConfig{
+					{Name: "dup", VirtHandlerImage: "img", NodeSelector: map[string]string{"k": "v"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev"}}},
+					{Name: "dup", VirtLauncherImage: "img", NodeSelector: map[string]string{"k2": "v2"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev2"}}},
+				},
+			})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("duplicate"))
+		})
+
+		It("should reject pools with no image override", func() {
+			causes := validateWorkerPools(&v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{"WorkerPools"},
+					},
+				},
+				WorkerPools: []v1.WorkerPoolConfig{
+					{Name: "no-img", NodeSelector: map[string]string{"k": "v"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev"}}},
+				},
+			})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("virtHandlerImage or virtLauncherImage"))
+		})
+
+		It("should reject pools with no selector criteria", func() {
+			causes := validateWorkerPools(&v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{"WorkerPools"},
+					},
+				},
+				WorkerPools: []v1.WorkerPoolConfig{
+					{Name: "no-sel", VirtHandlerImage: "img", NodeSelector: map[string]string{"k": "v"}, Selector: v1.WorkerPoolSelector{}},
+				},
+			})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("selector"))
+		})
+
+		It("should accept valid pool configuration", func() {
+			causes := validateWorkerPools(&v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{"WorkerPools"},
+					},
+				},
+				WorkerPools: []v1.WorkerPoolConfig{
+					{Name: "valid", VirtLauncherImage: "img", NodeSelector: map[string]string{"k": "v"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev"}}},
+				},
+			})
+			Expect(causes).To(BeEmpty())
+		})
+	})
+
+	Context("validateWorkerPoolRemoval", func() {
+		var (
+			ctrl      *gomock.Controller
+			client    *kubecli.MockKubevirtClient
+			vmiClient *kubecli.MockVirtualMachineInstanceInterface
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			client = kubecli.NewMockKubevirtClient(ctrl)
+			vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			client.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
+		})
+
+		It("should allow pool removal when no VMIs match", func() {
+			vmiClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceList{}, nil)
+			causes := validateWorkerPoolRemoval(context.Background(),
+				&v1.KubeVirtSpec{
+					WorkerPools: []v1.WorkerPoolConfig{
+						{Name: "gpu-pool", VirtLauncherImage: "img", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"nvidia.com/T4"}}},
+					},
+				},
+				&v1.KubeVirtSpec{},
+				client,
+			)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject pool removal when running VMIs match by device", func() {
+			vmiClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceList{
+				Items: []v1.VirtualMachineInstance{
+					{
+						Status: v1.VirtualMachineInstanceStatus{Phase: v1.Running},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{
+									GPUs: []v1.GPU{{Name: "gpu1", DeviceName: "nvidia.com/T4"}},
+								},
+							},
+						},
+					},
+				},
+			}, nil)
+			causes := validateWorkerPoolRemoval(context.Background(),
+				&v1.KubeVirtSpec{
+					WorkerPools: []v1.WorkerPoolConfig{
+						{Name: "gpu-pool", VirtLauncherImage: "img", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"nvidia.com/T4"}}},
+					},
+				},
+				&v1.KubeVirtSpec{},
+				client,
+			)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("cannot remove pool"))
+			Expect(causes[0].Message).To(ContainSubstring("gpu-pool"))
+		})
+
+		It("should reject pool removal when running VMIs match by label", func() {
+			vmiClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceList{
+				Items: []v1.VirtualMachineInstance{
+					{
+						ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"workload": "secure"}},
+						Status:     v1.VirtualMachineInstanceStatus{Phase: v1.Running},
+					},
+				},
+			}, nil)
+			causes := validateWorkerPoolRemoval(context.Background(),
+				&v1.KubeVirtSpec{
+					WorkerPools: []v1.WorkerPoolConfig{
+						{Name: "secure-pool", VirtLauncherImage: "img", NodeSelector: map[string]string{"zone": "secure"}, Selector: v1.WorkerPoolSelector{VMLabels: &v1.WorkerPoolVMLabels{MatchLabels: map[string]string{"workload": "secure"}}}},
+					},
+				},
+				&v1.KubeVirtSpec{},
+				client,
+			)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("secure-pool"))
+		})
+
+		It("should allow pool removal when matching VMIs are in final state", func() {
+			vmiClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(&v1.VirtualMachineInstanceList{
+				Items: []v1.VirtualMachineInstance{
+					{
+						Status: v1.VirtualMachineInstanceStatus{Phase: v1.Succeeded},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{
+									GPUs: []v1.GPU{{Name: "gpu1", DeviceName: "nvidia.com/T4"}},
+								},
+							},
+						},
+					},
+				},
+			}, nil)
+			causes := validateWorkerPoolRemoval(context.Background(),
+				&v1.KubeVirtSpec{
+					WorkerPools: []v1.WorkerPoolConfig{
+						{Name: "gpu-pool", VirtLauncherImage: "img", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"nvidia.com/T4"}}},
+					},
+				},
+				&v1.KubeVirtSpec{},
+				client,
+			)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should not check VMIs when no pools are removed", func() {
+			pool := v1.WorkerPoolConfig{Name: "gpu-pool", VirtLauncherImage: "img", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"nvidia.com/T4"}}}
+			causes := validateWorkerPoolRemoval(context.Background(),
+				&v1.KubeVirtSpec{WorkerPools: []v1.WorkerPoolConfig{pool}},
+				&v1.KubeVirtSpec{WorkerPools: []v1.WorkerPoolConfig{pool}},
+				client,
+			)
+			Expect(causes).To(BeEmpty())
+		})
+	})
+
+	Context("warnOverlappingWorkerPools", func() {
+		It("should warn when pools share a deviceName", func() {
+			warnings := warnOverlappingWorkerPools([]v1.WorkerPoolConfig{
+				{Name: "pool-a", NodeSelector: map[string]string{"a": "1"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"nvidia.com/T4"}}},
+				{Name: "pool-b", NodeSelector: map[string]string{"b": "1"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"nvidia.com/T4"}}},
+			})
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0]).To(ContainSubstring("overlapping deviceName"))
+		})
+
+		It("should warn when one pool's vmLabels is a subset of another", func() {
+			warnings := warnOverlappingWorkerPools([]v1.WorkerPoolConfig{
+				{Name: "pool-a", NodeSelector: map[string]string{"a": "1"}, Selector: v1.WorkerPoolSelector{VMLabels: &v1.WorkerPoolVMLabels{MatchLabels: map[string]string{"env": "prod"}}}},
+				{Name: "pool-b", NodeSelector: map[string]string{"b": "1"}, Selector: v1.WorkerPoolSelector{VMLabels: &v1.WorkerPoolVMLabels{MatchLabels: map[string]string{"env": "prod", "tier": "web"}}}},
+			})
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0]).To(ContainSubstring("overlapping vmLabels"))
+		})
+
+		It("should warn when pools have identical nodeSelector", func() {
+			warnings := warnOverlappingWorkerPools([]v1.WorkerPoolConfig{
+				{Name: "pool-a", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev-a"}}},
+				{Name: "pool-b", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev-b"}}},
+			})
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0]).To(ContainSubstring("identical nodeSelector"))
+		})
+
+		It("should warn when one pool's nodeSelector is a subset of another", func() {
+			warnings := warnOverlappingWorkerPools([]v1.WorkerPoolConfig{
+				{Name: "pool-a", NodeSelector: map[string]string{"gpu": "true"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev-a"}}},
+				{Name: "pool-b", NodeSelector: map[string]string{"gpu": "true", "zone": "a"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev-b"}}},
+			})
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0]).To(ContainSubstring("overlapping nodeSelector"))
+		})
+
+		It("should not warn when pools are disjoint", func() {
+			warnings := warnOverlappingWorkerPools([]v1.WorkerPoolConfig{
+				{Name: "pool-a", NodeSelector: map[string]string{"a": "1"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev-a"}}},
+				{Name: "pool-b", NodeSelector: map[string]string{"b": "1"}, Selector: v1.WorkerPoolSelector{DeviceNames: []string{"dev-b"}}},
+			})
+			Expect(warnings).To(BeEmpty())
+		})
 	})
 })
 

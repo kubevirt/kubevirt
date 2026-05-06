@@ -30,8 +30,10 @@ import (
 	"kubevirt.io/api/instancetype"
 
 	"kubevirt.io/api/migrations"
+	"kubevirt.io/api/worker"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	workerv1 "kubevirt.io/api/worker/v1alpha1"
 
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -68,6 +70,7 @@ var (
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
+	WORKERPOOL                       = "workerpools." + workerv1.WorkerPoolKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
 	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
 	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1alpha1.SchemeGroupVersion.Group
@@ -898,6 +901,40 @@ func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 			Plural:   migrations.ResourceMigrationPolicies,
 			Singular: "migrationpolicy",
 			Kind:     migrationsv1.MigrationPolicyKind.Kind,
+		},
+	}
+	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewWorkerPoolCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = WORKERPOOL
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: workerv1.WorkerPoolKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    workerv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.ClusterScoped,
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   worker.ResourceWorkerPools,
+			Singular: "workerpool",
+			Kind:     workerv1.WorkerPoolKind.Kind,
 		},
 	}
 	err := addFieldsToAllVersions(crd, &extv1.CustomResourceSubresources{

@@ -228,6 +228,13 @@ const (
 	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
+
+	// Owner: @lyarwood
+	// Alpha: v1.9.0
+	//
+	// WorkerPools enables configuring additional virt-handler DaemonSets
+	// targeting specific node pools with custom images.
+	WorkerPools = "WorkerPools"
 )
 
 func init() {
@@ -273,4 +280,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: WorkerPools, State: Alpha})
 }

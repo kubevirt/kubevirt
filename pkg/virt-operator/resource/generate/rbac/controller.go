@@ -536,6 +536,17 @@ func baseControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"worker.kubevirt.io",
+				},
+				Resources: []string{
+					"workerpools",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
 					clone.GroupName,
 				},
 				Resources: []string{

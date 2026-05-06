@@ -216,6 +216,19 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"worker.kubevirt.io",
+				},
+				Resources: []string{
+					"workerpools",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
 					GroupNameSecurity,
 				},
 				Resources: []string{

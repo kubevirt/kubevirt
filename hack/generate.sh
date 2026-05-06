@@ -86,7 +86,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1 \
+    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,worker/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -151,6 +151,9 @@ deepcopy-gen \
 
     #include migrations
     GOFLAGS= controller-gen crd paths=../api/migrations/v1alpha1/
+
+    #include worker pools
+    GOFLAGS= controller-gen crd paths=../api/worker/v1alpha1/
 
     #include clone
     GOFLAGS= controller-gen crd paths=../api/clone/v1alpha1/
