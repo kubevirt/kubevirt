@@ -782,6 +782,8 @@ type Disk struct {
 	// none: Guest I/O not cached on the host, but may be kept in a disk cache.
 	// writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
 	// writeback: Guest I/O cached on the host.
+	// directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.
+	// unsafe: Guest I/O cached on the host and the host may not flush to the physical medium. Not safe for production use.
 	// Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
