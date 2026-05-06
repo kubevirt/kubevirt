@@ -4775,9 +4775,16 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), expectCheckTrue),
 		Entry("return error without direct io", string(v1.CacheNone), "", expectCheckFalse),
 		Entry("return error on error", string(v1.CacheNone), "", expectCheckError),
+		Entry("keep 'directsync' with direct io", string(v1.CacheDirectSync), string(v1.CacheDirectSync), expectCheckTrue),
+		Entry("return error for 'directsync' without direct io", string(v1.CacheDirectSync), "", expectCheckFalse),
+		Entry("return error for 'directsync' on error", string(v1.CacheDirectSync), "", expectCheckError),
 		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+		Entry("'writeback' with direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), expectCheckTrue),
+		Entry("'writeback' without direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), expectCheckFalse),
+		Entry("'unsafe' with direct io", string(v1.CacheUnsafe), string(v1.CacheUnsafe), expectCheckTrue),
+		Entry("'unsafe' without direct io", string(v1.CacheUnsafe), string(v1.CacheUnsafe), expectCheckFalse),
 	)
 
 	It("should fail to set appropriate driver cache mode for a nil disk", func() {
@@ -4794,6 +4801,32 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		Expect(SetDriverCacheMode(disk, mockDirectIOChecker)).To(Succeed())
 		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
 	})
+
+	DescribeTable("should error when backing store does not support direct IO", func(cache string) {
+		disk := &api.Disk{
+			Driver: &api.DiskDriver{
+				Cache: cache,
+			},
+			Source: api.DiskSource{
+				File: "/images/disk.img",
+			},
+			BackingStore: &api.BackingStore{
+				Type: "file",
+				Source: &api.DiskSource{
+					File: "/backing/base.img",
+				},
+			},
+		}
+		mockDirectIOChecker.EXPECT().CheckFile("/images/disk.img").Return(true, nil)
+		mockDirectIOChecker.EXPECT().CheckFile("/backing/base.img").Return(false, nil)
+
+		err := SetDriverCacheMode(disk, mockDirectIOChecker)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("direct I/O"))
+	},
+		Entry("with cache 'none'", string(v1.CacheNone)),
+		Entry("with cache 'directsync'", string(v1.CacheDirectSync)),
+	)
 
 	It("should resolve datastore block dev over frontend file source", func() {
 		disk := &api.Disk{
