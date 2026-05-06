@@ -308,7 +308,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 	})
 
 	When("reservedOverhead value is provided", func() {
-		DescribeTable("should be considered as a resource overhead", func(overhead *resource.Quantity) {
+		DescribeTable("should include addedOverhead in the overhead", func(overhead *resource.Quantity) {
 			cpuArch := "amd64"
 			vmi.Spec.Domain.Memory = &v1.Memory{}
 			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{
@@ -327,6 +327,50 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			Entry("with some value", resource.NewScaledQuantity(100, resource.Giga)),
 			Entry("with zero value", &resource.Quantity{}),
 		)
+	})
+
+	When("reservedOverhead with addedOverhead is set", func() {
+		It("should include addedOverhead regardless of memLock setting", func() {
+			cpuArch := "amd64"
+			addedOverhead := resource.MustParse("1Gi")
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{
+				AddedOverhead: &addedOverhead,
+				MemLock:       pointer.P(v1.MemLockRequirement(v1.MemLockNotRequired)),
+			}
+
+			overhead := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, cpuArch, nil)
+
+			expected := resource.NewScaledQuantity(0, resource.Kilo)
+			expected.Add(*baseOverhead)
+			expected.Add(*staticOverhead)
+			expected.Add(*videoRAMOverhead)
+			expected.Add(*coresOverhead)
+			expected.Add(addedOverhead)
+
+			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
+		})
+
+		It("should include addedOverhead with memLock Required", func() {
+			cpuArch := "amd64"
+			addedOverhead := resource.MustParse("1Gi")
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{
+				AddedOverhead: &addedOverhead,
+				MemLock:       pointer.P(v1.MemLockRequirement(v1.MemLockRequired)),
+			}
+
+			overhead := kvm.NewKvmHypervisorBackend().GetMemoryOverhead(vmi, cpuArch, nil)
+
+			expected := resource.NewScaledQuantity(0, resource.Kilo)
+			expected.Add(*baseOverhead)
+			expected.Add(*staticOverhead)
+			expected.Add(*videoRAMOverhead)
+			expected.Add(*coresOverhead)
+			expected.Add(addedOverhead)
+
+			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
+		})
 	})
 
 	Context("Template with guest-to-request memory headroom", func() {
