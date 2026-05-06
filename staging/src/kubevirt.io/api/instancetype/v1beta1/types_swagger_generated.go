@@ -39,7 +39,7 @@ func (VirtualMachineInstancetypeSpec) SwaggerDoc() map[string]string {
 		"hostDevices":     "Optionally defines any HostDevices associated with the instancetype.\n\n+optional\n+listType=atomic",
 		"ioThreadsPolicy": "Optionally defines the IOThreadsPolicy to be used by the instancetype.\n\n+optional",
 		"ioThreads":       "Optionally specifies the IOThreads options to be used by the instancetype.\n+optional",
-		"launchSecurity":  "Optionally defines the LaunchSecurity to be used by the instancetype.\n\n+optional",
+		"launchSecurity":  "Optionally defines the LaunchSecurity to be used by the instancetype.\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
 		"annotations":     "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance\n\n+optional",
 	}
 }

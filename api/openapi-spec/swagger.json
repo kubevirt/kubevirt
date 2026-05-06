@@ -21972,7 +21972,7 @@
       "type": "string"
      },
      "launchSecurity": {
-      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.",
+      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.\n\nDeprecated: Will be removed with v1beta2 or v1",
       "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "memory": {

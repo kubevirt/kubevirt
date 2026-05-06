@@ -119,6 +119,7 @@ type VirtualMachineInstancetypeSpec struct {
 	// Optionally defines the LaunchSecurity to be used by the instancetype.
 	//
 	// +optional
+	// Deprecated: Will be removed with v1beta2 or v1
 	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
 
 	// Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance

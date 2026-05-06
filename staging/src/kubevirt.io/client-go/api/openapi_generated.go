@@ -32374,7 +32374,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineInstancetypeSpec(r
 					},
 					"launchSecurity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optionally defines the LaunchSecurity to be used by the instancetype.",
+							Description: "Optionally defines the LaunchSecurity to be used by the instancetype.\n\nDeprecated: Will be removed with v1beta2 or v1",
 							Ref:         ref("kubevirt.io/api/core/v1.LaunchSecurity"),
 						},
 					},

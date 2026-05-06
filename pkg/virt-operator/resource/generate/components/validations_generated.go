@@ -9868,7 +9868,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
         launchSecurity:
-          description: Optionally defines the LaunchSecurity to be used by the instancetype.
+          description: |-
+            Optionally defines the LaunchSecurity to be used by the instancetype.
+
+            Deprecated: Will be removed with v1beta2 or v1
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
@@ -21318,7 +21321,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
         launchSecurity:
-          description: Optionally defines the LaunchSecurity to be used by the instancetype.
+          description: |-
+            Optionally defines the LaunchSecurity to be used by the instancetype.
+
+            Deprecated: Will be removed with v1beta2 or v1
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
