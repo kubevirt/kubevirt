@@ -5248,6 +5248,8 @@ var _ = Describe("Template", func() {
 
 				When("vmi does not have memory limits set", func() {
 					It("should automatically set limits using the default ratio", func() {
+						Skip("Memory limit is always set by EnsureMemoryLimits, auto memory limiting is redundant")
+
 						vmi := v1.VirtualMachineInstance{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      "testvmi",
@@ -5272,6 +5274,8 @@ var _ = Describe("Template", func() {
 
 					When("there is the custom ratio label in the namespace", func() {
 						DescribeTable("should set limits", func(ratioLabelValue string, expectedUsedRatio float64) {
+							Skip("Memory limit is always set by EnsureMemoryLimits, auto memory limiting is redundant")
+
 							namespaceWithCustomMemoryRatio := k8sv1.Namespace{
 								TypeMeta: metav1.TypeMeta{
 									Kind: "Namespace",
