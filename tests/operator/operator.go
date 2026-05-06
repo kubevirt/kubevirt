@@ -44,7 +44,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v83/github"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
