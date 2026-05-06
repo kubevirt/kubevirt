@@ -96,7 +96,7 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 		err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, timeout*time.Second)
 		ExpectWithOffset(offset, err).ToNot(HaveOccurred())
 
-		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%s", randPort), conf)
+		conn, err := (&tls.Dialer{Config: conf}).DialContext(context.Background(), "tcp4", fmt.Sprintf("localhost:%s", randPort))
 		if err == nil {
 			defer conn.Close()
 		}

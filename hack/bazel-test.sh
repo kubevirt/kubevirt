@@ -4,7 +4,13 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-WHAT=${WHAT:-"//staging/src/kubevirt.io/... //pkg/... //cmd/... //tools/... //tests/framework/... //tests/vmlogchecker/..."}
+default_test_query='tests(//staging/src/kubevirt.io/... + //pkg/... + //cmd/... + //tools/... + //tests/framework/... + //tests/vmlogchecker/...)'
+
+if [[ -n "${WHAT}" ]]; then
+    read -r -a bazel_test_targets <<<"${WHAT}"
+else
+    readarray -t bazel_test_targets < <(bazel query "${default_test_query}")
+fi
 rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 if [ "${CI}" == "true" ]; then
@@ -31,4 +37,4 @@ ${KUBEVIRT_DIR}/hack/bazel-race.sh
 
 bazel test \
     --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
-    --test_output=errors -- ${WHAT}
+    --test_output=errors -- "${bazel_test_targets[@]}"

@@ -5,10 +5,10 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=6.5.0
-ENV GIMME_GO_VERSION=1.24.9
+ENV GIMME_GO_VERSION=1.25.8
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
-ENV GOLANGCI_LINT_VERSION=v2.2.2
+ENV GOLANGCI_LINT_VERSION=v2.4.0
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
@@ -79,7 +79,7 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/conversion-gen@v0.32.5  && \
     go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.32.5 && \
     go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.32.5  && \
-    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f7e401e && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@v0.0.0-20260330154417-16be699c7b31 && \
     go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.32.5 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
@@ -90,7 +90,7 @@ RUN set -x && \
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     go install -v github.com/mattn/goveralls@21feffdfd && \
-    go install -v go.uber.org/mock/mockgen@v0.5.1 && \
+    go install -v go.uber.org/mock/mockgen@v0.6.0 && \
     go install -v github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
     go clean -cache -modcache
 
