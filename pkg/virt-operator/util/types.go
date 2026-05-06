@@ -171,6 +171,7 @@ type Informers struct {
 	ClusterInstancetype              cache.SharedIndexInformer
 	ClusterPreference                cache.SharedIndexInformer
 	Leases                           cache.SharedIndexInformer
+	WorkerPool                       cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

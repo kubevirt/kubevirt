@@ -326,6 +326,30 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
+	_, err = informers.WorkerPool.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(_ interface{}) {
+			key, err := c.getKubeVirtKey()
+			if key != "" && err == nil {
+				c.delayedQueueAdder(key, c.queue)
+			}
+		},
+		DeleteFunc: func(_ interface{}) {
+			key, err := c.getKubeVirtKey()
+			if key != "" && err == nil {
+				c.delayedQueueAdder(key, c.queue)
+			}
+		},
+		UpdateFunc: func(_, _ interface{}) {
+			key, err := c.getKubeVirtKey()
+			if key != "" && err == nil {
+				c.delayedQueueAdder(key, c.queue)
+			}
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = informers.DaemonSet.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.DaemonSet)

@@ -13,11 +13,8 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 	// 5. apiserver - toggles on new features.
 
 	// create/update Daemonsets
-	for _, daemonSet := range r.targetStrategy.DaemonSets() {
-		finished, err := r.syncDaemonSet(daemonSet)
-		if !finished || err != nil {
-			return false, err
-		}
+	if err := r.syncDaemonSetsWithWorkerPoolAffinity(); err != nil {
+		return false, err
 	}
 
 	// create/update Controller Deployments

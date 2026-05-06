@@ -244,6 +244,7 @@ func Execute() {
 		ClusterInstancetype:      app.informerFactory.VirtualMachineClusterInstancetype(),
 		ClusterPreference:        app.informerFactory.VirtualMachineClusterPreference(),
 		Leases:                   app.informerFactory.Leases(),
+		WorkerPool:               app.informerFactory.WorkerPool(),
 	}
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
