@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    kubevirt.io: {{ include "kubevirt-operator.name" . }}
+    kubevirt.io: virt-operator
     {{- include "kubevirt-operator.labels" . | nindent 4 }}
   name: {{ include "kubevirt-operator.name" . }}
   namespace: {{ .Release.Namespace }}
@@ -10,7 +10,7 @@ spec:
   replicas: {{ .Values.operator.replicas }}
   selector:
     matchLabels:
-      kubevirt.io: {{ include "kubevirt-operator.name" . }}
+      kubevirt.io: virt-operator
   strategy:
     type: RollingUpdate
   template:
@@ -18,7 +18,7 @@ spec:
       annotations:
         openshift.io/required-scc: restricted-v2
       labels:
-        kubevirt.io: {{ include "kubevirt-operator.name" . }}
+        kubevirt.io: virt-operator
         name: {{ include "kubevirt-operator.name" . }}
         np.kubevirt.io/allow-access-cluster-services: "true"
         prometheus.kubevirt.io: "true"
