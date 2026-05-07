@@ -40,6 +40,7 @@ helm upgrade kubevirt-cr kubevirt/kubevirt-cr --install -n kubevirt
 | hooks.image.repository | string | `"portainer/kubectl-shell"` | hook image repository |
 | hooks.image.tag | string | `"2.39.0"` | hook image tag |
 | hooks.image.pullPolicy | string | `"IfNotPresent"` | hook image pull policy |
+| hooks.timeout | string | `"5m"` | Time to wait for kubevirt CR to be ready |
 | hooks.imagePullSecrets | list | `[]` | imagePullSecrets to use for existing secrets |
 | hooks.jobLabels | object | `{}` | Job labels to add to the hook job |
 | hooks.podLabels | object | `{}` | Pod labels to add to the hook pod |

@@ -41,6 +41,8 @@ hooks:
     tag: '2.39.0'
     # -- hook image pull policy
     pullPolicy: IfNotPresent
+  # -- Time to wait for kubevirt CR to be ready
+  timeout: 5m
   # -- imagePullSecrets to use for existing secrets
   imagePullSecrets: []
   # -- Job labels to add to the hook job

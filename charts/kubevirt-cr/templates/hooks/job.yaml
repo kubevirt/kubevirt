@@ -46,7 +46,7 @@ spec:
         - -c
         - |
           set -ex
-          kubectl -n {{ .Release.Namespace }} wait kubevirt {{ include "kubevirt-cr.fullname" . }} --for condition=Available
+          kubectl -n {{ .Release.Namespace }} wait kubevirt {{ include "kubevirt-cr.fullname" . }} --for condition=Available --timeout {{ .Values.hooks.timeout }}
         {{- with .Values.hooks.securityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}
