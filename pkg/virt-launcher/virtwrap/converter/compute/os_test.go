@@ -194,6 +194,26 @@ var _ = Describe("OS Domain Configurator", func() {
 			expectedDomain := newDomainWithOS(expectedOS)
 			Expect(domain).To(Equal(expectedDomain))
 		})
+
+		It("should use firmware auto-selection without NVRAM for ARM64", func() {
+			vmi := libvmi.New(
+				withEFIBootloader(true),
+				libvmi.WithArchitecture("arm64"),
+			)
+			var domain api.Domain
+			autoSelectConfig := &compute.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+
+			Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, autoSelectConfig).Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.OS.Firmware).To(Equal("efi"))
+			Expect(domain.Spec.OS.FirmwareInfo).ToNot(BeNil())
+			Expect(domain.Spec.OS.FirmwareInfo.Features).To(HaveLen(2))
+			Expect(domain.Spec.OS.BootLoader).To(BeNil())
+			Expect(domain.Spec.OS.NVRam).To(BeNil())
+		})
 	})
 
 	Context("ACPI configuration", func() {
