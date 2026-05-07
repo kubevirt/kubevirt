@@ -100,6 +100,8 @@ type iterationRecord struct {
 type stallDetector struct {
 	// how long in seconds does a migration have to make progress before we take some action
 	progressTimeoutSeconds int64
+	// a bool indicating whether initial max downtime has been set (only set when maxDowntimeMs < 300, the default QEMU target downtime)
+	initialMaxDowntimeSet bool
 	// the maximum downtime in ms where a stun time up to this long is not considered a "disruption"
 	maxDowntimeMs uint64
 	// iteration records with the potential to end up in minRecordOutsideWindow
@@ -784,6 +786,18 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	m.progressWatermark = m.remainingData
 
 	if m.stallDetectionEnabled {
+
+		if !sd.initialMaxDowntimeSet {
+			initialMaxDowntime := m.options.MaxDowntime
+			if initialMaxDowntime > migrationutils.QEMUDefaultTargetDowntimeMS {
+				initialMaxDowntime = migrationutils.QEMUDefaultTargetDowntimeMS
+			}
+			if err := dom.MigrateSetMaxDowntime(uint64(initialMaxDowntime), 0); err != nil {
+				logger.Reason(err).Warning("failed to set initial max downtime")
+			}
+			sd.initialMaxDowntimeSet = true
+		}
+
 		m.reconcilePauseState(dom)
 
 		if stats.DataRemainingSet && stats.TimeElapsedSet && stats.MemBpsSet {
