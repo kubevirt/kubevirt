@@ -31,6 +31,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 const (
@@ -39,8 +41,9 @@ const (
 )
 
 var (
-	volumeType    string
-	configMapName string
+	volumeType       string
+	configMapName    string
+	envFromConfigMap string
 )
 
 func main() {
@@ -51,8 +54,9 @@ func main() {
 	pflag.IntVar(&port, "port", 8443, "port to listen on")
 	pflag.StringVar(&certFile, "cert-file", "/etc/webhook/certs/tls.crt", "TLS certificate file")
 	pflag.StringVar(&keyFile, "key-file", "/etc/webhook/certs/tls.key", "TLS private key file")
-	pflag.StringVar(&volumeType, "volume-type", "emptydir", "type of volume to inject: emptydir or configmap")
+	pflag.StringVar(&volumeType, "volume-type", "", "type of volume to inject: emptydir or configmap")
 	pflag.StringVar(&configMapName, "configmap-name", "", "name of ConfigMap to inject (required when volume-type=configmap)")
+	pflag.StringVar(&envFromConfigMap, "env-from-configmap", "", "name of ConfigMap to inject as envFrom into the compute container")
 	pflag.Parse()
 
 	if volumeType == "configmap" && configMapName == "" {
@@ -140,88 +144,29 @@ func mutate(req *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 
 	log.Log.Infof("Mutating virt-launcher pod %s/%s", pod.Namespace, pod.Name)
 
-	patches := []map[string]interface{}{}
+	patchSet := patch.New()
 
-	// Check if volume already exists
-	volumeExists := false
-	for _, vol := range pod.Spec.Volumes {
-		if vol.Name == injectedVolumeName {
-			volumeExists = true
-			break
-		}
+	if envFromConfigMap != "" {
+		addEnvFromConfigMapPatches(patchSet, &pod, envFromConfigMap)
 	}
 
-	if !volumeExists {
-		var volumeSource map[string]interface{}
-		switch volumeType {
-		case "emptydir":
-			volumeSource = map[string]interface{}{
-				"emptyDir": map[string]interface{}{},
-			}
-		case "configmap":
-			volumeSource = map[string]interface{}{
-				"configMap": map[string]interface{}{
-					"name": configMapName,
-				},
-			}
-		default:
-			log.Log.Errorf("Unknown volume type: %s", volumeType)
-			return &admissionv1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Message: fmt.Sprintf("Unknown volume type: %s", volumeType),
-				},
-			}
-		}
-
-		volumePatch := map[string]interface{}{
-			"op":    "add",
-			"path":  "/spec/volumes/-",
-			"value": volumeSource,
-		}
-		volumePatch["value"].(map[string]interface{})["name"] = injectedVolumeName
-		patches = append(patches, volumePatch)
+	if volumeType != "" {
+		addVolumeInjectionPatches(patchSet, &pod)
 	}
 
-	// Add volumeMount to compute container
-	for i, container := range pod.Spec.Containers {
-		if container.Name == "compute" {
-			mountExists := false
-			for _, mount := range container.VolumeMounts {
-				if mount.Name == injectedVolumeName {
-					mountExists = true
-					break
-				}
-			}
-
-			if !mountExists {
-				mountPatch := map[string]interface{}{
-					"op":   "add",
-					"path": fmt.Sprintf("/spec/containers/%d/volumeMounts/-", i),
-					"value": map[string]interface{}{
-						"name":      injectedVolumeName,
-						"mountPath": injectedMountPath,
-					},
-				}
-				patches = append(patches, mountPatch)
-			}
-			break
-		}
-	}
-
-	if len(patches) == 0 {
+	if patchSet.IsEmpty() {
 		return &admissionv1.AdmissionResponse{
 			Allowed: true,
 		}
 	}
 
-	patchBytes, err := json.Marshal(patches)
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to marshal patches")
+		log.Log.Reason(err).Error("Failed to generate patch")
 		return &admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
-				Message: fmt.Sprintf("Failed to create patches: %v", err),
+				Message: fmt.Sprintf("Failed to create patch: %v", err),
 			},
 		}
 	}
@@ -231,5 +176,95 @@ func mutate(req *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &patchType,
+	}
+}
+
+func addEnvFromConfigMapPatches(patchSet *patch.PatchSet, pod *corev1.Pod, configMap string) {
+	for i, container := range pod.Spec.Containers {
+		if container.Name != "compute" {
+			continue
+		}
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == configMap {
+				return
+			}
+		}
+
+		envFromEntry := corev1.EnvFromSource{
+			ConfigMapRef: &corev1.ConfigMapEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: configMap},
+			},
+		}
+		if len(container.EnvFrom) == 0 {
+			patchSet.AddOption(patch.WithAdd(
+				fmt.Sprintf("/spec/containers/%d/envFrom", i),
+				[]corev1.EnvFromSource{envFromEntry},
+			))
+		} else {
+			patchSet.AddOption(patch.WithAdd(
+				fmt.Sprintf("/spec/containers/%d/envFrom/-", i),
+				envFromEntry,
+			))
+		}
+		return
+	}
+}
+
+func addVolumeInjectionPatches(patchSet *patch.PatchSet, pod *corev1.Pod) {
+	volumeExists := false
+	for _, vol := range pod.Spec.Volumes {
+		if vol.Name == injectedVolumeName {
+			volumeExists = true
+			break
+		}
+	}
+
+	if !volumeExists {
+		volume, ok := newInjectedVolume()
+		if !ok {
+			return
+		}
+		patchSet.AddOption(patch.WithAdd("/spec/volumes/-", volume))
+	}
+
+	for i, container := range pod.Spec.Containers {
+		if container.Name != "compute" {
+			continue
+		}
+		for _, mount := range container.VolumeMounts {
+			if mount.Name == injectedVolumeName {
+				return
+			}
+		}
+		patchSet.AddOption(patch.WithAdd(
+			fmt.Sprintf("/spec/containers/%d/volumeMounts/-", i),
+			corev1.VolumeMount{
+				Name:      injectedVolumeName,
+				MountPath: injectedMountPath,
+			},
+		))
+		return
+	}
+}
+
+func newInjectedVolume() (corev1.Volume, bool) {
+	switch volumeType {
+	case "emptydir":
+		return corev1.Volume{
+			Name:         injectedVolumeName,
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		}, true
+	case "configmap":
+		return corev1.Volume{
+			Name: injectedVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+				},
+			},
+		}, true
+	default:
+		log.Log.Errorf("Unknown volume type: %s", volumeType)
+		return corev1.Volume{}, false
 	}
 }
