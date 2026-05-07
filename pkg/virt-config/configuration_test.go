@@ -1059,4 +1059,19 @@ var _ = Describe("test configuration", func() {
 			Entry("should return hyperv-direct when feature gate is enabled with hyperv config", true, &HyperVDirectHypervisorConfig, v1.HyperVDirectHypervisorName),
 		)
 	})
+
+	DescribeTable("ParseFactor", func(value string, precision int, expected float64, expectError bool) {
+		result, err := virtconfig.ParseFactor(value, precision)
+		if expectError {
+			Expect(err).To(HaveOccurred())
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(expected))
+	},
+		Entry("accepts integer factor", "2", 3, 2.0, false),
+		Entry("accepts decimal within precision", "1.5", 1, 1.5, false),
+		Entry("rejects too many decimal places", "1.55", 1, 0.0, true),
+		Entry("accepts exponential notation when value fits precision", "1.5e1", 0, 15.0, false),
+	)
 })
