@@ -39,11 +39,11 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
 	streamer := NewRawStreamer(
-		app.FetchVirtualMachineInstance,
-		validateVMIForConsole,
-		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			return conn.ConsoleURI(vmi)
-		}),
+		NewDirectDialer(app.FetchVirtualMachineInstance, validateVMIForConsole,
+			app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+				return conn.ConsoleURI(vmi)
+			}),
+		),
 	)
 
 	streamer.Handle(request, response)
