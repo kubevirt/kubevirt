@@ -43,7 +43,7 @@ const (
 	maxCustomBlockSizeS390x = 4096
 )
 
-func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string) error {
+func ConvertV1BlockSizeToAPIBlockIO(source *v1.Disk, disk *api.Disk, arch string) error {
 	if source.BlockSize == nil {
 		return nil
 	}
@@ -180,7 +180,7 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 	if err := unix.Statfs(path, &statfs); err != nil {
 		return nil, fmt.Errorf("failed to stat file %v: %v", path, err)
 	}
-	blockSize := uint(statfs.Bsize)
+	blockSize := uint(statfs.Bsize) //nolint:gosec // Bsize is always positive and fits in uint
 	return &api.BlockIO{
 		LogicalBlockSize:   blockSize,
 		PhysicalBlockSize:  blockSize,

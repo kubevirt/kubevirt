@@ -39,33 +39,34 @@ const (
 	s390x = "s390x"
 )
 
-var _ = Describe("Convert_v1_BlockSize_To_api_BlockIO", func() {
-	DescribeTable("Should handle custom block sizes correctly per architecture", func(arch string, logical, physical uint, shouldSucceed bool) {
-		kubevirtDisk := &v1.Disk{
-			BlockSize: &v1.BlockSize{
-				Custom: &v1.CustomBlockSize{
-					Logical:            logical,
-					Physical:           physical,
-					DiscardGranularity: pointer.P(physical),
+var _ = Describe("ConvertV1BlockSizeToAPIBlockIO", func() {
+	DescribeTable("Should handle custom block sizes correctly per architecture",
+		func(arch string, logical, physical uint, shouldSucceed bool) {
+			kubevirtDisk := &v1.Disk{
+				BlockSize: &v1.BlockSize{
+					Custom: &v1.CustomBlockSize{
+						Logical:            logical,
+						Physical:           physical,
+						DiscardGranularity: pointer.P(physical),
+					},
 				},
-			},
-		}
-		libvirtDisk := &api.Disk{}
-		err := storage.Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk, arch)
-		if shouldSucceed {
-			Expect(err).ToNot(HaveOccurred())
-			expectedXML := fmt.Sprintf(`<Disk device="" type="">
+			}
+			libvirtDisk := &api.Disk{}
+			err := storage.ConvertV1BlockSizeToAPIBlockIO(kubevirtDisk, libvirtDisk, arch)
+			if shouldSucceed {
+				Expect(err).ToNot(HaveOccurred())
+				expectedXML := fmt.Sprintf(`<Disk device="" type="">
   <source></source>
   <target></target>
   <blockio logical_block_size="%d" physical_block_size="%d" discard_granularity="%d"></blockio>
 </Disk>`, logical, physical, physical)
-			data, xmlErr := xml.MarshalIndent(libvirtDisk, "", "  ")
-			Expect(xmlErr).ToNot(HaveOccurred())
-			Expect(string(data)).To(Equal(expectedXML))
-		} else {
-			Expect(err).To(MatchError(ContainSubstring("exceeds the maximum supported size")))
-		}
-	},
+				data, xmlErr := xml.MarshalIndent(libvirtDisk, "", "  ")
+				Expect(xmlErr).ToNot(HaveOccurred())
+				Expect(string(data)).To(Equal(expectedXML))
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("exceeds the maximum supported size")))
+			}
+		},
 		Entry("valid 1234 on amd64", amd64, uint(1234), uint(1234), true),
 		Entry("valid 1234 on arm64", arm64, uint(1234), uint(1234), true),
 		Entry("valid 1234 on s390x", s390x, uint(1234), uint(1234), true),
@@ -85,7 +86,7 @@ var _ = Describe("Convert_v1_BlockSize_To_api_BlockIO", func() {
 			},
 		}
 		apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
-		Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(Succeed())
+		Expect(storage.ConvertV1BlockSizeToAPIBlockIO(&v1Disk, &apiDisk, amd64)).To(Succeed())
 
 		blockIO := apiDisk.BlockIO
 		Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
@@ -103,7 +104,7 @@ var _ = Describe("Convert_v1_BlockSize_To_api_BlockIO", func() {
 			},
 		}
 		apiDisk := api.Disk{Source: api.DiskSource{}}
-		Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk, amd64)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+		Expect(storage.ConvertV1BlockSizeToAPIBlockIO(&v1Disk, &apiDisk, amd64)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
 	})
 
 	It("Should fail block size detection for a nil domain disk", func() {
@@ -114,6 +115,6 @@ var _ = Describe("Convert_v1_BlockSize_To_api_BlockIO", func() {
 				MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
 			},
 		}
-		Expect(storage.Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, nil, amd64)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
+		Expect(storage.ConvertV1BlockSizeToAPIBlockIO(&v1Disk, nil, amd64)).To(MatchError(ContainSubstring(nilDiskErrorMessage)))
 	})
 })

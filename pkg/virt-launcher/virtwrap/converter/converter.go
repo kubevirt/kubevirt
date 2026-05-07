@@ -886,7 +886,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 
-		if err := storage.Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, c.Architecture.GetArchitecture()); err != nil {
+		if err := storage.ConvertV1BlockSizeToAPIBlockIO(&disk, &newDisk, c.Architecture.GetArchitecture()); err != nil {
 			return err
 		}
 
