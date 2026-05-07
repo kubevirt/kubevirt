@@ -126,6 +126,7 @@ const (
 	volumesUpdateErrorReason           = "VolumesUpdateError"
 	tolerationsChangeErrorReason       = "TolerationsChangeError"
 	annotationsLabelsChangeErrorReason = "AnnotationsLabelsChangeError"
+	reservedOverheadErrorReason        = "ReservedOverheadError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -3303,6 +3304,15 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
+	// addedOverhead is never live-updatable (K8s pod resources are immutable); call
+	// unconditionally regardless of rollout strategy.
+	if err := c.handleReservedOverheadRequest(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(
+			fmt.Errorf("error encountered while handling reservedOverhead request: %v", err),
+			reservedOverheadErrorReason,
+		), nil
+	}
+
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
@@ -3489,6 +3499,31 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 
 	log.Log.Object(vmi).Infof("%s", logMsg)
 
+	return nil
+}
+
+func (c *Controller) handleReservedOverheadRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		return nil
+	}
+
+	var vmOverhead *resource.Quantity
+	if vm.Spec.Template.Spec.Domain.Memory != nil &&
+		vm.Spec.Template.Spec.Domain.Memory.ReservedOverhead != nil {
+		vmOverhead = vm.Spec.Template.Spec.Domain.Memory.ReservedOverhead.AddedOverhead
+	}
+
+	var vmiOverhead *resource.Quantity
+	if vmi.Spec.Domain.Memory != nil &&
+		vmi.Spec.Domain.Memory.ReservedOverhead != nil {
+		vmiOverhead = vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead
+	}
+
+	if equality.Semantic.DeepEqual(vmOverhead, vmiOverhead) {
+		return nil
+	}
+
+	setRestartRequired(vm, "reservedOverhead.addedOverhead updated in template spec, restart required for new pod memory allocation to take effect")
 	return nil
 }
 

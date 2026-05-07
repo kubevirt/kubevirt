@@ -5832,6 +5832,134 @@ var _ = Describe("VirtualMachine", func() {
 				})
 			})
 
+			Context("ReservedOverhead", func() {
+				It("should not set RestartRequired when vmi is nil", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					Expect(controller.handleReservedOverheadRequest(vm, nil)).To(Succeed())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+				})
+
+				It("should not set RestartRequired when vmi is being deleted", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					overhead := resource.MustParse("1Gi")
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &overhead,
+						},
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					now := metav1.Now()
+					vmi.DeletionTimestamp = &now
+
+					Expect(controller.handleReservedOverheadRequest(vm, vmi)).To(Succeed())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+				})
+
+				It("should not set RestartRequired when addedOverhead is unchanged", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					vmOverhead := resource.MustParse("500Mi")
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &vmOverhead,
+						},
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmiOverhead := resource.MustParse("500Mi")
+					vmi.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &vmiOverhead,
+						},
+					}
+
+					Expect(controller.handleReservedOverheadRequest(vm, vmi)).To(Succeed())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+				})
+
+				It("should not set RestartRequired when neither VM nor VMI has addedOverhead", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					vmi := api.NewMinimalVMI(vm.Name)
+
+					Expect(controller.handleReservedOverheadRequest(vm, vmi)).To(Succeed())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+				})
+
+				It("should set RestartRequired when addedOverhead is added to running VM", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					overhead := resource.MustParse("1Gi")
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &overhead,
+						},
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					// VMI has no addedOverhead (was started before the field was set)
+
+					Expect(controller.handleReservedOverheadRequest(vm, vmi)).To(Succeed())
+					vmCondManager := virtcontroller.NewVirtualMachineConditionManager()
+					cond := vmCondManager.GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineRestartRequired),
+						"Message": ContainSubstring("reservedOverhead.addedOverhead"),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+				})
+
+				It("should set RestartRequired when addedOverhead is changed on running VM", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					newOverhead := resource.MustParse("1Gi")
+					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &newOverhead,
+						},
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					oldOverhead := resource.MustParse("500Mi")
+					vmi.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &oldOverhead,
+						},
+					}
+
+					Expect(controller.handleReservedOverheadRequest(vm, vmi)).To(Succeed())
+					vmCondManager := virtcontroller.NewVirtualMachineConditionManager()
+					cond := vmCondManager.GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineRestartRequired),
+						"Message": ContainSubstring("reservedOverhead.addedOverhead"),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+				})
+
+				It("should set RestartRequired when addedOverhead is removed from running VM", func() {
+					vm, _ := watchtesting.DefaultVirtualMachine(true)
+					// VM spec has no addedOverhead (user removed it)
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					oldOverhead := resource.MustParse("500Mi")
+					vmi.Spec.Domain.Memory = &v1.Memory{
+						ReservedOverhead: &v1.ReservedOverhead{
+							AddedOverhead: &oldOverhead,
+						},
+					}
+
+					Expect(controller.handleReservedOverheadRequest(vm, vmi)).To(Succeed())
+					vmCondManager := virtcontroller.NewVirtualMachineConditionManager()
+					cond := vmCondManager.GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineRestartRequired),
+						"Message": ContainSubstring("reservedOverhead.addedOverhead"),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
+				})
+			})
+
 			Context("Tolerations", func() {
 				DescribeTable("should be live-updated", func(existingTolerations, updatedTolerations []k8sv1.Toleration) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
