@@ -170,6 +170,14 @@ const (
 	//
 	// PersistentReservation enables the use of the SCSI persistent reservation in VMs using the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
+
+	// Owner: sig-compute / @jschintag
+	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	// GA: v1.9.0
+	//
+	// SecureExecution introduces secure execution of VMs on IBM Z architecture
+	SecureExecution = "SecureExecution"
 )
 
 func init() {
@@ -212,4 +220,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Deprecated, Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes"})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 }

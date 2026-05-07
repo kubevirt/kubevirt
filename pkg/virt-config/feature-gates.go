@@ -147,10 +147,6 @@ func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
 }
 
-func (config *ClusterConfig) SecureExecutionEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SecureExecution)
-}
-
 func (config *ClusterConfig) PasstBindingEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstBinding)
 }

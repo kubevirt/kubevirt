@@ -26,12 +26,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -64,7 +62,6 @@ var _ = Describe("[sig-compute]IBM Secure Execution",
 
 			const commandTimeout = 10 * time.Second
 			BeforeEach(func() {
-				config.EnableFeatureGate(featuregate.SecureExecution)
 				By("Reading the hostkey from the 'secex-hostkey' configmap in the 'kubevirt-prow-jobs' namespace")
 				cm, err := kubevirt.Client().CoreV1().ConfigMaps("kubevirt-prow-jobs").Get(context.Background(), "secex-hostkey", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
