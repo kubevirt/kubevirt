@@ -20681,6 +20681,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "progressTimeout": {
+      "type": "integer",
+      "format": "int64"
+     },
      "selectors": {
       "$ref": "#/definitions/v1alpha1.Selectors"
      },

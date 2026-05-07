@@ -71,6 +71,13 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			Field:   sourceField.Child("completionTimeoutPerGiB").String(),
 		})
 	}
+	if spec.ProgressTimeout != nil && *spec.ProgressTimeout < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "must be greater or equal to zero",
+			Field:   sourceField.Child("progressTimeout").String(),
+		})
+	}
 	if spec.MaxDowntime != nil && (*spec.MaxDowntime <= 0 || *spec.MaxDowntime > migrationutils.QEMUMaxMigrationDowntimeMS) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

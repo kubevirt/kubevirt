@@ -33163,6 +33163,12 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Format:      "int64",
 						},
 					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 					"maxDowntime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover. Defaults to 900",

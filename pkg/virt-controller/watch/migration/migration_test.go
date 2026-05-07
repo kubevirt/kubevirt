@@ -2397,6 +2397,14 @@ var _ = Describe("Migration watcher", func() {
 					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
 				},
 			),
+			Entry("set progress timeout",
+				func(p *migrationsv1.MigrationPolicySpec) { p.ProgressTimeout = pointer.P(int64(123)) },
+				func(c *v1.MigrationConfiguration) {
+					Expect(c.ProgressTimeout).ToNot(BeNil())
+					Expect(*c.ProgressTimeout).To(Equal(int64(123)))
+				},
+				true,
+			),
 			Entry("set completion time per GiB",
 				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
 				func(c *v1.VMIMConfigurationOptions) {

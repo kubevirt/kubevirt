@@ -4171,6 +4171,9 @@ var CRDsValidation map[string]string = map[string]string{
             pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
           format: int64
           type: integer
+        progressTimeout:
+          format: int64
+          type: integer
         selectors:
           properties:
             namespaceSelector:
