@@ -19,7 +19,6 @@ go_library(
         "//pkg/network/vmispec:go_default_library",
         "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
-        "//pkg/safepath:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
@@ -41,7 +40,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
-        "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
