@@ -26,17 +26,9 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
-)
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
-const (
-	stallMargin               float64 = 0.04
-	stallProgressTimeout      int64   = 40
-	switchoverTimeout         int64   = 60
-	preCopyPossibleFactor     float64 = 1.5
-	patienceWindowDecayFactor float64 = 0.5
-	bandwidthEWMAAlpha        float64 = 0.4
-	searchLocalMinima                 = true
+	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 )
 
 type convergenceAction int
@@ -56,12 +48,11 @@ type iterationRecord struct {
 }
 
 type stallDetector struct {
-	// how long in seconds does a migration have to make progress before we take some action
-	progressTimeoutSeconds int64
+	stallDetectorOptions cmdclient.StallDetectorOptions
+	maxDowntimeMs        uint64
+
 	// a bool indicating whether initial max downtime has been set (only set when maxDowntimeMs < 300, the default QEMU target downtime)
 	initialMaxDowntimeSet bool
-	// the maximum downtime in ms where a stun time up to this long is not considered a "disruption"
-	maxDowntimeMs uint64
 	// iteration records with the potential to end up in minRecordOutsideWindow
 	minCandidates []iterationRecord
 	// smallest iteration record outside the progressTimeout window
@@ -76,8 +67,6 @@ type stallDetector struct {
 	relaxationDeadlineMs uint64
 	// current time in ms to wait before relaxing target downtime
 	relaxationPatienceMs uint64
-	// multiplier applied to relaxationPatienceMs after each relaxation step
-	patienceWindowDecayFactor float64
 	// Current bandwidth smoothed using an exponential weighted moving average
 	ewmaBandwidthBps float64
 	// Whether we already initiated switchover to post-copy or stop-and-copy
@@ -95,6 +84,7 @@ func (sd *stallDetector) updateBandwidthEstimate(bandwidthSample uint64, logger 
 		logger.V(4).Infof("initialized migration bandwidth EWMA: sampleBps=%dbps ewmaBps=%.2fbps", bandwidthSample, sd.ewmaBandwidthBps)
 		return
 	}
+	bandwidthEWMAAlpha := sd.stallDetectorOptions.EwmaAlpha
 	sd.ewmaBandwidthBps = bandwidthEWMAAlpha*float64(bandwidthSample) + (1-bandwidthEWMAAlpha)*sd.ewmaBandwidthBps
 	logger.V(4).Infof("updated migration bandwidth EWMA: sampleBps=%dbps previousEwmaBps=%.2fbps newEwmaBps=%.2fbps", bandwidthSample, prev, sd.ewmaBandwidthBps)
 }
@@ -104,7 +94,7 @@ func bytesToMiB(bytes uint64) float32 {
 }
 
 func (sd *stallDetector) updateCandidates(record iterationRecord, logger *log.FilteredLogger) {
-	progressTimeoutMs := uint64(sd.progressTimeoutSeconds) * 1000
+	progressTimeoutMs := sd.stallDetectorOptions.StallProgressTimeout * 1000
 	agedOut := 0
 	for len(sd.minCandidates) > 0 {
 		oldestCandidate := sd.minCandidates[0]
@@ -150,6 +140,7 @@ func (sd *stallDetector) checkStallCondition(remainingBytes uint64, logger *log.
 		return false
 	}
 
+	stallMargin := sd.stallDetectorOptions.StallMargin
 	stallThreshold := uint64(float64(sd.minRecordOutsideWindow.remainingBytes) * (1 - stallMargin))
 	stalled := remainingBytes >= stallThreshold
 	logger.V(4).Infof("stall check result: remainingBytes=%.2fMib outsideWindowMinRemainingBytes=%.2fMib threshold=%.2fMib stalled=%t", bytesToMiB(remainingBytes), bytesToMiB(sd.minRecordOutsideWindow.remainingBytes), bytesToMiB(stallThreshold), stalled)
@@ -175,7 +166,7 @@ func (sd *stallDetector) findBestRemainingBytes(logger *log.FilteredLogger) uint
 
 func (sd *stallDetector) initializeRelaxationState(record iterationRecord, logger *log.FilteredLogger) {
 	sd.remainingBytesHistory = utilheap.NewMin[uint64]()
-	sd.relaxationPatienceMs = uint64(sd.progressTimeoutSeconds) * 1000
+	sd.relaxationPatienceMs = sd.stallDetectorOptions.StallProgressTimeout * 1000
 	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
 	logger.V(4).Infof("initialized relaxation state: iterElapsedMs=%dms patienceMs=%dms deadlineMs=%dms", record.elapsedMs, sd.relaxationPatienceMs, sd.relaxationDeadlineMs)
 }
@@ -196,7 +187,7 @@ func (sd *stallDetector) relaxBestRemainingBytes(record iterationRecord, logger 
 
 	oldBest := sd.bestRemainingBytes
 	sd.bestRemainingBytes = nextCandidate
-	sd.relaxationPatienceMs = uint64(float64(sd.relaxationPatienceMs) * sd.patienceWindowDecayFactor)
+	sd.relaxationPatienceMs = uint64(float64(sd.relaxationPatienceMs) * sd.stallDetectorOptions.PatienceWindowDecayFactor)
 	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
 	logger.V(3).Infof("relaxed best remaining bytes: oldBest=%.2fMib newBest=%.2fMib iterElapsedMs=%dms nextPatienceMs=%dms nextDeadlineMs=%dms", bytesToMiB(oldBest), bytesToMiB(sd.bestRemainingBytes), record.elapsedMs, sd.relaxationPatienceMs, sd.relaxationDeadlineMs)
 }
@@ -228,6 +219,7 @@ func (sd *stallDetector) estimateDowntimeMs(record iterationRecord, logger *log.
 }
 
 func (sd *stallDetector) isAtLocalMinima(record iterationRecord, logger *log.FilteredLogger) bool {
+	stallMargin := sd.stallDetectorOptions.StallMargin
 	target := uint64(float64(sd.bestRemainingBytes) * (1 + stallMargin))
 	atLocalMinima := record.remainingBytes <= target
 	logger.V(4).Infof("switch margin check: remainingBytes=%.2fMib bestRemainingBytes=%.2fMib margin=%.2f targetRemainingBytes=%.2f atLocalMinima=%t", bytesToMiB(record.remainingBytes), bytesToMiB(sd.bestRemainingBytes), stallMargin, bytesToMiB(target), atLocalMinima)
@@ -270,6 +262,7 @@ func (sd *stallDetector) decideAction(record iterationRecord, estimatedDowntimeM
 		return actionNothing, "switchover already initiated"
 	}
 
+	searchLocalMinima := sd.stallDetectorOptions.SearchLocalMinima
 	if !sd.isAtLocalMinima(record, logger) && searchLocalMinima {
 		return actionNothing, "not at a local minima yet"
 	}
@@ -293,8 +286,9 @@ func (sd *stallDetector) decideAction(record iterationRecord, estimatedDowntimeM
 	now := time.Now().UTC().UnixNano()
 	elapsedSeconds := (now - startTimeNs) / int64(time.Second)
 
-	// usually this case can only be triggered by a sudden network drop
-	deadlineSeconds := acceptableCompletionTime * 2
+	// usually this case can only be triggered by a sudden network drop unless acceptableCompletionTime is very small
+	completionTimeoutFactor := sd.stallDetectorOptions.CompletionTimeoutFactor
+	deadlineSeconds := int64(float64(acceptableCompletionTime) * completionTimeoutFactor)
 	if !sd.canFinishByDeadline(elapsedSeconds, deadlineSeconds, estimatedDowntimeMs, logger) {
 		remainingBudgetMs := (deadlineSeconds - elapsedSeconds) * 1000
 		return actionNothing, fmt.Sprintf("estimated transfer time (%dms) exceeds remaining budget (%dms) before completion deadline (%ds)", estimatedDowntimeMs, remainingBudgetMs, deadlineSeconds)
@@ -308,11 +302,13 @@ func (sd *stallDetector) decideAction(record iterationRecord, estimatedDowntimeM
 		return actionHardStopAndCopy, fmt.Sprintf("estimated downtime %dms is a local minima", estimatedDowntimeMs)
 	}
 
-	if float64(estimatedDowntimeMs) <= float64(sd.maxDowntimeMs) {
-		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within max allowed downtime %dms", estimatedDowntimeMs, sd.maxDowntimeMs)
-	} else if float64(estimatedDowntimeMs) <= float64(sd.maxDowntimeMs)*preCopyPossibleFactor {
-		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within tolerable factor %.2fx to max allowed downtime %dms", estimatedDowntimeMs, preCopyPossibleFactor, sd.maxDowntimeMs)
+	preCopyPossibleFactor := sd.stallDetectorOptions.PrecopyPossibleFactor
+	maxDowntimeMs := sd.maxDowntimeMs
+	if float64(estimatedDowntimeMs) <= float64(maxDowntimeMs) {
+		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within max allowed downtime %dms", estimatedDowntimeMs, maxDowntimeMs)
+	} else if float64(estimatedDowntimeMs) <= float64(maxDowntimeMs)*preCopyPossibleFactor {
+		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within tolerable factor %.2fx to max allowed downtime %dms", estimatedDowntimeMs, preCopyPossibleFactor, maxDowntimeMs)
 	}
 
-	return actionAbort, fmt.Sprintf("estimated downtime %dms exceeds max allowed downtime %dms by a factor of more than x%.2f", estimatedDowntimeMs, sd.maxDowntimeMs, preCopyPossibleFactor)
+	return actionAbort, fmt.Sprintf("estimated downtime %dms exceeds max allowed downtime %dms by a factor of more than x%.2f", estimatedDowntimeMs, maxDowntimeMs, preCopyPossibleFactor)
 }
