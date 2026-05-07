@@ -59,9 +59,6 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch s
 			LogicalBlockSize:  blockSize.Logical,
 			PhysicalBlockSize: blockSize.Physical,
 		}
-		// TODO: as of the time of writing this, KubeVirt uses libvirt < v11.6.0
-		// which means that a discard_granularity value of 0 is omitted.
-		// remove this comment once upgraded.
 		if blockSize.DiscardGranularity != nil {
 			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
 		}
