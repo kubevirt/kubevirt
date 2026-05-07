@@ -53,8 +53,6 @@ import (
 const (
 	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
-	// This value was determined after consulting with libvirt developers and performing extensive testing.
-	parallelMultifdMigrationThreads = uint(8)
 )
 
 const (

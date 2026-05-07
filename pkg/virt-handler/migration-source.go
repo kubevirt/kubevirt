@@ -527,6 +527,39 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	if migrationConfiguration.MaxDowntime == nil {
 		migrationConfiguration.MaxDowntime = pointer.P(virtconfig.DefaultMigrationMaxDowntime)
 	}
+	if !c.clusterConfig.AdvancedMigrationOptionsEnabled() || migrationConfiguration.AdvancedMigrationOptions == nil {
+		migrationConfiguration.AdvancedMigrationOptions = &v1.AdvancedMigrationOptions{}
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector = &v1.StallDetectorOptions{}
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.StallMargin == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.StallMargin = pointer.P(virtconfig.DefaultStallMargin)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.StallProgressTimeout == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.StallProgressTimeout = pointer.P(virtconfig.DefaultStallProgressTimeout)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.SwitchoverTimeout == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.SwitchoverTimeout = pointer.P(virtconfig.DefaultSwitchoverTimeout)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.EwmaAlpha == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.EwmaAlpha = pointer.P(virtconfig.DefaultEwmaAlpha)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.PrecopyPossibleFactor == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.PrecopyPossibleFactor = pointer.P(virtconfig.DefaultPrecopyPossibleFactor)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.PatienceWindowDecayFactor == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.PatienceWindowDecayFactor = pointer.P(virtconfig.DefaultPatienceWindowDecayFactor)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.SearchLocalMinima == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.SearchLocalMinima = pointer.P(virtconfig.DefaultSearchLocalMinima)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.StallDetector.CompletionTimeoutFactor == nil {
+		migrationConfiguration.AdvancedMigrationOptions.StallDetector.CompletionTimeoutFactor = pointer.P(virtconfig.DefaultCompletionTimeoutFactor)
+	}
+	if migrationConfiguration.AdvancedMigrationOptions.ParallelMigrationThreads == nil {
+		migrationConfiguration.AdvancedMigrationOptions.ParallelMigrationThreads = pointer.P(virtconfig.DefaultParallelMigrationThreads)
+	}
 
 	options := &cmdclient.MigrationOptions{
 		Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
@@ -538,9 +571,23 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
 		StallDetectionEnabled:   c.clusterConfig.MigrationStallDetectionEnabled(),
+		StallDetectorOptions: cmdclient.StallDetectorOptions{
+			StallMargin:               *migrationConfiguration.AdvancedMigrationOptions.StallDetector.StallMargin,
+			StallProgressTimeout:      *migrationConfiguration.AdvancedMigrationOptions.StallDetector.StallProgressTimeout,
+			SwitchoverTimeout:         *migrationConfiguration.AdvancedMigrationOptions.StallDetector.SwitchoverTimeout,
+			EwmaAlpha:                 *migrationConfiguration.AdvancedMigrationOptions.StallDetector.EwmaAlpha,
+			PrecopyPossibleFactor:     *migrationConfiguration.AdvancedMigrationOptions.StallDetector.PrecopyPossibleFactor,
+			PatienceWindowDecayFactor: *migrationConfiguration.AdvancedMigrationOptions.StallDetector.PatienceWindowDecayFactor,
+			SearchLocalMinima:         *migrationConfiguration.AdvancedMigrationOptions.StallDetector.SearchLocalMinima,
+			CompletionTimeoutFactor:   *migrationConfiguration.AdvancedMigrationOptions.StallDetector.CompletionTimeoutFactor,
+		},
 	}
 
-	configureParallelMigrationThreads(options, vmi)
+	if cpuLimit, cpuLimitExists := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; (!cpuLimitExists || cpuLimit.IsZero()) && *migrationConfiguration.AdvancedMigrationOptions.ParallelMigrationThreads != 0 {
+		// When the CPU is limited, there's a risk of the migration threads choking the CPU resources on the compute container.
+		// For this reason, we will avoid configuring migration threads in such scenarios.
+		options.ParallelMigrationThreads = pointer.P(uint(*migrationConfiguration.AdvancedMigrationOptions.ParallelMigrationThreads))
+	}
 
 	marshalledOptions, err := json.Marshal(options)
 	if err != nil {
@@ -639,14 +686,4 @@ func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineI
 
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIAbortingMigration)
 	return nil
-}
-
-func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *v1.VirtualMachineInstance) {
-	// When the CPU is limited, there's a risk of the migration threads choking the CPU resources on the compute container.
-	// For this reason, we will avoid configuring migration threads in such scenarios.
-	if cpuLimit, cpuLimitExists := vm.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; cpuLimitExists && !cpuLimit.IsZero() {
-		return
-	}
-
-	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
 }

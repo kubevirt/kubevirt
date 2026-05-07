@@ -53,7 +53,8 @@ const (
 	DefaultPrecopyPossibleFactor             float64 = 1.5
 	DefaultPatienceWindowDecayFactor         float64 = 0.5
 	DefaultSearchLocalMinima                 bool    = true
-	DefaultParallelMigrationThreads          uint32  = 8
+	DefaultCompletionTimeoutFactor           float64 = 2.0
+	DefaultParallelMigrationThreads          uint    = 8
 	DefaultAMD64MachineType                          = "q35"
 	DefaultAARCH64MachineType                        = "virt"
 	DefaultS390XMachineType                          = "s390-ccw-virtio"

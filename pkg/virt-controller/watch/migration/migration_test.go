@@ -2399,11 +2399,10 @@ var _ = Describe("Migration watcher", func() {
 			),
 			Entry("set progress timeout",
 				func(p *migrationsv1.MigrationPolicySpec) { p.ProgressTimeout = pointer.P(int64(123)) },
-				func(c *v1.MigrationConfiguration) {
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(c.ProgressTimeout).ToNot(BeNil())
 					Expect(*c.ProgressTimeout).To(Equal(int64(123)))
 				},
-				true,
 			),
 			Entry("set completion time per GiB",
 				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
