@@ -80,7 +80,7 @@ func (n *DeviceNamer) getExistingTargetValue(key string) (string, bool) {
 	return "", false
 }
 
-func MakeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]DeviceNamer) (string, int) {
+func MakeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]DeviceNamer) (deviceName string, index int) {
 	prefix := getPrefixFromBus(bus)
 	if _, ok := prefixMap[prefix]; !ok {
 		// This should never happen since the prefix map is populated from all disks.
@@ -91,7 +91,7 @@ func MakeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]Device
 	}
 	deviceNamer := prefixMap[prefix]
 	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
-		for i := 0; i < 26*26*26; i++ {
+		for i := range 26 * 26 * 26 {
 			calculatedName := FormatDeviceName(prefix, i)
 			if calculatedName == name {
 				return name, i
@@ -101,7 +101,7 @@ func MakeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]Device
 		return name, 0
 	}
 	// Name not found yet, generate next new one.
-	for i := 0; i < 26*26*26; i++ {
+	for i := range 26 * 26 * 26 {
 		name := FormatDeviceName(prefix, i)
 		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
 			deviceNamer.ExistingNameMap[diskName] = name

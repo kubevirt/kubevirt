@@ -60,17 +60,19 @@ func (c *directIOChecker) CheckFile(path string) (bool, error) {
 
 // based on https://gitlab.com/qemu-project/qemu/-/blob/master/util/osdep.c#L344
 func (c *directIOChecker) check(path string, flags int) (bool, error) {
+	const filePermissions = 0o600
+
 	// #nosec No risk for path injection as we only open the file, not read from it.
 	// The function leaks only whether the directory to `path` exists.
-	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, 0o600)
+	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, filePermissions)
 	if err != nil {
 		// EINVAL is returned if the filesystem does not support the O_DIRECT flag
-		if err, ok := err.(*os.PathError); ok && err.Err == syscall.EINVAL {
+		if pathErr, ok := err.(*os.PathError); ok && pathErr.Err == syscall.EINVAL {
 			// #nosec No risk for path injection as we only open the file, not read from it.
 			// The function leaks only whether the directory to `path` exists.
-			f, err := os.OpenFile(path, flags & ^syscall.O_DIRECT, 0o600)
-			if err == nil {
-				defer util.CloseIOAndCheckErr(f, nil)
+			fallbackFile, openErr := os.OpenFile(path, flags & ^syscall.O_DIRECT, filePermissions)
+			if openErr == nil {
+				defer util.CloseIOAndCheckErr(fallbackFile, nil)
 				return false, nil
 			}
 		}
