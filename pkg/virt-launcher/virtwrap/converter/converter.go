@@ -224,11 +224,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
 		switch {
 		case emptyCDRom:
-			err = storage.Convert_v1_Missing_Volume_To_api_Disk(&newDisk)
+			err = storage.ConvertV1MissingVolumeToAPIDisk(&newDisk)
 		case hpOk:
-			err = storage.Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
+			err = storage.ConvertV1HotplugVolumeToAPIDisk(volume, &newDisk, c)
 		default:
-			err = storage.Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
+			err = storage.ConvertV1VolumeToAPIDisk(volume, &newDisk, c, volumeIndices[disk.Name])
 		}
 
 		if err != nil {
