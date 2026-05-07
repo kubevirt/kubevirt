@@ -1261,7 +1261,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			It("[test_id:9705]Should show included and excluded volumes in the snapshot", func() {
 				noSnapshotSC := libstorage.GetNoVolumeSnapshotStorageClass("local")
 				if noSnapshotSC == "" {
-					Skip("Skipping test, no storage class without snapshot support")
+					Skip("Skipping test, no storage class without snapshot support") //nolint:forbidigo
 				}
 				By("Creating DV with snapshot supported storage class")
 				includedDataVolume := libdv.NewDataVolume(

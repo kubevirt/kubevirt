@@ -1421,7 +1421,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if !prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is defined")
+				Skip("Test applies on when PrometheusRule is defined") //nolint:forbidigo
 			}
 		})
 
@@ -1440,7 +1440,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		BeforeEach(func() {
 			if !serviceMonitorEnabled() {
-				Skip("Test requires ServiceMonitor to be valid")
+				Skip("Test requires ServiceMonitor to be valid") //nolint:forbidigo
 			}
 		})
 

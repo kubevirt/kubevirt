@@ -345,7 +345,7 @@ func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs i
 	Expect(err).ToNot(HaveOccurred())
 
 	if countLocalStoragePVAvailableForUse(pvList, storageClassName) < numExpectedPVs {
-		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
+		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs) //nolint:forbidigo
 	}
 }
 

@@ -70,7 +70,7 @@ var _ = Describe(SIG("Port-forward", func() {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			if ipFamily == k8sv1.IPv6Protocol {
-				Skip(skipIPv6Message)
+				Skip(skipIPv6Message) //nolint:forbidigo
 			}
 
 			vmi := createAlpineVMIWithPortsAndBlockUntilReady(virtClient, vmiDeclaredPorts)

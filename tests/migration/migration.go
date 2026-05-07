@@ -847,7 +847,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
 				sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
+					Skip("Skip test when Filesystem storage is not present") //nolint:forbidigo
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -1376,7 +1376,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					cfg := getCurrentKvConfig(virtClient)
 					tlsEnabled := cfg.MigrationConfiguration.DisableTLS == nil || *cfg.MigrationConfiguration.DisableTLS == false
 					if !tlsEnabled {
-						Skip("test requires secure migrations to be enabled")
+						Skip("test requires secure migrations to be enabled") //nolint:forbidigo
 					}
 				})
 
@@ -1788,7 +1788,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				sc, exists := libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Skip("Skip test when Block storage is not present") //nolint:forbidigo
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1824,7 +1824,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
 				if !foundSC {
-					Skip("Skip test when Block storage is not present")
+					Skip("Skip test when Block storage is not present") //nolint:forbidigo
 				}
 
 				dv := libdv.NewDataVolume(
@@ -2292,7 +2292,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 
 			if count < 2 {
-				Skip(fmt.Sprintf("Not enough nodes with hugepages %s capacity. Need 2, found %d.", hugepageType, count))
+				Skip(fmt.Sprintf("Not enough nodes with hugepages %s capacity. Need 2, found %d.", hugepageType, count)) //nolint:forbidigo
 			}
 
 			hugepagesVmi := libvmifact.NewAlpine(

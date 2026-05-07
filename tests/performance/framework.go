@@ -65,12 +65,12 @@ func SIG(text string, args ...interface{}) (extendedText string, newArgs []inter
 
 func skipIfNoPerformanceTests() {
 	if !RunPerfTests {
-		Skip("Performance tests are not enabled.")
+		Skip("Performance tests are not enabled.") //nolint:forbidigo
 	}
 }
 
 func skipIfNoRealtimePerformanceTests() {
 	if !RunPerfRealtime {
-		Skip("Realtime performance tests are not enabled")
+		Skip("Realtime performance tests are not enabled") //nolint:forbidigo
 	}
 }

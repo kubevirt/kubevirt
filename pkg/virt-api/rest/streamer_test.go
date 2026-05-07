@@ -465,7 +465,7 @@ var _ = Describe("Streamer", func() {
 		// This test is mutually exclusive with the `-race` flag, as there is no other way to check
 		// if a write-only channel is closed than to write to it and catch the panic.
 		if raceDetectorEnabled {
-			Skip("Data Race Detector is enabled")
+			Skip("Data Race Detector is enabled") //nolint:forbidigo
 		}
 
 		var results chan<- streamFuncResult
