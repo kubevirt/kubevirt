@@ -35,14 +35,14 @@ var _ = Describe("direct IO checker", func() {
 	var tmpDir string
 	var existingFile string
 	var nonExistingFile string
-	var err error
 
 	BeforeEach(func() {
+		var err error
 		directIOChecker = storage.NewDirectIOChecker()
 		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
 		Expect(err).ToNot(HaveOccurred())
 		existingFile = filepath.Join(tmpDir, "disk.img")
-		Expect(os.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
+		Expect(os.WriteFile(existingFile, []byte("test"), 0o600)).To(Succeed())
 		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
 	})
 
@@ -51,7 +51,7 @@ var _ = Describe("direct IO checker", func() {
 	})
 
 	It("should not fail when file/device exists", func() {
-		_, err = directIOChecker.CheckFile(existingFile)
+		_, err := directIOChecker.CheckFile(existingFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = directIOChecker.CheckBlockDevice(existingFile)
 		Expect(err).ToNot(HaveOccurred())
@@ -73,7 +73,7 @@ var _ = Describe("direct IO checker", func() {
 
 	It("should fail when the path does not exist", func() {
 		nonExistingPath := "/non/existing/path/disk.img"
-		_, err = directIOChecker.CheckFile(nonExistingPath)
+		_, err := directIOChecker.CheckFile(nonExistingPath)
 		Expect(err).To(MatchError(fs.ErrNotExist))
 		_, err = directIOChecker.CheckBlockDevice(nonExistingPath)
 		Expect(err).To(MatchError(fs.ErrNotExist))
