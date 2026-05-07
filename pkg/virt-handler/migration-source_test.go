@@ -68,6 +68,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+func parseDefaultStallDetectorFactor(value string) float64 {
+	factor, err := virtconfig.ParseFactor(value, virtconfig.StallDetectorFactorPrecision)
+	Expect(err).NotTo(HaveOccurred())
+	return factor
+}
+
 var _ = Describe("VirtualMachineInstance migration target", func() {
 	var (
 		client         *cmdclient.MockLauncherClient
@@ -297,6 +303,16 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				AllowAutoConverge:        false,
 				StallDetectionEnabled:    false,
 				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
+				StallDetectorOptions: cmdclient.StallDetectorOptions{
+					StallMargin:               float64(virtconfig.DefaultStallMargin) / 100,
+					StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
+					SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
+					EwmaAlpha:                 parseDefaultStallDetectorFactor(virtconfig.DefaultEwmaAlpha),
+					PrecopyPossibleFactor:     parseDefaultStallDetectorFactor(virtconfig.DefaultPrecopyPossibleFactor),
+					PatienceWindowDecayFactor: parseDefaultStallDetectorFactor(virtconfig.DefaultPatienceWindowDecayFactor),
+					SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
+					CompletionTimeoutFactor:   parseDefaultStallDetectorFactor(virtconfig.DefaultCompletionTimeoutFactor),
+				},
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
 			sanityExecute()
@@ -664,6 +680,16 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			UnsafeMigration:          virtconfig.DefaultUnsafeMigrationOverride,
 			AllowPostCopy:            virtconfig.MigrationAllowPostCopy,
 			ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
+			StallDetectorOptions: cmdclient.StallDetectorOptions{
+				StallMargin:               float64(virtconfig.DefaultStallMargin) / 100,
+				StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
+				SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
+				EwmaAlpha:                 parseDefaultStallDetectorFactor(virtconfig.DefaultEwmaAlpha),
+				PrecopyPossibleFactor:     parseDefaultStallDetectorFactor(virtconfig.DefaultPrecopyPossibleFactor),
+				PatienceWindowDecayFactor: parseDefaultStallDetectorFactor(virtconfig.DefaultPatienceWindowDecayFactor),
+				SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
+				CompletionTimeoutFactor:   parseDefaultStallDetectorFactor(virtconfig.DefaultCompletionTimeoutFactor),
+			},
 		}
 		client.EXPECT().MigrateVirtualMachine(vmi, options)
 		sanityExecute()
