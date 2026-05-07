@@ -19,12 +19,6 @@
 
 package converter
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
-/*
- ATTENTION: Rerun code generators when interface signatures are modified.
-*/
-
 import (
 	"errors"
 	"fmt"
@@ -202,51 +196,6 @@ func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 	return nil
 }
 
-type DirectIOChecker interface {
-	CheckBlockDevice(path string) (bool, error)
-	CheckFile(path string) (bool, error)
-}
-
-type directIOChecker struct{}
-
-func NewDirectIOChecker() DirectIOChecker {
-	return &directIOChecker{}
-}
-
-func (c *directIOChecker) CheckBlockDevice(path string) (bool, error) {
-	return c.check(path, syscall.O_RDONLY)
-}
-
-func (c *directIOChecker) CheckFile(path string) (bool, error) {
-	flags := syscall.O_RDONLY
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		// try to create the file and perform the check
-		flags = flags | syscall.O_CREAT
-		defer os.Remove(path)
-	}
-	return c.check(path, flags)
-}
-
-// based on https://gitlab.com/qemu-project/qemu/-/blob/master/util/osdep.c#L344
-func (c *directIOChecker) check(path string, flags int) (bool, error) {
-	// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, 0600)
-	if err != nil {
-		// EINVAL is returned if the filesystem does not support the O_DIRECT flag
-		if err, ok := err.(*os.PathError); ok && err.Err == syscall.EINVAL {
-			// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-			f, err := os.OpenFile(path, flags & ^syscall.O_DIRECT, 0600)
-			if err == nil {
-				defer util.CloseIOAndCheckErr(f, nil)
-				return false, nil
-			}
-		}
-		return false, err
-	}
-	defer util.CloseIOAndCheckErr(f, nil)
-	return true, nil
-}
-
 func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string) error {
 	if source.BlockSize == nil {
 		return nil
@@ -395,7 +344,7 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 	}, nil
 }
 
-func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
+func SetDriverCacheMode(disk *api.Disk, directIOChecker storage.DirectIOChecker) error {
 	if disk == nil {
 		return fmt.Errorf("unable to set a driver cache mode, disk is nil")
 	}
