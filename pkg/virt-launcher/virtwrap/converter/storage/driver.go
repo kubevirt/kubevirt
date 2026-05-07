@@ -30,15 +30,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 )
 
-func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
-	if disk == nil {
+//nolint:gocyclo
+func SetDriverCacheMode(d *api.Disk, directIOChecker DirectIOChecker) error {
+	if d == nil {
 		return fmt.Errorf("unable to set a driver cache mode, disk is nil")
 	}
 
-	t := disksource.Resolve(*disk)
+	t := disksource.Resolve(*d)
 
 	if t.BackendPath() == "" {
-		if disk.Device == "cdrom" {
+		if d.Device == "cdrom" {
 			return nil
 		}
 		return fmt.Errorf("unable to set a driver cache mode, disk has no backend path")
@@ -46,7 +47,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 
 	var err error
 	supportDirectIO := true
-	mode := v1.DriverCache(disk.Driver.Cache)
+	mode := v1.DriverCache(d.Driver.Cache)
 
 	if mode == "" || mode == v1.CacheNone {
 		if t.BackendIsBlock() {
@@ -61,7 +62,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 		}
 		// when the disk is backed-up by another file, we need to also check if that
 		// file sits on a file system that supports direct I/O
-		if backingFile := disk.BackingStore; backingFile != nil {
+		if backingFile := d.BackingStore; backingFile != nil {
 			backingFilePath := backingFile.Source.File
 			backFileDirectIOSupport, err := directIOChecker.CheckFile(backingFilePath)
 			if err != nil {
@@ -75,7 +76,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 
 	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
 	if mode == v1.CacheNone && !supportDirectIO {
-		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, t.BackendPath())
+		return fmt.Errorf("unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, t.BackendPath())
 	}
 
 	// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
@@ -86,7 +87,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 		mode = v1.CacheWriteThrough
 	}
 
-	disk.Driver.Cache = string(mode)
+	d.Driver.Cache = string(mode)
 	log.Log.Infof("Driver cache mode for %s set to %s", t.BackendPath(), mode)
 
 	return nil
@@ -102,15 +103,15 @@ func IsPreAllocated(path string) bool {
 }
 
 // Set optimal io mode automatically
-func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
-	if disk == nil {
+func SetOptimalIOMode(d *api.Disk, isPreAllocated func(path string) bool) {
+	if d == nil {
 		return
 	}
 
-	ds := disksource.Resolve(*disk)
+	ds := disksource.Resolve(*d)
 
 	// If the user explicitly set the io mode do nothing
-	if disk.Driver.IO != "" {
+	if d.Driver.IO != "" {
 		return
 	}
 
@@ -119,15 +120,15 @@ func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
 	}
 
 	// O_DIRECT is needed for io="native"
-	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
+	if v1.DriverCache(d.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
 		if ds.BackendIsBlock() || isPreAllocated(ds.BackendPath()) {
-			disk.Driver.IO = v1.IONative
+			d.Driver.IO = v1.IONative
 		}
 	}
 	// For now we don't explicitly set io=threads even for sparse files as it's
 	// not clear it's better for all use-cases
-	if disk.Driver.IO != "" {
-		log.Log.Infof("Driver IO mode for %s set to %s", ds.BackendPath(), disk.Driver.IO)
+	if d.Driver.IO != "" {
+		log.Log.Infof("Driver IO mode for %s set to %s", ds.BackendPath(), d.Driver.IO)
 	}
 }
