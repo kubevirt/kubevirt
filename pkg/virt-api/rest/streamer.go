@@ -60,9 +60,9 @@ type DirectDialer struct {
 	dial        dialer
 }
 
-func NewRawStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer {
+func NewRawStreamer(dialer *DirectDialer) *Streamer {
 	return &Streamer{
-		dialer: NewDirectDialer(fetch, validate, dial),
+		dialer: dialer,
 		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			_, err := io.Copy(serverConn, clientConn.UnderlyingConn())
 			result <- err
@@ -74,9 +74,9 @@ func NewRawStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer
 	}
 }
 
-func NewWebsocketStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer {
+func NewWebsocketStreamer(dialer *DirectDialer) *Streamer {
 	return &Streamer{
-		dialer:          NewDirectDialer(fetch, validate, dial),
+		dialer:          dialer,
 		keepAliveClient: keepAliveClientStream,
 		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			_, err := kvcorev1.CopyFrom(serverConn, clientConn)

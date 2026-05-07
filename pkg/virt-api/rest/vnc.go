@@ -53,11 +53,11 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 	}
 
 	streamer := NewRawStreamer(
-		app.FetchVirtualMachineInstance,
-		vmiHasDisplay,
-		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			return conn.VNCURI(vmi, preserveSessionParam)
-		}),
+		NewDirectDialer(app.FetchVirtualMachineInstance, vmiHasDisplay,
+			app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+				return conn.VNCURI(vmi, preserveSessionParam)
+			}),
+		),
 	)
 
 	streamer.Handle(request, response)
