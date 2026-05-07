@@ -495,6 +495,60 @@ func (m *migrationMonitor) isAbortInProgress() bool {
 	return migration.AbortStatus != "" && migration.AbortStatus != string(v1.MigrationAbortFailed)
 }
 
+func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedNs int64, estimatedDowntimeMs uint32) {
+	logger := log.Log.Object(m.vmi)
+	sd := m.stallDetector
+
+	if !m.shouldTriggerTimeout(elapsedNs) {
+		return
+	}
+
+	if m.isMigrationPostCopy() {
+		return
+	}
+
+	if sd.ewmaBandwidthBps == 0 {
+		// In a typical migration, this case should not be possible.
+		logger.Error("Aborting migration due to illegal state: value of ewmaBandwidthBps not set!")
+		m.l.cancelMigration(m.vmi)
+		return
+	}
+
+	elapsedSeconds := elapsedNs / int64(time.Second)
+
+	if !m.stallDetector.switchoverInitiated {
+
+		// safety guard that protects against triggering a switch-over during a network drop
+		completable := sd.canFinishByDeadline(elapsedSeconds, m.acceptableCompletionTime*2, estimatedDowntimeMs)
+
+		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
+			logger.Info("Completion timeout reached: starting post-copy mode to force convergence")
+			if err := dom.MigrateStartPostCopy(0); err != nil {
+				logger.Reason(err).Error("failed to start post-copy migration")
+				return
+			}
+			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+			sd.switchoverInitiated = true
+			return
+		}
+		if m.options.AllowWorkloadDisruption && completable {
+			logger.Infof("Completion timeout reached: setting max downtime to %dms to force switchover", migrationutils.QEMUMaxMigrationDowntimeMS)
+			if err := dom.MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), 0); err != nil {
+				logger.Reason(err).Error("setting max downtime failed")
+				return
+			}
+			m.acceptableCompletionTime *= 2
+			m.switchOverDeadline = elapsedSeconds + switchoverTimeout
+			sd.switchoverInitiated = true
+			return
+		}
+
+	}
+
+	logger.Infof("Aborting migration due to completion timeout: elapsedSec=%d acceptableCompletionSec=%d", elapsedSeconds, m.acceptableCompletionTime)
+	m.l.cancelMigration(m.vmi)
+}
+
 func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action convergenceAction, reason string) {
 	sd := m.stallDetector
 	logger := log.Log.Object(m.vmi)
@@ -600,22 +654,26 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 
 		if !m.isAbortInProgress() {
 			if stats != nil && stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED && stats.DataRemainingSet && stats.TimeElapsedSet {
+				// the value in m.iterationRecord is accurate only when (1) we are the start an iteration or (2) if the
+				//  VM is paused or (3) if the VM is in post-copy.
 				if isIterationBoundary {
 					m.iterationRecord.remainingBytes = stats.DataRemaining
 					m.iterationRecord.elapsedMs = stats.TimeElapsed
 					if stalled := sd.processStallDetectionIteration(m.iterationRecord); stalled {
 						estimatedDowntimeMs := sd.estimateDowntimeMs(m.iterationRecord)
-						action, reason := sd.decideAction(m.iterationRecord, estimatedDowntimeMs)
+						action, reason := sd.decideAction(m.iterationRecord, estimatedDowntimeMs, m.start, m.acceptableCompletionTime)
 						m.triggerConvergenceAction(dom, action, reason)
 					}
+				} else if m.isPausedMigration() || m.isMigrationPostCopy() {
+					m.iterationRecord.remainingBytes = stats.DataRemaining
+					m.iterationRecord.elapsedMs = stats.TimeElapsed
 				} else if stats.MemBpsSet {
 					sd.updateBandwidthEstimate(stats.MemBps)
 				}
 			}
 
-			if m.shouldTriggerTimeout(elapsedNs) {
-				m.l.cancelMigration(m.vmi)
-			}
+			estimatedDowntimeMs := sd.estimateDowntimeMs(m.iterationRecord)
+			m.processCompletionTimeouts(dom, elapsedNs, estimatedDowntimeMs)
 		}
 
 	} else {
