@@ -436,29 +436,29 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		monitor.iterationCh = make(chan int, 16)
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
 		monitor.stallDetector = &stallDetector{
-			maxDowntimeMs:             options.MaxDowntimeMs,
-			progressTimeoutSeconds:    stallProgressTimeout,
-			patienceWindowDecayFactor: patienceWindowDecayFactor,
-			allowPostCopy:             options.AllowPostCopy,
-			allowWorkloadDisruption:   options.AllowWorkloadDisruption,
-			hasVFIO:                   vmitrait.HasVFIO(vmi),
+			stallDetectorOptions:    options.StallDetectorOptions,
+			maxDowntimeMs:           options.MaxDowntimeMs,
+			allowPostCopy:           options.AllowPostCopy,
+			allowWorkloadDisruption: options.AllowWorkloadDisruption,
+			hasVFIO:                 vmitrait.HasVFIO(vmi),
 		}
 		monitor.logger.V(3).Infof(
 			"initialized migration monitor: stallDetection=%t progressTimeout=%ds completionTimeoutPerGiB=%d maxDowntimeMs=%d allowPostCopy=%t allowWorkloadDisruption=%t "+
-				"stallMargin=%.2f stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%.2f patienceWindowDecayFactor=%.2f bandwidthEWMAAlpha=%.2f searchLocalMinima=%t",
+				"stallMargin=%.2f stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%.2f patienceWindowDecayFactor=%.2f bandwidthEWMAAlpha=%.2f searchLocalMinima=%t completionTimeoutFactor=%.2f",
 			options.StallDetectionEnabled,
 			options.ProgressTimeout,
 			options.CompletionTimeoutPerGiB,
 			options.MaxDowntimeMs,
 			options.AllowPostCopy,
 			options.AllowWorkloadDisruption,
-			stallMargin,
-			stallProgressTimeout,
-			switchoverTimeout,
-			preCopyPossibleFactor,
-			patienceWindowDecayFactor,
-			bandwidthEWMAAlpha,
-			searchLocalMinima,
+			options.StallDetectorOptions.StallMargin,
+			options.StallDetectorOptions.StallProgressTimeout,
+			options.StallDetectorOptions.SwitchoverTimeout,
+			options.StallDetectorOptions.PrecopyPossibleFactor,
+			options.StallDetectorOptions.PatienceWindowDecayFactor,
+			options.StallDetectorOptions.EwmaAlpha,
+			options.StallDetectorOptions.SearchLocalMinima,
+			options.StallDetectorOptions.CompletionTimeoutFactor,
 		)
 		// TODO: this limitation is actively being worked on; remove when resolved. ETA: QEMU 11.1
 		if vmitrait.HasVFIO(vmi) {
@@ -502,6 +502,11 @@ func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64, logg
 	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs, logger) && !m.stallDetectionEnabled
 }
 
+func (m *migrationMonitor) scaledCompletionDeadlineSeconds(baseSeconds int64) int64 {
+	m.logger.V(4).Infof("scaledCompletionDeadlineSeconds: baseSeconds=%ds, completionTimeoutFactor=%f", baseSeconds, m.options.StallDetectorOptions.CompletionTimeoutFactor)
+	return int64(float64(baseSeconds) * m.options.StallDetectorOptions.CompletionTimeoutFactor)
+}
+
 func (m *migrationMonitor) isMigrationProgressing() bool {
 	now := time.Now().UTC().UnixNano()
 
@@ -543,7 +548,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 	if !m.stallDetector.switchoverInitiated {
 
 		// safety guard that protects against triggering a switch-over during a network drop
-		completable := sd.canFinishByDeadline(elapsedSeconds, m.acceptableCompletionTime*2, estimatedDowntimeMs, logger)
+		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
 
 		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
 			logger.Info("completion timeout reached: starting post-copy mode to force convergence")
@@ -555,14 +560,15 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 			sd.switchoverInitiated = true
 			return
 		}
+		switchoverTimeout := sd.stallDetectorOptions.SwitchoverTimeout
 		if m.options.AllowWorkloadDisruption && completable {
 			logger.Infof("completion timeout reached: setting max downtime to %dms to force switchover", migrationutils.QEMUMaxMigrationDowntimeMS)
 			if err := dom.MigrateSetMaxDowntime(migrationutils.QEMUMaxMigrationDowntimeMS, 0); err != nil {
 				logger.Reason(err).Error("setting max downtime failed")
 				return
 			}
-			m.acceptableCompletionTime *= 2
-			m.switchOverDeadline = elapsedSeconds + switchoverTimeout
+			m.acceptableCompletionTime = m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime)
+			m.switchOverDeadline = elapsedSeconds + int64(switchoverTimeout)
 			sd.switchoverInitiated = true
 			return
 		}
@@ -596,13 +602,14 @@ func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action co
 	case actionHardStopAndCopy, actionSoftStopAndCopy:
 		now := time.Now().UTC().UnixNano()
 		elapsedSeconds := (now - m.start) / int64(time.Second)
+		switchoverTimeout := sd.stallDetectorOptions.SwitchoverTimeout
 
 		var downtime uint64
 		if action == actionHardStopAndCopy {
 			downtime = migrationutils.QEMUMaxMigrationDowntimeMS
 			logger.Infof("forcing switchover by setting max downtime to %dms: %s", downtime, reason)
 		} else {
-			downtime = sd.maxDowntimeMs
+			downtime = m.options.MaxDowntimeMs
 			logger.Infof("max downtime set to %dms: %s", downtime, reason)
 		}
 
@@ -613,7 +620,7 @@ func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action co
 		}
 
 		// since stop-and-copy is not guaranteed to start immediately (or ever), a "switch-over" deadline is needed
-		m.switchOverDeadline = elapsedSeconds + switchoverTimeout
+		m.switchOverDeadline = elapsedSeconds + int64(switchoverTimeout)
 
 	default:
 		logger.Error("unknown convergence action")
