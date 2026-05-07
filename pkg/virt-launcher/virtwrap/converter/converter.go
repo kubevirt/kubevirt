@@ -1,5 +1,4 @@
-/*
- * This file is part of the KubeVirt project
+/* This file is part of the KubeVirt project
 *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +21,6 @@ package converter
 import (
 	"fmt"
 	"slices"
-	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -35,9 +33,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
@@ -50,143 +45,7 @@ import (
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
-
-const (
-	deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
-)
-
-func assignDiskToSCSIController(disk *api.Disk, unit int) {
-	// Ensure we assign this disk to the correct scsi controller
-	if disk.Address == nil {
-		disk.Address = &api.Address{}
-	}
-	disk.Address.Type = "drive"
-	// This should be the index of the virtio-scsi controller, which is hard coded to 0
-	disk.Address.Controller = "0"
-	disk.Address.Bus = "0"
-	disk.Address.Unit = strconv.Itoa(unit)
-}
-
-func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]storage.DeviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
-	if diskDevice.Disk != nil {
-		var unit int
-		disk.Device = "disk"
-		disk.Target.Bus = diskDevice.Disk.Bus
-		disk.Target.Device, unit = storage.MakeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
-		if diskDevice.Disk.Bus == "scsi" {
-			assignDiskToSCSIController(disk, unit)
-		}
-		if diskDevice.Disk.PciAddress != "" {
-			if diskDevice.Disk.Bus != v1.DiskBusVirtio {
-				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
-			}
-			addr, err := device.NewPciAddressField(diskDevice.Disk.PciAddress)
-			if err != nil {
-				return fmt.Errorf("failed to configure disk %s: %v", diskDevice.Name, err)
-			}
-			disk.Address = addr
-		}
-		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
-		}
-		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
-		disk.Serial = diskDevice.Serial
-		if diskDevice.Shareable != nil {
-			if *diskDevice.Shareable {
-				if diskDevice.Cache == "" {
-					diskDevice.Cache = v1.CacheNone
-				}
-				if diskDevice.Cache != v1.CacheNone {
-					return fmt.Errorf("a sharable disk requires cache = none got: %v", diskDevice.Cache)
-				}
-				disk.Shareable = &api.Shareable{}
-			}
-		}
-	} else if diskDevice.LUN != nil {
-		var unit int
-		disk.Device = "lun"
-		disk.Target.Bus = diskDevice.LUN.Bus
-		disk.Target.Device, unit = storage.MakeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
-		if diskDevice.LUN.Bus == "scsi" {
-			assignDiskToSCSIController(disk, unit)
-		}
-		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
-		if diskDevice.LUN.Reservation {
-			setReservation(disk)
-		}
-	} else if diskDevice.CDRom != nil {
-		disk.Device = "cdrom"
-		disk.Target.Tray = string(diskDevice.CDRom.Tray)
-		disk.Target.Bus = diskDevice.CDRom.Bus
-		disk.Target.Device, _ = storage.MakeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
-		if diskDevice.CDRom.ReadOnly != nil {
-			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
-		} else {
-			disk.ReadOnly = toApiReadOnly(true)
-		}
-	}
-	disk.Driver = &api.DiskDriver{
-		Name:  "qemu",
-		Cache: string(diskDevice.Cache),
-		IO:    diskDevice.IO,
-	}
-	if diskDevice.Disk != nil || diskDevice.LUN != nil {
-		if !slices.Contains(c.VolumesDiscardIgnore, diskDevice.Name) {
-			disk.Driver.Discard = "unmap"
-		}
-		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
-		if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
-			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
-			disk.Capacity = storagetypes.GetDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
-		}
-	}
-	if numQueues != nil && disk.Target.Bus == v1.DiskBusVirtio {
-		disk.Driver.Queues = numQueues
-	}
-	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
-	if diskDevice.BootOrder != nil {
-		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
-	}
-	if (c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
-		disk.Driver.IOMMU = "on"
-	}
-
-	return nil
-}
-
-func setReservation(disk *api.Disk) {
-	disk.Source.Reservations = &api.Reservations{
-		Managed: "no",
-		SourceReservations: &api.SourceReservations{
-			Type: "unix",
-			Path: reservation.GetPrHelperSocketPath(),
-			Mode: "client",
-		},
-	}
-}
-
-func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
-	if diskDevice.ErrorPolicy == nil {
-		disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-		return nil
-	}
-	switch *diskDevice.ErrorPolicy {
-	case v1.DiskErrorPolicyStop, v1.DiskErrorPolicyIgnore, v1.DiskErrorPolicyReport, v1.DiskErrorPolicyEnospace:
-		disk.Driver.ErrorPolicy = *diskDevice.ErrorPolicy
-	default:
-		return fmt.Errorf("error policy %s not recognized", *diskDevice.ErrorPolicy)
-	}
-	return nil
-}
-
-func toApiReadOnly(src bool) *api.ReadOnly {
-	if src {
-		return &api.ReadOnly{}
-	}
-	return nil
-}
 
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *convertertypes.ConverterContext, diskIndex int) error {
 
@@ -463,7 +322,7 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 
 func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+		return fmt.Errorf(storage.DeviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 
 	disk.Source.File = config.GetSysprepDiskPath(volumeName)
@@ -474,7 +333,7 @@ func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) err
 
 func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Disk, c *convertertypes.ConverterContext) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+		return fmt.Errorf(storage.DeviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 
 	var dataSource cloudinit.DataSourceType
@@ -494,7 +353,7 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 
 func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *convertertypes.ConverterContext) error {
 	disk.Type = "file"
-	disk.ReadOnly = toApiReadOnly(true)
+	disk.ReadOnly = storage.ToApiReadOnly(true)
 	disk.Driver = &api.DiskDriver{
 		Type: "raw",
 		Name: "qemu",
@@ -509,7 +368,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *convertertyp
 
 func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *api.Disk) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+		return fmt.Errorf(storage.DeviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 
 	disk.Type = "file"
@@ -521,7 +380,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 
 func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, c *convertertypes.ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+		return fmt.Errorf(storage.DeviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
 	disk.Type = "file"
 	setDiskDriver(disk, "qcow2", true)
@@ -567,25 +426,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	disk.BackingStore.Type = backingDisk.Type
 
 	return nil
-}
-
-func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
-	if apiDisk.Target.Bus == v1.DiskBusVirtio {
-		if supplementalIOThreads != nil {
-			apiDisk.Driver.IOThreads = supplementalIOThreads
-		} else {
-			if iothreads.HasDedicatedIOThread(*disk) {
-				apiDisk.Driver.IOThread = pointer.P(currentDedicatedThread)
-				currentDedicatedThread += 1
-			} else {
-				apiDisk.Driver.IOThread = pointer.P(currentAutoThread)
-				// increment the threadId to be used next but wrap around at the thread limit
-				// the odd math here is because thread ID's start at 1, not 0
-				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
-			}
-		}
-	}
-	return currentDedicatedThread, currentAutoThread
 }
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convertertypes.ConverterContext) (err error) {
@@ -756,7 +596,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		newDisk := api.Disk{}
 		emptyCDRom := false
 
-		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
+		err := storage.Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
 			return err
 		}
@@ -794,11 +634,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if permReady || hotplugReady || emptyCDRom {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 		}
-		if err := setErrorPolicy(&disk, &newDisk); err != nil {
+		if err := storage.SetErrorPolicy(&disk, &newDisk); err != nil {
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
+			currentDedicatedThread, currentAutoThread = storage.AssignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
 		}
 	}
 

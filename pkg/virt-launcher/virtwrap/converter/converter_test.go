@@ -246,168 +246,6 @@ var _ = Describe("Converter", func() {
 	TestSmbios := &cmdv1.SMBios{}
 	EphemeralDiskImageCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 
-	Context("with v1.Disk", func() {
-		DescribeTable("Should define disk capacity as the minimum of capacity and request", func(arch string, requests, capacity, expected int64) {
-			context := &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch)}
-			v1Disk := v1.Disk{
-				Name: "myvolume",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{Bus: v1.VirtIO},
-				},
-			}
-			apiDisk := api.Disk{}
-			devicePerBus := map[string]storage.DeviceNamer{}
-			numQueues := uint(2)
-			volumeStatusMap := make(map[string]v1.VolumeStatus)
-			volumeStatusMap["myvolume"] = v1.VolumeStatus{
-				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
-					Capacity: k8sv1.ResourceList{
-						k8sv1.ResourceStorage: *resource.NewQuantity(capacity, resource.DecimalSI),
-					},
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceStorage: *resource.NewQuantity(requests, resource.DecimalSI),
-					},
-				},
-			}
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
-			Expect(apiDisk.Capacity).ToNot(BeNil())
-			Expect(*apiDisk.Capacity).To(Equal(expected))
-		},
-			MultiArchEntry("Higher request than capacity", int64(9999), int64(1111), int64(1111)),
-			MultiArchEntry("Lower request than capacity", int64(1111), int64(9999), int64(1111)),
-		)
-
-		DescribeTable("Should assign scsi controller to", func(diskDevice v1.DiskDevice) {
-			context := &convertertypes.ConverterContext{}
-			v1Disk := v1.Disk{
-				Name:       "myvolume",
-				DiskDevice: diskDevice,
-			}
-			apiDisk := api.Disk{}
-			devicePerBus := map[string]storage.DeviceNamer{}
-			numQueues := uint(2)
-			volumeStatusMap := make(map[string]v1.VolumeStatus)
-			volumeStatusMap["myvolume"] = v1.VolumeStatus{}
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
-			Expect(apiDisk.Address).ToNot(BeNil())
-			Expect(apiDisk.Address.Bus).To(Equal("0"))
-			Expect(apiDisk.Address.Controller).To(Equal("0"))
-			Expect(apiDisk.Address.Type).To(Equal("drive"))
-			Expect(apiDisk.Address.Unit).To(Equal("0"))
-		},
-			Entry("LUN-type disk", v1.DiskDevice{
-				LUN: &v1.LunTarget{Bus: "scsi"},
-			}),
-			Entry("Disk-type disk", v1.DiskDevice{
-				Disk: &v1.DiskTarget{Bus: "scsi"},
-			}),
-		)
-
-		DescribeTable("Should add boot order when provided", func(arch, expectedModel string) {
-			order := uint(1)
-			kubevirtDisk := &v1.Disk{
-				Name:      "mydisk",
-				BootOrder: &order,
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
-					},
-				},
-			}
-			convertedDisk := fmt.Sprintf(`<Disk device="disk" type="" model="%s">
-  <source></source>
-  <target bus="virtio" dev="vda"></target>
-  <driver name="qemu" type="" discard="unmap"></driver>
-  <alias name="ua-mydisk"></alias>
-  <boot order="1"></boot>
-</Disk>`, expectedModel)
-			xml := diskToDiskXML(arch, kubevirtDisk)
-			Expect(xml).To(Equal(convertedDisk))
-		},
-			Entry("on amd64", amd64, "virtio-non-transitional"),
-			Entry("on arm64", arm64, "virtio-non-transitional"),
-			Entry("on s390x", s390x, "virtio"),
-		)
-
-		DescribeTable("should set disk I/O mode if requested", func(arch string) {
-			v1Disk := &v1.Disk{
-				IO: "native",
-			}
-			xml := diskToDiskXML(arch, v1Disk)
-			expectedXML := `<Disk device="" type="">
-  <source></source>
-  <target></target>
-  <driver io="native" name="qemu" type=""></driver>
-  <alias name="ua-"></alias>
-</Disk>`
-			Expect(xml).To(Equal(expectedXML))
-		},
-			MultiArchEntry(""),
-		)
-
-		DescribeTable("should not set disk I/O mode if not requested", func(arch string) {
-			v1Disk := &v1.Disk{}
-			xml := diskToDiskXML(arch, v1Disk)
-			expectedXML := `<Disk device="" type="">
-  <source></source>
-  <target></target>
-  <driver name="qemu" type=""></driver>
-  <alias name="ua-"></alias>
-</Disk>`
-			Expect(xml).To(Equal(expectedXML))
-		},
-			MultiArchEntry(""),
-		)
-
-		DescribeTable("Should omit boot order when not provided", func(arch, expectedModel string) {
-			kubevirtDisk := &v1.Disk{
-				Name: "mydisk",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
-					},
-				},
-			}
-			var convertedDisk = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
-  <source></source>
-  <target bus="virtio" dev="vda"></target>
-  <driver name="qemu" type="" discard="unmap"></driver>
-  <alias name="ua-mydisk"></alias>
-</Disk>`, expectedModel)
-			xml := diskToDiskXML(arch, kubevirtDisk)
-			Expect(xml).To(Equal(convertedDisk))
-		},
-			Entry("on amd64", amd64, "virtio-non-transitional"),
-			Entry("on arm64", arm64, "virtio-non-transitional"),
-			Entry("on s390x", s390x, "virtio"),
-		)
-
-		DescribeTable("should set sharable and the cache if requested", func(arch, expectedModel string) {
-			v1Disk := &v1.Disk{
-				Name: "mydisk",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
-					},
-				},
-				Shareable: pointer.P(true),
-			}
-			var expectedXML = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
-  <source></source>
-  <target bus="virtio" dev="vda"></target>
-  <driver cache="none" name="qemu" type="" discard="unmap"></driver>
-  <alias name="ua-mydisk"></alias>
-  <shareable></shareable>
-</Disk>`, expectedModel)
-			xml := diskToDiskXML(arch, v1Disk)
-			Expect(xml).To(Equal(expectedXML))
-		},
-			Entry("on amd64", amd64, "virtio-non-transitional"),
-			Entry("on arm64", arm64, "virtio-non-transitional"),
-			Entry("on s390x", s390x, "virtio"),
-		)
-	})
-
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
@@ -2747,10 +2585,8 @@ var _ = Describe("Converter", func() {
 
 	Context("virtio block multi-queue", func() {
 		var vmi *v1.VirtualMachineInstance
-		var context *convertertypes.ConverterContext
 
 		BeforeEach(func() {
-			context = &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), UseVirtioTransitional: false}
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2786,36 +2622,6 @@ var _ = Describe("Converter", func() {
 				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
 			}
-		})
-
-		It("should assign queues to a device if requested", func() {
-			expectedQueues := uint(2)
-
-			v1Disk := v1.Disk{
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{Bus: v1.VirtIO},
-				},
-			}
-			apiDisk := api.Disk{}
-			devicePerBus := map[string]storage.DeviceNamer{}
-			numQueues := uint(2)
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, make(map[string]v1.VolumeStatus))
-			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
-			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
-		})
-
-		It("should not assign queues to a device if omitted", func() {
-			v1Disk := v1.Disk{
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
-				},
-			}
-			apiDisk := api.Disk{}
-			devicePerBus := map[string]storage.DeviceNamer{}
-			Expect(Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).
-				To(Succeed())
-			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
-			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
 
 		It("should assign correct number of queues with CPU hotplug topology", func() {
@@ -4096,15 +3902,6 @@ var _ = Describe("Converter", func() {
 		)
 	})
 })
-
-func diskToDiskXML(arch string, disk *v1.Disk) string {
-	devicePerBus := make(map[string]storage.DeviceNamer)
-	libvirtDisk := &api.Disk{}
-	Expect(Convert_v1_Disk_To_api_Disk(&convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch), UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).To(Succeed())
-	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
-	Expect(err).ToNot(HaveOccurred())
-	return string(data)
-}
 
 func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) string {
 	domain := vmiToDomain(vmi, c)
