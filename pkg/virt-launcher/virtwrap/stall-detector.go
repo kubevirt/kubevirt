@@ -54,6 +54,8 @@ type iterationRecord struct {
 type stallDetector struct {
 	// how long in seconds does a migration have to make progress before we take some action
 	progressTimeoutSeconds int64
+	// a bool indicating whether initial max downtime has been set (only set when maxDowntimeMs < 300, the default QEMU target downtime)
+	initialMaxDowntimeSet bool
 	// the maximum downtime in ms where a stun time up to this long is not considered a "disruption"
 	maxDowntimeMs uint64
 	// iteration records with the potential to end up in minRecordOutsideWindow
