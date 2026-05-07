@@ -7,6 +7,8 @@ go_library(
         "cgroup_v1_manager.go",
         "cgroup_v2_manager.go",
         "generated_mock_cgroup.go",
+        "generated_mock_safepath.go",
+        "safepath.go",
         "util.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cgroup",
@@ -36,6 +38,7 @@ go_test(
     srcs = [
         "cgroup_suite_test.go",
         "cgroup_test.go",
+        "util_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
@@ -50,5 +53,6 @@ go_test(
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
     ],
 )
