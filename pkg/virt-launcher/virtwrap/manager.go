@@ -923,11 +923,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
+		err := converterstorage.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated)
+		converterstorage.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converterstorage.IsPreAllocated)
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -973,7 +973,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 func expandDiskImageOffline(imagePath string, size int64) error {
 	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
 	var preallocateFlag string
-	if converter.IsPreAllocated(imagePath) {
+	if converterstorage.IsPreAllocated(imagePath) {
 		preallocateFlag = "--preallocation=falloc"
 	} else {
 		preallocateFlag = "--preallocation=off"
@@ -1404,11 +1404,11 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
 		// set drivers cache mode
-		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
+		err = converterstorage.SetDriverCacheMode(&attachDisk, l.directIOChecker)
 		if err != nil {
 			return err
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
+		converterstorage.SetOptimalIOMode(&attachDisk, converterstorage.IsPreAllocated)
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {

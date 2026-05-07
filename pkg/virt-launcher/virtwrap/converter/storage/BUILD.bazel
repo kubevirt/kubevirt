@@ -6,6 +6,7 @@ go_library(
         "blockio.go",
         "devicenaming.go",
         "directio.go",
+        "driver.go",
         "generated_mock_directio.go",
         "paths.go",
         "virtiofs.go",
@@ -13,6 +14,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/util:go_default_library",
@@ -32,6 +34,7 @@ go_test(
         "blockio_test.go",
         "devicenaming_test.go",
         "directio_test.go",
+        "driver_test.go",
         "storage_suite_test.go",
         "virtiofs_test.go",
     ],
@@ -45,5 +48,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )

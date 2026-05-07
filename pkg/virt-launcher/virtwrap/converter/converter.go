@@ -35,7 +35,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -52,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 )
 
 const (
@@ -181,108 +179,6 @@ func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 		return fmt.Errorf("error policy %s not recognized", *diskDevice.ErrorPolicy)
 	}
 	return nil
-}
-
-func SetDriverCacheMode(disk *api.Disk, directIOChecker storage.DirectIOChecker) error {
-	if disk == nil {
-		return fmt.Errorf("unable to set a driver cache mode, disk is nil")
-	}
-
-	t := disksource.Resolve(*disk)
-
-	if t.BackendPath() == "" {
-		if disk.Device == "cdrom" {
-			return nil
-		}
-		return fmt.Errorf("unable to set a driver cache mode, disk has no backend path")
-	}
-
-	var err error
-	supportDirectIO := true
-	mode := v1.DriverCache(disk.Driver.Cache)
-
-	if mode == "" || mode == v1.CacheNone {
-		if t.BackendIsBlock() {
-			supportDirectIO, err = directIOChecker.CheckBlockDevice(t.BackendPath())
-		} else {
-			supportDirectIO, err = directIOChecker.CheckFile(t.BackendPath())
-		}
-		if err != nil {
-			log.Log.Reason(err).Errorf("Direct IO check failed for %s", t.BackendPath())
-		} else if !supportDirectIO {
-			log.Log.Infof("%s file system does not support direct I/O", t.BackendPath())
-		}
-		// when the disk is backed-up by another file, we need to also check if that
-		// file sits on a file system that supports direct I/O
-		if backingFile := disk.BackingStore; backingFile != nil {
-			backingFilePath := backingFile.Source.File
-			backFileDirectIOSupport, err := directIOChecker.CheckFile(backingFilePath)
-			if err != nil {
-				log.Log.Reason(err).Errorf("Direct IO check failed for %s", backingFilePath)
-			} else if !backFileDirectIOSupport {
-				log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
-			}
-			supportDirectIO = supportDirectIO && backFileDirectIOSupport
-		}
-	}
-
-	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
-	if mode == v1.CacheNone && !supportDirectIO {
-		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, t.BackendPath())
-	}
-
-	// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
-	// else set cache = 'writethrough
-	if mode == "" && supportDirectIO {
-		mode = v1.CacheNone
-	} else if mode == "" && !supportDirectIO {
-		mode = v1.CacheWriteThrough
-	}
-
-	disk.Driver.Cache = string(mode)
-	log.Log.Infof("Driver cache mode for %s set to %s", t.BackendPath(), mode)
-
-	return nil
-}
-
-func IsPreAllocated(path string) bool {
-	diskInf, err := disk.GetDiskInfo(path)
-	if err != nil {
-		return false
-	}
-	// ActualSize can be a little larger then VirtualSize for qcow2
-	return diskInf.VirtualSize <= diskInf.ActualSize
-}
-
-// Set optimal io mode automatically
-func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
-	if disk == nil {
-		return
-	}
-
-	ds := disksource.Resolve(*disk)
-
-	// If the user explicitly set the io mode do nothing
-	if disk.Driver.IO != "" {
-		return
-	}
-
-	if ds.BackendPath() == "" {
-		return
-	}
-
-	// O_DIRECT is needed for io="native"
-	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
-		// set native for block device or pre-allocateed image file
-		if ds.BackendIsBlock() || isPreAllocated(ds.BackendPath()) {
-			disk.Driver.IO = v1.IONative
-		}
-	}
-	// For now we don't explicitly set io=threads even for sparse files as it's
-	// not clear it's better for all use-cases
-	if disk.Driver.IO != "" {
-		log.Log.Infof("Driver IO mode for %s set to %s", ds.BackendPath(), disk.Driver.IO)
-	}
 }
 
 func toApiReadOnly(src bool) *api.ReadOnly {
