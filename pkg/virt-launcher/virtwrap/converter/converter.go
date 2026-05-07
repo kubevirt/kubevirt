@@ -29,7 +29,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -659,40 +658,6 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType
 	return nil
 }
 
-func GetFilesystemVolumePath(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
-}
-
-// GetHotplugFilesystemVolumePath returns the path and file name of a hotplug disk image
-func GetHotplugFilesystemVolumePath(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", fmt.Sprintf("%s.img", volumeName))
-}
-
-func GetBlockDeviceVolumePath(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "dev", volumeName)
-}
-
-// GetHotplugBlockDeviceVolumePath returns the path and name of a hotplugged block device
-func GetHotplugBlockDeviceVolumePath(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName)
-}
-
-// GetVolumeImagePath returns the backing image path for a volume, considering whether it's
-// a hotplug volume and whether it's a block device
-func GetVolumeImagePath(volumeName string, isBlock, isHotplug bool) string {
-	if isBlock {
-		if isHotplug {
-			return GetHotplugBlockDeviceVolumePath(volumeName)
-		}
-		return GetBlockDeviceVolumePath(volumeName)
-	}
-
-	if isHotplug {
-		return GetHotplugFilesystemVolumePath(volumeName)
-	}
-	return GetFilesystemVolumePath(volumeName)
-}
-
 func setDiskDriver(disk *api.Disk, driverType string, discard bool) {
 	disk.Driver.Type = driverType
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
@@ -716,12 +681,12 @@ func convertVolumeWithCBT(volumeName, cbtPath string, isBlock bool, disk *api.Di
 		disk.Source.Name = volumeName
 		disk.Source.DataStore.Type = "block"
 		disk.Source.DataStore.Source = &api.DiskSource{
-			Dev: GetBlockDeviceVolumePath(volumeName),
+			Dev: storage.GetBlockDeviceVolumePath(volumeName),
 		}
 	} else {
 		disk.Source.DataStore.Type = "file"
 		disk.Source.DataStore.Source = &api.DiskSource{
-			File: GetFilesystemVolumePath(volumeName),
+			File: storage.GetFilesystemVolumePath(volumeName),
 		}
 	}
 
@@ -734,10 +699,10 @@ func convertVolumeWithoutCBT(volumeName string, isBlock bool, disk *api.Disk, vo
 	if isBlock {
 		disk.Type = "block"
 		disk.Source.Name = volumeName
-		disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+		disk.Source.Dev = storage.GetBlockDeviceVolumePath(volumeName)
 	} else {
 		disk.Type = "file"
-		disk.Source.File = GetFilesystemVolumePath(volumeName)
+		disk.Source.File = storage.GetFilesystemVolumePath(volumeName)
 	}
 	return nil
 }
@@ -756,12 +721,12 @@ func convertHotplugVolumeWithCBT(volumeName, cbtPath string, isBlock bool, disk 
 	if isBlock {
 		disk.Source.DataStore.Type = "block"
 		disk.Source.DataStore.Source = &api.DiskSource{
-			Dev: GetHotplugBlockDeviceVolumePath(volumeName),
+			Dev: storage.GetHotplugBlockDeviceVolumePath(volumeName),
 		}
 	} else {
 		disk.Source.DataStore.Type = "file"
 		disk.Source.DataStore.Source = &api.DiskSource{
-			File: GetHotplugFilesystemVolumePath(volumeName),
+			File: storage.GetHotplugFilesystemVolumePath(volumeName),
 		}
 	}
 
@@ -773,10 +738,10 @@ func convertHotplugVolumeWithoutCBT(volumeName string, isBlock bool, disk *api.D
 
 	if isBlock {
 		disk.Type = "block"
-		disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
+		disk.Source.Dev = storage.GetHotplugBlockDeviceVolumePath(volumeName)
 	} else {
 		disk.Type = "file"
-		disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
+		disk.Source.File = storage.GetHotplugFilesystemVolumePath(volumeName)
 	}
 	return nil
 }
@@ -817,7 +782,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *c
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	setDiskDriver(disk, "raw", false)
-	disk.Source.File = GetFilesystemVolumePath(volumeName)
+	disk.Source.File = storage.GetFilesystemVolumePath(volumeName)
 	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
@@ -836,7 +801,7 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 	disk.Type = "block"
 	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
 	disk.Source.Name = volumeName
-	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+	disk.Source.Dev = storage.GetBlockDeviceVolumePath(volumeName)
 	return nil
 }
 

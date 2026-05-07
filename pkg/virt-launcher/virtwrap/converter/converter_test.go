@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -1110,7 +1111,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Disks[0].BackingStore).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Disks[0].BackingStore.Type).To(Equal("block"))
 			By("Checking if the disk backing store device path is appropriately configured")
-			Expect(domain.Spec.Devices.Disks[0].BackingStore.Source.Dev).To(Equal(GetBlockDeviceVolumePath(blockPVCName)))
+			Expect(domain.Spec.Devices.Disks[0].BackingStore.Source.Dev).To(Equal(storage.GetBlockDeviceVolumePath(blockPVCName)))
 		})
 
 		It("should fail disk config pci address is set with a non virtio bus", func() {
@@ -1294,7 +1295,7 @@ var _ = Describe("Converter", func() {
 					Expect(disk.Source.DataStore.Format).ToNot(BeNil())
 					Expect(disk.Source.DataStore.Format.Type).To(Equal("raw"))
 					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
-					Expect(disk.Source.DataStore.Source.Dev).To(Equal(GetBlockDeviceVolumePath(volumeName)))
+					Expect(disk.Source.DataStore.Source.Dev).To(Equal(storage.GetBlockDeviceVolumePath(volumeName)))
 				},
 				Entry("PVC", "test-block-pvc",
 					func(name string) v1.VolumeSource {
@@ -3862,10 +3863,10 @@ var _ = Describe("Converter", func() {
 					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
 					if isBlock {
 						Expect(disk.Source.DataStore.Type).To(Equal("block"))
-						Expect(disk.Source.DataStore.Source.Dev).To(Equal(GetHotplugBlockDeviceVolumePath(volumeName)))
+						Expect(disk.Source.DataStore.Source.Dev).To(Equal(storage.GetHotplugBlockDeviceVolumePath(volumeName)))
 					} else {
 						Expect(disk.Source.DataStore.Type).To(Equal("file"))
-						Expect(disk.Source.DataStore.Source.File).To(Equal(GetHotplugFilesystemVolumePath(volumeName)))
+						Expect(disk.Source.DataStore.Source.File).To(Equal(storage.GetHotplugFilesystemVolumePath(volumeName)))
 					}
 				},
 				Entry("filesystem PVC", "test-hotplug-pvc",
