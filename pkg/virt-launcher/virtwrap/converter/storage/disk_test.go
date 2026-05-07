@@ -38,7 +38,7 @@ import (
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
-var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
+var _ = Describe("ConvertV1DiskToAPIDisk", func() {
 	DescribeTable("Should define disk capacity as the minimum of capacity and request", func(arch string, requests, capacity, expected int64) {
 		context := &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch)}
 		v1Disk := v1.Disk{
@@ -61,7 +61,7 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 				},
 			},
 		}
-		storage.Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
+		Expect(storage.ConvertV1DiskToAPIDisk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)).To(Succeed())
 		Expect(apiDisk.Capacity).ToNot(BeNil())
 		Expect(*apiDisk.Capacity).To(Equal(expected))
 	},
@@ -84,7 +84,7 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 		numQueues := uint(2)
 		volumeStatusMap := make(map[string]v1.VolumeStatus)
 		volumeStatusMap["myvolume"] = v1.VolumeStatus{}
-		storage.Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
+		Expect(storage.ConvertV1DiskToAPIDisk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)).To(Succeed())
 		Expect(apiDisk.Address).ToNot(BeNil())
 		Expect(apiDisk.Address.Bus).To(Equal("0"))
 		Expect(apiDisk.Address.Controller).To(Equal("0"))
@@ -168,7 +168,7 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 				},
 			},
 		}
-		var convertedDisk = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
+		convertedDisk := fmt.Sprintf(`<Disk device="disk" type="" model="%s">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type="" discard="unmap"></driver>
@@ -192,7 +192,7 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 			},
 			Shareable: pointer.P(true),
 		}
-		var expectedXML = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
+		expectedXML := fmt.Sprintf(`<Disk device="disk" type="" model="%s">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver cache="none" name="qemu" type="" discard="unmap"></driver>
@@ -218,7 +218,10 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 		apiDisk := api.Disk{}
 		devicePerBus := map[string]storage.DeviceNamer{}
 		numQueues := uint(2)
-		storage.Convert_v1_Disk_To_api_Disk(&convertertypes.ConverterContext{Architecture: archconverter.NewConverter(amd64)}, &v1Disk, &apiDisk, devicePerBus, &numQueues, make(map[string]v1.VolumeStatus))
+		ctx := &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(amd64)}
+		Expect(storage.ConvertV1DiskToAPIDisk(
+			ctx, &v1Disk, &apiDisk, devicePerBus, &numQueues, make(map[string]v1.VolumeStatus),
+		)).To(Succeed())
 		Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 		Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 	})
@@ -231,7 +234,8 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 		}
 		apiDisk := api.Disk{}
 		devicePerBus := map[string]storage.DeviceNamer{}
-		Expect(storage.Convert_v1_Disk_To_api_Disk(&convertertypes.ConverterContext{Architecture: archconverter.NewConverter(amd64)}, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).
+		ctx := &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(amd64)}
+		Expect(storage.ConvertV1DiskToAPIDisk(ctx, &v1Disk, &apiDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).
 			To(Succeed())
 		Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 		Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
@@ -241,7 +245,11 @@ var _ = Describe("Convert_v1_Disk_To_api_Disk", func() {
 func diskToDiskXML(arch string, disk *v1.Disk) string {
 	devicePerBus := make(map[string]storage.DeviceNamer)
 	libvirtDisk := &api.Disk{}
-	Expect(storage.Convert_v1_Disk_To_api_Disk(&convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch), UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).To(Succeed())
+	ctx := &convertertypes.ConverterContext{
+		Architecture:          archconverter.NewConverter(arch),
+		UseVirtioTransitional: false,
+	}
+	Expect(storage.ConvertV1DiskToAPIDisk(ctx, disk, libvirtDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus))).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)

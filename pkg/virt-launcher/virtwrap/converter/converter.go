@@ -353,7 +353,7 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 
 func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *convertertypes.ConverterContext) error {
 	disk.Type = "file"
-	disk.ReadOnly = storage.ToApiReadOnly(true)
+	disk.ReadOnly = storage.ToAPIReadOnly(true)
 	disk.Driver = &api.DiskDriver{
 		Type: "raw",
 		Name: "qemu",
@@ -596,7 +596,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		newDisk := api.Disk{}
 		emptyCDRom := false
 
-		err := storage.Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
+		err := storage.ConvertV1DiskToAPIDisk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
 			return err
 		}

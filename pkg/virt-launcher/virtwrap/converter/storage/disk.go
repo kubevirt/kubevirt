@@ -38,15 +38,19 @@ import (
 
 const (
 	DeviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
+	deviceCdrom                = "cdrom"
 )
 
-func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]DeviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+//nolint:gocyclo
+func ConvertV1DiskToAPIDisk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk,
+	prefixMap map[string]DeviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus,
+) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
 		disk.Target.Bus = diskDevice.Disk.Bus
 		disk.Target.Device, unit = MakeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
-		if diskDevice.Disk.Bus == "scsi" {
+		if diskDevice.Disk.Bus == v1.DiskBusSCSI {
 			assignDiskToSCSIController(disk, unit)
 		}
 		if diskDevice.Disk.PciAddress != "" {
@@ -62,7 +66,7 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
 			disk.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		}
-		disk.ReadOnly = ToApiReadOnly(diskDevice.Disk.ReadOnly)
+		disk.ReadOnly = ToAPIReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {
@@ -80,22 +84,22 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
 		disk.Target.Device, unit = MakeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
-		if diskDevice.LUN.Bus == "scsi" {
+		if diskDevice.LUN.Bus == v1.DiskBusSCSI {
 			assignDiskToSCSIController(disk, unit)
 		}
-		disk.ReadOnly = ToApiReadOnly(diskDevice.LUN.ReadOnly)
+		disk.ReadOnly = ToAPIReadOnly(diskDevice.LUN.ReadOnly)
 		if diskDevice.LUN.Reservation {
 			setReservation(disk)
 		}
 	} else if diskDevice.CDRom != nil {
-		disk.Device = "cdrom"
+		disk.Device = deviceCdrom
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.Target.Bus = diskDevice.CDRom.Bus
 		disk.Target.Device, _ = MakeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
 		if diskDevice.CDRom.ReadOnly != nil {
-			disk.ReadOnly = ToApiReadOnly(*diskDevice.CDRom.ReadOnly)
+			disk.ReadOnly = ToAPIReadOnly(*diskDevice.CDRom.ReadOnly)
 		} else {
-			disk.ReadOnly = ToApiReadOnly(true)
+			disk.ReadOnly = ToAPIReadOnly(true)
 		}
 	}
 	disk.Driver = &api.DiskDriver{
@@ -127,7 +131,9 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 	return nil
 }
 
-func AssignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
+func AssignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads,
+	autoThreads int, currentDedicatedThread, currentAutoThread uint,
+) (dedicatedThread, autoThread uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
 		if supplementalIOThreads != nil {
 			apiDisk.Driver.IOThreads = supplementalIOThreads
@@ -139,14 +145,14 @@ func AssignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads 
 				apiDisk.Driver.IOThread = pointer.P(currentAutoThread)
 				// increment the threadId to be used next but wrap around at the thread limit
 				// the odd math here is because thread ID's start at 1, not 0
-				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+				currentAutoThread = (currentAutoThread % uint(max(autoThreads, 1))) + 1 //nolint:gosec
 			}
 		}
 	}
 	return currentDedicatedThread, currentAutoThread
 }
 
-func ToApiReadOnly(src bool) *api.ReadOnly {
+func ToAPIReadOnly(src bool) *api.ReadOnly {
 	if src {
 		return &api.ReadOnly{}
 	}

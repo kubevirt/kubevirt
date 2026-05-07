@@ -39,7 +39,7 @@ func SetDriverCacheMode(d *api.Disk, directIOChecker DirectIOChecker) error {
 	t := disksource.Resolve(*d)
 
 	if t.BackendPath() == "" {
-		if d.Device == "cdrom" {
+		if d.Device == deviceCdrom {
 			return nil
 		}
 		return fmt.Errorf("unable to set a driver cache mode, disk has no backend path")
