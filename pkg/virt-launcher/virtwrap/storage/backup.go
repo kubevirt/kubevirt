@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	converterstorage "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -234,7 +234,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 		checkpointDisk := api.CheckpointDisk{
 			Name: disk.Target.Device,
 		}
-		volumeName := converter.GetVolumeNameByDisk(disk)
+		volumeName := converterstorage.GetVolumeNameByDisk(disk)
 		if DiskHasDataStore(&disk) {
 			backupDisk.Backup = "yes"
 			backupDisk.Type = "file"

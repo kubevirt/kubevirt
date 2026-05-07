@@ -33,7 +33,7 @@ import (
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	converterstorage "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -383,7 +383,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			log.Log.Reason(err).Error("Could not get disks with errors")
 		}
 		for _, disk := range domainDisksWithErrors {
-			volumeName := converter.GetVolumeNameByTarget(domain, disk.Disk)
+			volumeName := converterstorage.GetVolumeNameByTarget(domain, disk.Disk)
 			var reasonError string
 			switch disk.Error {
 			case libvirt.DOMAIN_DISK_ERROR_NONE:

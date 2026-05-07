@@ -67,11 +67,6 @@ const (
 	maxCustomBlockSizeS390x    = 4096
 )
 
-type deviceNamer struct {
-	existingNameMap map[string]string
-	usedDeviceMap   map[string]string
-}
-
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	// Ensure we assign this disk to the correct scsi controller
 	if disk.Address == nil {
@@ -84,12 +79,12 @@ func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	disk.Address.Unit = strconv.Itoa(unit)
 }
 
-func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]storage.DeviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
 		disk.Target.Bus = diskDevice.Disk.Bus
-		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
+		disk.Target.Device, unit = storage.MakeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
 		if diskDevice.Disk.Bus == "scsi" {
 			assignDiskToSCSIController(disk, unit)
 		}
@@ -123,7 +118,7 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		var unit int
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
-		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		disk.Target.Device, unit = storage.MakeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		if diskDevice.LUN.Bus == "scsi" {
 			assignDiskToSCSIController(disk, unit)
 		}
@@ -135,7 +130,7 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.Target.Bus = diskDevice.CDRom.Bus
-		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
+		disk.Target.Device, _ = storage.MakeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
 		if diskDevice.CDRom.ReadOnly != nil {
 			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
 		} else {
@@ -444,64 +439,6 @@ func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
 	if disk.Driver.IO != "" {
 		log.Log.Infof("Driver IO mode for %s set to %s", ds.BackendPath(), disk.Driver.IO)
 	}
-}
-
-func (n *deviceNamer) getExistingVolumeValue(key string) (string, bool) {
-	if _, ok := n.existingNameMap[key]; ok {
-		return n.existingNameMap[key], true
-	}
-	return "", false
-}
-
-func (n *deviceNamer) getExistingTargetValue(key string) (string, bool) {
-	if _, ok := n.usedDeviceMap[key]; ok {
-		return n.usedDeviceMap[key], true
-	}
-	return "", false
-}
-
-func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]deviceNamer) (string, int) {
-	prefix := getPrefixFromBus(bus)
-	if _, ok := prefixMap[prefix]; !ok {
-		// This should never happen since the prefix map is populated from all disks.
-		prefixMap[prefix] = deviceNamer{
-			existingNameMap: make(map[string]string),
-			usedDeviceMap:   make(map[string]string),
-		}
-	}
-	deviceNamer := prefixMap[prefix]
-	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
-		for i := 0; i < 26*26*26; i++ {
-			calculatedName := FormatDeviceName(prefix, i)
-			if calculatedName == name {
-				return name, i
-			}
-		}
-		log.Log.Error("Unable to determine index of device")
-		return name, 0
-	}
-	// Name not found yet, generate next new one.
-	for i := 0; i < 26*26*26; i++ {
-		name := FormatDeviceName(prefix, i)
-		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
-			deviceNamer.existingNameMap[diskName] = name
-			deviceNamer.usedDeviceMap[name] = diskName
-			return name, i
-		}
-	}
-	return "", 0
-}
-
-// port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
-func FormatDeviceName(prefix string, index int) string {
-	base := int('z' - 'a' + 1)
-	name := ""
-
-	for index >= 0 {
-		name = string(rune('a'+(index%base))) + name
-		index = (index / base) - 1
-	}
-	return prefix + name
 }
 
 func toApiReadOnly(src bool) *api.ReadOnly {
@@ -1071,7 +1008,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
-	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
+	prefixMap := storage.NewDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
 	currentDedicatedThread := uint(autoThreads + 1)
 	supplementalIOThreads := iothreads.SupplementalPoolThreadCount(vmi)
@@ -1156,69 +1093,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func getPrefixFromBus(bus v1.DiskBus) string {
-	switch bus {
-	case v1.DiskBusVirtio:
-		return "vd"
-	case v1.DiskBusSATA, v1.DiskBusSCSI, v1.DiskBusUSB:
-		return "sd"
-	default:
-		log.Log.Errorf("Unrecognized bus '%s'", bus)
-		return ""
-	}
-}
-
-func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[string]deviceNamer {
-	prefixMap := make(map[string]deviceNamer)
-	volumeTargetMap := make(map[string]string)
-	for _, volumeStatus := range volumeStatuses {
-		if volumeStatus.Target != "" {
-			volumeTargetMap[volumeStatus.Name] = volumeStatus.Target
-		}
-	}
-
-	for _, disk := range disks {
-		var prefix string
-		switch {
-		case disk.Disk != nil:
-			prefix = getPrefixFromBus(disk.Disk.Bus)
-		case disk.LUN != nil:
-			prefix = getPrefixFromBus(disk.LUN.Bus)
-		case disk.CDRom != nil:
-			prefix = getPrefixFromBus(disk.CDRom.Bus)
-		default:
-			continue
-		}
-
-		if _, ok := prefixMap[prefix]; !ok {
-			prefixMap[prefix] = deviceNamer{
-				existingNameMap: make(map[string]string),
-				usedDeviceMap:   make(map[string]string),
-			}
-		}
-		namer := prefixMap[prefix]
-		if _, ok := volumeTargetMap[disk.Name]; ok {
-			namer.existingNameMap[disk.Name] = volumeTargetMap[disk.Name]
-			namer.usedDeviceMap[volumeTargetMap[disk.Name]] = disk.Name
-		}
-	}
-	return prefixMap
-}
-
-func GetVolumeNameByDisk(disk api.Disk) string {
-	return disk.Alias.GetName()
-}
-
-// GetVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
-func GetVolumeNameByTarget(domain *api.Domain, target string) string {
-	for _, d := range domain.Spec.Devices.Disks {
-		if d.Target.Device == target {
-			return GetVolumeNameByDisk(d)
-		}
-	}
-	return ""
 }
 
 func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
