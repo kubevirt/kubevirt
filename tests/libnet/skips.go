@@ -12,7 +12,7 @@ func SkipWhenClusterNotSupportIpv4() {
 	clusterSupportsIpv4, err := cluster.SupportsIpv4()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster supports ipv4")
 	if !clusterSupportsIpv4 {
-		Skip("This test requires an ipv4 network config.")
+		Skip("This test requires an ipv4 network config.") //nolint:forbidigo
 	}
 }
 
@@ -20,7 +20,7 @@ func SkipWhenClusterNotSupportIpv6() {
 	clusterSupportsIpv6, err := cluster.SupportsIpv6()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to infer if the cluster supports ipv6")
 	if !clusterSupportsIpv6 {
-		Skip("This test requires an ipv6 network config.")
+		Skip("This test requires an ipv6 network config.") //nolint:forbidigo
 	}
 }
 

@@ -43,7 +43,7 @@ func init() {
 var _ = Describe("NMState", integrationLabel, func() {
 	BeforeEach(func() {
 		if !runIntegrationTests {
-			Skip("integration tests are not set to run")
+			Skip("integration tests are not set to run") //nolint:forbidigo
 		}
 	})
 

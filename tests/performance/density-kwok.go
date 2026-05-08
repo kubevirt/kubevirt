@@ -57,7 +57,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 
 	BeforeEach(func() {
 		if !flags.DeployFakeKWOKNodesFlag {
-			Skip("Skipping test as KWOK flag is not enabled")
+			Skip("Skipping test as KWOK flag is not enabled") //nolint:forbidigo
 		}
 
 		virtClient = kubevirt.Client()

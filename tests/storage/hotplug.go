@@ -840,7 +840,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				exists := false
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Fail no filesystem storage class available")
+					Skip("Fail no filesystem storage class available") //nolint:forbidigo
 				}
 
 				vmi := libvmifact.NewCirros()
@@ -866,7 +866,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			It("should count only vmis with hotplug ephemeral volumes, ignoring persistent volumes and unplugs", Serial, func() {
 				if !isPrometheusDeployed() {
-					Skip("Prometheus not deployed")
+					Skip("Prometheus not deployed") //nolint:forbidigo
 				}
 				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
@@ -912,7 +912,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			It("should ignore delcarative hotplugs", Serial, func() {
 				if !isPrometheusDeployed() {
-					Skip("Prometheus not deployed")
+					Skip("Prometheus not deployed") //nolint:forbidigo
 				}
 				kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
