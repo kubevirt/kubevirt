@@ -95,7 +95,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVM(hotPluggedVM), 6*time.Minute, 3*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
@@ -128,7 +128,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 					}
 				}
 				return nil
-			}).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(Not(BeNil()))
+			}, 30*time.Second, time.Second).Should(Not(BeNil()))
 
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migration)
