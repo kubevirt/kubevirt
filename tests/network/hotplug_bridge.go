@@ -101,7 +101,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVM(hotPluggedVM), 6*time.Minute, 3*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
@@ -202,7 +202,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			)
 			anotherVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVMI(anotherVmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(anotherVmi), 6*time.Minute, 3*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(anotherVmi)).To(Succeed())
 
 			By("Ping from the VM with hotplugged interface to the other VM")
@@ -324,7 +324,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Eventually(matcher.ThisVM(vm)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVM(vm), 6*time.Minute, 3*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
