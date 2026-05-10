@@ -20,6 +20,8 @@
 package eventsserver_test
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,10 +29,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	eventsserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 )
 
@@ -92,5 +96,36 @@ var _ = Describe("RunServer", func() {
 
 		close(stopChan)
 		Eventually(errChan).WithTimeout(15 * time.Second).Should(Receive(BeNil()))
+	})
+})
+
+var _ = Describe("HandleDomainEvent", func() {
+	var (
+		eventChan chan watch.Event
+		notify    *eventsserver.Notify
+	)
+
+	BeforeEach(func() {
+		eventChan = make(chan watch.Event, 1)
+		notify = &eventsserver.Notify{
+			EventChan: eventChan,
+		}
+	})
+
+	It("should not translate domain error events to informer watch.Error event", func() {
+		statusJSON, err := json.Marshal(&metav1.Status{
+			Status:  metav1.StatusFailure,
+			Message: "domain error",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		response, err := notify.HandleDomainEvent(context.Background(), &notifyv1.DomainEventRequest{
+			EventType:  string(watch.Error),
+			StatusJSON: statusJSON,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(response.Success).To(BeTrue())
+
+		Consistently(eventChan).WithTimeout(100 * time.Millisecond).ShouldNot(Receive())
 	})
 })

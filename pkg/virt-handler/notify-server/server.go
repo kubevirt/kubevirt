@@ -88,7 +88,6 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 		n.EventChan <- watch.Event{Type: watch.Deleted, Object: domain}
 	case string(watch.Error):
 		log.Log.Object(domain).Errorf("Domain error event with message: %s", status.Message)
-		n.EventChan <- watch.Event{Type: watch.Error, Object: status}
 	}
 	return response, nil
 }
