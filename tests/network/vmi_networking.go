@@ -207,8 +207,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
 			// Use alpine because cirros dhcp client starts prematurely before link is ready
-			e1000ModelIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			e1000ModelIface.Model = "e1000"
+			e1000ModelIface := libvmi.InterfaceWithModel(libvmi.InterfaceDeviceWithMasqueradeBinding(), "e1000")
 			e1000ModelIface.PciAddress = "0000:02:01.0"
 
 			const secondaryNetName = "secondary-net"
