@@ -591,8 +591,8 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 
 	if l.reconnect != nil {
 		// Notify the callback about the reconnect through channel.
-		// This way we give the callback a chance to emit an error to the watcher
-		// ListWatcher will re-register automatically afterwards
+		// The callback triggers an immediate domain state reconciliation
+		// via eventCallback, sending a watch.Modified event to virt-handler.
 		l.reconnect <- true
 	}
 	return nil
