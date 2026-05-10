@@ -30,8 +30,8 @@ environment.
   annotation, the pod will receive a device from the pool allocated by the
   device plugin, which avoids the need to manually pass the required PCI
   address.
-* [OpenShift SR-IOV operator](https://github.com/openshift/sriov-network-operator)
-  configures kernel for SR-IOV, drains resources and reboots the kernel as
+* [SR-IOV Network Operator](https://github.com/k8snetworkplumbingwg/sriov-network-operator)
+  configures the kernel for SR-IOV, drains resources, and reboots the kernel as
   needed, deploys components listed above, and, based on values in policy CRD
   resources managed by admin, configures the above listed components and the
   host.
@@ -43,25 +43,23 @@ environment.
 # Configuration
 
 > NOTE: steps to configure SR-IOV on a host are only applicable if you don't
-> use OpenShift SR-IOV operator to deploy SR-IOV components. Despite the name,
-> the operator supports installation on a plain Kubernetes cluster. The
-> operator handles most of the steps discussed below, including configuring
-> kernel parameters. The only step that cannot be handled by the operator is
-> BIOS setup, which should be handled by other means (either manually or
-> through some kind of IPMI driven automation).
+> use the SR-IOV Network Operator to deploy SR-IOV components. The operator
+> handles most of the steps discussed below, including configuring kernel
+> parameters. The only step that cannot be handled by the operator is BIOS
+> setup, which should be handled by other means (either manually or through
+> some kind of IPMI driven automation).
 >
-> Documentation on how to use the operator
-> [is located](https://github.com/openshift/sriov-network-operator/blob/master/README.md)
-> [elsewhere](https://github.com/openshift/sriov-network-operator/blob/master/doc/quickstart.md).
+> Documentation on how to use the operator is available in the
+> [SR-IOV Network Operator repository](https://github.com/k8snetworkplumbingwg/sriov-network-operator).
 > Just remember to set `SriovNetworkNodePolicy` to use `deviceType: vfio-pci`
 > when configuring the operator.
 >
 > For local development purposes, one should be able to (re)use the same
 > [kind](https://kind.sigs.k8s.io/) based provider that the official upstream
-> SR-IOV CI relies on, for example:
+> SR-IOV CI relies on:
 >
 > ``` 
-> $ export KUBEVIRT_PROVIDER=kind-k8s-sriov-1.14.2
+> $ export KUBEVIRT_PROVIDER=kind-sriov
 >
 > $ make cluster-up
 > ```
@@ -135,131 +133,39 @@ You can use your preferred mechanism to deploy your Kubernetes cluster as long
 as you deploy on bare metal. Note that using virtualized environment is
 problematic with SR-IOV because to use SR-IOV PFs in such environment, one
 would first need to pass through PF devices from hypervisor level into the
-virtual machines. That's why right now it's impossible to use regular providers
-that use qemu machines for SR-IOV development.
+virtual machines.
 
-Current recommendation is to use the official KubeVirt operator to deploy
-clusters.
-
-You may still want to deploy software using `local` provider if you'd like to
-deploy from KubeVirt sources though.
-
-In the following example, we configure the cluster using `local` provider which
-is part of kubevirt/kubevirt repo. Please consult
-[documentation](https://github.com/kubevirt/kubevirt/blob/main/kubevirtci/cluster-up/cluster/local/README.md)
-for general information on setting up a host using the `local` provider.
-
-The `local` provider does not install default CNI plugins like `loopback`. So
-first, install default CNI plugins:
+The recommended approach for development is to use the `kind-sriov` provider,
+which sets up a Kind-based cluster with all SR-IOV components pre-configured:
 
 ``` 
-$ go get -u -d github.com/containernetworking/plugins/
-$ cd $GOPATH/src/github.com/containernetworking/plugins/
-$ ./build.sh
-$ mkdir -p /opt/cni/bin/
-$ cp bin/* /opt/cni/bin/
-```
-
-Then, prepare the Kubernetes tree for CNI enabled deployment:
-
-``` 
-$ go get -u -d k8s.io/kubernetes
-$ cd $GOPATH/src/k8s.io/kubernetes
-$ git diff
-diff --git a/hack/local-up-cluster.sh b/hack/local-up-cluster.sh
-index bcf988b..9911eed 100755
---- a/hack/local-up-cluster.sh
-+++ b/hack/local-up-cluster.sh
-@@ -639,6 +639,8 @@ function start_controller_manager {
-       --use-service-account-credentials \
-       --controllers="${KUBE_CONTROLLERS}" \
-       --leader-elect=false \
-+      --cert-dir="$CERT_DIR" \
-+      --allocate-node-cidrs=true --cluster-cidr=10.244.0.0/16 \
-       --master="https://${API_HOST}:${API_SECURE_PORT}" >"${CTLRMGR_LOG}" 2>&1 &
-     CTLRMGR_PID=$!
- }
-export NET_PLUGIN=cni
-export CNI_CONF_DIR=/etc/cni/net.d/
-export CNI_BIN_DIR=/opt/cni/bin/
-```
-
-Install etcd:
-
-``` 
-$ ./hack/install-etcd.sh
-```
-
-Use `local` provider for KubeVirt:
-
-``` 
-$ export KUBEVIRT_PROVIDER=local
-```
-
-Now finally, deploy Kubernetes:
-
-``` 
-$ cd $GOPATH/src/kubevirt.io/kubevirt
+$ export KUBEVIRT_PROVIDER=kind-sriov
 $ make cluster-up
 ```
+
+See `kubevirtci/cluster-up/cluster/kind-sriov/README.md` for more details,
+including multi-cluster and custom-image configurations.
 
 Once the cluster is deployed, we can move to SR-IOV specific components.
 
 # Deploy SR-IOV services
 
-> NOTE: as stated above, manual deployment of SR-IOV components is not
-> recommended. Please consider using SR-IOV operator instead. But if you know
-> what you are doing, keep reading.
+> NOTE: manual deployment of SR-IOV components is not recommended. Please
+> consider using the
+> [SR-IOV Network Operator](https://github.com/k8snetworkplumbingwg/sriov-network-operator)
+> instead. The `kind-sriov` provider handles this automatically for development
+> clusters.
 
-First, deploy latest Multus with default Flannel backend.
+The following components must be deployed to support SR-IOV:
 
-``` 
-$ go get -u -d github.com/intel/multus-cni
-$ cd $GOPATH/src/github.com/intel/multus-cni/
-$ mkdir -p /etc/cni/net.d
-$ cp images/70-multus.conf /etc/cni/net.d/
-$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
-$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
-```
+* [Multus](https://github.com/k8snetworkplumbingwg/multus-cni)
+* [SR-IOV device plugin](https://github.com/k8snetworkplumbingwg/sriov-network-device-plugin)
+* [SR-IOV CNI plugin](https://github.com/k8snetworkplumbingwg/sriov-cni)
 
-Now, deploy SR-IOV device plugin. Adjust config.json file for your particular
-setup. More information about configuration file format:
-https://github.com/intel/sriov-network-device-plugin/blob/master/README.md#configurations
-
-``` 
-$ go get -u -d github.com/intel/sriov-network-device-plugin/
-$ cat <<EOF > /etc/pcidp/config.json
-{
-    "resourceList":
-    [
-        {
-            "resourceName": "sriov",
-            "rootDevices": ["05:00.0", "05:00.1"],
-            "sriovMode": true,
-            "deviceType": "vfio"
-        }
-    ]
-}
-EOF
-$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
-```
-
-Deploy the SR-IOV CNI plugin.
-
-``` 
-$ go get -u -d github.com/intel/sriov-cni/
-$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
-```
-
-Finally, create a new SR-IOV network CRD that will use SR-IOV device plugin to allocate devices.
-
-``` 
-./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/deployments/sriov-crd.yaml
-```
-
-Just make sure that the network spec refers to the right resource name for
-SR-IOV resources configured in SR-IOV device plugin configuration file
-(config.json).
+After deploying them, create a `NetworkAttachmentDefinition` that refers to the
+SR-IOV resource name configured in the device plugin `config.json`. Just make
+sure that the network spec refers to the right resource name for SR-IOV
+resources configured in the SR-IOV device plugin configuration file.
 
 # Install KubeVirt services
 
@@ -282,18 +188,14 @@ able to post it and get a machine attached to an SR-IOV device via VFIO. Note
 that the `NetworkAttachmentDefinition` resource should also refer, in its
 annotations, to a correct resource name as reported by SR-IOV device plugin for
 all this to work. More details on usage can be found in
-[KubeVirt](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=sriov)
-and [SR-IOV operator](https://github.com/openshift/sriov-network-operator/blob/master/doc/quickstart.md)
-user documentation.
+[KubeVirt user documentation](https://kubevirt.io/user-guide/network/interfaces_and_networks/#sriov)
+and the [SR-IOV Network Operator documentation](https://github.com/k8snetworkplumbingwg/sriov-network-operator).
 
 > **NOTE:**  In cases where no VLAN is required on the VF, an explicit definition of `vlan: 0` needs to be set on the NAD.
 > If the VLAN field is missing, the VF VLAN will not be set and any existing setting on it will be left untouched.
->
-> For more details please address the SR-IOV-CNI issue at: 
-> https://github.com/openshift/sriov-cni/issues/25#issue-816231435
 
 # External resources
 
-* [User guide section on SR-IOV](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=sriov)
-* [OpenShift user docs on SR-IOV](https://docs.openshift.com/container-platform/4.2/networking/multiple-networks/configuring-sr-iov.html)
+* [KubeVirt user documentation on SR-IOV](https://kubevirt.io/user-guide/network/interfaces_and_networks/#sriov)
+* [SR-IOV Network Operator](https://github.com/k8snetworkplumbingwg/sriov-network-operator)
 * [Doug Smith's blog post on deploying and testing SR-IOV](https://dougbtv.com/nfvpe/2019/05/15/kubevirt-sriov/)
