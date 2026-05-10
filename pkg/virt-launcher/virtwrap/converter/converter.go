@@ -274,27 +274,11 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 	return nil
 }
 
-// Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
-func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-	disk.Type = "file"
-	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
-	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
-	return nil
-}
-
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
 	disk.Source.Name = volumeName
 	disk.Source.Dev = storage.GetBlockDeviceVolumePath(volumeName)
-	return nil
-}
-
-// Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk takes a block device source and builds the domain Disk representation
-func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-	disk.Type = "block"
-	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
-	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
 	return nil
 }
 
