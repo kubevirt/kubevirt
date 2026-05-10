@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -79,9 +80,9 @@ var _ = Describe("Notify", func() {
 			vmiStore = vmiInformer.GetStore()
 			e = &eventCaller{}
 
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
-			}()
+			go func(ec chan watch.Event, rec *record.FakeRecorder, vs cache.Store) {
+				notifyserver.RunServer(shareDir, stop, ec, rec, vs)
+			}(eventChan, recorder, vmiStore)
 			// mimic pipe
 			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
 			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
@@ -135,6 +136,71 @@ var _ = Describe("Notify", func() {
 				Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
 				Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
 			)
+
+			It("should not send watch.Error event on libvirt reconnect", func() {
+				By("Setting up StartDomainNotifier with a mock connection")
+				ctrl := gomock.NewController(GinkgoT())
+				mockConn := testing.NewLibvirt(ctrl)
+
+				var reconnectChan chan bool
+				mockConn.ConnectionEXPECT().SetReconnectChan(gomock.Any()).Do(func(ch chan bool) {
+					reconnectChan = ch
+				})
+				mockConn.ConnectionEXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventDeviceAddedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any()).Return(nil)
+
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.UID = "1234"
+				agentStore := agentpoller.NewAsyncAgentStore()
+
+				err := client.StartDomainNotifier(
+					mockConn.VirtConnection,
+					deleteNotificationSent,
+					vmi,
+					"test_domain",
+					&agentStore,
+					10*time.Second,
+					10*time.Second,
+					10*time.Second,
+					10*time.Second,
+					10*time.Second,
+					metadataCache(),
+					false,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Triggering a libvirt reconnect")
+				Expect(reconnectChan).ToNot(BeNil())
+				reconnectChan <- true
+
+				By("Verifying no watch.Error event is sent to virt-handler")
+				Consistently(eventChan, 3*time.Second).ShouldNot(Receive())
+			})
+
+			It("should send watch.Modified event on libvirt reconnect when domain cache is populated", func() {
+				domain := api.NewMinimalDomain("test")
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+				// Exercises the reconnect handler's code path when domainCache is non-nil.
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache(), false)
+
+				var event watch.Event
+				Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+				Expect(event.Type).To(Equal(watch.Modified))
+				newDomain, ok := event.Object.(*api.Domain)
+				Expect(ok).To(BeTrue())
+				Expect(newDomain.Status.Status).To(Equal(api.Running))
+			})
 		})
 
 		It("should receive a delete event when a VirtualMachineInstance is undefined",
