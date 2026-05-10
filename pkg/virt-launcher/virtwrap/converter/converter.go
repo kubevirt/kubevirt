@@ -176,83 +176,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	volumeIndices := map[string]int{}
-	volumes := map[string]*v1.Volume{}
-	for i, volume := range vmi.Spec.Volumes {
-		volumes[volume.Name] = volume.DeepCopy()
-		volumeIndices[volume.Name] = i
-	}
-
-	var numBlkQueues *uint
-	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-	vcpus := uint(cpuCount)
-	if vcpus == 0 {
-		vcpus = uint(1)
-	}
-
-	if virtioBlkMQRequested {
-		numBlkQueues = &vcpus
-	}
-
-	volumeStatusMap := make(map[string]v1.VolumeStatus)
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		volumeStatusMap[volumeStatus.Name] = volumeStatus
-	}
-
-	prefixMap := storage.NewDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
-	currentAutoThread := uint(1)
-	currentDedicatedThread := uint(autoThreads + 1)
-	supplementalIOThreads := iothreads.SupplementalPoolThreadCount(vmi)
-	for _, disk := range vmi.Spec.Domain.Devices.Disks {
-		newDisk := api.Disk{}
-		emptyCDRom := false
-
-		err := storage.ConvertV1DiskToAPIDisk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
-		if err != nil {
-			return err
-		}
-		volume := volumes[disk.Name]
-		if volume == nil {
-			if disk.CDRom == nil {
-				return fmt.Errorf("no matching volume with name %s found", disk.Name)
-			}
-			emptyCDRom = true
-		}
-
-		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
-		switch {
-		case emptyCDRom:
-			err = storage.ConvertV1MissingVolumeToAPIDisk(&newDisk)
-		case hpOk:
-			err = storage.ConvertV1HotplugVolumeToAPIDisk(volume, &newDisk, c)
-		default:
-			err = storage.ConvertV1VolumeToAPIDisk(volume, &newDisk, c, volumeIndices[disk.Name])
-		}
-
-		if err != nil {
-			return err
-		}
-
-		if err := storage.ConvertV1BlockSizeToAPIBlockIO(&disk, &newDisk, c.Architecture.GetArchitecture()); err != nil {
-			return err
-		}
-
-		_, isPermVolume := c.PermanentVolumes[disk.Name]
-		// if len(c.PermanentVolumes) == 0, it means the vmi is not ready yet, add all disks
-		permReady := isPermVolume || len(c.PermanentVolumes) == 0
-		hotplugReady := hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)
-
-		if permReady || hotplugReady || emptyCDRom {
-			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
-		}
-		if err := storage.SetErrorPolicy(&disk, &newDisk); err != nil {
-			return err
-		}
-		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = storage.AssignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
-		}
+	if err := storage.ConvertDisks(vmi, domain, c); err != nil {
+		return err
 	}
 
 	if vmi.Spec.Domain.CPU != nil {

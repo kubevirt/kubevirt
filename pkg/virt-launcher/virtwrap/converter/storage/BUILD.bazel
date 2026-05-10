@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "blockio.go",
+        "converter.go",
         "devicenaming.go",
         "directio.go",
         "disk.go",
@@ -30,6 +31,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/iothreads:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/virtio:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//pkg/virt-launcher/virtwrap/disksource:go_default_library",
@@ -45,6 +47,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "blockio_test.go",
+        "converter_test.go",
         "devicenaming_test.go",
         "directio_test.go",
         "disk_test.go",
@@ -68,5 +71,6 @@ go_test(
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
