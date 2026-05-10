@@ -157,7 +157,10 @@ func startDomainEventMonitoring(
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval, metadataCache, nonRoot)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore,
+		qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval,
+		qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval,
+		metadataCache, nonRoot, make(chan notifyclient.LibvirtEvent, 10))
 	if err != nil {
 		panic(err)
 	}
