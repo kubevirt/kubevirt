@@ -30,8 +30,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
-//nolint:gocyclo,funlen
-func ConvertDisks(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convertertypes.ConverterContext) error {
+//nolint:gocyclo
+func ConvertDisks(
+	vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convertertypes.ConverterContext,
+) error {
 	hasIOThreads := iothreads.HasIOThreads(vmi)
 	var autoThreads int
 	if hasIOThreads {
@@ -45,18 +47,7 @@ func ConvertDisks(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convert
 		volumeIndices[volume.Name] = i
 	}
 
-	var numBlkQueues *uint
-	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-	vcpus := uint(cpuCount)
-	if vcpus == 0 {
-		vcpus = uint(1)
-	}
-
-	if virtioBlkMQRequested {
-		numBlkQueues = &vcpus
-	}
+	numBlkQueues := calculateBlkQueues(vmi)
 
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
@@ -65,7 +56,7 @@ func ConvertDisks(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convert
 
 	prefixMap := NewDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
-	currentDedicatedThread := uint(autoThreads + 1) //nolint:gosec
+	currentDedicatedThread := uint(autoThreads) + 1 //nolint:gosec // autoThreads is always non-negative
 	supplementalIOThreads := iothreads.SupplementalPoolThreadCount(vmi)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
@@ -113,9 +104,28 @@ func ConvertDisks(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convert
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = AssignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread) //nolint:lll
+			currentDedicatedThread, currentAutoThread = AssignDiskIOThread(
+				&disk, &newDisk, supplementalIOThreads, autoThreads,
+				currentDedicatedThread, currentAutoThread,
+			)
 		}
 	}
 
 	return nil
+}
+
+func calculateBlkQueues(vmi *v1.VirtualMachineInstance) *uint {
+	virtioBlkMQRequested := vmi.Spec.Domain.Devices.BlockMultiQueue != nil &&
+		*vmi.Spec.Domain.Devices.BlockMultiQueue
+	if !virtioBlkMQRequested {
+		return nil
+	}
+
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+	vcpus := uint(cpuCount)
+	if vcpus == 0 {
+		vcpus = uint(1)
+	}
+	return &vcpus
 }
