@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -157,7 +158,12 @@ var _ = Describe(SIG("Infosource", func() {
 
 			networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceMac)
 			Expect(networkInterface).NotTo(BeNil(), "interface not found")
-			Expect(networkInterface.IP).NotTo(BeEmpty())
+
+			supportsIpv4, err := cluster.SupportsIpv4()
+			Expect(err).NotTo(HaveOccurred())
+			if supportsIpv4 {
+				Expect(networkInterface.IP).NotTo(BeEmpty(), "IP address not present in IPv4 cluster for MAC %s", networkInterface.MAC)
+			}
 
 			guestInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceNewMac)
 			Expect(guestInterface).NotTo(BeNil(), "interface not found")
