@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -2365,10 +2364,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 	Context("with dedicated CPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		var (
-			nodes         []k8sv1.Node
-			pausePod      *k8sv1.Pod
-			testLabel1    = "kubevirt.io/testlabel1"
-			testLabel2    = "kubevirt.io/testlabel2"
+			nodes      []k8sv1.Node
+			pausePod   *k8sv1.Pod
+			testLabel1 = "kubevirt.io/testlabel1"
+			testLabel2 = "kubevirt.io/testlabel2"
 		)
 
 		parseVCPUPinOutput := func(vcpuPinOutput string) []int {
@@ -3012,31 +3011,6 @@ func isLibvirtDomainPaused(vmi *v1.VirtualMachineInstance) (bool, error) {
 		return false, fmt.Errorf("could not get libvirt domstate (remotely on pod): %v: %s", err, stderr)
 	}
 	return strings.Contains(stdout, "paused"), nil
-}
-
-func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance) cgroup.CgroupVersion {
-	pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
-	Expect(err).ToNot(HaveOccurred())
-
-	return getPodsCgroupVersion(pod)
-}
-
-func getPodsCgroupVersion(pod *k8sv1.Pod) cgroup.CgroupVersion {
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
-		pod,
-		"compute",
-		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})
-
-	Expect(err).ToNot(HaveOccurred())
-	Expect(stderr).To(BeEmpty())
-
-	cgroupFsType := strings.TrimSpace(stdout)
-
-	if cgroupFsType == "cgroup2fs" {
-		return cgroup.V2
-	} else {
-		return cgroup.V1
-	}
 }
 
 func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfiguration {

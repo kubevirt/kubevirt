@@ -93,7 +93,6 @@ func managerPath(taskPath string) string {
 // The pid is expected to VMI's pid from the host's viewpoint.
 func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, err error) {
 	const isRootless = false
-	var version CgroupVersion
 
 	procCgroupBasePath := filepath.Join(cgroupconsts.ProcMountPoint, strconv.Itoa(pid), cgroupconsts.CgroupStr)
 	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
@@ -109,15 +108,14 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 		Rootless: isRootless,
 	}
 
-	version = V2
 	slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
 	slicePath = managerPath(slicePath)
 	manager, err = newV2Manager(config, slicePath)
 
 	if err != nil {
-		log.Log.Errorf("error occurred while initialized a new cgroup %s manager: %v", version, err)
+		log.Log.Errorf("error occurred while initializing cgroup v2 manager: %v", err)
 	} else {
-		log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+		log.Log.Infof("initialized cgroup v2 manager successfully. controllerPaths: %v, procCgroupBasePath: %s", controllerPaths, procCgroupBasePath)
 	}
 
 	return manager, err

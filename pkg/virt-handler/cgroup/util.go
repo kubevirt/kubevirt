@@ -47,25 +47,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-type CgroupVersion string
-
-// Templates for logging / error messages
 const (
-	V1 CgroupVersion = "v1"
-	V2 CgroupVersion = "v2"
-
 	loggingVerbosity = 2
 
 	rwmPermissions = "rwm"
-	rwPermissions  = "rw"
 )
 
 var (
 	defaultDeviceRules []*devices.Rule
 )
 
-type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
-type getCurrentlyDefinedRulesFunc func(cgManager cgroups.Manager) ([]*devices.Rule, error)
+type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool) error
 
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
 // and all of the rules that are currently set. This way rules that are already defined won't be deleted by this
@@ -364,7 +356,7 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 
 // execVirtChrootCgroups executes virt-chroot cgroups command to apply changes via virt-chroot.
 // This is needed since high privileges are needed and root is needed to change.
-func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool) error {
 	marshalledRules, err := json.Marshal(*r)
 	if err != nil {
 		return fmt.Errorf("failed to marshall resources. err: %v resources: %+v", err, *r)
@@ -380,12 +372,11 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 		"--subsystem-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
 		"--resources", base64.StdEncoding.EncodeToString(marshalledRules),
 		fmt.Sprintf("--rootless=%t", rootless),
-		"--isV2=true",
 	}
 
 	cmd := exec.Command("virt-chroot", args...)
 
-	log.Log.V(loggingVerbosity).Infof("setting resources for cgroup %s: %+v", version, *r)
+	log.Log.V(loggingVerbosity).Infof("setting cgroup v2 resources: %+v", *r)
 	log.Log.V(loggingVerbosity).Infof("applying resources with virt-chroot. Full command: %s", cmd.String())
 
 	output, err := cmd.CombinedOutput()
