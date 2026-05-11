@@ -39,10 +39,10 @@ import (
 var _ = Describe("cgroup manager", func() {
 
 	var (
-		ctrl                  *gomock.Controller
-		rulesDefined          []*devices.Rule
-		v2DirPath             string
-		subsystemPathsDefined map[string]string
+		ctrl               *gomock.Controller
+		rulesDefined       []*devices.Rule
+		v2DirPath          string
+		cgroupPathsDefined []string
 	)
 
 	newMockManager := func() (Manager, error) {
@@ -51,9 +51,9 @@ var _ = Describe("cgroup manager", func() {
 			return map[string]string{"": v2DirPath}
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool) error {
+		execVirtChrootFunc := func(r *cgroups.Resources, cgroupPaths []string, rootless bool) error {
 			rulesDefined = r.Devices
-			subsystemPathsDefined = subsystemPaths
+			cgroupPathsDefined = cgroupPaths
 			return nil
 		}
 
@@ -154,7 +154,7 @@ var _ = Describe("cgroup manager", func() {
 			Expect(rulesDefined).To(ContainElement(defaultRule), "default rules are expected to be defined")
 		}
 		Expect(rulesDefined).To(HaveLen(len(defaultDeviceRules) + 1))
-		Expect(subsystemPathsDefined).To(ConsistOf(expectedPaths))
+		Expect(cgroupPathsDefined).To(ConsistOf(expectedPaths))
 	},
 		Entry("for crun installation",
 			"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope/container",

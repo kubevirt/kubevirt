@@ -167,7 +167,7 @@ func main() {
 		Use:   "set-cgroups-resources",
 		Short: "Set cgroups resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			marshalledPathsHash := cmd.Flag("subsystem-paths").Value.String()
+			marshalledPathsHash := cmd.Flag("cgroup-paths").Value.String()
 			if marshalledPathsHash == "" {
 				return fmt.Errorf("path argument cannot be empty")
 			}
@@ -196,9 +196,9 @@ func main() {
 		},
 	}
 
-	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
-		"Keys are \"target\" (the container cgroup path) and optionally \"parent\" (the scope cgroup, for crun dual-cgroup setups). "+
-		"Values are absolute cgroup directory paths.")
+	cgroupsCmd.Flags().String("cgroup-paths", "", "marshalled []string type, encoded to base64 format. "+
+		"A list of absolute cgroup directory paths to apply resources to. "+
+		"Typically one path; two for crun dual-cgroup setups (container + scope).")
 	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/cgroups/config_linux.go), encoded to base64 format")
 	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
 
