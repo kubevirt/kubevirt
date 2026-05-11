@@ -91,7 +91,7 @@ func NewWebsocketStreamer(dialer *DirectDialer) *Streamer {
 func (s *Streamer) Handle(request *restful.Request, response *restful.Response) error {
 	namespace := request.PathParameter(definitions.NamespaceParamName)
 	name := request.PathParameter(definitions.NameParamName)
-	serverConn, statusErr := s.dialer.DialUnderlying(namespace, name)
+	serverConn, statusErr := s.dialer.Dial(namespace, name)
 
 	if statusErr != nil {
 		writeError(statusErr, response)
@@ -180,7 +180,7 @@ func NewDirectDialer(fetch vmiFetcher, validate validator, dialer dialer) *Direc
 	}
 }
 
-func (d *DirectDialer) DialUnderlying(namespace, name string) (net.Conn, *errors.StatusError) {
+func (d *DirectDialer) Dial(namespace, name string) (net.Conn, *errors.StatusError) {
 	vmi, err := d.fetchAndValidateVMI(namespace, name)
 	if err != nil {
 		return nil, err
