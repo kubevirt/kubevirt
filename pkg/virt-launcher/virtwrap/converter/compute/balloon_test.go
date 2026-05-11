@@ -63,55 +63,30 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		Entry("Both SEV and PV enabled", useSEV, usePV, &api.MemBalloonDriver{IOMMU: "on"}),
 	)
 
-	Context("with memballoon stats period", func() {
-		It("should set Stats when period is non-zero", func() {
-			vmi := libvmi.New()
-			var domain api.Domain
+	DescribeTable("memballoon stats period", func(period uint, expectedStats *api.Stats) {
+		vmi := libvmi.New()
+		var domain api.Domain
 
-			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithVirtioModel("virtio-non-transitional"),
-				compute.BalloonWithUseLaunchSecuritySEV(false),
-				compute.BalloonWithUseLaunchSecurityPV(false),
-				compute.BalloonWithFreePageReporting(true),
-				compute.BalloonWithMemBalloonStatsPeriod(5),
-			)
+		configurator := compute.NewBalloonDomainConfigurator(
+			compute.BalloonWithUseLaunchSecuritySEV(false),
+			compute.BalloonWithUseLaunchSecurityPV(false),
+			compute.BalloonWithFreePageReporting(false),
+			compute.BalloonWithMemBalloonStatsPeriod(period),
+			compute.BalloonWithVirtioModel("virtio-non-transitional"),
+		)
 
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := newDomainWithBallooning(
-				api.MemBalloon{
-					Model:             "virtio-non-transitional",
-					FreePageReporting: "on",
-					Stats:             &api.Stats{Period: 5},
-				},
-			)
-			Expect(domain).To(Equal(expectedDomain))
+		expectedDomain := newDomainWithBallooning(api.MemBalloon{
+			Model:             "virtio-non-transitional",
+			FreePageReporting: "off",
+			Stats:             expectedStats,
 		})
-
-		It("should not set Stats when period is zero", func() {
-			vmi := libvmi.New()
-			var domain api.Domain
-
-			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithVirtioModel("virtio-non-transitional"),
-				compute.BalloonWithUseLaunchSecuritySEV(false),
-				compute.BalloonWithUseLaunchSecurityPV(false),
-				compute.BalloonWithFreePageReporting(true),
-				compute.BalloonWithMemBalloonStatsPeriod(0),
-			)
-
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := newDomainWithBallooning(
-				api.MemBalloon{
-					Model:             "virtio-non-transitional",
-					FreePageReporting: "on",
-					Stats:             nil,
-				},
-			)
-			Expect(domain).To(Equal(expectedDomain))
-		})
-	})
+		Expect(domain).To(Equal(expectedDomain))
+	},
+		Entry("zero period", uint(0), nil),
+		Entry("non-zero period", uint(5), &api.Stats{Period: 5}),
+	)
 
 	Context("with AutoattachMemBalloon false", func() {
 		DescribeTable("should configure memballoon with model none", func(model string) {
