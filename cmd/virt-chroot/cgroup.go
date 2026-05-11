@@ -37,8 +37,8 @@ func decodeResources(marshalledResourcesHash string) (*cgroups.Resources, error)
 	return &unmarshalledResources, err
 }
 
-func decodePaths(marshalledPathsHash string) (map[string]string, error) {
-	var unmarshalledPaths map[string]string
+func decodePaths(marshalledPathsHash string) ([]string, error) {
+	var unmarshalledPaths []string
 
 	marshalledPaths, err := base64.StdEncoding.DecodeString(marshalledPathsHash)
 	if err != nil {
@@ -55,7 +55,7 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool) error {
+func setCgroupResources(paths []string, resources *cgroups.Resources, isRootless bool) error {
 	config := &cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
@@ -69,7 +69,7 @@ func setCgroupResources(paths map[string]string, resources *cgroups.Resources, i
 	return nil
 }
 
-func setCgroupResourcesV2(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
+func setCgroupResourcesV2(paths []string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
 	for _, path := range paths {
 		if !resources.SkipDevices {
 			if err := attachDummyCgroupDeviceProg(path); err != nil {
