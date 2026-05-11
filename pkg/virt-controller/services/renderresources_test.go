@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -325,8 +324,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 			draHostDev := v1.HostDevice{
 				Name: "dra-host",
 				ClaimRequest: &v1.ClaimRequest{
-					ClaimName:   pointer.P("dra-claim"),
-					RequestName: pointer.P("dra-request"),
+					ClaimName:   "dra-claim",
+					RequestName: "dra-request",
 				},
 			}
 			hostDevices := []v1.HostDevice{devicePluginHostDev, draHostDev}
@@ -350,8 +349,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 			draGPU := v1.GPU{
 				Name: "dra-gpu",
 				ClaimRequest: &v1.ClaimRequest{
-					ClaimName:   pointer.P("gpu-claim"),
-					RequestName: pointer.P("gpu-request"),
+					ClaimName:   "gpu-claim",
+					RequestName: "gpu-request",
 				},
 			}
 			gpus := []v1.GPU{devicePluginGPU, draGPU}
@@ -372,15 +371,15 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "dra-host-1",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("shared-claim"),
-						RequestName: pointer.P("request-a"),
+						ClaimName:   "shared-claim",
+						RequestName: "request-a",
 					},
 				},
 				{
 					Name: "dra-host-2",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("shared-claim"),
-						RequestName: pointer.P("request-b"),
+						ClaimName:   "shared-claim",
+						RequestName: "request-b",
 					},
 				},
 			}
@@ -399,15 +398,15 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "dra-gpu-1",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("shared-claim"),
-						RequestName: pointer.P("request-a"),
+						ClaimName:   "shared-claim",
+						RequestName: "request-a",
 					},
 				},
 				{
 					Name: "dra-gpu-2",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("shared-claim"),
-						RequestName: pointer.P("request-b"),
+						ClaimName:   "shared-claim",
+						RequestName: "request-b",
 					},
 				},
 			}
@@ -426,8 +425,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "dra-gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("shared-claim"),
-						RequestName: pointer.P("gpu-request"),
+						ClaimName:   "shared-claim",
+						RequestName: "gpu-request",
 					},
 				},
 			}
@@ -436,8 +435,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "dra-host",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("shared-claim"),
-						RequestName: pointer.P("hostdev-request"),
+						ClaimName:   "shared-claim",
+						RequestName: "hostdev-request",
 					},
 				},
 			}
@@ -470,8 +469,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "dra-gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("gpu-claim"),
-						RequestName: pointer.P("gpu-request"),
+						ClaimName:   "gpu-claim",
+						RequestName: "gpu-request",
 					},
 				},
 			}
@@ -492,8 +491,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "host-dev",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("hostdev-claim"),
-						RequestName: pointer.P("hostdev-request"),
+						ClaimName:   "hostdev-claim",
+						RequestName: "hostdev-request",
 					},
 				},
 			}
@@ -782,8 +781,8 @@ var _ = Describe("validatePermittedHostDevices", func() {
 					// DRA device - no DeviceName, has ClaimRequest
 					Name: "dra-hostdev",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("my-claim"),
-						RequestName: pointer.P("my-request"),
+						ClaimName:   "my-claim",
+						RequestName: "my-request",
 					},
 				},
 			}

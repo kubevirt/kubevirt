@@ -6406,8 +6406,10 @@ var CRDsValidation map[string]string = map[string]string{
                             properties:
                               claimName:
                                 description: |-
-                                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                  device is allocated
+                                  ClaimName references the name of an entry in the
+                                  VMI's spec.resourceClaims[] array. The referenced
+                                  entry may use either resourceClaimName or
+                                  resourceClaimTemplateName.
                                 type: string
                               deviceName:
                                 description: DeviceName is the name of the device
@@ -6419,8 +6421,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               requestName:
                                 description: |-
-                                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                  device is requested
+                                  RequestName specifies which request from the
+                                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                  claim request corresponds to.
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -6460,8 +6463,10 @@ var CRDsValidation map[string]string = map[string]string{
                             properties:
                               claimName:
                                 description: |-
-                                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                  device is allocated
+                                  ClaimName references the name of an entry in the
+                                  VMI's spec.resourceClaims[] array. The referenced
+                                  entry may use either resourceClaimName or
+                                  resourceClaimTemplateName.
                                 type: string
                               deviceName:
                                 description: DeviceName is the name of the device
@@ -6471,8 +6476,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               requestName:
                                 description: |-
-                                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                  device is requested
+                                  RequestName specifies which request from the
+                                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                  claim request corresponds to.
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -9781,8 +9787,10 @@ var CRDsValidation map[string]string = map[string]string{
             properties:
               claimName:
                 description: |-
-                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                  device is allocated
+                  ClaimName references the name of an entry in the
+                  VMI's spec.resourceClaims[] array. The referenced
+                  entry may use either resourceClaimName or
+                  resourceClaimTemplateName.
                 type: string
               deviceName:
                 description: DeviceName is the name of the device provisioned by device-plugins
@@ -9792,8 +9800,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               requestName:
                 description: |-
-                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                  device is requested
+                  RequestName specifies which request from the
+                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                  claim request corresponds to.
                 type: string
               tag:
                 description: If specified, the virtual network interface address and
@@ -9832,8 +9841,10 @@ var CRDsValidation map[string]string = map[string]string{
             properties:
               claimName:
                 description: |-
-                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                  device is allocated
+                  ClaimName references the name of an entry in the
+                  VMI's spec.resourceClaims[] array. The referenced
+                  entry may use either resourceClaimName or
+                  resourceClaimTemplateName.
                 type: string
               deviceName:
                 description: DeviceName is the name of the device provisioned by device-plugins
@@ -9842,8 +9853,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               requestName:
                 description: |-
-                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                  device is requested
+                  RequestName specifies which request from the
+                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                  claim request corresponds to.
                 type: string
               tag:
                 description: If specified, the virtual network interface address and
@@ -12526,8 +12538,10 @@ var CRDsValidation map[string]string = map[string]string{
                     properties:
                       claimName:
                         description: |-
-                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                          device is allocated
+                          ClaimName references the name of an entry in the
+                          VMI's spec.resourceClaims[] array. The referenced
+                          entry may use either resourceClaimName or
+                          resourceClaimTemplateName.
                         type: string
                       deviceName:
                         description: DeviceName is the name of the device provisioned
@@ -12539,8 +12553,9 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       requestName:
                         description: |-
-                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                          device is requested
+                          RequestName specifies which request from the
+                          ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                          claim request corresponds to.
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -12579,8 +12594,10 @@ var CRDsValidation map[string]string = map[string]string{
                     properties:
                       claimName:
                         description: |-
-                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                          device is allocated
+                          ClaimName references the name of an entry in the
+                          VMI's spec.resourceClaims[] array. The referenced
+                          entry may use either resourceClaimName or
+                          resourceClaimTemplateName.
                         type: string
                       deviceName:
                         description: DeviceName is the name of the device provisioned
@@ -12590,8 +12607,9 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       requestName:
                         description: |-
-                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                          device is requested
+                          RequestName specifies which request from the
+                          ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                          claim request corresponds to.
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -16401,8 +16419,10 @@ var CRDsValidation map[string]string = map[string]string{
                     properties:
                       claimName:
                         description: |-
-                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                          device is allocated
+                          ClaimName references the name of an entry in the
+                          VMI's spec.resourceClaims[] array. The referenced
+                          entry may use either resourceClaimName or
+                          resourceClaimTemplateName.
                         type: string
                       deviceName:
                         description: DeviceName is the name of the device provisioned
@@ -16414,8 +16434,9 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       requestName:
                         description: |-
-                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                          device is requested
+                          RequestName specifies which request from the
+                          ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                          claim request corresponds to.
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -16454,8 +16475,10 @@ var CRDsValidation map[string]string = map[string]string{
                     properties:
                       claimName:
                         description: |-
-                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                          device is allocated
+                          ClaimName references the name of an entry in the
+                          VMI's spec.resourceClaims[] array. The referenced
+                          entry may use either resourceClaimName or
+                          resourceClaimTemplateName.
                         type: string
                       deviceName:
                         description: DeviceName is the name of the device provisioned
@@ -16465,8 +16488,9 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       requestName:
                         description: |-
-                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                          device is requested
+                          RequestName specifies which request from the
+                          ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                          claim request corresponds to.
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -18955,8 +18979,10 @@ var CRDsValidation map[string]string = map[string]string{
                             properties:
                               claimName:
                                 description: |-
-                                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                  device is allocated
+                                  ClaimName references the name of an entry in the
+                                  VMI's spec.resourceClaims[] array. The referenced
+                                  entry may use either resourceClaimName or
+                                  resourceClaimTemplateName.
                                 type: string
                               deviceName:
                                 description: DeviceName is the name of the device
@@ -18968,8 +18994,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               requestName:
                                 description: |-
-                                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                  device is requested
+                                  RequestName specifies which request from the
+                                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                  claim request corresponds to.
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -19009,8 +19036,10 @@ var CRDsValidation map[string]string = map[string]string{
                             properties:
                               claimName:
                                 description: |-
-                                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                  device is allocated
+                                  ClaimName references the name of an entry in the
+                                  VMI's spec.resourceClaims[] array. The referenced
+                                  entry may use either resourceClaimName or
+                                  resourceClaimTemplateName.
                                 type: string
                               deviceName:
                                 description: DeviceName is the name of the device
@@ -19020,8 +19049,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               requestName:
                                 description: |-
-                                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                  device is requested
+                                  RequestName specifies which request from the
+                                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                  claim request corresponds to.
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -21197,8 +21227,10 @@ var CRDsValidation map[string]string = map[string]string{
             properties:
               claimName:
                 description: |-
-                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                  device is allocated
+                  ClaimName references the name of an entry in the
+                  VMI's spec.resourceClaims[] array. The referenced
+                  entry may use either resourceClaimName or
+                  resourceClaimTemplateName.
                 type: string
               deviceName:
                 description: DeviceName is the name of the device provisioned by device-plugins
@@ -21208,8 +21240,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               requestName:
                 description: |-
-                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                  device is requested
+                  RequestName specifies which request from the
+                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                  claim request corresponds to.
                 type: string
               tag:
                 description: If specified, the virtual network interface address and
@@ -21248,8 +21281,10 @@ var CRDsValidation map[string]string = map[string]string{
             properties:
               claimName:
                 description: |-
-                  ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                  device is allocated
+                  ClaimName references the name of an entry in the
+                  VMI's spec.resourceClaims[] array. The referenced
+                  entry may use either resourceClaimName or
+                  resourceClaimTemplateName.
                 type: string
               deviceName:
                 description: DeviceName is the name of the device provisioned by device-plugins
@@ -21258,8 +21293,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               requestName:
                 description: |-
-                  RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                  device is requested
+                  RequestName specifies which request from the
+                  ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                  claim request corresponds to.
                 type: string
               tag:
                 description: If specified, the virtual network interface address and
@@ -24061,8 +24097,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     properties:
                                       claimName:
                                         description: |-
-                                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                          device is allocated
+                                          ClaimName references the name of an entry in the
+                                          VMI's spec.resourceClaims[] array. The referenced
+                                          entry may use either resourceClaimName or
+                                          resourceClaimTemplateName.
                                         type: string
                                       deviceName:
                                         description: DeviceName is the name of the
@@ -24074,8 +24112,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                       requestName:
                                         description: |-
-                                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                          device is requested
+                                          RequestName specifies which request from the
+                                          ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                          claim request corresponds to.
                                         type: string
                                       tag:
                                         description: If specified, the virtual network
@@ -24116,8 +24155,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     properties:
                                       claimName:
                                         description: |-
-                                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                          device is allocated
+                                          ClaimName references the name of an entry in the
+                                          VMI's spec.resourceClaims[] array. The referenced
+                                          entry may use either resourceClaimName or
+                                          resourceClaimTemplateName.
                                         type: string
                                       deviceName:
                                         description: DeviceName is the name of the
@@ -24127,8 +24168,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                       requestName:
                                         description: |-
-                                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                          device is requested
+                                          RequestName specifies which request from the
+                                          ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                          claim request corresponds to.
                                         type: string
                                       tag:
                                         description: If specified, the virtual network
@@ -29647,8 +29689,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         properties:
                                           claimName:
                                             description: |-
-                                              ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                              device is allocated
+                                              ClaimName references the name of an entry in the
+                                              VMI's spec.resourceClaims[] array. The referenced
+                                              entry may use either resourceClaimName or
+                                              resourceClaimTemplateName.
                                             type: string
                                           deviceName:
                                             description: DeviceName is the name of
@@ -29660,8 +29704,9 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                           requestName:
                                             description: |-
-                                              RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                              device is requested
+                                              RequestName specifies which request from the
+                                              ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                              claim request corresponds to.
                                             type: string
                                           tag:
                                             description: If specified, the virtual
@@ -29703,8 +29748,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         properties:
                                           claimName:
                                             description: |-
-                                              ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                              device is allocated
+                                              ClaimName references the name of an entry in the
+                                              VMI's spec.resourceClaims[] array. The referenced
+                                              entry may use either resourceClaimName or
+                                              resourceClaimTemplateName.
                                             type: string
                                           deviceName:
                                             description: DeviceName is the name of
@@ -29714,8 +29761,9 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                           requestName:
                                             description: |-
-                                              RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                              device is requested
+                                              RequestName specifies which request from the
+                                              ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+                                              claim request corresponds to.
                                             type: string
                                           tag:
                                             description: If specified, the virtual

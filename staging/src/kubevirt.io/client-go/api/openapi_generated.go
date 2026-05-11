@@ -19196,14 +19196,14 @@ func schema_kubevirtio_api_core_v1_ClaimRequest(ref common.ReferenceCallback) co
 				Properties: map[string]spec.Schema{
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+							Description: "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array. The referenced entry may use either resourceClaimName or resourceClaimTemplateName.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"requestName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+							Description: "RequestName specifies which request from the ResourceClaim/ResourceClaimTemplate spec.devices.requests array this claim request corresponds to.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -21459,14 +21459,14 @@ func schema_kubevirtio_api_core_v1_GPU(ref common.ReferenceCallback) common.Open
 					},
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+							Description: "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array. The referenced entry may use either resourceClaimName or resourceClaimTemplateName.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"requestName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+							Description: "RequestName specifies which request from the ResourceClaim/ResourceClaimTemplate spec.devices.requests array this claim request corresponds to.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -21677,14 +21677,14 @@ func schema_kubevirtio_api_core_v1_HostDevice(ref common.ReferenceCallback) comm
 					},
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+							Description: "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array. The referenced entry may use either resourceClaimName or resourceClaimTemplateName.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"requestName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+							Description: "RequestName specifies which request from the ResourceClaim/ResourceClaimTemplate spec.devices.requests array this claim request corresponds to.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
