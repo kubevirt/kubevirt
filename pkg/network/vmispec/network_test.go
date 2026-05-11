@@ -25,11 +25,13 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 var _ = Describe("Network", func() {
 	podNetwork := createPodNetwork("default")
+	draNetwork := *libvmi.DRANetwork("dra-net", "sriov", "vf1")
 	multusDefaultNetwork := createMultusDefaultNetwork("network0", "default/nad0")
 	multusSecondaryNetwork1 := createMultusSecondaryNetwork("network1", "default/nad1")
 	multusSecondaryNetwork2 := createMultusSecondaryNetwork("network2", "default/nad2")
@@ -56,6 +58,14 @@ var _ = Describe("Network", func() {
 				multusSecondaryNetwork2,
 				multusSecondaryNetwork3,
 			}),
+	)
+
+	DescribeTable("should detect whether any network uses DRA", func(inputNetworks []v1.Network, expected bool) {
+		Expect(vmispec.HasDRANetwork(inputNetworks)).To(Equal(expected))
+	},
+		Entry("when there are no networks", []v1.Network{}, false),
+		Entry("when there are only pod and multus networks", []v1.Network{podNetwork, multusSecondaryNetwork1}, false),
+		Entry("when there is a DRA network", []v1.Network{podNetwork, draNetwork}, true),
 	)
 
 	DescribeTable("should fail to return the default network", func(inputNetworks []v1.Network) {

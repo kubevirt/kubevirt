@@ -19,7 +19,11 @@
 
 package vmispec
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"slices"
+
+	v1 "kubevirt.io/api/core/v1"
+)
 
 func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
 	for i := range networks {
@@ -65,6 +69,14 @@ func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 
 func IsSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
+}
+
+func IsDRANetwork(net v1.Network) bool {
+	return net.NetworkSource.ResourceClaim != nil
+}
+
+func HasDRANetwork(networks []v1.Network) bool {
+	return slices.ContainsFunc(networks, IsDRANetwork)
 }
 
 func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {
