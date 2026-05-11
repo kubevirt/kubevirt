@@ -101,11 +101,7 @@ func (v *v2Manager) Set(r *cgroups.Resources) error {
 	}
 	log.Log.V(5).Infof("cgroupsv2 device allowlist: paths passed to virt-chroot: %s", subsystemPaths)
 
-	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.isRootless, v.GetCgroupVersion())
-}
-
-func (v *v2Manager) GetCgroupVersion() CgroupVersion {
-	return V2
+	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.isRootless, V2)
 }
 
 func (v *v2Manager) GetCpuSet() (string, error) {

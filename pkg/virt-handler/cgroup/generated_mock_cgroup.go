@@ -98,20 +98,6 @@ func (mr *MockManagerMockRecorder) GetCgroupThreads() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCgroupThreads", reflect.TypeOf((*MockManager)(nil).GetCgroupThreads))
 }
 
-// GetCgroupVersion mocks base method.
-func (m *MockManager) GetCgroupVersion() CgroupVersion {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCgroupVersion")
-	ret0, _ := ret[0].(CgroupVersion)
-	return ret0
-}
-
-// GetCgroupVersion indicates an expected call of GetCgroupVersion.
-func (mr *MockManagerMockRecorder) GetCgroupVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCgroupVersion", reflect.TypeOf((*MockManager)(nil).GetCgroupVersion))
-}
-
 // GetCpuSet mocks base method.
 func (m *MockManager) GetCpuSet() (string, error) {
 	m.ctrl.T.Helper()
