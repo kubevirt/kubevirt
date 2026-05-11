@@ -205,6 +205,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac
 # values after the file is generated.
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
+csv_generator_extra_flags="${CSV_GENERATOR_EXTRA_FLAGS:-}"
 ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
     --operatorImageVersion="{{.DockerTag}}" \
     --csvCreatedAtTimestamp={{.CreatedAt}} \
@@ -216,6 +217,7 @@ ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
     --pullPolicy={{.ImagePullPolicy}} \
     --replacesCsvVersion="$_fake_replaces_csv_version" \
     --verbosity={{.Verbosity}} \
+    ${csv_generator_extra_flags} \
     >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
