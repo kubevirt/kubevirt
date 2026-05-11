@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -857,7 +858,7 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	}
 	addresses := make([]string, len(ips))
 	for i, ip := range ips {
-		addresses[i] = fmt.Sprintf("%s:%d", ip, port)
+		addresses[i] = net.JoinHostPort(ip, strconv.Itoa(int(port)))
 	}
 	r.kv.Status.SynchronizationAddresses = addresses
 	return nil
