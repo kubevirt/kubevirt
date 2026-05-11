@@ -112,28 +112,26 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		Entry("non-zero period", uint(5), &api.Stats{Period: 5}),
 	)
 
-	Context("with AutoattachMemBalloon false", func() {
-		DescribeTable("should configure memballoon with model none", func(model string) {
-			vmi := libvmi.New(libvmi.WithAutoattachMemBalloon(false))
-			var domain api.Domain
+	It("should configure memballoon with model none when AutoattachMemBalloon is false", func() {
+		vmi := libvmi.New(libvmi.WithAutoattachMemBalloon(false))
+		var domain api.Domain
 
-			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithVirtioModel(model),
-			)
-
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := newDomainWithBallooning(
-				api.MemBalloon{
-					Model: "none",
-				},
-			)
-			Expect(domain).To(Equal(expectedDomain))
-		},
-			Entry("for amd64", "virtio-non-transitional"),
-			Entry("for arm64", "virtio-non-transitional"),
-			Entry("for s390x", "virtio"),
+		configurator := compute.NewBalloonDomainConfigurator(
+			compute.BalloonWithUseLaunchSecuritySEV(false),
+			compute.BalloonWithUseLaunchSecurityPV(false),
+			compute.BalloonWithFreePageReporting(true),
+			compute.BalloonWithMemBalloonStatsPeriod(10),
+			compute.BalloonWithVirtioModel("virtio-non-transitional"),
 		)
+
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := newDomainWithBallooning(
+			api.MemBalloon{
+				Model: "none",
+			},
+		)
+		Expect(domain).To(Equal(expectedDomain))
 	})
 })
 
