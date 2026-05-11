@@ -583,6 +583,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!requires-arm64)" "&&"
   fi
 
+  if [[ ${KUBEVIRT_CROSS_ARCH_EMULATION} != "true" ]]; then
+    add_to_label_filter "(!requires-cross-arch-emulation)" "&&"
+  fi
+
   if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
     add_to_label_filter "(!ImageVolume)" "&&"
   fi
