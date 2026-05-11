@@ -60,7 +60,7 @@ func FilterNetworksSpec(nets []v1.Network, predicate func(i v1.Network) bool) []
 
 func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 	for i, network := range networks {
-		if !IsSecondaryMultusNetwork(network) {
+		if network.Pod != nil || (network.Multus != nil && network.Multus.Default) {
 			return &networks[i]
 		}
 	}

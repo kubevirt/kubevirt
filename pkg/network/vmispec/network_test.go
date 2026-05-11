@@ -73,6 +73,8 @@ var _ = Describe("Network", func() {
 	},
 		Entry("when there are no networks", []v1.Network{}),
 		Entry("when there are no default networks", []v1.Network{multusSecondaryNetwork1, multusSecondaryNetwork2}),
+		Entry("when there is only a DRA network", []v1.Network{draNetwork}),
+		Entry("when there are only DRA and secondary Multus networks", []v1.Network{draNetwork, multusSecondaryNetwork1}),
 	)
 	DescribeTable("should succeed to return the default network", func(inputNetworks []v1.Network, expectNetwork *v1.Network) {
 		Expect(vmispec.LookUpDefaultNetwork(inputNetworks)).To(Equal(expectNetwork))
@@ -92,6 +94,14 @@ var _ = Describe("Network", func() {
 				multusSecondaryNetwork2,
 			},
 			&multusDefaultNetwork,
+		),
+		Entry("when a DRA network appears before pod network",
+			[]v1.Network{
+				draNetwork,
+				podNetwork,
+				multusSecondaryNetwork1,
+			},
+			&podNetwork,
 		),
 	)
 })
