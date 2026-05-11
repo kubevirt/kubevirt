@@ -20,12 +20,18 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
+	"slices"
+
+	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/csv"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
+	"kubevirt.io/kubevirt/tools/placement"
 	"kubevirt.io/kubevirt/tools/util"
 )
 
@@ -62,6 +68,7 @@ func main() {
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
 	dumpNetworkPolicies := flag.Bool("dump-network-policies", false, "dump Network Policies along with CSV manifests to stdout")
+	withKubeVirtControlPlaneLabel := flag.Bool("with-kubevirt-control-plane-label", false, "add node-role.kubevirt.io/control-plane as an additional node selector term for the operator deployment")
 
 	flag.Parse()
 
@@ -99,6 +106,12 @@ func main() {
 		panic(err)
 	}
 
+	if *withKubeVirtControlPlaneLabel {
+		if err := injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv); err != nil {
+			panic(err)
+		}
+	}
+
 	util.MarshallObject(operatorCsv, os.Stdout)
 
 	if *dumpCRDs {
@@ -123,4 +136,38 @@ func main() {
 			util.MarshallObject(v, os.Stdout)
 		}
 	}
+}
+
+// These types mirror the unexported csvDeployments and csvStrategySpec in
+// pkg/virt-operator/resource/generate/csv/csv.go. Keep them in sync.
+type strategyDeployment struct {
+	Name string                `json:"name"`
+	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
+}
+
+type strategySpec struct {
+	ClusterPermissions json.RawMessage      `json:"clusterPermissions"`
+	Permissions        json.RawMessage      `json:"permissions"`
+	Deployments        []strategyDeployment `json:"deployments"`
+}
+
+func injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv *csvv1.ClusterServiceVersion) error {
+	var strategy strategySpec
+	if err := json.Unmarshal(operatorCsv.Spec.InstallStrategy.StrategySpecRaw, &strategy); err != nil {
+		return err
+	}
+
+	idx := slices.IndexFunc(strategy.Deployments, func(dep strategyDeployment) bool {
+		return dep.Name == "virt-operator"
+	})
+	if idx > -1 {
+		placement.InjectKubeVirtControlPlanePlacement(&strategy.Deployments[idx].Spec.Template.Spec)
+	}
+
+	raw, err := json.Marshal(strategy)
+	if err != nil {
+		return err
+	}
+	operatorCsv.Spec.InstallStrategy.StrategySpecRaw = raw
+	return nil
 }
