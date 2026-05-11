@@ -16,7 +16,7 @@ require (
 	github.com/go-openapi/validate v0.24.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
-	github.com/google/go-github/v32 v32.0.0
+	github.com/google/go-github/v83 v83.0.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 	github.com/google/uuid v1.6.0
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
@@ -122,7 +122,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20251007162407-5df77e3f7d1d // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
