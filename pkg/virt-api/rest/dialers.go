@@ -47,7 +47,7 @@ type handlerDial struct {
 	app    *SubresourceAPIApp
 }
 
-func (h handlerDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serrors.StatusError) {
+func (h handlerDial) dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serrors.StatusError) {
 	url, _, statusError := h.app.getVirtHandlerFor(vmi, h.getURL)
 	if statusError != nil {
 		return nil, statusError
@@ -59,19 +59,15 @@ func (h handlerDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8s
 	return conn, nil
 }
 
-func (h handlerDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
-	conn, err := h.Dial(vmi)
+func (h handlerDial) Dial(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
+	conn, err := h.dial(vmi)
 	if err != nil {
 		return nil, err
 	}
 	return conn.UnderlyingConn(), nil
 }
 
-func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serrors.StatusError) {
-	panic("don't call me")
-}
-
-func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
+func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
 	logger := log.Log.Object(vmi)
 
 	targetIP, err := getTargetInterfaceIP(vmi)
@@ -102,7 +98,7 @@ func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8se
 	return conn, nil
 }
 
-func (app *SubresourceAPIApp) virtHandlerDialer(getURL URLResolver) dialer {
+func (app *SubresourceAPIApp) virtHandlerDialer(getURL URLResolver) handlerDial {
 	return handlerDial{
 		getURL: getURL,
 		app:    app,

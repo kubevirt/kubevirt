@@ -42,8 +42,7 @@ type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result cha
 type streamFuncResult error
 
 type dialer interface {
-	Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError)
-	DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
+	Dial(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
 }
 
 type Streamer struct {
@@ -57,7 +56,7 @@ type Streamer struct {
 type DirectDialer struct {
 	fetchVMI    vmiFetcher
 	validateVMI validator
-	dial        dialer
+	dialer      dialer
 }
 
 func NewRawStreamer(dialer *DirectDialer) *Streamer {
@@ -173,21 +172,12 @@ func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel fun
 	}
 }
 
-func NewDirectDialer(fetch vmiFetcher, validate validator, dial dialer) *DirectDialer {
+func NewDirectDialer(fetch vmiFetcher, validate validator, dialer dialer) *DirectDialer {
 	return &DirectDialer{
 		fetchVMI:    fetch,
 		validateVMI: validate,
-		dial:        dial,
+		dialer:      dialer,
 	}
-}
-
-func (d *DirectDialer) Dial(namespace, name string) (*websocket.Conn, *errors.StatusError) {
-	vmi, err := d.fetchAndValidateVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.dial.Dial(vmi)
 }
 
 func (d *DirectDialer) DialUnderlying(namespace, name string) (net.Conn, *errors.StatusError) {
@@ -196,7 +186,7 @@ func (d *DirectDialer) DialUnderlying(namespace, name string) (net.Conn, *errors
 		return nil, err
 	}
 
-	return d.dial.DialUnderlying(vmi)
+	return d.dialer.Dial(vmi)
 }
 
 func (d *DirectDialer) fetchAndValidateVMI(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
