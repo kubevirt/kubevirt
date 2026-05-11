@@ -41,74 +41,78 @@ import (
 )
 
 var _ = Describe("Console Subresource api", func() {
-	var (
-		recorder   *httptest.ResponseRecorder
-		request    *restful.Request
-		response   *restful.Response
-		virtClient *kubevirtfake.Clientset
-		app        *SubresourceAPIApp
-	)
 
-	BeforeEach(func() {
-		recorder = httptest.NewRecorder()
-		request = restful.NewRequest(&http.Request{})
-		request.PathParameters()["name"] = testVMIName
-		request.PathParameters()["namespace"] = metav1.NamespaceDefault
+	Context("validation", func() {
+		var (
+			recorder   *httptest.ResponseRecorder
+			request    *restful.Request
+			response   *restful.Response
+			virtClient *kubevirtfake.Clientset
+			app        *SubresourceAPIApp
+		)
 
-		response = restful.NewResponse(recorder)
+		BeforeEach(func() {
+			recorder = httptest.NewRecorder()
+			request = restful.NewRequest(&http.Request{})
+			request.PathParameters()["name"] = testVMIName
+			request.PathParameters()["namespace"] = metav1.NamespaceDefault
 
-		mockVirtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
-		virtClient = kubevirtfake.NewSimpleClientset()
+			response = restful.NewResponse(recorder)
 
-		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
-		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
+			mockVirtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+			virtClient = kubevirtfake.NewSimpleClientset()
 
-		config, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+			mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
 				},
-			},
-			Status: v1.KubeVirtStatus{
-				Phase: v1.KubeVirtPhaseDeploying,
-			},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{},
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeploying,
+				},
+			})
+			app = NewSubresourceAPIApp(mockVirtClient, 8080, &tls.Config{InsecureSkipVerify: true}, config)
 		})
-		app = NewSubresourceAPIApp(mockVirtClient, 8080, &tls.Config{InsecureSkipVerify: true}, config)
-	})
 
-	DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {
-		vmi := libvmi.New(
-			libvmi.WithName(testVMIName),
-			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(phase))),
-		)
-		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
-		_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {
+			vmi := libvmi.New(
+				libvmi.WithName(testVMIName),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(phase))),
+			)
+			vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
+			_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-		app.ConsoleRequestHandler(request, response)
+			app.ConsoleRequestHandler(request, response)
 
-		ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-	},
-		Entry("should fail if there is no serial console", false, v1.Running),
-		Entry("should fail if vmi is not running", true, v1.Scheduling),
-	)
-
-	It("should fail to connect to the serial console if the VMI is Failed", func() {
-		vmi := libvmi.New(libvmi.WithName(testVMIName),
-			libvmi.WithNamespace(metav1.NamespaceDefault),
-			libvmistatus.WithStatus(libvmistatus.New(
-				libvmistatus.WithPhase(v1.Failed),
-			)),
+			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+		},
+			Entry("should fail if there is no serial console", false, v1.Running),
+			Entry("should fail if vmi is not running", true, v1.Scheduling),
 		)
 
-		_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		It("should fail to connect to the serial console if the VMI is Failed", func() {
+			vmi := libvmi.New(libvmi.WithName(testVMIName),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(v1.Failed),
+				)),
+			)
 
-		app.ConsoleRequestHandler(request, response)
-		ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			_, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			app.ConsoleRequestHandler(request, response)
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
 	})
+
 })
