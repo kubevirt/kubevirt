@@ -56,22 +56,14 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool, isV2 bool) error {
+func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool, _ bool) error {
 	config := &cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
 		Rootless:  isRootless,
 	}
 
-	var err error
-
-	if isV2 {
-		err = setCgroupResourcesV2(paths, resources, config)
-	} else {
-		err = setCgroupResourcesV1(paths, resources, config)
-	}
-
-	if err != nil {
+	if err := setCgroupResourcesV2(paths, resources, config); err != nil {
 		return fmt.Errorf("cannot set cgroup resources. err: %v", err)
 	}
 

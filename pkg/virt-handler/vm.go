@@ -32,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencontainers/cgroups"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -217,17 +216,7 @@ func NewVirtualMachineController(
 		return nil, err
 	}
 
-	permissions := "rw"
-	if cgroups.IsCgroup2UnifiedMode() {
-		// Need 'rwm' permissions otherwise ebpf filtering program attached by runc
-		// will deny probing the device file with 'access' syscall. That in turn
-		// will lead to virtqemud failure on VM startup.
-		// This has been fixed upstream:
-		//   https://github.com/opencontainers/runc/pull/2796
-		// but the workaround is still needed to support previous versions without
-		// the patch.
-		permissions = "rwm"
-	}
+	permissions := "rwm"
 
 	c.deviceManagerController = deviceManager.NewDeviceController(
 		c.host,

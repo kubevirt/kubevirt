@@ -126,11 +126,7 @@ func getSourceBlockToFsMigratedVolumes(vmi *v1.VirtualMachineInstance, host stri
 }
 
 func getDevicePermissionsFromCgroups() devices.Permissions {
-	if cgroups.IsCgroup2UnifiedMode() {
-		return rwmPermissions
-	} else {
-		return rwPermissions
-	}
+	return rwmPermissions
 }
 
 func getDeviceRwmPermissions() devices.Permissions {
@@ -384,7 +380,7 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 		"--subsystem-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
 		"--resources", base64.StdEncoding.EncodeToString(marshalledRules),
 		fmt.Sprintf("--rootless=%t", rootless),
-		fmt.Sprintf("--isV2=%t", version == V2),
+		"--isV2=true",
 	}
 
 	cmd := exec.Command("virt-chroot", args...)

@@ -2369,7 +2369,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			pausePod      *k8sv1.Pod
 			testLabel1    = "kubevirt.io/testlabel1"
 			testLabel2    = "kubevirt.io/testlabel2"
-			cgroupVersion cgroup.CgroupVersion
 		)
 
 		parseVCPUPinOutput := func(vcpuPinOutput string) []int {
@@ -2414,12 +2413,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		getPodCPUSet := func(pod *k8sv1.Pod) []int {
 
-			var cpusetPath string
-			if cgroupVersion == cgroup.V2 {
-				cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-			} else {
-				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-			}
+			cpusetPath := "/sys/fs/cgroup/cpuset.cpus.effective"
 
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 				pod,
@@ -2514,9 +2508,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("waiting until the VirtualMachineInstance starts")
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(120))
-
-			By("determining cgroups version")
-			cgroupVersion = getVMIsCgroupVersion(vmi)
 
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))

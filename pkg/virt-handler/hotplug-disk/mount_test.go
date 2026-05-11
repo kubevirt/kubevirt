@@ -131,7 +131,6 @@ var _ = Describe("HotplugVolume", func() {
 
 		// cgroups mock setup
 		cgroupManagerMock = cgroup.NewMockManager(ctrl)
-		cgroupManagerMock.EXPECT().GetCgroupVersion().AnyTimes()
 		expectedCgroupRule = nil
 		ownershipManager = diskutils.NewMockOwnershipManagerInterface(ctrl)
 
@@ -370,7 +369,6 @@ var _ = Describe("HotplugVolume", func() {
 				},
 			}
 
-			cgroupManagerMock.EXPECT().GetCgroupVersion().Return(cgroup.V2).AnyTimes()
 			err = m.mountFromPod(vmi, "", cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
