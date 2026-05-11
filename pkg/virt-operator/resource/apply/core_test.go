@@ -1021,6 +1021,19 @@ var _ = Describe("Apply", func() {
 					},
 				},
 			}, "1234", "2.2.2.2:1234"),
+			Entry("if pod found with IPv6 address, address should be bracket-wrapped", &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      synchronizationControllerPodName,
+					Namespace: kubevirtNamespace,
+				},
+				Status: corev1.PodStatus{
+					PodIPs: []corev1.PodIP{
+						{
+							IP: "fd02:0:0:1::cb",
+						},
+					},
+				},
+			}, "", "[fd02:0:0:1::cb]:9185"),
 		)
 	})
 })
