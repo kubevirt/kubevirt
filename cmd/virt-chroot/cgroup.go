@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/ebpf/link"
 	cgroups "github.com/opencontainers/cgroups"
 	_ "github.com/opencontainers/cgroups/devices"
-	cgroupfs "github.com/opencontainers/cgroups/fs"
 	cgroupfs2 "github.com/opencontainers/cgroups/fs2"
 	"golang.org/x/sys/unix"
 
@@ -56,7 +55,7 @@ func decodePaths(marshalledPathsHash string) (map[string]string, error) {
 	return unmarshalledPaths, err
 }
 
-func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool, _ bool) error {
+func setCgroupResources(paths map[string]string, resources *cgroups.Resources, isRootless bool) error {
 	config := &cgroups.Cgroup{
 		Path:      cgroupconsts.HostCgroupBasePath,
 		Resources: resources,
@@ -68,16 +67,6 @@ func setCgroupResources(paths map[string]string, resources *cgroups.Resources, i
 	}
 
 	return nil
-}
-
-func setCgroupResourcesV1(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
-	return RunWithChroot(cgroupconsts.HostCgroupBasePath, func() error {
-		cgroupManager, err := cgroupfs.NewManager(config, paths)
-		if err != nil {
-			return fmt.Errorf("cannot create cgroups v1 manager. err: %v", err)
-		}
-		return cgroupManager.Set(resources)
-	})
 }
 
 func setCgroupResourcesV2(paths map[string]string, resources *cgroups.Resources, config *cgroups.Cgroup) error {
