@@ -177,10 +177,6 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
 			}
-			isV2, err := strconv.ParseBool(cmd.Flag("isV2").Value.String())
-			if err != nil {
-				return fmt.Errorf("cannot convert isV2 into bool. err: %v", err)
-			}
 
 			unmarshalledResources, err := decodeResources(marshalledResourcesHash)
 			if err != nil {
@@ -192,7 +188,7 @@ func main() {
 				return err
 			}
 
-			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless, isV2); err != nil {
+			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless); err != nil {
 				return err
 			}
 
@@ -201,10 +197,10 @@ func main() {
 	}
 
 	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
-		"For v1 key is cgroup subsystem and value is its path, for v2 the only key is an empty string and the value is cgroup dir path.")
+		"Keys are \"target\" (the container cgroup path) and optionally \"parent\" (the scope cgroup, for crun dual-cgroup setups). "+
+		"Values are absolute cgroup directory paths.")
 	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/cgroups/config_linux.go), encoded to base64 format")
 	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
-	cgroupsCmd.Flags().Bool("isV2", false, "true to run rootless")
 
 	rootCmd.AddCommand(
 		execCmd,
