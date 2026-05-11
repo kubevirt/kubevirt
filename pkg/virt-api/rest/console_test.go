@@ -24,13 +24,10 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
-	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
@@ -50,8 +47,23 @@ var _ = Describe("Console Subresource api", func() {
 		response   *restful.Response
 		virtClient *kubevirtfake.Clientset
 		app        *SubresourceAPIApp
+	)
 
-		kv = &v1.KubeVirt{
+	BeforeEach(func() {
+		recorder = httptest.NewRecorder()
+		request = restful.NewRequest(&http.Request{})
+		request.PathParameters()["name"] = testVMIName
+		request.PathParameters()["namespace"] = metav1.NamespaceDefault
+
+		response = restful.NewResponse(recorder)
+
+		mockVirtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+		virtClient = kubevirtfake.NewSimpleClientset()
+
+		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
+
+		config, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
@@ -64,35 +76,11 @@ var _ = Describe("Console Subresource api", func() {
 			Status: v1.KubeVirtStatus{
 				Phase: v1.KubeVirtPhaseDeploying,
 			},
-		}
-	)
-
-	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-
-	BeforeEach(func() {
-		recorder = httptest.NewRecorder()
-		request = restful.NewRequest(&http.Request{})
-		response = restful.NewResponse(recorder)
-
-		backend := ghttp.NewTLSServer()
-		backendAddr := strings.Split(backend.Addr(), ":")
-		backendPort, err := strconv.Atoi(backendAddr[1])
-		Expect(err).ToNot(HaveOccurred())
-		ctrl := gomock.NewController(GinkgoT())
-
-		mockVirtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient = kubevirtfake.NewSimpleClientset()
-
-		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
-		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
-
-		app = NewSubresourceAPIApp(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		})
+		app = NewSubresourceAPIApp(mockVirtClient, 8080, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	DescribeTable("request validation", func(autoattachSerialConsole bool, phase v1.VirtualMachineInstancePhase) {
-		request.PathParameters()["name"] = testVMIName
-		request.PathParameters()["namespace"] = metav1.NamespaceDefault
-
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),
 			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(phase))),
@@ -110,9 +98,6 @@ var _ = Describe("Console Subresource api", func() {
 	)
 
 	It("should fail to connect to the serial console if the VMI is Failed", func() {
-		request.PathParameters()["name"] = testVMIName
-		request.PathParameters()["namespace"] = metav1.NamespaceDefault
-
 		vmi := libvmi.New(libvmi.WithName(testVMIName),
 			libvmi.WithNamespace(metav1.NamespaceDefault),
 			libvmistatus.WithStatus(libvmistatus.New(
