@@ -47,6 +47,9 @@ BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
 # Select repo file based on version
 bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
+if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+    bazeldnf_repos="--repofile rpm/repo-virt-preview.yaml ${bazeldnf_repos}"
+fi
 if [ "${CUSTOM_REPO}" ]; then
     bazeldnf_repos="--repofile ${CUSTOM_REPO} ${bazeldnf_repos}"
 fi
@@ -158,6 +161,12 @@ launcherbase_x86_64="
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
 "
+if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+    launcherbase_x86_64+="
+  qemu-system-aarch64-core
+  edk2-aarch64
+"
+fi
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
@@ -295,6 +304,20 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $launcherbase_main \
         $launcherbase_x86_64 \
         $launcherbase_extra
+
+    # bazeldnf resolves noarch RPMs (like edk2-aarch64) under the
+    # architecture of the repo that provided them, so edk2-aarch64
+    # ends up with an .aarch64 suffix in WORKSPACE and only appears
+    # in the aarch64 rpmtree. Inject it into the x86_64 launcher
+    # target so the cross-arch EFI firmware is included.
+    if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+        edk2_aarch64_entry=$(grep '@edk2-aarch64-.*\.aarch64//rpm' rpm/BUILD.bazel | head -1 | xargs)
+        if [ -n "${edk2_aarch64_entry}" ]; then
+            sed -i "/name = \"launcherbase_x86_64${TARGET_SUFFIX}\"/,/\]/{
+                /@edk2-ovmf-.*x86_64/a\\        ${edk2_aarch64_entry}
+            }" rpm/BUILD.bazel
+        fi
+    fi
 
     # create a rpmtree for virt-handler
     bazel run \
@@ -462,6 +485,21 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $launcherbase_main \
         $launcherbase_aarch64 \
         $launcherbase_extra
+
+    if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+        bazel run \
+            --config=${ARCHITECTURE} \
+            //:bazeldnf -- rpmtree \
+            --public --nobest \
+            --name launcherbase_crossarch_aarch64${TARGET_SUFFIX} \
+            --basesystem ${BASESYSTEM} \
+            --force-ignore-with-dependencies '^mozjs60' \
+            --force-ignore-with-dependencies 'python' \
+            ${bazeldnf_repos} \
+            qemu-system-x86-core \
+            edk2-ovmf \
+            seabios
+    fi
 
     # create a rpmtree for virt-handler
     bazel run \
