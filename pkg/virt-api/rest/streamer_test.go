@@ -93,11 +93,11 @@ var _ = Describe("Streamer", func() {
 		)
 		streamer = &Streamer{
 			dialer: directDialer,
-			streamToClient: func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+			streamToClient: func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 				result <- nil
 				streamToClientCalled <- struct{}{}
 			},
-			streamToServer: func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+			streamToServer: func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 				result <- nil
 				streamToServerCalled <- struct{}{}
 			},
@@ -254,7 +254,7 @@ var _ = Describe("Streamer", func() {
 		Expect(string(response)).To(ContainSubstring("the client is not using the websocket protocol"))
 	})
 	It("does start streamToClient with connections", func() {
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			defer GinkgoRecover()
 			Expect(clientSocket).NotTo(BeNil())
 			Expect(serverConn).NotTo(BeNil())
@@ -276,7 +276,7 @@ var _ = Describe("Streamer", func() {
 		wg.Wait()
 	})
 	It("does start streamToServer with connections", func() {
-		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			defer GinkgoRecover()
 			Expect(clientSocket).NotTo(BeNil())
 			Expect(serverConn).NotTo(BeNil())
@@ -332,12 +332,12 @@ var _ = Describe("Streamer", func() {
 		wg.Wait()
 	})
 	It("closes clientSocket when keepAliveClient cancels context", func() {
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			streamToClientCalled <- struct{}{}
 			_, _ = io.Copy(io.Discard, serverConn)
 			result <- nil
 		}
-		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			streamToServerCalled <- struct{}{}
 			_, _ = io.Copy(io.Discard, clientSocket.UnderlyingConn())
 			result <- nil
@@ -392,7 +392,7 @@ var _ = Describe("Streamer", func() {
 		wg.Wait()
 	})
 	It("starts to cleanup after the first stream returns", func() {
-		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			defer GinkgoRecover()
 			serverConn.SetReadDeadline(time.Now().Add(defaultTestTimeout))
 			_, err := serverConn.Read([]byte{})
@@ -413,11 +413,11 @@ var _ = Describe("Streamer", func() {
 	})
 	It("returns the first stream result/error if streamToClient terminates", func() {
 		testErrStreamEnded := goerrors.New("stream ended")
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			result <- testErrStreamEnded
 			streamToClientCalled <- struct{}{}
 		}
-		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			streamToServerCalled <- struct{}{}
 			_, _ = io.Copy(io.Discard, clientSocket.UnderlyingConn())
 			result <- nil
@@ -438,12 +438,12 @@ var _ = Describe("Streamer", func() {
 	})
 	It("returns the first stream result/error if streamToServer terminates", func() {
 		testErrStreamEnded := goerrors.New("stream ended")
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			streamToClientCalled <- struct{}{}
 			_, _ = io.Copy(io.Discard, serverConn)
 			result <- nil
 		}
-		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			result <- testErrStreamEnded
 			streamToServerCalled <- struct{}{}
 		}
@@ -468,8 +468,8 @@ var _ = Describe("Streamer", func() {
 			Skip("Data Race Detector is enabled")
 		}
 
-		var results chan<- streamFuncResult
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		var results chan<- error
+		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			result <- goerrors.New("done")
 			results = result
 			streamToClientCalled <- struct{}{}
@@ -488,7 +488,7 @@ var _ = Describe("Streamer", func() {
 	})
 })
 
-func streamFuncResultChannelIsClosed(channel chan<- streamFuncResult, timeout time.Duration) bool {
+func streamFuncResultChannelIsClosed(channel chan<- error, timeout time.Duration) bool {
 	closed := make(chan bool)
 	defer close(closed)
 

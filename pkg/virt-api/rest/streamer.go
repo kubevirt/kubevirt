@@ -38,8 +38,7 @@ import (
 
 type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
 type validator func(vmi *v1.VirtualMachineInstance) *errors.StatusError
-type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult)
-type streamFuncResult error
+type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error)
 
 type dialer interface {
 	Dial(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
@@ -62,11 +61,11 @@ type DirectDialer struct {
 func NewRawStreamer(dialer *DirectDialer) *Streamer {
 	return &Streamer{
 		dialer: dialer,
-		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := io.Copy(serverConn, clientConn.UnderlyingConn())
 			result <- err
 		},
-		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := io.Copy(clientConn.UnderlyingConn(), serverConn)
 			result <- err
 		},
@@ -77,11 +76,11 @@ func NewWebsocketStreamer(dialer *DirectDialer) *Streamer {
 	return &Streamer{
 		dialer:          dialer,
 		keepAliveClient: keepAliveClientStream,
-		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := kvcorev1.CopyFrom(serverConn, clientConn)
 			result <- err
 		},
-		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := kvcorev1.CopyTo(clientConn, serverConn)
 			result <- err
 		},
@@ -112,7 +111,7 @@ func (s *Streamer) Handle(request *restful.Request, response *restful.Response) 
 		go s.keepAliveClient(context.Background(), clientConn, cancel)
 	}
 
-	results := make(chan streamFuncResult, 2)
+	results := make(chan error, 2)
 	defer close(results)
 
 	go s.streamToClient(clientConn, serverConn, results)
