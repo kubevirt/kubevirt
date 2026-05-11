@@ -85,7 +85,7 @@ var _ = Describe("Streamer", func() {
 				return nil
 			},
 			mockDialer{
-				dialUnderlying: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+				dial: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
 					dialCalled = true
 					return serverConn, nil
 				},
@@ -160,8 +160,8 @@ var _ = Describe("Streamer", func() {
 		Expect(dialCalled).To(BeTrue())
 	})
 	It("dials the fetched VMI", func() {
-		directDialer.dial = mockDialer{
-			dialUnderlying: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+		directDialer.dialer = mockDialer{
+			dial: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
 				Expect(vmi).To(Equal(testVMI))
 				return nil, nil
 			},
@@ -190,8 +190,8 @@ var _ = Describe("Streamer", func() {
 		wg.Wait()
 	})
 	It("does not attempt the client connection upgrade on a failed dial", func() {
-		directDialer.dial = mockDialer{
-			dialUnderlying: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
+		directDialer.dialer = mockDialer{
+			dial: func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
 				return nil, errors.NewInternalError(goerrors.New("test error"))
 			},
 		}
@@ -525,14 +525,9 @@ func testWebsocketDial(handler http.HandlerFunc) (*httptest.Server, *websocket.C
 }
 
 type mockDialer struct {
-	dial           func(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError)
-	dialUnderlying func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
+	dial func(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
 }
 
-func (m mockDialer) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError) {
+func (m mockDialer) Dial(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
 	return m.dial(vmi)
-}
-
-func (m mockDialer) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError) {
-	return m.dialUnderlying(vmi)
 }
