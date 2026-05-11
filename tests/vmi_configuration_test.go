@@ -371,27 +371,41 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}, 200)).To(Succeed())
 		})
 
+		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
+		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
+		// fbaa64.efi (fallback) is signed with a test certificate, causing a
+		// Security Violation on first boot. See:
+		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
 		It("should enable ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, func() {
 			kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
 
-			fedoraWithUefi := libvmi.New(
-				libvmi.WithContainerDisk("disk0", "quay.io/containerdisks/fedora:44"),
+			ubuntuWithUefi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "quay.io/containerdisks/ubuntu:24.04"),
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithRng(),
 				libvmi.WithArchitecture("arm64"),
 				libvmi.WithUefi(true),
 				libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudUserData(
-					"#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n",
+					"#cloud-config\npassword: ubuntu\nchpasswd: { expire: False }\n",
 				)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
-			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
+			ubuntuWithUefi = libvmops.RunVMIAndExpectLaunch(ubuntuWithUefi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("Logging in")
+			Expect(console.SafeExpectBatch(ubuntuWithUefi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login: "},
+				&expect.BSnd{S: "ubuntu\n"},
+				&expect.BExp{R: "Password:"},
+				&expect.BSnd{S: "ubuntu\n"},
+				&expect.BExp{R: `\$`},
+			}, 300)).To(Succeed())
 
 			By("Checking EFI and SecureBoot state")
-			Expect(console.SafeExpectBatch(fedoraWithUefi, []expect.Batcher{
+			Expect(console.SafeExpectBatch(ubuntuWithUefi, []expect.Batcher{
 				&expect.BSnd{S: "[ -d /sys/firmware/efi ]\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
