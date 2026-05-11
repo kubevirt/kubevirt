@@ -23,69 +23,45 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
 var _ = Describe("Balloon Domain Configurator", func() {
-	Context("amd64 with SEV", func() {
-		It("Should set IOMMU attribute of the MemBalloonDriver", func() {
-			vmi := libvmi.New(withLaunchSecurity(v1.LaunchSecurity{SEV: &v1.SEV{}}))
-			var domain api.Domain
+	const (
+		useSEV = true
+		usePV  = true
+	)
 
-			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithUseLaunchSecuritySEV(true),
-				compute.BalloonWithUseLaunchSecurityPV(false),
-				compute.BalloonWithFreePageReporting(false),
-				compute.BalloonWithMemBalloonStatsPeriod(0),
-				compute.BalloonWithVirtioModel("virtio-non-transitional"),
-			)
+	DescribeTable("IOMMU driver configuration", func(useSEV, usePV bool, expectedDriver *api.MemBalloonDriver) {
+		vmi := libvmi.New()
+		var domain api.Domain
 
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+		configurator := compute.NewBalloonDomainConfigurator(
+			compute.BalloonWithUseLaunchSecuritySEV(useSEV),
+			compute.BalloonWithUseLaunchSecurityPV(usePV),
+			compute.BalloonWithFreePageReporting(false),
+			compute.BalloonWithMemBalloonStatsPeriod(0),
+			compute.BalloonWithVirtioModel("virtio-non-transitional"),
+		)
 
-			expectedDomain := newDomainWithBallooning(
-				api.MemBalloon{
-					Model:             "virtio-non-transitional",
-					Stats:             nil,
-					Address:           nil,
-					Driver:            &api.MemBalloonDriver{IOMMU: "on"},
-					FreePageReporting: "off",
-				},
-			)
-			Expect(domain).To(Equal(expectedDomain))
-		})
-	})
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-	Context("s390x with LaunchSecurity", func() {
-		It("Should set IOMMU attribute of the MemBalloonDriver", func() {
-			vmi := libvmi.New()
-			var domain api.Domain
-
-			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithUseLaunchSecuritySEV(false),
-				compute.BalloonWithUseLaunchSecurityPV(true),
-				compute.BalloonWithFreePageReporting(false),
-				compute.BalloonWithMemBalloonStatsPeriod(0),
-				compute.BalloonWithVirtioModel("virtio"),
-			)
-
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := newDomainWithBallooning(
-				api.MemBalloon{
-					Model:             "virtio",
-					Stats:             nil,
-					Address:           nil,
-					Driver:            &api.MemBalloonDriver{IOMMU: "on"},
-					FreePageReporting: "off",
-				},
-			)
-			Expect(domain).To(Equal(expectedDomain))
-		})
-	})
+		expectedDomain := newDomainWithBallooning(
+			api.MemBalloon{
+				Model:             "virtio-non-transitional",
+				Driver:            expectedDriver,
+				FreePageReporting: "off",
+			},
+		)
+		Expect(domain).To(Equal(expectedDomain))
+	},
+		Entry("neither SEV nor PV", !useSEV, !usePV, nil),
+		Entry("SEV enabled", useSEV, !usePV, &api.MemBalloonDriver{IOMMU: "on"}),
+		Entry("PV enabled", !useSEV, usePV, &api.MemBalloonDriver{IOMMU: "on"}),
+		Entry("Both SEV and PV enabled", useSEV, usePV, &api.MemBalloonDriver{IOMMU: "on"}),
+	)
 
 	Context("with memballoon stats period", func() {
 		It("should set Stats when period is non-zero", func() {
