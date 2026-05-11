@@ -1,0 +1,7 @@
+repositories:
+- arch: x86_64
+  baseurl: https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-x86_64/
+  name: copr/virtmaint-sig-virt-preview-x86_64
+- arch: aarch64
+  baseurl: https://download.copr.fedorainfracloud.org/results/@virtmaint-sig/virt-preview/centos-stream-9-aarch64/
+  name: copr/virtmaint-sig-virt-preview-aarch64
