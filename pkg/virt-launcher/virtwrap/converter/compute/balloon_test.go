@@ -63,6 +63,30 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		Entry("Both SEV and PV enabled", useSEV, usePV, &api.MemBalloonDriver{IOMMU: "on"}),
 	)
 
+	DescribeTable("free page reporting", func(enabled bool, expected string) {
+		vmi := libvmi.New()
+		var domain api.Domain
+
+		configurator := compute.NewBalloonDomainConfigurator(
+			compute.BalloonWithUseLaunchSecuritySEV(false),
+			compute.BalloonWithUseLaunchSecurityPV(false),
+			compute.BalloonWithFreePageReporting(enabled),
+			compute.BalloonWithMemBalloonStatsPeriod(0),
+			compute.BalloonWithVirtioModel("virtio-non-transitional"),
+		)
+
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := newDomainWithBallooning(api.MemBalloon{
+			Model:             "virtio-non-transitional",
+			FreePageReporting: expected,
+		})
+		Expect(domain).To(Equal(expectedDomain))
+	},
+		Entry("enabled", true, "on"),
+		Entry("disabled", false, "off"),
+	)
+
 	DescribeTable("memballoon stats period", func(period uint, expectedStats *api.Stats) {
 		vmi := libvmi.New()
 		var domain api.Domain
