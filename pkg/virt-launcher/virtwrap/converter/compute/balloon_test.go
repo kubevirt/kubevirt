@@ -46,19 +46,15 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Ballooning: &api.MemBalloon{
-							Model:             "virtio-non-transitional",
-							Stats:             nil,
-							Address:           nil,
-							Driver:            &api.MemBalloonDriver{IOMMU: "on"},
-							FreePageReporting: "off",
-						},
-					},
+			expectedDomain := newDomainWithBallooning(
+				api.MemBalloon{
+					Model:             "virtio-non-transitional",
+					Stats:             nil,
+					Address:           nil,
+					Driver:            &api.MemBalloonDriver{IOMMU: "on"},
+					FreePageReporting: "off",
 				},
-			}
+			)
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
@@ -78,19 +74,15 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Ballooning: &api.MemBalloon{
-							Model:             "virtio",
-							Stats:             nil,
-							Address:           nil,
-							Driver:            &api.MemBalloonDriver{IOMMU: "on"},
-							FreePageReporting: "off",
-						},
-					},
+			expectedDomain := newDomainWithBallooning(
+				api.MemBalloon{
+					Model:             "virtio",
+					Stats:             nil,
+					Address:           nil,
+					Driver:            &api.MemBalloonDriver{IOMMU: "on"},
+					FreePageReporting: "off",
 				},
-			}
+			)
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
@@ -110,17 +102,13 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Ballooning: &api.MemBalloon{
-							Model:             "virtio-non-transitional",
-							FreePageReporting: "on",
-							Stats:             &api.Stats{Period: 5},
-						},
-					},
+			expectedDomain := newDomainWithBallooning(
+				api.MemBalloon{
+					Model:             "virtio-non-transitional",
+					FreePageReporting: "on",
+					Stats:             &api.Stats{Period: 5},
 				},
-			}
+			)
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
@@ -138,17 +126,13 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Ballooning: &api.MemBalloon{
-							Model:             "virtio-non-transitional",
-							FreePageReporting: "on",
-							Stats:             nil,
-						},
-					},
+			expectedDomain := newDomainWithBallooning(
+				api.MemBalloon{
+					Model:             "virtio-non-transitional",
+					FreePageReporting: "on",
+					Stats:             nil,
 				},
-			}
+			)
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
@@ -164,15 +148,11 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Ballooning: &api.MemBalloon{
-							Model: "none",
-						},
-					},
+			expectedDomain := newDomainWithBallooning(
+				api.MemBalloon{
+					Model: "none",
 				},
-			}
+			)
 			Expect(domain).To(Equal(expectedDomain))
 		},
 			Entry("for amd64", "virtio-non-transitional"),
@@ -181,3 +161,13 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		)
 	})
 })
+
+func newDomainWithBallooning(ballooning api.MemBalloon) api.Domain {
+	return api.Domain{
+		Spec: api.DomainSpec{
+			Devices: api.Devices{
+				Ballooning: &ballooning,
+			},
+		},
+	}
+}
