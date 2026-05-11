@@ -51,11 +51,12 @@ const (
 )
 
 type ServerOptions struct {
-	allowEmulation bool
-	notifier       *notifyclient.Notifier
-	vmiName        string
-	vmiNamespace   string
-	vmiUID         types.UID
+	allowEmulation          bool
+	vmStatsCollectorEnabled bool
+	notifier                *notifyclient.Notifier
+	vmiName                 string
+	vmiNamespace            string
+	vmiUID                  types.UID
 }
 
 func NewServerOptions(allowEmulation bool) *ServerOptions {
@@ -64,6 +65,11 @@ func NewServerOptions(allowEmulation bool) *ServerOptions {
 
 func (o *ServerOptions) WithNotifier(n *notifyclient.Notifier) *ServerOptions {
 	o.notifier = n
+	return o
+}
+
+func (o *ServerOptions) WithVMStatsCollector(enabled bool) *ServerOptions {
+	o.vmStatsCollectorEnabled = enabled
 	return o
 }
 
@@ -79,6 +85,13 @@ func (o *ServerOptions) WithVMI(vmi *v1.VirtualMachineInstance) *ServerOptions {
 type Launcher struct {
 	domainManager virtwrap.DomainManager
 	*ServerOptions
+}
+
+func NewLauncher(domainManager virtwrap.DomainManager, options *ServerOptions) *Launcher {
+	return &Launcher{
+		domainManager: domainManager,
+		ServerOptions: options,
+	}
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -657,11 +670,7 @@ func RunServer(socketPath string,
 	if options == nil {
 		options = NewServerOptions(false)
 	}
-	server := &Launcher{
-		domainManager: domainManager,
-		ServerOptions: options,
-	}
-
+	server := NewLauncher(domainManager, options)
 	registerInfoServer(grpcServer)
 
 	// register more versions as soon as needed

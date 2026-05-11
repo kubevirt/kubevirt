@@ -39,6 +39,7 @@ service Cmd {
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
   rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
   rpc RedefineCheckpoint(RedefineCheckpointRequest) returns (RedefineCheckpointResponse) {}
+  rpc GetVMStats(VMStatsRequest) returns (VMStatsResponse) {}
 }
 
 message QemuVersionResponse {
@@ -238,4 +239,62 @@ message RedefineCheckpointRequest {
 message RedefineCheckpointResponse {
   Response response = 1;
   bool checkpointInvalid = 2;
+}
+
+message DomainStatsRequest {}
+message DirtyRateRequest {}
+message AgentLoadRequest {}
+message AgentCpuStatsRequest {}
+message AgentDiskStatsRequest {}
+message AgentTimeRequest {}
+message AgentVcpusRequest {}
+message AgentMemoryBlockInfoRequest {}
+message AgentUsersRequest {}
+message AgentOsInfoRequest {}
+message AgentDisksRequest {}
+message AgentHostNameRequest {}
+message AgentTimezoneRequest {}
+message AgentNetworkRouteRequest {}
+message AgentNetworkInterfacesRequest {}
+message AgentMemoryBlocksRequest {}
+
+message VMStatsRequest {
+  DomainStatsRequest domainStats = 1;
+  DirtyRateRequest dirtyRate = 2;
+  AgentLoadRequest guestGetLoad = 3;
+  AgentCpuStatsRequest guestGetCpuStats = 4;
+  AgentDiskStatsRequest guestGetDiskStats = 5;
+  AgentTimeRequest guestGetTime = 6;
+  AgentVcpusRequest guestGetVcpus = 7;
+  AgentMemoryBlockInfoRequest guestGetMemoryBlockInfo = 8;
+  AgentUsersRequest guestGetUsers = 9;
+  AgentOsInfoRequest guestGetOsInfo = 10;
+  AgentDisksRequest guestGetDisks = 11;
+  AgentHostNameRequest guestGetHostName = 12;
+  AgentTimezoneRequest guestGetTimezone = 13;
+  AgentNetworkRouteRequest guestNetworkGetRoute = 14;
+  AgentNetworkInterfacesRequest guestNetworkGetInterfaces = 15;
+  AgentMemoryBlocksRequest guestGetMemoryBlocks = 16;
+}
+
+message VMStatsResponse {
+  Response response = 1;
+
+  DomainStatsResponse domainStats = 2;
+  DirtyRateStatsResponse dirtyRateStats = 3;
+  Response guestAgentVersion = 4;
+  Response guestGetLoad = 5;
+  Response guestGetCpuStats = 6;
+  Response guestGetDiskStats = 7;
+  Response guestGetTime = 8;
+  Response guestGetVcpus = 9;
+  Response guestGetMemoryBlockInfo = 10;
+  Response guestGetUsers = 11;
+  Response guestGetOsInfo = 12;
+  Response guestGetDisks = 13;
+  Response guestGetHostName = 14;
+  Response guestGetTimezone = 15;
+  Response guestNetworkGetRoute = 16;
+  Response guestNetworkGetInterfaces = 17;
+  Response guestGetMemoryBlocks = 18;
 }

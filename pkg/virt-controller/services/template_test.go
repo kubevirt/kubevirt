@@ -4332,6 +4332,43 @@ var _ = Describe("Template", func() {
 			)
 		})
 
+		Context("with VMStatsCollector", func() {
+			BeforeEach(func() {
+				config, kvStore, svc = configFactory(defaultArch)
+			})
+
+			It("should pass --vm-stats-collector flag when VMStatsCollector is enabled", func() {
+				enableFeatureGate(featuregate.VMStatsCollector)
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						Expect(container.Command).To(ContainElement("--vm-stats-collector"))
+						return
+					}
+				}
+				Fail("compute container not found")
+			})
+
+			It("should not pass --vm-stats-collector flag when VMStatsCollector is disabled", func() {
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						Expect(container.Command).NotTo(ContainElement("--vm-stats-collector"))
+						return
+					}
+				}
+				Fail("compute container not found")
+			})
+		})
+
 		Context("Using defaultRuntimeClass", func() {
 			It("Should set a runtimeClassName on launcher pod, if configured", func() {
 				config, kvStore, svc = configFactory(defaultArch)

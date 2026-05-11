@@ -38,6 +38,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/utils/ptr"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
@@ -114,6 +115,7 @@ type LauncherClient interface {
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
 	RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
+	GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error)
 }
 
 type VirtLauncherClient struct {
@@ -488,6 +490,50 @@ func (c *VirtLauncherClient) GetDomainDirtyRateStats() (dirtyRateMbps int64, err
 	}
 
 	return domainDirtyRateStatsResponse.DirtyRateMbs, nil
+}
+
+func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error) {
+	result := &stats.VMStats{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	vmstatsResponse, err := c.v1client.GetVMStats(ctx, request)
+	var response *cmdv1.Response
+	if vmstatsResponse != nil {
+		response = vmstatsResponse.Response
+	}
+
+	if err := handleError(err, "GetVMStats", response); err != nil || vmstatsResponse == nil {
+		return result, err
+	}
+
+	if vmstatsResponse.GetDomainStats() != nil && vmstatsResponse.GetDomainStats().GetDomainStats() != "" {
+		if err := json.Unmarshal([]byte(vmstatsResponse.DomainStats.DomainStats), &result.DomainStats); err != nil {
+			return nil, err
+		}
+	}
+
+	if vmstatsResponse.GetDirtyRateStats() != nil {
+		result.DirtyRateMbps = ptr.To(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
+	}
+
+	result.GuestAgentVersion = vmstatsResponse.GetGuestAgentVersion().GetMessage()
+	result.GuestGetLoad = vmstatsResponse.GetGuestGetLoad().GetMessage()
+	result.GuestGetCpuStats = vmstatsResponse.GetGuestGetCpuStats().GetMessage()
+	result.GuestGetDiskStats = vmstatsResponse.GetGuestGetDiskStats().GetMessage()
+	result.GuestGetTime = vmstatsResponse.GetGuestGetTime().GetMessage()
+	result.GuestGetVcpus = vmstatsResponse.GetGuestGetVcpus().GetMessage()
+	result.GuestGetMemoryBlockInfo = vmstatsResponse.GetGuestGetMemoryBlockInfo().GetMessage()
+	result.GuestGetUsers = vmstatsResponse.GetGuestGetUsers().GetMessage()
+	result.GuestGetOsInfo = vmstatsResponse.GetGuestGetOsInfo().GetMessage()
+	result.GuestGetDisks = vmstatsResponse.GetGuestGetDisks().GetMessage()
+	result.GuestGetHostName = vmstatsResponse.GetGuestGetHostName().GetMessage()
+	result.GuestGetTimezone = vmstatsResponse.GetGuestGetTimezone().GetMessage()
+	result.GuestNetworkGetRoute = vmstatsResponse.GetGuestNetworkGetRoute().GetMessage()
+	result.GuestNetworkGetInterfaces = vmstatsResponse.GetGuestNetworkGetInterfaces().GetMessage()
+	result.GuestGetMemoryBlocks = vmstatsResponse.GetGuestGetMemoryBlocks().GetMessage()
+
+	return result, err
 }
 
 func (c *VirtLauncherClient) GetQemuVersion() (string, error) {
