@@ -33,13 +33,29 @@ import (
 )
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
-	activeConnectionMetric := apimetrics.NewActiveConsoleConnection(request.PathParameter("namespace"), request.PathParameter("name"))
+	vmiNamespace := request.PathParameter("namespace")
+	vmiName := request.PathParameter("name")
+
+	vmi, err := app.FetchVirtualMachineInstance(vmiNamespace, vmiName)
+	if err != nil {
+		writeError(err, response)
+		return
+	}
+
+	if err := validateVMIForConsole(vmi); err != nil {
+		writeError(err, response)
+		return
+	}
+
+	activeConnectionMetric := apimetrics.NewActiveConsoleConnection(vmiNamespace, vmiName)
 	defer activeConnectionMetric.Dec()
 
-	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+	defer apimetrics.SetVMILastConnectionTimestamp(vmiNamespace, vmiName)
 
 	streamer := NewRawStreamer(
-		NewDirectDialer(app.FetchVirtualMachineInstance, validateVMIForConsole,
+		NewDirectDialer(func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
+			return vmi, nil
+		}, func(vmi *v1.VirtualMachineInstance) *errors.StatusError { return nil },
 			app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 				return conn.ConsoleURI(vmi)
 			}),
