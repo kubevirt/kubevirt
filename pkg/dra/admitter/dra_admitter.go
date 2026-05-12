@@ -83,15 +83,13 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 	hdCauses, hdClaimNames, hdClaimRequestPairs := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices, checker)
 	causes = append(causes, hdCauses...)
 
-	for key, hdIdx := range hdClaimRequestPairs {
-		if gpuIdx, found := gpuClaimRequestPairs[key]; found {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("duplicate claimName/requestName pair %q between GPUs[%d] and HostDevices[%d]", key, gpuIdx, hdIdx),
-				Field:   field.Child("domain", "devices", "hostDevices").Index(hdIdx).String(),
-			})
-		}
-	}
+	state := newPairDuplicateChecker()
+	causes = append(causes,
+		state.detectDuplicatePairs(gpuClaimRequestPairs, field.Child("domain", "devices", "gpus"), "GPUs")...,
+	)
+	causes = append(causes,
+		state.detectDuplicatePairs(hdClaimRequestPairs, field.Child("domain", "devices", "hostDevices"), "HostDevices")...,
+	)
 
 	allClaimNames := gpuClaimNames.Union(hdClaimNames)
 
@@ -271,4 +269,33 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 
 func ValidateCreation(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 	return NewValidator(field, vmiSpec, clusterCfg).ValidateCreation()
+}
+
+type pairOwner struct {
+	deviceType string
+	index      int
+}
+
+type pairDuplicateChecker struct {
+	seenPairs map[string]pairOwner
+}
+
+func newPairDuplicateChecker() *pairDuplicateChecker {
+	return &pairDuplicateChecker{seenPairs: map[string]pairOwner{}}
+}
+
+func (s *pairDuplicateChecker) detectDuplicatePairs(pairs map[string]int, devField *k8sfield.Path, typeName string) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for key, idx := range pairs {
+		if prev, exists := s.seenPairs[key]; exists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate claimName/requestName pair %q between %s[%d] and %s[%d]", key, prev.deviceType, prev.index, typeName, idx),
+				Field:   devField.Index(idx).String(),
+			})
+			continue
+		}
+		s.seenPairs[key] = pairOwner{deviceType: typeName, index: idx}
+	}
+	return causes
 }
