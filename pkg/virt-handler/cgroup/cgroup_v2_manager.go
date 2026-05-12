@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
 type v2Manager struct {
@@ -179,4 +180,16 @@ func (v *v2Manager) GetCgroupThreads() ([]int, error) {
 
 func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
+}
+
+func (v *v2Manager) AllowDevice(deviceType string, major, minor int64, permissions string) error {
+	return execVirtChrootUpdateDevice(v.dirPath, deviceType, major, minor, permissions, true)
+}
+
+func (v *v2Manager) RemoveDevice(deviceType string, major, minor int64) error {
+	return execVirtChrootUpdateDevice(v.dirPath, deviceType, major, minor, "", false)
+}
+
+func (v *v2Manager) ListDevices() ([]cgroupconsts.DeviceMapEntry, error) {
+	return execVirtChrootListDevices(v.dirPath)
 }
