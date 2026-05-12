@@ -23,7 +23,6 @@ import (
 )
 
 var _ = Describe("Apply PDBs", func() {
-
 	var ctrl *gomock.Controller
 	var pdbClient *fake.Clientset
 	var stores util.Stores
@@ -89,7 +88,6 @@ var _ = Describe("Apply PDBs", func() {
 		requiredPDB.Annotations = make(map[string]string)
 		requiredPDB.SetGeneration(mockGeneration)
 		SetGeneration(&kv.Status.Generations, requiredPDB)
-
 	})
 
 	Context("Reconciliation", func() {
@@ -144,5 +142,4 @@ var _ = Describe("Apply PDBs", func() {
 			Expect(patchedOccurred).To(BeTrue())
 		})
 	})
-
 })

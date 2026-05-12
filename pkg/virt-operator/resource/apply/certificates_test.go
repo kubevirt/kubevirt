@@ -113,5 +113,4 @@ var _ = Describe("Certificates", func() {
 			Expect(result).To(Equal(oneDay))
 		})
 	})
-
 })

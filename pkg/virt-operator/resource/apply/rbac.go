@@ -20,15 +20,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
-func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag string, imageRegistry string, id string) error {
+func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag, imageRegistry, id string) error {
 	return rbacCreateOrUpdate(r, cr, imageTag, imageRegistry, id)
 }
 
-func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, imageTag string, imageRegistry string, id string) error {
+func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, imageTag, imageRegistry, id string) error {
 	return rbacCreateOrUpdate(r, crb, imageTag, imageRegistry, id)
 }
 
-func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag string, imageRegistry string, id string) error {
+func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag, imageRegistry, id string) error {
 	if !r.config.ServiceMonitorEnabled && (role.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
@@ -36,7 +36,7 @@ func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag string, imag
 	return rbacCreateOrUpdate(r, role, imageTag, imageRegistry, id)
 }
 
-func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag string, imageRegistry string, id string) error {
+func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag, imageRegistry, id string) error {
 	if !r.config.ServiceMonitorEnabled && (rb.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
@@ -45,7 +45,6 @@ func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag 
 }
 
 func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageRegistry, id string) (err error) {
-
 	roleTypeName := required.GetObjectKind().GroupVersionKind().Kind
 
 	cachedRoleInterface, exists, _ := getRbacCache(r, required).Get(required)
@@ -89,7 +88,6 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 }
 
 func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func() error) {
-
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
 
@@ -102,9 +100,9 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 		}
 	}
 
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *rbacv1.Role:
-		role := obj.(*rbacv1.Role)
+		role := obj
 
 		createFunc = func() error {
 			raiseExpectation(r.expectations.Role)
@@ -113,7 +111,7 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 			return err
 		}
 	case *rbacv1.ClusterRole:
-		role := obj.(*rbacv1.ClusterRole)
+		role := obj
 
 		createFunc = func() error {
 			raiseExpectation(r.expectations.ClusterRole)
@@ -122,7 +120,7 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 			return err
 		}
 	case *rbacv1.RoleBinding:
-		roleBinding := obj.(*rbacv1.RoleBinding)
+		roleBinding := obj
 		components.UpdateTemplateAuthReaderNamespace(roleBinding, namespace)
 
 		createFunc = func() error {
@@ -132,7 +130,7 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 			return err
 		}
 	case *rbacv1.ClusterRoleBinding:
-		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
+		roleBinding := obj
 
 		createFunc = func() error {
 			raiseExpectation(r.expectations.ClusterRoleBinding)
@@ -142,30 +140,30 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 		}
 	}
 
-	return
+	return createFunc
 }
 
 func getRbacUpdateFunction(r *Reconciler, obj runtime.Object) (updateFunc func() (err error)) {
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
 
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *rbacv1.Role:
-		role := obj.(*rbacv1.Role)
+		role := obj
 
 		updateFunc = func() (err error) {
 			_, err = rbacObj.Roles(namespace).Update(context.Background(), role, metav1.UpdateOptions{})
 			return err
 		}
 	case *rbacv1.ClusterRole:
-		role := obj.(*rbacv1.ClusterRole)
+		role := obj
 
 		updateFunc = func() (err error) {
 			_, err = rbacObj.ClusterRoles().Update(context.Background(), role, metav1.UpdateOptions{})
 			return err
 		}
 	case *rbacv1.RoleBinding:
-		roleBinding := obj.(*rbacv1.RoleBinding)
+		roleBinding := obj
 		components.UpdateTemplateAuthReaderNamespace(roleBinding, namespace)
 
 		updateFunc = func() (err error) {
@@ -173,7 +171,7 @@ func getRbacUpdateFunction(r *Reconciler, obj runtime.Object) (updateFunc func()
 			return err
 		}
 	case *rbacv1.ClusterRoleBinding:
-		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
+		roleBinding := obj
 
 		updateFunc = func() (err error) {
 			_, err = rbacObj.ClusterRoleBindings().Update(context.Background(), roleBinding, metav1.UpdateOptions{})
@@ -181,29 +179,29 @@ func getRbacUpdateFunction(r *Reconciler, obj runtime.Object) (updateFunc func()
 		}
 	}
 
-	return
+	return updateFunc
 }
 
 func getRbacMetaObject(obj runtime.Object) (meta *metav1.ObjectMeta) {
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *rbacv1.Role:
-		role := obj.(*rbacv1.Role)
+		role := obj
 		meta = &role.ObjectMeta
 	case *rbacv1.ClusterRole:
-		role := obj.(*rbacv1.ClusterRole)
+		role := obj
 		meta = &role.ObjectMeta
 	case *rbacv1.RoleBinding:
-		roleBinding := obj.(*rbacv1.RoleBinding)
+		roleBinding := obj
 		meta = &roleBinding.ObjectMeta
 	case *rbacv1.ClusterRoleBinding:
-		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
+		roleBinding := obj
 		meta = &roleBinding.ObjectMeta
 	}
 
-	return
+	return meta
 }
 
-func enforceAPIGroup(existing runtime.Object, required runtime.Object) {
+func enforceAPIGroup(existing, required runtime.Object) {
 	var existingRoleRef *rbacv1.RoleRef
 	var requiredRoleRef *rbacv1.RoleRef
 	var existingSubjects []rbacv1.Subject
@@ -243,14 +241,14 @@ func enforceAPIGroup(existing runtime.Object, required runtime.Object) {
 	}
 }
 
-func changeRbacExistingByRequired(existing runtime.Object, required runtime.Object) (modified bool) {
+func changeRbacExistingByRequired(existing, required runtime.Object) (modified bool) {
 	// This is to avoid using reflections for performance reasons
 	arePolicyRulesEqual := func(pr1, pr2 []rbacv1.PolicyRule) bool {
 		if len(pr1) != len(pr2) {
 			return false
 		}
 
-		areStringListsEqual := func(strList1 []string, strList2 []string) bool {
+		areStringListsEqual := func(strList1, strList2 []string) bool {
 			if len(strList1) != len(strList2) {
 				return false
 			}

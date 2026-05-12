@@ -22,7 +22,6 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateValidatingWebhookConfigurations(caBundle []byte) error {
-
 	for _, webhook := range r.targetStrategy.ValidatingWebhookConfigurations() {
 		err := r.createOrUpdateValidatingWebhookConfiguration(webhook, caBundle)
 		if err != nil {
@@ -93,13 +92,13 @@ func (r *Reconciler) patchValidatingWebhookConfiguration(webhook *admissionregis
 		var out *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 		out, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
-			return
+			return patchedWebhook, err
 		}
 		patchedWebhook, err = convertV1beta1ValidatingWebhookToV1(out)
 	default:
 		err = fmt.Errorf("ValidatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
 	}
-	return
+	return patchedWebhook, err
 }
 
 func (r *Reconciler) createValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration) (createdWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
@@ -120,7 +119,7 @@ func (r *Reconciler) createValidatingWebhookConfiguration(webhook *admissionregi
 	default:
 		err = fmt.Errorf("ValidatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
 	}
-	return
+	return createdWebhook, err
 }
 
 func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, patchBytes []byte) (patchedWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
@@ -131,13 +130,13 @@ func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistr
 		var out *admissionregistrationv1beta1.MutatingWebhookConfiguration
 		out, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
-			return
+			return patchedWebhook, err
 		}
 		patchedWebhook, err = convertV1beta1MutatingWebhookToV1(out)
 	default:
 		err = fmt.Errorf("MutatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
 	}
-	return
+	return patchedWebhook, err
 }
 
 func (r *Reconciler) createMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration) (createdWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
@@ -158,7 +157,7 @@ func (r *Reconciler) createMutatingWebhookConfiguration(webhook *admissionregist
 	default:
 		err = fmt.Errorf("MutatingWebhookConfiguration APIVersion %s not supported", webhook.APIVersion)
 	}
-	return
+	return createdWebhook, err
 }
 
 func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration, caBundle []byte) error {

@@ -52,8 +52,9 @@ func (m *MockStore) Get(_ interface{}) (item interface{}, exists bool, err error
 	if m.get != nil {
 		exists = true
 	}
-	return
+	return item, exists, err
 }
+
 func (m *MockStore) GetByKey(_ string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
@@ -101,7 +102,7 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 			},
 		},
 		Data: map[string]string{
-			"manifests": string(b.Bytes()),
+			"manifests": b.String(),
 		},
 	}
 
@@ -113,10 +114,8 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 }
 
 var _ = Describe("Apply", func() {
-
 	Context("should calculate", func() {
-
-		DescribeTable("update path based on semver", func(target string, current string, expected bool) {
+		DescribeTable("update path based on semver", func(target, current string, expected bool) {
 			takeUpdatePath := shouldTakeUpdatePath(target, current)
 
 			Expect(takeUpdatePath).To(Equal(expected))
@@ -134,9 +133,7 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("Injecting Metadata", func() {
-
 		It("should set expected values", func() {
-
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version

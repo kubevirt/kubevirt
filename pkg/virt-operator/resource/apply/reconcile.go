@@ -53,8 +53,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-const Duration7d = time.Hour * 24 * 7
-const Duration1d = time.Hour * 24
+const (
+	Duration7d = time.Hour * 24 * 7
+	Duration1d = time.Hour * 24
+)
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
@@ -77,7 +79,7 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 	return false
 }
 
-func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string, id string, injectCustomizationMetadata bool) {
+func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, injectCustomizationMetadata bool) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
@@ -112,9 +114,11 @@ func GetAppComponent(kv *v1.KubeVirt) string {
 }
 
 func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) []patch.PatchOption {
-	return []patch.PatchOption{patch.WithAdd("/metadata/labels", objectMeta.Labels),
+	return []patch.PatchOption{
+		patch.WithAdd("/metadata/labels", objectMeta.Labels),
 		patch.WithAdd("/metadata/annotations", objectMeta.Annotations),
-		patch.WithAdd("/metadata/ownerReferences", objectMeta.OwnerReferences)}
+		patch.WithAdd("/metadata/ownerReferences", objectMeta.OwnerReferences),
+	}
 }
 
 func getPatchWithObjectMetaAndSpec(ops []patch.PatchOption, meta *metav1.ObjectMeta, spec interface{}) []patch.PatchOption {
@@ -225,7 +229,6 @@ func haveDaemonSetsRolledOver(targetStrategy install.StrategyInterface, kv *v1.K
 }
 
 func (r *Reconciler) createDummyWebhookValidator() error {
-
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
@@ -234,7 +237,6 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
-
 			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 				// already created blocking webhook for this version
 				return nil
@@ -312,12 +314,12 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	return nil
 }
 
-func getTargetVersionRegistryID(kv *v1.KubeVirt) (version string, registry string, id string) {
+func getTargetVersionRegistryID(kv *v1.KubeVirt) (version, registry, id string) {
 	version = kv.Status.TargetKubeVirtVersion
 	registry = kv.Status.TargetKubeVirtRegistry
 	id = kv.Status.TargetDeploymentID
 
-	return
+	return version, registry, id
 }
 
 func isServiceClusterIP(service *corev1.Service) bool {
@@ -692,7 +694,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			}
 
 			for _, targetWebhook := range r.targetStrategy.ValidatingWebhookConfigurations() {
-
 				if targetWebhook.Name == webhook.Name {
 					found = true
 					break
@@ -1091,7 +1092,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	objects = r.stores.SCCCache.List()
 	for _, obj := range objects {
 		if scc, ok := obj.(*secv1.SecurityContextConstraints); ok && scc.DeletionTimestamp == nil {
-
 			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
 			if !util.IsManagedByOperator(scc.GetLabels()) {
 				continue
@@ -1274,5 +1274,5 @@ func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegi
 		ok = false
 	}
 
-	return
+	return imageTag, imageRegistry, id, ok
 }

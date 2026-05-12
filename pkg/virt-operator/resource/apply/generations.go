@@ -18,8 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func getGroupResource(required runtime.Object) (group string, resource string, err error) {
-
+func getGroupResource(required runtime.Object) (group, resource string, err error) {
 	switch required.(type) {
 	case *extv1.CustomResourceDefinition:
 		group = "apiextensions.k8s.io/v1"
@@ -41,10 +40,10 @@ func getGroupResource(required runtime.Object) (group string, resource string, e
 		resource = "daemonsets"
 	default:
 		err = fmt.Errorf("resource type is not known")
-		return
+		return group, resource, err
 	}
 
-	return
+	return group, resource, err
 }
 
 func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.GenerationStatus) int64 {
@@ -65,7 +64,6 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 }
 
 func SetGeneration(generations *[]k6tv1.GenerationStatus, actual runtime.Object) {
-
 	if actual == nil {
 		return
 	}

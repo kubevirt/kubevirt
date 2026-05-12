@@ -54,7 +54,6 @@ func (r *Reconciler) createOrUpdateSCC() error {
 		} else {
 			log.Log.V(4).Infof("SCC %s is up to date", scc.Name)
 		}
-
 	}
 
 	return nil

@@ -37,7 +37,6 @@ import (
 )
 
 func (r *Reconciler) syncKubevirtNamespaceLabels() error {
-
 	targetNamespace := r.kv.ObjectMeta.Namespace
 	obj, exists, err := r.stores.NamespaceCache.GetByKey(targetNamespace)
 	if err != nil {
@@ -91,7 +90,6 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 }
 
 func (r *Reconciler) createOrUpdateServices() (bool, error) {
-
 	for _, service := range r.targetStrategy.Services() {
 		pending, err := r.createOrUpdateService(service.DeepCopy())
 		if pending || err != nil {
@@ -174,7 +172,7 @@ func (r *Reconciler) getSecret(secret *corev1.Secret) (*corev1.Secret, bool, err
 	return cachedSecret, true, nil
 }
 
-func certificationNeedsRotation(secret *corev1.Secret, duration *metav1.Duration, ca *tls.Certificate, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) bool {
+func certificationNeedsRotation(secret *corev1.Secret, duration *metav1.Duration, ca *tls.Certificate, renewBefore, caRenewBefore *metav1.Duration) bool {
 	crt, err := components.LoadCertificates(secret)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Infof("Failed to load certificate from secret %s, will rotate it.", secret.Name)
@@ -221,7 +219,7 @@ func deleteService(service *corev1.Service, kvKey string, expectations *util.Exp
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLimitingInterface[string], ca *tls.Certificate, secret *corev1.Secret, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) (*tls.Certificate, error) {
+func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLimitingInterface[string], ca *tls.Certificate, secret *corev1.Secret, duration, renewBefore, caRenewBefore *metav1.Duration) (*tls.Certificate, error) {
 	var cachedSecret *corev1.Secret
 	var err error
 
@@ -256,7 +254,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		return nil, err
 	}
 	// we need to ensure that we revisit certificates before they expire
-	wakeupDeadline := components.NextRotationDeadline(crt, ca, renewBefore, caRenewBefore).Sub(time.Now())
+	wakeupDeadline := time.Until(components.NextRotationDeadline(crt, ca, renewBefore, caRenewBefore))
 	queue.AddAfter(r.kvKey, wakeupDeadline)
 
 	if !exists {
@@ -303,10 +301,8 @@ func createSecretPatch(secret *corev1.Secret) ([]byte, error) {
 	return patch.New(ops...).GeneratePayload()
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
-
+func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, duration, renewBefore, caRenewBefore *metav1.Duration) error {
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
-
 		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
 		switch secret.Name {
 		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, components.KubeVirtBackupCASecretName:
@@ -528,8 +524,8 @@ func hasImmutableFieldChanged(service, cachedService *corev1.Service) bool {
 
 func generateServicePatch(
 	cachedService *corev1.Service,
-	service *corev1.Service) ([]byte, error) {
-
+	service *corev1.Service,
+) ([]byte, error) {
 	patchOps := getObjectMetaPatch(service.ObjectMeta, cachedService.ObjectMeta)
 
 	// set these values in the case they are empty
@@ -597,7 +593,6 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 }
 
 func (r *Reconciler) createOrUpdateRbac() error {
-
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	// create/update ServiceAccounts
@@ -621,7 +616,6 @@ func (r *Reconciler) createOrUpdateRbac() error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	// create/update Roles
@@ -793,7 +787,7 @@ func createConfigMapPatch(configMap *corev1.ConfigMap) ([]byte, error) {
 	return patch.New(ops...).GeneratePayload()
 }
 
-func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRateLimitingInterface[string], name string, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
+func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRateLimitingInterface[string], name string, duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 		// Only work on the ca secrets
 		if secret.Name != name {

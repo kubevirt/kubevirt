@@ -55,8 +55,8 @@ const (
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	clientset kubecli.KubevirtClient,
 	stores util.Stores,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
@@ -95,8 +95,8 @@ func DeleteAll(kv *v1.KubeVirt,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	aggregatorclient install.APIServiceInterface,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
@@ -424,7 +424,6 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.SCCCache.List()
 	for _, obj := range objects {
 		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && s.DeletionTimestamp == nil {
-
 			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
 			if !util.IsManagedByOperator(s.GetLabels()) {
 				continue
@@ -608,8 +607,8 @@ func crdFilterNeedFinalizerRemoved(crds []*extv1.CustomResourceDefinition) []*ex
 func crdHandleDeletion(kvkey string,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	ext := clientset.ExtensionsClient()
 	objects := stores.OperatorCrdCache.List()
 
@@ -634,7 +633,6 @@ func crdHandleDeletion(kvkey string,
 		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
 
 		payload, err := patch.New(patch.WithAdd(finalizerPath, crdCopy.Finalizers)).GeneratePayload()
-
 		if err != nil {
 			return fmt.Errorf("failed to generate patch payload: %v", err)
 		}
