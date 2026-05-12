@@ -17,6 +17,8 @@ limitations under the License.
 package alerts
 
 import (
+	"fmt"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -38,10 +40,12 @@ func virtApiAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowVirtAPICount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_api_up < 2)"),
-			For:   ptr.To(promv1.Duration("60m")),
+			Expr: intstr.FromString(fmt.Sprintf(
+				"kubevirt_virt_api_up / on() kube_deployment_spec_replicas{deployment='virt-api', namespace='%s'} < 0.75", namespace,
+			)),
+			For: ptr.To(promv1.Duration("60m")),
 			Annotations: map[string]string{
-				"summary": "More than one virt-api should be running if more than one worker nodes exist.",
+				"summary": "Less than 75% of desired virt-api pods are running.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
