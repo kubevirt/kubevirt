@@ -150,7 +150,7 @@ var CRDsValidation map[string]string = map[string]string{
             resources:
               description: |-
                 resources represents the minimum resources the volume should have.
-                If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                Users are allowed to specify resource requirements
                 that are lower than previous value but must still be higher than capacity recorded in the
                 status field of the claim.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -2874,9 +2874,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -3940,9 +3941,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -4314,7 +4316,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resources:
                         description: |-
                           resources represents the minimum resources the volume should have.
-                          If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                          Users are allowed to specify resource requirements
                           that are lower than previous value but must still be higher than capacity recorded in the
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -7706,6 +7708,14 @@ var CRDsValidation map[string]string = map[string]string{
 
                       It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                       Containers that need access to the ResourceClaim reference it with this name.
+
+                      When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+                      belongs to a PodGroup, a PodResourceClaim is matched to a
+                      PodGroupResourceClaim if all of their fields are equal (Name,
+                      ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+                      a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+                      the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+                      Pods.
                     properties:
                       name:
                         description: |-
@@ -7730,6 +7740,16 @@ var CRDsValidation map[string]string = map[string]string{
                           will also be deleted. The pod name and resource name, along with a
                           generated component, will be used to form a unique name for the
                           ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                          When the DRAWorkloadResourceClaims feature gate is enabled and the pod
+                          belongs to a PodGroup that defines a PodGroupResourceClaim with the same
+                          Name and ResourceClaimTemplateName, this PodResourceClaim resolves to the
+                          ResourceClaim generated for the PodGroup. All pods in the group that
+                          define an equivalent PodResourceClaim matching the
+                          PodGroupResourceClaim's Name and ResourceClaimTemplateName share the same
+                          generated ResourceClaim. ResourceClaims generated for a PodGroup are
+                          owned by the PodGroup and their lifecycles are tied to the PodGroup
+                          instead of any individual pod.
 
                           This field is immutable and no changes will be made to the
                           corresponding ResourceClaim by the control plane after creating the
@@ -7786,9 +7806,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -13824,6 +13845,14 @@ var CRDsValidation map[string]string = map[string]string{
 
               It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
               Containers that need access to the ResourceClaim reference it with this name.
+
+              When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+              belongs to a PodGroup, a PodResourceClaim is matched to a
+              PodGroupResourceClaim if all of their fields are equal (Name,
+              ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+              a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+              the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+              Pods.
             properties:
               name:
                 description: |-
@@ -13848,6 +13877,16 @@ var CRDsValidation map[string]string = map[string]string{
                   will also be deleted. The pod name and resource name, along with a
                   generated component, will be used to form a unique name for the
                   ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                  When the DRAWorkloadResourceClaims feature gate is enabled and the pod
+                  belongs to a PodGroup that defines a PodGroupResourceClaim with the same
+                  Name and ResourceClaimTemplateName, this PodResourceClaim resolves to the
+                  ResourceClaim generated for the PodGroup. All pods in the group that
+                  define an equivalent PodResourceClaim matching the
+                  PodGroupResourceClaim's Name and ResourceClaimTemplateName share the same
+                  generated ResourceClaim. ResourceClaims generated for a PodGroup are
+                  owned by the PodGroup and their lifecycles are tied to the PodGroup
+                  instead of any individual pod.
 
                   This field is immutable and no changes will be made to the
                   corresponding ResourceClaim by the control plane after creating the
@@ -13903,9 +13942,10 @@ var CRDsValidation map[string]string = map[string]string{
               operator:
                 description: |-
                   Operator represents a key's relationship to the value.
-                  Valid operators are Exists and Equal. Defaults to Equal.
+                  Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                   Exists is equivalent to wildcard for value, so that a pod can
                   tolerate all taints of a particular category.
+                  Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                 type: string
               tolerationSeconds:
                 description: |-
@@ -20281,6 +20321,14 @@ var CRDsValidation map[string]string = map[string]string{
 
                       It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                       Containers that need access to the ResourceClaim reference it with this name.
+
+                      When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+                      belongs to a PodGroup, a PodResourceClaim is matched to a
+                      PodGroupResourceClaim if all of their fields are equal (Name,
+                      ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+                      a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+                      the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+                      Pods.
                     properties:
                       name:
                         description: |-
@@ -20305,6 +20353,16 @@ var CRDsValidation map[string]string = map[string]string{
                           will also be deleted. The pod name and resource name, along with a
                           generated component, will be used to form a unique name for the
                           ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                          When the DRAWorkloadResourceClaims feature gate is enabled and the pod
+                          belongs to a PodGroup that defines a PodGroupResourceClaim with the same
+                          Name and ResourceClaimTemplateName, this PodResourceClaim resolves to the
+                          ResourceClaim generated for the PodGroup. All pods in the group that
+                          define an equivalent PodResourceClaim matching the
+                          PodGroupResourceClaim's Name and ResourceClaimTemplateName share the same
+                          generated ResourceClaim. ResourceClaims generated for a PodGroup are
+                          owned by the PodGroup and their lifecycles are tied to the PodGroup
+                          instead of any individual pod.
 
                           This field is immutable and no changes will be made to the
                           corresponding ResourceClaim by the control plane after creating the
@@ -20361,9 +20419,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -21968,7 +22027,7 @@ var CRDsValidation map[string]string = map[string]string{
                               resources:
                                 description: |-
                                   resources represents the minimum resources the volume should have.
-                                  If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                  Users are allowed to specify resource requirements
                                   that are lower than previous value but must still be higher than capacity recorded in the
                                   status field of the claim.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -25419,6 +25478,14 @@ var CRDsValidation map[string]string = map[string]string{
 
                               It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                               Containers that need access to the ResourceClaim reference it with this name.
+
+                              When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+                              belongs to a PodGroup, a PodResourceClaim is matched to a
+                              PodGroupResourceClaim if all of their fields are equal (Name,
+                              ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+                              a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+                              the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+                              Pods.
                             properties:
                               name:
                                 description: |-
@@ -25443,6 +25510,16 @@ var CRDsValidation map[string]string = map[string]string{
                                   will also be deleted. The pod name and resource name, along with a
                                   generated component, will be used to form a unique name for the
                                   ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                                  When the DRAWorkloadResourceClaims feature gate is enabled and the pod
+                                  belongs to a PodGroup that defines a PodGroupResourceClaim with the same
+                                  Name and ResourceClaimTemplateName, this PodResourceClaim resolves to the
+                                  ResourceClaim generated for the PodGroup. All pods in the group that
+                                  define an equivalent PodResourceClaim matching the
+                                  PodGroupResourceClaim's Name and ResourceClaimTemplateName share the same
+                                  generated ResourceClaim. ResourceClaims generated for a PodGroup are
+                                  owned by the PodGroup and their lifecycles are tied to the PodGroup
+                                  instead of any individual pod.
 
                                   This field is immutable and no changes will be made to the
                                   corresponding ResourceClaim by the control plane after creating the
@@ -25500,9 +25577,10 @@ var CRDsValidation map[string]string = map[string]string{
                               operator:
                                 description: |-
                                   Operator represents a key's relationship to the value.
-                                  Valid operators are Exists and Equal. Defaults to Equal.
+                                  Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                   Exists is equivalent to wildcard for value, so that a pod can
                                   tolerate all taints of a particular category.
+                                  Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                 type: string
                               tolerationSeconds:
                                 description: |-
@@ -27528,7 +27606,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   resources:
                                     description: |-
                                       resources represents the minimum resources the volume should have.
-                                      If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                      Users are allowed to specify resource requirements
                                       that are lower than previous value but must still be higher than capacity recorded in the
                                       status field of the claim.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -31019,6 +31097,14 @@ var CRDsValidation map[string]string = map[string]string{
 
                                   It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                                   Containers that need access to the ResourceClaim reference it with this name.
+
+                                  When the DRAWorkloadResourceClaims feature gate is enabled and this Pod
+                                  belongs to a PodGroup, a PodResourceClaim is matched to a
+                                  PodGroupResourceClaim if all of their fields are equal (Name,
+                                  ResourceClaimName, and ResourceClaimTemplateName). A matched claim references
+                                  a single ResourceClaim shared across all Pods in the PodGroup, reserved for
+                                  the PodGroup in ResourceClaimStatus.ReservedFor rather than for individual
+                                  Pods.
                                 properties:
                                   name:
                                     description: |-
@@ -31043,6 +31129,16 @@ var CRDsValidation map[string]string = map[string]string{
                                       will also be deleted. The pod name and resource name, along with a
                                       generated component, will be used to form a unique name for the
                                       ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                                      When the DRAWorkloadResourceClaims feature gate is enabled and the pod
+                                      belongs to a PodGroup that defines a PodGroupResourceClaim with the same
+                                      Name and ResourceClaimTemplateName, this PodResourceClaim resolves to the
+                                      ResourceClaim generated for the PodGroup. All pods in the group that
+                                      define an equivalent PodResourceClaim matching the
+                                      PodGroupResourceClaim's Name and ResourceClaimTemplateName share the same
+                                      generated ResourceClaim. ResourceClaims generated for a PodGroup are
+                                      owned by the PodGroup and their lifecycles are tied to the PodGroup
+                                      instead of any individual pod.
 
                                       This field is immutable and no changes will be made to the
                                       corresponding ResourceClaim by the control plane after creating the
@@ -31100,9 +31196,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   operator:
                                     description: |-
                                       Operator represents a key's relationship to the value.
-                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                       Exists is equivalent to wildcard for value, so that a pod can
                                       tolerate all taints of a particular category.
+                                      Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                     type: string
                                   tolerationSeconds:
                                     description: |-
@@ -32650,7 +32747,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resources:
                         description: |-
                           resources represents the minimum resources the volume should have.
-                          If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                          Users are allowed to specify resource requirements
                           that are lower than previous value but must still be higher than capacity recorded in the
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
