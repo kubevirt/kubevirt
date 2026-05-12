@@ -14,6 +14,7 @@ go_library(
         "//pkg/healthz:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/synchronization-controller:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/util/ratelimiter:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config:go_default_library",

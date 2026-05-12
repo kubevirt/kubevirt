@@ -27,8 +27,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
+	kvutil "kubevirt.io/kubevirt/pkg/util"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	"github.com/emicklei/go-restful/v3"
@@ -372,8 +372,8 @@ func (app *VirtOperatorApp) Run() {
 			// Disable HTTP/2
 			// See CVE-2023-44487
 			TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
-			ReadHeaderTimeout: 10 * time.Second,
-			IdleTimeout:       60 * time.Second,
+			ReadHeaderTimeout: kvutil.DefaultReadHeaderTimeout,
+			IdleTimeout:       kvutil.DefaultIdleTimeout,
 		}
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
@@ -422,8 +422,8 @@ func (app *VirtOperatorApp) Run() {
 	webhookServer := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", app.BindAddress, 8444),
 		TLSConfig:         tlsConfig,
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: kvutil.DefaultReadHeaderTimeout,
+		IdleTimeout:       kvutil.DefaultIdleTimeout,
 	}
 
 	var mux http.ServeMux

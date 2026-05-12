@@ -617,8 +617,8 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 		// Disable HTTP/2
 		// See CVE-2023-44487
 		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: util.DefaultReadHeaderTimeout,
+		IdleTimeout:       util.DefaultIdleTimeout,
 	}
 	errCh <- server.ListenAndServeTLS("", "")
 }
@@ -651,8 +651,8 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 		Handler: restful.DefaultContainer,
 		// we use migration TLS also for console connections (initiated by virt-api)
 		TLSConfig:         app.serverTLSConfig,
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: util.DefaultReadHeaderTimeout,
+		IdleTimeout:       util.DefaultIdleTimeout,
 	}
 	errCh <- server.ListenAndServeTLS("", "")
 }
