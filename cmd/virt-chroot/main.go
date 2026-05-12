@@ -174,10 +174,6 @@ func main() {
 			}
 
 			marshalledResourcesHash := cmd.Flag("resources").Value.String()
-			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
-			if err != nil {
-				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
-			}
 			isV2, err := strconv.ParseBool(cmd.Flag("isV2").Value.String())
 			if err != nil {
 				return fmt.Errorf("cannot convert isV2 into bool. err: %v", err)
@@ -193,7 +189,7 @@ func main() {
 				return err
 			}
 
-			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless, isV2); err != nil {
+			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isV2); err != nil {
 				return err
 			}
 
@@ -204,8 +200,7 @@ func main() {
 	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
 		"For v1 key is cgroup subsystem and value is its path, for v2 the only key is an empty string and the value is cgroup dir path.")
 	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/cgroups/config_linux.go), encoded to base64 format")
-	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
-	cgroupsCmd.Flags().Bool("isV2", false, "true to run rootless")
+	cgroupsCmd.Flags().Bool("isV2", false, "true for cgroups v2")
 
 	updateDeviceCmd := &cobra.Command{
 		Use:   "update-device",

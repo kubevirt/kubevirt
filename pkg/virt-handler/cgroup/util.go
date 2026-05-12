@@ -86,7 +86,7 @@ var (
 	}
 )
 
-type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
+type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, version CgroupVersion) error
 type getCurrentlyDefinedRulesFunc func(cgManager cgroups.Manager) ([]*devices.Rule, error)
 
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
@@ -364,7 +364,7 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 
 // execVirtChrootCgroups executes virt-chroot cgroups command to apply changes via virt-chroot.
 // This is needed since high privileges are needed and root is needed to change.
-func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, version CgroupVersion) error {
 	marshalledRules, err := json.Marshal(*r)
 	if err != nil {
 		return fmt.Errorf("failed to marshall resources. err: %v resources: %+v", err, *r)
@@ -380,7 +380,6 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 		"set-cgroups-resources",
 		"--subsystem-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
 		"--resources", base64.StdEncoding.EncodeToString(marshalledRules),
-		fmt.Sprintf("--rootless=%t", rootless),
 		fmt.Sprintf("--isV2=%t", version == V2),
 	}
 

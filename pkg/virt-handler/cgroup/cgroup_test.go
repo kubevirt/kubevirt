@@ -64,7 +64,7 @@ var _ = Describe("cgroup manager", func() {
 			return paths
 		}).AnyTimes()
 
-		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+		execVirtChrootFunc := func(r *cgroups.Resources, subsystemPaths map[string]string, version CgroupVersion) error {
 			rulesDefined = r.Devices
 			subsystemPathsDefined = subsystemPaths
 			return nil
@@ -75,9 +75,9 @@ var _ = Describe("cgroup manager", func() {
 		}
 
 		if version == V1 {
-			return newCustomizedV1Manager(mockCgroupsManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
+			return newCustomizedV1Manager(mockCgroupsManager, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 		} else {
-			return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc, false)
+			return newCustomizedV2Manager(mockCgroupsManager, nil, execVirtChrootFunc, false)
 		}
 	}
 

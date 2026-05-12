@@ -40,7 +40,6 @@ import (
 type v2Manager struct {
 	cgroups.Manager
 	dirPath         string
-	isRootless      bool
 	deviceRules     []*devices.Rule
 	execVirtChroot  execVirtChrootFunc
 	spliceDeviceMap bool
@@ -52,12 +51,11 @@ func newV2Manager(config *cgroups.Cgroup, dirPath string, spliceDeviceMap bool) 
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(cgManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups, spliceDeviceMap)
+	return newCustomizedV2Manager(cgManager, config.Resources.Devices, execVirtChrootCgroups, spliceDeviceMap)
 }
 
 func newCustomizedV2Manager(
 	cgManager cgroups.Manager,
-	isRootless bool,
 	deviceRules []*devices.Rule,
 	execVirtChroot execVirtChrootFunc,
 	spliceDeviceMap bool,
@@ -65,7 +63,6 @@ func newCustomizedV2Manager(
 	manager := v2Manager{
 		cgManager,
 		cgManager.GetPaths()[""],
-		isRootless,
 		append(deviceRules, GenerateDefaultDeviceRules()...),
 		execVirtChroot,
 		spliceDeviceMap,
@@ -105,7 +102,7 @@ func (v *v2Manager) Set(r *cgroups.Resources) error {
 	}
 	log.Log.V(5).Infof("cgroupsv2 device allowlist: paths passed to virt-chroot: %s", subsystemPaths)
 
-	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.isRootless, v.GetCgroupVersion())
+	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.GetCgroupVersion())
 }
 
 func (v *v2Manager) GetCgroupVersion() CgroupVersion {
