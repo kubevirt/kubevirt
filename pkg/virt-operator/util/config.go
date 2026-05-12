@@ -25,7 +25,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -623,8 +622,8 @@ func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
 		port, err := strconv.Atoi(value)
 		if err != nil {
 			log.Log.Errorf("Unable to convert %s to integer", value)
-		} else if port < 0 || port > math.MaxInt32 {
-			log.Log.Errorf("Port value %d is out of valid range", port)
+		} else if port < 0 || port > 65535 {
+			log.Log.Errorf("Port value %d is out of valid range (0-65535), using default", port)
 		} else {
 			return int32(port) //#nosec G109 -- bounds checked above
 		}
@@ -756,13 +755,6 @@ func (c *KubeVirtDeploymentConfig) GetJSON() (string, error) {
 	return string(data), nil
 }
 
-// GetJson returns the JSON representation of the deployment config.
-//
-// Deprecated: Use GetJSON instead.
-func (c *KubeVirtDeploymentConfig) GetJson() (string, error) { //nolint:staticcheck,revive
-	return c.GetJSON()
-}
-
 func NewEnvVarMap(envMap map[string]string) []k8sv1.EnvVar {
 	env := []k8sv1.EnvVar{}
 
@@ -773,17 +765,17 @@ func NewEnvVarMap(envMap map[string]string) []k8sv1.EnvVar {
 	return env
 }
 
+var validLabelRegexp = regexp.MustCompile(
+	`^([a-z0-9A-Z]([a-z0-9A-Z\-_.]{0,61}[a-z0-9A-Z])?)?$`,
+)
+
 func IsValidLabel(label string) bool {
-	// First and last character must be alphanumeric
-	// middle chars can be alphanumeric, or dot hyphen or dash
-	// entire string must not exceed 63 chars
-	r := regexp.MustCompile(`^([a-z0-9A-Z]([a-z0-9A-Z\-_.]{0,61}[a-z0-9A-Z])?)?$`)
-	return r.MatchString(label)
+	return validLabelRegexp.MatchString(label)
 }
 
 func DigestFromImageName(name string) string {
-	if name != "" && strings.LastIndex(name, "@sha256:") != -1 {
-		return strings.Split(name, "@sha256:")[1]
+	if idx := strings.LastIndex(name, "@sha256:"); idx != -1 {
+		return name[idx+len("@sha256:"):]
 	}
 
 	return ""

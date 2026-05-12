@@ -403,7 +403,7 @@ var _ = Describe("Install Strategy", func() {
 		for _, envVar := range envVars {
 			envVarManager.Setenv(envVar.Name, envVar.Value)
 		}
-		deploymentConfigJson, err := config.GetJson()
+		deploymentConfigJson, err := config.GetJSON()
 		Expect(err).ToNot(HaveOccurred())
 		envVarManager.Setenv(util.TargetDeploymentConfig, deploymentConfigJson)
 
