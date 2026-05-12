@@ -13,8 +13,17 @@ function _kubectl() {
 }
 
 function prepare_config() {
-  # Copy kubectl binary
+  # Copy kubectl and kubeconfig
   cp $(which kubectl) ${CI_CONFIG}/.kubectl 2>/dev/null || true
+  ${MINIKUBE} kubectl -- config view --flatten > "${CI_CONFIG}/.kubeconfig"
+  # Create provider config
+  cat >"${CI_CONFIG}/config-provider-${KUBEVIRT_PROVIDER}.sh" <<EOF
+master_ip="127.0.0.1"
+kubeconfig="${CI_CONFIG}/.kubeconfig"
+kubectl="${CI_CONFIG}/.kubectl"
+docker_prefix=\${DOCKER_PREFIX:-localhost:${HOST_PORT}/kubevirt}
+manifest_docker_prefix=\${DOCKER_PREFIX:-registry:5000/kubevirt}
+EOF
 }
 
 function up() {
