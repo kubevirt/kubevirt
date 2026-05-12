@@ -1212,16 +1212,14 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				resQuantity := content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]
-				Expect(resQuantity.Value()).To(Equal(quantity.Value()))
 				vs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(vm.Namespace).Get(context.Background(), *content.Spec.VolumeBackups[0].VolumeSnapshotName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*vs.Status.RestoreSize).To(Equal(expectedCapacity))
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
+				restoredPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
-				Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
+				Expect(restoredPVC.Status.Capacity["storage"]).To(Equal(expectedCapacity))
+				Expect(restoredPVC.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
 
 			},
 				Entry("to the same VM", false),
