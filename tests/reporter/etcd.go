@@ -273,7 +273,7 @@ func (p *EtcdProfiler) Finalize() {
 		return
 	}
 
-	if err := os.MkdirAll(p.artifactsDir, 0777); err != nil {
+	if err := os.MkdirAll(p.artifactsDir, 0755); err != nil {
 		printError("etcd profiler: failed to create artifacts dir: %v", err)
 		return
 	}
