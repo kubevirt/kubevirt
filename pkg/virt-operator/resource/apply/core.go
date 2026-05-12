@@ -917,7 +917,11 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		if err != nil {
 			return err
 		}
-		port = int32(p)
+		if p < 1 || p > 65535 {
+			return fmt.Errorf(
+				"synchronization port %d out of valid range (1-65535)", p)
+		}
+		port = int32(p) // #nosec G109 -- range validated above
 	}
 	addresses := make([]string, len(ips))
 	for i, ip := range ips {

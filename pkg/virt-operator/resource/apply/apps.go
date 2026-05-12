@@ -546,7 +546,7 @@ func getDesiredAPIReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 		return 0, fmt.Errorf("failed to get number of nodes to determine virt-api replicas: %v", err)
 	}
 
-	nodesCount := len(nodeList.Items)
+	nodesCount := int32(min(len(nodeList.Items), int(^int32(0)))) // #nosec G115 -- clamped to max int32
 	// This is a simple heuristic to achieve basic scalability so we could be running on large clusters.
 	// From recent experiments we know that for a 100 nodes cluster, 9 virt-api replicas are enough.
 	// This heuristic is not accurate. It could, and should, be replaced by something more sophisticated and refined
@@ -558,7 +558,7 @@ func getDesiredAPIReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 
 	const minReplicas = 2
 
-	replicas = int32(nodesCount) / 10
+	replicas = nodesCount / 10
 	if replicas < minReplicas {
 		replicas = minReplicas
 	}
