@@ -51,6 +51,18 @@ import (
 type Manager interface {
 	Set(r *cgroups.Resources) error
 
+	// AllowDevice adds a device to the eBPF device map, allowing access with
+	// the given permissions. deviceType is 'b' (block) or 'c' (char).
+	AllowDevice(deviceType string, major, minor int64, permissions string) error
+
+	// RemoveDevice removes a device from the eBPF device map. This does not
+	// explicitly deny the device — it only removes a previously added dynamic
+	// entry, reverting to the base program's decision for that device.
+	RemoveDevice(deviceType string, major, minor int64) error
+
+	// ListDevices returns all devices currently in the eBPF device map.
+	ListDevices() ([]cgroupconsts.DeviceMapEntry, error)
+
 	// GetBasePathToHostSubsystem returns the path to the specified subsystem
 	// from the host's viewpoint.
 	GetBasePathToHostSubsystem(subsystem string) (string, error)

@@ -262,3 +262,15 @@ func (v *v1Manager) GetCgroupThreads() ([]int, error) {
 func (v *v1Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 	return setCpuSetHelper(v, subcgroup, cpulist)
 }
+
+func (v *v1Manager) AllowDevice(_ string, _, _ int64, _ string) error {
+	return fmt.Errorf("AllowDevice is not supported on cgroups v1")
+}
+
+func (v *v1Manager) RemoveDevice(_ string, _, _ int64) error {
+	return fmt.Errorf("RemoveDevice is not supported on cgroups v1")
+}
+
+func (v *v1Manager) ListDevices() ([]cgroupconsts.DeviceMapEntry, error) {
+	return nil, fmt.Errorf("ListDevices is not supported on cgroups v1")
+}
