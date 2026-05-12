@@ -93,7 +93,7 @@ Signed-off-by: John Doe <jdoe@example.org>
 
 This can be done by adding [`--signoff`](https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff) to your git command line.
 
-For commit message formatting guidelines, see [Commit message guidelines](docs/commit-message-guidelines.md).
+For commit message formatting guidelines, see [Commit message guidelines](docs/pr-guidelines.md#commit-message-guidelines).
 
 ### Getting your code reviewed/merged
 
