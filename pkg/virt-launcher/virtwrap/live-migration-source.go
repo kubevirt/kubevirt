@@ -541,6 +541,28 @@ func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action co
 	}
 }
 
+// reconcile pause state (i.e. when QEMU triggers its internal switchover, update KubeVirt's state
+// to reflect that the VM is now paused)
+func (m *migrationMonitor) reconcilePauseState(dom cli.VirDomain) {
+	logger := log.Log.Object(m.vmi)
+	migrationState, stateReason, err := dom.GetState()
+	if err != nil {
+		logger.Reason(err).Error("failed to get migration state")
+		return
+	}
+	// The "!m.isMigrationPostCopy()" may seem redundant since in theory a post-copy VM should never report paused
+	// reason as DOMAIN_PAUSED_MIGRATION. However, since QEMU itself does NOT make the DOMAIN_PAUSED_MIGRATION v.s.
+	// DOMAIN_PAUSED_POSTCOPY distinction, LibVirt relies on internal state to determine which reason to use. This
+	// internal state, however, can briefly be stale since LibVirt does not internally update it until QEMU itself
+	// reports the VM has entered post-copy.
+	if !m.isPausedMigration() && !m.isMigrationPostCopy() &&
+		migrationState == libvirt.DOMAIN_PAUSED &&
+		stateReason == int(libvirt.DOMAIN_PAUSED_MIGRATION) {
+		m.l.paused.add(m.vmi.UID)
+		m.l.updateVMIMigrationMode(v1.MigrationPaused)
+	}
+}
+
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo, isIterationBoundary bool) {
 	sd := m.stallDetector
 	logger := log.Log.Object(m.vmi)
@@ -560,6 +582,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	}
 
 	if m.stallDetectionEnabled {
+		m.reconcilePauseState(dom)
 
 		if !m.isAbortInProgress() {
 			if stats != nil && stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED && stats.DataRemainingSet && stats.TimeElapsedSet {
