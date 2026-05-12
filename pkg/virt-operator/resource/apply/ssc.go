@@ -25,34 +25,34 @@ func (r *Reconciler) createOrUpdateSCC() error {
 
 	for _, scc := range r.targetStrategy.SCCs() {
 		var cachedSCC *secv1.SecurityContextConstraints
-		scc := scc.DeepCopy()
-		obj, exists, _ := r.stores.SCCCache.GetByKey(scc.Name)
+		sccCopy := scc.DeepCopy()
+		obj, exists, _ := r.stores.SCCCache.GetByKey(sccCopy.Name)
 		if exists {
 			cachedSCC = obj.(*secv1.SecurityContextConstraints)
 		}
 
-		injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+		injectOperatorMetadata(r.kv, &sccCopy.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
 			r.expectations.SCC.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := sec.SecurityContextConstraints().Create(context.Background(), scc, metav1.CreateOptions{})
+			_, err := sec.SecurityContextConstraints().Create(context.Background(), sccCopy, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.SCC.LowerExpectations(r.kvKey, 1, 0)
-				log.Log.V(2).Infof("failed to create SCC %s: %+v", scc.Name, scc) //nolint:mnd
-				return fmt.Errorf("unable to create SCC %s: %v", scc.Name, err)
+				log.Log.V(2).Infof("failed to create SCC %s: %+v", sccCopy.Name, sccCopy) //nolint:mnd
+				return fmt.Errorf("unable to create SCC %s: %v", sccCopy.Name, err)
 			}
 
-			log.Log.V(2).Infof("SCC %v created", scc.Name) //nolint:mnd
+			log.Log.V(2).Infof("SCC %v created", sccCopy.Name) //nolint:mnd
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
-			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
-			_, err := sec.SecurityContextConstraints().Update(context.Background(), scc, metav1.UpdateOptions{})
+			sccCopy.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
+			injectOperatorMetadata(r.kv, &sccCopy.ObjectMeta, version, imageRegistry, id, true)
+			_, err := sec.SecurityContextConstraints().Update(context.Background(), sccCopy, metav1.UpdateOptions{})
 			if err != nil {
-				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
+				return fmt.Errorf("unable to update %s SecurityContextConstraints", sccCopy.Name)
 			}
 
-			log.Log.V(2).Infof("SecurityContextConstraints %s updated", scc.Name) //nolint:mnd
+			log.Log.V(2).Infof("SecurityContextConstraints %s updated", sccCopy.Name) //nolint:mnd
 		} else {
-			log.Log.V(4).Infof("SCC %s is up to date", scc.Name) //nolint:mnd
+			log.Log.V(4).Infof("SCC %s is up to date", sccCopy.Name) //nolint:mnd
 		}
 	}
 

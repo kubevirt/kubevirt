@@ -240,11 +240,12 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(
 	if !exists {
 		r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
 		origWebhook := webhook
-		webhook, err := r.createValidatingWebhookConfiguration(webhook)
-		if err != nil {
+		var createErr error
+		webhook, createErr = r.createValidatingWebhookConfiguration(webhook)
+		if createErr != nil {
 			r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create validatingwebhook %s: %+v", origWebhook.Name, origWebhook) //nolint:mnd
-			return fmt.Errorf("unable to create validatingwebhook %s: %v", origWebhook.Name, err)
+			return fmt.Errorf("unable to create validatingwebhook %s: %v", origWebhook.Name, createErr)
 		}
 
 		SetGeneration(&r.kv.Status.Generations, webhook)
@@ -391,11 +392,12 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(
 	if !exists {
 		r.expectations.MutatingWebhook.RaiseExpectations(r.kvKey, 1, 0)
 		origWebhook := webhook
-		webhook, err := r.createMutatingWebhookConfiguration(webhook)
-		if err != nil {
+		var createErr error
+		webhook, createErr = r.createMutatingWebhookConfiguration(webhook)
+		if createErr != nil {
 			r.expectations.MutatingWebhook.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create mutatingwebhook %s: %+v", origWebhook.Name, origWebhook) //nolint:mnd
-			return fmt.Errorf("unable to create mutatingwebhook %s: %v", origWebhook.Name, err)
+			return fmt.Errorf("unable to create mutatingwebhook %s: %v", origWebhook.Name, createErr)
 		}
 
 		SetGeneration(&r.kv.Status.Generations, webhook)

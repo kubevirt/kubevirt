@@ -45,7 +45,7 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 	}
 
 	if !exists {
-		return fmt.Errorf("Could not find namespace in store. Namespace key: %s", targetNamespace)
+		return fmt.Errorf("could not find namespace in store. Namespace key: %s", targetNamespace)
 	}
 
 	cachedNamespace := obj.(*corev1.Namespace)
@@ -251,8 +251,8 @@ func (r *Reconciler) createOrUpdateCertificateSecret(
 
 	// populate the secret with correct certificate
 	if !exists || rotateCertificate {
-		if err := components.PopulateSecretWithCertificate(secret, ca, duration); err != nil {
-			return nil, err
+		if populateErr := components.PopulateSecretWithCertificate(secret, ca, duration); populateErr != nil {
+			return nil, populateErr
 		}
 	} else {
 		secret.Data = cachedSecret.Data
@@ -269,7 +269,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(
 
 	if !exists {
 		r.expectations.Secrets.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Secrets.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create secret %s: %+v", secret.Name, secret) //nolint:mnd
@@ -792,7 +792,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(
 		data += string(cert.EncodeCertPEM(caCert.Leaf))
 		configMap.Data = map[string]string{components.CABundleKey: data}
 		r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap) //nolint:mnd

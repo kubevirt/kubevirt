@@ -278,7 +278,7 @@ func changeRbacExistingByRequired(existing, required runtime.Object) (modified b
 		return false
 	}
 	changeExistingSubjectsByRequired := func(existingSubjects, requiredSubjects *[]rbacv1.Subject) bool {
-		modified := false
+		subjectsModified := false
 		if len(*existingSubjects) != len(*requiredSubjects) {
 			*existingSubjects = *requiredSubjects
 			return false
@@ -295,15 +295,15 @@ func changeRbacExistingByRequired(existing, required runtime.Object) (modified b
 			}
 
 			if !found {
-				modified = true
+				subjectsModified = true
 				break
 			}
 		}
 
-		if modified {
+		if subjectsModified {
 			*existingSubjects = *requiredSubjects
 		}
-		return modified
+		return subjectsModified
 	}
 	changeExistingRoleRefByRequired := func(existingRoleRef, requiredRoleRef *rbacv1.RoleRef) (modified bool) {
 		if *existingRoleRef != *requiredRoleRef {

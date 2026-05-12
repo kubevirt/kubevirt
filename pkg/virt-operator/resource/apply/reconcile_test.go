@@ -33,7 +33,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
@@ -65,7 +64,7 @@ const (
 	Namespace = "ns"
 	Version   = "1.0"
 	Registry  = "rep"
-	Id        = "42"
+	ID        = "42"
 )
 
 func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
@@ -107,7 +106,7 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 	}
 
 	stores.InstallStrategyConfigMapCache.Add(configMap)
-	targetStrategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config)
+	targetStrategy, err := install.LoadInstallStrategyFromCache(stores, config)
 	Expect(err).ToNot(HaveOccurred())
 
 	return targetStrategy
@@ -137,7 +136,7 @@ var _ = Describe("Apply", func() {
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
+			kv.Status.TargetDeploymentID = ID
 
 			deployment := appsv1.Deployment{}
 			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)

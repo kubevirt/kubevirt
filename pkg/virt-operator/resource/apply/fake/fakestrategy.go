@@ -66,7 +66,7 @@ func (ins *FakeStrategy) Deployments() []*appsv1.Deployment {
 	return nil
 }
 
-func (ins *FakeStrategy) ApiDeployments() []*appsv1.Deployment {
+func (ins *FakeStrategy) APIDeployments() []*appsv1.Deployment {
 	return nil
 }
 

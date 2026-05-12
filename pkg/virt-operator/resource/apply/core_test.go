@@ -201,7 +201,7 @@ var _ = Describe("Apply", func() {
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
 
-			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			bundle, _, err := components.MergeCABundle(crt, cert.EncodeCertPEM(crt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingCM.Data = map[string]string{
@@ -287,7 +287,7 @@ var _ = Describe("Apply", func() {
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
 
-			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			bundle, _, err := components.MergeCABundle(crt, cert.EncodeCertPEM(crt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingCM.Data = map[string]string{
@@ -354,7 +354,7 @@ var _ = Describe("Apply", func() {
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
 
-			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			bundle, _, err := components.MergeCABundle(crt, cert.EncodeCertPEM(crt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingCM.Data = map[string]string{
@@ -364,7 +364,7 @@ var _ = Describe("Apply", func() {
 			stores.ConfigMapCache.Add(existingCM)
 
 			externalCrt := createCrt()
-			externalBundle, _, err := components.MergeCABundle(externalCrt, []byte(cert.EncodeCertPEM(externalCrt.Leaf)), time.Hour)
+			externalBundle, _, err := components.MergeCABundle(externalCrt, cert.EncodeCertPEM(externalCrt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 			externalCM := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -939,7 +939,7 @@ var _ = Describe("Apply", func() {
 		It("should not populate synchronization address, if lease has no holder", func() {
 			lease := createLease("")
 			lease.Spec.HolderIdentity = nil
-			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			err = reconciler.updateSynchronizationAddress()
@@ -949,13 +949,14 @@ var _ = Describe("Apply", func() {
 
 		DescribeTable("update kubevirt synchronization address", func(synchronizationPod *corev1.Pod, port, expectedAddress string) {
 			lease := createLease(synchronizationControllerPodName)
-			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if port != "" {
 				kv.Spec.SynchronizationPort = port
 			}
 			if synchronizationPod != nil {
-				synchronizationPod, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), synchronizationPod, metav1.CreateOptions{})
+				_, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), synchronizationPod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			}
 			err = reconciler.updateSynchronizationAddress()

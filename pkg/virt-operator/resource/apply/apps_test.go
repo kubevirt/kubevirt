@@ -34,7 +34,6 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
@@ -141,12 +140,12 @@ var _ = Describe("Apply Apps", func() {
 			clientset.EXPECT().PolicyV1().Return(pdbClient.PolicyV1()).AnyTimes()
 			kv = &v1.KubeVirt{}
 
-			virtApiConfig := &util.KubeVirtDeploymentConfig{
+			virtAPIConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 				Namespace:       Namespace,
 			}
-			deployment = components.NewApiServerDeployment(virtApiConfig, "", "", "")
+			deployment = components.NewApiServerDeployment(virtAPIConfig, "", "", "")
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
@@ -183,11 +182,11 @@ var _ = Describe("Apply Apps", func() {
 		It("should skip patching of same version", func() {
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
+			kv.Status.TargetDeploymentID = ID
 
 			SetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
+			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, ID, true)
 			r := &Reconciler{
 				clientset:    clientset,
 				kv:           kv,
@@ -253,8 +252,8 @@ var _ = Describe("Apply Apps", func() {
 
 			boolTrue := true
 			pod := &corev1.Pod{
-				ObjectMeta: v12.ObjectMeta{
-					OwnerReferences: []v12.OwnerReference{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{
 						{Name: daemonSet.Name, Controller: &boolTrue, UID: daemonSet.UID},
 					},
 					Annotations: map[string]string{
@@ -493,7 +492,7 @@ var _ = Describe("Apply Apps", func() {
 					}
 
 					patchedDs := &appsv1.DaemonSet{
-						ObjectMeta: v12.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Annotations: annotations,
 						},
 					}
@@ -534,7 +533,7 @@ var _ = Describe("Apply Apps", func() {
 					mockDSCacheStore.get = daemonSet
 					SetGeneration(&kv.Status.Generations, currentDs)
 
-					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
+					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
@@ -555,7 +554,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					patchedDs, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, v12.GetOptions{})
+					patchedDs, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					dsCheck(kv, patchedDs)
 				},
@@ -726,7 +725,7 @@ var _ = Describe("Apply Apps", func() {
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
+			kv.Status.TargetDeploymentID = ID
 
 			deployment := appsv1.Deployment{}
 			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)
@@ -1005,7 +1004,7 @@ var _ = Describe("Apply Apps", func() {
 
 		// tolerations
 		It("should copy tolerations when podSpec is empty", func() {
-			toleration := corev1.Toleration{
+			toleration = corev1.Toleration{
 				Key:      testTaintKey,
 				Operator: tolerationExists,
 				Effect:   tolerationNoSched,
@@ -1118,7 +1117,7 @@ var _ = Describe("Apply Apps", func() {
 
 		generateSCC := func(sccName string, usersList []string) *secv1.SecurityContextConstraints {
 			return &secv1.SecurityContextConstraints{
-				ObjectMeta: v12.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: sccName,
 				},
 				Users: usersList,
@@ -1219,7 +1218,7 @@ var _ = Describe("Apply Apps", func() {
 			clientset.EXPECT().AppsV1().Return(dpClient.AppsV1()).AnyTimes()
 			clientset.EXPECT().CoreV1().Return(dpClient.CoreV1()).AnyTimes()
 
-			kv = &v1.KubeVirt{ObjectMeta: v12.ObjectMeta{Namespace: Namespace}}
+			kv = &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Namespace: Namespace}}
 			virtControllerConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
@@ -1248,6 +1247,7 @@ var _ = Describe("Apply Apps", func() {
 			}
 
 			_, err = dpClient.AppsV1().Deployments(Namespace).Create(context.TODO(), virtAPIDeployment, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should not remove revision annotation", func() {

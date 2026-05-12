@@ -114,7 +114,7 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 			o := s.Index(i)
 			obj, ok := o.Interface().(runtime.Object)
 			if !ok {
-				return errors.New("Slice must contain objects of type 'runtime.Object'")
+				return errors.New("slice must contain objects of type 'runtime.Object'")
 			}
 
 			kind := obj.GetObjectKind().GroupVersionKind().Kind

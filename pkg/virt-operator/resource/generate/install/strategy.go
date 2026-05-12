@@ -79,7 +79,7 @@ type StrategyInterface interface {
 	RoleBindings() []*rbacv1.RoleBinding
 	Services() []*corev1.Service
 	Deployments() []*appsv1.Deployment
-	ApiDeployments() []*appsv1.Deployment
+	APIDeployments() []*appsv1.Deployment
 	ControllerDeployments() []*appsv1.Deployment
 	ExportProxyDeployments() []*appsv1.Deployment
 	SynchronizationControllerDeployments() []*appsv1.Deployment
@@ -158,7 +158,7 @@ func (ins *Strategy) Deployments() []*appsv1.Deployment {
 	return ins.deployments
 }
 
-func (ins *Strategy) ApiDeployments() []*appsv1.Deployment {
+func (ins *Strategy) APIDeployments() []*appsv1.Deployment {
 	var deployments []*appsv1.Deployment
 
 	for _, deployment := range ins.deployments {

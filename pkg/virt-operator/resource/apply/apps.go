@@ -73,7 +73,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		}
 	} else if deployment.Name == components.VirtAPIName &&
 		!replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
-		replicas, err := getDesiredApiReplicas(r.clientset)
+		replicas, err := getDesiredAPIReplicas(r.clientset)
 		if err != nil {
 			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
@@ -96,11 +96,12 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	if !exists {
 		r.expectations.Deployment.RaiseExpectations(r.kvKey, 1, 0)
 		origDeployment := deployment
-		deployment, err := apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
-		if err != nil {
+		var createErr error
+		deployment, createErr = apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
+		if createErr != nil {
 			r.expectations.Deployment.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create deployment %s: %+v", origDeployment.Name, origDeployment) //nolint:mnd
-			return nil, fmt.Errorf("unable to create deployment %s: %v", origDeployment.Name, err)
+			return nil, fmt.Errorf("unable to create deployment %s: %v", origDeployment.Name, createErr)
 		}
 
 		SetGeneration(&kv.Status.Generations, deployment)
@@ -414,11 +415,12 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 		}
 
 		origDaemonSet := daemonSet
-		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
-		if err != nil {
+		var createErr error
+		daemonSet, createErr = apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
+		if createErr != nil {
 			r.expectations.DaemonSet.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create daemonset %s: %+v", origDaemonSet.Name, origDaemonSet) //nolint:mnd
-			return false, fmt.Errorf("unable to create daemonset %s: %v", origDaemonSet.Name, err)
+			return false, fmt.Errorf("unable to create daemonset %s: %v", origDaemonSet.Name, createErr)
 		}
 
 		SetGeneration(&kv.Status.Generations, daemonSet)
@@ -482,11 +484,12 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	if !exists {
 		r.expectations.PodDisruptionBudget.RaiseExpectations(r.kvKey, 1, 0)
 		origPDB := podDisruptionBudget
-		podDisruptionBudget, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
-		if err != nil {
+		var createErr error
+		podDisruptionBudget, createErr = pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
+		if createErr != nil {
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create poddisruptionbudget %s: %+v", origPDB.Name, origPDB) //nolint:mnd
-			return fmt.Errorf("unable to create poddisruptionbudget %s: %v", origPDB.Name, err)
+			return fmt.Errorf("unable to create poddisruptionbudget %s: %v", origPDB.Name, createErr)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName()) //nolint:mnd
 		SetGeneration(&kv.Status.Generations, podDisruptionBudget)
@@ -535,7 +538,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	return nil
 }
 
-func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
+func getDesiredAPIReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
 	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", v1.NodeSchedulable, trueString),
 	})

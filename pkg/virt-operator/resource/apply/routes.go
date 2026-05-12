@@ -51,7 +51,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 
 	if !exists {
 		r.expectations.Route.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
+		_, err = r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Route.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route) //nolint:mnd

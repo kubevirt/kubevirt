@@ -48,11 +48,11 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	injectOperatorMetadata(r.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		_, err := r.clientset.VirtualMachineClusterInstancetype().
+		_, createErr := r.clientset.VirtualMachineClusterInstancetype().
 			Create(context.Background(), instancetype, metav1.CreateOptions{})
-		if err != nil {
+		if createErr != nil {
 			log.Log.V(2).Infof("failed to create instancetype %s: %+v", instancetype.Name, instancetype) //nolint:mnd
-			return fmt.Errorf("unable to create instancetype %s: %v", instancetype.Name, err)
+			return fmt.Errorf("unable to create instancetype %s: %v", instancetype.Name, createErr)
 		}
 		log.Log.V(2).Infof("instancetype %v created", instancetype.GetName()) //nolint:mnd
 		return nil
@@ -143,11 +143,11 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	injectOperatorMetadata(r.kv, &preference.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		_, err := r.clientset.VirtualMachineClusterPreference().
+		_, createErr := r.clientset.VirtualMachineClusterPreference().
 			Create(context.Background(), preference, metav1.CreateOptions{})
-		if err != nil {
+		if createErr != nil {
 			log.Log.V(2).Infof("failed to create preference %s: %+v", preference.Name, preference) //nolint:mnd
-			return fmt.Errorf("unable to create preference %s: %v", preference.Name, err)
+			return fmt.Errorf("unable to create preference %s: %v", preference.Name, createErr)
 		}
 		log.Log.V(2).Infof("preference %v created", preference.GetName()) //nolint:mnd
 		return nil

@@ -162,8 +162,8 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	return shouldTakeUpdatePath
 }
 
-func haveApiDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
-	for _, deployment := range targetStrategy.ApiDeployments() {
+func haveAPIDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range targetStrategy.APIDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
 			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName()) //nolint:mnd
 			// not rolled out yet
@@ -412,7 +412,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	observedVersion := r.kv.Status.ObservedKubeVirtVersion
 	observedImageRegistry := r.kv.Status.ObservedKubeVirtRegistry
 
-	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	apiDeploymentsRolledOver := haveAPIDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
@@ -527,12 +527,14 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	}
 
 	if shouldTakeUpdatePath(targetVersion, observedVersion) {
-		finished, err := r.updateKubeVirtSystem(controllerDeploymentsRolledOver)
+		var finished bool
+		finished, err = r.updateKubeVirtSystem(controllerDeploymentsRolledOver)
 		if !finished || err != nil {
 			return false, err
 		}
 	} else {
-		finished, err := r.createOrRollBackSystem(apiDeploymentsRolledOver)
+		var finished bool
+		finished, err = r.createOrRollBackSystem(apiDeploymentsRolledOver)
 		if !finished || err != nil {
 			return false, err
 		}
@@ -591,14 +593,13 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// 3. controllers and daemonsets
 
 	// create/update API Deployments
-	for _, deployment := range r.targetStrategy.ApiDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+	for _, deployment := range r.targetStrategy.APIDeployments() {
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
@@ -610,57 +611,53 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
 		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
+			syncedDeployment, syncErr := r.syncDeployment(deployment)
+			if syncErr != nil {
+				return false, syncErr
 			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
+			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+				return false, syncErr
 			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
-			return false, err
+		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
+			return false, deleteErr
 		}
 	}
 
 	// create/update virt-template Deployments
 	for _, deployment := range r.targetStrategy.VirtTemplateDeployments() {
 		if r.virtTemplateDeploymentEnabled() {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
+			syncedDeployment, syncErr := r.syncDeployment(deployment)
+			if syncErr != nil {
+				return false, syncErr
 			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
+			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+				return false, syncErr
 			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
-			return false, err
+		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
+			return false, deleteErr
 		}
 	}
 
@@ -1238,11 +1235,11 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 				}
 			}
 			if !found {
-				err := r.clientset.VirtualMachineClusterInstancetype().
+				deleteErr := r.clientset.VirtualMachineClusterInstancetype().
 					Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})
-				if err != nil {
-					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, err)
-					return err
+				if deleteErr != nil {
+					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, deleteErr)
+					return deleteErr
 				}
 			}
 		}

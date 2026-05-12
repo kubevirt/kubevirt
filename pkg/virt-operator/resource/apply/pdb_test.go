@@ -38,7 +38,7 @@ var _ = Describe("Apply PDBs", func() {
 		Expect(requiredPDB).ToNot(BeNil())
 
 		cachedPDB := requiredPDB.DeepCopy()
-		injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
+		injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, ID, true)
 		err := stores.PodDisruptionBudgetCache.Add(cachedPDB)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -69,16 +69,16 @@ var _ = Describe("Apply PDBs", func() {
 			expectations:   expectations,
 		}
 
-		virtApiConfig := &util.KubeVirtDeploymentConfig{
+		virtAPIConfig := &util.KubeVirtDeploymentConfig{
 			Registry:        Registry,
 			KubeVirtVersion: Version,
 			Namespace:       Namespace,
 		}
-		deployment = components.NewApiServerDeployment(virtApiConfig, "", "", "")
+		deployment = components.NewApiServerDeployment(virtAPIConfig, "", "", "")
 
 		kv.Status.TargetKubeVirtRegistry = Registry
 		kv.Status.TargetKubeVirtVersion = Version
-		kv.Status.TargetDeploymentID = Id
+		kv.Status.TargetDeploymentID = ID
 
 		mockGeneration = 123
 

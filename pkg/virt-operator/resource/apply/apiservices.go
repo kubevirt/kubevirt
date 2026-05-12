@@ -51,7 +51,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 
 	if !exists {
 		r.expectations.APIService.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.aggregatorclient.Create(context.Background(), apiService, metav1.CreateOptions{})
+		_, err = r.aggregatorclient.Create(context.Background(), apiService, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.APIService.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create apiservice %s: %+v", apiService.Name, apiService) //nolint:mnd

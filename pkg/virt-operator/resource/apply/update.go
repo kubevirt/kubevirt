@@ -22,13 +22,12 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
@@ -40,57 +39,53 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
 		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
+			syncedDeployment, syncErr := r.syncDeployment(deployment)
+			if syncErr != nil {
+				return false, syncErr
 			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
+			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+				return false, syncErr
 			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
-			return false, err
+		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
+			return false, deleteErr
 		}
 	}
 
 	// create/update virt-template Deployments
 	for _, deployment := range r.targetStrategy.VirtTemplateDeployments() {
 		if r.virtTemplateDeploymentEnabled() {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
+			syncedDeployment, syncErr := r.syncDeployment(deployment)
+			if syncErr != nil {
+				return false, syncErr
 			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
+			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+				return false, syncErr
 			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
-			return false, err
+		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
+			return false, deleteErr
 		}
 	}
 
 	// create/update API Deployments
-	for _, deployment := range r.targetStrategy.ApiDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+	for _, deployment := range r.targetStrategy.APIDeployments() {
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
