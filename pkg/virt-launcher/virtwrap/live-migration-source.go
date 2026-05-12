@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -67,6 +68,7 @@ const (
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
 
 	stallMargin           float64 = 0.04
+	switchoverTimeout     int64   = 60
 	preCopyPossibleFactor float64 = 1.5
 	bandwidthEWMAAlpha    float64 = 0.4
 	searchLocalMinima             = true
@@ -504,21 +506,37 @@ func (m *migrationMonitor) isPausedMigration() bool {
 	return migration.Mode == v1.MigrationPaused
 }
 
-func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
+func (m *migrationMonitor) shouldTriggerTimeout(elapsedNs int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
 	}
 
-	return elapsed/int64(time.Second) > m.acceptableCompletionTime
+	elapsedSeconds := elapsedNs / int64(time.Second)
+	if !m.stallDetectionEnabled {
+		return elapsedSeconds > m.acceptableCompletionTime
+	}
+
+	if m.isPausedMigration() {
+		return elapsedSeconds > m.acceptableCompletionTime
+	}
+
+	return elapsedSeconds > m.switchOverDeadline
 }
 
-func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
-	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsed)
+func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64) bool {
+	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs) && !m.stallDetectionEnabled
 }
 
 func (sd *stallDetector) estimateDowntimeMs(record iterationRecord) uint32 {
-	// TODO: estimate the downtime based on bandwidth and remaining bytes as supplied
-	return 0
+	if sd.ewmaBandwidthBps == 0 {
+		return 0
+	}
+	bandwidthBpms := sd.ewmaBandwidthBps / 1000
+	estimatedDowntime := float64(record.remainingBytes) / bandwidthBpms
+	if estimatedDowntime > math.MaxUint32 {
+		return math.MaxUint32
+	}
+	return uint32(estimatedDowntime)
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -535,32 +553,171 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 }
 
 func (sd *stallDetector) updateBandwidthEstimate(bandwidthSample uint64) {
-	// TODO: use EWMA to update the bandwidth estimator
+	if sd.ewmaBandwidthBps == 0 {
+		sd.ewmaBandwidthBps = float64(bandwidthSample)
+		return
+	}
+	sd.ewmaBandwidthBps = bandwidthEWMAAlpha*float64(bandwidthSample) + (1-bandwidthEWMAAlpha)*sd.ewmaBandwidthBps
+}
+
+func (sd *stallDetector) updateCandidates(record iterationRecord) {
+	progressTimeoutMs := uint64(sd.progressTimeoutSeconds) * 1000
+	for len(sd.minCandidates) > 0 {
+		oldestCandidate := sd.minCandidates[0]
+		// record.elapsedMs > oldestCandidate.elapsedMs because record.elapsedMs is monotonically increasing
+		ageMs := record.elapsedMs - oldestCandidate.elapsedMs
+		if ageMs < progressTimeoutMs {
+			break
+		}
+
+		sd.minCandidates = sd.minCandidates[1:]
+		if sd.minRecordOutsideWindow == nil || oldestCandidate.remainingBytes < sd.minRecordOutsideWindow.remainingBytes {
+			sd.minRecordOutsideWindow = &oldestCandidate
+		}
+	}
+
+	// optimization: candidates larger than the current out-of-window min can never become relevant.
+	if sd.minRecordOutsideWindow != nil && record.remainingBytes > sd.minRecordOutsideWindow.remainingBytes {
+		return
+	}
+
+	// optimization: candidates preceded by a smaller value.
+	if len(sd.minCandidates) > 0 && record.remainingBytes >= sd.minCandidates[len(sd.minCandidates)-1].remainingBytes {
+		return
+	}
+
+	sd.minCandidates = append(sd.minCandidates, record)
 }
 
 func (sd *stallDetector) checkStallCondition(remainingBytes uint64) bool {
-	// TODO: check whether the stall condition is satisfied (i.e. are we stalled or not)
-	return false
+	if sd.minRecordOutsideWindow == nil {
+		return false
+	}
+
+	stallThreshold := uint64(float64(sd.minRecordOutsideWindow.remainingBytes) * (1 - stallMargin))
+	return remainingBytes >= stallThreshold
 }
 
 func (sd *stallDetector) findBestRemainingBytes() uint64 {
-	// TODO: find the best remaining bytes we are observed so far
-	return 0
+	bestRemainingBytes := sd.minRecordOutsideWindow.remainingBytes
+	for _, candidate := range sd.minCandidates {
+		if candidate.remainingBytes < bestRemainingBytes {
+			bestRemainingBytes = candidate.remainingBytes
+		}
+	}
+	return bestRemainingBytes
 }
 
 func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action convergenceAction, reason string) *inflightMigrationAborted {
-	// TODO: take the supplied convergence action passed in the parameter with supplied reason for logs
-	return nil
+	sd := m.stallDetector
+	logger := log.Log.Object(m.vmi)
+
+	sd.switchoverInitiated = true
+
+	switch action {
+	case actionNothing:
+		sd.switchoverInitiated = false
+		return nil
+	case actionAbort:
+		logger.Warningf("aborting migration: %s", reason)
+		if err := dom.AbortJob(); err != nil {
+			sd.switchoverInitiated = false
+			logger.Reason(err).Error("failed to abort migration")
+			return nil
+		}
+		return &inflightMigrationAborted{
+			message:     fmt.Sprintf("Migration aborted: %s", reason),
+			abortStatus: v1.MigrationAbortSucceeded,
+		}
+	case actionPostCopy:
+		logger.Infof("starting post copy mode for migration: %s", reason)
+		if err := dom.MigrateStartPostCopy(0); err != nil {
+			sd.switchoverInitiated = false
+			logger.Reason(err).Error("failed to start post migration")
+			return nil
+		}
+		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+		return nil
+	case actionHardStopAndCopy, actionSoftStopAndCopy:
+		now := time.Now().UTC().UnixNano()
+		elapsedSeconds := (now - m.start) / int64(time.Second)
+
+		// since stop-and-copy is not gaurenteed to start immediately (or ever), a "switch-over" deadline is needed
+		m.switchOverDeadline = elapsedSeconds + switchoverTimeout
+
+		var downtime uint64
+		if action == actionHardStopAndCopy {
+			downtime = migrationutils.QEMUMaxMigrationDowntimeMS
+			logger.Infof("forcing switchover by setting max downtime to %dms: %s", downtime, reason)
+		} else {
+			downtime = uint64(sd.maxDowntimeMs)
+			logger.Infof("max downtime set to %dms: %s", downtime, reason)
+		}
+
+		if err := dom.MigrateSetMaxDowntime(downtime, 0); err != nil {
+			sd.switchoverInitiated = false
+			logger.Reason(err).Error("setting max downtime failed")
+		}
+		return nil
+
+	default:
+		logger.Error("Unknown convergence action")
+		return nil
+	}
 }
 
 func (sd *stallDetector) processStallDetectionIteration(record iterationRecord) bool {
-	// TODO: updates necessary state and returns whether we are currently stalled
-	return false
+	if sd.ewmaBandwidthBps == 0 {
+		return false
+	}
+	if sd.switchoverInitiated {
+		return false
+	}
+
+	sd.updateCandidates(record)
+
+	if sd.stallDetected {
+		return true
+	} else if sd.checkStallCondition(record.remainingBytes) {
+		// when stall is first detected initialize stall-related state
+		sd.bestRemainingBytes = sd.findBestRemainingBytes()
+		sd.stallDetected = true
+		return true
+	} else {
+		return false
+	}
 }
 
 func (m *migrationMonitor) decideAction(record iterationRecord, estimatedDowntimeMs uint32) (convergenceAction, string) {
-	// TODO: decides which convergence action to take based on the iteration record and estimated downtime
-	return actionNothing, "no action decided"
+
+	sd := m.stallDetector
+
+	if sd.switchoverInitiated {
+		return actionNothing, "switchover already initiated"
+	}
+
+	target := uint64(float64(sd.bestRemainingBytes) * (1 + stallMargin))
+	atLocalMinima := record.remainingBytes <= target
+
+	if !atLocalMinima && searchLocalMinima {
+		return actionNothing, "not at a local minima yet"
+	}
+
+	if m.options.AllowWorkloadDisruption && m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) {
+		return actionPostCopy, fmt.Sprintf("estimated downtime %dms is a local minima", estimatedDowntimeMs)
+	}
+
+	if m.options.AllowWorkloadDisruption {
+		return actionHardStopAndCopy, fmt.Sprintf("estimated downtime %dms is a local minima", estimatedDowntimeMs)
+	}
+
+	if float64(estimatedDowntimeMs) <= float64(sd.maxDowntimeMs) {
+		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within max allowed downtime %dms", estimatedDowntimeMs, sd.maxDowntimeMs)
+	} else if float64(estimatedDowntimeMs) <= float64(sd.maxDowntimeMs)*preCopyPossibleFactor {
+		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within tolerable factor %fx to max allowed downtime %dms", estimatedDowntimeMs, preCopyPossibleFactor, sd.maxDowntimeMs)
+	}
+
+	return actionAbort, fmt.Sprintf("estimated downtime %dms far exceeds max allowed downtime %dms", estimatedDowntimeMs, sd.maxDowntimeMs)
 }
 
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo, isIterationBoundary bool) *inflightMigrationAborted {
