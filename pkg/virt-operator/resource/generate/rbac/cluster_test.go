@@ -118,6 +118,7 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMAddVolume), virtv1.SubresourceGroupName, apiVMRestart, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRemoveVolume), virtv1.SubresourceGroupName, apiVMAddVolume, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMemoryDump), virtv1.SubresourceGroupName, apiVMMemoryDump, "update"),
+				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRemoveMemoryDump), virtv1.SubresourceGroupName, apiVMRemoveMemoryDump, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMEvacuateCancel), virtv1.SubresourceGroupName, apiVMEvacuateCancel, "update"),
 
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiExpandVmSpec), virtv1.SubresourceGroupName, apiExpandVmSpec, "update"),
@@ -186,6 +187,7 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMAddVolume), virtv1.SubresourceGroupName, apiVMRestart, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRemoveVolume), virtv1.SubresourceGroupName, apiVMAddVolume, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMemoryDump), virtv1.SubresourceGroupName, apiVMMemoryDump, "update"),
+				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRemoveMemoryDump), virtv1.SubresourceGroupName, apiVMRemoveMemoryDump, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMEvacuateCancel), virtv1.SubresourceGroupName, apiVMEvacuateCancel, "update"),
 
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiExpandVmSpec), virtv1.SubresourceGroupName, apiExpandVmSpec, "update"),

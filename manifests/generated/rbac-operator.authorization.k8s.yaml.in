@@ -1089,6 +1089,7 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/memorydump
+  - virtualmachines/removememorydump
   - virtualmachines/evacuate/cancel
   verbs:
   - update
@@ -1275,6 +1276,7 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/memorydump
+  - virtualmachines/removememorydump
   - virtualmachines/evacuate/cancel
   verbs:
   - update
