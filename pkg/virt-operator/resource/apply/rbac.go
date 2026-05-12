@@ -55,10 +55,10 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 		// Create non existent
 		err = getRbacCreateFunction(r, required)()
 		if err != nil {
-			log.Log.V(2).Infof("failed to create %v %s: %+v", roleTypeName, requiredMeta.GetName(), required)
+			log.Log.V(2).Infof("failed to create %v %s: %+v", roleTypeName, requiredMeta.GetName(), required) //nolint:mnd
 			return fmt.Errorf("unable to create %v %s: %v", roleTypeName, requiredMeta.GetName(), err)
 		}
-		log.Log.V(2).Infof("%v %v created", roleTypeName, requiredMeta.GetName())
+		log.Log.V(2).Infof("%v %v created", roleTypeName, requiredMeta.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -72,17 +72,17 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 	specChanged := changeRbacExistingByRequired(existingCopy, required)
 
 	if !*metaChanged && !specChanged {
-		log.Log.V(4).Infof("%v %v already exists", roleTypeName, requiredMeta.GetName())
+		log.Log.V(4).Infof("%v %v already exists", roleTypeName, requiredMeta.GetName()) //nolint:mnd
 		return nil
 	}
 
 	// Update existing, we don't need to patch for rbac rules.
 	err = getRbacUpdateFunction(r, existingCopy)()
 	if err != nil {
-		log.Log.V(2).Infof("failed to update %v %s: %+v", roleTypeName, requiredMeta.GetName(), existingCopy)
+		log.Log.V(2).Infof("failed to update %v %s: %+v", roleTypeName, requiredMeta.GetName(), existingCopy) //nolint:mnd
 		return fmt.Errorf("unable to update %v %s: %v", roleTypeName, requiredMeta.GetName(), err)
 	}
-	log.Log.V(2).Infof("%v %v updated", roleTypeName, requiredMeta.GetName())
+	log.Log.V(2).Infof("%v %v updated", roleTypeName, requiredMeta.GetName()) //nolint:mnd
 
 	return nil
 }
@@ -201,41 +201,41 @@ func getRbacMetaObject(obj runtime.Object) (meta *metav1.ObjectMeta) {
 	return meta
 }
 
+const subjectKindUser = "User"
+
 func enforceAPIGroup(existing, required runtime.Object) {
 	var existingRoleRef *rbacv1.RoleRef
 	var requiredRoleRef *rbacv1.RoleRef
 	var existingSubjects []rbacv1.Subject
 	var requiredSubjects []rbacv1.Subject
 
-	switch required.(type) {
+	switch required := required.(type) {
 	case *rbacv1.RoleBinding:
 		crExisting := existing.(*rbacv1.RoleBinding)
-		crRequired := required.(*rbacv1.RoleBinding)
 		existingRoleRef = &crExisting.RoleRef
-		requiredRoleRef = &crRequired.RoleRef
+		requiredRoleRef = &required.RoleRef
 		existingSubjects = crExisting.Subjects
-		requiredSubjects = crRequired.Subjects
+		requiredSubjects = required.Subjects
 	case *rbacv1.ClusterRoleBinding:
 		crbExisting := existing.(*rbacv1.ClusterRoleBinding)
-		crbRequired := required.(*rbacv1.ClusterRoleBinding)
 		existingRoleRef = &crbExisting.RoleRef
-		requiredRoleRef = &crbRequired.RoleRef
+		requiredRoleRef = &required.RoleRef
 		existingSubjects = crbExisting.Subjects
-		requiredSubjects = crbRequired.Subjects
+		requiredSubjects = required.Subjects
 	default:
 		return
 	}
 
 	existingRoleRef.APIGroup = rbacv1.GroupName
 	for i := range existingSubjects {
-		if existingSubjects[i].Kind == "User" {
+		if existingSubjects[i].Kind == subjectKindUser {
 			existingSubjects[i].APIGroup = rbacv1.GroupName
 		}
 	}
 
 	requiredRoleRef.APIGroup = rbacv1.GroupName
 	for i := range requiredSubjects {
-		if requiredSubjects[i].Kind == "User" {
+		if requiredSubjects[i].Kind == subjectKindUser {
 			requiredSubjects[i].APIGroup = rbacv1.GroupName
 		}
 	}
@@ -314,41 +314,37 @@ func changeRbacExistingByRequired(existing, required runtime.Object) (modified b
 		return false
 	}
 
-	switch existing.(type) {
+	switch existing := existing.(type) {
 	case *rbacv1.Role:
-		existingRole := existing.(*rbacv1.Role)
 		requiredRole := required.(*rbacv1.Role)
-		modified = changeExistingPolicyRulesByRequired(&existingRole.Rules, &requiredRole.Rules)
+		modified = changeExistingPolicyRulesByRequired(&existing.Rules, &requiredRole.Rules)
 	case *rbacv1.ClusterRole:
-		existingClusterRole := existing.(*rbacv1.ClusterRole)
 		requiredClusterRole := required.(*rbacv1.ClusterRole)
-		modified = changeExistingPolicyRulesByRequired(&existingClusterRole.Rules, &requiredClusterRole.Rules)
+		modified = changeExistingPolicyRulesByRequired(&existing.Rules, &requiredClusterRole.Rules)
 	case *rbacv1.RoleBinding:
-		existingRoleBinding := existing.(*rbacv1.RoleBinding)
 		requiredRoleBinding := required.(*rbacv1.RoleBinding)
-		modified = changeExistingSubjectsByRequired(&existingRoleBinding.Subjects, &requiredRoleBinding.Subjects)
-		modified = changeExistingRoleRefByRequired(&existingRoleBinding.RoleRef, &requiredRoleBinding.RoleRef) || modified
+		modified = changeExistingSubjectsByRequired(&existing.Subjects, &requiredRoleBinding.Subjects)
+		modified = changeExistingRoleRefByRequired(&existing.RoleRef, &requiredRoleBinding.RoleRef) || modified
 	case *rbacv1.ClusterRoleBinding:
-		existingClusterRoleBinding := existing.(*rbacv1.ClusterRoleBinding)
 		requiredClusterRoleBinding := required.(*rbacv1.ClusterRoleBinding)
-		modified = changeExistingSubjectsByRequired(&existingClusterRoleBinding.Subjects, &requiredClusterRoleBinding.Subjects)
-		modified = changeExistingRoleRefByRequired(&existingClusterRoleBinding.RoleRef, &requiredClusterRoleBinding.RoleRef) || modified
+		modified = changeExistingSubjectsByRequired(&existing.Subjects, &requiredClusterRoleBinding.Subjects)
+		modified = changeExistingRoleRefByRequired(&existing.RoleRef, &requiredClusterRoleBinding.RoleRef) || modified
 	}
 
 	return modified
 }
 
-func getRbacCache(r *Reconciler, obj runtime.Object) (cache cache.Store) {
+func getRbacCache(r *Reconciler, obj runtime.Object) (store cache.Store) {
 	switch obj.(type) {
 	case *rbacv1.Role:
-		cache = r.stores.RoleCache
+		store = r.stores.RoleCache
 	case *rbacv1.ClusterRole:
-		cache = r.stores.ClusterRoleCache
+		store = r.stores.ClusterRoleCache
 	case *rbacv1.RoleBinding:
-		cache = r.stores.RoleBindingCache
+		store = r.stores.RoleBindingCache
 	case *rbacv1.ClusterRoleBinding:
-		cache = r.stores.ClusterRoleBindingCache
+		store = r.stores.ClusterRoleBindingCache
 	}
 
-	return cache
+	return store
 }

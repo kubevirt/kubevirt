@@ -54,7 +54,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		_, err := r.aggregatorclient.Create(context.Background(), apiService, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.APIService.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create apiservice %s: %+v", apiService.Name, apiService)
+			log.Log.V(2).Infof("failed to create apiservice %s: %+v", apiService.Name, apiService) //nolint:mnd
 			return fmt.Errorf("unable to create apiservice %s: %v", apiService.Name, err)
 		}
 
@@ -65,26 +65,33 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 	resourcemerge.EnsureObjectMeta(modified, &cachedAPIService.ObjectMeta, apiService.ObjectMeta)
 	serviceSame := equality.Semantic.DeepEqual(cachedAPIService.Spec.Service, apiService.Spec.Service)
 	certsSame := equality.Semantic.DeepEqual(apiService.Spec.CABundle, cachedAPIService.Spec.CABundle)
-	prioritySame := cachedAPIService.Spec.VersionPriority == apiService.Spec.VersionPriority && cachedAPIService.Spec.GroupPriorityMinimum == apiService.Spec.GroupPriorityMinimum
+	prioritySame := cachedAPIService.Spec.VersionPriority == apiService.Spec.VersionPriority &&
+		cachedAPIService.Spec.GroupPriorityMinimum == apiService.Spec.GroupPriorityMinimum
 	insecureSame := cachedAPIService.Spec.InsecureSkipTLSVerify == apiService.Spec.InsecureSkipTLSVerify
 	// there was no change to metadata, the service and priorities were right
 	if !*modified && serviceSame && prioritySame && insecureSame && certsSame {
-		log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
+		log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName()) //nolint:mnd
 
 		return nil
 	}
 
-	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &apiService.ObjectMeta, apiService.Spec)...).GeneratePayload()
+	patchBytes, err := patch.New(
+		getPatchWithObjectMetaAndSpec(
+			[]patch.PatchOption{},
+			&apiService.ObjectMeta,
+			apiService.Spec,
+		)...,
+	).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
 	_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch apiservice %s: %+v", apiService.Name, apiService)
+		log.Log.V(2).Infof("failed to patch apiservice %s: %+v", apiService.Name, apiService) //nolint:mnd
 		return fmt.Errorf("unable to patch apiservice %s: %v", apiService.Name, err)
 	}
-	log.Log.V(4).Infof("apiservice %v updated", apiService.GetName())
+	log.Log.V(4).Infof("apiservice %v updated", apiService.GetName()) //nolint:mnd
 
 	return nil
 }

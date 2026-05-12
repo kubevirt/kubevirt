@@ -95,11 +95,12 @@ var _ = Describe("Apply PDBs", func() {
 			cachedPDB := getCachedPDB()
 			Expect(cachedPDB).ToNot(BeNil())
 
-			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				// Fail if patch occurred
-				Expect(true).To(BeFalse())
-				return true, nil, nil
-			})
+			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets",
+				func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					// Fail if patch occurred
+					Expect(true).To(BeFalse())
+					return true, nil, nil
+				})
 
 			Expect(r.syncPodDisruptionBudgetForDeployment(deployment)).To(Succeed())
 		})
@@ -114,27 +115,28 @@ var _ = Describe("Apply PDBs", func() {
 			cachedPDB := getCachedPDB()
 			cachedPDB.ObjectMeta.Annotations[versionAnnotation] = modifiedVersion
 
-			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				// Ensure that the PDB in cache is being patched to required state
-				Expect(cachedPDB.ObjectMeta.Annotations[versionAnnotation]).To(Equal(modifiedVersion))
-				a := action.(testing.PatchActionImpl)
+			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets",
+				func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					// Ensure that the PDB in cache is being patched to required state
+					Expect(cachedPDB.ObjectMeta.Annotations[versionAnnotation]).To(Equal(modifiedVersion))
+					a := action.(testing.PatchActionImpl)
 
-				patch, err := jsonpatch.DecodePatch(a.Patch)
-				Expect(err).ToNot(HaveOccurred())
+					patch, err := jsonpatch.DecodePatch(a.Patch)
+					Expect(err).ToNot(HaveOccurred())
 
-				obj, err := json.Marshal(cachedPDB)
-				Expect(err).ToNot(HaveOccurred())
+					obj, err := json.Marshal(cachedPDB)
+					Expect(err).ToNot(HaveOccurred())
 
-				obj, err = patch.Apply(obj)
-				Expect(err).ToNot(HaveOccurred())
+					obj, err = patch.Apply(obj)
+					Expect(err).ToNot(HaveOccurred())
 
-				pdb := &policyv1.PodDisruptionBudget{}
-				Expect(json.Unmarshal(obj, pdb)).To(Succeed())
-				Expect(pdb.ObjectMeta.Annotations[versionAnnotation]).To(Equal(originalVersion))
+					pdb := &policyv1.PodDisruptionBudget{}
+					Expect(json.Unmarshal(obj, pdb)).To(Succeed())
+					Expect(pdb.ObjectMeta.Annotations[versionAnnotation]).To(Equal(originalVersion))
 
-				patchedOccurred = true
-				return true, pdb, nil
-			})
+					patchedOccurred = true
+					return true, pdb, nil
+				})
 
 			Expect(r.syncPodDisruptionBudgetForDeployment(deployment)).To(Succeed())
 

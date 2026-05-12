@@ -34,13 +34,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
+const (
+	deploymentKind          = "Deployment"
+	boolFlagFalseValue      = "false"
+	patchAddLabel           = `{"metadata":{"labels":{"new-key":"added-this-label"}}}`
+	patchCustomLabel        = `{"metadata":{"labels":{"my-custom-label":"custom-label"}}}`
+	patchAnnotationKeyValue = `{"metadata":{"annotation":{"key":"value"}}}`
+)
+
 var _ = Describe("Patches", func() {
 	namespace := "fake-namespace"
 
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
-			Kind:       "Deployment",
+			Kind:       deploymentKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -60,13 +68,13 @@ var _ = Describe("Patches", func() {
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: components.VirtControllerName,
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
+					ResourceType: deploymentKind,
+					Patch:        patchAddLabel,
 					Type:         v1.StrategicMergePatchType,
 				},
 				{
 					ResourceName: "*",
-					ResourceType: "Deployment",
+					ResourceType: deploymentKind,
 					Patch:        `{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"image-pull"}]}}}}`,
 					Type:         v1.StrategicMergePatchType,
 				},
@@ -112,20 +120,20 @@ var _ = Describe("Patches", func() {
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: components.VirtControllerName,
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
+					ResourceType: deploymentKind,
+					Patch:        patchAddLabel,
 					Type:         v1.StrategicMergePatchType,
 				},
 				{
-					ResourceName: "virt-api",
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"labels":{"my-custom-label":"custom-label"}}}`,
+					ResourceName: components.VirtAPIName,
+					ResourceType: deploymentKind,
+					Patch:        patchCustomLabel,
 					Type:         v1.StrategicMergePatchType,
 				},
 				{
 					ResourceName: components.VirtControllerName,
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"annotation":{"key":"value"}}}`,
+					ResourceType: deploymentKind,
+					Patch:        patchAnnotationKeyValue,
 					Type:         v1.StrategicMergePatchType,
 				},
 			},
@@ -134,21 +142,21 @@ var _ = Describe("Patches", func() {
 		c2 := v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
-					ResourceName: "virt-api",
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"labels":{"my-custom-label":"custom-label"}}}`,
+					ResourceName: components.VirtAPIName,
+					ResourceType: deploymentKind,
+					Patch:        patchCustomLabel,
 					Type:         v1.StrategicMergePatchType,
 				},
 				{
 					ResourceName: components.VirtControllerName,
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
+					ResourceType: deploymentKind,
+					Patch:        patchAddLabel,
 					Type:         v1.StrategicMergePatchType,
 				},
 				{
 					ResourceName: components.VirtControllerName,
-					ResourceType: "Deployment",
-					Patch:        `{"metadata":{"annotation":{"key":"value"}}}`,
+					ResourceType: deploymentKind,
+					Patch:        patchAnnotationKeyValue,
 					Type:         v1.StrategicMergePatchType,
 				},
 			},
@@ -192,9 +200,9 @@ var _ = Describe("Patches", func() {
 		matches := valueMatchesKey(value, key)
 		Expect(matches).To(Equal(expected))
 	},
-		Entry("should match wildcard", "*", "Deployment", true),
-		Entry("should match with different cases", "deployment", "Deployment", true),
-		Entry("should not match", "Service", "Deployment", false),
+		Entry("should match wildcard", "*", deploymentKind, true),
+		Entry("should match with different cases", "deployment", deploymentKind, true),
+		Entry("should not match", "Service", deploymentKind, false),
 	)
 
 	Describe("Config controller flags", func() {
@@ -203,9 +211,9 @@ var _ = Describe("Patches", func() {
 			"flag":            "3",
 			"bool-flag":       "",
 			"bool-flag-true":  "True",
-			"bool-flag-false": "false",
+			"bool-flag-false": boolFlagFalseValue,
 		}
-		resource := "Deployment"
+		resource := deploymentKind
 
 		It("should return flags in the proper format", func() {
 			fa := flagsToArray(flags)

@@ -8,6 +8,10 @@ import (
 	k8sv1 "kubevirt.io/api/core/v1"
 )
 
+// defaultRenewBeforeFraction is the fraction of a certificate's duration
+// before expiration at which it should be renewed (20%).
+const defaultRenewBeforeFraction = 0.2
+
 func GetCADuration(config *k8sv1.KubeVirtSelfSignConfiguration) *metav1.Duration {
 	defaultDuration := &metav1.Duration{Duration: Duration7d}
 
@@ -28,7 +32,7 @@ func GetCADuration(config *k8sv1.KubeVirtSelfSignConfiguration) *metav1.Duration
 
 func GetCARenewBefore(config *k8sv1.KubeVirtSelfSignConfiguration) *metav1.Duration {
 	caDuration := GetCADuration(config)
-	defaultDuration := &metav1.Duration{Duration: time.Duration(float64(caDuration.Duration) * 0.2)}
+	defaultDuration := &metav1.Duration{Duration: time.Duration(float64(caDuration.Duration) * defaultRenewBeforeFraction)}
 
 	if config == nil {
 		return defaultDuration
@@ -66,7 +70,7 @@ func GetCertDuration(config *k8sv1.KubeVirtSelfSignConfiguration) *metav1.Durati
 
 func GetCertRenewBefore(config *k8sv1.KubeVirtSelfSignConfiguration) *metav1.Duration {
 	certDuration := GetCertDuration(config)
-	defaultDuration := &metav1.Duration{Duration: time.Duration(float64(certDuration.Duration) * 0.2)}
+	defaultDuration := &metav1.Duration{Duration: time.Duration(float64(certDuration.Duration) * defaultRenewBeforeFraction)}
 
 	if config == nil {
 		return defaultDuration

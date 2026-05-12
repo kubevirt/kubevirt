@@ -28,6 +28,7 @@ import (
 
 const (
 	failedUpdateDaemonSetReason = "FailedUpdate"
+	replaceOp                   = "replace"
 )
 
 var (
@@ -63,10 +64,15 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 			deployment.Name != components.VirtTemplateApiserverDeploymentName &&
 			deployment.Name != components.VirtTemplateControllerDeploymentName {
 			deployment.Spec.Replicas = &replicas
-			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
-				"auto-scaling for core kubevirt components. Please use with caution!")
+			r.recorder.Eventf(deployment, corev1.EventTypeWarning,
+				"AdvancedFeatureUse",
+				"applying custom number of infra replica. "+
+					"this is an advanced feature that prevents "+
+					"auto-scaling for core kubevirt components. "+
+					"Please use with caution!")
 		}
-	} else if deployment.Name == components.VirtAPIName && !replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
+	} else if deployment.Name == components.VirtAPIName &&
+		!replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
 		replicas, err := getDesiredApiReplicas(r.clientset)
 		if err != nil {
 			log.Log.Object(deployment).Warningf("%s", err.Error())
@@ -93,7 +99,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		deployment, err := apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Deployment.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create deployment %s: %+v", origDeployment.Name, origDeployment)
+			log.Log.V(2).Infof("failed to create deployment %s: %+v", origDeployment.Name, origDeployment) //nolint:mnd
 			return nil, fmt.Errorf("unable to create deployment %s: %v", origDeployment.Name, err)
 		}
 
@@ -113,7 +119,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	if !*modified &&
 		*existingCopy.Spec.Replicas == *deployment.Spec.Replicas &&
 		existingCopy.GetGeneration() == expectedGeneration {
-		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
+		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName()) //nolint:mnd
 		return deployment, nil
 	}
 
@@ -134,14 +140,17 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	prePatchDeployment := deployment
-	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
+	deployment, err = apps.Deployments(kv.Namespace).Patch(
+		context.Background(), deployment.Name, types.JSONPatchType,
+		ops, metav1.PatchOptions{},
+	)
 	if err != nil {
-		log.Log.V(2).Infof("failed to update deployment %s: %+v", prePatchDeployment.Name, prePatchDeployment)
+		log.Log.V(2).Infof("failed to update deployment %s: %+v", prePatchDeployment.Name, prePatchDeployment) //nolint:mnd
 		return nil, fmt.Errorf("unable to update deployment %s: %v", prePatchDeployment.Name, err)
 	}
 
 	SetGeneration(&kv.Status.Generations, deployment)
-	log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
+	log.Log.V(2).Infof("deployment %v updated", deployment.GetName()) //nolint:mnd
 
 	return deployment, nil
 }
@@ -161,7 +170,7 @@ func generateDaemonSetPatch(oldDs, newDs *appsv1.DaemonSet) ([]byte, error) {
 }
 
 func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
-	patch, err := generateDaemonSetPatch(oldDs, newDs)
+	patchBytes, err := generateDaemonSetPatch(oldDs, newDs)
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +179,10 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 		context.Background(),
 		newDs.Name,
 		types.JSONPatchType,
-		patch,
+		patchBytes,
 		metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to update daemonset %s: %+v", oldDs.Name, oldDs)
+		log.Log.V(2).Infof("failed to update daemonset %s: %+v", oldDs.Name, oldDs) //nolint:mnd
 		return nil, fmt.Errorf("unable to update daemonset %s: %v", oldDs.Name, err)
 	}
 	return newDs, nil
@@ -223,7 +232,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 		hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
 		unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 	}
-	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
+	logger := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
 	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
@@ -238,16 +247,19 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
 			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
-				log.V(2).Infof("failed to start canary upgrade for daemonset %s: %+v", newDS.Name, newDS)
-				return false, fmt.Errorf("unable to start canary upgrade for daemonset %s: %v", newDS.Name, err), CanaryUpgradeStatusFailed
+				logger.V(2).Infof("failed to start canary upgrade for daemonset %s: %+v", newDS.Name, newDS) //nolint:mnd
+				return false,
+					fmt.Errorf("unable to start canary upgrade for daemonset %s: %v", newDS.Name, err),
+					CanaryUpgradeStatusFailed
 			}
-			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
+			logger.V(2).Infof("daemonSet %v started upgrade", newDS.GetName()) //nolint:mnd
 		} else {
 			// check for a crashed canary pod
 			canaryPods := r.getCanaryPods(cachedDaemonSet)
 			for _, canary := range canaryPods {
 				if canary != nil && util.PodIsCrashLooping(canary) {
-					r.recorder.Eventf(cachedDaemonSet, corev1.EventTypeWarning, failedUpdateDaemonSetReason, "daemonSet %v rollout failed", cachedDaemonSet.Name)
+					r.recorder.Eventf(cachedDaemonSet, corev1.EventTypeWarning,
+						failedUpdateDaemonSetReason, "daemonSet %v rollout failed", cachedDaemonSet.Name)
 					return false, fmt.Errorf("daemonSet %s rollout failed", cachedDaemonSet.Name), CanaryUpgradeStatusFailed
 				}
 			}
@@ -260,13 +272,13 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			// start rollout again
 			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
-				log.V(2).Infof("failed to update daemonset %s: %+v", newDS.Name, newDS)
+				logger.V(2).Infof("failed to update daemonset %s: %+v", newDS.Name, newDS) //nolint:mnd
 				return false, fmt.Errorf("unable to update daemonset %s: %v", newDS.Name, err), CanaryUpgradeStatusFailed
 			}
-			log.V(2).Infof("daemonSet %v updated", newDS.GetName())
+			logger.V(2).Infof("daemonSet %v updated", newDS.GetName()) //nolint:mnd
 			status = CanaryUpgradeStatusUpgradingDaemonSet
 		} else {
-			log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
+			logger.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName()) //nolint:mnd
 			status = CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
 		done = false
@@ -281,7 +293,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if err != nil {
 				return false, err, CanaryUpgradeStatusFailed
 			}
-			log.V(2).Infof("daemonSet %v updated back to default", newDS.GetName())
+			logger.V(2).Infof("daemonSet %v updated back to default", newDS.GetName()) //nolint:mnd
 			SetGeneration(&r.kv.Status.Generations, newDS)
 			return false, nil, CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
@@ -290,7 +302,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if !hasTLS(cachedDaemonSet) {
 				insertTLS(newDS)
 				_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
-				log.V(2).Infof("daemonSet %v updated to default CN TLS", newDS.GetName())
+				logger.V(2).Infof("daemonSet %v updated to default CN TLS", newDS.GetName()) //nolint:mnd
 				SetGeneration(&r.kv.Status.Generations, newDS)
 				return false, err, CanaryUpgradeStatusWaitingDaemonSetRollout
 			}
@@ -301,12 +313,12 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 				if err != nil {
 					return false, err, CanaryUpgradeStatusFailed
 				}
-				log.V(2).Infof("daemonSet %v updated to secure certificates", newDS.GetName())
+				logger.V(2).Infof("daemonSet %v updated to secure certificates", newDS.GetName()) //nolint:mnd
 			}
 		}
 
 		SetGeneration(&r.kv.Status.Generations, cachedDaemonSet)
-		log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
+		logger.V(2).Infof("daemonSet %v is ready", newDS.GetName()) //nolint:mnd
 		done, status = true, CanaryUpgradeStatusSuccessful
 	}
 	return done, nil, status
@@ -317,11 +329,14 @@ func supportsTLS(daemonSet *appsv1.DaemonSet) bool {
 		return false
 	}
 	value, ok := daemonSet.Labels[components.SupportsMigrationCNsValidation]
-	return ok && value == "true"
+	return ok && value == trueString
 }
 
 func insertTLS(daemonSet *appsv1.DaemonSet) {
-	daemonSet.Spec.Template.Spec.Containers[0].Args = append(daemonSet.Spec.Template.Spec.Containers[0].Args, "--migration-cn-types", "migration")
+	daemonSet.Spec.Template.Spec.Containers[0].Args = append(
+		daemonSet.Spec.Template.Spec.Containers[0].Args,
+		"--migration-cn-types", "migration",
+	)
 }
 
 func hasTLS(daemonSet *appsv1.DaemonSet) bool {
@@ -402,7 +417,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.DaemonSet.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create daemonset %s: %+v", origDaemonSet.Name, origDaemonSet)
+			log.Log.V(2).Infof("failed to create daemonset %s: %+v", origDaemonSet.Name, origDaemonSet) //nolint:mnd
 			return false, fmt.Errorf("unable to create daemonset %s: %v", origDaemonSet.Name, err)
 		}
 
@@ -418,7 +433,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
-		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
+		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName()) //nolint:mnd
 		return true, nil
 	}
 
@@ -470,10 +485,10 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		podDisruptionBudget, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create poddisruptionbudget %s: %+v", origPDB.Name, origPDB)
+			log.Log.V(2).Infof("failed to create poddisruptionbudget %s: %+v", origPDB.Name, origPDB) //nolint:mnd
 			return fmt.Errorf("unable to create poddisruptionbudget %s: %v", origPDB.Name, err)
 		}
-		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
+		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName()) //nolint:mnd
 		SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 
 		return nil
@@ -489,31 +504,40 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	if !*modified &&
 		existingCopy.Spec.MinAvailable.IntValue() == podDisruptionBudget.Spec.MinAvailable.IntValue() &&
 		existingCopy.ObjectMeta.Generation == expectedGeneration {
-		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
+		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName()) //nolint:mnd
 		return nil
 	}
 
-	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &podDisruptionBudget.ObjectMeta, podDisruptionBudget.Spec)...).GeneratePayload()
+	patchBytes, err := patch.New(
+		getPatchWithObjectMetaAndSpec(
+			[]patch.PatchOption{},
+			&podDisruptionBudget.ObjectMeta,
+			podDisruptionBudget.Spec,
+		)...,
+	).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
 	prePatchPDB := podDisruptionBudget
-	podDisruptionBudget, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	podDisruptionBudget, err = pdbClient.Patch(
+		context.Background(), podDisruptionBudget.Name,
+		types.JSONPatchType, patchBytes, metav1.PatchOptions{},
+	)
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch/delete poddisruptionbudget %s: %+v", prePatchPDB.Name, prePatchPDB)
+		log.Log.V(2).Infof("failed to patch/delete poddisruptionbudget %s: %+v", prePatchPDB.Name, prePatchPDB) //nolint:mnd
 		return fmt.Errorf("unable to patch/delete poddisruptionbudget %s: %v", prePatchPDB.Name, err)
 	}
 
 	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
-	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
+	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName()) //nolint:mnd
 
 	return nil
 }
 
 func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
 	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", v1.NodeSchedulable, "true"),
+		LabelSelector: fmt.Sprintf("%s=%s", v1.NodeSchedulable, trueString),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get number of nodes to determine virt-api replicas: %v", err)
@@ -556,7 +580,7 @@ func replicasAlreadyPatched(patches []v1.CustomizeComponentsPatch, deploymentNam
 				continue
 			}
 			op := operation.Kind()
-			if path == "/spec/replicas" && op == "replace" {
+			if path == "/spec/replicas" && op == replaceOp {
 				return true
 			}
 		}

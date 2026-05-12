@@ -37,11 +37,11 @@ func (r *Reconciler) createOrUpdateSCC() error {
 			_, err := sec.SecurityContextConstraints().Create(context.Background(), scc, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.SCC.LowerExpectations(r.kvKey, 1, 0)
-				log.Log.V(2).Infof("failed to create SCC %s: %+v", scc.Name, scc)
+				log.Log.V(2).Infof("failed to create SCC %s: %+v", scc.Name, scc) //nolint:mnd
 				return fmt.Errorf("unable to create SCC %s: %v", scc.Name, err)
 			}
 
-			log.Log.V(2).Infof("SCC %v created", scc.Name)
+			log.Log.V(2).Infof("SCC %v created", scc.Name) //nolint:mnd
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
 			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
@@ -50,9 +50,9 @@ func (r *Reconciler) createOrUpdateSCC() error {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
 			}
 
-			log.Log.V(2).Infof("SecurityContextConstraints %s updated", scc.Name)
+			log.Log.V(2).Infof("SecurityContextConstraints %s updated", scc.Name) //nolint:mnd
 		} else {
-			log.Log.V(4).Infof("SCC %s is up to date", scc.Name)
+			log.Log.V(4).Infof("SCC %s is up to date", scc.Name) //nolint:mnd
 		}
 	}
 
@@ -71,7 +71,7 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 
 	SCC, ok := SCCObj.(*secv1.SecurityContextConstraints)
 	if !ok {
-		log.Log.V(2).Infof("failed to cast object to SecurityContextConstraints: %+v", SCCObj)
+		log.Log.V(2).Infof("failed to cast object to SecurityContextConstraints: %+v", SCCObj) //nolint:mnd
 		return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %T", SCCObj)
 	}
 
@@ -94,7 +94,8 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 			return err
 		}
 
-		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		_, err = r.clientset.SecClient().SecurityContextConstraints().
+			Patch(context.Background(), "privileged", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch scc: %v", err)
 		}

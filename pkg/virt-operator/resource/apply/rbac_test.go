@@ -228,7 +228,8 @@ var _ = Describe("RBAC test", func() {
 		expectations.Role = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role"))
 		expectations.RoleBinding = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding"))
 		expectations.ClusterRole = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole"))
-		expectations.ClusterRoleBinding = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding"))
+		expectations.ClusterRoleBinding = controller.NewUIDTrackingControllerExpectations(
+			controller.NewControllerExpectationsWithName("ClusterRoleBinding"))
 
 		clientset = kubecli.NewMockKubevirtClient(ctrl)
 		clientset.EXPECT().RbacV1().Return(rbacClient.RbacV1()).AnyTimes()
@@ -301,28 +302,29 @@ var _ = Describe("RBAC test", func() {
 			Entry("ClusterRole resource where resource had not changed", clusterRoleType, false),
 		)
 
-		DescribeTable("Check reconciliation of Subjects and RoleRef for", func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
-			Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
-			existing := newEmptyResource(resourceType)
-			required := newEmptyResource(resourceType)
+		DescribeTable("Check reconciliation of Subjects and RoleRef for",
+			func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
+				Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
+				existing := newEmptyResource(resourceType)
+				required := newEmptyResource(resourceType)
 
-			assignSubjectsToBinding(newFakeSubjects("policy1"), existing, required)
-			assignRoleRefToBinding(newFakeRoleRef("policy1"), existing, required)
-			getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
-			addToCache(existing)
+				assignSubjectsToBinding(newFakeSubjects("policy1"), existing, required)
+				assignRoleRefToBinding(newFakeRoleRef("policy1"), existing, required)
+				getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
+				addToCache(existing)
 
-			if changeExistingSubjects {
-				assignSubjectsToBinding(newFakeSubjects("policy2"), required)
-				expectRbacUpdate(required)
-			}
-			if changeExistingRoleRef {
-				assignRoleRefToBinding(newFakeRoleRef("policy2"), required)
-				expectRbacUpdate(required)
-			}
+				if changeExistingSubjects {
+					assignSubjectsToBinding(newFakeSubjects("policy2"), required)
+					expectRbacUpdate(required)
+				}
+				if changeExistingRoleRef {
+					assignRoleRefToBinding(newFakeRoleRef("policy2"), required)
+					expectRbacUpdate(required)
+				}
 
-			err := updateResource(required)
-			Expect(err).ShouldNot(HaveOccurred())
-		},
+				err := updateResource(required)
+				Expect(err).ShouldNot(HaveOccurred())
+			},
 			Entry("RoleBinding resource where resource had changed Subjects and RoleRef", roleBindingType, true, true),
 			Entry("RoleBinding resource where resource had changed Subjects", roleBindingType, true, false),
 			Entry("RoleBinding resource where resource had changed RoleRef", roleBindingType, false, true),

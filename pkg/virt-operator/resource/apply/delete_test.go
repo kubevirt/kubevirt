@@ -35,6 +35,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	schedulableLabel = "kubevirt.io/schedulable"
+	testNode3        = "node3"
+)
+
 var _ = Describe("Deletion", func() {
 	Context("CRD deletion", func() {
 		It("Filter needs deletion", func() {
@@ -198,9 +203,9 @@ var _ = Describe("Deletion", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node1",
 							Labels: map[string]string{
-								"kubevirt.io/schedulable": "true",
-								"kubevirt.io/some-label":  "value",
-								"other-label":             "value",
+								schedulableLabel:         trueString,
+								"kubevirt.io/some-label": testLabelValue,
+								"other-label":            testLabelValue,
 							},
 						},
 					},
@@ -208,14 +213,14 @@ var _ = Describe("Deletion", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "node2",
 							Labels: map[string]string{
-								"kubevirt.io/schedulable":   "true",
-								"kubevirt.io/another-label": "value",
+								schedulableLabel:            trueString,
+								"kubevirt.io/another-label": testLabelValue,
 							},
 						},
 					},
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:   "node3",
+							Name:   testNode3,
 							Labels: map[string]string{},
 						},
 					},
@@ -244,10 +249,10 @@ var _ = Describe("Deletion", func() {
 			Expect(clientset.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
 				var node3patchActions []testing.Action
 				for _, action := range actions {
-					if action.GetVerb() == "patch" &&
+					if action.GetVerb() == patchVerb &&
 						action.GetResource().Resource == "nodes" {
 						patchAction := action.(testing.PatchAction)
-						if patchAction.GetName() == "node3" {
+						if patchAction.GetName() == testNode3 {
 							node3patchActions = append(node3patchActions, action)
 						}
 					}
@@ -262,7 +267,7 @@ func instanceRemovedCondition() extv1.CustomResourceDefinitionCondition {
 	return extv1.CustomResourceDefinitionCondition{
 		Type:   extv1.Terminating,
 		Status: extv1.ConditionFalse,
-		Reason: "InstanceDeletionCompleted",
+		Reason: instanceDeletionCompletedValue,
 	}
 }
 

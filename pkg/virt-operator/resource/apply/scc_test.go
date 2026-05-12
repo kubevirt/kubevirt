@@ -30,7 +30,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 		var secClient *secv1fake.FakeSecurityV1
 		var err error
 
-		namespace := "kubevirt-test"
+		namespace := testNamespace
 
 		generateSCC := func(sccName string, usersList []string) *secv1.SecurityContextConstraints {
 			return &secv1.SecurityContextConstraints{
@@ -107,7 +107,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			executeTest(scc, string(patches))
 		},
 			Entry("Without custom users", []string{}),
-			Entry("With custom users", []string{"someuser"}),
+			Entry("With custom users", []string{testUser}),
 		)
 	})
 })

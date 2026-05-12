@@ -54,7 +54,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		_, err := r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Route.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route)
+			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route) //nolint:mnd
 			return fmt.Errorf("unable to create route %s: %v", route.Name, err)
 		}
 
@@ -69,7 +69,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	terminationSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.Termination, route.Spec.TLS.Termination)
 	certSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.DestinationCACertificate, route.Spec.TLS.DestinationCACertificate)
 	if !*modified && kindSame && nameSame && terminationSame && certSame {
-		log.Log.V(4).Infof("route %v is up-to-date", route.GetName())
+		log.Log.V(4).Infof("route %v is up-to-date", route.GetName()) //nolint:mnd
 
 		return nil
 	}
@@ -79,12 +79,13 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return err
 	}
 
-	_, err = r.clientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.clientset.RouteClient().Routes(route.Namespace).
+		Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch route %s: %+v", route.Name, route)
+		log.Log.V(2).Infof("failed to patch route %s: %+v", route.Name, route) //nolint:mnd
 		return fmt.Errorf("unable to patch route %s: %v", route.Name, err)
 	}
-	log.Log.V(4).Infof("route %v updated", route.GetName())
+	log.Log.V(4).Infof("route %v updated", route.GetName()) //nolint:mnd
 
 	return nil
 }

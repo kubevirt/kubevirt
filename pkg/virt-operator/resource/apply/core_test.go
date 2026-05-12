@@ -59,6 +59,13 @@ const (
 	kubevirtNamespace                = "kubevirt"
 	synchronizationControllerPodName = "synchronization-controller"
 	networkAnnotationValue           = "lm-network@migration0"
+	testClusterIP1                   = "10.10.10.10"
+	testClusterIP2                   = "2.2.2.2"
+	testClusterIP3                   = "1.1.1.1"
+	oldVersionValue                  = "oldversion"
+	prometheusSelector               = "prometheus.kubevirt.io"
+	oldValue                         = "old"
+	metricsPortName                  = "metrics"
 	networkStatusAnnotationValue     = `
       [{
           "name": "ovn-kubernetes",
@@ -87,7 +94,7 @@ var _ = Describe("Apply", func() {
 		It("should not patch if ClusterIp is empty during update", func() {
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
-			cachedService.Spec.ClusterIP = "10.10.10.10"
+			cachedService.Spec.ClusterIP = testClusterIP1
 
 			service := &corev1.Service{}
 			service.Spec.Type = corev1.ServiceTypeClusterIP
@@ -99,7 +106,7 @@ var _ = Describe("Apply", func() {
 		It("should replace if ClusterIp is not empty during update and ip changes", func() {
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
-			cachedService.Spec.ClusterIP = "10.10.10.10"
+			cachedService.Spec.ClusterIP = testClusterIP1
 
 			service := &corev1.Service{}
 			service.Spec.Type = corev1.ServiceTypeClusterIP
@@ -174,7 +181,7 @@ var _ = Describe("Apply", func() {
 
 			kv = &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
+					Name:      kubevirtNamespace,
 					Namespace: operatorNamespace,
 				},
 			}
@@ -395,7 +402,7 @@ var _ = Describe("Apply", func() {
 		newServiceAccount := func() *corev1.ServiceAccount {
 			return &corev1.ServiceAccount{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
+					APIVersion: admissionReviewVersionV1,
 					Kind:       "ServiceAccount",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -542,7 +549,7 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					Spec: corev1.ServiceSpec{
-						ClusterIP: "2.2.2.2",
+						ClusterIP: testClusterIP2,
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				},
@@ -567,7 +574,7 @@ var _ = Describe("Apply", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:    "oldversion",
+							v1.InstallStrategyVersionAnnotation:    oldVersionValue,
 							v1.InstallStrategyRegistryAnnotation:   "oldversion",
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
@@ -577,11 +584,11 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "true",
+							prometheusSelector: trueString,
 						},
 						Ports: []corev1.ServicePort{
 							{
-								Name: "old",
+								Name: oldValue,
 								Port: 444,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.Int,
@@ -606,11 +613,11 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "true",
+							prometheusSelector: trueString,
 						},
 						Ports: []corev1.ServicePort{
 							{
-								Name: "old",
+								Name: oldValue,
 								Port: 444,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.Int,
@@ -638,7 +645,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							v1.AppLabel: "virt-api",
+							v1.AppLabel: components.VirtAPIName,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -650,11 +657,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -676,7 +683,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							v1.AppLabel: "virt-api",
+							v1.AppLabel: components.VirtAPIName,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -688,11 +695,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -705,9 +712,9 @@ var _ = Describe("Apply", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:    "old",
-							v1.InstallStrategyRegistryAnnotation:   "old",
-							v1.InstallStrategyIdentifierAnnotation: "old",
+							v1.InstallStrategyVersionAnnotation:    oldValue,
+							v1.InstallStrategyRegistryAnnotation:   oldValue,
+							v1.InstallStrategyIdentifierAnnotation: oldValue,
 						},
 						Labels: map[string]string{
 							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
@@ -715,7 +722,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							v1.AppLabel: "virt-api",
+							v1.AppLabel: components.VirtAPIName,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -727,11 +734,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -764,11 +771,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -836,7 +843,7 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					Spec: corev1.ServiceSpec{
-						ClusterIP: "2.2.2.2",
+						ClusterIP: testClusterIP2,
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				},
@@ -847,7 +854,7 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					Spec: corev1.ServiceSpec{
-						ClusterIP: "1.1.1.1",
+						ClusterIP: testClusterIP3,
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				}),
@@ -874,8 +881,8 @@ var _ = Describe("Apply", func() {
 			expectations := &util.Expectations{}
 			kv = &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
+					Name:      kubevirtNamespace,
+					Namespace: kubevirtNamespace,
 				},
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
@@ -976,7 +983,7 @@ var _ = Describe("Apply", func() {
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{
 						{
-							IP: "1.1.1.1",
+							IP: testClusterIP3,
 						},
 					},
 				},
@@ -993,7 +1000,7 @@ var _ = Describe("Apply", func() {
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{
 						{
-							IP: "1.1.1.1",
+							IP: testClusterIP3,
 						},
 					},
 				},
@@ -1010,7 +1017,7 @@ var _ = Describe("Apply", func() {
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{
 						{
-							IP: "1.1.1.1",
+							IP: testClusterIP3,
 						},
 					},
 				},

@@ -18,26 +18,33 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+const (
+	admissionRegistrationGroup = "admissionregistration.k8s.io"
+	appsGroup                  = "apps"
+	deploymentsResource        = "deployments"
+	daemonsetsResource         = "daemonsets"
+)
+
 func getGroupResource(required runtime.Object) (group, resource string, err error) {
 	switch required.(type) {
 	case *extv1.CustomResourceDefinition:
 		group = "apiextensions.k8s.io/v1"
 		resource = "customresourcedefinitions"
 	case *admissionregistrationv1.MutatingWebhookConfiguration:
-		group = "admissionregistration.k8s.io"
+		group = admissionRegistrationGroup
 		resource = "mutatingwebhookconfigurations"
 	case *admissionregistrationv1.ValidatingWebhookConfiguration:
-		group = "admissionregistration.k8s.io"
+		group = admissionRegistrationGroup
 		resource = "validatingwebhookconfigurations"
 	case *policyv1.PodDisruptionBudget:
-		group = "apps"
+		group = appsGroup
 		resource = "poddisruptionbudgets"
 	case *appsv1.Deployment:
-		group = "apps"
-		resource = "deployments"
+		group = appsGroup
+		resource = deploymentsResource
 	case *appsv1.DaemonSet:
-		group = "apps"
-		resource = "daemonsets"
+		group = appsGroup
+		resource = daemonsetsResource
 	default:
 		err = fmt.Errorf("resource type is not known")
 		return group, resource, err
@@ -55,7 +62,9 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 	operatorGenerations := toOperatorGenerations(previousGenerations)
 
 	meta := required.(v1.Object)
-	generation := resourcemerge.GenerationFor(operatorGenerations, schema.GroupResource{Group: group, Resource: resource}, meta.GetNamespace(), meta.GetName())
+	gr := schema.GroupResource{Group: group, Resource: resource}
+	generation := resourcemerge.GenerationFor(
+		operatorGenerations, gr, meta.GetNamespace(), meta.GetName())
 	if generation == nil {
 		return -1
 	}
