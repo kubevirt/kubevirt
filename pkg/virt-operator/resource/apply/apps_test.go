@@ -720,6 +720,7 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
+	//nolint:dupl
 	Context("Injecting Metadata", func() {
 		It("should set expected values", func() {
 			kv := &v1.KubeVirt{}
@@ -755,6 +756,7 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
+	//nolint:dupl
 	Context("on calling placement.InjectPlacementMetadata", func() {
 		var componentConfig *v1.ComponentConfig
 		var nodePlacement *v1.NodePlacement
@@ -1056,51 +1058,57 @@ var _ = Describe("Apply Apps", func() {
 		})
 
 		It("It should copy Required NodeAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
-			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			na := &corev1.NodeAffinity{}
+			na.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			nodePlacement.Affinity = &corev1.Affinity{NodeAffinity: na}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
+			required := podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required.NodeSelectorTerms).To(HaveLen(1))
 		})
 
 		It("It should copy Preferred NodeAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
-			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			na := &corev1.NodeAffinity{}
+			na.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{NodeAffinity: na}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			preferred := podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			Expect(preferred).To(HaveLen(1))
 		})
 
 		It("It should copy Required PodAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
-			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			pa := &corev1.PodAffinity{}
+			pa.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAffinity: pa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			required := podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required).To(HaveLen(1))
 		})
 
 		It("It should copy Preferred PodAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
-			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			pa := &corev1.PodAffinity{}
+			pa.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAffinity: pa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			preferred := podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			Expect(preferred).To(HaveLen(1))
 		})
 
 		It("It should copy Required PodAntiAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			paa := &corev1.PodAntiAffinity{}
+			paa.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAntiAffinity: paa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			required := podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required).To(HaveLen(1))
 		})
 
 		It("It should copy Preferred PodAntiAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			paa := &corev1.PodAntiAffinity{}
+			paa.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAntiAffinity: paa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			preferred := podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			Expect(preferred).To(HaveLen(1))
 		})
 	})
 
@@ -1164,6 +1172,7 @@ var _ = Describe("Apply Apps", func() {
 			close(stop)
 		})
 
+		//nolint:dupl
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)

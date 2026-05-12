@@ -460,6 +460,7 @@ var _ = Describe("Apply", func() {
 			Expect(r.createOrUpdateServiceAccount(pr)).To(Succeed())
 		})
 
+		//nolint:dupl
 		It("should patch ServiceAccount on sync when they are not equal", func() {
 			pr := newServiceAccount()
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
@@ -506,6 +507,7 @@ var _ = Describe("Apply", func() {
 		})
 	})
 
+	//nolint:dupl
 	Context("should handle service endpoint updates", func() {
 		config := getConfig("fake-registry", "v9.9.9")
 

@@ -83,6 +83,7 @@ var _ = Describe("Apply Prometheus", func() {
 		Expect(r.createOrUpdateServiceMonitor(sm)).To(Succeed())
 	})
 
+	//nolint:dupl
 	It("should patch ServiceMonitor on sync when they are equal", func() {
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)
 

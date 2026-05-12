@@ -92,7 +92,7 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	return nil
 }
 
-func DeleteAll(kv *v1.KubeVirt,
+func DeleteAll(kv *v1.KubeVirt, //nolint:gocyclo,funlen
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	aggregatorclient install.APIServiceInterface,
@@ -162,7 +162,9 @@ func DeleteAll(kv *v1.KubeVirt,
 		if depl, ok := obj.(*appsv1.Deployment); ok && depl.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(depl); keyErr == nil {
 				expectations.Deployment.AddExpectedDeletion(kvkey, key)
-				if deleteErr := clientset.AppsV1().Deployments(depl.Namespace).Delete(context.Background(), depl.Name, deleteOptions); deleteErr != nil {
+				deleteErr := clientset.AppsV1().Deployments(depl.Namespace).
+					Delete(context.Background(), depl.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.Deployment.DeletionObserved(kvkey, key)
 					log.Log.Errorf(deleteFailedFmt, depl.Name, deleteErr)
 					return deleteErr
@@ -176,7 +178,7 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete validatingwebhooks
 	objects = stores.ValidationWebhookCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if webhookConfiguration, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok &&
 			webhookConfiguration.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(webhookConfiguration); keyErr == nil {
@@ -198,7 +200,7 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete mutatingwebhooks
 	objects = stores.MutatingWebhookCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if webhookConfiguration, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok &&
 			webhookConfiguration.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(webhookConfiguration); keyErr == nil {
@@ -238,7 +240,7 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete services
 	objects = stores.ServiceCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(svc); keyErr == nil {
 				expectations.Service.AddExpectedDeletion(kvkey, key)
@@ -300,7 +302,7 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete RBAC
 	objects = stores.ClusterRoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(crb); keyErr == nil {
 				expectations.ClusterRoleBinding.AddExpectedDeletion(kvkey, key)
@@ -318,7 +320,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ClusterRoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(cr); keyErr == nil {
 				expectations.ClusterRole.AddExpectedDeletion(kvkey, key)
@@ -336,7 +338,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.RoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(rb); keyErr == nil {
 				expectations.RoleBinding.AddExpectedDeletion(kvkey, key)
@@ -354,7 +356,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.RoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(role); keyErr == nil {
 				expectations.Role.AddExpectedDeletion(kvkey, key)
@@ -372,7 +374,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ServiceAccountCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(sa); keyErr == nil {
 				expectations.ServiceAccount.AddExpectedDeletion(kvkey, key)
@@ -390,7 +392,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.SecretCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(secret); keyErr == nil {
 				expectations.Secrets.AddExpectedDeletion(kvkey, key)
@@ -408,7 +410,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ConfigMapCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(configMap); keyErr == nil {
 				expectations.ConfigMap.AddExpectedDeletion(kvkey, key)
@@ -450,7 +452,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.RouteCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if route, ok := obj.(*routev1.Route); ok && route.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(route); keyErr == nil {
 				expectations.Route.AddExpectedDeletion(kvkey, key)
@@ -468,7 +470,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ValidatingAdmissionPolicyBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if validatingAdmissionPolicyBinding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding); ok &&
 			validatingAdmissionPolicyBinding.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(validatingAdmissionPolicyBinding); keyErr == nil {
@@ -489,7 +491,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ValidatingAdmissionPolicyCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if validatingAdmissionPolicy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy); ok &&
 			validatingAdmissionPolicy.DeletionTimestamp == nil {
 			if key, keyErr := controller.KeyFunc(validatingAdmissionPolicy); keyErr == nil {

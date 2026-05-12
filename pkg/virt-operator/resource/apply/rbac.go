@@ -241,7 +241,7 @@ func enforceAPIGroup(existing, required runtime.Object) {
 	}
 }
 
-func changeRbacExistingByRequired(existing, required runtime.Object) (modified bool) {
+func changeRbacExistingByRequired(existing, required runtime.Object) (modified bool) { //nolint:gocyclo,funlen
 	// This is to avoid using reflections for performance reasons
 	arePolicyRulesEqual := func(pr1, pr2 []rbacv1.PolicyRule) bool {
 		if len(pr1) != len(pr2) {

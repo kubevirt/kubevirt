@@ -38,6 +38,7 @@ func (r *Reconciler) findInstancetype(name string) (*instancetypev1beta1.Virtual
 	return foundObj, nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) error {
 	foundObj, err := r.findInstancetype(instancetype.Name)
 	if err != nil && !errors.IsNotFound(err) {
@@ -133,6 +134,7 @@ func (r *Reconciler) findPreference(name string) (*instancetypev1beta1.VirtualMa
 	return foundObj, nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.VirtualMachineClusterPreference) error {
 	foundObj, err := r.findPreference(preference.Name)
 	if err != nil && !errors.IsNotFound(err) {

@@ -81,6 +81,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			close(stop)
 		})
 
+		//nolint:dupl
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)

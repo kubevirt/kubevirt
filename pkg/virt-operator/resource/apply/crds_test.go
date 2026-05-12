@@ -61,6 +61,7 @@ var _ = Describe("Apply CRDs", func() {
 		kv = &v1.KubeVirt{}
 	})
 
+	//nolint:dupl
 	It("should not roll out subresources on existing CRDs before control-plane rollover", func() {
 		crd := &extv1.CustomResourceDefinition{
 			TypeMeta: v12.TypeMeta{
@@ -117,6 +118,7 @@ var _ = Describe("Apply CRDs", func() {
 		Expect(r.createOrUpdateCrds()).To(Succeed())
 	})
 
+	//nolint:dupl
 	It("should not roll out subresources on existing CRDs after the control-plane rollover", func() {
 		crd := &extv1.CustomResourceDefinition{
 			TypeMeta: v12.TypeMeta{

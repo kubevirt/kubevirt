@@ -10,7 +10,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func (r *Reconciler) backupRBACs() error {
+func (r *Reconciler) backupRBACs() error { //nolint:gocyclo
 	// Backup existing ClusterRoles
 	objects := r.stores.ClusterRoleCache.List()
 	for _, obj := range objects {

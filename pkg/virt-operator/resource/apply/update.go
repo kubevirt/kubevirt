@@ -4,7 +4,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) (bool, error) {
+func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) (bool, error) { //nolint:gocyclo
 	// UPDATE PATH IS
 	// 1. daemonsets - ensures all compute nodes are updated to handle new features
 	// 2. wait for daemonsets to roll over
@@ -26,7 +26,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 		if syncErr != nil {
 			return false, syncErr
 		}
-		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 			return false, syncErr
 		}
 	}
@@ -43,7 +43,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 		if syncErr != nil {
 			return false, syncErr
 		}
-		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 			return false, syncErr
 		}
 	}
@@ -55,7 +55,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 			if syncErr != nil {
 				return false, syncErr
 			}
-			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 				return false, syncErr
 			}
 		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
@@ -70,7 +70,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 			if syncErr != nil {
 				return false, syncErr
 			}
-			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 				return false, syncErr
 			}
 		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
@@ -84,7 +84,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 		if syncErr != nil {
 			return false, syncErr
 		}
-		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 			return false, syncErr
 		}
 	}

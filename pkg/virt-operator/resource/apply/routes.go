@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -86,29 +85,6 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return fmt.Errorf("unable to patch route %s: %v", route.Name, err)
 	}
 	log.Log.V(4).Infof("route %v updated", route.GetName()) //nolint:mnd
-
-	return nil
-}
-
-func (r *Reconciler) deleteRoute(route *routev1.Route) error {
-	obj, exists, err := r.stores.RouteCache.Get(route)
-	if err != nil {
-		return err
-	}
-
-	if !exists || obj.(*routev1.Route).DeletionTimestamp != nil {
-		return nil
-	}
-
-	key, err := controller.KeyFunc(route)
-	if err != nil {
-		return err
-	}
-	r.expectations.Route.AddExpectedDeletion(r.kvKey, key)
-	if err := r.clientset.RouteClient().Routes(route.Namespace).Delete(context.Background(), route.Name, metav1.DeleteOptions{}); err != nil {
-		r.expectations.Route.DeletionObserved(r.kvKey, key)
-		return err
-	}
 
 	return nil
 }

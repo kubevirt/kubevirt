@@ -92,6 +92,7 @@ func convertV1beta1MutatingWebhookToV1(
 	return webhookv1, nil
 }
 
+//nolint:dupl
 func (r *Reconciler) patchValidatingWebhookConfiguration(
 	webhook *admissionregistrationv1.ValidatingWebhookConfiguration,
 	patchBytes []byte,
@@ -143,6 +144,7 @@ func (r *Reconciler) createValidatingWebhookConfiguration(
 	return createdWebhook, err
 }
 
+//nolint:dupl
 func (r *Reconciler) patchMutatingWebhookConfiguration(
 	webhook *admissionregistrationv1.MutatingWebhookConfiguration,
 	patchBytes []byte,
@@ -447,6 +449,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBindings() error {
 	return nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBinding(
 	validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 ) error {
@@ -528,6 +531,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicies() error {
 	return nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdateValidatingAdmissionPolicy(
 	validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy,
 ) error {

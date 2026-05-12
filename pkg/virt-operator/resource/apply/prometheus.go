@@ -30,6 +30,7 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 	return nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.ServiceMonitor) error {
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
@@ -113,6 +114,7 @@ func (r *Reconciler) createOrUpdatePrometheusRules() error {
 	return nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.PrometheusRule) error {
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)

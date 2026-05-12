@@ -131,6 +131,7 @@ var _ = Describe("Apply", func() {
 		)
 	})
 
+	//nolint:dupl
 	Context("Injecting Metadata", func() {
 		It("should set expected values", func() {
 			kv := &v1.KubeVirt{}

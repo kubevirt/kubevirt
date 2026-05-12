@@ -416,41 +416,38 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	return nil
 }
 
+// createOrUpdateCASecretAndConfigMap creates or updates a CA certificate secret and its
+// corresponding config map. It returns the CA certificate for further use.
+func (r *Reconciler) createOrUpdateCASecretAndConfigMap(
+	queue workqueue.TypedRateLimitingInterface[string],
+	secretName string,
+	caDuration, renewBefore *metav1.Duration,
+	externalCACerts []*tls.Certificate,
+) (*tls.Certificate, []byte, error) {
+	caCert, err := r.createOrUpdateCACertificateSecret(queue, secretName, caDuration, renewBefore)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(
+		queue, caCert, externalCACerts, renewBefore,
+		findRequiredCAConfigMap(secretName, r.targetStrategy.ConfigMaps()),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return caCert, caBundle, nil
+}
+
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
-	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	selfSigned := r.kv.Spec.CertificateRotationStrategy.SelfSigned
+	caDuration := GetCADuration(selfSigned)
+	caRenewBefore := GetCARenewBefore(selfSigned)
+	certDuration := GetCertDuration(selfSigned)
+	certRenewBefore := GetCertRenewBefore(selfSigned)
 
-	// create/update CA Certificate secret
-	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
-	if err != nil {
-		return err
-	}
-
-	// create/update export CA Certificate secret
-	caExportCert, err := r.createOrUpdateCACertificateSecret(
-		queue, components.KubeVirtExportCASecretName,
-		caExportDuration, caExportRenewBefore,
-	)
-	if err != nil {
-		return err
-	}
-
-	// create/update backup CA Certificate secret
-	caBackupCert, err := r.createOrUpdateCACertificateSecret(
-		queue, components.KubeVirtBackupCASecretName,
-		caBackupDuration, caBackupRenewBefore,
-	)
-	if err != nil {
-		return err
-	}
-
-	err = r.createExternalKubeVirtCAConfigMap(
+	err := r.createExternalKubeVirtCAConfigMap(
 		findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()),
 	)
 	if err != nil {
@@ -460,10 +457,11 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 	log.Log.V(3).Info("reading external CA configmap") //nolint:mnd
 	externalCACerts := r.getRemotePublicCas()
 	log.Log.V(3).Infof("found %d external CA certificates", len(externalCACerts)) //nolint:mnd
-	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(
-		queue, caCert, externalCACerts, caRenewBefore,
-		findRequiredCAConfigMap(components.KubeVirtCASecretName, r.targetStrategy.ConfigMaps()),
+
+	// create/update CA Certificate secret and config map
+	caCert, caBundle, err := r.createOrUpdateCASecretAndConfigMap(
+		queue, components.KubeVirtCASecretName,
+		caDuration, caRenewBefore, externalCACerts,
 	)
 	if err != nil {
 		return err
@@ -476,19 +474,19 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 		return err
 	}
 
-	// create/update export CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(
-		queue, caExportCert, nil, caExportRenewBefore,
-		findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()),
+	// create/update export CA Certificate secret and config map
+	_, _, err = r.createOrUpdateCASecretAndConfigMap(
+		queue, components.KubeVirtExportCASecretName,
+		caDuration, certRenewBefore, nil,
 	)
 	if err != nil {
 		return err
 	}
 
-	// create/update backup CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(
-		queue, caBackupCert, nil, caBackupRenewBefore,
-		findRequiredCAConfigMap(components.KubeVirtBackupCASecretName, r.targetStrategy.ConfigMaps()),
+	// create/update backup CA Certificate secret and config map
+	_, _, err = r.createOrUpdateCASecretAndConfigMap(
+		queue, components.KubeVirtBackupCASecretName,
+		caDuration, certRenewBefore, nil,
 	)
 	if err != nil {
 		return err
@@ -870,7 +868,7 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(
 	return caCert, nil
 }
 
-func (r *Reconciler) updateSynchronizationAddress() (err error) {
+func (r *Reconciler) updateSynchronizationAddress() (err error) { //nolint:gocyclo
 	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 		r.kv.Status.SynchronizationAddresses = nil
 		return nil

@@ -391,7 +391,7 @@ func NewReconciler(
 	}, nil
 }
 
-func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) {
+func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) { //nolint:gocyclo,funlen
 	// Avoid log spam by logging this issue once early instead of for once each object created
 	if !util.IsValidLabel(r.kv.Spec.ProductVersion) {
 		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less," +
@@ -586,7 +586,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	return true, nil
 }
 
-func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool, error) {
+func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool, error) { //nolint:gocyclo
 	// CREATE/ROLLBACK PATH IS
 	// 1. apiserver - ensures validation of objects occur before allowing any control plane to act on them.
 	// 2. wait for apiservers to roll over
@@ -598,7 +598,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 		if syncErr != nil {
 			return false, syncErr
 		}
-		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 			return false, syncErr
 		}
 	}
@@ -615,7 +615,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 		if syncErr != nil {
 			return false, syncErr
 		}
-		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 			return false, syncErr
 		}
 	}
@@ -626,7 +626,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 		if syncErr != nil {
 			return false, syncErr
 		}
-		if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 			return false, syncErr
 		}
 	}
@@ -638,7 +638,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 			if syncErr != nil {
 				return false, syncErr
 			}
-			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 				return false, syncErr
 			}
 		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
@@ -653,7 +653,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 			if syncErr != nil {
 				return false, syncErr
 			}
-			if syncErr = r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
 				return false, syncErr
 			}
 		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
@@ -697,7 +697,7 @@ func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
 	return nil
 }
 
-func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
+func (r *Reconciler) deleteObjectsNotInInstallStrategy() error { //nolint:gocyclo,funlen
 	gracePeriod := int64(0)
 	deleteOptions := metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
@@ -741,7 +741,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused mutating webhooks
 	objects = r.stores.MutatingWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil { //nolint:dupl
 			found := false
 			for _, targetWebhook := range r.targetStrategy.MutatingWebhookConfigurations() {
 				if targetWebhook.Name == webhook.Name {
@@ -790,7 +790,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused Secrets
 	objects = r.stores.SecretCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
 			found := false
 			for _, targetSecret := range r.targetStrategy.CertificateSecrets() {
@@ -815,7 +815,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused ConfigMaps
 	objects = r.stores.ConfigMapCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
 			found := false
 			for _, targetConfigMap := range r.targetStrategy.ConfigMaps() {
@@ -840,9 +840,9 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused ValidatingAdmissionPolicyBinding
 	objects = r.stores.ValidatingAdmissionPolicyBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		binding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
-		if ok && binding.DeletionTimestamp == nil {
+		if ok && binding.DeletionTimestamp == nil { //nolint:dupl
 			found := false
 			for _, targetBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
 				if targetBinding.Name == binding.Name {
@@ -872,9 +872,9 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused ValidatingAdmissionPolicy
 	objects = r.stores.ValidatingAdmissionPolicyCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		policy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
-		if ok && policy.DeletionTimestamp == nil {
+		if ok && policy.DeletionTimestamp == nil { //nolint:dupl
 			found := false
 			for _, targetPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
 				if targetPolicy.Name == policy.Name {
@@ -929,7 +929,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused daemonsets
 	objects = r.stores.DaemonSetCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
 			found := false
 			for _, targetDs := range r.targetStrategy.DaemonSets() {
@@ -954,7 +954,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused deployments
 	objects = r.stores.DeploymentCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if deployment, ok := obj.(*appsv1.Deployment); ok && deployment.DeletionTimestamp == nil {
 			found := false
 			for _, targetDeployment := range r.targetStrategy.Deployments() {
@@ -979,7 +979,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused services
 	objects = r.stores.ServiceCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
 			found := false
 			for _, targetSvc := range r.targetStrategy.Services() {
@@ -1004,7 +1004,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused clusterrolebindings
 	objects = r.stores.ClusterRoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
 			found := false
 			for _, targetCrb := range r.targetStrategy.ClusterRoleBindings() {
@@ -1029,7 +1029,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused clusterroles
 	objects = r.stores.ClusterRoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
 			found := false
 			for _, targetCr := range r.targetStrategy.ClusterRoles() {
@@ -1054,7 +1054,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused rolebindings
 	objects = r.stores.RoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
 			found := false
 			for _, targetRb := range r.targetStrategy.RoleBindings() {
@@ -1079,7 +1079,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused roles
 	objects = r.stores.RoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
 			found := false
 			for _, targetR := range r.targetStrategy.Roles() {
@@ -1104,7 +1104,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused serviceaccounts
 	objects = r.stores.ServiceAccountCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
 			found := false
 			for _, targetSa := range r.targetStrategy.ServiceAccounts() {
@@ -1159,7 +1159,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused prometheus rules
 	objects = r.stores.PrometheusRuleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cachePromRule, ok := obj.(*promv1.PrometheusRule); ok && cachePromRule.DeletionTimestamp == nil {
 			found := false
 			for _, targetPromRule := range r.targetStrategy.PrometheusRules() {
@@ -1187,7 +1187,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused prometheus serviceMonitor obejcts
 	objects = r.stores.ServiceMonitorCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cacheServiceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && cacheServiceMonitor.DeletionTimestamp == nil {
 			found := false
 			for _, targetServiceMonitor := range r.targetStrategy.ServiceMonitors() {

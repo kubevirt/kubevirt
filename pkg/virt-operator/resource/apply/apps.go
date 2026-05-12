@@ -46,7 +46,7 @@ const (
 	CanaryUpgradeStatusFailed                  CanaryUpgradeStatus = "failed"
 )
 
-func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) { //nolint:gocyclo,funlen
 	kv := r.kv
 
 	deployment := origDeployment.DeepCopy()
@@ -221,7 +221,10 @@ func daemonHasDefaultRolloutStrategy(daemonSet *appsv1.DaemonSet) bool {
 	return getMaxUnavailable(daemonSet) == daemonSetDefaultMaxUnavailable.IntValue()
 }
 
-func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, forceUpdate bool) (bool, error, CanaryUpgradeStatus) {
+//nolint:gocyclo,funlen,staticcheck
+func (r *Reconciler) processCanaryUpgrade(
+	cachedDaemonSet, newDS *appsv1.DaemonSet, forceUpdate bool,
+) (bool, error, CanaryUpgradeStatus) {
 	var updatedAndReadyPods int32
 	var status CanaryUpgradeStatus
 	done := false
