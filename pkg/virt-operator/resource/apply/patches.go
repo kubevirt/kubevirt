@@ -69,8 +69,8 @@ func addFlagsPatch(name, resource string, flags map[string]string, patches []v1.
 	return append(patches, v1.CustomizeComponentsPatch{
 		ResourceName: name,
 		ResourceType: resource,
-		Patch: fmt.Sprintf(
-			`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":[%q,%q]}]}}}}`,
+		Patch: fmt.Sprintf( //nolint:gocritic
+			`{"spec":{"template":{"spec":{"containers":[{"name":"%s","command":["%s","%s"]}]}}}}`,
 			name, name, strings.Join(flagsToArray(flags), `","`)),
 		Type: v1.StrategicMergePatchType,
 	})
