@@ -411,7 +411,7 @@ var _ = Describe("Apply Apps", func() {
 							dsSpec = &appsv1.DaemonSetSpec{}
 							template, err := json.Marshal(v.Value)
 							Expect(err).ToNot(HaveOccurred())
-							json.Unmarshal(template, dsSpec)
+							Expect(json.Unmarshal(template, dsSpec)).To(Succeed())
 						}
 					}
 
@@ -480,14 +480,14 @@ var _ = Describe("Apply Apps", func() {
 					patched = true
 
 					patches := []patch.PatchOperation{}
-					json.Unmarshal(a.GetPatch(), &patches)
+					Expect(json.Unmarshal(a.GetPatch(), &patches)).To(Succeed())
 
 					var annotations map[string]string
 					for _, v := range patches {
 						if v.Path == "/metadata/annotations" {
 							template, err := json.Marshal(v.Value)
 							Expect(err).ToNot(HaveOccurred())
-							json.Unmarshal(template, &annotations)
+							Expect(json.Unmarshal(template, &annotations)).To(Succeed())
 						}
 					}
 
@@ -1149,7 +1149,7 @@ var _ = Describe("Apply Apps", func() {
 
 		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
 			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
-			stores.SCCCache.Add(scc)
+			Expect(stores.SCCCache.Add(scc)).To(Succeed())
 
 			r := &Reconciler{
 				clientset: virtClient,

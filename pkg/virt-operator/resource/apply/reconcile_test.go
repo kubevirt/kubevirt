@@ -83,7 +83,7 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 
-	marshalutil.MarshallObject(resource, writer)
+	Expect(marshalutil.MarshallObject(resource, writer)).To(Succeed())
 	writer.Flush()
 
 	configMap := &corev1.ConfigMap{
@@ -105,7 +105,7 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 		},
 	}
 
-	stores.InstallStrategyConfigMapCache.Add(configMap)
+	Expect(stores.InstallStrategyConfigMapCache.Add(configMap)).To(Succeed())
 	targetStrategy, err := install.LoadInstallStrategyFromCache(stores, config)
 	Expect(err).ToNot(HaveOccurred())
 

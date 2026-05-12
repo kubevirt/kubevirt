@@ -71,7 +71,7 @@ var _ = Describe("Apply Prometheus", func() {
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.ServiceMonitorCache.Add(sm)
+		Expect(stores.ServiceMonitorCache.Add(sm)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,
@@ -89,7 +89,7 @@ var _ = Describe("Apply Prometheus", func() {
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.ServiceMonitorCache.Add(sm)
+		Expect(stores.ServiceMonitorCache.Add(sm)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,
@@ -138,7 +138,7 @@ var _ = Describe("Apply Prometheus", func() {
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.PrometheusRuleCache.Add(pr)
+		Expect(stores.PrometheusRuleCache.Add(pr)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,
@@ -157,7 +157,7 @@ var _ = Describe("Apply Prometheus", func() {
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.PrometheusRuleCache.Add(pr)
+		Expect(stores.PrometheusRuleCache.Add(pr)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,

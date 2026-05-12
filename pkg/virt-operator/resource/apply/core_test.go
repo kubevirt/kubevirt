@@ -208,7 +208,7 @@ var _ = Describe("Apply", func() {
 				components.CABundleKey: string(bundle),
 			}
 
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -237,7 +237,7 @@ var _ = Describe("Apply", func() {
 			existingCM.Data = map[string]string{
 				components.CABundleKey: notRSAParsableString,
 			}
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -293,7 +293,7 @@ var _ = Describe("Apply", func() {
 			existingCM.Data = map[string]string{
 				components.CABundleKey: string(bundle),
 			}
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -361,7 +361,7 @@ var _ = Describe("Apply", func() {
 				components.CABundleKey: string(bundle),
 			}
 
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			externalCrt := createCrt()
 			externalBundle, _, err := components.MergeCABundle(externalCrt, cert.EncodeCertPEM(externalCrt.Leaf), time.Hour)
@@ -378,7 +378,7 @@ var _ = Describe("Apply", func() {
 					components.CABundleKey: string(externalBundle),
 				},
 			}
-			stores.ConfigMapCache.Add(externalCM)
+			Expect(stores.ConfigMapCache.Add(externalCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -448,7 +448,7 @@ var _ = Describe("Apply", func() {
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
 			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-			stores.ServiceAccountCache.Add(pr)
+			Expect(stores.ServiceAccountCache.Add(pr)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -465,7 +465,7 @@ var _ = Describe("Apply", func() {
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
 			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-			stores.ServiceAccountCache.Add(pr)
+			Expect(stores.ServiceAccountCache.Add(pr)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,

@@ -66,7 +66,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 
 		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
 			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
-			stores.SCCCache.Add(scc)
+			Expect(stores.SCCCache.Add(scc)).To(Succeed())
 
 			r := &Reconciler{
 				clientset: virtClient,

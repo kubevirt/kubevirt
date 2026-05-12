@@ -89,7 +89,7 @@ var _ = Describe("Apply CRDs", func() {
 		crdWithoutSubresource := crd.DeepCopy()
 		crdWithoutSubresource.Spec.Versions[0].Subresources = nil
 
-		stores.OperatorCrdCache.Add(crdWithoutSubresource)
+		Expect(stores.OperatorCrdCache.Add(crdWithoutSubresource)).To(Succeed())
 		extClient.Fake.PrependReactor("patch", "customresourcedefinitions",
 			func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				a := action.(testing.PatchActionImpl)
@@ -145,7 +145,7 @@ var _ = Describe("Apply CRDs", func() {
 		crdWithoutSubresource := crd.DeepCopy()
 		crdWithoutSubresource.Spec.Versions[0].Subresources = nil
 
-		stores.OperatorCrdCache.Add(crdWithoutSubresource)
+		Expect(stores.OperatorCrdCache.Add(crdWithoutSubresource)).To(Succeed())
 		extClient.Fake.PrependReactor("patch", "customresourcedefinitions",
 			func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				a := action.(testing.PatchActionImpl)
