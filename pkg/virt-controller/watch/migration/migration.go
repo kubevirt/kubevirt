@@ -1897,6 +1897,18 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			}
 		}
 		if targetPodExists {
+			// if a vmi was hotplugged after the migration pending phase, we need to
+			// create the attachment pod here to avoid stalling the migration
+			if controller.IsPodReady(pod) && controller.VMIHasHotplugVolumes(vmi) {
+				attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
+				if err != nil {
+					return fmt.Errorf(failedGetAttractionPodsFmt, err)
+				}
+				if len(attachmentPods) == 0 {
+					log.Log.Object(migration).V(5).Infof("Creating attachment pod for vmi %s/%s on node %s", vmi.Namespace, vmi.Name, pod.Spec.NodeName)
+					return c.createAttachmentPod(migration, vmi, pod)
+				}
+			}
 			return c.handlePendingPodTimeout(migration, vmi, pod)
 		}
 

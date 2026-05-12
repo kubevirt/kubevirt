@@ -1421,6 +1421,36 @@ var _ = Describe(SIG("Hotplug", func() {
 				Entry("containerDisk VMI", containerDiskVMIFunc),
 				Entry("persistent disk VMI", persistentDiskVMIFunc),
 			)
+
+			It("should handle hotplug volume added immediately after migration is created", func() {
+				ns := testsuite.GetTestNamespace(nil)
+				vmiSpec := containerDiskVMIFunc()
+				vm, err := virtClient.VirtualMachine(ns).Create(context.Background(),
+					libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways)),
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(matcher.ThisVM(vm), 300*time.Second, 1*time.Second).Should(matcher.BeReady())
+
+				vmi, err = virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(
+					matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
+
+				volumeName := "testvolume"
+				dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+
+				By("Creating migration and immediately hotplugging a volume")
+				migration := libmigration.New(vmi.Name, ns)
+				migration, err = virtClient.VirtualMachineInstanceMigration(ns).Create(context.Background(), migration, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addDVVolumeVM(vm.Name, ns, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
+
+				By("Expecting migration to complete successfully")
+				migration = libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			})
 		})
 
 		Context("disk mutating sidecar", func() {
