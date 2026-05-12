@@ -926,7 +926,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			})
 		})
 
-		Context("VMI", decorators.RequiresRWXBlock, func() {
+		Context("VMI", func() {
 			var (
 				vmi *v1.VirtualMachineInstance
 				sc  string
@@ -934,9 +934,9 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			BeforeEach(func() {
 				exists := false
-				sc, exists = libstorage.GetRWXBlockStorageClass()
+				sc, exists = libstorage.GetCSIStorageClass()
 				if !exists {
-					Fail("Fail test when RWXBlock storage class is not present")
+					Fail("Fail test when CSI storage class is not present")
 				}
 
 				node := findCPUManagerWorkerNode()
@@ -972,7 +972,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			)
 		})
 
-		Context("Online VM", decorators.RequiresRWXBlock, func() {
+		Context("Online VM", func() {
 			var (
 				vm *v1.VirtualMachine
 				sc string
@@ -980,9 +980,9 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			BeforeEach(func() {
 				exists := false
-				sc, exists = libstorage.GetRWXBlockStorageClass()
+				sc, exists = libstorage.GetCSIStorageClass()
 				if !exists {
-					Fail("Fail test when RWXBlock storage class is not present")
+					Fail("Fail test when CSI storage class is not present")
 				}
 
 				node := findCPUManagerWorkerNode()
@@ -997,6 +997,21 @@ var _ = Describe(SIG("Hotplug", func() {
 				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 			})
 
+			blockSC := func() string {
+				bsc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Fail("Fail test when RWXBlock storage class is not present")
+				}
+				return bsc
+			}
+
+			scForVolumeMode := func(volumeMode k8sv1.PersistentVolumeMode) string {
+				if volumeMode == k8sv1.PersistentVolumeBlock {
+					return blockSC()
+				}
+				return sc
+			}
+
 			Context("with legacy hotplug", Serial, func() {
 				BeforeEach(func() {
 					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
@@ -1009,54 +1024,55 @@ var _ = Describe(SIG("Hotplug", func() {
 				})
 
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
-					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, v1.DiskBusSCSI, waitToStart)
+					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, v1.DiskBusSCSI, waitToStart)
 				},
 					Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 					Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 					Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
 					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
-					Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+					Entry("with Block DataVolume immediate attach", decorators.RequiresRWXBlock, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 				)
 			})
 
 			Context("with declarative hotplug", func() {
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
-					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, v1.DiskBusSCSI, waitToStart)
+					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, v1.DiskBusSCSI, waitToStart)
 				},
 					Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 					Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 					Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
 					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
-					Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+					Entry("with Block DataVolume immediate attach", decorators.RequiresRWXBlock, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 				)
 			})
+
 			DescribeTable("should add/remove volume", decorators.StorageCritical, func(
 				addVolumeFunc addVolumeFunction,
 				removeVolumeFunc removeVolumeFunction,
 				volumeMode k8sv1.PersistentVolumeMode,
 				bus v1.DiskBus,
-				vmiOnly, waitToStart bool,
+				waitToStart bool,
 			) {
-				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, bus, waitToStart)
+				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, bus, waitToStart)
 			},
-				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, false),
-				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, false),
-				Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, true),
-				Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, true),
-				Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, v1.DiskBusSCSI, false, false),
-				Entry("with DataVolume immediate attach (virtio)", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusVirtio, false, false),
-				Entry("with PersistentVolume immediate attach (virtio)", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusVirtio, false, false),
+				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false),
+				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false),
+				Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, true),
+				Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, true),
+				Entry("with Block DataVolume immediate attach", decorators.RequiresRWXBlock, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, v1.DiskBusSCSI, false),
+				Entry("with DataVolume immediate attach (virtio)", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusVirtio, false),
+				Entry("with PersistentVolume immediate attach (virtio)", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusVirtio, false),
 			)
 
 			DescribeTable("should not add/remove volume with dry run", func(addVolumeFunc addVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
-				validateDryRun(vm, addVolumeFunc, sc, volumeMode)
+				validateDryRun(vm, addVolumeFunc, scForVolumeMode(volumeMode), volumeMode)
 			},
 				Entry("with DataVolume immediate attach", addDVVolumeVM, k8sv1.PersistentVolumeFilesystem),
 				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, k8sv1.PersistentVolumeFilesystem),
-				Entry("with Block DataVolume immediate attach", addDVVolumeVM, k8sv1.PersistentVolumeBlock),
+				Entry("with Block DataVolume immediate attach", decorators.RequiresRWXBlock, addDVVolumeVM, k8sv1.PersistentVolumeBlock),
 			)
 
-			DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
+			DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 				getAlpineVmiConsoleAndLogin(vmi)
@@ -1066,16 +1082,14 @@ var _ = Describe(SIG("Hotplug", func() {
 				testVolumes := make([]string, 0)
 				for i := 0; i < 5; i++ {
 					volumeName := fmt.Sprintf("volume%d", i)
-					dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+					dv := createDataVolumeAndWaitForImport(scForVolumeMode(volumeMode), volumeMode)
 					By(addingVolumeRunningVM)
 					addVolumeFunc(vm.Name, vm.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
 					testVolumes = append(testVolumes, volumeName)
 					libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
 				}
 				By(verifyingVolumeDiskInVM)
-				if !vmiOnly {
-					verifyVolumeAndDiskVMAdded(virtClient, vm, testVolumes...)
-				}
+				verifyVolumeAndDiskVMAdded(virtClient, vm, testVolumes...)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, testVolumes...)
@@ -1085,10 +1099,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				for _, volumeName := range testVolumes {
 					By("removing volume " + volumeName + " from VM")
 					removeVolumeFunc(vm.Name, vm.Namespace, volumeName, false)
-					if !vmiOnly {
-						By(verifyingVolumeNotExist)
-						verifyVolumeAndDiskVMRemoved(vm, volumeName)
-					}
+					By(verifyingVolumeNotExist)
+					verifyVolumeAndDiskVMRemoved(vm, volumeName)
 				}
 				for i := range targets {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
@@ -1104,15 +1116,15 @@ var _ = Describe(SIG("Hotplug", func() {
 					}
 				}
 			},
-				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
-				Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry("with VMs and block", decorators.RequiresRWXBlock, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock),
 			)
 
 			DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
-				addRemoveReAddTest(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode)
+				addRemoveReAddTest(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode)
 			},
 				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem),
-				Entry(" with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock),
+				Entry("with VMs and block", Serial, decorators.RequiresRWXBlock, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock),
 			)
 
 			It("should allow to hotplug 75 volumes simultaneously", decorators.LargeStoragePoolRequired, func() {
@@ -1159,8 +1171,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
 			})
 
-			It("[QUARANTINE] should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.Quarantine, func() {
-				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+			It("[QUARANTINE] should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.Quarantine, decorators.RequiresRWXBlock, func() {
+				dvBlock := createDataVolumeAndWaitForImport(blockSC(), k8sv1.PersistentVolumeBlock)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
@@ -1211,7 +1223,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			})
 
 			It("should reject hotplugging a volume with the same name as an existing volume", func() {
-				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+				dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1221,7 +1233,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				By(addingVolumeRunningVM)
 				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, getAddVolumeOptions("disk0", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: dvBlock.Name,
+						Name: dv.Name,
 					},
 				}, false, false, ""))
 				Expect(err).To(HaveOccurred(), "expected error when hotplugging volume with an existing disk name")
@@ -1229,7 +1241,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			})
 
 			It("should reject hotplugging the same volume with an existing volume name", func() {
-				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+				dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1237,7 +1249,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				)
 
 				By(addingVolumeRunningVM)
-				addPVCVolumeVM(vmi.Name, vmi.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
+				addPVCVolumeVM(vmi.Name, vmi.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
 
 				By(verifyingVolumeDiskInVM)
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1246,13 +1258,13 @@ var _ = Describe(SIG("Hotplug", func() {
 				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
 
 				By(addingVolumeAgain)
-				err = virtClient.VirtualMachine(vmi.Namespace).AddVolume(context.Background(), vmi.Name, getAddVolumeOptions(dvBlock.Name, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				err = virtClient.VirtualMachine(vmi.Namespace).AddVolume(context.Background(), vmi.Name, getAddVolumeOptions(dv.Name, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: dvBlock.Name,
+						Name: dv.Name,
 					},
 				}, false, false, ""))
 				Expect(err).To(HaveOccurred(), "expected error when hotplugging a volume source that already exists")
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Unable to add volume source [%s] because it already exists", dvBlock.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Unable to add volume source [%s] because it already exists", dv.Name)))
 			})
 
 			DescribeTable("should reject removing a volume", func(volName, expectedErr string) {
@@ -1271,8 +1283,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				Entry("which doesn't exist", "doesntexist", "Unable to remove volume [doesntexist] because it does not exist"),
 			)
 
-			It("should allow hotplugging both a filesystem and block volume", func() {
-				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+			It("should allow hotplugging both a filesystem and block volume", decorators.RequiresRWXBlock, func() {
+				dvBlock := createDataVolumeAndWaitForImport(blockSC(), k8sv1.PersistentVolumeBlock)
 				dvFileSystem := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
