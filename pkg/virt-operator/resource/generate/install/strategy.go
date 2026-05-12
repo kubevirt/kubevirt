@@ -131,6 +131,51 @@ type Strategy struct {
 	validatingAdmissionPolicies       []*admissionregistrationv1.ValidatingAdmissionPolicy
 }
 
+type deepCopyable[T any] interface {
+	DeepCopy() T
+}
+
+func deepCopySlice[T deepCopyable[T]](in []T) []T {
+	if in == nil {
+		return nil
+	}
+	out := make([]T, len(in))
+	for i, v := range in {
+		out[i] = v.DeepCopy()
+	}
+	return out
+}
+
+func (ins *Strategy) DeepCopy() *Strategy {
+	if ins == nil {
+		return nil
+	}
+	return &Strategy{
+		serviceAccounts:                   deepCopySlice(ins.serviceAccounts),
+		clusterRoles:                      deepCopySlice(ins.clusterRoles),
+		clusterRoleBindings:               deepCopySlice(ins.clusterRoleBindings),
+		roles:                             deepCopySlice(ins.roles),
+		roleBindings:                      deepCopySlice(ins.roleBindings),
+		crds:                              deepCopySlice(ins.crds),
+		services:                          deepCopySlice(ins.services),
+		deployments:                       deepCopySlice(ins.deployments),
+		daemonSets:                        deepCopySlice(ins.daemonSets),
+		validatingWebhookConfigurations:   deepCopySlice(ins.validatingWebhookConfigurations),
+		mutatingWebhookConfigurations:     deepCopySlice(ins.mutatingWebhookConfigurations),
+		apiServices:                       deepCopySlice(ins.apiServices),
+		certificateSecrets:                deepCopySlice(ins.certificateSecrets),
+		sccs:                              deepCopySlice(ins.sccs),
+		serviceMonitors:                   deepCopySlice(ins.serviceMonitors),
+		prometheusRules:                   deepCopySlice(ins.prometheusRules),
+		configMaps:                        deepCopySlice(ins.configMaps),
+		routes:                            deepCopySlice(ins.routes),
+		instancetypes:                     deepCopySlice(ins.instancetypes),
+		preferences:                       deepCopySlice(ins.preferences),
+		validatingAdmissionPolicyBindings: deepCopySlice(ins.validatingAdmissionPolicyBindings),
+		validatingAdmissionPolicies:       deepCopySlice(ins.validatingAdmissionPolicies),
+	}
+}
+
 func (ins *Strategy) ServiceAccounts() []*corev1.ServiceAccount {
 	return ins.serviceAccounts
 }
