@@ -31,6 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
+
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
@@ -50,8 +53,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
-	"libvirt.org/go/libvirt"
-	"libvirt.org/go/libvirtxml"
 )
 
 const liveMigrationFailed = "Live migration failed."
@@ -454,16 +455,25 @@ func (m *migrationMonitor) isPausedMigration() bool {
 	return migration.Mode == v1.MigrationPaused
 }
 
-func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
+func (m *migrationMonitor) shouldTriggerTimeout(elapsedNs int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
 	}
 
-	return elapsed/int64(time.Second) > m.acceptableCompletionTime
+	elapsedSeconds := elapsedNs / int64(time.Second)
+	if !m.stallDetectionEnabled {
+		return elapsedSeconds > m.acceptableCompletionTime
+	}
+
+	if m.isPausedMigration() {
+		return elapsedSeconds > m.acceptableCompletionTime
+	}
+
+	return elapsedSeconds > m.switchOverDeadline
 }
 
-func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
-	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsed)
+func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64) bool {
+	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs) && !m.stallDetectionEnabled
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -485,8 +495,50 @@ func (m *migrationMonitor) isAbortInProgress() bool {
 }
 
 func (m *migrationMonitor) triggerConvergenceAction(dom cli.VirDomain, action convergenceAction, reason string) {
-	// TODO: take the supplied convergence action passed in the parameter with supplied reason for logs
-	return
+	sd := m.stallDetector
+	logger := log.Log.Object(m.vmi)
+
+	sd.switchoverInitiated = true
+
+	switch action {
+	case actionNothing:
+		sd.switchoverInitiated = false
+	case actionAbort:
+		logger.Warningf("aborting migration: %s", reason)
+		m.l.cancelMigration(m.vmi)
+	case actionPostCopy:
+		logger.Infof("starting post copy mode for migration: %s", reason)
+		if err := dom.MigrateStartPostCopy(0); err != nil {
+			sd.switchoverInitiated = false
+			logger.Reason(err).Error("failed to start post migration")
+			return
+		}
+		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+	case actionHardStopAndCopy, actionSoftStopAndCopy:
+		now := time.Now().UTC().UnixNano()
+		elapsedSeconds := (now - m.start) / int64(time.Second)
+
+		var downtime uint64
+		if action == actionHardStopAndCopy {
+			downtime = migrationutils.QEMUMaxMigrationDowntimeMS
+			logger.Infof("forcing switchover by setting max downtime to %dms: %s", downtime, reason)
+		} else {
+			downtime = sd.maxDowntimeMs
+			logger.Infof("max downtime set to %dms: %s", downtime, reason)
+		}
+
+		if err := dom.MigrateSetMaxDowntime(downtime, 0); err != nil {
+			sd.switchoverInitiated = false
+			logger.Reason(err).Error("setting max downtime failed")
+			return
+		}
+
+		// since stop-and-copy is not guaranteed to start immediately (or ever), a "switch-over" deadline is needed
+		m.switchOverDeadline = elapsedSeconds + switchoverTimeout
+
+	default:
+		logger.Error("unknown convergence action")
+	}
 }
 
 func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *libvirt.DomainJobInfo, isIterationBoundary bool) {
