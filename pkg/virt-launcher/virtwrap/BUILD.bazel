@@ -9,6 +9,7 @@ go_library(
         "live-migration-source.go",
         "live-migration-target.go",
         "manager.go",
+        "stall-detector.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap",
     visibility = ["//visibility:public"],
