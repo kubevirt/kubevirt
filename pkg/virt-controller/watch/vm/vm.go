@@ -593,6 +593,16 @@ func (c *Controller) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtual
 		logMsg = fmt.Sprintf("%s, setting limits to %s", logMsg, newCpuLimit.String())
 	}
 
+	// Fraction annotation is a part of CPU settings, consider it as hotpluggable.
+	if fraction, hasFraction := vm.Spec.Template.ObjectMeta.GetAnnotations()[virtv1.CPUResourcesRequestsFraction]; hasFraction {
+		vmiFraction := vmi.GetAnnotations()[virtv1.CPUResourcesRequestsFraction]
+		pathEscaped := fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.CPUResourcesRequestsFraction))
+		patchSet.AddOption(
+			patch.WithTest(pathEscaped, vmiFraction),
+			patch.WithReplace(pathEscaped, fraction),
+		)
+	}
+
 	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
@@ -620,7 +630,12 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 		return nil
 	}
 
-	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets == vmi.Spec.Domain.CPU.Sockets {
+	vmSockets := vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets
+	vmiSockets := vmi.Spec.Domain.CPU.Sockets
+	vmFraction, _ := vm.Spec.Template.ObjectMeta.GetAnnotations()[virtv1.CPUResourcesRequestsFraction]
+	vmiFraction, _ := vmi.GetAnnotations()[virtv1.CPUResourcesRequestsFraction]
+
+	if vmSockets == vmiSockets && vmFraction == vmiFraction {
 		return nil
 	}
 
@@ -642,7 +657,7 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 	}
 
 	// Allows CPU cores number reduction if "dynamic cores" strategy is enabled.
-	_, isDynamicCoresHotplug := vmCopyWithInstancetype.Annotations[virtv1.VCPUTopologyDynamicCoresAnnotation]
+	_, isDynamicCoresHotplug := vmCopyWithInstancetype.Spec.Template.ObjectMeta.Annotations[virtv1.VCPUTopologyDynamicCoresAnnotation]
 	if !isDynamicCoresHotplug && vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets < vmi.Spec.Domain.CPU.Sockets {
 		setRestartRequired(vm, "Reduction of CPU socket count requires a restart")
 		return nil

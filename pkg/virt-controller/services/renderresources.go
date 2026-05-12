@@ -57,12 +57,16 @@ func doesVMIRequireDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.IsCPUDedicated()
 }
 
-func withoutDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
-	return !doesVMIRequireDedicatedCPU(vmi) && !doesVMIRequireFractionCPU(vmi)
-}
-
 func doesVMIRequireFractionCPU(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.IsCPUFractioned()
+}
+
+// doesSpecifyAnyCPUConstraints returns true whether VMI spec has one of explicit CPU resources constraints:
+// - CPU dedication flag.
+// - CPU cores fraction in the annotation.
+// - CPU resources requests and limits.
+func doesSpecifyAnyCPUConstraints(vmi *v1.VirtualMachineInstance) bool {
+	return doesVMIRequireDedicatedCPU(vmi) || doesVMIRequireFractionCPU(vmi) || vmi.HasCPUResourcesConstraints()
 }
 
 func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
@@ -189,7 +193,7 @@ func CalculateCPURequestsFraction(totalCPUs int64, cpuFraction int) string {
 	// Use multiplier to calculate fraction of millis.
 	total := totalCPUs * 1000
 	// Round up, to always return integer number of millis.
-	value := int64(math.Ceil(float64(cpuFraction) * (float64(total)) / 100))
+	value := int64(math.Ceil(float64(cpuFraction) * float64(total) / 100))
 	return fmt.Sprintf("%dm", value)
 }
 

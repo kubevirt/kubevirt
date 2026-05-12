@@ -1794,8 +1794,9 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 				return t.clusterConfig.GetMemoryOvercommit() != 100
 			}, WithMemoryOvercommit(t.clusterConfig.GetMemoryOvercommit())),
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
-			NewVMIResourceRule(withoutDedicatedCPU, WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(doesVMIRequireFractionCPU, WithCPUFractionRequests(vmi, cpuFraction)),
+			// Apply "auto CPU constraints" if there is no explicit CPU resources constraints in VMI.
+			NewVMIResourceRule(not(doesSpecifyAnyCPUConstraints), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {

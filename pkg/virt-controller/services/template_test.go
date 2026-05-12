@@ -2057,6 +2057,48 @@ var _ = Describe("Template", func() {
 				Entry("on amd64", "amd64", 362),
 				Entry("on arm64", "arm64", 497),
 			)
+			DescribeTable("should set lower cpu requests if cpu fraction annotation is present", func(sockets, fraction int, expectRequests string) {
+				config, kvStore, svc = configFactory(defaultArch)
+
+				By("Creating a VMI")
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+						Annotations: map[string]string{
+							v1.CPUResourcesRequestsFraction: fmt.Sprintf("%d", fraction),
+						},
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores:      1,
+								Sockets:    uint32(sockets),
+								MaxSockets: 16,
+							},
+							Memory: &v1.Memory{
+								Guest: pointer.P(resource.MustParse("1Gi")),
+							},
+						},
+					},
+				}
+
+				By("Checking how much memory the pod requests by default")
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal(fmt.Sprintf("%d", sockets)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal(expectRequests))
+			},
+				Entry("10% of 10 cores", 10, 10, "1"),
+				Entry("25% of 1 core", 1, 25, "250m"),
+				Entry("40% of 3 cores", 3, 40, "1200m"),
+				Entry("treat negative fraction as 100%", 4, -40, "4"),
+				Entry("treat 0 fraction as 100%", 4, 0, "4"),
+				Entry("treat >100 fraction as 100%", 4, 101, "4"),
+				Entry("treat huge fraction as 100%", 4, 10001, "4"),
+			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
 				config, kvStore, svc = configFactory(arch)

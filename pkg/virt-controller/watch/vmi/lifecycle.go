@@ -497,7 +497,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
-		if c.requireCPUHotplug(vmiCopy) {
+		if c.requireCPUHotplug(vmiCopy, pod) {
 			syncHotplugCondition(vmiCopy, virtv1.VirtualMachineInstanceVCPUChange)
 		}
 
@@ -1241,10 +1241,20 @@ func (c *Controller) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachin
 	return temporaryPods, nil
 }
 
-func (c *Controller) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance) bool {
+func (c *Controller) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) bool {
 	if vmi.Status.CurrentCPUTopology == nil || vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.MaxSockets == 0 {
 		return false
 	}
+
+	// 'requireCPUHotplug' is not only tells if hotplug is required, it also
+	// answers a question  "Is live migration applicable to apply changes?".
+	// From this point of view, change in cpu fraction value is enough to return true.
+	vmiFraction, hasVMIFraction := vmi.GetAnnotations()[virtv1.CPUResourcesRequestsFraction]
+	podFraction, hasPodFraction := pod.GetAnnotations()[virtv1.CPUResourcesRequestsFraction]
+	if hasVMIFraction && hasPodFraction && vmiFraction != podFraction {
+		return true
+	}
+
 	cpuTopoLogyFromStatus := &virtv1.CPU{
 		Cores:   vmi.Status.CurrentCPUTopology.Cores,
 		Sockets: vmi.Status.CurrentCPUTopology.Sockets,
