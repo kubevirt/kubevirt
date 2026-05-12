@@ -29,20 +29,13 @@ import (
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
-type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
-type validator func(vmi *v1.VirtualMachineInstance) *errors.StatusError
 type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error)
-
-type dialer interface {
-	Dial(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
-}
 
 type Streamer struct {
 	dialer          *DirectDialer
@@ -50,12 +43,6 @@ type Streamer struct {
 
 	streamToClient streamFunc
 	streamToServer streamFunc
-}
-
-type DirectDialer struct {
-	fetchVMI    vmiFetcher
-	validateVMI validator
-	dialer      dialer
 }
 
 func NewRawStreamer(dialer *DirectDialer) *Streamer {
@@ -169,32 +156,4 @@ func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel fun
 			}
 		}
 	}
-}
-
-func NewDirectDialer(fetch vmiFetcher, validate validator, dialer dialer) *DirectDialer {
-	return &DirectDialer{
-		fetchVMI:    fetch,
-		validateVMI: validate,
-		dialer:      dialer,
-	}
-}
-
-func (d *DirectDialer) Dial(namespace, name string) (net.Conn, *errors.StatusError) {
-	vmi, err := d.fetchAndValidateVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.dialer.Dial(vmi)
-}
-
-func (d *DirectDialer) fetchAndValidateVMI(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vmi, err := d.fetchVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-	if err := d.validateVMI(vmi); err != nil {
-		return nil, err
-	}
-	return vmi, nil
 }

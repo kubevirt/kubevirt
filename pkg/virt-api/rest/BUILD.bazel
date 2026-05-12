@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "authorizer.go",
         "console.go",
+        "dialer.go",
         "dialers.go",
         "evacuate_cancel.go",
         "expand.go",
