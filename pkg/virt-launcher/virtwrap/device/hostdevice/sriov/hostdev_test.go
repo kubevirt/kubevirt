@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"time"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -338,7 +337,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			tempDir := GinkgoT().TempDir()
 
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "claim-ref",
 				ResourceClaimName: ptr.To("manual-vf-claim"),
 			}}
@@ -366,7 +365,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			tempDir := GinkgoT().TempDir()
 
 			vmi := newDRAVMI("generated-claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name: "generated-claim-ref",
 			}}
 			Expect(writeMetadataFile(tempDir, "resourceclaimtemplates", "generated-claim-ref", "vf", "0000:65:0a.4")).To(Succeed())
@@ -384,7 +383,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			tempDir := GinkgoT().TempDir()
 
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "claim-ref",
 				ResourceClaimName: ptr.To("manual-vf-claim"),
 			}}
@@ -403,7 +402,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 
 			vmi := newDRAVMI("claim-ref", "vf")
 			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = ""
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "claim-ref",
 				ResourceClaimName: ptr.To("manual-vf-claim"),
 			}}
@@ -420,7 +419,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 
 			vmi := newDRAVMI("claim-ref", "vf")
 			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "not-a-pci-address"
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "claim-ref",
 				ResourceClaimName: ptr.To("manual-vf-claim"),
 			}}
@@ -435,7 +434,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			tempDir := GinkgoT().TempDir()
 
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "claim-ref",
 				ResourceClaimName: ptr.To("manual-vf-claim"),
 			}}
@@ -449,7 +448,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			tempDir := GinkgoT().TempDir()
 
 			vmi := newDRAVMI("claim-ref", "vf")
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "claim-ref",
 				ResourceClaimName: ptr.To("manual-vf-claim"),
 			}}

@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
@@ -225,7 +224,7 @@ func newDRASpec() *v1.VirtualMachineInstanceSpec {
 				},
 			},
 		},
-		ResourceClaims: []k8sv1.PodResourceClaim{
+		ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 			{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
 		},
 	}

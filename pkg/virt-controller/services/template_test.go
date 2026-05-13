@@ -6314,7 +6314,7 @@ func newVMIWithDRANetwork(name string) *v1.VirtualMachineInstance {
 			},
 		},
 	}
-	vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+	vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
 		{
 			Name:                      "net-claim",
 			ResourceClaimTemplateName: ptr.To("net-claim-template"),

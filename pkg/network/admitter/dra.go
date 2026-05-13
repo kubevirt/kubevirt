@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"slices"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
@@ -89,7 +88,7 @@ func validateDRANetworkClaimReference(
 	field *k8sfield.Path,
 	idx int,
 	claimName string,
-	resourceClaims []k8sv1.PodResourceClaim,
+	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
 ) []metav1.StatusCause {
 	for _, rc := range resourceClaims {
 		if rc.Name == claimName {
