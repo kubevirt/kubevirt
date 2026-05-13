@@ -198,6 +198,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			"/tmp/%d",
 			&netStatStub{},
 			migrationSourcePasstRepairHandler,
+			nil,
+			nil,
 		)
 
 		vmiTestUUID = uuid.NewUUID()

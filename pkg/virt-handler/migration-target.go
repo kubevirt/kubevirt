@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -65,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -85,6 +88,7 @@ type MigrationTargetController struct {
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
 	passtRepairHandler               passtRepairTargetHandler
+	pluginExecutor                   plugins.NodeHookExecutor
 	vmiExpectations                  *controller.UIDTrackingControllerExpectations
 }
 
@@ -108,6 +112,7 @@ func NewMigrationTargetController(
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 	passtRepairHandler passtRepairTargetHandler,
 	pluginStore cache.Store,
+	pluginExecutor plugins.NodeHookExecutor,
 ) (*MigrationTargetController, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -158,6 +163,7 @@ func NewMigrationTargetController(
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
 		passtRepairHandler:               passtRepairHandler,
+		pluginExecutor:                   pluginExecutor,
 		vmiExpectations:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
@@ -820,6 +826,12 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	vmi = vmi.DeepCopy()
 
+	if c.pluginExecutor != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreMigrationTarget, vmi, c.host); err != nil {
+			return err, false
+		}
+	}
+
 	err = c.syncVolumes(vmi)
 	if goerror.Is(err, containerdisk.ErrWaitingForDisks) {
 		c.logger.Object(vmi).V(4).Info("waiting for container disks to become ready")
@@ -1121,6 +1133,12 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
 		cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
 		c.logger.Object(vmi).Info("Set CBT to Initializing after migration for checkpoint redefinition")
+	}
+
+	if c.pluginExecutor != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostMigrationTarget, vmi, c.host); err != nil {
+			return err
+		}
 	}
 
 	vmi.Status.MigrationState.Completed = true

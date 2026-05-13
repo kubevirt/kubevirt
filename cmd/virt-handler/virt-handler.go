@@ -83,6 +83,7 @@ import (
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
+	virthandlerplugins "kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
@@ -392,6 +393,11 @@ func (app *virtHandlerApp) Run() {
 		pluginInformer.HasSynced,
 	)
 
+	nodeHookManager, err := virthandlerplugins.NewNodeHookManager(pluginInformer.GetStore(), app.clusterConfig)
+	if err != nil {
+		panic(err)
+	}
+
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtCli,
@@ -405,6 +411,8 @@ func (app *virtHandlerApp) Run() {
 		"/proc/%d/root/var/run",
 		netStat,
 		passtRepairHandler,
+		pluginInformer.GetStore(),
+		nodeHookManager,
 	)
 	if err != nil {
 		panic(err)
@@ -430,6 +438,7 @@ func (app *virtHandlerApp) Run() {
 		netresources.MemoryCalculator{},
 		passtRepairHandler,
 		pluginInformer.GetStore(),
+		nodeHookManager,
 	)
 	if err != nil {
 		panic(err)
@@ -459,6 +468,7 @@ func (app *virtHandlerApp) Run() {
 		netStat,
 		cbtHandler,
 		pluginInformer.GetStore(),
+		nodeHookManager,
 	)
 	if err != nil {
 		panic(err)
