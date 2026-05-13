@@ -21,9 +21,12 @@ package admitter
 
 import (
 	"fmt"
+	"strings"
 
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
@@ -66,18 +69,7 @@ func (v Validator) Validate() []metav1.StatusCause {
 func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker DRAConfigChecker) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	rcField := field.Child("resourceClaims")
-	rcNames := sets.New[string]()
-	for i, rc := range spec.ResourceClaims {
-		if rcNames.Has(rc.Name) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("duplicate resourceClaims name %q", rc.Name),
-				Field:   rcField.Index(i).Child("name").String(),
-			})
-		}
-		rcNames.Insert(rc.Name)
-	}
+	causes = append(causes, validateResourceClaims(field.Child("resourceClaims"), spec.ResourceClaims)...)
 
 	gpuCauses, gpuClaimNames, gpuClaimRequestPairs := validateDRAGPUs(field, spec.Domain.Devices.GPUs, checker)
 	causes = append(causes, gpuCauses...)
@@ -108,6 +100,72 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 			Message: "vmi.spec.resourceClaims must specify all claims used in vmi.spec.domain.devices.gpus and vmi.spec.domain.devices.hostDevices",
 			Field:   field.Child("resourceClaims").String(),
 		})
+	}
+
+	return causes
+}
+
+func validateResourceClaims(field *k8sfield.Path, resourceClaims []v1.VirtualMachineInstanceResourceClaim) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	claimNames := sets.New[string]()
+
+	for i, claim := range resourceClaims {
+		claimField := field.Index(i)
+		if claim.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("%s is a required field", claimField.Child("name")),
+				Field:   claimField.Child("name").String(),
+			})
+		} else if claimNames.Has(claim.Name) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate resourceClaims name %q", claim.Name),
+				Field:   claimField.Child("name").String(),
+			})
+		} else {
+			if errs := utilvalidation.IsDNS1123Label(claim.Name); len(errs) != 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s", claimField.Child("name"), strings.Join(errs, ", ")),
+					Field:   claimField.Child("name").String(),
+				})
+			}
+			claimNames.Insert(claim.Name)
+		}
+
+		if claim.ResourceClaimName != nil && claim.ResourceClaimTemplateName != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "at most one of resourceClaimName or resourceClaimTemplateName may be specified",
+				Field:   claimField.String(),
+			})
+		}
+		if claim.ResourceClaimName == nil && claim.ResourceClaimTemplateName == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "must specify one of: resourceClaimName, resourceClaimTemplateName",
+				Field:   claimField.String(),
+			})
+		}
+		if claim.ResourceClaimName != nil {
+			for _, detail := range apivalidation.NameIsDNSSubdomain(*claim.ResourceClaimName, false) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: detail,
+					Field:   claimField.Child("resourceClaimName").String(),
+				})
+			}
+		}
+		if claim.ResourceClaimTemplateName != nil {
+			for _, detail := range apivalidation.NameIsDNSSubdomain(*claim.ResourceClaimTemplateName, false) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: detail,
+					Field:   claimField.Child("resourceClaimTemplateName").String(),
+				})
+			}
+		}
 	}
 
 	return causes

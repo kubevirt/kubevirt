@@ -3962,6 +3962,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
+				libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
+					Name:              "my-gpu-claim",
+					ResourceClaimName: pointer.P("my-gpu-claim"),
+				}),
 			)
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				{
@@ -3972,9 +3976,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						RequestName: "request-1",
 					},
 				},
-			}
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
-				{Name: "my-gpu-claim"},
 			}
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
@@ -3997,7 +3998,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "my-gpu-claim"}}
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
+				{
+					Name:              "my-gpu-claim",
+					ResourceClaimName: pointer.P("my-gpu-claim"),
+				},
+			}
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -4046,7 +4052,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
-				{Name: "my-gpu-claim"},
+				{
+					Name:              "my-gpu-claim",
+					ResourceClaimName: pointer.P("my-gpu-claim"),
+				},
 			}
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
