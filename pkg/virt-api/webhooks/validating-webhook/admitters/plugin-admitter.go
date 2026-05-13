@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/api/plugin"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
+	nodecelutil "kubevirt.io/kubevirt/pkg/plugins/cel"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -87,6 +88,19 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 		for i, dh := range p.Spec.DomainHooks {
 			causes = append(causes, validateDomainHookCEL(eval, dh, specPath.Child("domainHooks").Index(i))...)
 		}
+
+		nodeEval, err := nodecelutil.NewEvaluator()
+		if err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("failed to create node hook CEL evaluator: %s", err),
+				Field:   specPath.Child("nodeHooks").String(),
+			})
+		} else {
+			for i, nh := range p.Spec.NodeHooks {
+				causes = append(causes, validateNodeHookCEL(nodeEval, nh, specPath.Child("nodeHooks").Index(i))...)
+			}
+		}
 	}
 
 	return causes
@@ -95,6 +109,11 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 func hasCELExpressions(p *pluginv1alpha1.Plugin) bool {
 	for _, dh := range p.Spec.DomainHooks {
 		if (dh.CEL != nil && dh.CEL.Expression != "") || dh.Condition != "" {
+			return true
+		}
+	}
+	for _, nh := range p.Spec.NodeHooks {
+		if nh.Condition != "" {
 			return true
 		}
 	}
@@ -120,6 +139,22 @@ func validateDomainHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.DomainHook
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
 				Field:   dhPath.Child("condition").String(),
+			})
+		}
+	}
+
+	return causes
+}
+
+func validateNodeHookCEL(eval *nodecelutil.Evaluator, nh pluginv1alpha1.NodeHook, nhPath *field.Path) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if nh.Condition != "" {
+		if err := eval.CompileCondition(nh.Condition); err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
+				Field:   nhPath.Child("condition").String(),
 			})
 		}
 	}
