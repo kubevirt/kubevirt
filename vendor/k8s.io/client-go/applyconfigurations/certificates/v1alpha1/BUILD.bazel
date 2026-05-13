@@ -5,9 +5,6 @@ go_library(
     srcs = [
         "clustertrustbundle.go",
         "clustertrustbundlespec.go",
-        "podcertificaterequest.go",
-        "podcertificaterequestspec.go",
-        "podcertificaterequeststatus.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/certificates/v1alpha1",
     importpath = "k8s.io/client-go/applyconfigurations/certificates/v1alpha1",

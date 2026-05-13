@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -134,7 +133,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when claimName is empty string", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{
@@ -156,7 +155,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when requestName is empty string", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{
@@ -178,7 +177,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report two causes when both claimName and requestName are missing", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{
@@ -202,7 +201,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject duplicate names in spec.resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{Name: "claim1"},
 					{Name: "claim1"},
 				},
@@ -227,7 +226,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when GPU claimName is not listed in spec.resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "other-claim"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "other-claim"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{
@@ -248,7 +247,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when one of multiple claims is missing from spec.resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
@@ -284,7 +283,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept a single valid DRA GPU", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{
@@ -303,7 +302,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept multiple valid DRA GPUs with matching resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{Name: "claim1"},
 					{Name: "claim2"},
 				},
@@ -340,7 +339,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject two GPUs referencing the same claimName/requestName pair", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
@@ -371,7 +370,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept two GPUs referencing the same claim but different requests", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
@@ -435,7 +434,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index for duplicate when an invalid DRA GPU precedes it", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
@@ -550,7 +549,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when claimName is empty string", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{{
@@ -572,7 +571,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when requestName is empty string", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{{
@@ -594,7 +593,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report two causes when both claimName and requestName are missing", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{{
@@ -618,7 +617,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when HostDevice claimName is not listed in spec.resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "other-claim"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "other-claim"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{{
@@ -645,7 +644,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept a single valid DRA HostDevice", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{{
@@ -664,7 +663,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept multiple valid DRA HostDevices with matching resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{Name: "claim1"},
 					{Name: "claim2"},
 				},
@@ -701,7 +700,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject two HostDevices referencing the same claimName/requestName pair", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -732,7 +731,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept two HostDevices referencing the same claim but different requests", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -763,7 +762,7 @@ var _ = Describe("DRA Admitter", func() {
 		It("should accept a VMI with both DRA and non-DRA HostDevices", func() {
 			checker.hostDeviceDRAEnabled = true
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -794,7 +793,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index when non-DRA devices precede a DRA device with missing claimName", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -819,7 +818,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index for duplicate when non-DRA devices are interspersed", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -858,7 +857,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index for invalid DRA HostDevice after non-DRA devices", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -893,7 +892,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept when both GPUs and HostDevices reference claims present in resourceClaims", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{Name: "gpu-claim"},
 					{Name: "hd-claim"},
 				},
@@ -922,7 +921,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when a HostDevice claim is missing from resourceClaims even if GPU claims are present", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{Name: "gpu-claim"},
 				},
 				Domain: v1.DomainSpec{
@@ -952,7 +951,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should accept when GPUs and HostDevices share the same claim", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{Name: "shared-claim"},
 				},
 				Domain: v1.DomainSpec{
@@ -980,7 +979,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should reject when GPU and HostDevice share the same claimName/requestName pair", func() {
 			vmi := libvmi.New(
-				libvmi.WithResourceClaim(k8sv1.PodResourceClaim{Name: "shared-claim"}),
+				libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "shared-claim"}),
 				libvmi.WithGPU(v1.GPU{
 					Name: "gpu1",
 					ClaimRequest: &v1.ClaimRequest{
@@ -1009,7 +1008,7 @@ var _ = Describe("DRA Admitter", func() {
 		It("ValidateCreation should delegate to validateCreationDRA", func() {
 			checker.gpuDRAEnabled = true
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1"}},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{

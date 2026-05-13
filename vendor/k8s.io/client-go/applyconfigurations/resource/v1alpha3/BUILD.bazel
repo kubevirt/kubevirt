@@ -3,12 +3,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "celdeviceselector.go",
-        "deviceselector.go",
         "devicetaint.go",
         "devicetaintrule.go",
         "devicetaintrulespec.go",
+        "devicetaintrulestatus.go",
         "devicetaintselector.go",
+        "poolstatus.go",
+        "resourcepoolstatusrequest.go",
+        "resourcepoolstatusrequestspec.go",
+        "resourcepoolstatusrequeststatus.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/resource/v1alpha3",
     importpath = "k8s.io/client-go/applyconfigurations/resource/v1alpha3",

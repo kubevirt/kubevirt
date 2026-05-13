@@ -150,7 +150,7 @@ var CRDsValidation map[string]string = map[string]string{
             resources:
               description: |-
                 resources represents the minimum resources the volume should have.
-                If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                Users are allowed to specify resource requirements
                 that are lower than previous value but must still be higher than capacity recorded in the
                 status field of the claim.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -2874,9 +2874,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -3940,9 +3941,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -4314,7 +4316,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resources:
                         description: |-
                           resources represents the minimum resources the volume should have.
-                          If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                          Users are allowed to specify resource requirements
                           that are lower than previous value but must still be higher than capacity recorded in the
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -7699,23 +7701,16 @@ var CRDsValidation map[string]string = map[string]string{
                     This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
-                    description: |-
-                      PodResourceClaim references exactly one ResourceClaim, either directly
-                      or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                      for the pod.
-
-                      It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                      Containers that need access to the ResourceClaim reference it with this name.
                     properties:
                       name:
                         description: |-
-                          Name uniquely identifies this resource claim inside the pod.
+                          Name uniquely identifies this resource claim inside the VMI.
                           This must be a DNS_LABEL.
                         type: string
                       resourceClaimName:
                         description: |-
                           ResourceClaimName is the name of a ResourceClaim object in the same
-                          namespace as this pod.
+                          namespace as this VMI.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -7723,17 +7718,10 @@ var CRDsValidation map[string]string = map[string]string{
                       resourceClaimTemplateName:
                         description: |-
                           ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                          object in the same namespace as this pod.
+                          object in the same namespace as this VMI.
 
                           The template will be used to create a new ResourceClaim, which will
-                          be bound to this pod. When this pod is deleted, the ResourceClaim
-                          will also be deleted. The pod name and resource name, along with a
-                          generated component, will be used to form a unique name for the
-                          ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                          This field is immutable and no changes will be made to the
-                          corresponding ResourceClaim by the control plane after creating the
-                          ResourceClaim.
+                          be bound to the virt-launcher pod.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -7786,9 +7774,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -13817,23 +13806,16 @@ var CRDsValidation map[string]string = map[string]string{
             This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
             This feature is in alpha.
           items:
-            description: |-
-              PodResourceClaim references exactly one ResourceClaim, either directly
-              or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-              for the pod.
-
-              It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-              Containers that need access to the ResourceClaim reference it with this name.
             properties:
               name:
                 description: |-
-                  Name uniquely identifies this resource claim inside the pod.
+                  Name uniquely identifies this resource claim inside the VMI.
                   This must be a DNS_LABEL.
                 type: string
               resourceClaimName:
                 description: |-
                   ResourceClaimName is the name of a ResourceClaim object in the same
-                  namespace as this pod.
+                  namespace as this VMI.
 
                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                   be set.
@@ -13841,17 +13823,10 @@ var CRDsValidation map[string]string = map[string]string{
               resourceClaimTemplateName:
                 description: |-
                   ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                  object in the same namespace as this pod.
+                  object in the same namespace as this VMI.
 
                   The template will be used to create a new ResourceClaim, which will
-                  be bound to this pod. When this pod is deleted, the ResourceClaim
-                  will also be deleted. The pod name and resource name, along with a
-                  generated component, will be used to form a unique name for the
-                  ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                  This field is immutable and no changes will be made to the
-                  corresponding ResourceClaim by the control plane after creating the
-                  ResourceClaim.
+                  be bound to the virt-launcher pod.
 
                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                   be set.
@@ -13903,9 +13878,10 @@ var CRDsValidation map[string]string = map[string]string{
               operator:
                 description: |-
                   Operator represents a key's relationship to the value.
-                  Valid operators are Exists and Equal. Defaults to Equal.
+                  Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                   Exists is equivalent to wildcard for value, so that a pod can
                   tolerate all taints of a particular category.
+                  Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                 type: string
               tolerationSeconds:
                 description: |-
@@ -20274,23 +20250,16 @@ var CRDsValidation map[string]string = map[string]string{
                     This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
-                    description: |-
-                      PodResourceClaim references exactly one ResourceClaim, either directly
-                      or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                      for the pod.
-
-                      It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                      Containers that need access to the ResourceClaim reference it with this name.
                     properties:
                       name:
                         description: |-
-                          Name uniquely identifies this resource claim inside the pod.
+                          Name uniquely identifies this resource claim inside the VMI.
                           This must be a DNS_LABEL.
                         type: string
                       resourceClaimName:
                         description: |-
                           ResourceClaimName is the name of a ResourceClaim object in the same
-                          namespace as this pod.
+                          namespace as this VMI.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -20298,17 +20267,10 @@ var CRDsValidation map[string]string = map[string]string{
                       resourceClaimTemplateName:
                         description: |-
                           ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                          object in the same namespace as this pod.
+                          object in the same namespace as this VMI.
 
                           The template will be used to create a new ResourceClaim, which will
-                          be bound to this pod. When this pod is deleted, the ResourceClaim
-                          will also be deleted. The pod name and resource name, along with a
-                          generated component, will be used to form a unique name for the
-                          ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                          This field is immutable and no changes will be made to the
-                          corresponding ResourceClaim by the control plane after creating the
-                          ResourceClaim.
+                          be bound to the virt-launcher pod.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -20361,9 +20323,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -21968,7 +21931,7 @@ var CRDsValidation map[string]string = map[string]string{
                               resources:
                                 description: |-
                                   resources represents the minimum resources the volume should have.
-                                  If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                  Users are allowed to specify resource requirements
                                   that are lower than previous value but must still be higher than capacity recorded in the
                                   status field of the claim.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -25412,23 +25375,16 @@ var CRDsValidation map[string]string = map[string]string{
                             This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                             This feature is in alpha.
                           items:
-                            description: |-
-                              PodResourceClaim references exactly one ResourceClaim, either directly
-                              or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                              for the pod.
-
-                              It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                              Containers that need access to the ResourceClaim reference it with this name.
                             properties:
                               name:
                                 description: |-
-                                  Name uniquely identifies this resource claim inside the pod.
+                                  Name uniquely identifies this resource claim inside the VMI.
                                   This must be a DNS_LABEL.
                                 type: string
                               resourceClaimName:
                                 description: |-
                                   ResourceClaimName is the name of a ResourceClaim object in the same
-                                  namespace as this pod.
+                                  namespace as this VMI.
 
                                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                   be set.
@@ -25436,17 +25392,10 @@ var CRDsValidation map[string]string = map[string]string{
                               resourceClaimTemplateName:
                                 description: |-
                                   ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                                  object in the same namespace as this pod.
+                                  object in the same namespace as this VMI.
 
                                   The template will be used to create a new ResourceClaim, which will
-                                  be bound to this pod. When this pod is deleted, the ResourceClaim
-                                  will also be deleted. The pod name and resource name, along with a
-                                  generated component, will be used to form a unique name for the
-                                  ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                                  This field is immutable and no changes will be made to the
-                                  corresponding ResourceClaim by the control plane after creating the
-                                  ResourceClaim.
+                                  be bound to the virt-launcher pod.
 
                                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                   be set.
@@ -25500,9 +25449,10 @@ var CRDsValidation map[string]string = map[string]string{
                               operator:
                                 description: |-
                                   Operator represents a key's relationship to the value.
-                                  Valid operators are Exists and Equal. Defaults to Equal.
+                                  Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                   Exists is equivalent to wildcard for value, so that a pod can
                                   tolerate all taints of a particular category.
+                                  Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                 type: string
                               tolerationSeconds:
                                 description: |-
@@ -27528,7 +27478,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   resources:
                                     description: |-
                                       resources represents the minimum resources the volume should have.
-                                      If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                      Users are allowed to specify resource requirements
                                       that are lower than previous value but must still be higher than capacity recorded in the
                                       status field of the claim.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -31012,23 +30962,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                                 This feature is in alpha.
                               items:
-                                description: |-
-                                  PodResourceClaim references exactly one ResourceClaim, either directly
-                                  or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                                  for the pod.
-
-                                  It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                                  Containers that need access to the ResourceClaim reference it with this name.
                                 properties:
                                   name:
                                     description: |-
-                                      Name uniquely identifies this resource claim inside the pod.
+                                      Name uniquely identifies this resource claim inside the VMI.
                                       This must be a DNS_LABEL.
                                     type: string
                                   resourceClaimName:
                                     description: |-
                                       ResourceClaimName is the name of a ResourceClaim object in the same
-                                      namespace as this pod.
+                                      namespace as this VMI.
 
                                       Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                       be set.
@@ -31036,17 +30979,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   resourceClaimTemplateName:
                                     description: |-
                                       ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                                      object in the same namespace as this pod.
+                                      object in the same namespace as this VMI.
 
                                       The template will be used to create a new ResourceClaim, which will
-                                      be bound to this pod. When this pod is deleted, the ResourceClaim
-                                      will also be deleted. The pod name and resource name, along with a
-                                      generated component, will be used to form a unique name for the
-                                      ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                                      This field is immutable and no changes will be made to the
-                                      corresponding ResourceClaim by the control plane after creating the
-                                      ResourceClaim.
+                                      be bound to the virt-launcher pod.
 
                                       Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                       be set.
@@ -31100,9 +31036,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   operator:
                                     description: |-
                                       Operator represents a key's relationship to the value.
-                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                       Exists is equivalent to wildcard for value, so that a pod can
                                       tolerate all taints of a particular category.
+                                      Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                     type: string
                                   tolerationSeconds:
                                     description: |-
@@ -32650,7 +32587,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resources:
                         description: |-
                           resources represents the minimum resources the volume should have.
-                          If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                          Users are allowed to specify resource requirements
                           that are lower than previous value but must still be higher than capacity recorded in the
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources

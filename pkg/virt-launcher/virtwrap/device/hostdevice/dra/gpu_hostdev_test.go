@@ -15,14 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/dra/metadata"
+	metadata "k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1"
+
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -76,7 +77,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -88,7 +89,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 						Pool:   "gpu-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
+							drautil.PCIBusIDAttribute: {StringValue: &pciAddr},
 						},
 					}},
 				}},
@@ -100,7 +101,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -139,7 +140,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -151,7 +152,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 						Pool:   "gpu-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+							drautil.MDevUUIDAttribute: {StringValue: &uuid},
 						},
 					}},
 				}},
@@ -163,7 +164,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -203,7 +204,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -215,8 +216,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 						Pool:   "gpu-pool",
 						Name:   "vgpu-device",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
-							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
+							drautil.PCIBusIDAttribute: {StringValue: &pciAddr},
+							drautil.MDevUUIDAttribute: {StringValue: &mdevUUID},
 						},
 					}},
 				}},
@@ -228,7 +229,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -268,7 +269,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("pgpu-claim", "gpu", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pgpu-claim",
@@ -280,7 +281,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 						Pool:   "node01",
 						Name:   "gpu-0",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
+							drautil.PCIBusIDAttribute: {StringValue: &pciAddr},
 						},
 					}},
 				}},
@@ -289,7 +290,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("vgpu-claim", "vgpu", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "vgpu-claim",
@@ -301,8 +302,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 						Pool:   "node01",
 						Name:   "gpu-0-vgpu-0",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &vgpuPCIAddr},
-							metadata.MDevUUIDAttribute: {StringValue: &mdevUUID},
+							drautil.PCIBusIDAttribute: {StringValue: &vgpuPCIAddr},
+							drautil.MDevUUIDAttribute: {StringValue: &mdevUUID},
 						},
 					}},
 				}},
@@ -314,7 +315,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "pgpu", ResourceClaimName: ptr.To("pgpu-claim")},
 						{Name: "vgpu", ResourceClaimName: ptr.To("vgpu-claim")},
 					},
@@ -371,7 +372,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			createMetadataFile("claim1", "req1", "gpu.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -383,7 +384,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 						Pool:   "gpu-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pciAddr},
+							drautil.PCIBusIDAttribute: {StringValue: &pciAddr},
 						},
 					}},
 				}},
@@ -395,7 +396,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
 						{Name: "claim2", ResourceClaimName: ptr.To("claim2")},
 					},

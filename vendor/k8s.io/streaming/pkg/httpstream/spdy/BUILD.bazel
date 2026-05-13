@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "connection.go",
+        "roundtripper.go",
+        "upgrade.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/streaming/pkg/httpstream/spdy",
+    importpath = "k8s.io/streaming/pkg/httpstream/spdy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/moby/spdystream:go_default_library",
+        "//vendor/golang.org/x/net/proxy:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+        "//vendor/k8s.io/streaming/pkg/httpstream:go_default_library",
+        "//vendor/k8s.io/streaming/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
+    ],
+)

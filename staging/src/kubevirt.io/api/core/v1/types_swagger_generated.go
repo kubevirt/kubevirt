@@ -44,6 +44,14 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceResourceClaim) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":                      "Name uniquely identifies this resource claim inside the VMI.\nThis must be a DNS_LABEL.",
+		"resourceClaimName":         "ResourceClaimName is the name of a ResourceClaim object in the same\nnamespace as this VMI.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must\nbe set.",
+		"resourceClaimTemplateName": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate\nobject in the same namespace as this VMI.\n\nThe template will be used to create a new ResourceClaim, which will\nbe bound to the virt-launcher pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must\nbe set.",
+	}
+}
+
 func (VirtualMachineInstancePhaseTransitionTimestamp) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi",

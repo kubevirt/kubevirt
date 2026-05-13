@@ -3886,7 +3886,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
 				{Name: "my-gpu-claim"},
 			}
 
@@ -3910,7 +3910,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "my-gpu-claim"}}
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "my-gpu-claim"}}
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -3958,7 +3958,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
 				{Name: "my-gpu-claim"},
 			}
 

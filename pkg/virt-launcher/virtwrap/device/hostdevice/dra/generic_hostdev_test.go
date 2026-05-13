@@ -8,14 +8,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/dra/metadata"
+	metadata "k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1"
+
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -64,7 +65,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -76,7 +77,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Pool:   "device-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pci},
+							drautil.PCIBusIDAttribute: {StringValue: &pci},
 						},
 					}},
 				}},
@@ -85,7 +86,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -119,7 +120,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -131,7 +132,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Pool:   "mdev-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+							drautil.MDevUUIDAttribute: {StringValue: &uuid},
 						},
 					}},
 				}},
@@ -140,7 +141,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -176,7 +177,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "mdev.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -188,7 +189,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Pool:   "mdev-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.MDevUUIDAttribute: {StringValue: &uuid},
+							drautil.MDevUUIDAttribute: {StringValue: &uuid},
 						},
 					}},
 				}},
@@ -197,7 +198,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -234,7 +235,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			createMetadataFile("claim1", "req1", "device.example.com", &metadata.DeviceMetadata{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DeviceMetadata",
-					APIVersion: metadata.APIVersionV1Alpha1,
+					APIVersion: metadata.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "claim1",
@@ -246,7 +247,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Pool:   "device-pool",
 						Name:   "device1",
 						Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
-							metadata.PCIBusIDAttribute: {StringValue: &pci},
+							drautil.PCIBusIDAttribute: {StringValue: &pci},
 						},
 					}},
 				}},
@@ -255,7 +256,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
 						{Name: "claim2", ResourceClaimName: ptr.To("claim2")},
 					},

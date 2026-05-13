@@ -1015,8 +1015,8 @@ func getDRAGPUDevice(claimName string) []v1.GPU {
 	}
 }
 
-func getDRAGPUPodResourceClaims() []k8sv1.PodResourceClaim {
-	return []k8sv1.PodResourceClaim{
+func getDRAGPUResourceClaims() []v1.VirtualMachineInstanceResourceClaim {
+	return []v1.VirtualMachineInstanceResourceClaim{
 		{
 			Name:                      DRAResourceClaimName,
 			ResourceClaimTemplateName: pointer.P(ResourceClaimTemplatePGPU),
@@ -1027,7 +1027,7 @@ func getDRAGPUPodResourceClaims() []k8sv1.PodResourceClaim {
 func GetVMIDRAGPU() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiDRAGPU)
 	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
-	vmi.Spec.ResourceClaims = getDRAGPUPodResourceClaims()
+	vmi.Spec.ResourceClaims = getDRAGPUResourceClaims()
 	vmi.Spec.Domain.Devices.GPUs = getDRAGPUDevice(DRAResourceClaimName)
 
 	initFedora(&vmi.Spec)
