@@ -167,6 +167,31 @@ var _ = Describe("Validating Plugin Admitter", func() {
 			WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("invalid CEL mutation expression")),
 		))
 	})
+
+	It("should reject node hook with invalid condition expression", func() {
+		p := newMinimalPlugin()
+		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
+			Socket:         "/var/run/kubevirt/plugins/test.sock",
+			PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
+			Condition:      "invalid!!! condition",
+		}}
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(
+			WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("invalid CEL condition expression")),
+		))
+	})
+
+	It("should accept node hook with valid condition expression", func() {
+		p := newMinimalPlugin()
+		p.Spec.NodeHooks = []pluginv1alpha1.NodeHook{{
+			Socket:         "/var/run/kubevirt/plugins/test.sock",
+			PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
+			Condition:      `vmi.spec.domain.cpu.cores > 0`,
+		}}
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeTrue())
+	})
 })
 
 func newMinimalPlugin() *pluginv1alpha1.Plugin {
