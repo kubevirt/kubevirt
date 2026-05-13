@@ -5,7 +5,7 @@ ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION=6.5.0
-ENV GIMME_GO_VERSION=1.24.9
+ENV GIMME_GO_VERSION=1.26.0
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v2.2.2
@@ -16,34 +16,34 @@ ENV KUBEVIRT_CREATE_BAZELRCS=false
 RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable crb && \
     dnf install -y --setopt=install_weak_deps=False \
-        java-11-openjdk-devel \
-        libvirt-devel \
-        cpio \
-        patch \
-        make \
-        git \
-        sudo \
-        gcc \
-        gcc-c++ \
-        glibc-static \
-        libstdc++-static \
-        glibc-devel \
-        findutils \
-        rsync-daemon \
-        rsync \
-        qemu-img \
-        protobuf-compiler \
-        python3 \
-        python3-devel \
-        python3-pip \
-        python3-setuptools \
-        redhat-rpm-config \
-        jq \
-        wget \
-        rubygems \
-        diffutils \
-        skopeo \
-        libnbd-devel && \
+    java-11-openjdk-devel \
+    libvirt-devel \
+    cpio \
+    patch \
+    make \
+    git \
+    sudo \
+    gcc \
+    gcc-c++ \
+    glibc-static \
+    libstdc++-static \
+    glibc-devel \
+    findutils \
+    rsync-daemon \
+    rsync \
+    qemu-img \
+    protobuf-compiler \
+    python3 \
+    python3-devel \
+    python3-pip \
+    python3-setuptools \
+    redhat-rpm-config \
+    jq \
+    wget \
+    rubygems \
+    diffutils \
+    skopeo \
+    libnbd-devel && \
     dnf clean -y all
 
 # Avoids the need to install sssd-client by disabling lookups
@@ -130,8 +130,8 @@ COPY entrypoint.sh /entrypoint.sh
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
 RUN if test "${ARCH}" != "s390x"; then \
-       curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
-       chmod u+x /usr/bin/bazel; \
+    curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
+    chmod u+x /usr/bin/bazel; \
     fi
 
 # Add /root/go/src/kubevirt.io/kubevirt and mark it as a safe directory for git
