@@ -25,6 +25,8 @@ import (
 	"net"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -45,6 +47,7 @@ type LauncherClientsManager interface {
 
 type launcherClientsManager struct {
 	virtShareDir         string
+	connGroup            singleflight.Group
 	launcherClients      virtcache.LauncherClientInfoByVMI
 	podIsolationDetector isolation.PodIsolationDetector
 }
@@ -76,46 +79,59 @@ func (l *launcherClientsManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachin
 }
 
 func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var err error
-
+	// Fast path: return cached connection without any synchronization.
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
 	if exists && clientInfo.Client != nil {
 		return clientInfo.Client, nil
 	}
 
-	socketFile, err := cmdclient.FindSocket(vmi)
-	if err != nil {
-		return nil, err
-	}
+	// Slow path: use singleflight to ensure only one connection is created per VMI
+	// even when multiple controllers (VM, MigrationSource, MigrationTarget) race
+	// on the same VMI concurrently. Other VMIs are not blocked.
+	result, err, _ := l.connGroup.Do(string(vmi.UID), func() (interface{}, error) {
+		// Re-check: another goroutine may have created the connection while we waited.
+		if clientInfo, exists := l.launcherClients.Load(vmi.UID); exists && clientInfo.Client != nil {
+			return clientInfo.Client, nil
+		}
 
-	err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
-	if err != nil {
-		return nil, err
-	}
+		socketFile, err := cmdclient.FindSocket(vmi)
+		if err != nil {
+			return nil, err
+		}
 
-	client, err := cmdclient.NewClient(socketFile)
-	if err != nil {
-		return nil, err
-	}
+		err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+		if err != nil {
+			return nil, err
+		}
 
-	domainPipeStopChan := make(chan struct{})
-	//we pipe in the domain socket into the VMI's filesystem
-	err = l.startDomainNotifyPipe(domainPipeStopChan, vmi)
-	if err != nil {
-		client.Close()
-		close(domainPipeStopChan)
-		return nil, err
-	}
+		client, err := cmdclient.NewClient(socketFile)
+		if err != nil {
+			return nil, err
+		}
 
-	l.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
-		Client:              client,
-		SocketFile:          socketFile,
-		DomainPipeStopChan:  domainPipeStopChan,
-		NotInitializedSince: time.Now(),
-		Ready:               true,
+		domainPipeStopChan := make(chan struct{})
+		err = l.startDomainNotifyPipe(domainPipeStopChan, vmi)
+		if err != nil {
+			client.Close()
+			close(domainPipeStopChan)
+			return nil, err
+		}
+
+		l.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
+			Client:              client,
+			SocketFile:          socketFile,
+			DomainPipeStopChan:  domainPipeStopChan,
+			NotInitializedSince: time.Now(),
+			Ready:               true,
+		})
+
+		return client, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return client, nil
+	return result.(cmdclient.LauncherClient), nil
 }
 
 func (l *launcherClientsManager) GetLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo {
