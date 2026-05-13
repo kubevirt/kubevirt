@@ -28,12 +28,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	metadata "k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("DownwardAPIAttributes", func() {
@@ -90,7 +90,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "vmi-claim-ref",
 				ResourceClaimName: ptr.To("my-gpu-claim"),
 			}}
@@ -118,7 +118,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:                      "vmi-template-ref",
 				ResourceClaimTemplateName: ptr.To("my-template"),
 			}}
@@ -129,7 +129,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		})
 
 		It("should return error when no metadata files exist", func() {
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "missing-claim",
 				ResourceClaimName: ptr.To("nonexistent"),
 			}}
@@ -155,7 +155,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("pci-claim"),
 			}}
@@ -182,7 +182,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim1"),
 			}}
@@ -201,7 +201,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim1"),
 			}}
@@ -229,7 +229,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim1"),
 			}}
@@ -255,7 +255,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-vgpu",
 				ResourceClaimName: ptr.To("mdev-claim"),
 			}}
@@ -285,7 +285,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("pci-only"),
 			}}
@@ -325,7 +325,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{
 				{Name: "claim-gpu", ResourceClaimName: ptr.To("gpu-claim")},
 				{Name: "claim-vgpu", ResourceClaimName: ptr.To("vgpu-claim")},
 			}
@@ -356,7 +356,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:                      "template-gpu-claim",
 				ResourceClaimTemplateName: ptr.To("gpu-template"),
 			}}
@@ -381,7 +381,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:                      "template-vgpu-claim",
 				ResourceClaimTemplateName: ptr.To("vgpu-template"),
 			}}
@@ -420,7 +420,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{
 				{Name: "existing-ref", ResourceClaimName: ptr.To("preexisting-claim")},
 				{Name: "my-template-claim", ResourceClaimTemplateName: ptr.To("some-template")},
 			}
@@ -435,7 +435,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		})
 
 		It("should return error when template claim metadata not found", func() {
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:                      "missing-template-claim",
 				ResourceClaimTemplateName: ptr.To("nonexistent-template"),
 			}}
@@ -458,7 +458,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim1"),
 			}}
@@ -506,7 +506,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				}},
 			})
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("multi-driver-claim"),
 			}}
@@ -547,7 +547,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 
 			writeRawStreamFile("claim1", "req1", "gpu.example.com", v2Obj, string(v1Obj))
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim1"),
 			}}
@@ -561,7 +561,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				`{"apiVersion":"metadata.resource.k8s.io/v99","kind":"DeviceMetadata"}`,
 			)
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim2"),
 			}}
@@ -573,7 +573,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 		It("should return error on empty stream", func() {
 			writeRawStreamFile("claim3", "req1", "gpu.example.com")
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim3"),
 			}}
@@ -602,7 +602,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 				string(v1Obj),
 			)
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim4"),
 			}}
@@ -629,7 +629,7 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			writeRawStreamFile("claim5", "req1", "gpu.example.com", badV1, string(goodV1))
 
-			resourceClaims := []k8sv1.PodResourceClaim{{
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
 				Name:              "my-claim",
 				ResourceClaimName: ptr.To("claim5"),
 			}}

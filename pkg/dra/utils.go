@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/dynamic-resource-allocation/api/metadata"
 	devicemetadata "k8s.io/dynamic-resource-allocation/devicemetadata"
 	v1 "kubevirt.io/api/core/v1"
@@ -53,7 +52,7 @@ const (
 
 // GetPCIAddressForClaim returns the PCI address for a device in the given claim and request.
 // It lazily reads the KEP-5304 metadata file at lookup time.
-func GetPCIAddressForClaim(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (string, error) {
+func GetPCIAddressForClaim(basePath string, resourceClaims []v1.VirtualMachineInstanceResourceClaim, claimRefName, requestName string) (string, error) {
 	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return "", err
@@ -69,7 +68,7 @@ func GetPCIAddressForClaim(basePath string, resourceClaims []k8sv1.PodResourceCl
 
 // GetMDevUUIDForClaim returns the mdev UUID for a device in the given claim and request.
 // It lazily reads the KEP-5304 metadata file at lookup time.
-func GetMDevUUIDForClaim(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (string, error) {
+func GetMDevUUIDForClaim(basePath string, resourceClaims []v1.VirtualMachineInstanceResourceClaim, claimRefName, requestName string) (string, error) {
 	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return "", err
@@ -85,7 +84,7 @@ func GetMDevUUIDForClaim(basePath string, resourceClaims []k8sv1.PodResourceClai
 
 // resolveDevice finds and reads the metadata file for a specific claim ref and
 // request, returning the single device from that request.
-func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (*metadata.Device, error) {
+func resolveDevice(basePath string, resourceClaims []v1.VirtualMachineInstanceResourceClaim, claimRefName, requestName string) (*metadata.Device, error) {
 	md, err := resolveClaimMetadata(basePath, resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return nil, err
@@ -108,7 +107,7 @@ func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, cla
 // resolveClaimMetadata reads the metadata file for a claim ref + request pair.
 // Direct claims:   {base}/resourceclaims/{claimName}/{requestName}/{driverName}-metadata.json
 // Template claims: {base}/resourceclaimtemplates/{podClaimName}/{requestName}/{driverName}-metadata.json
-func resolveClaimMetadata(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (*metadata.DeviceMetadata, error) {
+func resolveClaimMetadata(basePath string, resourceClaims []v1.VirtualMachineInstanceResourceClaim, claimRefName, requestName string) (*metadata.DeviceMetadata, error) {
 	for _, rc := range resourceClaims {
 		if rc.Name != claimRefName {
 			continue

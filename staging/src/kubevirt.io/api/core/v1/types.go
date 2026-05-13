@@ -186,7 +186,7 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	// +optional
-	ResourceClaims []k8sv1.PodResourceClaim `json:"resourceClaims,omitempty"`
+	ResourceClaims []VirtualMachineInstanceResourceClaim `json:"resourceClaims,omitempty"`
 	// List of utility volumes that can be mounted to the vmi virt-launcher pod
 	// without having a matching disk in the domain.
 	// Used to collect data for various operational workflows.
@@ -195,6 +195,27 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
+}
+
+type VirtualMachineInstanceResourceClaim struct {
+	// Name uniquely identifies this resource claim inside the VMI.
+	// This must be a DNS_LABEL.
+	Name string `json:"name"`
+	// ResourceClaimName is the name of a ResourceClaim object in the same
+	// namespace as this VMI.
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimName *string `json:"resourceClaimName,omitempty"`
+	// ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+	// object in the same namespace as this VMI.
+	//
+	// The template will be used to create a new ResourceClaim, which will
+	// be bound to the virt-launcher pod.
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimTemplateName *string `json:"resourceClaimTemplateName,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {

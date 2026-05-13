@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "attributes.go",
+        "resource_claims.go",
         "utils.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/dra",
@@ -28,10 +29,10 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/resource/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1:go_default_library",
