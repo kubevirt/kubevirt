@@ -124,6 +124,15 @@ func WithCPULimit(value string) Option {
 	}
 }
 
+func WithMaxSockets(maxSockets uint32) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+		vmi.Spec.Domain.CPU.MaxSockets = maxSockets
+	}
+}
+
 func WithIsolateEmulatorThread() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.CPU == nil {
