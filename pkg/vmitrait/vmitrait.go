@@ -31,10 +31,7 @@ func IsNonRoot(vmi *v1.VirtualMachineInstance) bool {
 
 // HasVFIO reports whether the VMI requests any VFIO device.
 func HasVFIO(vmi *v1.VirtualMachineInstance) bool {
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
-		return true
-	}
-	return false
+	return IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi)
 }
 
 // Check if a VMI spec requests a HostDevice
