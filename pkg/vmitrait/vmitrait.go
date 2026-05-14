@@ -31,26 +31,18 @@ func IsNonRoot(vmi *v1.VirtualMachineInstance) bool {
 
 // HasVFIO reports whether the VMI requests any VFIO device.
 func HasVFIO(vmi *v1.VirtualMachineInstance) bool {
-	return IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi)
+	return hasHostDev(vmi) || hasGPU(vmi) || hasSRIOV(vmi)
 }
 
-// Check if a VMI spec requests a HostDevice
-func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
-		return true
-	}
-	return false
+func hasHostDev(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.HostDevices) > 0
 }
 
-// Check if a VMI spec requests GPU
-func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
-		return true
-	}
-	return false
+func hasGPU(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.GPUs) > 0
 }
 
-func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
+func hasSRIOV(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {
 			return true
