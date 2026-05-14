@@ -28,3 +28,36 @@ func IsNonRoot(vmi *v1.VirtualMachineInstance) bool {
 	nonRoot := vmi.Status.RuntimeUser != 0
 	return ok || nonRoot
 }
+
+// Check if a VMI spec requests a VFIO device
+func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
+	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
+		return true
+	}
+	return false
+}
+
+// Check if a VMI spec requests a HostDevice
+func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
+		return true
+	}
+	return false
+}
+
+// Check if a VMI spec requests GPU
+func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
+		return true
+	}
+	return false
+}
+
+func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil {
+			return true
+		}
+	}
+	return false
+}
