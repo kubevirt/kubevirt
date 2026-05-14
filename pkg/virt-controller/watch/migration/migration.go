@@ -2533,9 +2533,18 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod, source
 	migratedAtLeastOnce := false
 	// if the vmi already migrated before it should include node selector that consider CPUModelLabel
 	for key, value := range sourcePodNodeSelector {
-		if strings.Contains(key, virtv1.CPUFeatureLabel) || strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
+		if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 			result[key] = value
 			migratedAtLeastOnce = true
+		} else if strings.Contains(key, virtv1.CPUFeatureLabel) {
+			migratedAtLeastOnce = true
+			// Only keep cpu-feature selectors that still exist on the source node.
+			// After a QEMU upgrade, the node labeller may remove features that are
+			// no longer in domcapabilities policy='require'. Carrying stale selectors
+			// forward would make the target pod permanently unschedulable.
+			if _, exists := node.Labels[key]; exists {
+				result[key] = value
+			}
 		}
 	}
 

@@ -2242,6 +2242,96 @@ var _ = Describe("Migration watcher", func() {
 			Entry("host-model should be targeted only to nodes which support the model", true),
 			Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
+
+		It("should drop stale cpu-feature nodeSelector entries when re-migrating host-model VMI", func() {
+			const nodeName = "testNode"
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			node.ObjectMeta.Labels = map[string]string{
+				v1.HostModelCPULabel + "FakeModel":              "true",
+				v1.SupportedHostModelMigrationCPU + "FakeModel": "true",
+				v1.HostModelRequiredFeaturesLabel + "feature1":  "true",
+				v1.HostModelRequiredFeaturesLabel + "feature2":  "true",
+				v1.CPUFeatureLabel + "feature1":                 "true",
+				v1.CPUFeatureLabel + "feature2":                 "true",
+			}
+
+			sourcePod := newSourcePodForVirtualMachine(vmi)
+			sourcePod.Spec.NodeSelector = map[string]string{
+				v1.CPUFeatureLabel + "feature1":                 "true",
+				v1.CPUFeatureLabel + "feature2":                 "true",
+				v1.CPUFeatureLabel + "stale-feature":            "true",
+				v1.SupportedHostModelMigrationCPU + "FakeModel": "true",
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(sourcePod)
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod).ToNot(BeNil())
+
+			Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUFeatureLabel+"feature1", "true"))
+			Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUFeatureLabel+"feature2", "true"))
+			Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"FakeModel", "true"))
+			Expect(targetPod.Spec.NodeSelector).NotTo(HaveKey(v1.CPUFeatureLabel + "stale-feature"))
+		})
+
+		It("should not add new cpu features from source node when re-migrating host-model VMI", func() {
+			const nodeName = "testNode"
+
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			node.ObjectMeta.Labels = map[string]string{
+				v1.HostModelCPULabel + "FakeModel":                "true",
+				v1.SupportedHostModelMigrationCPU + "FakeModel":   "true",
+				v1.HostModelRequiredFeaturesLabel + "feature1":    "true",
+				v1.HostModelRequiredFeaturesLabel + "feature2":    "true",
+				v1.HostModelRequiredFeaturesLabel + "new-feature": "true",
+				v1.CPUFeatureLabel + "feature1":                   "true",
+				v1.CPUFeatureLabel + "feature2":                   "true",
+				v1.CPUFeatureLabel + "new-feature":                "true",
+			}
+
+			sourcePod := newSourcePodForVirtualMachine(vmi)
+			sourcePod.Spec.NodeSelector = map[string]string{
+				v1.CPUFeatureLabel + "feature1":                 "true",
+				v1.CPUFeatureLabel + "feature2":                 "true",
+				v1.SupportedHostModelMigrationCPU + "FakeModel": "true",
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(sourcePod)
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod).ToNot(BeNil())
+
+			Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUFeatureLabel+"feature1", "true"))
+			Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUFeatureLabel+"feature2", "true"))
+			Expect(targetPod.Spec.NodeSelector).NotTo(HaveKey(v1.CPUFeatureLabel + "new-feature"))
+		})
 	})
 
 	Context("Migration policy", func() {
