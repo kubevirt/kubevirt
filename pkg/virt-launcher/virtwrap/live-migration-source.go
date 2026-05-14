@@ -482,7 +482,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// then it would result in that active state being lost.
 
 	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
-		if m.options.AllowPostCopy && !vmitrait.IsVFIOVMI(m.vmi) {
+		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) {
 			logger.Info("Starting post copy mode for migration")
 			// if a migration has stalled too long, post copy will be
 			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
@@ -492,7 +492,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 				return nil
 			}
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
-		} else if vmitrait.IsVFIOVMI(m.vmi) {
+		} else if vmitrait.HasVFIO(m.vmi) {
 			logger.Info("Setting large max downtime to trigger migration switchover")
 			// TODO: once the VGPULiveMigration featuregate graduates
 			//  (and even possibly other VFIO live migration featuregates)

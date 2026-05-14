@@ -56,9 +56,9 @@ var _ = Describe("VMI traits", func() {
 		)
 	})
 
-	Context("IsVFIOVMI", func() {
+	Context("HasVFIO", func() {
 		DescribeTable("should return true when a VFIO device is present", func(vmi *v1.VirtualMachineInstance) {
-			Expect(vmitrait.IsVFIOVMI(vmi)).To(BeTrue())
+			Expect(vmitrait.HasVFIO(vmi)).To(BeTrue())
 		},
 			Entry("with a GPU",
 				libvmi.New(libvmi.WithGPU(v1.GPU{Name: "gpu1", DeviceName: "nvidia.com/gpu"})),
@@ -75,7 +75,7 @@ var _ = Describe("VMI traits", func() {
 		)
 
 		It("should return false when no VFIO devices are present", func() {
-			Expect(vmitrait.IsVFIOVMI(libvmi.New())).To(BeFalse())
+			Expect(vmitrait.HasVFIO(libvmi.New())).To(BeFalse())
 		})
 	})
 })

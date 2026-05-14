@@ -55,7 +55,7 @@ func NewKvmVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *lo
 }
 
 func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error {
-	if !vmitrait.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
+	if !vmitrait.HasVFIO(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
 		return nil
 	}
 

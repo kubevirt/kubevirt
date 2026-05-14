@@ -52,7 +52,7 @@ func NewMshvVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *l
 }
 
 func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error {
-	if !vmitrait.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !vmitrait.HasVFIO(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
 		return nil
 	}
 
