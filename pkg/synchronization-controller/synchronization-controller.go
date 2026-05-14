@@ -769,7 +769,7 @@ func (s *SynchronizationController) getVMIFromMigration(migration *virtv1.Virtua
 
 func (s *SynchronizationController) getLocalSynchronizationAddress() (string, error) {
 	if s.ip != "" {
-		return fmt.Sprintf("%s:%d", s.ip, s.bindPort), nil
+		return net.JoinHostPort(s.ip, strconv.Itoa(s.bindPort)), nil
 	}
 	// TODO figure out how to get my URL with or without submariner (url changes based on export)
 	return s.listener.Addr().String(), nil
