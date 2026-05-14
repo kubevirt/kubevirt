@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
@@ -53,5 +54,28 @@ var _ = Describe("VMI traits", func() {
 				uint64(107),
 			),
 		)
+	})
+
+	Context("IsVFIOVMI", func() {
+		DescribeTable("should return true when a VFIO device is present", func(vmi *v1.VirtualMachineInstance) {
+			Expect(vmitrait.IsVFIOVMI(vmi)).To(BeTrue())
+		},
+			Entry("with a GPU",
+				libvmi.New(libvmi.WithGPU(v1.GPU{Name: "gpu1", DeviceName: "nvidia.com/gpu"})),
+			),
+			Entry("with a host device",
+				libvmi.New(libvmi.WithHostDevice(v1.HostDevice{Name: "dev1", DeviceName: "vendor.com/device"})),
+			),
+			Entry("with an SRIOV interface",
+				libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov1")),
+					libvmi.WithNetwork(&v1.Network{Name: "sriov1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov-net"}}}),
+				),
+			),
+		)
+
+		It("should return false when no VFIO devices are present", func() {
+			Expect(vmitrait.IsVFIOVMI(libvmi.New())).To(BeFalse())
+		})
 	})
 })
