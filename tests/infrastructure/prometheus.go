@@ -21,7 +21,6 @@ package infrastructure
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -94,7 +93,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		scraped and processed by the different components on the way.
 	*/
 
-	It("[QUARANTINE][test_id:4135]should find VMI namespace on namespace label of the metric", decorators.Quarantine, func() {
+	It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
 		/*
 			This test is required because in cases of misconfigurations on
 			monitoring objects (such for the ServiceMonitor), our rules will
@@ -107,59 +106,14 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 		startVMI(vmi)
 
-		By("finding virt-handler pod")
-		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
-			context.Background(),
-			metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
-		Expect(err).ToNot(HaveOccurred(), "failed to list virt-handlers")
-		Expect(ops.Size()).ToNot(Equal(0), "no virt-handlers found")
-		op := ops.Items[0]
-		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
-
-		urlSchema := "https"
-		promPort := 9091
-		if flags.PrometheusNamespace == "monitoring" {
-			urlSchema = "http"
-			promPort = 9090
+		By("querying Prometheus for a VMI exported metric")
+		labels := map[string]string{
+			"namespace": vmi.Namespace,
+			"name":      vmi.Name,
 		}
-		promServiceURL := fmt.Sprintf("prometheus-k8s.%s.svc.cluster.local", flags.PrometheusNamespace)
-
-		// the Service Account needs to have access to the Prometheus subresource api
-		token, err := generateTokenForPrometheusAPI(vmi.Namespace)
-		Expect(err).ToNot(HaveOccurred(), "failed to generate token for Prometheus API")
-		DeferCleanup(cleanupClusterRoleAndBinding, vmi.Namespace)
-
-		By("querying Prometheus API endpoint for a VMI exported metric")
-		cmd := []string{
-			"curl",
-			"-L",
-			"-k",
-			fmt.Sprintf("%s://%s:%d/api/v1/query", urlSchema, promServiceURL, promPort),
-			"-H",
-			fmt.Sprintf("Authorization: Bearer %s", token),
-			"--data-urlencode",
-			fmt.Sprintf(
-				`query=kubevirt_vmi_memory_resident_bytes{namespace=%q,name=%q}`,
-				vmi.Namespace,
-				vmi.Name,
-			),
-		}
-
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-handler", cmd)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
-
-		// the Prometheus go-client does not export queryResult, and
-		// using an HTTP client for queries would require a port-forwarding
-		// since the cluster is running in a different network.
-		var queryResult map[string]json.RawMessage
-
-		err = json.Unmarshal([]byte(stdout), &queryResult)
-		Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result: %s", stdout)
-
-		var status string
-		err = json.Unmarshal(queryResult["status"], &status)
-		Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query status")
-		Expect(status).To(Equal("success"))
+		libmonitoring.WaitForMetricValueWithLabelsToBe(
+			virtClient, "kubevirt_vmi_memory_resident_bytes", labels, 0, ">=", 0,
+		)
 	})
 })
 
