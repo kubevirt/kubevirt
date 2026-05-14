@@ -22,6 +22,7 @@ docker_images="
     images/disks-images-provider
     images/vm-killer
     images/winrmcli
+    images/test-nfs-server
     tests/conformance
 "
 
