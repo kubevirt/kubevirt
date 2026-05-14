@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1110,7 +1111,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Disks[0].BackingStore).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Disks[0].BackingStore.Type).To(Equal("block"))
 			By("Checking if the disk backing store device path is appropriately configured")
-			Expect(domain.Spec.Devices.Disks[0].BackingStore.Source.Dev).To(Equal(GetBlockDeviceVolumePath(blockPVCName)))
+			Expect(domain.Spec.Devices.Disks[0].BackingStore.Source.Dev).To(Equal(volumepath.BlockDevice(blockPVCName)))
 		})
 
 		It("should fail disk config pci address is set with a non virtio bus", func() {
@@ -1294,7 +1295,7 @@ var _ = Describe("Converter", func() {
 					Expect(disk.Source.DataStore.Format).ToNot(BeNil())
 					Expect(disk.Source.DataStore.Format.Type).To(Equal("raw"))
 					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
-					Expect(disk.Source.DataStore.Source.Dev).To(Equal(GetBlockDeviceVolumePath(volumeName)))
+					Expect(disk.Source.DataStore.Source.Dev).To(Equal(volumepath.BlockDevice(volumeName)))
 				},
 				Entry("PVC", "test-block-pvc",
 					func(name string) v1.VolumeSource {
@@ -3862,10 +3863,10 @@ var _ = Describe("Converter", func() {
 					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
 					if isBlock {
 						Expect(disk.Source.DataStore.Type).To(Equal("block"))
-						Expect(disk.Source.DataStore.Source.Dev).To(Equal(GetHotplugBlockDeviceVolumePath(volumeName)))
+						Expect(disk.Source.DataStore.Source.Dev).To(Equal(volumepath.HotplugBlockDevice(volumeName)))
 					} else {
 						Expect(disk.Source.DataStore.Type).To(Equal("file"))
-						Expect(disk.Source.DataStore.Source.File).To(Equal(GetHotplugFilesystemVolumePath(volumeName)))
+						Expect(disk.Source.DataStore.Source.File).To(Equal(volumepath.HotplugFilesystem(volumeName)))
 					}
 				},
 				Entry("filesystem PVC", "test-hotplug-pvc",

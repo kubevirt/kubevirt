@@ -81,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1687,7 +1688,7 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 var isHotplugBlockDeviceVolume = isHotplugBlockDeviceVolumeFunc
 
 func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
-	path := converter.GetHotplugBlockDeviceVolumePath(volumeName)
+	path := volumepath.HotplugBlockDevice(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1701,7 +1702,7 @@ func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 var isBlockDeviceVolume = isBlockDeviceVolumeFunc
 
 func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
-	path := converter.GetBlockDeviceVolumePath(volumeName)
+	path := volumepath.BlockDevice(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1711,7 +1712,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		// cross check: is it a filesystem volume
-		path = converter.GetFilesystemVolumePath(volumeName)
+		path = volumepath.Filesystem(volumeName)
 		fileInfo, err := os.Stat(path)
 		if err == nil {
 			if fileInfo.Mode().IsRegular() {
