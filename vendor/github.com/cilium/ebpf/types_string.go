@@ -38,11 +38,15 @@ func _() {
 	_ = x[RingBuf-27]
 	_ = x[InodeStorage-28]
 	_ = x[TaskStorage-29]
+	_ = x[BloomFilter-30]
+	_ = x[UserRingbuf-31]
+	_ = x[CgroupStorage-32]
+	_ = x[Arena-33]
 }
 
-const _MapType_name = "UnspecifiedMapHashArrayProgramArrayPerfEventArrayPerCPUHashPerCPUArrayStackTraceCGroupArrayLRUHashLRUCPUHashLPMTrieArrayOfMapsHashOfMapsDevMapSockMapCPUMapXSKMapSockHashCGroupStorageReusePortSockArrayPerCPUCGroupStorageQueueStackSkStorageDevMapHashStructOpsMapRingBufInodeStorageTaskStorage"
+const _MapType_name = "UnspecifiedMapHashArrayProgramArrayPerfEventArrayPerCPUHashPerCPUArrayStackTraceCGroupArrayLRUHashLRUCPUHashLPMTrieArrayOfMapsHashOfMapsDevMapSockMapCPUMapXSKMapSockHashCGroupStorageReusePortSockArrayPerCPUCGroupStorageQueueStackSkStorageDevMapHashStructOpsMapRingBufInodeStorageTaskStorageBloomFilterUserRingbufCgroupStorageArena"
 
-var _MapType_index = [...]uint16{0, 14, 18, 23, 35, 49, 59, 70, 80, 91, 98, 108, 115, 126, 136, 142, 149, 155, 161, 169, 182, 200, 219, 224, 229, 238, 248, 260, 267, 279, 290}
+var _MapType_index = [...]uint16{0, 14, 18, 23, 35, 49, 59, 70, 80, 91, 98, 108, 115, 126, 136, 142, 149, 155, 161, 169, 182, 200, 219, 224, 229, 238, 248, 260, 267, 279, 290, 301, 312, 325, 330}
 
 func (i MapType) String() string {
 	if i >= MapType(len(_MapType_index)-1) {
@@ -86,11 +90,12 @@ func _() {
 	_ = x[LSM-29]
 	_ = x[SkLookup-30]
 	_ = x[Syscall-31]
+	_ = x[Netfilter-32]
 }
 
-const _ProgramType_name = "UnspecifiedProgramSocketFilterKprobeSchedCLSSchedACTTracePointXDPPerfEventCGroupSKBCGroupSockLWTInLWTOutLWTXmitSockOpsSkSKBCGroupDeviceSkMsgRawTracepointCGroupSockAddrLWTSeg6LocalLircMode2SkReuseportFlowDissectorCGroupSysctlRawTracepointWritableCGroupSockoptTracingStructOpsExtensionLSMSkLookupSyscall"
+const _ProgramType_name = "UnspecifiedProgramSocketFilterKprobeSchedCLSSchedACTTracePointXDPPerfEventCGroupSKBCGroupSockLWTInLWTOutLWTXmitSockOpsSkSKBCGroupDeviceSkMsgRawTracepointCGroupSockAddrLWTSeg6LocalLircMode2SkReuseportFlowDissectorCGroupSysctlRawTracepointWritableCGroupSockoptTracingStructOpsExtensionLSMSkLookupSyscallNetfilter"
 
-var _ProgramType_index = [...]uint16{0, 18, 30, 36, 44, 52, 62, 65, 74, 83, 93, 98, 104, 111, 118, 123, 135, 140, 153, 167, 179, 188, 199, 212, 224, 245, 258, 265, 274, 283, 286, 294, 301}
+var _ProgramType_index = [...]uint16{0, 18, 30, 36, 44, 52, 62, 65, 74, 83, 93, 98, 104, 111, 118, 123, 135, 140, 153, 167, 179, 188, 199, 212, 224, 245, 258, 265, 274, 283, 286, 294, 301, 310}
 
 func (i ProgramType) String() string {
 	if i >= ProgramType(len(_ProgramType_index)-1) {
@@ -111,7 +116,7 @@ const _PinType_name = "PinNonePinByName"
 var _PinType_index = [...]uint8{0, 7, 16}
 
 func (i PinType) String() string {
-	if i < 0 || i >= PinType(len(_PinType_index)-1) {
+	if i >= PinType(len(_PinType_index)-1) {
 		return "PinType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _PinType_name[_PinType_index[i]:_PinType_index[i+1]]
