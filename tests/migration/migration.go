@@ -2852,6 +2852,30 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			}, 200)).To(Succeed())
 		})
 	})
+
+	Describe("with a guest-agent-ping liveness probe", func() {
+		It("should complete migration without the liveness probe killing the target pod", func() {
+			By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
+			vmi := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithResourceMemory(fedoraVMSize),
+				libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),
+			)
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Waiting for the guest agent to connect")
+			Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Starting a migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Confirming the VMI migrated successfully and is still running")
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+		})
+	})
 })
 
 func createResourceQuota(resourceQuota *k8sv1.ResourceQuota) *k8sv1.ResourceQuota {
