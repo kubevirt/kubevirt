@@ -40,6 +40,9 @@ import (
 	handler3 "k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/client-go/kubecli"
@@ -85,6 +88,25 @@ var _ = Describe("Virt-api", func() {
 	})
 
 	Context("Virt api server", func() {
+
+		It("should return internal error when kubevirt config is not available for guestfs info", func() {
+			clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			Expect(kvStore.Replace(nil, "")).To(Succeed())
+			app.clusterConfig = clusterConfig
+
+			recorder := httptest.NewRecorder()
+			response := restful.NewResponse(recorder)
+
+			app.GetGsInfo()(nil, response)
+
+			Expect(recorder.Code).To(Equal(http.StatusInternalServerError))
+
+			var payload map[string]map[string]string
+			Expect(json.Unmarshal(recorder.Body.Bytes(), &payload)).To(Succeed())
+			Expect(payload).To(HaveKey("guestfs"))
+			Expect(payload["guestfs"]["status"]).To(Equal("failed"))
+			Expect(payload["guestfs"]["error"]).To(ContainSubstring("Failed getting KubeVirt config"))
+		})
 
 		It("should return error if extension-apiserver-authentication ConfigMap doesn't exist", func() {
 			server.AppendHandlers(
