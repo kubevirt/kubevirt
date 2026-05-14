@@ -401,6 +401,13 @@ oci_push(
 )
 
 oci_push(
+    name = "push-test-nfs-server",
+    testonly = True,
+    image = "//images/test-nfs-server:test-nfs-server-image",
+    repository = "quay.io/kubevirt/test-nfs-server",
+)
+
+oci_push(
     name = "push-test-helpers",
     testonly = True,
     image = "//cmd/test-helpers:test-helpers-image",
