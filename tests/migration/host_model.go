@@ -345,6 +345,69 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(targetNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 		})
+
+		It("Should be able to migrate a previously-migrated host-model VMI after cpu features are removed from nodes", func() {
+			vmiToMigrate := libvmifact.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmiToMigrate.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
+			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
+
+			By("Starting the VirtualMachineInstance on source node")
+			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+
+			By("Recording required features before first migration")
+			sourceNode, err = kubevirt.Client().CoreV1().Nodes().Get(context.Background(), sourceNode.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			requiredFeatures := getNodeHostRequiredFeatures(sourceNode)
+			Expect(requiredFeatures).NotTo(BeEmpty(), "source node must have at least one required feature")
+
+			By("Migrating to target node (first migration)")
+			migration := libmigration.New(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+
+			vmiToMigrate, err = kubevirt.Client().VirtualMachineInstance(vmiToMigrate.Namespace).Get(
+				context.Background(), vmiToMigrate.GetName(), metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(targetNode.Name))
+
+			By("Stopping node labeller on source node")
+			sourceNode = libinfra.ExpectStoppingNodeLabellerToSucceed(sourceNode.Name, kubevirt.Client())
+			DeferCleanup(func() {
+				By("Resuming node labeller on source node")
+				libinfra.ExpectResumingNodeLabellerToSucceed(sourceNode.Name, kubevirt.Client())
+			})
+
+			By("Simulating QEMU upgrade: removing a required feature from both nodes")
+			featureToRemove := requiredFeatures[0]
+			libnode.RemoveLabelFromNode(sourceNode.Name, v1.HostModelRequiredFeaturesLabel+featureToRemove)
+			libnode.RemoveLabelFromNode(sourceNode.Name, v1.CPUFeatureLabel+featureToRemove)
+			libnode.RemoveLabelFromNode(targetNode.Name, v1.HostModelRequiredFeaturesLabel+featureToRemove)
+			libnode.RemoveLabelFromNode(targetNode.Name, v1.CPUFeatureLabel+featureToRemove)
+
+			By("Migrating back to source node (second migration should drop stale feature)")
+			migration2 := libmigration.New(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration2)
+
+			vmiToMigrate, err = kubevirt.Client().VirtualMachineInstance(vmiToMigrate.Namespace).Get(
+				context.Background(), vmiToMigrate.GetName(), metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
+
+			By("Verifying the stale feature is not in the target pod's nodeSelector")
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmiToMigrate, vmiToMigrate.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(virtLauncherPod.Spec.NodeSelector).NotTo(
+				HaveKey(v1.CPUFeatureLabel+featureToRemove),
+				fmt.Sprintf("stale cpu-feature %s should have been dropped from nodeSelector", featureToRemove))
+		})
 	})
 }))
 
