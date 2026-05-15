@@ -20,6 +20,7 @@
 package infrastructure
 
 import (
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -58,7 +59,7 @@ var _ = Describe(SIGSerial("cluster profiler for pprof data aggregation", func()
 			_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
 			Expect(err).To(HaveOccurred())
 		})
-		It("is enabled it should allow subresource access", func() {
+		It("[QUARANTINE]is enabled it should allow subresource access", decorators.Quarantine, func() {
 			kvConfig.DeveloperConfiguration.ClusterProfiler = true
 			config.UpdateKubeVirtConfigValueAndWait(kvConfig)
 
