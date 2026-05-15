@@ -39,19 +39,20 @@ import (
 
 type v2Manager struct {
 	cgroups.Manager
-	dirPath        string
-	isRootless     bool
-	deviceRules    []*devices.Rule
-	execVirtChroot execVirtChrootFunc
+	dirPath         string
+	isRootless      bool
+	deviceRules     []*devices.Rule
+	execVirtChroot  execVirtChrootFunc
+	spliceDeviceMap bool
 }
 
-func newV2Manager(config *cgroups.Cgroup, dirPath string) (Manager, error) {
+func newV2Manager(config *cgroups.Cgroup, dirPath string, spliceDeviceMap bool) (Manager, error) {
 	cgManager, err := cgroupfs2.NewManager(config, dirPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(cgManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups)
+	return newCustomizedV2Manager(cgManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups, spliceDeviceMap)
 }
 
 func newCustomizedV2Manager(
@@ -59,6 +60,7 @@ func newCustomizedV2Manager(
 	isRootless bool,
 	deviceRules []*devices.Rule,
 	execVirtChroot execVirtChrootFunc,
+	spliceDeviceMap bool,
 ) (Manager, error) {
 	manager := v2Manager{
 		cgManager,
@@ -66,6 +68,7 @@ func newCustomizedV2Manager(
 		isRootless,
 		append(deviceRules, GenerateDefaultDeviceRules()...),
 		execVirtChroot,
+		spliceDeviceMap,
 	}
 
 	return &manager, nil

@@ -107,7 +107,7 @@ func managerPath(taskPath string) string {
 
 // newManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
-func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, err error) {
+func newManagerFromPid(pid int, deviceRules []*devices.Rule, spliceDeviceMap bool) (manager Manager, err error) {
 	const isRootless = false
 	var version CgroupVersion
 
@@ -129,7 +129,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 		version = V2
 		slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
 		slicePath = managerPath(slicePath)
-		manager, err = newV2Manager(config, slicePath)
+		manager, err = newV2Manager(config, slicePath, spliceDeviceMap)
 	} else {
 		version = V1
 		for subsystem, path := range controllerPaths {
@@ -152,10 +152,14 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 	return manager, err
 }
 
-func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool) (Manager, error) {
+func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool, spliceDeviceMap bool) (Manager, error) {
 	isolationRes, err := detectVMIsolation(vmi)
 	if err != nil {
 		return nil, err
+	}
+
+	if spliceDeviceMap {
+		return newManagerFromPid(isolationRes.Pid(), nil, true)
 	}
 
 	mountRoot, err := isolationRes.MountRoot()
@@ -167,8 +171,7 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDev
 	if err != nil {
 		return nil, err
 	}
-
-	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
+	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules, false)
 }
 
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
