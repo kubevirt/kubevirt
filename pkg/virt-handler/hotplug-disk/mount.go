@@ -438,6 +438,15 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 			return err
 		}
 		log.Log.Object(vmi).V(1).Infof("successfully created block device %s", volume)
+
+		if err := m.allowBlockMajorMinor(dev, cgroupManager); err != nil {
+			// Remove the device file so the next resync retries both
+			// creation and AllowDevice.
+			if p, e := safepath.JoinNoFollow(targetPath, volume); e == nil {
+				_ = safepath.UnlinkAtNoFollow(p)
+			}
+			return err
+		}
 	} else if err != nil {
 		return err
 	}
@@ -450,15 +459,6 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 		return err
 	} else if !isBlockExists {
 		return fmt.Errorf("target device %v exists but it is not a block device", devicePath)
-	}
-
-	dev, _, err := m.getBlockFileMajorMinor(devicePath, statDevice)
-	if err != nil {
-		return err
-	}
-	// allow block devices
-	if err := m.allowBlockMajorMinor(dev, cgroupManager); err != nil {
-		return err
 	}
 
 	return m.ownershipManager.SetFileOwnership(devicePath)
