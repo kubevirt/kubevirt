@@ -54,12 +54,12 @@ func spliceDeviceMapLookup(cgroupPaths []string) (string, error) {
 		return "", fmt.Errorf("no cgroup paths provided")
 	}
 
-	// If the map is already pinned, the splice was done on a previous call.
-	// This should not happen under normal operation — the splice runs once
-	// at container startup. A second call indicates a bug or manual invocation.
+	// If the map is already pinned, the splice was already done. This should
+	// not normally happen unless virt-handler was restarted (which clears its
+	// in-memory splice cache). Harmless — just skip.
 	pinPath := deviceMapPinPath(cgroupPaths[0])
 	if _, err := os.Stat(pinPath); err == nil {
-		fmt.Fprintf(os.Stderr, "error: device map already exists at %s, skipping splice (duplicate call)\n", pinPath)
+		fmt.Fprintf(os.Stderr, "device map already exists at %s, skipping splice\n", pinPath)
 		return pinPath, nil
 	}
 
