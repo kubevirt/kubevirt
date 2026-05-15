@@ -514,6 +514,90 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should call AllowDevice when block device is first created", func() {
+			blockSourcePodUID := types.UID("fghij")
+			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+
+			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
+				return fakeStat(true, 0666, 123456), nil
+			}
+			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
+				return true, nil
+			}
+			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
+				f, err := os.Create(filepath.Join(unsafepath.UnsafeAbsolute(basePath.Raw()), deviceName))
+				if err != nil {
+					return err
+				}
+				return f.Close()
+			}
+
+			allowCalled := false
+			cgroupManagerMock.EXPECT().AllowDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(deviceType string, major, minor int64, permissions string) error {
+					allowCalled = true
+					return nil
+				},
+			)
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any())
+
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(allowCalled).To(BeTrue(), "AllowDevice should be called on first mount")
+		})
+
+		It("should skip AllowDevice when block device already exists", func() {
+			blockSourcePodUID := types.UID("fghij")
+			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+
+			// Pre-create the target device file to simulate a previous mount
+			_, err = newFile(targetPodPath, "testvolume")
+			Expect(err).ToNot(HaveOccurred())
+
+			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
+				return true, nil
+			}
+
+			cgroupManagerMock.EXPECT().AllowDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any())
+
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should remove device file if AllowDevice fails", func() {
+			blockSourcePodUID := types.UID("fghij")
+			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+
+			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
+				return fakeStat(true, 0666, 123456), nil
+			}
+			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
+				f, err := os.Create(filepath.Join(unsafepath.UnsafeAbsolute(basePath.Raw()), deviceName))
+				if err != nil {
+					return err
+				}
+				return f.Close()
+			}
+
+			cgroupManagerMock.EXPECT().AllowDevice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("allow failed"))
+
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("allow failed"))
+
+			// Verify the device file was removed so next sync retries
+			targetDevicePath := filepath.Join(targetPodPath, "testvolume")
+			_, err = os.Stat(targetDevicePath)
+			Expect(err).To(HaveOccurred(), "device file should be removed after AllowDevice failure")
+		})
+
 	})
 
 	Context("filesystem volumes", func() {
