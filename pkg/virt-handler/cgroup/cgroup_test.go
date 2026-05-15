@@ -77,7 +77,7 @@ var _ = Describe("cgroup manager", func() {
 		if version == V1 {
 			return newCustomizedV1Manager(mockCgroupsManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 		} else {
-			return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc)
+			return newCustomizedV2Manager(mockCgroupsManager, false, nil, execVirtChrootFunc, false)
 		}
 	}
 
