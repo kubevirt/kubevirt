@@ -186,13 +186,46 @@ func (v *v2Manager) SetCpuSet(subcgroup string, cpulist []int) error {
 }
 
 func (v *v2Manager) AllowDevice(deviceType string, major, minor int64, permissions string) error {
+	if !v.spliceDeviceMap {
+		devType := devices.BlockDevice
+		if deviceType == cgroupconsts.CharDevice {
+			devType = devices.CharDevice
+		}
+		return v.Set(&cgroups.Resources{
+			Devices: []*devices.Rule{{
+				Type:        devType,
+				Major:       major,
+				Minor:       minor,
+				Permissions: devices.Permissions(permissions),
+				Allow:       true,
+			}},
+		})
+	}
 	return execVirtChrootUpdateDevice(v.dirPath, deviceType, major, minor, permissions, true)
 }
 
 func (v *v2Manager) RemoveDevice(deviceType string, major, minor int64) error {
+	if !v.spliceDeviceMap {
+		devType := devices.BlockDevice
+		if deviceType == cgroupconsts.CharDevice {
+			devType = devices.CharDevice
+		}
+		return v.Set(&cgroups.Resources{
+			Devices: []*devices.Rule{{
+				Type:        devType,
+				Major:       major,
+				Minor:       minor,
+				Permissions: devices.Permissions(getDeviceRwmPermissions()),
+				Allow:       false,
+			}},
+		})
+	}
 	return execVirtChrootUpdateDevice(v.dirPath, deviceType, major, minor, "", false)
 }
 
 func (v *v2Manager) ListDevices() ([]cgroupconsts.DeviceMapEntry, error) {
+	if !v.spliceDeviceMap {
+		return nil, nil
+	}
 	return execVirtChrootListDevices(v.dirPath)
 }
