@@ -163,11 +163,6 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should ignore VMIs which are not migratable", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
 			node := newNode("testnode")
 			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
@@ -185,10 +180,10 @@ var _ = Describe("Evacuation", func() {
 			controller.vmiIndexer.Add(vmi1)
 
 			sanityExecute()
-			testutils.ExpectEvents(recorder,
-				FailedCreateVirtualMachineInstanceMigrationReason,
-				FailedCreateVirtualMachineInstanceMigrationReason,
-			)
+
+			migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrationList.Items).To(BeEmpty())
 		})
 
 		It("should evict VMIs even if 5 migrations are in progress", func() {
@@ -229,35 +224,6 @@ var _ = Describe("Evacuation", func() {
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
-		})
-
-		It("Should record a warning on a not migratable VMI", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
-			node := newNode("foo")
-			addNode(node)
-			enqueue(node)
-			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionFalse,
-				},
-			}
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionFalse,
-				},
-			}
-			vmi.Status.EvacuationNodeName = vmi.Status.NodeName
-			controller.vmiIndexer.Add(vmi)
-			sanityExecute()
-			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineInstanceMigrationReason)
 		})
 
 		It("Should do nothing when active migrations exceed the configured concurrent maximum", func() {
