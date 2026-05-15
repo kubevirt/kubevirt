@@ -130,7 +130,6 @@ linters:
       - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
-      - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
@@ -165,7 +164,6 @@ formatters:
       - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
-      - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
