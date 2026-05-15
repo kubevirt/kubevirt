@@ -37,12 +37,17 @@ import (
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
+type updateDeviceFunc func(cgroupPath, deviceType string, major, minor int64, permissions string, allow bool) error
+type listDevicesFunc func(cgroupPath string) ([]cgroupconsts.DeviceMapEntry, error)
+
 type v2Manager struct {
 	cgroups.Manager
 	dirPath         string
 	deviceRules     []*devices.Rule
 	execVirtChroot  execVirtChrootFunc
 	spliceDeviceMap bool
+	updateDevice    updateDeviceFunc
+	listDevices     listDevicesFunc
 }
 
 func newV2Manager(config *cgroups.Cgroup, dirPath string, spliceDeviceMap bool) (Manager, error) {
@@ -51,13 +56,15 @@ func newV2Manager(config *cgroups.Cgroup, dirPath string, spliceDeviceMap bool) 
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(cgManager, config.Resources.Devices, execVirtChrootCgroups, spliceDeviceMap)
+	return newCustomizedV2Manager(cgManager, config.Resources.Devices, execVirtChrootCgroups, execVirtChrootUpdateDevice, execVirtChrootListDevices, spliceDeviceMap)
 }
 
 func newCustomizedV2Manager(
 	cgManager cgroups.Manager,
 	deviceRules []*devices.Rule,
 	execVirtChroot execVirtChrootFunc,
+	updateDevice updateDeviceFunc,
+	listDevicesFn listDevicesFunc,
 	spliceDeviceMap bool,
 ) (Manager, error) {
 	manager := v2Manager{
@@ -66,6 +73,8 @@ func newCustomizedV2Manager(
 		append(deviceRules, GenerateDefaultDeviceRules()...),
 		execVirtChroot,
 		spliceDeviceMap,
+		updateDevice,
+		listDevicesFn,
 	}
 
 	return &manager, nil
@@ -198,7 +207,7 @@ func (v *v2Manager) AllowDevice(deviceType string, major, minor int64, permissio
 			}},
 		})
 	}
-	return execVirtChrootUpdateDevice(v.dirPath, deviceType, major, minor, permissions, true)
+	return v.updateDevice(v.dirPath, deviceType, major, minor, permissions, true)
 }
 
 func (v *v2Manager) RemoveDevice(deviceType string, major, minor int64) error {
@@ -217,12 +226,12 @@ func (v *v2Manager) RemoveDevice(deviceType string, major, minor int64) error {
 			}},
 		})
 	}
-	return execVirtChrootUpdateDevice(v.dirPath, deviceType, major, minor, "", false)
+	return v.updateDevice(v.dirPath, deviceType, major, minor, "", false)
 }
 
 func (v *v2Manager) ListDevices() ([]cgroupconsts.DeviceMapEntry, error) {
 	if !v.spliceDeviceMap {
 		return nil, nil
 	}
-	return execVirtChrootListDevices(v.dirPath)
+	return v.listDevices(v.dirPath)
 }
