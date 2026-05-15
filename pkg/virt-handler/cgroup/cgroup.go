@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"kubevirt.io/client-go/log"
 
@@ -105,10 +106,15 @@ func managerPath(taskPath string) string {
 	return retPath
 }
 
+// splicedCgroups tracks cgroup paths that have already had their eBPF device
+// map spliced, avoiding redundant virt-chroot forks on every sync loop.
+var splicedCgroups sync.Map
+
 // newManagerFromPid initializes a new cgroup manager from VMI's pid.
 // The pid is expected to VMI's pid from the host's viewpoint.
 func newManagerFromPid(pid int, deviceRules []*devices.Rule, spliceDeviceMap bool) (manager Manager, err error) {
 	var version CgroupVersion
+	var slicePath string
 
 	procCgroupBasePath := filepath.Join(cgroupconsts.ProcMountPoint, strconv.Itoa(pid), cgroupconsts.CgroupStr)
 	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
@@ -125,7 +131,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule, spliceDeviceMap boo
 
 	if cgroups.IsCgroup2UnifiedMode() {
 		version = V2
-		slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
+		slicePath = filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
 		slicePath = managerPath(slicePath)
 		manager, err = newV2Manager(config, slicePath, spliceDeviceMap)
 	} else {
@@ -163,7 +169,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule, spliceDeviceMap boo
 		}
 	}
 
-	return manager, err
+	return manager, nil
 }
 
 func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool, spliceDeviceMap bool) (Manager, error) {
