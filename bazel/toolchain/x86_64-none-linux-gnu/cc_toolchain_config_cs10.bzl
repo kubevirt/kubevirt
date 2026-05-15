@@ -6,6 +6,7 @@ load(
     "flag_set",
     "tool_path",
 )
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 all_link_actions = [
     ACTION_NAMES.cpp_link_executable,
@@ -129,5 +130,4 @@ def _impl(ctx):
 cc_toolchain_config_cs10 = rule(
     implementation = _impl,
     attrs = {},
-    provides = [CcToolchainConfigInfo],
 )

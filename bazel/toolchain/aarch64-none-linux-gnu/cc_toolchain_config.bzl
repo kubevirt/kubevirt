@@ -1,3 +1,16 @@
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+
+"""
+C++ Toolchain Configuration for aarch64 (ARM64) Cross-Compilation
+
+This file defines the C++ toolchain for cross-compiling to aarch64 (ARM64) architecture.
+
+Architecture: aarch64 (ARM64)
+Tools: aarch64-linux-gnu-* (GCC cross-compiler toolchain)
+OS Support: CentOS Stream 9 (GCC 12.x)
+
+"""
+
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -7,12 +20,16 @@ load(
     "tool_path",
 )
 
+# Action names used for organizing compiler/linker flags.
+# These are predefined by Bazel and correspond to specific compilation/linking phases.
 all_link_actions = [
     ACTION_NAMES.cpp_link_executable,
     ACTION_NAMES.cpp_link_dynamic_library,
     ACTION_NAMES.cpp_link_nodeps_dynamic_library,
 ]
 
+# Compile actions include C/C++ compilation, assembly, and preprocessing.
+# These flags apply to all compilation phases for this toolchain.
 all_compile_actions = [
     ACTION_NAMES.assemble,
     ACTION_NAMES.c_compile,
@@ -27,6 +44,7 @@ all_compile_actions = [
 ]
 
 def _impl(ctx):
+    # Tool paths for cross-compilation to aarch64.
     tool_paths = [
         tool_path(
             name = "ar",
@@ -140,5 +158,4 @@ def _impl(ctx):
 cc_toolchain_config = rule(
     implementation = _impl,
     attrs = {},
-    provides = [CcToolchainConfigInfo],
 )

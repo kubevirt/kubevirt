@@ -1,0 +1,13 @@
+--- a/bazeldnf/extensions.bzl
++++ b/bazeldnf/extensions.bzl
+@@ -245,7 +245,9 @@ def _add_rpm_repository(config, rpm, lock_file_json, registered_rpms):
+     if mirrors == None:
+         fail("couldn't resolve %s in %s" % (repository, lock_file_json["repositories"]))
+     href = rpm.pop("urls")[0]
+-    urls = ["%s/%s" % (x, href) for x in mirrors]
++    fallback_urls = rpm.pop("fallback_urls", [])
++    urls = ["%s/%s" % (x, href) for x in mirrors]
++    urls += fallback_urls
+     rpm_repository(
+         name = name,
+         dependencies = dependencies,

@@ -1,3 +1,16 @@
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+
+"""
+C++ Toolchain Configuration for x86_64 (Native x86_64)
+
+This file defines the C++ toolchain for native x86_64 (Intel/AMD 64-bit) builds on Linux.
+
+Architecture: x86_64 (Native Intel/AMD 64-bit)
+Tools: gcc, g++ (native system compiler)
+OS Support: CentOS Stream 9 (GCC 12.x)
+
+"""
+
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -27,6 +40,9 @@ all_compile_actions = [
 ]
 
 def _impl(ctx):
+    # Tool paths for native x86_64 builds.
+    # These point to the standard system compiler tools (gcc, g++, etc).
+    # Path: /usr/bin/* (standard system compilers)
     tool_paths = [
         tool_path(
             name = "ar",
@@ -135,5 +151,4 @@ def _impl(ctx):
 cc_toolchain_config = rule(
     implementation = _impl,
     attrs = {},
-    provides = [CcToolchainConfigInfo],
 )
