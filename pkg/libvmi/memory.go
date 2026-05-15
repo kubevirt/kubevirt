@@ -86,3 +86,30 @@ func WithMemoryLimit(value string) Option {
 		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
 	}
 }
+
+// WithAddedOverhead specifies the additional memory overhead for the VMI.
+func WithAddedOverhead(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Memory == nil {
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+		}
+		if vmi.Spec.Domain.Memory.ReservedOverhead == nil {
+			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{}
+		}
+		quantity := resource.MustParse(value)
+		vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead = &quantity
+	}
+}
+
+// WithMemLock specifies whether the VMI memory needs to be locked.
+func WithMemLock(memLock v1.MemLockRequirement) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Memory == nil {
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+		}
+		if vmi.Spec.Domain.Memory.ReservedOverhead == nil {
+			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{}
+		}
+		vmi.Spec.Domain.Memory.ReservedOverhead.MemLock = &memLock
+	}
+}
