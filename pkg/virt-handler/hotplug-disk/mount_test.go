@@ -462,8 +462,7 @@ var _ = Describe("HotplugVolume", func() {
 				return true, nil
 			}
 
-			By("Mounting and validating expected rule is set")
-			expectAllow(482, 64)
+			By("Mounting — device already exists so AllowDevice is skipped")
 			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
