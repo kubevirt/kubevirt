@@ -1469,10 +1469,8 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/deckhouse/kube-api-rewriter v0.1.3-0.20260406124156-ce4a0c0caa5e h1:vXTEIYbrRwCx8JSfDpqo2ZWd9tHoOpenG79cfWhCHB0=
-github.com/deckhouse/kube-api-rewriter v0.1.3-0.20260406124156-ce4a0c0caa5e/go.mod h1:8to3GRDUwS01nqRn19yb0qZBHGsgRW+UWfBMNi5FV44=
-github.com/deckhouse/kube-api-rewriter v0.2.0 h1:/cl2r7NtJtHPCK19vzkTbxQYnMozjP46wwUBfMjXqqk=
-github.com/deckhouse/kube-api-rewriter v0.2.0/go.mod h1:8to3GRDUwS01nqRn19yb0qZBHGsgRW+UWfBMNi5FV44=
+github.com/deckhouse/kube-api-rewriter v0.2.1 h1:pqnb6mLJHYTSSGed4nmphOb/CUECXkqU4yQrP70buMY=
+github.com/deckhouse/kube-api-rewriter v0.2.1/go.mod h1:sOc/0+e8AVF7nxhre8aPmLWIlQGbCMK5HVs5dBWocV8=
 github.com/deckhouse/virtualization/src/kubevirt-rules v1.7.0 h1:RSO8fCpM/PFQxB/nHbEnnWpdjVUhuvT5++u0JTJfhvo=
 github.com/deckhouse/virtualization/src/kubevirt-rules v1.7.0/go.mod h1:24QpVyPw6iDkpUpXyDhG2jnjIJP5aAHCb7618k1JPF8=
 github.com/docker/distribution v2.7.0+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
@@ -3610,7 +3608,6 @@ sigs.k8s.io/controller-runtime v0.22.4 h1:GEjV7KV3TY8e+tJ2LCTxUTanW4z/FmNB7l327U
 sigs.k8s.io/controller-runtime v0.22.4/go.mod h1:+QX1XUpTXN4mLoblf4tqr5CQcyHPAki2HLXqQMY6vh8=
 sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6/go.mod h1:p4QtZmO4uMYipTQNzagwnNoseA6OxSUutVw05NhYDRs=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
-sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 h1:gBQPwqORJ8d8/YNZWEjoZs7npUVDpVXUUOFfW6CgAqE=
 sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8/go.mod h1:mdzfpAEoE6DHQEN0uh9ZbOCuHbLK5wOm7dK4ctXE9Tg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730/go.mod h1:mdzfpAEoE6DHQEN0uh9ZbOCuHbLK5wOm7dK4ctXE9Tg=

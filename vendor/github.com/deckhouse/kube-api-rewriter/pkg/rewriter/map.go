@@ -24,15 +24,25 @@ import (
 // TODO merge this file into transformers.go
 
 // RewriteMapStringString transforms map[string]string value addressed by path.
+//
+// Note: map may contain 'null' values, e.g. "remove label with strategic patch".
+// Here we enforce the contract "null is empty string" for transformFn, so there is no distinguish
+// between null and empty string in transformFn. Transforming null to something different seems odd
+// for rewriting purposes, so "null as empty string" contract seems ok for now.
 func RewriteMapStringString(obj []byte, mapPath string, transformFn func(k, v string) (string, string)) ([]byte, error) {
 	m := gjson.GetBytes(obj, mapPath).Map()
 	if len(m) == 0 {
 		return obj, nil
 	}
-	newMap := make(map[string]string, len(m))
+	newMap := make(map[string]*string, len(m))
 	for k, v := range m {
 		newK, newV := transformFn(k, v.String())
-		newMap[newK] = newV
+		// Handle null value for strategic and merge patches.
+		if v.Value() == nil && newV == "" {
+			newMap[newK] = nil
+			continue
+		}
+		newMap[newK] = &newV
 	}
 
 	return sjson.SetBytes(obj, mapPath, newMap)
