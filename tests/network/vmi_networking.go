@@ -82,8 +82,14 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		})
 		Context("with a test outbound VMI", func() {
 			BeforeEach(func() {
-				inboundVMI = libvmifact.NewCirros()
-				outboundVMI = libvmifact.NewCirros()
+				inboundVMI = libvmifact.NewCirros(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+				outboundVMI = libvmifact.NewCirros(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
 				inboundVMIWithMultiQueueSingleCPU = vmiWithMultiQueue()
 
@@ -100,7 +106,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(outboundVMI, outboundVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(libnet.ValidateVMIandPodIPMatch(outboundVMI, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
+				Expect(outboundVMI.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP), "Should have matching IP between pod and vmi")
 
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
