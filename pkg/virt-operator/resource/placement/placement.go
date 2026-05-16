@@ -224,8 +224,6 @@ func mergeTolerations(podSpec *corev1.PodSpec, nodePlacement *v1.NodePlacement) 
 	if len(nodePlacement.Tolerations) == 0 {
 		return
 	}
-	if len(podSpec.Tolerations) == 0 {
-		podSpec.Tolerations = []corev1.Toleration{}
-	}
+
 	podSpec.Tolerations = append(podSpec.Tolerations, nodePlacement.Tolerations...)
 }
