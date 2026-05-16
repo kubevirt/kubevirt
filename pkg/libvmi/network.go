@@ -113,6 +113,12 @@ func InterfaceWithMac(iface kvirtv1.Interface, macAddress string) kvirtv1.Interf
 	return iface
 }
 
+// InterfaceWithPciAddress decorates an existing Interface with a guest PCI address.
+func InterfaceWithPciAddress(iface kvirtv1.Interface, pciAddress string) kvirtv1.Interface {
+	iface.PciAddress = pciAddress
+	return iface
+}
+
 // InterfaceWithModel decorates an existing Interface with a model.
 func InterfaceWithModel(iface kvirtv1.Interface, model string) kvirtv1.Interface {
 	iface.Model = model
