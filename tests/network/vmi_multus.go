@@ -595,15 +595,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
 		Context("with qemu guest agent", func() {
 			It("[test_id:1757] should report guest interfaces in VMI status", decorators.WgS390x, func() {
-				interfaces := []v1.Interface{
-					*v1.DefaultMasqueradeNetworkInterface(),
-					linuxBridgeInterface,
-				}
-				networks := []v1.Network{
-					*v1.DefaultPodNetwork(),
-					linuxBridgeNetwork,
-				}
-
 				v4Mask := "/24"
 				ep1Ip := "1.0.0.10"
 				ep2Ip := "1.0.0.11"
@@ -624,12 +615,13 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
                     ip addr add %s dev ep2
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
 				agentVMI := libvmifact.NewFedora(
+					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+					libvmi.WithInterface(linuxBridgeInterface),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(userdata)),
 					libvmi.WithMemoryRequest("1024M"),
 				)
-
-				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
-				agentVMI.Spec.Networks = networks
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
