@@ -44,19 +44,15 @@ import (
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 // Manager is the only interface to use in order to inspect, update or define cgroup properties.
-// This interface is agnostic to cgroups version (supports v1 and v2) and is completely transparent from the
-// user's perspective. To achieve this, the opencontainers/cgroups library is being leveraged. This package's
-// implementation guide-line is to have the thinnest glue layer possible. This interface can, of course, extend
-// the library and introduce new functionalities that are specific to KubeVirt's use.
+// Only cgroups v2 is supported. The opencontainers/cgroups library is being leveraged, and this
+// package's implementation guide-line is to have the thinnest glue layer possible. This interface
+// can extend the library and introduce new functionalities that are specific to KubeVirt's use.
 type Manager interface {
 	Set(r *cgroups.Resources) error
 
 	// GetBasePathToHostSubsystem returns the path to the specified subsystem
 	// from the host's viewpoint.
 	GetBasePathToHostSubsystem(subsystem string) (string, error)
-
-	// GetCgroupVersion returns the current cgroup version (i.e. v1 or v2)
-	GetCgroupVersion() CgroupVersion
 
 	// GetCpuSet returns the cpu set
 	GetCpuSet() (string, error)
@@ -97,7 +93,6 @@ func managerPath(taskPath string) string {
 // The pid is expected to VMI's pid from the host's viewpoint.
 func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, err error) {
 	const isRootless = false
-	var version CgroupVersion
 
 	procCgroupBasePath := filepath.Join(cgroupconsts.ProcMountPoint, strconv.Itoa(pid), cgroupconsts.CgroupStr)
 	controllerPaths, err := cgroups.ParseCgroupFile(procCgroupBasePath)
@@ -113,28 +108,14 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 		Rootless: isRootless,
 	}
 
-	if cgroups.IsCgroup2UnifiedMode() {
-		version = V2
-		slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
-		slicePath = managerPath(slicePath)
-		manager, err = newV2Manager(config, slicePath)
-	} else {
-		version = V1
-		for subsystem, path := range controllerPaths {
-			if path == "" {
-				continue
-			}
-			path = managerPath(path)
-			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
-		}
-
-		manager, err = newV1Manager(config, controllerPaths)
-	}
+	slicePath := filepath.Join(cgroupconsts.CgroupBasePath, controllerPaths[""])
+	slicePath = managerPath(slicePath)
+	manager, err = newV2Manager(config, slicePath)
 
 	if err != nil {
-		log.Log.Errorf("error occurred while initialized a new cgroup %s manager: %v", version, err)
+		log.Log.Errorf("error occurred while initializing cgroup v2 manager: %v", err)
 	} else {
-		log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+		log.Log.Infof("initialized cgroup v2 manager successfully. controllerPaths: %v, procCgroupBasePath: %s", controllerPaths, procCgroupBasePath)
 	}
 
 	return manager, err
@@ -156,10 +137,7 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDev
 
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
 func GetGlobalCpuSetPath() string {
-	if cgroups.IsCgroup2UnifiedMode() {
-		return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset.cpus.effective")
-	}
-	return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset", "cpuset.cpus")
+	return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset.cpus.effective")
 }
 
 func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {

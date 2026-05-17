@@ -47,25 +47,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-type CgroupVersion string
-
-// Templates for logging / error messages
 const (
-	V1 CgroupVersion = "v1"
-	V2 CgroupVersion = "v2"
-
 	loggingVerbosity = 2
 
 	rwmPermissions = "rwm"
-	rwPermissions  = "rw"
 )
 
 var (
 	defaultDeviceRules []*devices.Rule
 )
 
-type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
-type getCurrentlyDefinedRulesFunc func(cgManager cgroups.Manager) ([]*devices.Rule, error)
+type execVirtChrootFunc func(r *cgroups.Resources, cgroupPaths []string, rootless bool) error
 
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
 // and all of the rules that are currently set. This way rules that are already defined won't be deleted by this
@@ -126,11 +118,7 @@ func getSourceBlockToFsMigratedVolumes(vmi *v1.VirtualMachineInstance, host stri
 }
 
 func getDevicePermissionsFromCgroups() devices.Permissions {
-	if cgroups.IsCgroup2UnifiedMode() {
-		return rwmPermissions
-	} else {
-		return rwPermissions
-	}
+	return rwmPermissions
 }
 
 func getDeviceRwmPermissions() devices.Permissions {
@@ -368,28 +356,27 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 
 // execVirtChrootCgroups executes virt-chroot cgroups command to apply changes via virt-chroot.
 // This is needed since high privileges are needed and root is needed to change.
-func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+func execVirtChrootCgroups(r *cgroups.Resources, cgroupPaths []string, rootless bool) error {
 	marshalledRules, err := json.Marshal(*r)
 	if err != nil {
 		return fmt.Errorf("failed to marshall resources. err: %v resources: %+v", err, *r)
 	}
 
-	marshalledPaths, err := json.Marshal(subsystemPaths)
+	marshalledPaths, err := json.Marshal(cgroupPaths)
 	if err != nil {
-		return fmt.Errorf("failed to marshall paths. err: %v resources: %+v", err, marshalledPaths)
+		return fmt.Errorf("failed to marshall paths. err: %v paths: %+v", err, cgroupPaths)
 	}
 
 	args := []string{
 		"set-cgroups-resources",
-		"--subsystem-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
+		"--cgroup-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
 		"--resources", base64.StdEncoding.EncodeToString(marshalledRules),
 		fmt.Sprintf("--rootless=%t", rootless),
-		fmt.Sprintf("--isV2=%t", version == V2),
 	}
 
 	cmd := exec.Command("virt-chroot", args...)
 
-	log.Log.V(loggingVerbosity).Infof("setting resources for cgroup %s: %+v", version, *r)
+	log.Log.V(loggingVerbosity).Infof("setting cgroup v2 resources: %+v", *r)
 	log.Log.V(loggingVerbosity).Infof("applying resources with virt-chroot. Full command: %s", cmd.String())
 
 	output, err := cmd.CombinedOutput()
