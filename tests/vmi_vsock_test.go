@@ -283,7 +283,7 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Wait for netcat to exit
-	err = console.RunCommand(vmi, "while pgrep netcat; do sleep 3; done", 60*time.Second)
+	err = console.RunCommand(vmi, "while pgrep netcat; do sleep 1; done", 90*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }
 
