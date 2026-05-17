@@ -37,7 +37,8 @@ WORKDIR="hack/gen-swagger-doc"
 SWAGGER_JSON="api/openapi-spec/swagger.json"
 
 # Generate *.adoc files from swagger.json
-java -jar /opt/swagger2markup-cli/swagger2markup-cli-1.3.3.jar convert -i $SWAGGER_JSON -d $WORKDIR/
+java --add-opens java.base/java.lang=ALL-UNNAMED \
+    -jar /opt/swagger2markup-cli/swagger2markup-cli-1.3.3.jar convert -i $SWAGGER_JSON -d $WORKDIR/
 
 #insert a TOC for top level API objects
 buf="${HEADER}${HEADER} Top Level API Objects\n\n"
