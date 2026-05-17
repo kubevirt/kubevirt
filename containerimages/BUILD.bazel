@@ -1,6 +1,6 @@
-load("@rules_img//img:image.bzl", "image_manifest")
 load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 pkg_tar(
     name = "alpine-image-tar",
@@ -20,7 +20,7 @@ layer_from_tar(
     src = ":alpine-image-tar",
 )
 
-image_manifest(
+kubevirt_image(
     name = "alpine-container-disk-image",
     layers = [":alpine-image-layer"],
     visibility = ["//visibility:public"],
@@ -37,14 +37,9 @@ pkg_tar(
     package_dir = "/disk",
 )
 
-layer_from_tar(
-    name = "cirros-image-layer",
-    src = ":cirros-image-tar",
-)
-
-image_manifest(
+kubevirt_image(
     name = "cirros-container-disk-image",
-    layers = [":cirros-image-layer"],
+    tars = [":cirros-image-tar"],
     visibility = ["//visibility:public"],
 )
 
@@ -59,15 +54,10 @@ pkg_tar(
     package_dir = "/custom-disk",
 )
 
-layer_from_tar(
-    name = "cirros-custom-image-layer",
-    src = ":cirros-custom-image-tar",
-)
-
 # used for e2e testing of custom base baths
-image_manifest(
+kubevirt_image(
     name = "cirros-custom-container-disk-image",
-    layers = [":cirros-custom-image-layer"],
+    tars = [":cirros-custom-image-tar"],
     visibility = ["//visibility:public"],
 )
 
@@ -79,18 +69,13 @@ pkg_tar(
     package_dir = "/disk",
 )
 
-layer_from_tar(
-    name = "virtio-image-layer",
-    src = ":virtio-image-tar",
-)
-
-image_manifest(
+kubevirt_image(
     name = "virtio-container-disk-image",
-    layers = [":virtio-image-layer"],
+    tars = [":virtio-image-tar"],
     visibility = ["//visibility:public"],
 )
 
-image_manifest(
+kubevirt_image(
     name = "fedora-with-test-tooling",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_with_test_tooling_aarch64",
@@ -100,7 +85,7 @@ image_manifest(
     visibility = ["//visibility:public"],
 )
 
-image_manifest(
+kubevirt_image(
     name = "alpine-with-test-tooling",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@alpine_with_test_tooling_arm64",
@@ -110,20 +95,20 @@ image_manifest(
     visibility = ["//visibility:public"],
 )
 
-image_manifest(
+kubevirt_image(
     name = "alpine-ext-kernel-boot-demo-container",
     base = "@alpine-ext-kernel-boot-demo-container-base",
     layers = [":alpine-image-layer"],
     visibility = ["//visibility:public"],
 )
 
-image_manifest(
+kubevirt_image(
     name = "fedora-realtime",
     base = "@fedora_realtime",
     visibility = ["//visibility:public"],
 )
 
-image_manifest(
+kubevirt_image(
     name = "s390x-guestless-kernel",
     base = "@s390x-guestless-kernel",
     visibility = ["//visibility:public"],

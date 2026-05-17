@@ -1,6 +1,5 @@
-load("@rules_img//img:image.bzl", "image_manifest")
-load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 pkg_tar(
     name = "test-pod-mutator-tar",
@@ -9,18 +8,10 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-layer_from_tar(
-    name = "test-pod-mutator-layer",
-    testonly = True,
-    src = ":test-pod-mutator-tar",
-)
-
-image_manifest(
+kubevirt_image(
     name = "test-helpers-image",
     testonly = True,
     base = "//:passwd-image",
-    layers = [
-        ":test-pod-mutator-layer",
-    ],
+    tars = [":test-pod-mutator-tar"],
     visibility = ["//visibility:public"],
 )
