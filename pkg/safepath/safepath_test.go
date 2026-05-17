@@ -263,6 +263,40 @@ var _ = Describe("safepath", func() {
 		Expect(unsafepath.UnsafeRelative(child.Raw())).To(Equal("/test"))
 	})
 
+	It("should fail on symlink as base", func() {
+		baseDir := GinkgoT().TempDir()
+		// Create dir acting as root
+		Expect(os.MkdirAll(filepath.Join(baseDir, "root"), os.ModePerm)).To(Succeed())
+
+		root, err := JoinAndResolveWithRelativeRoot(filepath.Join(baseDir, "root"))
+		Expect(err).ToNot(HaveOccurred())
+
+		// create dir and file within root
+		Expect(os.MkdirAll(filepath.Join(baseDir, "root", "dir"), os.ModePerm)).To(Succeed())
+		f, err := os.Create(filepath.Join(baseDir, "root", "dir", "file"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(f.Close()).ToNot(HaveOccurred())
+
+		// create symlinks to dir & file
+		Expect(os.Symlink(filepath.Join(baseDir, "root", "dir"),
+			filepath.Join(baseDir, "root", "symtodir"))).
+			To(Succeed())
+		Expect(os.Symlink(filepath.Join(baseDir, "root", "dir", "file"),
+			filepath.Join(baseDir, "root", "symtofile"))).
+			To(Succeed())
+
+		// Test
+		_, err = JoinNoFollow(root, "symtodir")
+		Expect(err).To(MatchError(ContainSubstring("symlink")))
+
+		_, err = NewPathNoFollow(filepath.Join(baseDir, "root", "symtodir"))
+		Expect(err).To(MatchError(ContainSubstring("symlink")))
+
+		_, err = NewFileNoFollow(filepath.Join(baseDir, "root", "symtofile"))
+		Expect(err).To(MatchError(ContainSubstring("symlink")))
+
+	})
+
 	It("should append new relative root components to the relative path", func() {
 		baseDir := GinkgoT().TempDir()
 		root, err := JoinAndResolveWithRelativeRoot(baseDir)
