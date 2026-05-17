@@ -1,7 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
-load("@rules_img//img:image.bzl", "image_manifest")
-load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 pkg_tar(
     name = "conformance-config",
@@ -20,36 +19,20 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-layer_from_tar(
-    name = "conformance-config-layer",
-    testonly = True,
-    src = ":conformance-config",
-)
-
-layer_from_tar(
-    name = "conformance-tests-layer",
-    testonly = True,
-    src = ":conformance-tests",
-)
-
-image_manifest(
+kubevirt_image(
     name = "conformance_image_base",
     testonly = True,
     base = "//:passwd-image",
-    layers = [
-        ":conformance-config-layer",
-    ],
+    tars = [":conformance-config"],
     visibility = ["//visibility:public"],
 )
 
-image_manifest(
+kubevirt_image(
     name = "conformance_image",
     testonly = True,
     base = ":conformance_image_base",
     entrypoint = ["/usr/bin/conformance"],
-    layers = [
-        ":conformance-tests-layer",
-    ],
+    tars = [":conformance-tests"],
     visibility = ["//visibility:public"],
 )
 

@@ -1,7 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
-load("@rules_img//img:image.bzl", "image_manifest")
-load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 go_library(
     name = "go_default_library",
@@ -27,18 +26,11 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-layer_from_tar(
-    name = "onDefineDomain-layer",
-    src = ":onDefineDomain-tar",
-)
-
-image_manifest(
+kubevirt_image(
     name = "example-hook-sidecar-image",
     base = "//cmd/sidecars:sidecar-shim-image",
     entrypoint = ["/sidecar-shim"],
-    layers = [
-        ":onDefineDomain-layer",
-    ],
+    tars = [":onDefineDomain-tar"],
     visibility = ["//visibility:public"],
 )
 
