@@ -1116,24 +1116,23 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					return ""
 				}).WithTimeout(60 * time.Second).WithPolling(2 * time.Second).ShouldNot(BeEmpty())
 
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				Expect(console.RunCommand(vmi, "sudo mkfs.ext3 /dev/sda", 30*time.Second)).To(Succeed())
-				Expect(console.RunCommand(vmi, "mkdir test", 30*time.Second)).To(Succeed())
-				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo mount -t ext3 /dev/%s /home/cirros/test", device), 30*time.Second)).To(Succeed())
-				Expect(console.RunCommand(vmi, "sudo chmod 777 /home/cirros/test", 30*time.Second)).To(Succeed())
-				Expect(console.RunCommand(vmi, "sudo chown cirros:cirros /home/cirros/test", 30*time.Second)).To(Succeed())
-				Expect(console.RunCommand(vmi, "printf 'test' &> /home/cirros/test/test", 30*time.Second)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.RunCommand(vmi, "mkfs.ext3 /dev/sda", 30*time.Second)).To(Succeed())
+				Expect(console.RunCommand(vmi, "mkdir -p /root/test", 30*time.Second)).To(Succeed())
+				Expect(console.RunCommand(vmi, fmt.Sprintf("mount -t ext3 /dev/%s /root/test", device), 30*time.Second)).To(Succeed())
+				Expect(console.RunCommand(vmi, "chmod 777 /root/test", 30*time.Second)).To(Succeed())
+				Expect(console.RunCommand(vmi, "printf 'test' > /root/test/test", 30*time.Second)).To(Succeed())
 			}
 			checkFileOnHotpluggedVol := func(vmi *v1.VirtualMachineInstance) {
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-				Expect(console.RunCommand(vmi, "cat /home/cirros/test/test |grep test", 60*time.Second)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.RunCommand(vmi, "cat /root/test/test |grep test", 60*time.Second)).To(Succeed())
 			}
 
 			It("with a containerdisk and a hotplugged volume", func() {
 				const volName = "vol0"
 				ns := testsuite.GetTestNamespace(nil)
 				dv := createBlankDV(virtClient, ns, "2G")
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNamespace(ns),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
@@ -1179,7 +1178,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				}
 				Expect(exist).To(BeTrue())
 				rootDV := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithVolumeSize("1Gi"),
 						libdv.StorageWithVolumeMode(volumeMode),
