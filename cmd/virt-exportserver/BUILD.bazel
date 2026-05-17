@@ -1,6 +1,7 @@
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
@@ -61,37 +62,68 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+layer_from_tar(
+    name = "exportserverbase-layer-x86_64",
+    src = "//rpm:exportserverbase_x86_64",
+)
+
+layer_from_tar(
+    name = "exportserverbase-layer-aarch64",
+    src = "//rpm:exportserverbase_aarch64",
+)
+
+layer_from_tar(
+    name = "exportserverbase-layer-s390x",
+    src = "//rpm:exportserverbase_s390x",
+)
+
+layer_from_tar(
+    name = "passwd-layer",
+    src = ":passwd-tar",
+)
+
+layer_from_tar(
+    name = "get-version-layer",
+    src = ":get-version",
+)
+
+layer_from_tar(
+    name = "virt-exportserver-layer",
+    src = ":virt-exportserver-bin",
+)
+
+image_manifest(
     name = "version-container",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
-    tars = select({
+    layers = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:exportserverbase_aarch64",
-            ":passwd-tar",
-            ":get-version",
+            ":exportserverbase-layer-aarch64",
+            ":passwd-layer",
+            ":get-version-layer",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            ":passwd-tar",
-            "//rpm:exportserverbase_s390x",
+            ":exportserverbase-layer-s390x",
+            ":passwd-layer",
+            ":get-version-layer",
         ],
         "//conditions:default": [
-            "//rpm:exportserverbase_x86_64",
-            ":passwd-tar",
-            ":get-version",
+            ":exportserverbase-layer-x86_64",
+            ":passwd-layer",
+            ":get-version-layer",
         ],
     }),
 )
 
-oci_image(
+image_manifest(
     name = "virt-exportserver-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-exportserver"],
-    tars = [
-        ":virt-exportserver-bin",
+    layers = [
+        ":virt-exportserver-layer",
     ],
     user = "1001",
     visibility = ["//visibility:public"],

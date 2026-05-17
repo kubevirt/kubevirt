@@ -1,4 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 genrule(
@@ -47,14 +48,29 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+layer_from_tar(
+    name = "entrypoint-layer",
+    src = ":entrypoint-tar",
+)
+
+layer_from_tar(
+    name = "alpine-layer",
+    src = ":alpine-tar",
+)
+
+layer_from_tar(
+    name = "custom-layer",
+    src = ":custom-tar",
+)
+
+image_manifest(
     name = "disks-images-provider-image",
     base = "//images:kubevirt-testing-base",
     entrypoint = ["/entrypoint.sh"],
-    tars = [
-        ":entrypoint-tar",
-        ":alpine-tar",
-        ":custom-tar",
+    layers = [
+        ":entrypoint-layer",
+        ":alpine-layer",
+        ":custom-layer",
     ],
     visibility = ["//visibility:public"],
 )

@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -19,23 +20,35 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+layer_from_tar(
+    name = "conformance-config-layer",
+    testonly = True,
+    src = ":conformance-config",
+)
+
+layer_from_tar(
+    name = "conformance-tests-layer",
+    testonly = True,
+    src = ":conformance-tests",
+)
+
+image_manifest(
     name = "conformance_image_base",
     testonly = True,
     base = "//:passwd-image",
-    tars = [
-        ":conformance-config",
+    layers = [
+        ":conformance-config-layer",
     ],
     visibility = ["//visibility:public"],
 )
 
-oci_image(
+image_manifest(
     name = "conformance_image",
     testonly = True,
     base = ":conformance_image_base",
     entrypoint = ["/usr/bin/conformance"],
-    tars = [
-        ":conformance-tests",
+    layers = [
+        ":conformance-tests-layer",
     ],
     visibility = ["//visibility:public"],
 )

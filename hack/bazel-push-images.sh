@@ -79,7 +79,7 @@ for tag in ${docker_tag} ${docker_tag_alt}; do
 
         bazel run \
             --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
-            //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
+            //:push-${target} -- --registry ${docker_prefix} --repository ${image_prefix}${target} --tag ${tag}
 
     done
 done
@@ -90,7 +90,7 @@ if [[ $image_prefix_alt ]]; then
 
         bazel run \
             --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
-            //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${docker_tag}
+            //:push-${target} -- --registry ${docker_prefix} --repository ${image_prefix_alt}${target} --tag ${docker_tag}
 
     done
 fi
