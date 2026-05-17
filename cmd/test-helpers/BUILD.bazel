@@ -1,4 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -8,15 +9,18 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+layer_from_tar(
+    name = "test-pod-mutator-layer",
+    testonly = True,
+    src = ":test-pod-mutator-tar",
+)
+
+image_manifest(
     name = "test-helpers-image",
     testonly = True,
     base = "//:passwd-image",
-    # No entrypoint - let the pod spec define which binary to run
-    # This allows multiple test helper binaries in the same image
-    tars = [
-        ":test-pod-mutator-tar",
-        # Future test helpers can be added here
+    layers = [
+        ":test-pod-mutator-layer",
     ],
     visibility = ["//visibility:public"],
 )

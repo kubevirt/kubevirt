@@ -15,7 +15,9 @@ load(
     container_repositories = "repositories",
 )
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "nogo")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
+load("@rules_img//img:push.bzl", "image_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 py_runtime(
@@ -201,14 +203,19 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-oci_image(
+layer_from_tar(
+    name = "passwd-layer",
+    src = ":passwd-tar",
+)
+
+image_manifest(
     name = "passwd-image",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
-    tars = [":passwd-tar"],
+    layers = [":passwd-layer"],
     user = "1001",
     visibility = ["//visibility:public"],
 )
@@ -218,211 +225,243 @@ config_setting(
     values = {"define": "release=true"},
 )
 
-# we need to push virt images with the rule from container:container in order to get the digest file
-oci_push(
+image_push(
     name = "push-virt-operator",
     image = "//cmd/virt-operator:virt-operator-image",
-    repository = "quay.io/kubevirt/virt-operator",
+    registry = "quay.io",
+    repository = "kubevirt/virt-operator",
 )
 
-oci_push(
+image_push(
     name = "push-virt-api",
     image = "//cmd/virt-api:virt-api-image",
-    repository = "quay.io/kubevirt/virt-api",
+    registry = "quay.io",
+    repository = "kubevirt/virt-api",
 )
 
-oci_push(
+image_push(
     name = "push-virt-controller",
     image = "//cmd/virt-controller:virt-controller-image",
-    repository = "quay.io/kubevirt/virt-controller",
+    registry = "quay.io",
+    repository = "kubevirt/virt-controller",
 )
 
-oci_push(
+image_push(
     name = "push-virt-handler",
     image = "//cmd/virt-handler:virt-handler-image",
-    repository = "quay.io/kubevirt/virt-handler",
+    registry = "quay.io",
+    repository = "kubevirt/virt-handler",
 )
 
-oci_push(
+image_push(
     name = "push-virt-launcher",
     image = "//cmd/virt-launcher:virt-launcher-image",
-    repository = "quay.io/kubevirt/virt-launcher",
+    registry = "quay.io",
+    repository = "kubevirt/virt-launcher",
 )
 
-oci_push(
+image_push(
     name = "push-conformance",
     testonly = True,
     image = "//tests:conformance_image",
-    repository = "quay.io/kubevirt/conformance",
+    registry = "quay.io",
+    repository = "kubevirt/conformance",
 )
 
-oci_push(
+image_push(
     name = "push-libguestfs-tools",
     image = "//cmd/libguestfs:libguestfs-tools-image",
-    repository = "quay.io/kubevirt/libguestfs-tools",
+    registry = "quay.io",
+    repository = "kubevirt/libguestfs-tools",
 )
 
-oci_push(
+image_push(
     name = "push-virt-exportserver",
     image = "//cmd/virt-exportserver:virt-exportserver-image",
-    repository = "quay.io/kubevirt/virt-exportserver",
+    registry = "quay.io",
+    repository = "kubevirt/virt-exportserver",
 )
 
-oci_push(
+image_push(
     name = "push-virt-exportproxy",
     image = "//cmd/virt-exportproxy:virt-exportproxy-image",
-    repository = "quay.io/kubevirt/virt-exportproxy",
+    registry = "quay.io",
+    repository = "kubevirt/virt-exportproxy",
 )
 
-oci_push(
+image_push(
     name = "push-virt-synchronization-controller",
     image = "//cmd/synchronization-controller:virt-synchronization-controller-image",
-    repository = "quay.io/kubevirt/virt-synchronization-controller",
+    registry = "quay.io",
+    repository = "kubevirt/virt-synchronization-controller",
 )
 
-oci_push(
+image_push(
     name = "push-pr-helper",
     image = "//cmd/pr-helper:pr-helper-image",
-    repository = "quay.io/kubevirt/pr-helper",
+    registry = "quay.io",
+    repository = "kubevirt/pr-helper",
 )
 
 # The following container_push list is synced with the images in container_bundle "build-other-images".
 # cmd images
-oci_push(
+image_push(
     name = "push-sidecar-shim",
     image = "//cmd/sidecars:sidecar-shim-image",
-    repository = "quay.io/kubevirt/sidecar-shim",
+    registry = "quay.io",
+    repository = "kubevirt/sidecar-shim",
 )
 
-oci_push(
+image_push(
     name = "push-network-slirp-binding",
     image = "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
-    repository = "quay.io/kubevirt/network-slirp-binding",
+    registry = "quay.io",
+    repository = "kubevirt/network-slirp-binding",
 )
 
-oci_push(
+image_push(
     name = "push-network-passt-binding",
     image = "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
-    repository = "quay.io/kubevirt/network-passt-binding",
+    registry = "quay.io",
+    repository = "kubevirt/network-passt-binding",
 )
 
-oci_push(
+image_push(
     name = "push-network-passt-binding-cni",
     image = "//cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image",
-    repository = "quay.io/kubevirt/network-passt-binding-cni",
+    registry = "quay.io",
+    repository = "kubevirt/network-passt-binding-cni",
 )
 
-oci_push(
+image_push(
     name = "push-example-hook-sidecar",
     image = "//cmd/sidecars/smbios:example-hook-sidecar-image",
-    repository = "quay.io/kubevirt/example-hook-sidecar",
+    registry = "quay.io",
+    repository = "kubevirt/example-hook-sidecar",
 )
 
-oci_push(
+image_push(
     name = "push-example-disk-mutation-hook-sidecar",
     image = "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
-    repository = "quay.io/kubevirt/example-disk-mutation-hook-sidecar",
+    registry = "quay.io",
+    repository = "kubevirt/example-disk-mutation-hook-sidecar",
 )
 
-oci_push(
+image_push(
     name = "push-example-cloudinit-hook-sidecar",
     image = "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
-    repository = "quay.io/kubevirt/example-cloudinit-hook-sidecar",
+    registry = "quay.io",
+    repository = "kubevirt/example-cloudinit-hook-sidecar",
 )
 
 # container-disk images
-oci_push(
+image_push(
     name = "push-alpine-container-disk-demo",
     image = "//containerimages:alpine-container-disk-image",
-    repository = "quay.io/kubevirt/alpine-container-disk-demo",
+    registry = "quay.io",
+    repository = "kubevirt/alpine-container-disk-demo",
 )
 
-oci_push(
+image_push(
     name = "push-cirros-container-disk-demo",
     image = "//containerimages:cirros-container-disk-image",
-    repository = "quay.io/kubevirt/cirros-container-disk-demo",
+    registry = "quay.io",
+    repository = "kubevirt/cirros-container-disk-demo",
 )
 
-oci_push(
+image_push(
     name = "push-cirros-custom-container-disk-demo",
     image = "//containerimages:cirros-custom-container-disk-image",
-    repository = "quay.io/kubevirt/cirros-custom-container-disk-demo",
+    registry = "quay.io",
+    repository = "kubevirt/cirros-custom-container-disk-demo",
 )
 
-oci_push(
+image_push(
     name = "push-virtio-container-disk",
     image = "//containerimages:virtio-container-disk-image",
-    repository = "quay.io/kubevirt/virtio-container-disk",
+    registry = "quay.io",
+    repository = "kubevirt/virtio-container-disk",
 )
 
 # Kernel boot container
-oci_push(
+image_push(
     name = "push-alpine-ext-kernel-boot-demo",
     image = "//containerimages:alpine-ext-kernel-boot-demo-container",
-    repository = "quay.io/kubevirt/alpine-ext-kernel-boot-demo",
+    registry = "quay.io",
+    repository = "kubevirt/alpine-ext-kernel-boot-demo",
 )
 
 # Customized container-disk images
-oci_push(
+image_push(
     name = "push-fedora-with-test-tooling-container-disk",
     image = "//containerimages:fedora-with-test-tooling",
-    repository = "quay.io/kubevirt/fedora-with-test-tooling-container-disk",
+    registry = "quay.io",
+    repository = "kubevirt/fedora-with-test-tooling-container-disk",
 )
 
-oci_push(
+image_push(
     name = "push-alpine-with-test-tooling-container-disk",
     image = "//containerimages:alpine-with-test-tooling",
-    repository = "quay.io/kubevirt/alpine-with-test-tooling-container-disk",
+    registry = "quay.io",
+    repository = "kubevirt/alpine-with-test-tooling-container-disk",
 )
 
-oci_push(
+image_push(
     name = "push-fedora-realtime-container-disk",
     image = "//containerimages:fedora-realtime",
-    repository = "quay.io/kubevirt/fedora-realtime-container-disk",
+    registry = "quay.io",
+    repository = "kubevirt/fedora-realtime-container-disk",
 )
 
-oci_push(
+image_push(
     name = "push-s390x-guestless-kernel",
     image = "//containerimages:s390x-guestless-kernel",
-    repository = "quay.io/kubevirt/s390x-guestless-kernel",
+    registry = "quay.io",
+    repository = "kubevirt/s390x-guestless-kernel",
 )
 
 # testing images
-oci_push(
+image_push(
     name = "push-disks-images-provider",
     image = "//images/disks-images-provider:disks-images-provider-image",
-    repository = "quay.io/kubevirt/disks-images-provider",
+    registry = "quay.io",
+    repository = "kubevirt/disks-images-provider",
 )
 
-oci_push(
+image_push(
     name = "push-vm-killer",
     image = "//images/vm-killer:vm-killer-image",
-    repository = "quay.io/kubevirt/vm-killer",
+    registry = "quay.io",
+    repository = "kubevirt/vm-killer",
 )
 
-oci_push(
+image_push(
     name = "push-test-helpers",
     testonly = True,
     image = "//cmd/test-helpers:test-helpers-image",
-    repository = "quay.io/kubevirt/test-helpers",
+    registry = "quay.io",
+    repository = "kubevirt/test-helpers",
 )
 
-oci_push(
+image_push(
     name = "push-winrmcli",
     image = "//images/winrmcli:winrmcli-image",
-    repository = "quay.io/kubevirt/winrmcli",
+    registry = "quay.io",
+    repository = "kubevirt/winrmcli",
 )
 
-oci_push(
+image_push(
     name = "push-virt-template-apiserver",
     image = "//images/virt-template:virt-template-apiserver-image",
-    repository = "quay.io/kubevirt/virt-template-apiserver",
+    registry = "quay.io",
+    repository = "kubevirt/virt-template-apiserver",
 )
 
-oci_push(
+image_push(
     name = "push-virt-template-controller",
     image = "//images/virt-template:virt-template-controller-image",
-    repository = "quay.io/kubevirt/virt-template-controller",
+    registry = "quay.io",
+    repository = "kubevirt/virt-template-controller",
 )
 
 genrule(
