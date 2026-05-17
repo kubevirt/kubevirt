@@ -30,7 +30,7 @@ virt_template_targets="virt-template-apiserver virt-template-controller"
 for target in ${virt_template_targets}; do
     bazel run \
         --config="${ARCHITECTURE}" \
-        "//:push-${target}" -- --repository "${docker_prefix}/${image_prefix}${target}" --tag "${virt_template_version}"
+        "//:push-${target}" -- --registry "${docker_prefix}" --repository "${image_prefix}${target}" --tag "${virt_template_version}"
 done
 
 # for the imagePrefix operator test
@@ -38,6 +38,6 @@ if [[ $image_prefix_alt ]]; then
     for target in ${virt_template_targets}; do
         bazel run \
             --config="${ARCHITECTURE}" \
-            "//:push-${target}" -- --repository "${docker_prefix}/${image_prefix_alt}${target}" --tag "${virt_template_version}"
+            "//:push-${target}" -- --registry "${docker_prefix}" --repository "${image_prefix_alt}${target}" --tag "${virt_template_version}"
     done
 fi

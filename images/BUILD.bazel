@@ -1,28 +1,43 @@
 load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
-oci_image(
+layer_from_tar(
+    name = "testimage-layer-x86_64",
+    src = "//rpm:testimage_x86_64",
+)
+
+layer_from_tar(
+    name = "testimage-layer-aarch64",
+    src = "//rpm:testimage_aarch64",
+)
+
+layer_from_tar(
+    name = "testimage-layer-s390x",
+    src = "//rpm:testimage_s390x",
+)
+
+layer_from_tar(
+    name = "passwd-layer",
+    src = ":passwd-tar",
+)
+
+image_manifest(
     name = "kubevirt-testing-base",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
-        "//conditions:default": "amd64",
-    }),
-    os = "linux",
-    tars = select({
+    layers = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:testimage_aarch64",
-            ":passwd-tar",
+            ":testimage-layer-aarch64",
+            ":passwd-layer",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:testimage_s390x",
-            ":passwd-tar",
+            ":testimage-layer-s390x",
+            ":passwd-layer",
         ],
         "//conditions:default": [
-            "//rpm:testimage_x86_64",
-            ":passwd-tar",
+            ":testimage-layer-x86_64",
+            ":passwd-layer",
         ],
     }),
     visibility = ["//visibility:public"],

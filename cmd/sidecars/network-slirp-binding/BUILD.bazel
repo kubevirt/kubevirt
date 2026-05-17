@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
@@ -36,20 +37,30 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+layer_from_tar(
+    name = "get-version-layer",
+    src = ":get-version",
+)
+
+layer_from_tar(
+    name = "network-slirp-binding-layer",
+    src = ":network-slirp-binding-tar",
+)
+
+image_manifest(
     name = "version-container",
     base = "//:passwd-image",
-    tars = [
-        ":get-version",
+    layers = [
+        ":get-version-layer",
     ],
 )
 
-oci_image(
+image_manifest(
     name = "network-slirp-binding-image",
     base = ":version-container",
     entrypoint = ["/network-slirp-binding"],
-    tars = [
-        ":network-slirp-binding-tar",
+    layers = [
+        ":network-slirp-binding-layer",
     ],
     visibility = ["//visibility:public"],
 )

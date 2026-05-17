@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("//bazel:image.bzl", "kubevirt_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 go_library(
     name = "go_default_library",
@@ -28,7 +28,7 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+kubevirt_image(
     name = "test-domain-hook-sidecar-image",
     base = "//:passwd-image",
     entrypoint = ["/usr/bin/test-domain-hook-sidecar"],
