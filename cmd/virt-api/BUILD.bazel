@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
@@ -35,20 +36,30 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+layer_from_tar(
+    name = "get-version-layer",
+    src = ":get-version",
+)
+
+layer_from_tar(
+    name = "virt-api-layer",
+    src = ":virt-api-bin",
+)
+
+image_manifest(
     name = "version-container",
     base = "//:passwd-image",
-    tars = [
-        ":get-version",
+    layers = [
+        ":get-version-layer",
     ],
 )
 
-oci_image(
+image_manifest(
     name = "virt-api-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-api"],
-    tars = [
-        "virt-api-bin",
+    layers = [
+        ":virt-api-layer",
     ],
     user = "1001",
     visibility = ["//visibility:public"],

@@ -1,5 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 go_library(
@@ -26,12 +27,17 @@ pkg_tar(
     package_dir = "/usr/bin",
 )
 
-oci_image(
+layer_from_tar(
+    name = "cloudInitIso-layer",
+    src = ":cloudInitIso",
+)
+
+image_manifest(
     name = "example-cloudinit-hook-sidecar-image",
     base = "//cmd/sidecars:sidecar-shim-image",
     entrypoint = ["/sidecar-shim"],
-    tars = [
-        ":cloudInitIso",
+    layers = [
+        ":cloudInitIso-layer",
     ],
     visibility = ["//visibility:public"],
 )
