@@ -79,7 +79,12 @@ func NewLeaseIncomingMigrationLimiter(clientset kubecli.KubevirtClient) *LeaseIn
 	}
 }
 
-func (l *LeaseIncomingMigrationLimiter) TryAcquire(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode string, limit int) (bool, error) {
+func (l *LeaseIncomingMigrationLimiter) TryAcquire(
+	ctx context.Context,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode string,
+	limit int,
+) (bool, error) {
 	if limit < 1 {
 		limit = 1
 	}
@@ -114,7 +119,12 @@ func (l *LeaseIncomingMigrationLimiter) TryAcquire(ctx context.Context, migratio
 	return false, nil
 }
 
-func (l *LeaseIncomingMigrationLimiter) Release(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode string, limit int) error {
+func (l *LeaseIncomingMigrationLimiter) Release(
+	ctx context.Context,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode string,
+	limit int,
+) error {
 	if limit < 1 {
 		limit = 1
 	}
@@ -140,9 +150,9 @@ func (l *LeaseIncomingMigrationLimiter) Release(ctx context.Context, migration *
 	if err != nil {
 		return err
 	}
-	for _, lease := range leases.Items {
-		lease := lease
-		if leaseIsHeldBy(&lease, migration) {
+	for i := range leases.Items {
+		lease := &leases.Items[i]
+		if leaseIsHeldBy(lease, migration) {
 			if err := l.leases().Delete(ctx, lease.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 				return err
 			}
@@ -151,7 +161,13 @@ func (l *LeaseIncomingMigrationLimiter) Release(ctx context.Context, migration *
 	return nil
 }
 
-func (l *LeaseIncomingMigrationLimiter) tryAcquireSlot(ctx context.Context, migration *virtv1.VirtualMachineInstanceMigration, targetNode, slotName string, slotIndex int) (bool, error) {
+func (l *LeaseIncomingMigrationLimiter) tryAcquireSlot(
+	ctx context.Context,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode,
+	slotName string,
+	slotIndex int,
+) (bool, error) {
 	lease, err := l.leases().Get(ctx, slotName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		_, err = l.leases().Create(ctx, l.newLease(migration, targetNode, slotName, slotIndex), metav1.CreateOptions{})
@@ -197,21 +213,37 @@ func (l *LeaseIncomingMigrationLimiter) holderMigrationIsActive(ctx context.Cont
 	return !migration.IsFinal(), nil
 }
 
-func (l *LeaseIncomingMigrationLimiter) renewLease(ctx context.Context, lease *coordinationv1.Lease, migration *virtv1.VirtualMachineInstanceMigration, targetNode string) error {
+func (l *LeaseIncomingMigrationLimiter) renewLease(
+	ctx context.Context,
+	lease *coordinationv1.Lease,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode string,
+) error {
 	leaseCopy := lease.DeepCopy()
 	l.setLeaseHolder(leaseCopy, migration, targetNode, slotIndexFromLease(leaseCopy))
 	_, err := l.leases().Update(ctx, leaseCopy, metav1.UpdateOptions{})
 	return err
 }
 
-func (l *LeaseIncomingMigrationLimiter) stealLease(ctx context.Context, lease *coordinationv1.Lease, migration *virtv1.VirtualMachineInstanceMigration, targetNode string, slotIndex int) error {
+func (l *LeaseIncomingMigrationLimiter) stealLease(
+	ctx context.Context,
+	lease *coordinationv1.Lease,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode string,
+	slotIndex int,
+) error {
 	leaseCopy := lease.DeepCopy()
 	l.setLeaseHolder(leaseCopy, migration, targetNode, slotIndex)
 	_, err := l.leases().Update(ctx, leaseCopy, metav1.UpdateOptions{})
 	return err
 }
 
-func (l *LeaseIncomingMigrationLimiter) newLease(migration *virtv1.VirtualMachineInstanceMigration, targetNode, name string, slotIndex int) *coordinationv1.Lease {
+func (l *LeaseIncomingMigrationLimiter) newLease(
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode,
+	name string,
+	slotIndex int,
+) *coordinationv1.Lease {
 	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: l.namespace,
@@ -222,7 +254,12 @@ func (l *LeaseIncomingMigrationLimiter) newLease(migration *virtv1.VirtualMachin
 	return lease
 }
 
-func (l *LeaseIncomingMigrationLimiter) setLeaseHolder(lease *coordinationv1.Lease, migration *virtv1.VirtualMachineInstanceMigration, targetNode string, slotIndex int) {
+func (l *LeaseIncomingMigrationLimiter) setLeaseHolder(
+	lease *coordinationv1.Lease,
+	migration *virtv1.VirtualMachineInstanceMigration,
+	targetNode string,
+	slotIndex int,
+) {
 	now := l.now()
 	holder := migrationHolderIdentity(migration)
 	if lease.Labels == nil {
