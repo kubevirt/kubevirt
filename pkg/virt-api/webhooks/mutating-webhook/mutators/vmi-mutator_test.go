@@ -637,6 +637,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("ppc64le skipped", "ppc64le", false),
 	)
 
+	It("should skip PCI topology version for i440fx machine type", func() {
+		vmi.Spec.Domain.Machine = &v1.Machine{Type: "pc-i440fx-2.12"}
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmitWithArch("amd64")
+		Expect(vmiMeta.Annotations).NotTo(HaveKey(v1.PciTopologyVersionAnnotation))
+	})
+
 	It("should not override existing PCI topology version annotation", func() {
 		vmi.Annotations = map[string]string{
 			v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV2,
