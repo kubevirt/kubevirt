@@ -58,11 +58,11 @@ const (
 	// Deprecated: v1.4.0
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 
-	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
+	// NetworkBindingPluginsGate enables using a plugin to bind the pod and the VM network
 	// Alpha: v1.1.0
 	// Beta:  v1.4.0
 	// GA:    v1.5.0
-	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
+	NetworkBindingPluginsGate = "NetworkBindingPlugins"
 
 	// DynamicPodInterfaceNamingGate enables a mechanism to dynamically determine the primary pod interface for KubeVirt virtual machines.
 	// Beta:  v1.4.0
@@ -164,7 +164,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMLiveUpdateFeaturesGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPlugingsGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPluginsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DynamicPodInterfaceNamingGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
