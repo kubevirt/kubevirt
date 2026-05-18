@@ -101,6 +101,7 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      - cmd/container-disk-v2alpha
 formatters:
   enable:
     - gofmt
@@ -118,3 +119,4 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+      - cmd/container-disk-v2alpha

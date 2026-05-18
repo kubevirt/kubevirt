@@ -1,3 +1,5 @@
+//go:build ignore
+
 #include <errno.h>
 #include <getopt.h>
 #include <libgen.h>
