@@ -854,21 +854,21 @@ func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineI
 	sourcePodName := vmi.Status.MigrationState.SourcePod
 	targetPodName := vmi.Status.MigrationState.TargetPod
 
-	podNames := []string{}
+	podNameByMigrationEnd := map[string]string{}
 	if migration.IsDecentralizedSource() {
-		podNames = append(podNames, sourcePodName)
+		podNameByMigrationEnd["source"] = sourcePodName
 	} else if migration.IsDecentralizedTarget() {
-		podNames = append(podNames, targetPodName)
-	} else { // cluster-local migration
-		podNames = append(podNames, sourcePodName)
-		podNames = append(podNames, targetPodName)
+		podNameByMigrationEnd["target"] = targetPodName
+	} else { // local migration
+		podNameByMigrationEnd["source"] = sourcePodName
+		podNameByMigrationEnd["target"] = targetPodName
 	}
 
 	targetReadyTS := ""
 	if vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 		targetReadyTS = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()
 	}
-	if err := c.setMigrationAnnotations(migration.Namespace, podNames, targetReadyTS); err != nil {
+	if err := c.setMigrationAnnotations(migration.Namespace, podNameByMigrationEnd, targetReadyTS); err != nil {
 		return fmt.Errorf("failed to set migration pods annotations: %w", err)
 	}
 
@@ -877,15 +877,16 @@ func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineI
 
 func (c *Controller) setMigrationAnnotations(
 	namespace string,
-	podNames []string,
+	podNameByMigrationEnd map[string]string,
 	targetReadyTS string,
 ) error {
 	var errs []error
-	for _, podName := range podNames {
+	for migrationEnd, podName := range podNameByMigrationEnd {
 		p := `{"metadata":{"annotations":{`
 		if targetReadyTS != "" {
-			p += fmt.Sprintf(`"%s":"%s"`, virtv1.MigrationTargetReadyTimestamp, targetReadyTS)
+			p += fmt.Sprintf(`"%s":"%s",`, virtv1.MigrationTargetReadyTimestamp, targetReadyTS)
 		}
+		p += fmt.Sprintf(`"%s":"%s"`, virtv1.MigrationRole, migrationEnd)
 		p += `}}}`
 		_, err := c.clientset.CoreV1().Pods(namespace).Patch(context.Background(), podName, types.MergePatchType, []byte(p), v1.PatchOptions{})
 		if err != nil {

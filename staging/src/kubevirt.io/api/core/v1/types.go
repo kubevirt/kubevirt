@@ -1367,6 +1367,9 @@ const (
 	// detected that the VMI became active on the target during live migration.
 	MigrationTargetReadyTimestamp string = "kubevirt.io/migration-target-ready-timestamp"
 
+	// MigrationRole indidcrate the pod role in the migration - migration source or migration target.
+	MigrationRole string = "kubevirt.io/migration-role"
+
 	// FreePageReportingDisabledAnnotation indicates if the the vmi wants to explicitly disable
 	// the freePageReporting feature of the memballooning.
 	// This annotation only allows to opt-out from freePageReporting in those cases where it is
