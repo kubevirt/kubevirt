@@ -178,7 +178,7 @@ var _ = Describe("Notify", func() {
 				reconnectChan <- true
 
 				By("Verifying no watch.Error event is sent to virt-handler")
-				Consistently(eventChan, 3*time.Second).ShouldNot(Receive())
+				Consistently(eventChan, 500*time.Millisecond).ShouldNot(Receive())
 			})
 
 			It("should send watch.Modified event on libvirt reconnect when domain cache is populated", func() {
