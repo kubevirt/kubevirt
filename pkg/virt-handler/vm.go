@@ -1407,6 +1407,11 @@ func (c *VirtualMachineController) sync(key string,
 
 	c.logger.V(3).Infof("Processing event %v", key)
 
+	if domainExists && domain.Status.Status == api.Unknown {
+		c.logger.Object(vmi).Infof("Domain has Unknown status (launcher temporarily unreachable), skipping processing for %v", key)
+		return nil
+	}
+
 	if vmiExists && domainExists {
 		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
 	} else if vmiExists {
