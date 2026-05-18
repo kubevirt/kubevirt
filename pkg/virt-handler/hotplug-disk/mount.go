@@ -52,6 +52,8 @@ import (
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
+var ErrWaitingForHotplugMount = errors.New("waiting for hotplug mount")
+
 const (
 	unableFindHotplugMountedDir = "unable to find hotplug mounted directories for vmi without uid"
 )
@@ -551,10 +553,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
-			log.Log.Object(vmi).V(3).Infof("Error getting source path for volume %s from source pod %s: %v", volume, sourceUID, err)
-			// We are eating the error to avoid spamming the log with errors, it might take a while for the volume
-			// to get mounted on the node, and this will error until the volume is mounted.
-			return nil
+			return fmt.Errorf("failed to get source path for volume %s from source pod %s: %v: %w", volume, sourceUID, err, ErrWaitingForHotplugMount)
 		}
 		if err := m.writePathToMountRecord(unsafepath.UnsafeAbsolute(target.Raw()), vmi, record); err != nil {
 			return err
