@@ -123,6 +123,7 @@ type Controller struct {
 	podExpectations                   *controller.UIDTrackingControllerExpectations
 	pvcExpectations                   *controller.UIDTrackingControllerExpectations
 	migrationStartLock                *sync.Mutex
+	incomingMigrationLimiter          IncomingMigrationLimiter
 	clusterConfig                     *virtconfig.ClusterConfig
 	hasSynced                         func() bool
 	virtControllerVMIMWorkQueueTracer *traceUtils.Tracer
@@ -160,23 +161,24 @@ func NewController(templateService services.TemplateService,
 			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
 			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
-		vmiStore:             vmiInformer.GetStore(),
-		podIndexer:           podInformer.GetIndexer(),
-		migrationIndexer:     migrationInformer.GetIndexer(),
-		nodeStore:            nodeInformer.GetStore(),
-		pvcStore:             pvcInformer.GetStore(),
-		storageClassStore:    storageClassInformer.GetStore(),
-		storageProfileStore:  storageProfileInformer.GetStore(),
-		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
-		migrationPolicyStore: migrationPolicyInformer.GetStore(),
-		kubevirtStore:        kubevirtInformer.GetStore(),
-		recorder:             recorder,
-		clientset:            clientset,
-		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		pvcExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationStartLock:   &sync.Mutex{},
-		clusterConfig:        clusterConfig,
-		handOffMap:           make(map[string]struct{}),
+		vmiStore:                 vmiInformer.GetStore(),
+		podIndexer:               podInformer.GetIndexer(),
+		migrationIndexer:         migrationInformer.GetIndexer(),
+		nodeStore:                nodeInformer.GetStore(),
+		pvcStore:                 pvcInformer.GetStore(),
+		storageClassStore:        storageClassInformer.GetStore(),
+		storageProfileStore:      storageProfileInformer.GetStore(),
+		resourceQuotaIndexer:     resourceQuotaInformer.GetIndexer(),
+		migrationPolicyStore:     migrationPolicyInformer.GetStore(),
+		kubevirtStore:            kubevirtInformer.GetStore(),
+		recorder:                 recorder,
+		clientset:                clientset,
+		podExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		pvcExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock:       &sync.Mutex{},
+		incomingMigrationLimiter: NewLeaseIncomingMigrationLimiter(clientset),
+		clusterConfig:            clusterConfig,
+		handOffMap:               make(map[string]struct{}),
 
 		nam: migrations.NewNetworkAccessibilityManager(clientset),
 
@@ -395,7 +397,7 @@ func (c *Controller) execute(key string) error {
 		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
-	err = c.updateStatus(migration, vmi, targetPods, syncErr)
+	err = c.updateStatus(key, migration, vmi, targetPods, syncErr)
 	if err != nil {
 		return err
 	}
@@ -466,7 +468,7 @@ func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstance
 	return backendstorage.RecoverFromBrokenMigration(c.clientset, migration, c.pvcStore, vmi, c.templateService.GetLauncherImage())
 }
 
-func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
+func (c *Controller) updateStatus(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
@@ -604,10 +606,18 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		log.Log.Object(migration).Errorf(msg)
 
 		setMigrationFailedConditionIfNotExists(migrationCopy, virtv1.VirtualMachineInstanceMigrationFailedReasonTargetAttachmentPodShutdownDuringMigration, msg)
-	} else {
-		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
+	} else if !migration.IsFinal() {
+		acquired, err := c.acquireIncomingMigrationSlot(migration, migrationCopy, pod)
 		if err != nil {
 			return err
+		}
+		if acquired {
+			err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
+			if err != nil {
+				return err
+			}
+		} else {
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(pendingPriority), After: 5 * time.Second}, key)
 		}
 	}
 
@@ -621,6 +631,11 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		var err error
 		migration, err = c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).UpdateStatus(context.Background(), migrationCopy, v1.UpdateOptions{})
 		if err != nil {
+			return err
+		}
+	}
+	if migration.IsFinal() {
+		if err := c.releaseIncomingMigrationSlot(migration, pod); err != nil {
 			return err
 		}
 	}
@@ -649,6 +664,86 @@ func (c *Controller) setSynchronizationAddressStatus(migration *virtv1.VirtualMa
 		migration.Status.SynchronizationAddresses = kv.Status.SynchronizationAddresses
 	}
 	return nil
+}
+
+func (c *Controller) acquireIncomingMigrationSlot(migration, migrationCopy *virtv1.VirtualMachineInstanceMigration, pod *k8sv1.Pod) (bool, error) {
+	targetNode := resolveIncomingMigrationTargetNode(migration, pod)
+	if targetNode == "" || !shouldLimitIncomingMigration(migration, pod) {
+		removeIncomingMigrationLimitCondition(migrationCopy)
+		return true, nil
+	}
+
+	acquired, err := c.incomingMigrationLimiter.TryAcquire(context.Background(), migration, targetNode, maxIncomingMigrationsPerNode())
+	if err != nil {
+		return false, err
+	}
+	if acquired {
+		removeIncomingMigrationLimitCondition(migrationCopy)
+		return true, nil
+	}
+
+	setIncomingMigrationLimitCondition(migrationCopy)
+	migrationCopy.Status.Phase = virtv1.MigrationPending
+	return false, nil
+}
+
+func (c *Controller) releaseIncomingMigrationSlot(migration *virtv1.VirtualMachineInstanceMigration, pod *k8sv1.Pod) error {
+	targetNode := resolveIncomingMigrationTargetNode(migration, pod)
+	if targetNode == "" {
+		return nil
+	}
+	return c.incomingMigrationLimiter.Release(context.Background(), migration, targetNode, maxIncomingMigrationsPerNode())
+}
+
+func maxIncomingMigrationsPerNode() int {
+	return 1
+}
+
+func shouldLimitIncomingMigration(migration *virtv1.VirtualMachineInstanceMigration, pod *k8sv1.Pod) bool {
+	switch migration.Status.Phase {
+	case virtv1.MigrationPending, virtv1.MigrationScheduling:
+		return pod != nil && pod.Spec.NodeName != ""
+	case virtv1.MigrationScheduled,
+		virtv1.MigrationPreparingTarget,
+		virtv1.MigrationTargetReady,
+		virtv1.MigrationWaitingForSync,
+		virtv1.MigrationSynchronizing,
+		virtv1.MigrationRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveIncomingMigrationTargetNode(migration *virtv1.VirtualMachineInstanceMigration, pod *k8sv1.Pod) string {
+	if migration.Status.MigrationState != nil && migration.Status.MigrationState.TargetNode != "" {
+		return migration.Status.MigrationState.TargetNode
+	}
+	if pod != nil && pod.Spec.NodeName != "" {
+		return pod.Spec.NodeName
+	}
+	return ""
+}
+
+func setIncomingMigrationLimitCondition(migration *virtv1.VirtualMachineInstanceMigration) {
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	condition := &virtv1.VirtualMachineInstanceMigrationCondition{
+		Type:               virtv1.VirtualMachineInstanceMigrationConditionType(TargetNodeIncomingMigrationLimitExceededReason),
+		Status:             k8sv1.ConditionTrue,
+		LastProbeTime:      v1.Now(),
+		LastTransitionTime: v1.Now(),
+		Reason:             TargetNodeIncomingMigrationLimitExceededReason,
+		Message:            TargetNodeIncomingMigrationLimitExceededMessage,
+	}
+	conditionManager.UpdateCondition(migration, condition)
+}
+
+func removeIncomingMigrationLimitCondition(migration *virtv1.VirtualMachineInstanceMigration) {
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	conditionType := virtv1.VirtualMachineInstanceMigrationConditionType(TargetNodeIncomingMigrationLimitExceededReason)
+	if conditionManager.HasCondition(migration, conditionType) {
+		conditionManager.RemoveCondition(migration, conditionType)
+	}
 }
 
 func (c *Controller) processMigrationPhase(
