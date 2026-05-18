@@ -3193,12 +3193,14 @@ var _ = Describe("Migration watcher", func() {
 					v1.DomainAnnotation:              "testvmi",
 					v1.MigrationTargetReadyTimestamp: "",
 					v1.MigrationRole:                 "source",
+					v1.MigrationScope:                "local",
 				},
 				map[string]string{
 					v1.DomainAnnotation:              "testvmi",
 					v1.MigrationJobNameAnnotation:    "testmigrationuid",
 					v1.MigrationTargetReadyTimestamp: "",
 					v1.MigrationRole:                 "target",
+					v1.MigrationScope:                "local",
 				},
 			),
 			Entry("decentralized sender migration is running (handles source pod)",
@@ -3207,6 +3209,7 @@ var _ = Describe("Migration watcher", func() {
 					v1.DomainAnnotation:              "testvmi",
 					v1.MigrationTargetReadyTimestamp: "",
 					v1.MigrationRole:                 "source",
+					v1.MigrationScope:                "decentralized",
 				},
 				map[string]string{
 					v1.DomainAnnotation:           "testvmi",
@@ -3223,6 +3226,7 @@ var _ = Describe("Migration watcher", func() {
 					v1.MigrationJobNameAnnotation:    "testmigrationuid",
 					v1.MigrationTargetReadyTimestamp: "",
 					v1.MigrationRole:                 "target",
+					v1.MigrationScope:                "decentralized",
 				},
 			),
 		)

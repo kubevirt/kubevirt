@@ -847,6 +847,7 @@ func (c *Controller) processMigrationPhase(
 			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulMigrationReason, "Source node reported migration succeeded")
 		}
 	}
+
 	return nil
 }
 
@@ -868,7 +869,7 @@ func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineI
 	if vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 		targetReadyTS = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()
 	}
-	if err := c.setMigrationAnnotations(migration.Namespace, podNameByMigrationEnd, targetReadyTS); err != nil {
+	if err := c.setMigrationAnnotations(&migration, podNameByMigrationEnd, targetReadyTS); err != nil {
 		return fmt.Errorf("failed to set migration pods annotations: %w", err)
 	}
 
@@ -876,19 +877,26 @@ func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineI
 }
 
 func (c *Controller) setMigrationAnnotations(
-	namespace string,
+	migration *virtv1.VirtualMachineInstanceMigration,
 	podNameByMigrationEnd map[string]string,
 	targetReadyTS string,
 ) error {
+	isDecentralized := migration.IsDecentralized()
+	migrationScope := "local"
+	if isDecentralized {
+		migrationScope = "decentralized"
+	}
+
 	var errs []error
 	for migrationEnd, podName := range podNameByMigrationEnd {
 		p := `{"metadata":{"annotations":{`
 		if targetReadyTS != "" {
 			p += fmt.Sprintf(`"%s":"%s",`, virtv1.MigrationTargetReadyTimestamp, targetReadyTS)
 		}
-		p += fmt.Sprintf(`"%s":"%s"`, virtv1.MigrationRole, migrationEnd)
+		p += fmt.Sprintf(`"%s":"%s",`, virtv1.MigrationRole, migrationEnd)
+		p += fmt.Sprintf(`"%s":"%s"`, virtv1.MigrationScope, migrationScope)
 		p += `}}}`
-		_, err := c.clientset.CoreV1().Pods(namespace).Patch(context.Background(), podName, types.MergePatchType, []byte(p), v1.PatchOptions{})
+		_, err := c.clientset.CoreV1().Pods(migration.Namespace).Patch(context.Background(), podName, types.MergePatchType, []byte(p), v1.PatchOptions{})
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to set migration annotations for pod %s: %w", podName, err))
 		}

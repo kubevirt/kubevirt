@@ -1370,6 +1370,9 @@ const (
 	// MigrationRole indidcrate the pod role in the migration - migration source or migration target.
 	MigrationRole string = "kubevirt.io/migration-role"
 
+	// MigrationScope indicates the migration scope decentralized or local.
+	MigrationScope string = "kubevirt.io/migration-scope"
+
 	// FreePageReportingDisabledAnnotation indicates if the the vmi wants to explicitly disable
 	// the freePageReporting feature of the memballooning.
 	// This annotation only allows to opt-out from freePageReporting in those cases where it is
