@@ -311,7 +311,7 @@ func (m *volumeMounter) mountHotplugVolume(
 	mountDirectory bool,
 	cgroupManager cgroup.Manager,
 ) error {
-	logger := log.DefaultLogger()
+	logger := log.Log.Object(vmi)
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != "" {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
@@ -437,7 +437,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 		if err := m.createBlockDeviceFile(targetPath, volume, dev, permissions); err != nil && !os.IsExist(err) {
 			return err
 		}
-		log.DefaultLogger().V(1).Infof("successfully created block device %v", volume)
+		log.Log.Object(vmi).V(1).Infof("successfully created block device %s", volume)
 	} else if err != nil {
 		return err
 	}
@@ -551,7 +551,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
-			log.DefaultLogger().V(3).Infof("Error getting source path: %v", err)
+			log.Log.Object(vmi).V(3).Infof("Error getting source path for volume %s from source pod %s: %v", volume, sourceUID, err)
 			// We are eating the error to avoid spamming the log with errors, it might take a while for the volume
 			// to get mounted on the node, and this will error until the volume is mounted.
 			return nil
@@ -568,7 +568,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if out, err := mountCommand(sourcePath, target); err != nil {
 			return fmt.Errorf("failed to bindmount hotplug volume source from %v to %v: %v : %v", sourcePath, target, string(out), err)
 		}
-		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
+		log.Log.Object(vmi).V(1).Infof("successfully mounted hotplug volume %s", volume)
 	}
 
 	return m.ownershipManager.SetFileOwnership(target)
