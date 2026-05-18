@@ -258,10 +258,8 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		}
 	}
 
-	if vmi.IsDecentralizedMigration() {
-		if err := checkIfHotplugDisksReadyToUse(vmi); err != nil {
-			return err
-		}
+	if err := checkIfHotplugDisksReadyToUse(vmi); err != nil {
+		return err
 	}
 
 	// since the source vmi is paused, add the vmi uuid to the pausedVMIs as
