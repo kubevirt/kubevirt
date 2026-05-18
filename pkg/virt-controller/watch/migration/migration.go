@@ -846,6 +846,7 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulMigrationReason, "Source node reported migration succeeded")
 		}
+
 	}
 
 	return nil
@@ -854,6 +855,7 @@ func (c *Controller) processMigrationPhase(
 func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineInstanceMigration, vmi virtv1.VirtualMachineInstance) error {
 	sourcePodName := vmi.Status.MigrationState.SourcePod
 	targetPodName := vmi.Status.MigrationState.TargetPod
+	migrationCompleted := vmi.IsMigrationCompleted()
 
 	podNameByMigrationEnd := map[string]string{}
 	if migration.IsDecentralizedSource() {
@@ -865,12 +867,18 @@ func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineI
 		podNameByMigrationEnd["target"] = targetPodName
 	}
 
-	targetReadyTS := ""
-	if vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
-		targetReadyTS = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()
-	}
-	if err := c.setMigrationAnnotations(&migration, podNameByMigrationEnd, targetReadyTS); err != nil {
-		return fmt.Errorf("failed to set migration pods annotations: %w", err)
+	if migrationCompleted {
+		if err := c.removeMigrationAnnotations(migration.Namespace, sourcePodName, targetPodName); err != nil {
+			return fmt.Errorf("failed to remove migration pods annotations: %w", err)
+		}
+	} else {
+		targetReadyTS := ""
+		if vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+			targetReadyTS = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()
+		}
+		if err := c.setMigrationAnnotations(&migration, podNameByMigrationEnd, targetReadyTS); err != nil {
+			return fmt.Errorf("failed to set migration pods annotations: %w", err)
+		}
 	}
 
 	return nil
@@ -900,6 +908,24 @@ func (c *Controller) setMigrationAnnotations(
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to set migration annotations for pod %s: %w", podName, err))
 		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func (c *Controller) removeMigrationAnnotations(namespace string, podNames ...string) error {
+	var errs []error
+	for _, podName := range podNames {
+		p := `{"metadata":{"annotations":{
+			"` + virtv1.MigrationRole + `":null,
+			"` + virtv1.MigrationScope + `":null,
+			"` + virtv1.MigrationTargetReadyTimestamp + `":null
+		}}}`
+		_, err := c.clientset.CoreV1().Pods(namespace).Patch(context.Background(), podName, types.MergePatchType, []byte(p), v1.PatchOptions{})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to remove migration annotations for pod %s: %w", podName, err))
+		}
+		log.Log.Infof("DEBUG:removed migration annotations for pod %s", podName)
 	}
 
 	return errors.Join(errs...)
