@@ -444,6 +444,38 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
 		})
 	})
+
+	Context("VM guest panic metrics", decorators.RequiresAMD64, func() {
+		It("should increment kubevirt_vmi_guest_os_panic_total when a guest OS panics", func() {
+			virtClient := kubevirt.Client()
+
+			By("creating a Fedora VMI with ISA panic device")
+			vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(v1.Isa))
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+
+			By("triggering a kernel panic inside the guest")
+			Expect(console.ExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo su -\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "echo c > /proc/sysrq-trigger\n"},
+				&expect.BExp{R: "sysrq triggered crash"},
+			}, 15*time.Second)).To(Succeed())
+
+			By("waiting for VMI to reach Failed phase")
+			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.Failed))
+
+			By("verifying the guest OS panic metric was incremented")
+			labels := map[string]string{
+				"namespace": vmi.Namespace,
+				"name":      vmi.Name,
+			}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_guest_os_panic_total", labels, 1, ">=", 1)
+		})
+	})
 })
 
 func createAgentVMI() *v1.VirtualMachineInstance {
