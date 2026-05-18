@@ -100,6 +100,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// This metric is being tested in storage hotplug
 			"kubevirt_vmi_contains_ephemeral_hotplug_volume": true,
 
+			// Needs a guest crash - tested in VM Monitoring, guest panic metrics
+			"kubevirt_vmi_guest_os_panic_total": true,
+
 			// CPU load metrics need an updated libvirt version running on the nodes
 			// that exposes the CPU load information
 			"kubevirt_vmi_guest_load_1m":  true,
