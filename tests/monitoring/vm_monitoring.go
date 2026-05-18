@@ -575,14 +575,18 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 		ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition",
 	)
 
-	By("Waiting for guest OS info to be reported")
+	By("Waiting for guest OS info to be fully reported")
 	Eventually(func() bool {
 		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(
 			context.Background(), vmi.Name, metav1.GetOptions{},
 		)
 		Expect(err).ToNot(HaveOccurred())
-		return agentVMI.Status.GuestOSInfo.Name != ""
-	}, agentConnTimeout, 1*time.Second).Should(BeTrue(), "Guest OS info should be reported")
+
+		guestOSInfo := agentVMI.Status.GuestOSInfo
+		return guestOSInfo.Name != "" &&
+			guestOSInfo.KernelRelease != "" &&
+			guestOSInfo.Machine != ""
+	}, agentConnTimeout, 1*time.Second).Should(BeTrue(), "Guest OS info should be fully reported")
 
 	return agentVMI
 }
