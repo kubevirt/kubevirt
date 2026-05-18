@@ -278,22 +278,30 @@ func listAllKnownDomains() ([]*api.Domain, error) {
 		log.Log.V(3).Infof("List domains from sock %s", socketFile)
 		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {
-			log.Log.Reason(err).Error("failed to connect to cmd client socket")
-			// Ignore failure to connect to client.
-			// These are all local connections via unix socket.
-			// A failure to connect means there's nothing on the other
-			// end listening.
+			log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
+			if recordExists {
+				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+				domain.ObjectMeta.UID = record.UID
+				domain.Spec.Metadata.KubeVirt.UID = record.UID
+				domain.Status.Status = api.Unknown
+				domains = append(domains, domain)
+			}
 			continue
 		}
 		defer client.Close()
 
 		domain, exists, err := client.GetDomain()
 		if err != nil {
-			log.Log.Reason(err).Error("failed to list domains on cmd client socket")
-			// Failure to get domain list means that client
-			// was unable to contact libvirt. As soon as the connection
-			// is restored on the client's end, a domain notification will
-			// be sent.
+			log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
+			if recordExists {
+				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+				domain.ObjectMeta.UID = record.UID
+				domain.Spec.Metadata.KubeVirt.UID = record.UID
+				domain.Status.Status = api.Unknown
+				domains = append(domains, domain)
+			}
 			continue
 		}
 		if exists {
