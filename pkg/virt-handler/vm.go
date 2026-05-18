@@ -1996,6 +1996,11 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	log.Log.V(3).Infof("Processing event %v", key)
 
+	if domainExists && domain.Status.Status == api.Unknown {
+		log.Log.Object(vmi).Warningf("Domain has Unknown status (virt-launcher unreachable), skipping processing for %v", key)
+		return nil
+	}
+
 	if vmiExists && domainExists {
 		log.Log.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
 	} else if vmiExists {
