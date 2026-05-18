@@ -2826,7 +2826,7 @@ var _ = Describe("Migration watcher", func() {
 
 			Eventually(func() int {
 				return controller.Queue.Len()
-			}, 20*time.Millisecond, 2*time.Second).Should(Equal(25))
+			}, 2*time.Second, 20*time.Millisecond).Should(Equal(25))
 			runningMigrationsFromQueue := make([]string, 0, 5)
 			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
