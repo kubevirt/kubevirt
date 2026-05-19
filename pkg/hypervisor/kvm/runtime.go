@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/common"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/vfio"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -104,8 +105,9 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 }
 
 // CalculateMemlockSize computes the memlock rlimit needed for the QEMU process.
-// This includes the memory overhead, guest memory, and additional per-device
-// memory for multi-device VFIO passthrough.
+// This includes the memory overhead, guest memory, and for multi-device VFIO
+// passthrough, additional per-device memory scaling computed by
+// vfio.CalculateMemlockExtraBytes.
 func (k *KvmVirtRuntime) CalculateMemlockSize(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) resource.Quantity {
 	var memlockSize resource.Quantity
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
@@ -119,18 +121,11 @@ func (k *KvmVirtRuntime) CalculateMemlockSize(vmi *v1.VirtualMachineInstance, co
 	vmiBaseMemory := getVMIBaseMemory(vmi)
 	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
 
-	// With a vIOMMU, libvirt locks N * guest_memory for N VFIO devices
-	// (qemuDomainGetMemLockLimitBytes, since libvirt v8.7.0). Each
-	// device gets a separate AddressSpace mapping full guest RAM. The
-	// base overhead already includes 1 * guest_memory, so add (N-1)
-	// more. We apply this unconditionally rather than checking for a
-	// vIOMMU because the domain XML is not yet available at this point
-	// and the over-reservation is harmless — it only raises the rlimit
-	// ceiling without consuming actual memory.
-	if numDevices := util.CountVFIODevices(vmi); numDevices > 1 {
-		extra := vmiBaseMemory.DeepCopy()
-		extra.Set(extra.Value() * int64(numDevices-1))
-		memlockSize.Add(extra)
+	// GetMemoryOverhead already includes 1 * guestMemory + 1GiB MMIO
+	// for VFIO devices. For multi-device passthrough, add the extra
+	// (N-1) * guestMemory needed for additional devices.
+	if extra := vfio.CalculateMemlockExtraBytes(vmi); extra > 0 {
+		memlockSize.Add(*resource.NewQuantity(extra, resource.BinarySI))
 	}
 
 	return memlockSize
