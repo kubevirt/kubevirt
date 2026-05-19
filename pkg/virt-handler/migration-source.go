@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -514,11 +515,11 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return fmt.Errorf("failed to handle migration proxy: %v", err)
 	}
 
-	var migrationConfiguration *v1.MigrationConfiguration
-	if vmi.Status.MigrationState.MigrationConfiguration == nil {
-		migrationConfiguration = c.clusterConfig.GetMigrationConfiguration()
+	var migrationConfiguration *v1.VMIMConfigurationOptions
+	if vmi.Status.MigrationState.VMIMConfigurationOptions == nil {
+		migrationConfiguration = migrationsutil.ToVMIMConfigurationOptions(c.clusterConfig.GetMigrationConfiguration())
 	} else {
-		migrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
+		migrationConfiguration = vmi.Status.MigrationState.VMIMConfigurationOptions.DeepCopy()
 	}
 
 	// This check is only for backward compatibility.

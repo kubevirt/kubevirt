@@ -120,3 +120,34 @@ func countMatchingLabels(policy *v1alpha1.MigrationPolicy, vmiLabels, namespaceL
 
 	return doesMatch, score
 }
+
+// applyMigrationPolicySpec merges non-nil policy fields onto base and returns
+// the result without mutating base.
+func applyMigrationPolicySpec(base *k6tv1.VMIMConfigurationOptions, spec *v1alpha1.MigrationPolicySpec) *k6tv1.VMIMConfigurationOptions {
+	result := base.DeepCopy()
+
+	// For backward compatibility, if the policy specifies AllowPostCopy but not AllowWorkloadDisruption,
+	// AllowWorkloadDisruption should follow AllowPostCopy.
+	if spec.AllowWorkloadDisruption == nil && spec.AllowPostCopy != nil {
+		setIfNotNil(&result.AllowWorkloadDisruption, spec.AllowPostCopy)
+	}
+
+	setIfNotNil(&result.AllowAutoConverge, spec.AllowAutoConverge)
+	setIfNotNil(&result.BandwidthPerMigration, spec.BandwidthPerMigration)
+	setIfNotNil(&result.CompletionTimeoutPerGiB, spec.CompletionTimeoutPerGiB)
+	setIfNotNil(&result.MaxDowntimeMs, spec.MaxDowntimeMs)
+	setIfNotNil(&result.AllowPostCopy, spec.AllowPostCopy)
+	setIfNotNil(&result.AllowWorkloadDisruption, spec.AllowWorkloadDisruption)
+	if spec.ExperimentalMigrationOptions != nil {
+		result.ExperimentalMigrationOptions = &k6tv1.ExperimentalMigrationOptions{}
+	}
+
+	return result
+}
+
+func setIfNotNil[T any](dst **T, src *T) {
+	if src != nil {
+		val := *src
+		*dst = &val
+	}
+}

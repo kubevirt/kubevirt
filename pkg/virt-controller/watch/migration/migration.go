@@ -1256,14 +1256,8 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		}
 	}
 
-	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
-	err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
-	if err != nil {
+	if err := c.matchMigrationPolicy(vmiCopy); err != nil {
 		return fmt.Errorf("failed to match migration policy: %v", err)
-	}
-
-	if !c.isMigrationPolicyMatched(vmiCopy) {
-		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
 	}
 
 	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
@@ -1287,8 +1281,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		bs.UpdateVolumeStatus(vmiCopy, backendStoragePVC)
 	}
 
-	err = c.patchVMI(vmi, vmiCopy)
-	if err != nil {
+	if err := c.patchVMI(vmi, vmiCopy); err != nil {
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 		return err
 	}
@@ -2581,11 +2574,14 @@ func getCPUVendorLabelKey(labels map[string]string) string {
 	return ""
 }
 
-func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, clusterMigrationConfiguration *virtv1.MigrationConfiguration) error {
+func (c *Controller) resolveMigrationConfig(vmi *virtv1.VirtualMachineInstance) (*virtv1.VMIMConfigurationOptions, *v1alpha1.MigrationPolicy, error) {
 	vmiNamespace, err := c.clientset.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, v1.GetOptions{})
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+
+	// Initialize using the base defaults from KubeVirt CR
+	resolvedConfig := migrationsutil.ToVMIMConfigurationOptions(c.clusterConfig.GetMigrationConfiguration())
 
 	// Fetch cluster policies
 	var policies []v1alpha1.MigrationPolicy
@@ -2600,31 +2596,28 @@ func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, cl
 	matchedPolicy := matchPolicy(&policiesListObj, vmi, vmiNamespace)
 
 	if matchedPolicy == nil {
-		log.Log.Object(vmi).Reason(err).Infof("no migration policy matched for VMI %s", vmi.Name)
-		return nil
+		return resolvedConfig, nil, nil
 	}
 
-	isUpdated, err := matchedPolicy.GetMigrationConfByPolicy(clusterMigrationConfiguration)
+	return applyMigrationPolicySpec(resolvedConfig, &matchedPolicy.Spec), matchedPolicy, nil
+}
+
+func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance) error {
+	resolvedConfig, matchedPolicy, err := c.resolveMigrationConfig(vmi)
 	if err != nil {
 		return err
 	}
 
-	if isUpdated {
+	if matchedPolicy != nil {
 		vmi.Status.MigrationState.MigrationPolicyName = &matchedPolicy.Name
-		vmi.Status.MigrationState.MigrationConfiguration = clusterMigrationConfiguration
 		log.Log.Object(vmi).Infof("migration is updated by migration policy named %s.", matchedPolicy.Name)
+	} else {
+		log.Log.Object(vmi).V(3).Infof("no vm migration policy matched for VMI %s", vmi.Name)
 	}
+
+	vmi.Status.MigrationState.VMIMConfigurationOptions = resolvedConfig
 
 	return nil
-}
-
-func (c *Controller) isMigrationPolicyMatched(vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi == nil {
-		return false
-	}
-
-	migrationPolicyName := vmi.Status.MigrationState.MigrationPolicyName
-	return migrationPolicyName != nil && *migrationPolicyName != ""
 }
 
 func (c *Controller) isMigrationHandedOff(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) bool {

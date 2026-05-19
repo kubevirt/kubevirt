@@ -196,27 +196,30 @@ var _ = Describe("Migration watcher", func() {
 		Expect(updatedVMI.Labels).To(SatisfyAll(matchers...))
 	}
 
-	expectVirtualMachineInstanceMigrationConfiguration := func(namespace, name string, expectedConfiguration *v1.MigrationConfiguration) {
+	expectVirtualMachineInstanceMigrationConfiguration := func(namespace, name string, expectedConfiguration *v1.VMIMConfigurationOptions) {
 		updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
 		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
-		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).To(PointTo(MatchFields(IgnoreExtras, Fields{
-			"NodeDrainTaintKey":                 Equal(expectedConfiguration.NodeDrainTaintKey),
-			"ParallelOutboundMigrationsPerNode": Equal(expectedConfiguration.ParallelOutboundMigrationsPerNode),
-			"ParallelMigrationsPerCluster":      Equal(expectedConfiguration.ParallelMigrationsPerCluster),
-			"AllowAutoConverge":                 Equal(expectedConfiguration.AllowAutoConverge),
-			"BandwidthPerMigration": WithTransform(func(qnt *resource.Quantity) string {
-				return qnt.String()
-			}, BeEquivalentTo(expectedConfiguration.BandwidthPerMigration.String())),
-			"CompletionTimeoutPerGiB":      Equal(expectedConfiguration.CompletionTimeoutPerGiB),
-			"ProgressTimeout":              Equal(expectedConfiguration.ProgressTimeout),
-			"UnsafeMigrationOverride":      Equal(expectedConfiguration.UnsafeMigrationOverride),
-			"AllowPostCopy":                Equal(expectedConfiguration.AllowPostCopy),
-			"DisableTLS":                   Equal(expectedConfiguration.DisableTLS),
-			"Network":                      Equal(expectedConfiguration.Network),
-			"MatchSELinuxLevelOnMigration": Equal(expectedConfiguration.MatchSELinuxLevelOnMigration),
-		})))
+
+		actual := updatedVMI.Status.MigrationState.VMIMConfigurationOptions
+		Expect(actual.NodeDrainTaintKey).To(Equal(expectedConfiguration.NodeDrainTaintKey))
+		Expect(actual.ParallelOutboundMigrationsPerNode).To(Equal(expectedConfiguration.ParallelOutboundMigrationsPerNode))
+		Expect(actual.ParallelMigrationsPerCluster).To(Equal(expectedConfiguration.ParallelMigrationsPerCluster))
+		Expect(actual.AllowAutoConverge).To(Equal(expectedConfiguration.AllowAutoConverge))
+		if expectedConfiguration.BandwidthPerMigration != nil && actual.BandwidthPerMigration != nil {
+			Expect(actual.BandwidthPerMigration.String()).To(BeEquivalentTo(expectedConfiguration.BandwidthPerMigration.String()))
+		} else {
+			Expect(actual.BandwidthPerMigration).To(Equal(expectedConfiguration.BandwidthPerMigration))
+		}
+		Expect(actual.CompletionTimeoutPerGiB).To(Equal(expectedConfiguration.CompletionTimeoutPerGiB))
+		Expect(actual.ProgressTimeout).To(Equal(expectedConfiguration.ProgressTimeout))
+		Expect(actual.UnsafeMigrationOverride).To(Equal(expectedConfiguration.UnsafeMigrationOverride))
+		Expect(actual.AllowPostCopy).To(Equal(expectedConfiguration.AllowPostCopy))
+		Expect(actual.DisableTLS).To(Equal(expectedConfiguration.DisableTLS))
+		Expect(actual.Network).To(Equal(expectedConfiguration.Network))
+		Expect(actual.AllowWorkloadDisruption).To(Equal(expectedConfiguration.AllowWorkloadDisruption))
+		Expect(actual.MatchSELinuxLevelOnMigration).To(Equal(expectedConfiguration.MatchSELinuxLevelOnMigration))
 	}
 
 	expectMigrationCondition := func(namespace, name string, conditionType v1.VirtualMachineInstanceMigrationConditionType) {
@@ -338,7 +341,7 @@ var _ = Describe("Migration watcher", func() {
 		}
 	}
 
-	getMigrationConfig := func(customConfigs ...*v1.MigrationConfiguration) *v1.MigrationConfiguration {
+	getMigrationConfig := func(customConfigs ...*v1.MigrationConfiguration) *v1.VMIMConfigurationOptions {
 		Expect(customConfigs).To(Or(BeEmpty(), HaveLen(1)))
 
 		var migrationConfiguration *v1.MigrationConfiguration
@@ -350,7 +353,7 @@ var _ = Describe("Migration watcher", func() {
 			Expect(migrationConfiguration).ToNot(BeNil())
 		}
 
-		return migrationConfiguration
+		return migrationsutil.ToVMIMConfigurationOptions(migrationConfiguration)
 	}
 
 	sanityExecute := func() {
@@ -2325,7 +2328,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 		})
 
-		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *v1.MigrationConfiguration), expectConfigUpdate bool) {
+		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testResolvedConfig func(*v1.VMIMConfigurationOptions)) {
 			By("Initialize VMI and migration")
 			vmi = newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
@@ -2346,13 +2349,6 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			By("Calculating new migration config and validating it")
-			expectedConfigs := getDefaultMigrationConfiguration()
-			isConfigUpdated, err := migrationPolicy.GetMigrationConfByPolicy(expectedConfigs)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
-			testMigrationConfigs(expectedConfigs)
-
 			By("Running the controller")
 			sanityExecute()
 
@@ -2362,72 +2358,130 @@ var _ = Describe("Migration watcher", func() {
 				"TargetPod":           Equal(targetPod.Name),
 				"SourceNode":          Equal("tefwegwrerg"),
 				"MigrationUID":        Equal(types.UID("testmigration")),
-				"MigrationPolicyName": BeNil(),
-			}
-			if expectConfigUpdate {
-				fields["MigrationPolicyName"] = Equal(pointer.P(migrationPolicy.Name))
+				"MigrationPolicyName": Equal(pointer.P(migrationPolicy.Name)),
 			}
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, fields)))
-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig(expectedConfigs))
+
+			By("Validating VirtualMachineMigrationConfig")
+			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
+			Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+			testResolvedConfig(updatedVMI.Status.MigrationState.VMIMConfigurationOptions)
+
 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
 				HaveKeyWithValue(v1.MigrationTargetNodeNameLabel, "node01"),
 				HaveKeyWithValue(fmt.Sprintf("%s-key-0", migrationPolicy.Name), fmt.Sprintf("%s-value-0", migrationPolicy.Name)),
 			)
 		},
-			Entry("allow auto coverage",
+			Entry("allow auto converge",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(true) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowAutoConverge).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowAutoConverge).To(BeTrue())
 				},
-				true,
 			),
-			Entry("deny auto coverage",
+			Entry("deny auto converge",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(false) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowAutoConverge).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowAutoConverge).To(BeFalse())
 				},
-				true,
 			),
 			Entry("set bandwidth per migration",
 				func(p *migrationsv1.MigrationPolicySpec) { p.BandwidthPerMigration = &stubResourceQuantity },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.BandwidthPerMigration).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
 				},
-				true,
 			),
 			Entry("set completion time per GiB",
 				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.CompletionTimeoutPerGiB).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.CompletionTimeoutPerGiB).To(Equal(stubNumber))
 				},
-				true,
 			),
 			Entry("set force migration completion",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowWorkloadDisruption = pointer.P(true) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowWorkloadDisruption).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowWorkloadDisruption).To(BeTrue())
 				},
-				true,
 			),
 			Entry("deny post copy",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.P(false) },
-				func(c *v1.MigrationConfiguration) {
-					Expect(c.AllowPostCopy).ToNot(BeNil())
+				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowPostCopy).To(BeFalse())
 				},
-				true,
 			),
 			Entry("nothing is changed",
 				func(p *migrationsv1.MigrationPolicySpec) {},
-				func(c *v1.MigrationConfiguration) {},
-				false,
+				func(c *v1.VMIMConfigurationOptions) {},
 			),
 		)
+
+		Describe("resolveMigrationConfig merge matrix", func() {
+			expectResolvedMigrationConfig := func(setup func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy, expectPolicyMatch bool) {
+				vmi = newVirtualMachine("testvmi", v1.Running)
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
+
+				if setup != nil {
+					if policy := setup(vmi); policy != nil {
+						addMigrationPolicies(*policy)
+					}
+				}
+
+				resolvedConfig, matchedPolicy, err := controller.resolveMigrationConfig(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				var policySpec *migrationsv1.MigrationPolicySpec
+				if expectPolicyMatch {
+					Expect(matchedPolicy).ToNot(BeNil())
+					policySpec = &matchedPolicy.Spec
+				} else {
+					Expect(matchedPolicy).To(BeNil())
+				}
+
+				expected := migrationsutil.ToVMIMConfigurationOptions(controller.clusterConfig.GetMigrationConfiguration())
+				if policySpec != nil {
+					expected = applyMigrationPolicySpec(expected, policySpec)
+				}
+				Expect(resolvedConfig).To(Equal(expected))
+			}
+
+			It("uses policy overrides when cluster defaults are unset", func() {
+				expectResolvedMigrationConfig(func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+					migrationPolicy := generatePolicyAndAlignVMI(vmi)
+					migrationPolicy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(600))
+					migrationPolicy.Spec.AllowPostCopy = pointer.P(true)
+					return migrationPolicy
+				}, true)
+			})
+
+			It("uses cluster defaults when no policy matches", func() {
+				setConfig(&v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						AllowAutoConverge: pointer.P(true),
+						ProgressTimeout:   pointer.P(int64(200)),
+					},
+				})
+				expectResolvedMigrationConfig(nil, false)
+			})
+
+			It("uses implicit cluster defaults when neither side sets overrides", func() {
+				expectResolvedMigrationConfig(nil, false)
+			})
+
+			It("merges cluster defaults with policy overrides", func() {
+				setConfig(&v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						AllowAutoConverge: pointer.P(false),
+						ProgressTimeout:   pointer.P(int64(300)),
+					},
+				})
+				expectResolvedMigrationConfig(func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+					migrationPolicy := generatePolicyAndAlignVMI(vmi)
+					migrationPolicy.Spec.AllowAutoConverge = pointer.P(true)
+					return migrationPolicy
+				}, true)
+			})
+		})
 	})
 
 	Context("Migration of host-model VMI", func() {
