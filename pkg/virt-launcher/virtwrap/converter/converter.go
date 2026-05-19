@@ -2027,6 +2027,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	initializeQEMUCmdAndQEMUArg(domain)
+	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg,
+		api.Arg{Value: "-chardev"},
+		api.Arg{Value: "null,id=bootfailurelog"},
+		api.Arg{Value: "-device"},
+		api.Arg{Value: "isa-debugcon,iobase=0x403,chardev=bootfailurelog,watch-no-bootable=on"},
+	)
+
 	if tpm.HasDevice(&vmi.Spec) {
 		domain.Spec.Devices.TPMs = []api.TPM{
 			{

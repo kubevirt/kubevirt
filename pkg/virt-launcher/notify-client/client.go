@@ -603,9 +603,24 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 
+	domainQemuMonitorEventNoBootableDeviceCallback := func(_ *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainQemuMonitorEvent) {
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
+		}
+
+		log.Log.Infof("Domain Qemu Monitor %s event received for domain %s", event.Event, name)
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
+		return err
+	}
+
+	err = domainConn.DomainQemuMonitorEventRegister("NO_BOOTABLE_DEVICE", domainQemuMonitorEventNoBootableDeviceCallback)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register no bootable device event callback with libvirt")
 		return err
 	}
 
