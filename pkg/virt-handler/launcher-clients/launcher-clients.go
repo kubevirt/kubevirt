@@ -106,6 +106,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 
 		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {
+			virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 			return nil, err
 		}
 
@@ -114,6 +115,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 		if err != nil {
 			client.Close()
 			close(domainPipeStopChan)
+			virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 			return nil, err
 		}
 
