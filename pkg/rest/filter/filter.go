@@ -27,6 +27,13 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+func SecurityHeadersFilter() restful.FilterFunction {
+	return func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+		resp.Header().Set("X-Content-Type-Options", "nosniff")
+		chain.ProcessFilter(req, resp)
+	}
+}
+
 func RequestLoggingFilter() restful.FilterFunction {
 	return func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
 		var username = "-"
