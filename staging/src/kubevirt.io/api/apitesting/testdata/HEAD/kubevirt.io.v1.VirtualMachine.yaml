@@ -702,6 +702,7 @@ spec:
         resourceClaimName: resourceClaimNameValue
         resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
+      serviceAccountName: serviceAccountNameValue
       startStrategy: startStrategyValue
       subdomain: subdomainValue
       terminationGracePeriodSeconds: -29

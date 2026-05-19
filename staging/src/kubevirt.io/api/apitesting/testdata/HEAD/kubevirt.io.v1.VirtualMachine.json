@@ -701,6 +701,7 @@
           }
         },
         "schedulerName": "schedulerNameValue",
+        "serviceAccountName": "serviceAccountNameValue",
         "tolerations": [
           {
             "key": "keyValue",

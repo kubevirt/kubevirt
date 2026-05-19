@@ -100,6 +100,12 @@ type VirtualMachineInstanceSpec struct {
 	// If not specified, the VMI will be dispatched by default scheduler.
 	// +optional
 	SchedulerName string `json:"schedulerName,omitempty"`
+	// ServiceAccountName is the name of the ServiceAccount to use to run the
+	// virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+	// automatically expose the service account token to the VM guest.
+	// To expose the token to the VM, use a serviceAccount volume.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
 	// TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology
