@@ -3433,6 +3433,16 @@ type MigrationConfiguration struct {
 	ClusterMigrationConfiguration  `json:",inline"`
 }
 
+func (m *MigrationConfiguration) AsVMIMConfigurationOptions() *VMIMConfigurationOptions {
+	if m == nil {
+		return nil
+	}
+	var vmimco VMIMConfigurationOptions
+	vmimco.LegacyVMMigrationConfiguration = m.LegacyVMMigrationConfiguration
+	vmimco.ClusterMigrationConfiguration = m.ClusterMigrationConfiguration
+	return &vmimco
+}
+
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {
 	MemoryLimit *resource.Quantity `json:"memoryLimit"`

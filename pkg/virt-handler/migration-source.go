@@ -510,9 +510,9 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return fmt.Errorf("failed to handle migration proxy: %v", err)
 	}
 
-	var migrationConfiguration *v1.MigrationConfiguration
+	var migrationConfiguration *v1.VMIMConfigurationOptions
 	if vmi.Status.MigrationState.MigrationConfiguration == nil {
-		migrationConfiguration = c.clusterConfig.GetMigrationConfiguration()
+		migrationConfiguration = c.clusterConfig.GetMigrationConfiguration().AsVMIMConfigurationOptions()
 	} else {
 		migrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
 	}
