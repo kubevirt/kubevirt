@@ -457,7 +457,23 @@ func main() {
 		stopChan,
 		hookFuncs...,
 	)
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer, *hypervisor, nbdclient.RegisterNBDServer)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(
+		domainConn,
+		*virtShareDir,
+		*ephemeralDiskDir,
+		&agentStore,
+		*ovmfPath,
+		ephemeralDiskCreator,
+		metadataCache,
+		signalStopChan,
+		*diskMemoryLimitBytes,
+		util.GetPodCPUSet,
+		*imageVolumeEnabled,
+		*libvirtHooksServerAndClientEnabled,
+		preMigrationHookServer,
+		*hypervisor,
+		nbdclient.RegisterNBDServer,
+		notifier)
 	if err != nil {
 		panic(err)
 	}
