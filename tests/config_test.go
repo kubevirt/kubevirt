@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -403,6 +405,73 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
 				&expect.BExp{R: token},
 			}, 200)).To(Succeed())
+		})
+	})
+
+	Context("With spec.serviceAccountName defined", func() {
+
+		const serviceAccountName = "test-identity-sa"
+
+		BeforeEach(func() {
+			virtClient := kubevirt.Client()
+			sa := &k8sv1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceAccountName,
+				},
+			}
+			_, err := virtClient.CoreV1().ServiceAccounts(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), sa, metav1.CreateOptions{},
+			)
+			if !errors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		AfterEach(func() {
+			virtClient := kubevirt.Client()
+			err := virtClient.CoreV1().ServiceAccounts(testsuite.GetTestNamespace(nil)).Delete(
+				context.Background(), serviceAccountName, metav1.DeleteOptions{},
+			)
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		It("Should set the pod service account without exposing the token to the VM", func() {
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithServiceAccountName(serviceAccountName),
+				libnet.WithMasqueradeNetworking(),
+			)
+
+			By("Running VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+
+			By("Checking the pod has the correct service account")
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmiPod.Spec.ServiceAccountName).To(Equal(serviceAccountName))
+
+			By("Checking that automountServiceAccountToken is false")
+			Expect(vmiPod.Spec.AutomountServiceAccountToken).ToNot(BeNil())
+			Expect(*vmiPod.Spec.AutomountServiceAccountToken).To(BeFalse())
+
+			By("Checking that no service account volume is present in the VMI")
+			for _, volume := range vmi.Spec.Volumes {
+				Expect(volume.ServiceAccount).To(BeNil(), "No serviceAccount volume should be present")
+			}
+
+			By("Migrating the VMI")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migration)
+
+			By("Checking the target pod preserves the service account")
+			vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(targetPod.Spec.ServiceAccountName).To(Equal(serviceAccountName))
+			Expect(*targetPod.Spec.AutomountServiceAccountToken).To(BeFalse())
 		})
 	})
 
