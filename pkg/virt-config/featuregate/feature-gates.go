@@ -51,10 +51,11 @@ const (
 )
 
 type FeatureGate struct {
-	Name        string
-	State       State
-	VmiSpecUsed func(spec *v1.VirtualMachineInstanceSpec) bool
-	Message     string
+	Name         string
+	State        State
+	VmiSpecUsed  func(spec *v1.VirtualMachineInstanceSpec) bool
+	Message      string
+	Dependencies []string
 }
 
 var featureGates = map[string]FeatureGate{}
@@ -66,6 +67,11 @@ var featureGates = map[string]FeatureGate{}
 func RegisterFeatureGate(fg FeatureGate) {
 	if fg.State != Alpha && fg.State != Beta && fg.Message == "" {
 		fg.Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
+	}
+	for _, dep := range fg.Dependencies {
+		if _, exists := featureGates[dep]; !exists {
+			panic(fmt.Sprintf("feature gate %q declares dependency on unregistered gate %q", fg.Name, dep))
+		}
 	}
 	featureGates[fg.Name] = fg
 }
@@ -109,4 +115,32 @@ func IsEnabled(gate string, devConfig *v1.DeveloperConfiguration) bool {
 	}
 
 	return fg.State == Beta
+}
+
+// DependencyWarnings returns a warning message for each enabled feature gate
+// whose declared dependencies are not also enabled.
+func DependencyWarnings(enabledGates []string) []string {
+	enabledSet := make(map[string]struct{}, len(enabledGates))
+	for _, g := range enabledGates {
+		enabledSet[g] = struct{}{}
+	}
+
+	var warnings []string
+	for _, name := range enabledGates {
+		fg := FeatureGateInfo(name)
+		if fg == nil {
+			continue
+		}
+		for _, dep := range fg.Dependencies {
+			depFG := FeatureGateInfo(dep)
+			if depFG != nil && depFG.State == GA {
+				continue
+			}
+			if _, enabled := enabledSet[dep]; !enabled {
+				warnings = append(warnings, fmt.Sprintf(
+					"feature gate %q requires %q to also be enabled", name, dep))
+			}
+		}
+	}
+	return warnings
 }

@@ -267,5 +267,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha, Dependencies: []string{LibvirtHooksServerAndClient}})
 }

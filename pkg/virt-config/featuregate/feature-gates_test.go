@@ -134,4 +134,50 @@ var _ = Describe("Feature Gate", func() {
 		Expect(featuregate.FeatureGateInfo(fg1.Name)).To(Equal(&fg1clone))
 		Expect(featuregate.FeatureGateInfo(fg2.Name)).To(Equal(&fg2))
 	})
+
+	Context("DependencyWarnings", func() {
+		const (
+			fgA = "fg-a"
+			fgB = "fg-b"
+		)
+
+		BeforeEach(func() {
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: fgB, State: featuregate.Alpha})
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: fgA, State: featuregate.Alpha, Dependencies: []string{fgB}})
+			DeferCleanup(featuregate.UnregisterFeatureGate, fgA)
+			DeferCleanup(featuregate.UnregisterFeatureGate, fgB)
+		})
+
+		It("returns no warnings when all dependencies are enabled", func() {
+			Expect(featuregate.DependencyWarnings([]string{fgA, fgB})).To(BeEmpty())
+		})
+
+		It("returns a warning when a dependency is missing", func() {
+			warnings := featuregate.DependencyWarnings([]string{fgA})
+			Expect(warnings).To(HaveLen(1))
+			Expect(warnings[0]).To(ContainSubstring(fgA))
+			Expect(warnings[0]).To(ContainSubstring(fgB))
+		})
+
+		It("returns no warnings when no feature gates are enabled", func() {
+			Expect(featuregate.DependencyWarnings([]string{})).To(BeEmpty())
+		})
+
+		It("panics when registering a gate with an unknown dependency", func() {
+			Expect(func() {
+				featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+					Name: "fg-bad", State: featuregate.Alpha, Dependencies: []string{"nonexistent-gate"},
+				})
+			}).To(Panic())
+		})
+
+		It("returns no warnings when a dependency is GA", func() {
+			const fgGA = "fg-ga"
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: fgGA, State: featuregate.GA})
+			DeferCleanup(featuregate.UnregisterFeatureGate, fgGA)
+
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: fgA, State: featuregate.Alpha, Dependencies: []string{fgGA}})
+			Expect(featuregate.DependencyWarnings([]string{fgA})).To(BeEmpty())
+		})
+	})
 })

@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -316,6 +317,10 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 	}
 	// set default architecture from status of CR
 	config.ArchitectureConfiguration.DefaultArchitecture = kv.Status.DefaultArchitecture
+
+	for _, warning := range featuregate.DependencyWarnings(config.DeveloperConfiguration.FeatureGates) {
+		log.DefaultLogger().Warning(warning)
+	}
 
 	return validateConfig(config)
 }
