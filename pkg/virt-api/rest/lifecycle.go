@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -40,7 +38,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -204,24 +201,8 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	var oldGracePeriodSeconds int64
 	var patchErr error
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
-		patchSet := patch.New()
-		// used for stopping a VM with RunStrategyHalted
-		if vmi.Spec.TerminationGracePeriodSeconds != nil {
-			oldGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
-			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *vmi.Spec.TerminationGracePeriodSeconds))
-		} else {
-			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
-		}
-
-		patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", *bodyStruct.GracePeriod))
-		patchBytes, err := patchSet.GeneratePayload()
-		if err != nil {
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
-
-		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", string(patchBytes))
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		var err error
+		oldGracePeriodSeconds, err = app.patchVMITerminationGracePeriod(vmi, namespace, *bodyStruct.GracePeriod, bodyStruct.DryRun)
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -469,6 +450,24 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
+	// Set terminationGracePeriodSeconds to 1 (the shortest safe restart period) before
+	// sending stateChangeRequests, so virt-handler shuts down the guest promptly regardless
+	// of which controller deletes the pod first.
+	forceRestart := bodyStruct.GracePeriodSeconds != nil && *bodyStruct.GracePeriodSeconds == 0
+	var oldGracePeriodSeconds int64
+	if forceRestart {
+		var err error
+		oldGracePeriodSeconds, err = app.patchVMITerminationGracePeriod(vmi, namespace, int64(1), bodyStruct.DryRun)
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+		// Reflect the patched value locally so the rollback patch uses the correct
+		// optimistic concurrency test if PatchStatus fails below.
+		newGracePeriod := int64(1)
+		vmi.Spec.TerminationGracePeriodSeconds = &newGracePeriod
+	}
+
 	patchBytes, err := getChangeRequestJson(vm,
 		v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
 		v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
@@ -480,36 +479,17 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
 	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	if err != nil {
+		if forceRestart {
+			if _, rollbackErr := app.patchVMITerminationGracePeriod(vmi, namespace, oldGracePeriodSeconds, bodyStruct.DryRun); rollbackErr != nil {
+				log.Log.Object(vmi).Errorf("Failed to rollback VMI terminationGracePeriodSeconds: %v", rollbackErr)
+			}
+		}
 		if strings.Contains(err.Error(), jsonpatchTestErr) {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
 		} else {
 			writeError(errors.NewInternalError(err), response)
 		}
 		return
-	}
-
-	// Only force restart with GracePeriodSeconds=0 is supported for now
-	// Here we are deleting the Pod because CRDs don't support gracePeriodSeconds at the moment
-	if bodyStruct.GracePeriodSeconds != nil {
-		if *bodyStruct.GracePeriodSeconds == 0 {
-			vmiPodname, err := app.findPod(namespace, vmi)
-			if err != nil {
-				writeError(errors.NewInternalError(err), response)
-				return
-			}
-			if vmiPodname == "" {
-				response.WriteHeader(http.StatusAccepted)
-				return
-			}
-			// set terminationGracePeriod to 1 (which is the shorted safe restart period) and delete the VMI pod to trigger a swift restart.
-			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(1))})
-			if err != nil {
-				if !errors.IsNotFound(err) {
-					writeError(errors.NewInternalError(err), response)
-					return
-				}
-			}
-		}
 	}
 
 	response.WriteHeader(http.StatusAccepted)
@@ -592,35 +572,23 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineInstance) (string, error) {
-	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
-	labelSelector, err := labels.Parse(fmt.Sprintf("%s=virt-launcher,%s=%s", v1.AppLabel, v1.CreatedByLabel, string(vmi.UID)))
-	if err != nil {
-		return "", err
-	}
-	selector := metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), selector)
-	if err != nil {
-		return "", err
-	}
-	if len(podList.Items) == 0 {
-		return "", nil
-	} else if len(podList.Items) == 1 {
-		return podList.Items[0].ObjectMeta.Name, nil
+func (app *SubresourceAPIApp) patchVMITerminationGracePeriod(vmi *v1.VirtualMachineInstance, namespace string, gracePeriod int64, dryRun []string) (int64, error) {
+	var oldGracePeriod int64
+	patchSet := patch.New()
+	if vmi.Spec.TerminationGracePeriodSeconds != nil {
+		oldGracePeriod = *vmi.Spec.TerminationGracePeriodSeconds
+		patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *vmi.Spec.TerminationGracePeriodSeconds))
 	} else {
-		// If we have 2 running pods, we might have a migration. Find the new pod!
-		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
-			for _, pod := range podList.Items {
-				if pod.Name == vmi.Status.MigrationState.TargetPod {
-					return pod.Name, nil
-				}
-			}
-		} else {
-			// fallback to old behaviour
-			return podList.Items[0].ObjectMeta.Name, nil
-		}
+		patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
 	}
-	return "", nil
+	patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", gracePeriod))
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return 0, err
+	}
+	log.Log.Object(vmi).V(2).Infof("Patching VMI terminationGracePeriodSeconds: %s", string(patchBytes))
+	_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRun})
+	return oldGracePeriod, err
 }
 
 func (app *SubresourceAPIApp) patchVMStatusStopped(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, response *restful.Response, bodyStruct *v1.StopOptions) (error, error) {
