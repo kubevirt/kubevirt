@@ -3439,6 +3439,16 @@ type MigrationConfiguration struct {
 	MigrationPolicyNonOverridableFields `json:",inline"`
 }
 
+func (m *MigrationConfiguration) AsVMIMConfigurationOptions() *VMIMConfigurationOptions {
+	if m == nil {
+		return nil
+	}
+	var vmimco VMIMConfigurationOptions
+	vmimco.MigrationPolicyOverridableFields = m.MigrationPolicyOverridableFields
+	vmimco.MigrationPolicyNonOverridableFields = m.MigrationPolicyNonOverridableFields
+	return &vmimco
+}
+
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {
 	MemoryLimit *resource.Quantity `json:"memoryLimit"`
