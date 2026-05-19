@@ -57,6 +57,10 @@ type MigrationPolicySpec struct {
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 	//+optional
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// ExperimentalMigrationOptions is an alpha API. It is intended for experimental
+	// purposes only and will be removed in the future.
+	//+optional
+	ExperimentalMigrationOptions *k6tv1.ExperimentalMigrationOptions `json:"experimental,omitempty"`
 }
 
 type LabelSelector map[string]string
