@@ -235,6 +235,15 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		}
 	}
 
+	// Dynamic hugepages device plugins: expose dynamically-allocatable hugepages
+	// as device resources so kubelet doesn't subtract them from allocatable memory.
+	// For 2Mi: uses buddy allocator surplus (nr_overcommit_hugepages > 0).
+	// For 1Gi+: requires hugetlb_cma and hugetlb_cma_only kernel params.
+	// TODO: gate behind a feature gate (e.g., DynamicHugepagesDevicePlugin)
+	for _, plugin := range DiscoverHugepageDevicePlugins("") {
+		permittedDevices = append(permittedDevices, plugin)
+	}
+
 	if c.virtConfig.PersistentReservationEnabled() {
 		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager(), false)
 		if err != nil {
