@@ -285,7 +285,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		),
 	)
 
-	It("should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", func() {
+	It("should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", decorators.WgS390x, func() {
 		guestMemory := resource.MustParse("512Mi")
 		vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
 			Guest: &guestMemory,
@@ -318,7 +318,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(guestMemory))
 	})
 
-	DescribeTable("should reject VM creation when inference was successful but memory and RejectInferFromVolumeFailure were set", func(explicit bool) {
+	DescribeTable("should reject VM creation when inference was successful but memory and RejectInferFromVolumeFailure were set", decorators.WgS390x, func(explicit bool) {
 		guestMemory := resource.MustParse("512Mi")
 		vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
 			Guest: &guestMemory,

@@ -97,7 +97,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", decorators.WgS390x, func() {
 		Context("should obey the disk verification limits in the KubeVirt CR", Serial, func() {
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")

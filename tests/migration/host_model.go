@@ -48,7 +48,7 @@ import (
 )
 
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
-	Context("with a host-model cpu", func() {
+	Context("with a host-model cpu", decorators.WgS390x, func() {
 		It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
 			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
 			if err != nil {

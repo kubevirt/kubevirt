@@ -189,7 +189,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			It("simple default clone", func() {
+			It("simple default clone", decorators.WgS390x, func() {
 				sourceVM, err = createSourceVM(defaultVMIOptions...)
 				Expect(err).ShouldNot(HaveOccurred())
 				vmClone = generateCloneFromVM()
@@ -222,7 +222,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 				}, 120*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VM clone should be successfully deleted")
 			})
 
-			It("simple clone with snapshot source, create clone before snapshot", func() {
+			It("simple clone with snapshot source, create clone before snapshot", decorators.WgS390x, func() {
 				By("Creating a VM")
 				sourceVM, err = createSourceVM(defaultVMIOptions...)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -258,7 +258,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 			})
 
-			It("clone with only some of labels/annotations", func() {
+			It("clone with only some of labels/annotations", decorators.WgS390x, func() {
 				sourceVM, err = createSourceVM(defaultVMIOptions...)
 				Expect(err).ShouldNot(HaveOccurred())
 				vmClone = generateCloneFromVM()
@@ -309,7 +309,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 				expectEqualTemplateAnnotations(targetVM, sourceVM, key2)
 			})
 
-			It("clone with changed MAC address", func() {
+			It("clone with changed MAC address", decorators.WgS390x, func() {
 				const newMacAddress = "BE-AD-00-00-BE-04"
 				options := append(
 					defaultVMIOptions,
@@ -393,7 +393,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 					expectEqualTemplateAnnotations(targetVM, sourceVM)
 				})
 
-				It("should strip firmware UUID", func() {
+				It("should strip firmware UUID", decorators.WgS390x, func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
 					options := append(
