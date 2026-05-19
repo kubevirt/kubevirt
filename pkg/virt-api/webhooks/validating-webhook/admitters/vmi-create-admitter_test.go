@@ -559,6 +559,49 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.subdomain"))
 		})
 
+		It("should accept valid serviceAccountName", func() {
+			vmi.Spec.ServiceAccountName = "my-service-account"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject invalid serviceAccountName", func() {
+			vmi.Spec.ServiceAccountName = "bad+name"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.serviceAccountName"))
+		})
+
+		It("should accept serviceAccountName matching serviceAccount volume", func() {
+			vmi.Spec.ServiceAccountName = "my-sa"
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sa-vol",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "my-sa"},
+				},
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject serviceAccountName conflicting with serviceAccount volume", func() {
+			vmi.Spec.ServiceAccountName = "sa-one"
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sa-vol",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "sa-two"},
+				},
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.serviceAccountName"))
+			Expect(causes[0].Message).To(ContainSubstring("must reference the same service account"))
+		})
+
 		It("should reject disk with missing volume", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
