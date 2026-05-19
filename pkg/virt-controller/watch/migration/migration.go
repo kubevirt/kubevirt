@@ -823,6 +823,10 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationRunning
 		}
 	case virtv1.MigrationRunning:
+		if err := c.updateMigrationAnnotations(*migration, *vmi); err != nil {
+			return fmt.Errorf("failed to update migration pods annotations: %w", err)
+		}
+
 		if migration.IsLocalOrDecentralizedTarget() {
 			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
@@ -831,10 +835,6 @@ func (c *Controller) processMigrationPhase(
 					if err != nil {
 						return err
 					}
-				}
-
-				if err := c.setMigrationAnnotations(vmi.Namespace, *vmi.Status.MigrationState, pod.Name); err != nil {
-					return err
 				}
 			}
 		}
@@ -850,25 +850,50 @@ func (c *Controller) processMigrationPhase(
 	return nil
 }
 
-func (c *Controller) setMigrationAnnotations(
-	namespace string,
-	vmiMigrationState virtv1.VirtualMachineInstanceMigrationState,
-	targetPodName string,
-) error {
-	targetReadyTS := ""
-	if vmiMigrationState.TargetNodeDomainReadyTimestamp != nil {
-		targetReadyTS = vmiMigrationState.TargetNodeDomainReadyTimestamp.String()
+func (c *Controller) updateMigrationAnnotations(migration virtv1.VirtualMachineInstanceMigration, vmi virtv1.VirtualMachineInstance) error {
+	sourcePodName := vmi.Status.MigrationState.SourcePod
+	targetPodName := vmi.Status.MigrationState.TargetPod
+
+	podNames := []string{}
+	if migration.IsDecentralizedSource() {
+		podNames = append(podNames, sourcePodName)
+	} else if migration.IsDecentralizedTarget() {
+		podNames = append(podNames, targetPodName)
+	} else { // cluster-local migration
+		podNames = append(podNames, sourcePodName)
+		podNames = append(podNames, targetPodName)
 	}
 
-	p := `{"metadata":{"annotations":{
-			"` + virtv1.MigrationTargetReadyTimestamp + `":"` + targetReadyTS + `"
-		}}}`
-	_, err := c.clientset.CoreV1().Pods(namespace).Patch(context.Background(), targetPodName, types.MergePatchType, []byte(p), v1.PatchOptions{})
-	if err != nil {
-		return err
+	targetReadyTS := ""
+	if vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+		targetReadyTS = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()
+	}
+	if err := c.setMigrationAnnotations(migration.Namespace, podNames, targetReadyTS); err != nil {
+		return fmt.Errorf("failed to set migration pods annotations: %w", err)
 	}
 
 	return nil
+}
+
+func (c *Controller) setMigrationAnnotations(
+	namespace string,
+	podNames []string,
+	targetReadyTS string,
+) error {
+	var errs []error
+	for _, podName := range podNames {
+		p := `{"metadata":{"annotations":{`
+		if targetReadyTS != "" {
+			p += fmt.Sprintf(`"%s":"%s"`, virtv1.MigrationTargetReadyTimestamp, targetReadyTS)
+		}
+		p += `}}}`
+		_, err := c.clientset.CoreV1().Pods(namespace).Patch(context.Background(), podName, types.MergePatchType, []byte(p), v1.PatchOptions{})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to set migration annotations for pod %s: %w", podName, err))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {

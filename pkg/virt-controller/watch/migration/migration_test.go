@@ -586,6 +586,7 @@ var _ = Describe("Migration watcher", func() {
 				runningMigration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 				runningTargetPod := newTargetPodForVirtualMachine(vmi, runningMigration, k8sv1.PodRunning)
 				runningTargetPod.Spec.NodeName = "node01"
+				sourcePod := newSourcePodForVirtualMachine(vmi)
 
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					MigrationUID:      runningMigration.UID,
@@ -596,10 +597,12 @@ var _ = Describe("Migration watcher", func() {
 					EndTimestamp:      pointer.P(metav1.Now()),
 					Failed:            false,
 					Completed:         true,
+					SourcePod:         sourcePod.Name,
+					TargetPod:         runningTargetPod.Name,
 				}
 				addMigration(runningMigration)
 				addVirtualMachineInstance(vmi)
-				addPod(newSourcePodForVirtualMachine(vmi))
+				addPod(sourcePod)
 				addPod(runningTargetPod)
 
 				sanityExecute()
@@ -1931,6 +1934,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			targetPod.Spec.NodeName = "node01"
+			sourcePod := newSourcePodForVirtualMachine(vmi)
 
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:                   migration.UID,
@@ -1942,10 +1946,12 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
+				SourcePod:                      sourcePod.Name,
+				TargetPod:                      targetPod.Name,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(sourcePod)
 			addPod(targetPod)
 
 			sanityExecute()
@@ -2000,6 +2006,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			targetPod.Spec.NodeName = "node01"
+			sourcePod := newSourcePodForVirtualMachine(vmi)
 
 			for _, c := range conditions {
 				vmi.Status.Conditions = append(vmi.Status.Conditions,
@@ -2020,10 +2027,12 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
+				SourcePod:                      sourcePod.Name,
+				TargetPod:                      targetPod.Name,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(sourcePod)
 			addPod(targetPod)
 
 			sanityExecute()
@@ -3181,7 +3190,8 @@ var _ = Describe("Migration watcher", func() {
 			Entry("local migration, phase is running",
 				newMigration(migrationUID, vmiName, v1.MigrationRunning),
 				map[string]string{
-					v1.DomainAnnotation: "testvmi",
+					v1.DomainAnnotation:              "testvmi",
+					v1.MigrationTargetReadyTimestamp: "",
 				},
 				map[string]string{
 					v1.DomainAnnotation:              "testvmi",
@@ -3192,7 +3202,8 @@ var _ = Describe("Migration watcher", func() {
 			Entry("decentralized sender migration is running (handles source pod)",
 				newDecentralizedSenderMigration(migrationUID, vmiName, v1.MigrationRunning),
 				map[string]string{
-					v1.DomainAnnotation: "testvmi",
+					v1.DomainAnnotation:              "testvmi",
+					v1.MigrationTargetReadyTimestamp: "",
 				},
 				map[string]string{
 					v1.DomainAnnotation:           "testvmi",
