@@ -251,7 +251,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			// This ensures that during upgrades, the migrationConfigurations that
 			// are set by the older migration controller can be read by the updated virt-handler, without
 			// panic.
-			var migrationConfiguration = &v1.MigrationConfiguration{
+			var migrationConfiguration = &v1.VMIMConfigurationOptions{
 				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
 				ProgressTimeout:         pointer.P(int64(150)),
 				AllowAutoConverge:       pointer.P(false),
@@ -273,7 +273,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
-				MigrationConfiguration:         migrationConfiguration,
+				VMIMConfigurationOptions:       migrationConfiguration,
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{

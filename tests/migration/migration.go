@@ -2138,7 +2138,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(vmi.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
 				confirmMigrationPolicyName(vmi, expectedPolicyName)
 			},
 				Entry("should override cluster-wide policy if defined", true),
@@ -2632,11 +2632,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		By("Ensuring MigrationConfiguration is updated")
 		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmi).To(haveMigrationState(
-			gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"MigrationConfiguration": Not(BeNil()),
-			})),
-		))
+		Expect(vmi.Status.MigrationState).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
 	})
 
 	Context("with a live-migration in flight", func() {

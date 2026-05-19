@@ -722,6 +722,7 @@ status:
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
+      experimental: {}
       matchSELinuxLevelOnMigration: true
       maxDowntimeMs: 18446744073709551603
       network: networkValue

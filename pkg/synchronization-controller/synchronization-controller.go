@@ -1246,7 +1246,7 @@ func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virt
 	patchMigrationStateField(patchSet, "migrationUid", origMS.MigrationUID, newMS.MigrationUID)
 	patchMigrationStateField(patchSet, "mode", origMS.Mode, newMS.Mode)
 	patchMigrationStateField(patchSet, "migrationPolicyName", origMS.MigrationPolicyName, newMS.MigrationPolicyName)
-	patchMigrationStateField(patchSet, "migrationConfiguration", origMS.MigrationConfiguration, newMS.MigrationConfiguration)
+	patchMigrationStateField(patchSet, "migrationConfiguration", origMS.VMIMConfigurationOptions, newMS.VMIMConfigurationOptions)
 	patchMigrationStateField(patchSet, "targetCPUSet", origMS.TargetCPUSet, newMS.TargetCPUSet)
 	patchMigrationStateField(patchSet, "targetNodeTopology", origMS.TargetNodeTopology, newMS.TargetNodeTopology)
 	patchMigrationStateField(patchSet, "sourcePersistentStatePVCName", origMS.SourcePersistentStatePVCName, newMS.SourcePersistentStatePVCName)
@@ -1355,8 +1355,8 @@ func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.V
 	if sourceMigrationState.MigrationPolicyName != nil {
 		targetMigrationState.MigrationPolicyName = sourceMigrationState.MigrationPolicyName
 	}
-	if sourceMigrationState.MigrationConfiguration != nil {
-		targetMigrationState.MigrationConfiguration = sourceMigrationState.MigrationConfiguration
+	if sourceMigrationState.VMIMConfigurationOptions != nil {
+		targetMigrationState.VMIMConfigurationOptions = sourceMigrationState.VMIMConfigurationOptions
 	}
 	if sourceMigrationState.StartTimestamp != nil {
 		targetMigrationState.StartTimestamp = sourceMigrationState.StartTimestamp

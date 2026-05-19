@@ -200,8 +200,8 @@ var _ = Describe("Migration watcher", func() {
 		updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
-		Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
-		Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).To(PointTo(MatchFields(IgnoreExtras, Fields{
+		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).To(PointTo(MatchFields(IgnoreExtras, Fields{
 			"NodeDrainTaintKey":                 Equal(expectedConfiguration.NodeDrainTaintKey),
 			"ParallelOutboundMigrationsPerNode": Equal(expectedConfiguration.ParallelOutboundMigrationsPerNode),
 			"ParallelMigrationsPerCluster":      Equal(expectedConfiguration.ParallelMigrationsPerCluster),

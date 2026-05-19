@@ -1010,7 +1010,8 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "experimental": {}
       },
       "targetCPUSet": [
         -12
