@@ -36,6 +36,7 @@ API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,CPUPr
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,VirtualMachineClusterPreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,VirtualMachinePreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/migrations/v1alpha1,MigrationPolicyList,Items
+API rule violation: list_type_missing,kubevirt.io/api/plugin/v1alpha1,PluginList,Items
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreStatus,DeletedDataVolumes
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreStatus,Restores
