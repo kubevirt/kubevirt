@@ -4106,19 +4106,55 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        advancedMigrationOptions:
+          type: object
         allowAutoConverge:
+          description: |-
+            AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
+            guarantee successful VMI live migrations. Defaults to false
           type: boolean
         allowPostCopy:
+          description: |-
+            AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
+            to successfully live-migrate. However, events like a network failure can cause a VMI crash.
+            If set to true, migrations will still start in pre-copy, but switch to post-copy when
+            CompletionTimeoutPerGiB triggers. Defaults to false
           type: boolean
         allowWorkloadDisruption:
+          description: |-
+            AllowWorkloadDisruption indicates that the migration shouldn't be
+            canceled after acceptableCompletionTime is exceeded. Instead, if
+            permitted, migration will be switched to post-copy or the VMI will be
+            paused to allow the migration to complete
           type: boolean
         bandwidthPerMigration:
           anyOf:
           - type: integer
           - type: string
+          description: |-
+            BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.
+            The value is in quantity per second. Defaults to 0 (no limit)
           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
           x-kubernetes-int-or-string: true
         completionTimeoutPerGiB:
+          description: |-
+            CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
+            If the timeout is reached, the migration will be either paused, switched
+            to post-copy or cancelled depending on other settings. Defaults to 150
+          format: int64
+          type: integer
+        matchSELinuxLevelOnMigration:
+          description: |-
+            By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
+            When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
+            That will ensure the target virt-launcher doesn't share categories with another pod on the node.
+            However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
+          type: boolean
+        progressTimeout:
+          description: |-
+            ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
+            Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
+            then considered stuck and therefore cancelled. Defaults to 150
           format: int64
           type: integer
         selectors:
@@ -4132,6 +4168,18 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type: object
           type: object
+        unsafeMigrationOverride:
+          description: |-
+            UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
+            indicates the migration will be unsafe to the guest. Defaults to false
+          type: boolean
+        utilityVolumesTimeout:
+          description: |-
+            UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+            for utility volumes to be detached. If utility volumes are still present after this timeout,
+            the migration will be marked as Failed. Defaults to 150
+          format: int64
+          type: integer
       required:
       - selectors
       type: object
@@ -15112,6 +15160,8 @@ var CRDsValidation map[string]string = map[string]string{
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
+                advancedMigrationOptions:
+                  type: object
                 allowAutoConverge:
                   description: |-
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
@@ -15715,6 +15765,8 @@ var CRDsValidation map[string]string = map[string]string{
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
+                advancedMigrationOptions:
+                  type: object
                 allowAutoConverge:
                   description: |-
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to

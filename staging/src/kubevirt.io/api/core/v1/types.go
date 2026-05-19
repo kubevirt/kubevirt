@@ -998,7 +998,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
-	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
+	MigrationConfiguration *VMIMConfigurationOptions `json:"migrationConfiguration,omitempty"`
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic
@@ -3350,19 +3350,23 @@ type TLSConfiguration struct {
 	Ciphers []string `json:"ciphers,omitempty"`
 }
 
-// MigrationConfiguration holds migration options.
-// Can be overridden for specific groups of VMs though migration policies.
-// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
-type MigrationConfiguration struct {
-	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
-	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
-	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
-	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
-	// allowed per node. Defaults to 2
-	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
-	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
-	// allowed cluster-wide. Defaults to 5
-	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+type AdvancedMigrationOptions struct {
+	// TODO
+}
+
+// VMIMConfigurationOptions holds all migration options that configurable and supplied to the VMIM object
+type VMIMConfigurationOptions struct {
+	VMMigrationConfiguration      `json:",inline"`
+	ClusterMigrationConfiguration `json:",inline"`
+}
+
+// VMMigrationConfiguration holds migration options for a specific virtual machine.
+type VMMigrationConfiguration struct {
+	LegacyVMMigrationConfiguration `json:",inline"`
+	AdvancedMigrationOptions       *AdvancedMigrationOptions `json:"advancedMigrationOptions,omitempty"`
+}
+
+type LegacyVMMigrationConfiguration struct {
 	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
 	// guarantee successful VMI live migrations. Defaults to false
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
@@ -3394,17 +3398,39 @@ type MigrationConfiguration struct {
 	// permitted, migration will be switched to post-copy or the VMI will be
 	// paused to allow the migration to complete
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
+	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
+	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
+	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
+	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// ClusterMigrationConfiguration holds all migration options that are only configurable at the cluster level (i.e.,
+// applied to all migrations on the cluster)
+type ClusterMigrationConfiguration struct {
+	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
+	// allowed per node. Defaults to 2
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
+	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
+	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
+	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
+	// allowed cluster-wide. Defaults to 5
+	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
 	// When set to true, DisableTLS will disable the additional layer of live migration encryption
 	// provided by KubeVirt. This is usually a bad idea. Defaults to false
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
 	Network *string `json:"network,omitempty"`
-	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
-	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
-	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
-	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
-	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// MigrationConfiguration holds migration options.
+// Can be overridden for specific groups of VMs though migration policies.
+// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
+type MigrationConfiguration struct {
+	LegacyVMMigrationConfiguration `json:",inline"`
+	ClusterMigrationConfiguration  `json:",inline"`
 }
 
 // DiskVerification holds container disks verification limits

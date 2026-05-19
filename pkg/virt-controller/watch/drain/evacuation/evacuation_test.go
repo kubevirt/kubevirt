@@ -338,8 +338,10 @@ var _ = Describe("Evacuation", func() {
 
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
-					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+					ClusterMigrationConfiguration: v1.ClusterMigrationConfiguration{
+						ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+						ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
+					},
 				}
 			})
 
@@ -470,8 +472,10 @@ var _ = Describe("Evacuation", func() {
 
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					ParallelMigrationsPerCluster:      &maxParallelMigrationsPerCluster,
-					ParallelOutboundMigrationsPerNode: &maxParallelMigrationsPerOutboundNode,
+					ClusterMigrationConfiguration: v1.ClusterMigrationConfiguration{
+						ParallelOutboundMigrationsPerNode: &maxParallelMigrationsPerOutboundNode,
+						ParallelMigrationsPerCluster:      &maxParallelMigrationsPerCluster,
+					},
 				}
 			})
 
@@ -508,8 +512,10 @@ var _ = Describe("Evacuation", func() {
 
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
-					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+					ClusterMigrationConfiguration: v1.ClusterMigrationConfiguration{
+						ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+						ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
+					},
 				}
 			})
 

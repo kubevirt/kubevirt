@@ -1476,7 +1476,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				createdPods = []string{}
 				cfg := getCurrentKvConfig(virtClient)
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-					CompletionTimeoutPerGiB: pointer.P(int64(5)),
+					LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+						CompletionTimeoutPerGiB: pointer.P(int64(5)),
+					},
 				}
 				kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
@@ -1485,9 +1487,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-						ProgressTimeout:         pointer.P(int64(5)),
-						CompletionTimeoutPerGiB: pointer.P(int64(5)),
-						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
+						LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+							ProgressTimeout:         pointer.P(int64(5)),
+							CompletionTimeoutPerGiB: pointer.P(int64(5)),
+							BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
+						},
 					}
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 				})

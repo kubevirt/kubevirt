@@ -715,6 +715,7 @@ status:
     failed: true
     failureReason: failureReasonValue
     migrationConfiguration:
+      advancedMigrationOptions: {}
       allowAutoConverge: true
       allowPostCopy: true
       allowWorkloadDisruption: true

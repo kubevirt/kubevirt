@@ -352,6 +352,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.AccessCredential":                                                        schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		"kubevirt.io/api/core/v1.AccessCredentialSecretSource":                                            schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
 		"kubevirt.io/api/core/v1.AddVolumeOptions":                                                        schema_kubevirtio_api_core_v1_AddVolumeOptions(ref),
+		"kubevirt.io/api/core/v1.AdvancedMigrationOptions":                                                schema_kubevirtio_api_core_v1_AdvancedMigrationOptions(ref),
 		"kubevirt.io/api/core/v1.ArchConfiguration":                                                       schema_kubevirtio_api_core_v1_ArchConfiguration(ref),
 		"kubevirt.io/api/core/v1.ArchSpecificConfiguration":                                               schema_kubevirtio_api_core_v1_ArchSpecificConfiguration(ref),
 		"kubevirt.io/api/core/v1.AuthorizedKeysFile":                                                      schema_kubevirtio_api_core_v1_AuthorizedKeysFile(ref),
@@ -373,6 +374,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ClockOffsetUTC":                                                          schema_kubevirtio_api_core_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/api/core/v1.CloudInitConfigDriveSource":                                              schema_kubevirtio_api_core_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/api/core/v1.CloudInitNoCloudSource":                                                  schema_kubevirtio_api_core_v1_CloudInitNoCloudSource(ref),
+		"kubevirt.io/api/core/v1.ClusterMigrationConfiguration":                                           schema_kubevirtio_api_core_v1_ClusterMigrationConfiguration(ref),
 		"kubevirt.io/api/core/v1.ClusterProfilerRequest":                                                  schema_kubevirtio_api_core_v1_ClusterProfilerRequest(ref),
 		"kubevirt.io/api/core/v1.ClusterProfilerResults":                                                  schema_kubevirtio_api_core_v1_ClusterProfilerResults(ref),
 		"kubevirt.io/api/core/v1.CommonInstancetypesDeployment":                                           schema_kubevirtio_api_core_v1_CommonInstancetypesDeployment(ref),
@@ -471,6 +473,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.KubeVirtStatus":                                                          schema_kubevirtio_api_core_v1_KubeVirtStatus(ref),
 		"kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy":                                          schema_kubevirtio_api_core_v1_KubeVirtWorkloadUpdateStrategy(ref),
 		"kubevirt.io/api/core/v1.LaunchSecurity":                                                          schema_kubevirtio_api_core_v1_LaunchSecurity(ref),
+		"kubevirt.io/api/core/v1.LegacyVMMigrationConfiguration":                                          schema_kubevirtio_api_core_v1_LegacyVMMigrationConfiguration(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateConfiguration":                                                 schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref),
 		"kubevirt.io/api/core/v1.LogVerbosity":                                                            schema_kubevirtio_api_core_v1_LogVerbosity(ref),
 		"kubevirt.io/api/core/v1.LunTarget":                                                               schema_kubevirtio_api_core_v1_LunTarget(ref),
@@ -561,7 +564,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.UtilityVolume":                                                           schema_kubevirtio_api_core_v1_UtilityVolume(ref),
 		"kubevirt.io/api/core/v1.VGPUDisplayOptions":                                                      schema_kubevirtio_api_core_v1_VGPUDisplayOptions(ref),
 		"kubevirt.io/api/core/v1.VGPUOptions":                                                             schema_kubevirtio_api_core_v1_VGPUOptions(ref),
+		"kubevirt.io/api/core/v1.VMIMConfigurationOptions":                                                schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref),
 		"kubevirt.io/api/core/v1.VMISelector":                                                             schema_kubevirtio_api_core_v1_VMISelector(ref),
+		"kubevirt.io/api/core/v1.VMMigrationConfiguration":                                                schema_kubevirtio_api_core_v1_VMMigrationConfiguration(ref),
 		"kubevirt.io/api/core/v1.VSOCKOptions":                                                            schema_kubevirtio_api_core_v1_VSOCKOptions(ref),
 		"kubevirt.io/api/core/v1.VideoDevice":                                                             schema_kubevirtio_api_core_v1_VideoDevice(ref),
 		"kubevirt.io/api/core/v1.VirtTemplateDeployment":                                                  schema_kubevirtio_api_core_v1_VirtTemplateDeployment(ref),
@@ -18699,6 +18704,16 @@ func schema_kubevirtio_api_core_v1_AddVolumeOptions(ref common.ReferenceCallback
 	}
 }
 
+func schema_kubevirtio_api_core_v1_AdvancedMigrationOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_ArchConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19415,6 +19430,54 @@ func schema_kubevirtio_api_core_v1_CloudInitNoCloudSource(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.LocalObjectReference"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ClusterMigrationConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ClusterMigrationConfiguration holds all migration options that are only configurable at the cluster level (i.e., applied to all migrations on the cluster)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"parallelOutboundMigrationsPerNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations allowed per node. Defaults to 2",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"nodeDrainTaintKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeDrainTaintKey defines the taint key that indicates a node should be drained. Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"parallelMigrationsPerCluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelMigrationsPerCluster is the total number of concurrent live migrations allowed cluster-wide. Defaults to 5",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"disableTLS": {
+						SchemaProps: spec.SchemaProps{
+							Description: "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"network": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -23451,6 +23514,82 @@ func schema_kubevirtio_api_core_v1_LaunchSecurity(ref common.ReferenceCallback) 
 	}
 }
 
+func schema_kubevirtio_api_core_v1_LegacyVMMigrationConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"utilityVolumesTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowWorkloadDisruption": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"matchSELinuxLevelOnMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23898,27 +24037,6 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 				Description: "MigrationConfiguration holds migration options. Can be overridden for specific groups of VMs though migration policies. Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"nodeDrainTaintKey": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NodeDrainTaintKey defines the taint key that indicates a node should be drained. Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"parallelOutboundMigrationsPerNode": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations allowed per node. Defaults to 2",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"parallelMigrationsPerCluster": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ParallelMigrationsPerCluster is the total number of concurrent live migrations allowed cluster-wide. Defaults to 5",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
 					"allowAutoConverge": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
@@ -23974,6 +24092,34 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"matchSELinuxLevelOnMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"parallelOutboundMigrationsPerNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations allowed per node. Defaults to 2",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"nodeDrainTaintKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeDrainTaintKey defines the taint key that indicates a node should be drained. Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"parallelMigrationsPerCluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelMigrationsPerCluster is the total number of concurrent live migrations allowed cluster-wide. Defaults to 5",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"disableTLS": {
 						SchemaProps: spec.SchemaProps{
 							Description: "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
@@ -23985,13 +24131,6 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
 							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"matchSELinuxLevelOnMigration": {
-						SchemaProps: spec.SchemaProps{
-							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
-							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
@@ -26625,6 +26764,123 @@ func schema_kubevirtio_api_core_v1_VGPUOptions(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMIMConfigurationOptions holds all migration options that configurable and supplied to the VMIM object",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"utilityVolumesTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowWorkloadDisruption": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"matchSELinuxLevelOnMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"advancedMigrationOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.AdvancedMigrationOptions"),
+						},
+					},
+					"parallelOutboundMigrationsPerNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations allowed per node. Defaults to 2",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"nodeDrainTaintKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeDrainTaintKey defines the taint key that indicates a node should be drained. Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"parallelMigrationsPerCluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParallelMigrationsPerCluster is the total number of concurrent live migrations allowed cluster-wide. Defaults to 5",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"disableTLS": {
+						SchemaProps: spec.SchemaProps{
+							Description: "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"network": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.AdvancedMigrationOptions"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VMISelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26643,6 +26899,88 @@ func schema_kubevirtio_api_core_v1_VMISelector(ref common.ReferenceCallback) com
 				Required: []string{"name"},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VMMigrationConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMMigrationConfiguration holds migration options for a specific virtual machine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"utilityVolumesTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowWorkloadDisruption": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"matchSELinuxLevelOnMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"advancedMigrationOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.AdvancedMigrationOptions"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.AdvancedMigrationOptions"},
 	}
 }
 
@@ -28040,7 +28378,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 					"migrationConfiguration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Migration configurations to apply",
-							Ref:         ref("kubevirt.io/api/core/v1.MigrationConfiguration"),
+							Ref:         ref("kubevirt.io/api/core/v1.VMIMConfigurationOptions"),
 						},
 					},
 					"targetCPUSet": {
@@ -28113,7 +28451,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSourceState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.VMIMConfigurationOptions", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationSourceState", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState"},
 	}
 }
 
@@ -32779,31 +33117,69 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 					},
 					"allowAutoConverge": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"bandwidthPerMigration": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Description: "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"completionTimeoutPerGiB": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress. Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is then considered stuck and therefore cancelled. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"utilityVolumesTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"allowPostCopy": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"allowWorkloadDisruption": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"matchSELinuxLevelOnMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"advancedMigrationOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.AdvancedMigrationOptions"),
 						},
 					},
 				},
@@ -32811,7 +33187,7 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/migrations/v1alpha1.Selectors"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.AdvancedMigrationOptions", "kubevirt.io/api/migrations/v1alpha1.Selectors"},
 	}
 }
 
