@@ -71,6 +71,7 @@ import (
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -489,10 +490,10 @@ func (c *Controller) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv1.
 
 func (c *Controller) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
 	serviceAccountName := "default"
-	for _, vol := range vm.Spec.Template.Spec.Volumes {
-		if vol.ServiceAccount != nil {
-			serviceAccountName = vol.ServiceAccount.ServiceAccountName
-		}
+	if vm.Spec.Template.Spec.ServiceAccountName != "" {
+		serviceAccountName = vm.Spec.Template.Spec.ServiceAccountName
+	} else if sa := storageutils.ServiceAccountNameFromVolumes(vm.Spec.Template.Spec.Volumes); sa != "" {
+		serviceAccountName = sa
 	}
 
 	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}

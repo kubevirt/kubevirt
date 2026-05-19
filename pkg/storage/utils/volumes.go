@@ -198,3 +198,12 @@ func getNewestNonTerminatingPVC(pvcs []k8sv1.PersistentVolumeClaim) (*k8sv1.Pers
 func IsErrNoBackendPVC(err error) bool {
 	return errors.Is(err, ErrNoBackendPVC)
 }
+
+func ServiceAccountNameFromVolumes(volumes []v1.Volume) string {
+	for _, volume := range volumes {
+		if volume.ServiceAccount != nil {
+			return volume.ServiceAccount.ServiceAccountName
+		}
+	}
+	return ""
+}
