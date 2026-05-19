@@ -897,6 +897,10 @@ func (app *virtAPIApp) Compose() {
 
 	app.composeSubresources()
 
+	// SecurityHeadersFilter is registered first so security headers are set before
+	// any other filter runs, ensuring they are present even if a later filter
+	// (e.g. OPTIONSFilter) short-circuits the chain without calling the handler.
+	restful.Filter(filter.SecurityHeadersFilter())
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 	restful.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
