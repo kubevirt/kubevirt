@@ -6025,6 +6025,28 @@ var _ = Describe("Template", func() {
 			Expect(limExists).To(BeFalse())
 		})
 	})
+
+	Context("FirmwareAutoSelection feature gate", func() {
+		It("should pass --firmware-auto-selection flag to virt-launcher when enabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			enableFeatureGate(featuregate.FirmwareAutoSelection)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--firmware-auto-selection"))
+		})
+
+		It("should not pass --firmware-auto-selection flag when disabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			disableFeatureGates()
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].Command).ToNot(ContainElement("--firmware-auto-selection"))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -6102,6 +6124,7 @@ var _ = Describe("requestResource", func() {
 			Expect(valInt).To(Equal(i))
 		}
 	})
+
 })
 
 func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
