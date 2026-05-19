@@ -5168,6 +5168,60 @@ var _ = Describe("Template", func() {
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
 		})
 
+		It("Should set service account from spec.serviceAccountName without automounting token", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ServiceAccountName: "my-sa",
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							DisableHotplug: true,
+						},
+					},
+				},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.ServiceAccountName).To(Equal("my-sa"))
+			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse())
+		})
+
+		It("Should use spec.serviceAccountName and automount token when serviceAccount volume is also present", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ServiceAccountName: "my-sa",
+					Volumes: []v1.Volume{
+						{
+							Name: "sa-vol",
+							VolumeSource: v1.VolumeSource{
+								ServiceAccount: &v1.ServiceAccountVolumeSource{
+									ServiceAccountName: "my-sa",
+								},
+							},
+						},
+					},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							DisableHotplug: true,
+						},
+					},
+				},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.ServiceAccountName).To(Equal("my-sa"))
+			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue())
+		})
+
 	})
 
 	Context("with VSOCK enabled", func() {
