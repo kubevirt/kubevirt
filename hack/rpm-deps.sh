@@ -46,7 +46,7 @@ SINGLE_ARCH=${SINGLE_ARCH:-""}
 BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
 # Select repo file based on version
-bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
+bazeldnf_repos="--repofile rpm/repo-virt-preview.yaml --repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
 if [ "${CUSTOM_REPO}" ]; then
     bazeldnf_repos="--repofile ${CUSTOM_REPO} ${bazeldnf_repos}"
 fi
@@ -157,12 +157,17 @@ launcherbase_x86_64="
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
+  qemu-system-aarch64-core
+  edk2-aarch64
 "
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+  qemu-system-x86-core
+  edk2-ovmf
+  seabios
 "
 launcherbase_s390x="
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}

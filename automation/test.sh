@@ -125,6 +125,7 @@ case "$TARGET" in
     ;;
   *sig-compute*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+    export KUBEVIRT_E2E_FOCUS="should boot a guest using QEMU TCG emulation on a cross-architecture host"
     ;;
   *sig-operator*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
