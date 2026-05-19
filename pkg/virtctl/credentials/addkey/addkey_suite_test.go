@@ -3,11 +3,9 @@ package addkey_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestAddKey(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "AddKey Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -21,11 +21,9 @@ package requirements_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestRequirements(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Requirements Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
