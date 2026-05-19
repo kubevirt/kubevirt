@@ -7974,6 +7974,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If specified, the VMI will be dispatched by specified scheduler.
                     If not specified, the VMI will be dispatched by default scheduler.
                   type: string
+                serviceAccountName:
+                  description: |-
+                    ServiceAccountName is the name of the ServiceAccount to use to run the
+                    virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+                    automatically expose the service account token to the VM guest.
+                    To expose the token to the VM, use a serviceAccount volume.
+                  type: string
                 startStrategy:
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
@@ -14141,6 +14148,13 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             If specified, the VMI will be dispatched by specified scheduler.
             If not specified, the VMI will be dispatched by default scheduler.
+          type: string
+        serviceAccountName:
+          description: |-
+            ServiceAccountName is the name of the ServiceAccount to use to run the
+            virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+            automatically expose the service account token to the VM guest.
+            To expose the token to the VM, use a serviceAccount volume.
           type: string
         startStrategy:
           description: StartStrategy can be set to "Paused" if Virtual Machine should
@@ -20612,6 +20626,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If specified, the VMI will be dispatched by specified scheduler.
                     If not specified, the VMI will be dispatched by default scheduler.
                   type: string
+                serviceAccountName:
+                  description: |-
+                    ServiceAccountName is the name of the ServiceAccount to use to run the
+                    virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+                    automatically expose the service account token to the VM guest.
+                    To expose the token to the VM, use a serviceAccount volume.
+                  type: string
                 startStrategy:
                   description: StartStrategy can be set to "Paused" if Virtual Machine
                     should be started in paused state.
@@ -25765,6 +25786,13 @@ var CRDsValidation map[string]string = map[string]string{
                           description: |-
                             If specified, the VMI will be dispatched by specified scheduler.
                             If not specified, the VMI will be dispatched by default scheduler.
+                          type: string
+                        serviceAccountName:
+                          description: |-
+                            ServiceAccountName is the name of the ServiceAccount to use to run the
+                            virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+                            automatically expose the service account token to the VM guest.
+                            To expose the token to the VM, use a serviceAccount volume.
                           type: string
                         startStrategy:
                           description: StartStrategy can be set to "Paused" if Virtual
@@ -31412,6 +31440,13 @@ var CRDsValidation map[string]string = map[string]string{
                               description: |-
                                 If specified, the VMI will be dispatched by specified scheduler.
                                 If not specified, the VMI will be dispatched by default scheduler.
+                              type: string
+                            serviceAccountName:
+                              description: |-
+                                ServiceAccountName is the name of the ServiceAccount to use to run the
+                                virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+                                automatically expose the service account token to the VM guest.
+                                To expose the token to the VM, use a serviceAccount volume.
                               type: string
                             startStrategy:
                               description: StartStrategy can be set to "Paused" if
