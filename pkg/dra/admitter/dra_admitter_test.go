@@ -25,9 +25,10 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 type fakeConfigChecker struct {
@@ -89,8 +90,8 @@ var _ = Describe("DRA Admitter", func() {
 							Name:       "gpu1",
 							DeviceName: "vfio.gpu.example.com",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -112,8 +113,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -131,27 +132,6 @@ var _ = Describe("DRA Admitter", func() {
 			checker.gpuDRAEnabled = true
 		})
 
-		It("should reject when claimName is nil", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								RequestName: ptr.To("req1"),
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
-			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].claimName"))
-		})
-
 		It("should reject when claimName is empty string", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
@@ -160,8 +140,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To(""),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -172,27 +152,6 @@ var _ = Describe("DRA Admitter", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
 			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
 			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].claimName"))
-		})
-
-		It("should reject when requestName is nil", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName: ptr.To("claim1"),
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
-			Expect(causes[0].Message).To(ContainSubstring("requestName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].requestName"))
 		})
 
 		It("should reject when requestName is empty string", func() {
@@ -203,8 +162,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To(""),
+								ClaimName:   "claim1",
+								RequestName: "",
 							},
 						}},
 					},
@@ -252,8 +211,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -274,8 +233,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -296,15 +255,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim2"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim2",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -331,8 +290,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -354,15 +313,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim2"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim2",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -388,15 +347,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -419,15 +378,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim1",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -453,8 +412,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-gpu",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -482,20 +441,20 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{
 							{
 								Name:         "gpu-invalid",
-								ClaimRequest: &v1.ClaimRequest{RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{RequestName: "req1"},
 							},
 							{
 								Name: "gpu-a",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu-dup",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -547,8 +506,8 @@ var _ = Describe("DRA Admitter", func() {
 							Name:       "hd1",
 							DeviceName: "vfio.device.example.com",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -570,8 +529,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -589,27 +548,6 @@ var _ = Describe("DRA Admitter", func() {
 			checker.hostDeviceDRAEnabled = true
 		})
 
-		It("should reject when claimName is nil", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								RequestName: ptr.To("req1"),
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
-			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0].claimName"))
-		})
-
 		It("should reject when claimName is empty string", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
@@ -618,8 +556,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To(""),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -630,27 +568,6 @@ var _ = Describe("DRA Admitter", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
 			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
 			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0].claimName"))
-		})
-
-		It("should reject when requestName is nil", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []k8sv1.PodResourceClaim{{Name: "claim1"}},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName: ptr.To("claim1"),
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
-			Expect(causes[0].Message).To(ContainSubstring("requestName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0].requestName"))
 		})
 
 		It("should reject when requestName is empty string", func() {
@@ -661,8 +578,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To(""),
+								ClaimName:   "claim1",
+								RequestName: "",
 							},
 						}},
 					},
@@ -707,8 +624,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -734,8 +651,8 @@ var _ = Describe("DRA Admitter", func() {
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -757,15 +674,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "hd1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "hd2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim2"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim2",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -791,15 +708,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "hd1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "hd2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -822,15 +739,15 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "hd1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
 								Name: "hd2",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req2"),
+									ClaimName:   "claim1",
+									RequestName: "req2",
 								},
 							},
 						},
@@ -857,8 +774,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -887,7 +804,7 @@ var _ = Describe("DRA Admitter", func() {
 							},
 							{
 								Name:         "dra-hd-invalid",
-								ClaimRequest: &v1.ClaimRequest{RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{RequestName: "req1"},
 							},
 						},
 					},
@@ -913,8 +830,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd-a",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 							{
@@ -924,8 +841,8 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd-dup",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							},
 						},
@@ -985,15 +902,15 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("gpu-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "gpu-claim",
+								RequestName: "req1",
 							},
 						}},
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("hd-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "hd-claim",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -1013,15 +930,15 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("gpu-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "gpu-claim",
+								RequestName: "req1",
 							},
 						}},
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("hd-claim"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "hd-claim",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -1043,15 +960,15 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("shared-claim"),
-								RequestName: ptr.To("gpu-req"),
+								ClaimName:   "shared-claim",
+								RequestName: "gpu-req",
 							},
 						}},
 						HostDevices: []v1.HostDevice{{
 							Name: "hd1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("shared-claim"),
-								RequestName: ptr.To("hd-req"),
+								ClaimName:   "shared-claim",
+								RequestName: "hd-req",
 							},
 						}},
 					},
@@ -1059,6 +976,32 @@ var _ = Describe("DRA Admitter", func() {
 			}
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject when GPU and HostDevice share the same claimName/requestName pair", func() {
+			vmi := libvmi.New(
+				libvmi.WithResourceClaim(k8sv1.PodResourceClaim{Name: "shared-claim"}),
+				libvmi.WithGPU(v1.GPU{
+					Name: "gpu1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "shared-req",
+					},
+				}),
+				libvmi.WithHostDevice(v1.HostDevice{
+					Name: "hd1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "shared-req",
+					},
+				}),
+			)
+			causes := validateCreationDRA(field, &vmi.Spec, checker)
+			Expect(causes).To(Equal([]metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: `duplicate claimName/requestName pair "shared-claim/shared-req" between GPUs[0] and HostDevices[0]`,
+				Field:   "spec.domain.devices.hostDevices[0]",
+			}}))
 		})
 	})
 
@@ -1072,8 +1015,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},
@@ -1092,8 +1035,8 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   ptr.To("claim1"),
-								RequestName: ptr.To("req1"),
+								ClaimName:   "claim1",
+								RequestName: "req1",
 							},
 						}},
 					},

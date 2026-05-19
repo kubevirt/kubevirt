@@ -384,6 +384,12 @@ oci_pull(
 )
 
 oci_pull(
+    name = "alpine_with_test_tooling_arm64",
+    digest = "sha256:5b443506b62f29f5ef5ac1bbf709338212b0b289ee2579e4feead42205685f43",
+    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+)
+
+oci_pull(
     name = "alpine_with_test_tooling_s390x",
     digest = "sha256:1a52903133c00507607e8a82308a34923e89288d852762b9f4d5da227767e965",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
@@ -1758,10 +1764,7 @@ rpm(
 rpm(
     name = "curl-minimal-0__7.76.1-31.el9.x86_64",
     sha256 = "be145eb1684cb38553b6611bca6c0fb562ff8485902c49131c5ed0b9ac0733f4",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/curl-minimal-7.76.1-31.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/be145eb1684cb38553b6611bca6c0fb562ff8485902c49131c5ed0b9ac0733f4",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/be145eb1684cb38553b6611bca6c0fb562ff8485902c49131c5ed0b9ac0733f4"],
 )
 
 rpm(
@@ -6117,10 +6120,7 @@ rpm(
 rpm(
     name = "libcurl-minimal-0__7.76.1-31.el9.x86_64",
     sha256 = "6438485e38465ee944e25abedcf4a1761564fe5202f05a02c71e4c880255b539",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/libcurl-minimal-7.76.1-31.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/6438485e38465ee944e25abedcf4a1761564fe5202f05a02c71e4c880255b539",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/6438485e38465ee944e25abedcf4a1761564fe5202f05a02c71e4c880255b539"],
 )
 
 rpm(
@@ -14814,10 +14814,7 @@ rpm(
 rpm(
     name = "tzdata-0__2025a-1.el9.x86_64",
     sha256 = "655945e6a0e95b960a422828bc1cb3bac2232fe9b76590e35ad00069097f087a",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/tzdata-2025a-1.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/655945e6a0e95b960a422828bc1cb3bac2232fe9b76590e35ad00069097f087a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/655945e6a0e95b960a422828bc1cb3bac2232fe9b76590e35ad00069097f087a"],
 )
 
 rpm(

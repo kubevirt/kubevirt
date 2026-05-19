@@ -1,0 +1,68 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package launcher
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+)
+
+var _ = Describe("VMNetworkConfigurator", func() {
+	var baseCacheCreator tempCacheCreator
+
+	AfterEach(func() {
+		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
+	})
+	Context("interface configuration", func() {
+		Context("when calling []podNIC factory functions", func() {
+			It("should not process SR-IOV networks", func() {
+				const networkName = "sriov"
+				vmi := libvmi.New(
+					libvmi.WithNamespace("testnamespace"),
+					libvmi.WithName("testVmName"),
+					libvmi.WithNetwork(&v1.Network{
+						Name: networkName,
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{NetworkName: "sriov-nad"},
+						},
+					}),
+					libvmi.WithInterface(v1.Interface{
+						Name: networkName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							SRIOV: &v1.InterfaceSRIOV{},
+						},
+					}),
+				)
+
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
+
+				nics, err := vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nics).To(BeEmpty())
+			})
+		})
+	})
+})

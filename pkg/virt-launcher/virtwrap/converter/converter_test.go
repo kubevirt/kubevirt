@@ -67,14 +67,14 @@ import (
 )
 
 var (
-	//go:embed testdata/domain_x86_64.xml.tmpl
-	embedDomainTemplateX86_64 string
-	//go:embed testdata/domain_arm64.xml.tmpl
-	embedDomainTemplateARM64 string
-	//go:embed testdata/domain_s390x.xml.tmpl
-	embedDomainTemplateS390X string
-	//go:embed testdata/domain_x86_64_root.xml.tmpl
-	embedDomainTemplateRootBus string
+	//go:embed testdata/domain_x86_64.xml
+	embedDomainX86_64 string
+	//go:embed testdata/domain_arm64.xml
+	embedDomainARM64 string
+	//go:embed testdata/domain_s390x.xml
+	embedDomainS390X string
+	//go:embed testdata/domain_x86_64_root.xml
+	embedDomainRootBus string
 )
 
 const (
@@ -96,21 +96,6 @@ func MultiArchEntry(text string, args ...interface{}) []TableEntry {
 		Entry(fmt.Sprintf("%s on %s", text, arm64), append([]interface{}{arm64}, args...)...),
 		Entry(fmt.Sprintf("%s on %s", text, s390x), append([]interface{}{s390x}, args...)...),
 	}
-}
-
-func memBalloonWithModelAndPeriod(model string, period int) string {
-	const argMemBalloonFmt = `<memballoon model="%s" freePageReporting="on">%s</memballoon>`
-	if model == "none" {
-		return `<memballoon model="none"></memballoon>`
-	}
-
-	if period == 0 {
-		return fmt.Sprintf(argMemBalloonFmt, model, "")
-	}
-
-	return fmt.Sprintf(argMemBalloonFmt, model, fmt.Sprintf(`
-      <stats period="%d"></stats>
-    `, period))
 }
 
 // createContextWithDevices creates a ConverterContext populated with mock host devices
@@ -752,28 +737,10 @@ var _ = Describe("Converter", func() {
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
-		var convertedDomain = strings.TrimSpace(embedDomainTemplateX86_64)
-		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
-		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
-		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
-
-		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
-
-		var convertedDomainarm64 = strings.TrimSpace(embedDomainTemplateARM64)
-		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
-		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
-		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
-
-		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
-
-		var convertedDomains390x = strings.TrimSpace(embedDomainTemplateS390X)
-		var convertedDomains390xWith5Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 5))
-		var convertedDomains390xWith0Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 0))
-		var convertedDomains390xWithFalseAutoattach = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
-
-		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
-
-		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(embedDomainTemplateRootBus)
+		var convertedDomain = strings.TrimSpace(embedDomainX86_64)
+		var convertedDomainarm64 = strings.TrimSpace(embedDomainARM64)
+		var convertedDomains390x = strings.TrimSpace(embedDomainS390X)
+		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(embedDomainRootBus)
 
 		var c *convertertypes.ConverterContext
 
@@ -859,35 +826,6 @@ var _ = Describe("Converter", func() {
 			Entry("for amd64", amd64, convertedDomain),
 			Entry("for arm64", arm64, convertedDomainarm64),
 			Entry("for s390x", s390x, convertedDomains390x),
-		)
-
-		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			c.Architecture = archconverter.NewConverter(arch)
-			vmiArchMutate(arch, vmi, c)
-			c.MemBalloonStatsPeriod = period
-			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
-		},
-			Entry("when context define 5 period on memballoon device for amd64", amd64, convertedDomainWith5Period, uint(5)),
-			Entry("when context define 5 period on memballoon device for arm64", arm64, convertedDomainarm64With5Period, uint(5)),
-			Entry("when context define 5 period on memballoon device for s390x", s390x, convertedDomains390xWith5Period, uint(5)),
-			Entry("when context define 0 period on memballoon device for amd64 ", amd64, convertedDomainWith0Period, uint(0)),
-			Entry("when context define 0 period on memballoon device for arm64", arm64, convertedDomainarm64With0Period, uint(0)),
-			Entry("when context define 0 period on memballoon device for s390x", s390x, convertedDomains390xWith0Period, uint(0)),
-		)
-
-		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
-			c.Architecture = archconverter.NewConverter(arch)
-			vmiArchMutate(arch, vmi, c)
-			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
-		},
-			Entry("when Autoattach memballoon device is false for amd64", amd64, convertedDomainWithFalseAutoattach),
-			Entry("when Autoattach memballoon device is false for arm64", arm64, convertedDomainarm64WithFalseAutoattach),
-			Entry("when Autoattach memballoon device is false for s390x", s390x, convertedDomains390xWithFalseAutoattach),
 		)
 
 		Context("when all addresses should be placed at the root complex", func() {
@@ -2990,6 +2928,188 @@ var _ = Describe("Converter", func() {
 			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested vCPUs")
 		})
+	})
+
+	Context("Correctly handle supplementalPool with dedicated cpus", func() {
+		DescribeTable("should succeed assigning CPUs to supplementalPool",
+			func(vmiAnnotations map[string]string, isolateEmulator bool, vCPUs, iothreadCount uint32, expectedLayout api.CPUTune) {
+				c := &convertertypes.ConverterContext{
+					Architecture:   archconverter.NewConverter(runtime.GOARCH),
+					AllowEmulation: true,
+					CPUSet:         []int{5, 6, 7, 8, 9, 10, 11, 12},
+					Topology: &cmdv1.Topology{
+						NumaCells: []*cmdv1.Cell{{
+							Cpus: []*cmdv1.CPU{
+								{Id: 5}, {Id: 6}, {Id: 7}, {Id: 8}, {Id: 9}, {Id: 10},
+								{Id: 11}, {Id: 12},
+							},
+						}},
+					},
+				}
+
+				vmi := libvmi.New(
+					libvmi.WithCPUCount(1, 1, vCPUs),
+					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+					libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(iothreadCount)}),
+					libvmi.WithDedicatedCPUPlacement(),
+				)
+				for key, value := range vmiAnnotations {
+					libvmi.WithAnnotation(key, value)(vmi)
+				}
+				if isolateEmulator {
+					libvmi.WithIsolateEmulatorThread()(vmi)
+				}
+
+				domain := vmiToDomain(vmi, c)
+
+				isExpectedThreadsLayout := equality.Semantic.DeepEqual(&expectedLayout, domain.Spec.CPUTune)
+				Expect(isExpectedThreadsLayout).To(BeTrue())
+			},
+			Entry("when no emulator thread isolation is used",
+				map[string]string{},
+				false,
+				uint32(2),
+				uint32(2),
+				api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{
+							VCPU:   0,
+							CPUSet: "5",
+						},
+						{
+							VCPU:   1,
+							CPUSet: "6",
+						},
+					},
+					IOThreadPin: []api.CPUTuneIOThreadPin{
+						{
+							IOThread: 1,
+							CPUSet:   "7",
+						},
+						{
+							IOThread: 2,
+							CPUSet:   "8",
+						},
+					},
+					EmulatorPin: nil,
+				}),
+			Entry("when EmulatorThreadCompleteToEvenParity is disabled and there is one extra CPU assigned for emulatorThread",
+				map[string]string{},
+				true,
+				uint32(2),
+				uint32(2),
+				api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{
+							VCPU:   0,
+							CPUSet: "5",
+						},
+						{
+							VCPU:   1,
+							CPUSet: "6",
+						},
+					},
+					IOThreadPin: []api.CPUTuneIOThreadPin{
+						{
+							IOThread: 1,
+							CPUSet:   "7",
+						},
+						{
+							IOThread: 2,
+							CPUSet:   "8",
+						},
+					},
+					EmulatorPin: &api.CPUEmulatorPin{
+						CPUSet: "9",
+					},
+				}),
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there is one extra CPU assigned for emulatorThread (odd CPUs)",
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
+				true,
+				uint32(3),
+				uint32(2),
+				api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{
+							VCPU:   0,
+							CPUSet: "5",
+						},
+						{
+							VCPU:   1,
+							CPUSet: "6",
+						},
+						{
+							VCPU:   2,
+							CPUSet: "7",
+						},
+					},
+					IOThreadPin: []api.CPUTuneIOThreadPin{
+						{
+							IOThread: 1,
+							CPUSet:   "8",
+						},
+						{
+							IOThread: 2,
+							CPUSet:   "9",
+						},
+					},
+					EmulatorPin: &api.CPUEmulatorPin{
+						CPUSet: "10",
+					},
+				}),
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are two extra CPUs assigned for emulatorThread (even CPUs)",
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
+				true,
+				uint32(2),
+				uint32(2),
+				api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{
+							VCPU:   0,
+							CPUSet: "5",
+						},
+						{
+							VCPU:   1,
+							CPUSet: "6",
+						},
+					},
+					IOThreadPin: []api.CPUTuneIOThreadPin{
+						{
+							IOThread: 1,
+							CPUSet:   "7",
+						},
+						{
+							IOThread: 2,
+							CPUSet:   "8",
+						},
+					},
+					EmulatorPin: &api.CPUEmulatorPin{
+						CPUSet: "9,10",
+					},
+				}),
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are two extra CPUs assigned for emulatorThread (even CPUs with io+cpu)",
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
+				true,
+				uint32(1),
+				uint32(1),
+				api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{
+							VCPU:   0,
+							CPUSet: "5",
+						},
+					},
+					IOThreadPin: []api.CPUTuneIOThreadPin{
+						{
+							IOThread: 1,
+							CPUSet:   "6",
+						},
+					},
+					EmulatorPin: &api.CPUEmulatorPin{
+						CPUSet: "7,8",
+					},
+				}),
+		)
 	})
 
 	Describe("newDeviceNamer", func() {

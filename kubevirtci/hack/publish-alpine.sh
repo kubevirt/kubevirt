@@ -4,8 +4,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ARCH=$(uname -m | grep -q s390x && echo s390x || echo amd64)
-
 source "${SCRIPT_DIR}/detect_cri.sh"
 
 export KUBEVIRTCI_TAG=${KUBEVIRTCI_TAG:-$(date +"%y%m%d%H%M")-$(git rev-parse --short HEAD)}
@@ -16,37 +14,66 @@ if [ -z "${CRI_BIN}" ]; then
     exit 1
 fi
 
-TARGET_REPO="quay.io/kubevirtci"
-TARGET_KUBEVIRT_REPO="quay.io/kubevirt"
+# s390x requires native hardware because alpine-make-vm-image runs zipl (the
+# s390x bootloader installer) in a chroot. zipl performs low-level ioctl calls
+# on the block device to write IPL boot records, which segfaults under
+# qemu-user-static. arm64 cross-builds fine because its UEFI bootloader setup
+# is just writing a text file (startup.nsh), with no low-level disk operations.
+if [ "$(uname -m)" = "s390x" ]; then
+    BUILD_ARCHES=${BUILD_ARCHES:-"s390x"}
+else
+    BUILD_ARCHES=${BUILD_ARCHES:-"amd64 arm64"}
+fi
+TARGET_REPO=${TARGET_REPO:-"quay.io/kubevirtci"}
+TARGET_KUBEVIRT_REPO=${TARGET_KUBEVIRT_REPO:-"quay.io/kubevirt"}
+IMAGE_NAME="alpine-with-test-tooling-container-disk"
 
-function build_alpine_container_disk() {
-  echo "INFO: build alpine container disk"
-  (cd cluster-provision/images/vm-image-builder && ./create-containerdisk.sh alpine-cloud-init)
-  if [[ "$ARCH" == "amd64" ]]; then
-    ${CRI_BIN} tag alpine-cloud-init:devel "${TARGET_REPO}/alpine-with-test-tooling-container-disk:${KUBEVIRTCI_TAG}"
-    ${CRI_BIN} tag alpine-cloud-init:devel "${TARGET_KUBEVIRT_REPO}/alpine-with-test-tooling-container-disk:devel"
-  else
-    ${CRI_BIN} tag alpine-cloud-init:devel "${TARGET_REPO}/alpine-with-test-tooling-container-disk:${KUBEVIRTCI_TAG}-${ARCH}"
-    ${CRI_BIN} tag alpine-cloud-init:devel "${TARGET_KUBEVIRT_REPO}/alpine-with-test-tooling-container-disk:devel-${ARCH}"
-  fi
+function build_and_push_alpine() {
+    local arch=$1
+    local tagged_image="${TARGET_REPO}/${IMAGE_NAME}:${KUBEVIRTCI_TAG}-${arch}"
+    local devel_image="${TARGET_KUBEVIRT_REPO}/${IMAGE_NAME}:devel-${arch}"
+
+    echo "INFO: building alpine container disk for ${arch}"
+    (cd cluster-provision/images/vm-image-builder && ARCHITECTURE=${arch} ./create-containerdisk.sh alpine-cloud-init)
+
+    ${CRI_BIN} tag alpine-cloud-init:devel "${tagged_image}"
+    ${CRI_BIN} tag alpine-cloud-init:devel "${devel_image}"
+
+    echo "INFO: pushing ${tagged_image}"
+    ${CRI_BIN} push "${tagged_image}"
+    echo "INFO: pushing ${devel_image}"
+    ${CRI_BIN} push "${devel_image}"
 }
 
-function push_alpine_container_disk() {
-  echo "INFO: push alpine container disk"
-  if [[ "$ARCH" == "amd64" ]]; then
-    TARGET_IMAGE="${TARGET_REPO}/alpine-with-test-tooling-container-disk:${KUBEVIRTCI_TAG}"
-    TARGET_KUBEVIRT_IMAGE="${TARGET_KUBEVIRT_REPO}/alpine-with-test-tooling-container-disk:devel"
-  else
-    TARGET_IMAGE="${TARGET_REPO}/alpine-with-test-tooling-container-disk:${KUBEVIRTCI_TAG}-${ARCH}"
-    TARGET_KUBEVIRT_IMAGE="${TARGET_KUBEVIRT_REPO}/alpine-with-test-tooling-container-disk:devel-${ARCH}"
-  fi
-  ${CRI_BIN} push "$TARGET_IMAGE"
-  ${CRI_BIN} push "$TARGET_KUBEVIRT_IMAGE"
+function create_and_push_manifest() {
+    local base_name=$1
+    local repo=$2
+
+    local manifest_name="${repo}/${IMAGE_NAME}:${base_name}"
+    local images=""
+
+    for arch in ${BUILD_ARCHES}; do
+        images="${images} ${repo}/${IMAGE_NAME}:${base_name}-${arch}"
+    done
+
+    if [ -z "${images}" ]; then
+        echo "WARN: no images to include in manifest ${manifest_name}, skipping"
+        return
+    fi
+
+    if ${CRI_BIN} manifest exists "${manifest_name}" 2>/dev/null; then
+        ${CRI_BIN} manifest rm "${manifest_name}"
+    fi
+
+    echo "INFO: creating manifest ${manifest_name}"
+    ${CRI_BIN} manifest create "${manifest_name}" ${images}
+    echo "INFO: pushing manifest ${manifest_name}"
+    ${CRI_BIN} manifest push "${manifest_name}"
 }
 
-function publish_alpine_container_disk() {
-  build_alpine_container_disk
-  push_alpine_container_disk
-}
+for arch in ${BUILD_ARCHES}; do
+    build_and_push_alpine "${arch}"
+done
 
-publish_alpine_container_disk
+create_and_push_manifest "${KUBEVIRTCI_TAG}" "${TARGET_REPO}"
+create_and_push_manifest "devel" "${TARGET_KUBEVIRT_REPO}"

@@ -1008,8 +1008,8 @@ func getDRAGPUDevice(claimName string) []v1.GPU {
 		{
 			Name: "example-gpu",
 			ClaimRequest: &v1.ClaimRequest{
-				ClaimName:   &claimName,
-				RequestName: pointer.P(DRARequestName),
+				ClaimName:   claimName,
+				RequestName: DRARequestName,
 			},
 		},
 	}

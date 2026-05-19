@@ -40,6 +40,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -52,7 +54,6 @@ import (
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -451,26 +452,8 @@ var istioTestsWithMasqueradeBinding = func() {
 }
 
 var istioTestsWithPasstBinding = func() {
-	const passtNetAttDefName = "netbindingpasst"
-
 	BeforeEach(func() {
-		const passtBindingName = "passt"
-		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
-
-		err := config.RegisterKubevirtConfigChange(
-			config.WithNetBindingPluginIfNotPresent(passtBindingName, v1.InterfaceBindingPlugin{
-				SidecarImage:                passtSidecarImage,
-				NetworkAttachmentDefinition: passtNetAttDefName,
-				Migration:                   &v1.InterfaceBindingMigration{},
-			}),
-		)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	BeforeEach(func() {
-		netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
-		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
-		Expect(err).NotTo(HaveOccurred())
+		config.EnableFeatureGate(featuregate.PasstBinding)
 	})
 
 	istioTests(Passt)
@@ -478,7 +461,7 @@ var istioTestsWithPasstBinding = func() {
 
 var _ = Describe(SIG(" Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding))
 
-var _ = Describe(SIG(" Istio with passt binding", decorators.Istio, decorators.NetCustomBindingPlugins, Serial, istioTestsWithPasstBinding))
+var _ = Describe(SIG(" Istio with passt binding", decorators.Istio, Serial, istioTestsWithPasstBinding))
 
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
@@ -508,9 +491,11 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 }
 
 func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
+	passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+	passtIface.Ports = ports
 	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
+		libvmi.WithInterface(passtIface),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "true"),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(enablePasswordAuth)),

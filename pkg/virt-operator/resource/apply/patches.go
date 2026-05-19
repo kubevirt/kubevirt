@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 

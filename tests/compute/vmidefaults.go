@@ -46,7 +46,7 @@ import (
 
 var _ = Describe(SIG("VMIDefaults", func() {
 
-	Context("Disk defaults", func() {
+	Context("Disk defaults", decorators.WgS390x, func() {
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create VMI with missing disk target

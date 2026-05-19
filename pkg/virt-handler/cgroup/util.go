@@ -32,13 +32,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
+	cgroups "github.com/opencontainers/cgroups"
+	devices "github.com/opencontainers/cgroups/devices/config"
 	"golang.org/x/sys/unix"
-
-	"github.com/opencontainers/runc/libcontainer/devices"
-
-	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
-	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -48,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 type CgroupVersion string
@@ -66,10 +61,29 @@ const (
 
 var (
 	defaultDeviceRules []*devices.Rule
+	statDevice         = func(mountRoot *safepath.Path, relPath string) (os.FileInfo, error) {
+		path, err := safepath.JoinNoFollow(mountRoot, relPath)
+		if err != nil {
+			return nil, err
+		}
+		return safepath.StatAtNoFollow(path)
+	}
+	readDeviceDir = func(mountRoot *safepath.Path, relPath string) ([]os.DirEntry, error) {
+		dirPath, err := safepath.JoinNoFollow(mountRoot, relPath)
+		if err != nil {
+			return nil, err
+		}
+		var entries []os.DirEntry
+		err = dirPath.ExecuteNoFollow(func(path string) (err error) {
+			entries, err = os.ReadDir(path)
+			return err
+		})
+		return entries, err
+	}
 )
 
-type execVirtChrootFunc func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
-type getCurrentlyDefinedRulesFunc func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error)
+type execVirtChrootFunc func(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
+type getCurrentlyDefinedRulesFunc func(cgManager cgroups.Manager) ([]*devices.Rule, error)
 
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
 // and all of the rules that are currently set. This way rules that are already defined won't be deleted by this
@@ -144,11 +158,7 @@ func getDeviceRwmPermissions() devices.Permissions {
 // This builds up the known persistent block devices allow list for a VMI (as in, hotplugged volumes are handled separately)
 // This will be maintained and extended as new devices likely have to end up on this list as well
 // For example - https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, host, hypervisorDevice string, allowEmulation bool) ([]*devices.Rule, error) {
-	mountRoot, err := isolationRes.MountRoot()
-	if err != nil {
-		return nil, err
-	}
+func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, mountRoot *safepath.Path, host, hypervisorDevice string, allowEmulation bool) ([]*devices.Rule, error) {
 	migSrcBlockVols := getSourceBlockToFsMigratedVolumes(vmi, host)
 	var vmiDeviceRules []*devices.Rule
 	for _, volume := range vmi.Spec.Volumes {
@@ -167,64 +177,105 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		default:
 			continue
 		}
-		path, err := safepath.JoinNoFollow(mountRoot, filepath.Join("dev", volume.Name))
+		rule, err := newAllowedDeviceRule(mountRoot, filepath.Join("/dev", volume.Name), getDeviceRwmPermissions())
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				continue
 			}
 			return nil, fmt.Errorf("failed to resolve path for volume %s: %v", volume.Name, err)
 		}
-		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
-			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
-		} else if deviceRule != nil {
-			log.Log.V(loggingVerbosity).Infof("device rule for volume %s: %v", volume.Name, deviceRule)
-			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for volume %s: %v", volume.Name, rule)
+			vmiDeviceRules = append(vmiDeviceRules, rule)
 		}
 	}
 	if vmi.Spec.Domain.Devices.Rng != nil {
-		path, err := safepath.JoinNoFollow(mountRoot, "/dev/urandom")
+		rule, err := newAllowedDeviceRule(mountRoot, "/dev/urandom", getDeviceRwmPermissions())
 		if err != nil {
 			return nil, err
 		}
-		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
-			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
-		} else if deviceRule != nil {
-			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", deviceRule)
-			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", rule)
+			vmiDeviceRules = append(vmiDeviceRules, rule)
 		}
 	}
 	if util.IsAutoAttachVSOCK(vmi) {
-		path, err := safepath.JoinNoFollow(mountRoot, "/dev/vhost-vsock")
+		rule, err := newAllowedDeviceRule(mountRoot, "/dev/vhost-vsock", getDeviceRwmPermissions())
 		if err != nil {
 			return nil, err
 		}
-		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
-			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
-		} else if deviceRule != nil {
-			log.Log.V(loggingVerbosity).Infof("device rule for volume vsock: %v", deviceRule)
-			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for volume vsock: %v", rule)
+			vmiDeviceRules = append(vmiDeviceRules, rule)
 		}
 	}
 
-	path, err := safepath.JoinNoFollow(mountRoot, fmt.Sprintf("/dev/%s", hypervisorDevice))
+	rule, err := newAllowedDeviceRule(mountRoot, fmt.Sprintf("/dev/%s", hypervisorDevice), getDevicePermissionsFromCgroups())
 	if err != nil {
 		if !allowEmulation {
 			return nil, err
 		}
-	} else {
-		if deviceRule, err := newAllowedDeviceRule(path, getDevicePermissionsFromCgroups()); err != nil {
-			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
-		} else if deviceRule != nil {
-			log.Log.V(loggingVerbosity).Infof("device rule for device %s: %v", hypervisorDevice, deviceRule)
-			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+	} else if rule != nil {
+		log.Log.V(loggingVerbosity).Infof("device rule for device %s: %v", hypervisorDevice, rule)
+		vmiDeviceRules = append(vmiDeviceRules, rule)
+	}
+
+	// Device-plugin-provisioned devices (VFIO, USB) must be in the cgroup
+	// rule cache so they survive eBPF program rebuilds during hotplug.
+	for _, devDir := range []string{
+		filepath.Join("/dev", "vfio"),
+		filepath.Join("/dev", "bus", "usb"),
+	} {
+		rules, err := discoverDeviceRulesInDir(mountRoot, devDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover device rules in %s: %v", devDir, err)
 		}
+		vmiDeviceRules = append(vmiDeviceRules, rules...)
 	}
 
 	return vmiDeviceRules, nil
 }
 
-func newAllowedDeviceRule(devicePath *safepath.Path, devicePermissions devices.Permissions) (*devices.Rule, error) {
-	fileInfo, err := safepath.StatAtNoFollow(devicePath)
+// discoverDeviceRulesInDir recursively scans a directory under the
+// container's filesystem and creates allow rules for all device nodes
+// found. These devices are provisioned by device plugins or the container
+// runtime and must be preserved in the v2 cgroup manager's rule cache so
+// they are not lost when the eBPF device filter is rebuilt by subsequent
+// Set() calls (e.g. during hotplug volume mounting).
+func discoverDeviceRulesInDir(mountRoot *safepath.Path, relPath string) ([]*devices.Rule, error) {
+	entries, err := readDeviceDir(mountRoot, relPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var rules []*devices.Rule
+	for _, entry := range entries {
+		entryPath := filepath.Join(relPath, entry.Name())
+		if entry.IsDir() {
+			subRules, err := discoverDeviceRulesInDir(mountRoot, entryPath)
+			if err != nil {
+				return nil, err
+			}
+			rules = append(rules, subRules...)
+			continue
+		}
+		rule, err := newAllowedDeviceRule(mountRoot, entryPath, getDeviceRwmPermissions())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create device rule for %s: %v", entryPath, err)
+		}
+		if rule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for %s: %v", entryPath, rule)
+			rules = append(rules, rule)
+		}
+	}
+	return rules, nil
+}
+
+func newAllowedDeviceRule(mountRoot *safepath.Path, relPath string, devicePermissions devices.Permissions) (*devices.Rule, error) {
+	fileInfo, err := statDevice(mountRoot, relPath)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +360,7 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 
 // execVirtChrootCgroups executes virt-chroot cgroups command to apply changes via virt-chroot.
 // This is needed since high privileges are needed and root is needed to change.
-func execVirtChrootCgroups(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
+func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
 	marshalledRules, err := json.Marshal(*r)
 	if err != nil {
 		return fmt.Errorf("failed to marshall resources. err: %v resources: %+v", err, *r)
@@ -385,5 +436,5 @@ func setCpuSetHelper(manager Manager, subCgroup string, cpusList []int) error {
 
 	wVal := strings.Trim(strings.Replace(fmt.Sprint(cpusList), " ", ",", -1), "[]")
 
-	return runc_cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
+	return cgroups.WriteFile(subSysPath, "cpuset.cpus", wVal)
 }

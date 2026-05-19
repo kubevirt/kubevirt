@@ -21,6 +21,7 @@ package libstorage
 
 import (
 	"context"
+	"fmt"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -345,7 +346,7 @@ func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs i
 	Expect(err).ToNot(HaveOccurred())
 
 	if countLocalStoragePVAvailableForUse(pvList, storageClassName) < numExpectedPVs {
-		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
+		Skip(fmt.Sprintf("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)) //nolint:forbidigo
 	}
 }
 

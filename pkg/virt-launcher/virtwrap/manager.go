@@ -74,7 +74,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
+	netsetup "kubevirt.io/kubevirt/pkg/network/setup/launcher"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -511,7 +511,6 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 
 	// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 	if vmi.IsCPUDedicated() {
-		useIOThreads := false
 		if options != nil && options.Topology != nil {
 			topology = options.Topology
 		}
@@ -534,11 +533,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 
 		domain.Spec = *spec
 
-		if domain.Spec.CPUTune != nil && len(domain.Spec.CPUTune.IOThreadPin) > 0 {
-			useIOThreads = true
-		}
-
-		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
+		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
@@ -1003,7 +998,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 	}
 
 	if disk.Capacity == nil {
-		log.DefaultLogger().Error("No disk capacity")
+		log.DefaultLogger().V(3).Infof("No disk capacity for disk %s, skipping expansion", disk.Alias.GetName())
 		return 0, false
 	}
 	if disk.FilesystemOverhead == nil {

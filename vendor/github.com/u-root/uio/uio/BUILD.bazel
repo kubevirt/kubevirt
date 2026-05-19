@@ -9,8 +9,6 @@ go_library(
         "buffer.go",
         "cached.go",
         "lazy.go",
-        "linewriter.go",
-        "multiwriter.go",
         "null.go",
         "progress.go",
         "reader.go",
@@ -19,8 +17,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/u-root/uio/uio",
     importpath = "github.com/u-root/uio/uio",
     visibility = ["//visibility:public"],
-    deps = [
-        "//vendor/github.com/josharian/native:go_default_library",
-        "//vendor/github.com/pierrec/lz4/v4:go_default_library",
-    ],
+    deps = ["//vendor/github.com/pierrec/lz4/v4:go_default_library"],
 )

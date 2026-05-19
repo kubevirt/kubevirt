@@ -708,14 +708,15 @@ type GPU struct {
 }
 
 type ClaimRequest struct {
-	// ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-	// device is allocated
-	// +optional
-	ClaimName *string `json:"claimName,omitempty"`
-	// RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-	// device is requested
-	// +optional
-	RequestName *string `json:"requestName,omitempty"`
+	// ClaimName references the name of an entry in the
+	// VMI's spec.resourceClaims[] array. The referenced
+	// entry may use either resourceClaimName or
+	// resourceClaimTemplateName.
+	ClaimName string `json:"claimName,omitempty"`
+	// RequestName specifies which request from the
+	// ResourceClaim/ResourceClaimTemplate spec.devices.requests array this
+	// claim request corresponds to.
+	RequestName string `json:"requestName,omitempty"`
 }
 
 type VGPUOptions struct {

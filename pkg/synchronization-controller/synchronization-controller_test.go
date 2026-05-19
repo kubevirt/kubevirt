@@ -124,6 +124,25 @@ var _ = Describe("VMI status synchronization controller", func() {
 		})
 	})
 
+	Context("getLocalSynchronizationAddress", func() {
+		DescribeTable("should produce an address parseable by net.SplitHostPort", func(ip string, port int, expectedHost, expectedPort string) {
+			ctrl := &SynchronizationController{ip: ip, bindPort: port}
+
+			addr, err := ctrl.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+
+			host, p, err := net.SplitHostPort(addr)
+			Expect(err).ToNot(HaveOccurred(), "address %q must be parseable by net.SplitHostPort", addr)
+			Expect(host).To(Equal(expectedHost))
+			Expect(p).To(Equal(expectedPort))
+		},
+			Entry("IPv4 address", "10.0.0.1", 9185, "10.0.0.1", "9185"),
+			Entry("IPv6 address", "fd02:0:0:1::cb", 9185, "fd02:0:0:1::cb", "9185"),
+			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
+			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
+		)
+	})
+
 	Context("grpc SyncSourceMigrationStatus", func() {
 		var (
 			vmi       *virtv1.VirtualMachineInstance

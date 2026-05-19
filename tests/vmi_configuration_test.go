@@ -121,7 +121,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
+	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", decorators.WgS390x, func() {
 
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewGuestless(), 60)
@@ -463,7 +463,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("with namespace different from provided", func() {
+		Context("with namespace different from provided", decorators.WgS390x, func() {
 			It("should fail admission", func() {
 				// create a namespace default limit
 				limitRangeObj := k8sv1.LimitRange{
@@ -793,7 +793,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 
-		Context("with geust-to-request memory ", Serial, func() {
+		Context("with guest-to-request memory ", Serial, decorators.WgS390x, func() {
 			setHeadroom := func(ratioStr string) {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -910,7 +910,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("with a custom scheduler", func() {
+	Context("with a custom scheduler", decorators.WgS390x, func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := libvmi.New(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
@@ -923,7 +923,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("using automatic resource limits", func() {
+	Context("using automatic resource limits", decorators.WgS390x, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
 			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
@@ -1639,7 +1639,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 	})
-	Context("virt-launcher processes memory usage", func() {
+	Context("virt-launcher processes memory usage", decorators.WgS390x, func() {
 		doesntExceedMemoryUsage := func(processRss *map[string]resource.Quantity, process string, memoryLimit resource.Quantity) {
 			actual := (*processRss)[process]
 			ExpectWithOffset(1, (&actual).Cmp(memoryLimit)).To(Equal(-1),

@@ -33,7 +33,7 @@ KUBE_DIR=${KUBE_DIR:-/tmp}
 # in kubevirt CI/CD the node we run the job is on a different cluster, so time is not synced across all nodes
 # as a workaround, we collect the timestamps by making a prometheus query, so we can use the exact time that prometheus is using
 function get_timestamp() {
-    curr_timestamp=$(curl -fs --data-urlencode 'query=container_cpu_usage_seconds_total{pod!="",container="prometheus"}' "http://${PROMETHEUS_URL}:${PROMETHEUS_PORT}/api/v1/query" | jq -r '.data.result[0] | .value[0]')
+    curr_timestamp=$(curl -fs --data-urlencode 'query=container_cpu_usage_seconds_total{pod!="",container="prometheus"}' "${PROMETHEUS_URL}:${PROMETHEUS_PORT}/api/v1/query" | jq -r '.data.result[0] | .value[0]')
     date -u +%Y-%m-%dT%TZ -d @$curr_timestamp
 }
 

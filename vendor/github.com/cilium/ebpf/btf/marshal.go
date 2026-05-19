@@ -5,12 +5,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"sync"
 
 	"github.com/cilium/ebpf/internal"
-
-	"golang.org/x/exp/slices"
 )
 
 type MarshalOptions struct {
@@ -18,13 +18,25 @@ type MarshalOptions struct {
 	Order binary.ByteOrder
 	// Remove function linkage information for compatibility with <5.6 kernels.
 	StripFuncLinkage bool
+	// Replace decl tags with a placeholder for compatibility with <5.16 kernels.
+	ReplaceDeclTags bool
+	// Replace TypeTags with a placeholder for compatibility with <5.17 kernels.
+	ReplaceTypeTags bool
+	// Replace Enum64 with a placeholder for compatibility with <6.0 kernels.
+	ReplaceEnum64 bool
+	// Prevent the "No type found" error when loading BTF without any types.
+	PreventNoTypeFound bool
 }
 
 // KernelMarshalOptions will generate BTF suitable for the current kernel.
 func KernelMarshalOptions() *MarshalOptions {
 	return &MarshalOptions{
-		Order:            internal.NativeEndian,
-		StripFuncLinkage: haveFuncLinkage() != nil,
+		Order:              internal.NativeEndian,
+		StripFuncLinkage:   haveFuncLinkage() != nil,
+		ReplaceDeclTags:    haveDeclTags() != nil,
+		ReplaceTypeTags:    haveTypeTags() != nil,
+		ReplaceEnum64:      haveEnum64() != nil,
+		PreventNoTypeFound: true, // All current kernels require this.
 	}
 }
 
@@ -36,6 +48,7 @@ type encoder struct {
 	buf     *bytes.Buffer
 	strings *stringTableBuilder
 	ids     map[Type]TypeID
+	visited map[Type]struct{}
 	lastID  TypeID
 }
 
@@ -88,6 +101,11 @@ func NewBuilder(types []Type) (*Builder, error) {
 	}
 
 	return b, nil
+}
+
+// Empty returns true if neither types nor strings have been added.
+func (b *Builder) Empty() bool {
+	return len(b.types) == 0 && (b.strings == nil || b.strings.Length() == 0)
 }
 
 // Add a Type and allocate a stable ID for it.
@@ -156,15 +174,29 @@ func (b *Builder) Marshal(buf []byte, opts *MarshalOptions) ([]byte, error) {
 		buf:            w,
 		strings:        stb,
 		lastID:         TypeID(len(b.types)),
-		ids:            make(map[Type]TypeID, len(b.types)),
+		visited:        make(map[Type]struct{}, len(b.types)),
+		ids:            maps.Clone(b.stableIDs),
+	}
+
+	if e.ids == nil {
+		e.ids = make(map[Type]TypeID)
+	}
+
+	types := b.types
+	if len(types) == 0 && stb.Length() > 0 && opts.PreventNoTypeFound {
+		// We have strings that need to be written out,
+		// but no types (besides the implicit Void).
+		// Kernels as recent as v6.7 refuse to load such BTF
+		// with a "No type found" error in the log.
+		// Fix this by adding a dummy type.
+		types = []Type{&Int{Size: 0}}
 	}
 
 	// Ensure that types are marshaled in the exact order they were Add()ed.
 	// Otherwise the ID returned from Add() won't match.
-	e.pending.Grow(len(b.types))
-	for _, typ := range b.types {
+	e.pending.Grow(len(types))
+	for _, typ := range types {
 		e.pending.Push(typ)
-		e.ids[typ] = b.stableIDs[typ]
 	}
 
 	if err := e.deflatePending(); err != nil {
@@ -211,16 +243,28 @@ func (b *Builder) addString(str string) (uint32, error) {
 	return b.strings.Add(str)
 }
 
-func (e *encoder) allocateID(typ Type) error {
-	id := e.lastID + 1
-	if id < e.lastID {
-		return errors.New("type ID overflow")
-	}
+func (e *encoder) allocateIDs(root Type) (err error) {
+	visitInPostorder(root, e.visited, func(typ Type) bool {
+		if _, ok := typ.(*Void); ok {
+			return true
+		}
 
-	e.pending.Push(typ)
-	e.ids[typ] = id
-	e.lastID = id
-	return nil
+		if _, ok := e.ids[typ]; ok {
+			return true
+		}
+
+		id := e.lastID + 1
+		if id < e.lastID {
+			err = errors.New("type ID overflow")
+			return false
+		}
+
+		e.pending.Push(typ)
+		e.ids[typ] = id
+		e.lastID = id
+		return true
+	})
+	return
 }
 
 // id returns the ID for the given type or panics with an error.
@@ -240,33 +284,13 @@ func (e *encoder) id(typ Type) TypeID {
 func (e *encoder) deflatePending() error {
 	// Declare root outside of the loop to avoid repeated heap allocations.
 	var root Type
-	skip := func(t Type) (skip bool) {
-		if t == root {
-			// Force descending into the current root type even if it already
-			// has an ID. Otherwise we miss children of types that have their
-			// ID pre-allocated via Add.
-			return false
-		}
-
-		_, isVoid := t.(*Void)
-		_, alreadyEncoded := e.ids[t]
-		return isVoid || alreadyEncoded
-	}
 
 	for !e.pending.Empty() {
 		root = e.pending.Shift()
 
 		// Allocate IDs for all children of typ, including transitive dependencies.
-		iter := postorderTraversal(root, skip)
-		for iter.Next() {
-			if iter.Type == root {
-				// The iterator yields root at the end, do not allocate another ID.
-				break
-			}
-
-			if err := e.allocateID(iter.Type); err != nil {
-				return err
-			}
+		if err := e.allocateIDs(root); err != nil {
+			return err
 		}
 
 		if err := e.deflateType(root); err != nil {
@@ -300,15 +324,7 @@ func (e *encoder) deflateType(typ Type) (err error) {
 		return errors.New("Void is implicit in BTF wire format")
 
 	case *Int:
-		raw.SetKind(kindInt)
-		raw.SetSize(v.Size)
-
-		var bi btfInt
-		bi.SetEncoding(v.Encoding)
-		// We need to set bits in addition to size, since btf_type_int_is_regular
-		// otherwise flags this as a bitfield.
-		bi.SetBits(byte(v.Size) * 8)
-		raw.data = bi
+		e.deflateInt(&raw, v)
 
 	case *Pointer:
 		raw.SetKind(kindPointer)
@@ -328,21 +344,13 @@ func (e *encoder) deflateType(typ Type) (err error) {
 		raw.data, err = e.convertMembers(&raw.btfType, v.Members)
 
 	case *Union:
-		raw.SetKind(kindUnion)
-		raw.SetSize(v.Size)
-		raw.data, err = e.convertMembers(&raw.btfType, v.Members)
+		err = e.deflateUnion(&raw, v)
 
 	case *Enum:
-		raw.SetSize(v.size())
-		raw.SetVlen(len(v.Values))
-		raw.SetSigned(v.Signed)
-
-		if v.has64BitValues() {
-			raw.SetKind(kindEnum64)
-			raw.data, err = e.deflateEnum64Values(v.Values)
+		if v.Size == 8 {
+			err = e.deflateEnum64(&raw, v)
 		} else {
-			raw.SetKind(kindEnum)
-			raw.data, err = e.deflateEnumValues(v.Values)
+			err = e.deflateEnum(&raw, v)
 		}
 
 	case *Fwd:
@@ -358,8 +366,7 @@ func (e *encoder) deflateType(typ Type) (err error) {
 		raw.SetType(e.id(v.Type))
 
 	case *Const:
-		raw.SetKind(kindConst)
-		raw.SetType(e.id(v.Type))
+		e.deflateConst(&raw, v)
 
 	case *Restrict:
 		raw.SetKind(kindRestrict)
@@ -394,15 +401,10 @@ func (e *encoder) deflateType(typ Type) (err error) {
 		raw.SetSize(v.Size)
 
 	case *declTag:
-		raw.SetKind(kindDeclTag)
-		raw.SetType(e.id(v.Type))
-		raw.data = &btfDeclTag{uint32(v.Index)}
-		raw.NameOff, err = e.strings.Add(v.Value)
+		err = e.deflateDeclTag(&raw, v)
 
-	case *typeTag:
-		raw.SetKind(kindTypeTag)
-		raw.SetType(e.id(v.Type))
-		raw.NameOff, err = e.strings.Add(v.Value)
+	case *TypeTag:
+		err = e.deflateTypeTag(&raw, v)
 
 	default:
 		return fmt.Errorf("don't know how to deflate %T", v)
@@ -413,6 +415,64 @@ func (e *encoder) deflateType(typ Type) (err error) {
 	}
 
 	return raw.Marshal(e.buf, e.Order)
+}
+
+func (e *encoder) deflateInt(raw *rawType, i *Int) {
+	raw.SetKind(kindInt)
+	raw.SetSize(i.Size)
+
+	var bi btfInt
+	bi.SetEncoding(i.Encoding)
+	// We need to set bits in addition to size, since btf_type_int_is_regular
+	// otherwise flags this as a bitfield.
+	bi.SetBits(byte(i.Size) * 8)
+	raw.data = bi
+}
+
+func (e *encoder) deflateDeclTag(raw *rawType, tag *declTag) (err error) {
+	// Replace a decl tag with an integer for compatibility with <5.16 kernels,
+	// following libbpf behaviour.
+	if e.ReplaceDeclTags {
+		typ := &Int{"decl_tag_placeholder", 1, Unsigned}
+		e.deflateInt(raw, typ)
+
+		// Add the placeholder type name to the string table. The encoder added the
+		// original type name before this call.
+		raw.NameOff, err = e.strings.Add(typ.TypeName())
+		return
+	}
+
+	raw.SetKind(kindDeclTag)
+	raw.SetType(e.id(tag.Type))
+	raw.data = &btfDeclTag{uint32(tag.Index)}
+	raw.NameOff, err = e.strings.Add(tag.Value)
+	return
+}
+
+func (e *encoder) deflateConst(raw *rawType, c *Const) {
+	raw.SetKind(kindConst)
+	raw.SetType(e.id(c.Type))
+}
+
+func (e *encoder) deflateTypeTag(raw *rawType, tag *TypeTag) (err error) {
+	// Replace a type tag with a const qualifier for compatibility with <5.17
+	// kernels, following libbpf behaviour.
+	if e.ReplaceTypeTags {
+		e.deflateConst(raw, &Const{tag.Type})
+		return
+	}
+
+	raw.SetKind(kindTypeTag)
+	raw.SetType(e.id(tag.Type))
+	raw.NameOff, err = e.strings.Add(tag.Value)
+	return
+}
+
+func (e *encoder) deflateUnion(raw *rawType, union *Union) (err error) {
+	raw.SetKind(kindUnion)
+	raw.SetSize(union.Size)
+	raw.data, err = e.convertMembers(&raw.btfType, union.Members)
+	return
 }
 
 func (e *encoder) convertMembers(header *btfType, members []Member) ([]btfMember, error) {
@@ -443,16 +503,32 @@ func (e *encoder) convertMembers(header *btfType, members []Member) ([]btfMember
 	return bms, nil
 }
 
-func (e *encoder) deflateEnumValues(values []EnumValue) ([]btfEnum, error) {
-	bes := make([]btfEnum, 0, len(values))
-	for _, value := range values {
+func (e *encoder) deflateEnum(raw *rawType, enum *Enum) (err error) {
+	raw.SetKind(kindEnum)
+	raw.SetSize(enum.Size)
+	raw.SetVlen(len(enum.Values))
+	// Signedness appeared together with ENUM64 support.
+	raw.SetSigned(enum.Signed && !e.ReplaceEnum64)
+	raw.data, err = e.deflateEnumValues(enum)
+	return
+}
+
+func (e *encoder) deflateEnumValues(enum *Enum) ([]btfEnum, error) {
+	bes := make([]btfEnum, 0, len(enum.Values))
+	for _, value := range enum.Values {
 		nameOff, err := e.strings.Add(value.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		if value.Value > math.MaxUint32 {
-			return nil, fmt.Errorf("value of enum %q exceeds 32 bits", value.Name)
+		if enum.Signed {
+			if signedValue := int64(value.Value); signedValue < math.MinInt32 || signedValue > math.MaxInt32 {
+				return nil, fmt.Errorf("value %d of enum %q exceeds 32 bits", signedValue, value.Name)
+			}
+		} else {
+			if value.Value > math.MaxUint32 {
+				return nil, fmt.Errorf("value %d of enum %q exceeds 32 bits", value.Value, value.Name)
+			}
 		}
 
 		bes = append(bes, btfEnum{
@@ -462,6 +538,41 @@ func (e *encoder) deflateEnumValues(values []EnumValue) ([]btfEnum, error) {
 	}
 
 	return bes, nil
+}
+
+func (e *encoder) deflateEnum64(raw *rawType, enum *Enum) (err error) {
+	if e.ReplaceEnum64 {
+		// Replace the ENUM64 with a union of fields with the correct size.
+		// This matches libbpf behaviour on purpose.
+		placeholder := &Int{
+			"enum64_placeholder",
+			enum.Size,
+			Unsigned,
+		}
+		if enum.Signed {
+			placeholder.Encoding = Signed
+		}
+		if err := e.allocateIDs(placeholder); err != nil {
+			return fmt.Errorf("add enum64 placeholder: %w", err)
+		}
+
+		members := make([]Member, 0, len(enum.Values))
+		for _, v := range enum.Values {
+			members = append(members, Member{
+				Name: v.Name,
+				Type: placeholder,
+			})
+		}
+
+		return e.deflateUnion(raw, &Union{enum.Name, enum.Size, members, nil})
+	}
+
+	raw.SetKind(kindEnum64)
+	raw.SetSize(enum.Size)
+	raw.SetVlen(len(enum.Values))
+	raw.SetSigned(enum.Signed)
+	raw.data, err = e.deflateEnum64Values(enum.Values)
+	return
 }
 
 func (e *encoder) deflateEnum64Values(values []EnumValue) ([]btfEnum64, error) {

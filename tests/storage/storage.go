@@ -509,7 +509,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			BeforeEach(func() {
 				if !checks.HasFeature(featuregate.HostDiskGate) {
-					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests") //nolint:forbidigo
 				}
 			})
 
@@ -873,7 +873,7 @@ var _ = Describe(SIG("Storage", func() {
 				}
 
 				dataVolume = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -893,7 +893,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 
 				By(checkingVMInstanceConsoleOut)
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
 
@@ -1022,43 +1022,6 @@ var _ = Describe(SIG("Storage", func() {
 
 		})
 
-		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.RequiresBlockStorage, decorators.StorageReq, func() {
-			var dataVolume *cdiv1.DataVolume
-			var err error
-
-			BeforeEach(func() {
-				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-				if !foundSC {
-					Fail("Fail test when Block storage is not present")
-				}
-
-				dataVolume = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
-				)
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-				vmi = nil
-			})
-
-			It("should generate the pod with the volumeDevice", func() {
-				vmi = libvmifact.NewGuestless(
-					libvmi.WithEphemeralPersistentVolumeClaim("disk0", dataVolume.Name),
-				)
-
-				By("Initializing the VM")
-
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
-				runningPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking that the virt-launcher pod spec contains the volumeDevice")
-				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
-				Expect(runningPod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal("disk0"))
-			})
-		})
-
 		Context("disk shareable tunable", func() {
 			var (
 				dv         *cdiv1.DataVolume
@@ -1071,7 +1034,7 @@ var _ = Describe(SIG("Storage", func() {
 				}
 
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
 

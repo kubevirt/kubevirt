@@ -29,6 +29,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 )
 
+const defaultState = cache.PodIfaceNetworkPreparationPending
+
 type ConfigStateCache struct {
 	vmiUID                string
 	cacheCreator          cacheCreator

@@ -54,7 +54,8 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		_, err := r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Route.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create route %+v: %v", route, err)
+			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route)
+			return fmt.Errorf("unable to create route %s: %v", route.Name, err)
 		}
 
 		return nil
@@ -80,7 +81,8 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 
 	_, err = r.clientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to patch route %+v: %v", route, err)
+		log.Log.V(2).Infof("failed to patch route %s: %+v", route.Name, route)
+		return fmt.Errorf("unable to patch route %s: %v", route.Name, err)
 	}
 	log.Log.V(4).Infof("route %v updated", route.GetName())
 

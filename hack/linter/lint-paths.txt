@@ -69,6 +69,7 @@ pkg/virt-launcher/virtwrap/converter/storage
 pkg/virt-launcher/virtwrap/converter/virtio
 pkg/virt-launcher/virtwrap/network
 pkg/virt-launcher/virtwrap/statsconv/util
+pkg/vmitrait
 tests/conformance
 tests/console
 tests/decorators

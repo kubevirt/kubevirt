@@ -840,7 +840,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				exists := false
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Fail no filesystem storage class available")
+					Skip("Fail no filesystem storage class available") //nolint:forbidigo
 				}
 
 				vmi := libvmifact.NewCirros()
@@ -866,7 +866,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			It("should count only vmis with hotplug ephemeral volumes, ignoring persistent volumes and unplugs", Serial, func() {
 				if !isPrometheusDeployed() {
-					Skip("Prometheus not deployed")
+					Skip("Prometheus not deployed") //nolint:forbidigo
 				}
 				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
@@ -912,7 +912,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			It("should ignore delcarative hotplugs", Serial, func() {
 				if !isPrometheusDeployed() {
-					Skip("Prometheus not deployed")
+					Skip("Prometheus not deployed") //nolint:forbidigo
 				}
 				kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
@@ -1632,7 +1632,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		)
 
 		createVMWithRatio := func(memRatio, cpuRatio float64) *v1.VirtualMachine {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			memLimit := int64(1024 * 1024 * 128) //128Mi
 			memRequest := int64(math.Ceil(float64(memLimit) / memRatio))
@@ -2125,7 +2125,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 		It("on an offline VM", func() {
 			By("Creating VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewCirros()), metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpine()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 			By("Adding test volumes")
 			pv2, pvc2, err := CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks-test2", "scsipv2", "scsipvc2")
@@ -2182,6 +2182,83 @@ var _ = Describe(SIG("Hotplug", func() {
 			By(verifyingVolumeNotExist)
 			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, device)
+		})
+	})
+
+	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
+	Context("with PCI hostdev", Serial, func() {
+		const deviceName = "example.org/soundcard"
+
+		BeforeEach(func() {
+			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "8086:2668",
+						ResourceName:      deviceName,
+					},
+				},
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+		})
+
+		AfterEach(func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+		})
+
+		It("should restart a VM after hotplugging a block volume", decorators.RequiresBlockStorage, func() {
+			sc, exists := libstorage.GetRWOBlockStorageClass()
+			if !exists {
+				Fail("Fail test when block storage class is not available")
+			}
+
+			vmiSpec := libvmifact.NewAlpineWithTestTooling()
+			vmiSpec.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{Name: "sound0", DeviceName: deviceName},
+			}
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways)),
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
+
+			dvBuilder := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), dvBuilder, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+			By("Hotplugging a block volume to the running VM")
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions("hotplug-vol", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				DataVolume: &v1.DataVolumeSource{Name: dv.Name},
+			}, false, false, ""))
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "hotplug-vol")
+
+			By("Restarting the VM")
+			vm = libvmops.StopVirtualMachine(vm)
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 300*time.Second, time.Second).Should(matcher.BeReady())
 		})
 	})
 }))

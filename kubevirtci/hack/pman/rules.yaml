@@ -25,3 +25,4 @@ regex:
   - cluster-up/cluster/k8s-[0-9].[0-9][0-9]*
 regex_none:
   - cluster-up/cluster/kind*
+  - cluster-up/cluster/minikube*

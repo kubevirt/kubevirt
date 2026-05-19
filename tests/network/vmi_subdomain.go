@@ -28,7 +28,6 @@ import (
 
 	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -70,44 +69,52 @@ var _ = Describe(SIG("Subdomain", func() {
 		BeforeEach(func() {
 			serviceName := subdomain
 			service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-			_, err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
+			_, err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("VMI should have the expected FQDN", decorators.WgS390x, func(f func() *v1.VirtualMachineInstance, subdom, hostname string) {
-			vmiSpec := f()
-			var expectedFQDN, domain string
-			if subdom != "" {
-				vmiSpec.Spec.Subdomain = subdom
-				if hostname != "" {
-					domain = hostname
-					vmiSpec.Spec.Hostname = domain
-				} else {
-					domain = vmiSpec.Name
-				}
-				expectedFQDN = fmt.Sprintf("%s.%s.%s.svc.cluster.local", domain, subdom, testsuite.NamespaceTestDefault)
-			} else {
-				expectedFQDN = vmiSpec.Name
-			}
-			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
-
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
-
-			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
-		},
-			Entry("with Masquerade binding and subdomain and hostname", fedoraMasqueradeVMI, subdomain, hostname),
-			Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain, ""),
-			Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, "", ""),
-			Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, "", ""),
+		DescribeTable("VMI should have the expected FQDN", decorators.WgS390x,
+			func(vmi *v1.VirtualMachineInstance, expectedFQDN func(string) string) {
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				Expect(assertFQDNinGuest(vmi, expectedFQDN(vmi.Name))).To(Succeed(), "failed to get expected FQDN")
+			},
+			Entry("masquerade with subdomain and hostname uses hostname in FQDN",
+				fedoraMasqueradeVMI(
+					libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+					libvmi.WithSubdomain(subdomain),
+					libvmi.WithHostname(hostname),
+				),
+				func(_ string) string { return fqdnForVMI(hostname, subdomain) },
+			),
+			Entry("bridge with subdomain uses VMI name in FQDN",
+				fedoraBridgeBindingVMI(
+					libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+					libvmi.WithSubdomain(subdomain),
+				),
+				func(name string) string { return fqdnForVMI(name, subdomain) },
+			),
+			Entry("masquerade without subdomain uses VMI name as FQDN",
+				fedoraMasqueradeVMI(
+					libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+				),
+				func(name string) string { return name },
+			),
+			Entry("bridge without subdomain uses VMI name as FQDN",
+				fedoraBridgeBindingVMI(
+					libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+				),
+				func(name string) string { return name },
+			),
 		)
 
 		It("VMI with custom DNSPolicy should have the expected FQDN", func() {
-			vmiSpec := fedoraBridgeBindingVMI()
-			vmiSpec.Spec.Subdomain = subdomain
-			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
-			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
+			vmiSpec := fedoraBridgeBindingVMI(
+				libvmi.WithSubdomain(subdomain),
+				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+			)
+			expectedFQDN := fqdnForVMI(vmiSpec.Name, subdomain)
 
 			dnsServerIP, err := dns.ClusterDNSServiceIP()
 			Expect(err).ToNot(HaveOccurred())
@@ -130,10 +137,11 @@ var _ = Describe(SIG("Subdomain", func() {
 	})
 
 	It("VMI with custom DNSPolicy, a subdomain and no service entry, should not include the subdomain in the searchlist", func() {
-		vmiSpec := fedoraBridgeBindingVMI()
-		vmiSpec.Spec.Subdomain = subdomain
-		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
-		vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
+		vmiSpec := fedoraBridgeBindingVMI(
+			libvmi.WithSubdomain(subdomain),
+			libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+		)
+		expectedFQDN := fqdnForVMI(vmiSpec.Name, subdomain)
 
 		dnsServerIP, err := dns.ClusterDNSServiceIP()
 		Expect(err).ToNot(HaveOccurred())
@@ -153,16 +161,22 @@ var _ = Describe(SIG("Subdomain", func() {
 	})
 }))
 
-func fedoraMasqueradeVMI() *v1.VirtualMachineInstance {
-	return libvmifact.NewFedora(
+func fedoraMasqueradeVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	return libvmifact.NewFedora(append([]libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}, opts...)...)
 }
 
-func fedoraBridgeBindingVMI() *v1.VirtualMachineInstance {
-	return libvmifact.NewFedora(
+func fedoraBridgeBindingVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	return libvmifact.NewFedora(append([]libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}, opts...)...)
+}
+
+func fqdnForVMI(name, subdomain string) string {
+	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", name, subdomain, testsuite.NamespaceTestDefault)
 }
 
 func assertFQDNinGuest(vmi *v1.VirtualMachineInstance, expectedFQDN string) error {

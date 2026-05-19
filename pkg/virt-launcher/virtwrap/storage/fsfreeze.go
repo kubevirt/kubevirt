@@ -114,7 +114,7 @@ func (m *StorageManager) scheduleSafetyVMIUnfreeze(vmi *v1.VirtualMachineInstanc
 			vmi.Name, unfreezeTimeout)
 		m.UnfreezeVMI(vmi)
 	case <-m.cancelSafetyUnfreezeChan:
-		log.Log.V(3).Infof("Canceling schedualed Unfreeze for vmi %s", vmi.Name)
+		log.Log.V(3).Infof("Canceling scheduled Unfreeze for vmi %s", vmi.Name)
 		// aborted
 	}
 }
