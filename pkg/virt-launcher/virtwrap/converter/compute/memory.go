@@ -22,6 +22,7 @@ package compute
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/vfio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
@@ -39,6 +40,7 @@ func (r MemoryConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 		if err != nil {
 			return err
 		}
+		r.configureMemLock(vmi, domain)
 		return nil
 	}
 
@@ -58,6 +60,22 @@ func (r MemoryConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 	}
 
 	domain.Spec.Memory = currentMemory
+	r.configureMemLock(vmi, domain)
 
 	return nil
+}
+
+func (r MemoryConfigurator) configureMemLock(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	hardLimitBytes := vfio.CalculateMemlockLimit(vmi)
+	if hardLimitBytes == 0 {
+		return
+	}
+
+	if domain.Spec.MemTune == nil {
+		domain.Spec.MemTune = &api.MemTune{}
+	}
+	domain.Spec.MemTune.HardLimit = &api.MemTuneLimit{
+		Value: uint64(hardLimitBytes),
+		Unit:  "b",
+	}
 }
