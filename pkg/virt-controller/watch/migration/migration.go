@@ -833,14 +833,7 @@ func (c *Controller) processMigrationPhase(
 					}
 				}
 
-				patchBytes, err := patch.New(
-					patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)), vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()),
-				).GeneratePayload()
-				if err != nil {
-					return err
-				}
-
-				if _, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
+				if err := c.setMigrationAnnotations(vmi.Namespace, *vmi.Status.MigrationState, pod.Name); err != nil {
 					return err
 				}
 			}
@@ -854,6 +847,27 @@ func (c *Controller) processMigrationPhase(
 			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulMigrationReason, "Source node reported migration succeeded")
 		}
 	}
+	return nil
+}
+
+func (c *Controller) setMigrationAnnotations(
+	namespace string,
+	vmiMigrationState virtv1.VirtualMachineInstanceMigrationState,
+	targetPodName string,
+) error {
+	targetReadyTS := ""
+	if vmiMigrationState.TargetNodeDomainReadyTimestamp != nil {
+		targetReadyTS = vmiMigrationState.TargetNodeDomainReadyTimestamp.String()
+	}
+
+	p := `{"metadata":{"annotations":{
+			"` + virtv1.MigrationTargetReadyTimestamp + `":"` + targetReadyTS + `"
+		}}}`
+	_, err := c.clientset.CoreV1().Pods(namespace).Patch(context.Background(), targetPodName, types.MergePatchType, []byte(p), v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
