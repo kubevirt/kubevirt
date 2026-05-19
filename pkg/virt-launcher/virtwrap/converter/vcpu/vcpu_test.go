@@ -205,7 +205,7 @@ var _ = Describe("VCPU pinning", func() {
 				},
 			}
 			topology := hostTopology(1, 1, 0)
-			err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, []int{0}, false)
+			err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, []int{0})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domain.Spec.CPU.Topology).ToNot(BeNil())
 			Expect(domain.Spec.CPU.Topology.Sockets).To(Equal(uint32(1)))
