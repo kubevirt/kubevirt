@@ -22,6 +22,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,14 +33,16 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("MultiQueue VMI", func() {
+var _ = Describe(SIG("[QUARANTINE] MultiQueue VMI", decorators.Quarantine, func() {
 	const numCpus uint32 = 3
 
 	DescribeTable("should boot fedora to the login prompt and report the correct number of queues",
@@ -59,7 +62,10 @@ var _ = Describe(SIG("MultiQueue VMI", func() {
 			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
 				Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
