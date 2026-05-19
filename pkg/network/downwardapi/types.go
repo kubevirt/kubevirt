@@ -25,6 +25,7 @@ type Interface struct {
 	Network    string         `json:"network"`
 	DeviceInfo *v1.DeviceInfo `json:"deviceInfo,omitempty"`
 	Mac        string         `json:"mac,omitempty"`
+	Mtu        int            `json:"mtu,omitempty"`
 }
 
 type NetworkInfo struct {
