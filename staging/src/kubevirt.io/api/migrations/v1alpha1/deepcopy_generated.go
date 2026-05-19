@@ -118,31 +118,7 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 		*out = new(Selectors)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.AllowAutoConverge != nil {
-		in, out := &in.AllowAutoConverge, &out.AllowAutoConverge
-		*out = new(bool)
-		**out = **in
-	}
-	if in.BandwidthPerMigration != nil {
-		in, out := &in.BandwidthPerMigration, &out.BandwidthPerMigration
-		x := (*in).DeepCopy()
-		*out = &x
-	}
-	if in.CompletionTimeoutPerGiB != nil {
-		in, out := &in.CompletionTimeoutPerGiB, &out.CompletionTimeoutPerGiB
-		*out = new(int64)
-		**out = **in
-	}
-	if in.AllowPostCopy != nil {
-		in, out := &in.AllowPostCopy, &out.AllowPostCopy
-		*out = new(bool)
-		**out = **in
-	}
-	if in.AllowWorkloadDisruption != nil {
-		in, out := &in.AllowWorkloadDisruption, &out.AllowWorkloadDisruption
-		*out = new(bool)
-		**out = **in
-	}
+	in.MigrationPolicyOptions.DeepCopyInto(&out.MigrationPolicyOptions)
 	return
 }
 

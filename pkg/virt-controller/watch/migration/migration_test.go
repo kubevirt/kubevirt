@@ -2711,7 +2711,9 @@ var _ = Describe("Migration watcher", func() {
 		It("should not be forced to the SELinux level of the source if the CR option is set to false", func() {
 			setConfig(&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{
-					MatchSELinuxLevelOnMigration: pointer.P(false),
+					MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+						MatchSELinuxLevelOnMigration: pointer.P(false),
+					},
 				},
 			})
 			vmi := newVirtualMachine("testvmi", v1.Running)
@@ -3312,16 +3314,21 @@ func getDefaultMigrationConfiguration() *v1.MigrationConfiguration {
 	allowPostCopy := virtconfig.MigrationAllowPostCopy
 
 	return &v1.MigrationConfiguration{
-		NodeDrainTaintKey:                 &nodeTaintKey,
-		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-		AllowAutoConverge:                 &allowAutoConverge,
-		BandwidthPerMigration:             &bandwidthPerMigration,
-		CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-		ProgressTimeout:                   &progressTimeout,
-		UnsafeMigrationOverride:           &unsafeMigrationOverride,
-		AllowPostCopy:                     &allowPostCopy,
-		AllowWorkloadDisruption:           pointer.P(allowPostCopy),
+		MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+
+			AllowAutoConverge:       &allowAutoConverge,
+			BandwidthPerMigration:   &bandwidthPerMigration,
+			CompletionTimeoutPerGiB: &completionTimeoutPerGiB,
+			ProgressTimeout:         &progressTimeout,
+			UnsafeMigrationOverride: &unsafeMigrationOverride,
+			AllowPostCopy:           &allowPostCopy,
+			AllowWorkloadDisruption: pointer.P(allowPostCopy),
+		},
+		MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{
+			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+			NodeDrainTaintKey:                 &nodeTaintKey,
+			ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+		},
 	}
 }
 

@@ -208,8 +208,8 @@ var _ = Describe("MigrationProxy", func() {
 					}
 				}
 			},
-				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(false)}),
-				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(true)}),
+				Entry("with TLS enabled", &v1.MigrationConfiguration{MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{DisableTLS: pointer.P(false)}}),
+				Entry("with TLS disabled", &v1.MigrationConfiguration{MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{DisableTLS: pointer.P(true)}}),
 			)
 
 			DescribeTable("by ensuring no new listeners can be created after shutdown", func(migrationConfig *v1.MigrationConfiguration) {
@@ -255,8 +255,8 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
 			},
-				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(false)}),
-				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(true)}),
+				Entry("with TLS enabled", &v1.MigrationConfiguration{MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{DisableTLS: pointer.P(false)}}),
+				Entry("with TLS disabled", &v1.MigrationConfiguration{MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{DisableTLS: pointer.P(true)}}),
 			)
 		})
 	})

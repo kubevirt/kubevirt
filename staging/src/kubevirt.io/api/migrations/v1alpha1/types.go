@@ -20,7 +20,6 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -41,18 +40,8 @@ type MigrationPolicy struct {
 }
 
 type MigrationPolicySpec struct {
-	Selectors *Selectors `json:"selectors"`
-
-	//+optional
-	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
-	//+optional
-	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	//+optional
-	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
-	//+optional
-	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
-	//+optional
-	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	Selectors                    *Selectors `json:"selectors"`
+	k6tv1.MigrationPolicyOptions `json:",inline"`
 }
 
 type LabelSelector map[string]string

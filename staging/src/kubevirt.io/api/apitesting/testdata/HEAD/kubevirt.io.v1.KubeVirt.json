@@ -122,9 +122,6 @@
       ],
       "imagePullPolicy": "imagePullPolicyValue",
       "migrations": {
-        "nodeDrainTaintKey": "nodeDrainTaintKeyValue",
-        "parallelOutboundMigrationsPerNode": 4294967263,
-        "parallelMigrationsPerCluster": 4294967268,
         "allowAutoConverge": true,
         "bandwidthPerMigration": "0",
         "completionTimeoutPerGiB": -23,
@@ -133,9 +130,12 @@
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
         "allowWorkloadDisruption": true,
+        "matchSELinuxLevelOnMigration": true,
+        "parallelOutboundMigrationsPerNode": 4294967263,
+        "nodeDrainTaintKey": "nodeDrainTaintKeyValue",
+        "parallelMigrationsPerCluster": 4294967268,
         "disableTLS": true,
-        "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "network": "networkValue"
       },
       "machineType": "machineTypeValue",
       "network": {
