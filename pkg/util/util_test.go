@@ -102,6 +102,52 @@ var _ = Describe("Host Device VMI Predicates", func() {
 	})
 })
 
+var _ = Describe("CountVFIODevices", func() {
+	DescribeTable("should count VFIO devices correctly",
+		func(devices v1.Devices, expected int) {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: devices,
+					},
+				},
+			}
+			Expect(CountVFIODevices(vmi)).To(Equal(expected))
+		},
+		Entry("no devices", v1.Devices{}, 0),
+		Entry("single GPU", v1.Devices{
+			GPUs: []v1.GPU{{Name: "gpu1"}},
+		}, 1),
+		Entry("multiple GPUs", v1.Devices{
+			GPUs: []v1.GPU{{Name: "gpu1"}, {Name: "gpu2"}},
+		}, 2),
+		Entry("single HostDevice", v1.Devices{
+			HostDevices: []v1.HostDevice{{Name: "dev1"}},
+		}, 1),
+		Entry("multiple HostDevices", v1.Devices{
+			HostDevices: []v1.HostDevice{{Name: "dev1"}, {Name: "dev2"}},
+		}, 2),
+		Entry("single SRIOV", v1.Devices{
+			Interfaces: []v1.Interface{
+				{Name: "sriov1", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			},
+		}, 1),
+		Entry("non-SRIOV interfaces are not counted", v1.Devices{
+			Interfaces: []v1.Interface{
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
+			},
+		}, 0),
+		Entry("mixed devices", v1.Devices{
+			GPUs:        []v1.GPU{{Name: "gpu1"}, {Name: "gpu2"}},
+			HostDevices: []v1.HostDevice{{Name: "dev1"}},
+			Interfaces: []v1.Interface{
+				{Name: "sriov1", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
+			},
+		}, 4),
+	)
+})
+
 var _ = DescribeTable("memory overhead reservation requirements",
 	func(vmi *v1.VirtualMachineInstance, expected bool) {
 		res := RequiresMemoryOverheadReservation(vmi)
