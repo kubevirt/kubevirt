@@ -44,6 +44,10 @@ func (f *fakeConfigChecker) HostDevicesWithDRAEnabled() bool {
 	return f.hostDeviceDRAEnabled
 }
 
+func (f *fakeConfigChecker) NetworkDevicesWithDRAGateEnabled() bool {
+	return false
+}
+
 var _ = Describe("DRA Admitter", func() {
 	var (
 		field   *k8sfield.Path
