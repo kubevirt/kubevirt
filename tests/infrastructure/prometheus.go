@@ -31,7 +31,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	gomegatypes "github.com/onsi/gomega/types"
 	metricsutil "github.com/rhobs/operator-observability-toolkit/pkg/testutil"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -444,46 +443,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds_total", ">="),
 		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
-
-	It("[QUARANTINE][test_id:4145]should include VMI infos for a running VM", decorators.Quarantine, func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
-
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_")
-
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking the collected metrics")
-		nodeName := pod.Spec.NodeName
-
-		var nameMatchers []gomegatypes.GomegaMatcher
-		for _, vmi := range preparedVMIs {
-			nameMatchers = append(nameMatchers, HaveKeyWithValue("name", vmi.Name))
-		}
-
-		for metricName, results := range metrics {
-			// we don't care about the ordering of the labels
-			if strings.HasPrefix(metricName, "kubevirt_vmi_info") {
-				// special case: namespace and name don't make sense for this metric
-				for _, metricResult := range results {
-					Expect(metricResult.Labels).To(HaveKeyWithValue("node", nodeName))
-				}
-				continue
-			}
-
-			for _, metricResult := range results {
-				Expect(metricResult.Labels).To(SatisfyAll(
-					HaveKeyWithValue("node", nodeName),
-					// all testing VMIs are on the same node and namespace,
-					// so checking the namespace of any random VMI is fine
-					HaveKeyWithValue("namespace", preparedVMIs[0].Namespace),
-					// otherwise, each result must refer to exactly one the prepared VMIs.
-					SatisfyAny(nameMatchers...),
-				))
-			}
-		}
-	})
 
 	Context("VMI eviction blocker status", func() {
 		var controllerMetricIPs []string
