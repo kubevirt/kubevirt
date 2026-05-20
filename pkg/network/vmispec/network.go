@@ -79,6 +79,26 @@ func HasDRANetwork(networks []v1.Network) bool {
 	return slices.ContainsFunc(networks, IsDRANetwork)
 }
 
+// ExtractDRANetworkClaimRequestTuples returns the first network index
+// for each valid <claimName,requestName> tuple.
+func ExtractDRANetworkClaimRequestTuples(spec *v1.VirtualMachineInstanceSpec) map[string]int {
+	validPairFirstIndexByKey := map[string]int{}
+	for idx, net := range spec.Networks {
+		if !IsDRANetwork(net) ||
+			net.ResourceClaim.ClaimName == "" ||
+			net.ResourceClaim.RequestName == "" {
+			continue
+		}
+
+		key := net.ResourceClaim.ClaimName + "/" + net.ResourceClaim.RequestName
+		if _, exists := validPairFirstIndexByKey[key]; !exists {
+			validPairFirstIndexByKey[key] = idx
+		}
+	}
+
+	return validPairFirstIndexByKey
+}
+
 func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {
 	indexedNetworks := map[string]v1.Network{}
 	for _, network := range networks {

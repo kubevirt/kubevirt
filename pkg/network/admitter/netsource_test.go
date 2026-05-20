@@ -23,7 +23,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -91,6 +93,7 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{Name: draSRIOVNetName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 		}
+		spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 		spec.Networks = []v1.Network{
 			{
 				Name: draSRIOVNetName,
@@ -102,7 +105,7 @@ var _ = Describe("Validate network source", func() {
 				},
 			},
 		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
 	})
@@ -113,6 +116,7 @@ var _ = Describe("Validate network source", func() {
 			spec.Domain.Devices.Interfaces = []v1.Interface{
 				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 			}
+			spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 			spec.Networks = []v1.Network{
 				{
 					Name: "default",
@@ -126,10 +130,9 @@ var _ = Describe("Validate network source", func() {
 					},
 				},
 			}
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
 			causes := validator.Validate()
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(Equal("should have only one network type"))
+			Expect(causes).To(ContainElement(HaveField("Message", "should have only one network type")))
 		},
 		Entry("pod network", v1.NetworkSource{Pod: &v1.PodNetwork{}}),
 		Entry("multus network", v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "default1"}}),

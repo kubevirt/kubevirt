@@ -104,6 +104,79 @@ var _ = Describe("Network", func() {
 			&podNetwork,
 		),
 	)
+
+	Describe("Extract DRA network tuples", func() {
+		It("should extract first index per valid tuple only", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Networks: []v1.Network{
+					{
+						Name: "dra-1",
+						NetworkSource: v1.NetworkSource{
+							ResourceClaim: &v1.ClaimRequest{
+								ClaimName:   "claim1",
+								RequestName: "vf",
+							},
+						},
+					},
+					{
+						Name: "dra-dup",
+						NetworkSource: v1.NetworkSource{
+							ResourceClaim: &v1.ClaimRequest{
+								ClaimName:   "claim1",
+								RequestName: "vf",
+							},
+						},
+					},
+					{
+						Name: "dra-invalid",
+						NetworkSource: v1.NetworkSource{
+							ResourceClaim: &v1.ClaimRequest{
+								ClaimName: "claim2",
+							},
+						},
+					},
+					{
+						Name:          "pod-net",
+						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					},
+				},
+			}
+
+			tuples := vmispec.ExtractDRANetworkClaimRequestTuples(spec)
+			Expect(tuples).To(Equal(map[string]int{
+				"claim1/vf": 0,
+			}))
+		})
+
+		It("should return empty tuple map when no valid tuples exist", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Networks: []v1.Network{
+					{
+						Name: "dra-net",
+						NetworkSource: v1.NetworkSource{
+							ResourceClaim: &v1.ClaimRequest{
+								ClaimName: "claim1",
+							},
+						},
+					},
+				},
+			}
+
+			tuples := vmispec.ExtractDRANetworkClaimRequestTuples(spec)
+			Expect(tuples).To(BeEmpty())
+		})
+
+		It("should return empty tuple map when no DRA networks exist", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				Networks: []v1.Network{
+					*v1.DefaultPodNetwork(),
+				},
+			}
+
+			tuples := vmispec.ExtractDRANetworkClaimRequestTuples(spec)
+			Expect(tuples).To(BeEmpty())
+		})
+	})
 })
 
 func createMultusSecondaryNetwork(name, networkName string) v1.Network {
