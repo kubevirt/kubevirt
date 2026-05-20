@@ -150,6 +150,15 @@ const (
 	//
 	// LiveUpdateNADRef enables dynamic modification of NAD references for secondary networks on running VMs.
 	LiveUpdateNADRef = "LiveUpdateNADRef"
+
+	// MigrationPriorityQueue enables controllers to assign priorities to migrations,
+	// ensuring system-initiated migrations (e.g., node drains, upgrades) take precedence
+	// over user-initiated ones (e.g., hot plug operations).
+	// Owner: sig-compute / @fossedihelm
+	// Alpha: v1.7.0
+	// Beta: v1.8.0
+	// GA: v1.9.0
+	MigrationPriorityQueue = "MigrationPriorityQueue"
 )
 
 func init() {
@@ -189,4 +198,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
 }
