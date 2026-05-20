@@ -95,6 +95,11 @@ func (d DomainstatsScraper) gatherMetrics(socketFile string) (bool, *VirtualMach
 	vmStats := &VirtualMachineInstanceStats{}
 	var exists bool
 
+	vmStats.Domain, _, err = cli.GetDomain()
+	if err != nil {
+		log.Log.V(logVerbosityWarning).Reason(err).Infof("failed to get domain from socket %s, continuing without domain info", socketFile)
+	}
+
 	vmStats.DomainStats, exists, err = cli.GetDomainStats()
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to update domain stats from socket %s: %w", socketFile, err)
