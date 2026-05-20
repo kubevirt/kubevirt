@@ -69,7 +69,8 @@ func (q QemuCmdDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	return nil
 }
 
-func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
+// InitializeQEMUCmdAndQEMUArg initializes QEMU command line arguments in the domain
+func InitializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd == nil {
 		domain.Spec.QEMUCmd = &api.Commandline{}
 	}
@@ -77,4 +78,8 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd.QEMUArg == nil {
 		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
 	}
+}
+
+func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
+	InitializeQEMUCmdAndQEMUArg(domain)
 }
