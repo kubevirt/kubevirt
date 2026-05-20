@@ -55,6 +55,11 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
 			}
 
+			// Bridge binding doesn't support DHCPv6, so the pod's IPv6 is never reachable
+			// from the guest. Drop it because pod IPs are used for reporting
+			// VMI.Status.Interfaces[].IPs and take precedence over guest agent data.
+			podIfaceStatus.IPv6 = nmstate.IP{}
+
 			if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
 				return err
 			}
