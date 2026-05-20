@@ -36,3 +36,16 @@ func WithStartStrategy(startStrategy v1.StartStrategy) Option {
 		vmi.Spec.StartStrategy = &startStrategy
 	}
 }
+
+func WithGuestAgentPingLivenessProbe(initialDelaySeconds, periodSeconds, failureThreshold int32) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.LivenessProbe = &v1.Probe{
+			Handler: v1.Handler{
+				GuestAgentPing: &v1.GuestAgentPing{},
+			},
+			InitialDelaySeconds: initialDelaySeconds,
+			PeriodSeconds:       periodSeconds,
+			FailureThreshold:    failureThreshold,
+		}
+	}
+}

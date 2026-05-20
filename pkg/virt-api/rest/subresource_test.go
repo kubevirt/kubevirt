@@ -1288,6 +1288,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				FailureThreshold:    1,
 			}
 		}
+		withGuestAgentPingLivenessProbe := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.LivenessProbe = &v1.Probe{
+				Handler:             v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}},
+				InitialDelaySeconds: 120,
+				TimeoutSeconds:      120,
+				PeriodSeconds:       120,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			}
+		}
 		nilAdditionalOps := func(vmi *v1.VirtualMachineInstance) {
 			return
 		}
@@ -1309,9 +1319,27 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a running but paused VMI", Running, Paused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict, "VMI is already paused"),
 			Entry("a running but paused VMI with dry-run option", Running, Paused, nilAdditionalOps, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusConflict, "VMI is already paused"),
 
-			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
-			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
+			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with a non-GuestAgentPing LivenessProbe is not supported"),
+			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusForbidden, "Pausing VMIs with a non-GuestAgentPing LivenessProbe is not supported"),
 		)
+
+		It("Should allow pausing a running VMI with a GuestAgentPing LivenessProbe", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/pause"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+			expectVMI(Running, UnPaused, withGuestAgentPingLivenessProbe)
+
+			bytesRepresentation, _ := json.Marshal(&v1.PauseOptions{})
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			app.PauseVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+			Expect(backend.ReceivedRequests()).To(HaveLen(1))
+		})
 
 		DescribeTable("Should fail unpausing due to VMI state", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
 
