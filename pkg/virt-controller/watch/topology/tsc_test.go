@@ -39,8 +39,8 @@ var _ = Describe("TSC", func() {
 		))
 	})
 
-	DescribeTable("should calculate the node label diff", func(frequenciesInUse []int64, frequenciesOnNode []int64, nodeFrequency int64, scalable bool, expectedToAdd []int64, expectedToRemove []int64) {
-		toAdd, toRemove := topology.CalculateTSCLabelDiff(frequenciesInUse, frequenciesOnNode, nodeFrequency, scalable)
+	DescribeTable("should calculate the node label diff", func(frequenciesInUse []int64, frequenciesOnNode []int64, frequenciesFromNodes []int64, nodeFrequency int64, scalable bool, expectedToAdd []int64, expectedToRemove []int64) {
+		toAdd, toRemove := topology.CalculateTSCLabelDiff(frequenciesInUse, frequenciesOnNode, frequenciesFromNodes, nodeFrequency, scalable)
 		Expect(toAdd).To(ConsistOf(expectedToAdd))
 		Expect(toRemove).To(ConsistOf(expectedToRemove))
 	},
@@ -48,6 +48,7 @@ var _ = Describe("TSC", func() {
 			"on a scalable node",
 			[]int64{1, 2, 3},
 			[]int64{2, 4},
+			[]int64{1, 2, 3},
 			int64(123),
 			true,
 			[]int64{1, 2, 3, 123},
@@ -57,6 +58,7 @@ var _ = Describe("TSC", func() {
 			"on a scalable node where not all required frequencies are compatible",
 			[]int64{1, 2, 3, 123130, 200000}, // 123130 is above but within 250 PPM
 			[]int64{2, 4},
+			[]int64{123123},
 			int64(123123),
 			true,
 			[]int64{1, 2, 3, 123123, 123130},
@@ -66,6 +68,7 @@ var _ = Describe("TSC", func() {
 			"on a non-scalable node where only the node frequency can be set",
 			[]int64{1, 2, 3},
 			[]int64{2, 4},
+			[]int64{123},
 			int64(123),
 			false,
 			[]int64{123},
@@ -75,10 +78,51 @@ var _ = Describe("TSC", func() {
 			"on a non-scalable node where other node frequencies are close-enough",
 			[]int64{1, 2, 123120, 123130}, // 250 PPM of 123123 is 30
 			[]int64{2, 4},
+			[]int64{123123},
 			int64(123123),
 			false,
 			[]int64{123123, 123120, 123130},
 			[]int64{2, 4},
+		),
+		Entry(
+			"preserves already present compatible labels on a non-scalable node when the compatible frequency still exists on some node",
+			[]int64{123120},
+			[]int64{123123, 123130},
+			[]int64{123130},
+			int64(123123),
+			false,
+			[]int64{123123, 123120, 123130},
+			[]int64{},
+		),
+		Entry(
+			"removes already present incompatible labels on a non-scalable node",
+			[]int64{123120},
+			[]int64{123123, 200000},
+			[]int64{123123},
+			int64(123123),
+			false,
+			[]int64{123123, 123120},
+			[]int64{200000},
+		),
+		Entry(
+			"removes compatible labels that are no longer in use and no longer exist on any node",
+			[]int64{123120},
+			[]int64{123123, 123130},
+			[]int64{123123},
+			int64(123123),
+			false,
+			[]int64{123123, 123120},
+			[]int64{123130},
+		),
+		Entry(
+			"removes compatible labels on a scalable node when they are no longer in use and no longer exist on any node",
+			[]int64{100},
+			[]int64{100, 110},
+			[]int64{123},
+			int64(123),
+			true,
+			[]int64{100, 123},
+			[]int64{110},
 		),
 	)
 

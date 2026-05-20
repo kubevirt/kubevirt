@@ -55,7 +55,7 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 	}
 	stats := &updateStats{}
 	for _, node := range nodes {
-		nodeCopy, err := calculateNodeLabelChanges(node, requiredFrequencies)
+		nodeCopy, err := calculateNodeLabelChanges(node, requiredFrequencies, nodes)
 		if err != nil {
 			stats.error++
 			log.DefaultLogger().Object(node).Reason(err).Error("Could not calculate TSC frequencies for node")
@@ -75,14 +75,15 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 	return stats
 }
 
-func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (modified *v1.Node, err error) {
+func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64, nodes []*v1.Node) (modified *v1.Node, err error) {
 	nodeFreq, scalable, err := TSCFrequencyFromNode(original)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Object(original).Errorf("Can't determine original TSC frequency of node %s", original.Name)
 		return nil, err
 	}
 	freqsOnNode := TSCFrequenciesOnNode(original)
-	toAdd, toRemove := CalculateTSCLabelDiff(requiredFrequencies, freqsOnNode, nodeFreq, scalable)
+	freqsFromNodes := TSCFrequenciesFromNodes(nodes)
+	toAdd, toRemove := CalculateTSCLabelDiff(requiredFrequencies, freqsOnNode, freqsFromNodes, nodeFreq, scalable)
 	toAddLabels := ToTSCSchedulableLabels(toAdd)
 	toRemoveLabels := ToTSCSchedulableLabels(toRemove)
 

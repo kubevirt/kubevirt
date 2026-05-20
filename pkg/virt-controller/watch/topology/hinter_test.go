@@ -61,6 +61,116 @@ var _ = Describe("Hinter", func() {
 		))
 	})
 
+	It("should prefer a compatible frequency already in use over a drifted cluster minimum", func() {
+		hinter := hinterWithNodes(
+			NodeWithTSC("node1", 3599973000, false),
+			NodeWithTSC("node2", 3599996000, false),
+		)
+		hinter.vmiStore = &cache.FakeCustomStore{ListFunc: func() []interface{} {
+			return VMIsToObjects(
+				vmiWithTSCFrequencyOnNode("existing", 3599975000, "node2"),
+			)
+		}}
+		vmi := vmiWithTSCFrequencyOnNode("newvmi", 12, "oldnode")
+		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
+			&virtv1.TopologyHints{
+				TSCFrequency: pointer.P(int64(3599975000)),
+			},
+		))
+	})
+
+	It("should prefer the lowest compatible measured frequency that exists on at least two nodes when no frequencies are in use", func() {
+		hinter := hinterWithNodes(
+			NodeWithTSC("node1", 3599973000, false),
+			NodeWithTSC("node2", 3599975000, false),
+			NodeWithTSC("node3", 3599975000, false),
+			NodeWithTSC("node4", 3599996000, false),
+			NodeWithTSC("node5", 3599998000, false),
+			NodeWithTSC("node6", 3599998000, false),
+		)
+		vmi := vmiWithTSCFrequencyOnNode("newvmi", 12, "oldnode")
+		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
+			&virtv1.TopologyHints{
+				TSCFrequency: pointer.P(int64(3599975000)),
+			},
+		))
+	})
+
+	It("should fall back to the raw cluster minimum when two nodes have incompatible frequency", func() {
+		hinter := hinterWithNodes(
+			NodeWithTSC("node1", 3599973000, false),
+			NodeWithTSC("node2", 3599975000, false),
+			NodeWithTSC("node3", 3700006000, false),
+			NodeWithTSC("node4", 3700006000, false),
+		)
+		vmi := vmiWithTSCFrequencyOnNode("newvmi", 12, "oldnode")
+		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
+			&virtv1.TopologyHints{
+				TSCFrequency: pointer.P(int64(3599973000)),
+			},
+		))
+	})
+
+	It("should fall back to the raw cluster minimum when no compatible frequency is in use", func() {
+		hinter := hinterWithNodes(
+			NodeWithTSC("node1", 3599973000, false),
+			NodeWithTSC("node2", 3599996000, false),
+		)
+		hinter.vmiStore = &cache.FakeCustomStore{ListFunc: func() []interface{} {
+			return VMIsToObjects(
+				vmiWithTSCFrequencyOnNode("existing", 3500000000, "node2"),
+			)
+		}}
+		vmi := vmiWithTSCFrequencyOnNode("newvmi", 12, "oldnode")
+		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
+			&virtv1.TopologyHints{
+				TSCFrequency: pointer.P(int64(3599973000)),
+			},
+		))
+	})
+
+	It("should use frequency from VMIs ignoring lower raw cluster minimum and a frequency from two nodes", func() {
+		hinter := hinterWithNodes(
+			NodeWithTSC("node1", 3599973000, false),
+			NodeWithTSC("node2", 3599996000, false),
+			NodeWithTSC("node3", 3599996000, false),
+		)
+		hinter.vmiStore = &cache.FakeCustomStore{ListFunc: func() []interface{} {
+			return VMIsToObjects(
+				vmiWithTSCFrequencyOnNode("existing", 3600000000, "node2"),
+			)
+		}}
+		vmi := vmiWithTSCFrequencyOnNode("newvmi", 12, "oldnode")
+		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
+			&virtv1.TopologyHints{
+				TSCFrequency: pointer.P(int64(3600000000)),
+			},
+		))
+	})
+
+	It("should use minimal frequency from VMIs", func() {
+		hinter := hinterWithNodes(
+			NodeWithTSC("node1", 3599973000, false),
+			NodeWithTSC("node2", 3599996000, false),
+			NodeWithTSC("node3", 3599996000, false),
+		)
+		hinter.vmiStore = &cache.FakeCustomStore{ListFunc: func() []interface{} {
+			return VMIsToObjects(
+				vmiWithTSCFrequencyOnNode("existing", 3600000000, "node2"),
+				vmiWithTSCFrequencyOnNode("existing", 3600005000, "node3"),
+				vmiWithTSCFrequencyOnNode("existing", 3600019000, "node1"),
+			)
+		}}
+		vmi := vmiWithTSCFrequencyOnNode("newvmi", 12, "oldnode")
+		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
+			&virtv1.TopologyHints{
+				TSCFrequency: pointer.P(int64(3600000000)),
+			},
+		))
+	})
+
+	// если есть несколько compatible frequencies в frequenciesInUse, выбирается именно минимальная;
+
 	It("should frequencies in use on VMIs", func() {
 		hinter := hinterWithVMIs(
 			vmiWithTSCFrequencyOnNode("myvm", 100, "node1"),
@@ -96,6 +206,11 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return NodesToObjects(nodes...)
+			},
+		},
+		vmiStore: &cache.FakeCustomStore{
+			ListFunc: func() []interface{} {
+				return []interface{}{}
 			},
 		},
 	}

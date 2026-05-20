@@ -47,7 +47,7 @@ func TSCFrequencyFromNode(node *v1.Node) (frequency int64, scalable bool, err er
 		if err != nil {
 			return 0, false, fmt.Errorf("tsc frequency on node %v is not an int: %v", node.Name, err)
 		} else if freq <= 0 {
-			return 0, false, fmt.Errorf("tsc frequency on node %v is invalid: expected a frequenchy bigger than 0, but got %v", node.Name, freq)
+			return 0, false, fmt.Errorf("tsc frequency on node %v is invalid: expected a frequenсy bigger than 0, but got %v", node.Name, freq)
 		}
 		return freq, scalable, err
 	}
@@ -68,6 +68,21 @@ func TSCFrequenciesOnNode(node *v1.Node) (frequencies []int64) {
 	return
 }
 
+func TSCFrequenciesFromNodes(nodes []*v1.Node) (frequencies []int64) {
+	for _, node := range nodes {
+		freq, _, err := TSCFrequencyFromNode(node)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Excluding node %s with invalid tsc-frequency", node.Name)
+			continue
+		}
+		if freq <= 0 {
+			continue
+		}
+		frequencies = append(frequencies, freq)
+	}
+	return
+}
+
 func distance(freq1, freq2 int64) int64 {
 	if freq1 > freq2 {
 		return freq1 - freq2
@@ -75,32 +90,59 @@ func distance(freq1, freq2 int64) int64 {
 	return freq2 - freq1
 }
 
-func CalculateTSCLabelDiff(frequenciesInUse []int64, frequenciesOnNode []int64, nodeFrequency int64, scalable bool) (toAdd []int64, toRemove []int64) {
-	frequenciesInUse = append(frequenciesInUse, nodeFrequency)
+func IsTSCFrequencyCompatible(nodeFrequency int64, scalable bool, freq int64) bool {
 	tolerance := ToleranceForFrequency(nodeFrequency)
-	requiredMap := map[int64]struct{}{}
-	for _, freq := range frequenciesInUse {
-		if !scalable && distance(freq, nodeFrequency) > tolerance {
-			// A non-scalable node can only accept frequencies that are within Qemu's tolerance:
-			// nodeFrequency*(1-0.000250) < acceptableFrequency < nodeFrequency*(1+0.000250).
-			// Skip the frequencies that are outside that range
-			continue
-		}
-		requiredMap[freq] = struct{}{}
+	if !scalable {
+		// A non-scalable node can only accept frequencies that are within Qemu's tolerance:
+		// nodeFrequency*(1-0.000250) < acceptableFrequency < nodeFrequency*(1+0.000250).
+		return distance(freq, nodeFrequency) <= tolerance
 	}
 
-	for _, freq := range frequenciesOnNode {
-		if _, exists := requiredMap[freq]; !exists {
-			toRemove = append(toRemove, freq)
+	// A scalable node can accept frequencies that are either lower than its own or within the tolerance range.
+	return freq <= nodeFrequency || distance(freq, nodeFrequency) <= tolerance
+}
+
+func CalculateTSCLabelDiff(frequenciesInUse []int64, frequenciesOnNode []int64, frequenciesFromNodes []int64, nodeFrequency int64, scalable bool) (toAdd []int64, toRemove []int64) {
+	requiredMap := map[int64]struct{}{}
+	// Always preserve the node's own frequency label.
+	requiredMap[nodeFrequency] = struct{}{}
+
+	// Preserve all frequencies currently in use that are compatible with node.
+	for _, freq := range frequenciesInUse {
+		if IsTSCFrequencyCompatible(nodeFrequency, scalable, freq) {
+			requiredMap[freq] = struct{}{}
 		}
+	}
+
+	// Make index of compatible measured frequencies still present on nodes in the cluster.
+	nodesOwnFrequencies := map[int64]struct{}{}
+	for _, freq := range frequenciesFromNodes {
+		if IsTSCFrequencyCompatible(nodeFrequency, scalable, freq) {
+			nodesOwnFrequencies[freq] = struct{}{}
+		}
+	}
+
+	// Keep compatible frequencies that already on node:
+	// 1. If already in requiredMap (own and in use)
+	// 2. If present as "own" on other nodes.
+	// Remove non-compatible and unused frequencies.
+	for _, freq := range frequenciesOnNode {
+		if !IsTSCFrequencyCompatible(nodeFrequency, scalable, freq) {
+			toRemove = append(toRemove, freq)
+			continue
+		}
+		if _, exists := requiredMap[freq]; exists {
+			continue
+		}
+		if _, exists := nodesOwnFrequencies[freq]; exists {
+			requiredMap[freq] = struct{}{}
+			continue
+		}
+		toRemove = append(toRemove, freq)
 	}
 
 	for freq := range requiredMap {
-		// For the non-scalable case, the map was already sanitized above.
-		// For the scalable case, a node can accept frequencies that are either lower than its own or within the tolerance range
-		if !scalable || freq <= nodeFrequency || distance(freq, nodeFrequency) <= tolerance {
-			toAdd = append(toAdd, freq)
-		}
+		toAdd = append(toAdd, freq)
 	}
 
 	return
