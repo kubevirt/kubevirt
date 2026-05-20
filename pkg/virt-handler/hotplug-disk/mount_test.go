@@ -55,28 +55,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-)
-
-const (
-	findmntByVolumeRes = "{\"filesystems\": [{\"target\":\"/%s\", \"source\":\"/dev/testvolume[%s]\", \"fstype\":\"xfs\", \"options\":\"rw,relatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota\"}]}"
 )
 
 var (
-	tempDir                string
-	tmpDirSafe             *safepath.Path
-	orgIsoDetector         = isolationDetector
-	orgDeviceBasePath      = deviceBasePath
-	orgStatSourceCommand   = statSourceDevice
-	orgStatCommand         = statDevice
-	orgMknodCommand        = mknodCommand
-	orgMountCommand        = mountCommand
-	orgUnMountCommand      = unmountCommand
-	orgIsMounted           = isMounted
-	orgIsBlockDevice       = isBlockDevice
-	orgFindMntByVolume     = findMntByVolume
-	orgFindMntByDevice     = findMntByDevice
-	orgNodeIsolationResult = nodeIsolationResult
+	tempDir              string
+	tmpDirSafe           *safepath.Path
+	orgDeviceBasePath    = deviceBasePath
+	orgSourceBasePath    = sourceBasePath
+	orgStatSourceCommand = statSourceDevice
+	orgStatCommand       = statDevice
+	orgMknodCommand      = mknodCommand
+	orgMountCommand      = mountCommand
+	orgUnMountCommand    = unmountCommand
+	orgIsMounted         = isMounted
+	orgIsBlockDevice     = isBlockDevice
 )
 
 var _ = Describe("HotplugVolume", func() {
@@ -134,20 +126,6 @@ var _ = Describe("HotplugVolume", func() {
 		cgroupManagerMock.EXPECT().GetCgroupVersion().AnyTimes()
 		expectedCgroupRule = nil
 		ownershipManager = diskutils.NewMockOwnershipManagerInterface(ctrl)
-
-		nodeIsolationResult = func() isolation.IsolationResult {
-			return isolation.NewIsolationResult(os.Getpid(), os.Getppid())
-		}
-
-		parentPathForMount = func(
-			parent isolation.IsolationResult,
-			_ isolation.IsolationResult,
-			findmntInfo FindmntInfo,
-		) (*safepath.Path, error) {
-			path, err := parent.MountRoot()
-			Expect(err).ToNot(HaveOccurred())
-			return path.AppendAndResolveWithRelativeRoot(findmntInfo.GetSourcePath())
-		}
 	})
 
 	Context("mount target records", func() {
@@ -308,7 +286,6 @@ var _ = Describe("HotplugVolume", func() {
 			statSourceDevice = orgStatSourceCommand
 			mknodCommand = orgMknodCommand
 			isBlockDevice = orgIsBlockDevice
-			nodeIsolationResult = orgNodeIsolationResult
 		})
 
 		It("isBlockVolume should determine if we have a block volume", func() {
@@ -595,80 +572,50 @@ var _ = Describe("HotplugVolume", func() {
 			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return volumeDir, nil
 			}
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
-					pid: os.Getpid(),
-				}
-			}
 		})
 
 		AfterEach(func() {
-			findMntByVolume = orgFindMntByVolume
+			sourceBasePath = orgSourceBasePath
 			deviceBasePath = orgDeviceBasePath
 			mountCommand = orgMountCommand
 			unmountCommand = orgUnMountCommand
 			isMounted = orgIsMounted
-			isolationDetector = orgIsoDetector
 		})
 
-		It("getSourcePodFile should find the disk.img file, if it exists", func() {
-			path, err := newDir(tempDir, "ghfjk", "volumes")
-			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+		It("getPVName should return PV name from volume status", func() {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name: "testvolume",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeName: "pv-12345",
+					},
+				},
 			}
-			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
-			Expect(err).ToNot(HaveOccurred())
-			file, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(unsafepath.UnsafeRelative(file.Raw())).To(Equal(unsafepath.UnsafeAbsolute(path.Raw())))
+			Expect(getPVName(vmi, "testvolume")).To(Equal("pv-12345"))
 		})
 
-		It("getSourcePodFile should return error if no UID", func() {
-			_, err := m.getSourcePodFilePath("", vmi, "")
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("getSourcePodFile should return error if disk.img doesn't exist", func() {
-			_, err := newDir(tempDir, "ghfjk", "volumes")
-			Expect(err).ToNot(HaveOccurred())
-			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("getSourcePodFile should return error if iso detection returns error", func() {
-			_, err := newDir(tempDir, "ghfjk", "volumes")
-			Expect(err).ToNot(HaveOccurred())
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
-					pid: 9999,
-				}
+		It("getPVName should return empty string for unknown volume", func() {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name: "other",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeName: "pv-12345",
+					},
+				},
 			}
-			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("isolation error"))
+			Expect(getPVName(vmi, "testvolume")).To(BeEmpty())
 		})
 
-		It("getSourcePodFile should return error if find mounts returns error", func() {
-			_, err := newDir(tempDir, "ghfjk", "volumes")
-			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(""), fmt.Errorf("findmnt error")
+		It("mountFileSystemHotplugVolume should return error if PV name is missing", func() {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:          "testvolume",
+					HotplugVolume: &v1.HotplugVolumeStatus{},
+				},
 			}
-			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", "ghfjk", record, false)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("findmnt error"))
-		})
-
-		It("getSourcePodFile should return the findmnt value", func() {
-			expectedPath, err := newDir(tempDir, "ghfjk", "volumes")
-			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(expectedPath.Raw()))), nil
-			}
-			res, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(unsafepath.UnsafeRelative(res.Raw())).To(Equal(unsafepath.UnsafeAbsolute(expectedPath.Raw())))
+			Expect(err.Error()).To(ContainSubstring("PV name not found"))
 		})
 
 		It("should properly mount and unmount filesystem", func() {
@@ -677,13 +624,26 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+			sourceBasePath = func(sourceUID types.UID, kubeletPodsDir, pvName string) (*safepath.Path, error) {
+				Expect(string(sourceUID)).To(Equal(sourcePodUID))
+				Expect(pvName).To(Equal("pv-test"))
+				return path, nil
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name: "testvolume",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeName: "pv-test",
+					},
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodUID: types.UID(sourcePodUID),
+					},
+				},
 			}
 			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
 			Expect(err).ToNot(HaveOccurred())
 			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
-				Expect(unsafepath.UnsafeRelative(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
+				Expect(unsafepath.UnsafeAbsolute(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
 				Expect(targetPath).To(Equal(targetFilePath))
 				return []byte("Success"), nil
 			}
@@ -789,15 +749,11 @@ var _ = Describe("HotplugVolume", func() {
 			statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
 				return fakeStat(true, 0777, 123456), nil
 			}
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
-					pid: os.Getpid(),
-				}
-			}
 		})
 
 		AfterEach(func() {
 			deviceBasePath = orgDeviceBasePath
+			sourceBasePath = orgSourceBasePath
 			mountCommand = orgMountCommand
 			unmountCommand = orgUnMountCommand
 			isMounted = orgIsMounted
@@ -805,7 +761,6 @@ var _ = Describe("HotplugVolume", func() {
 			statDevice = orgStatCommand
 			mknodCommand = orgMknodCommand
 			isBlockDevice = orgIsBlockDevice
-			findMntByVolume = orgFindMntByVolume
 		})
 
 		verifyMountRecords := func(isMount bool, expectedPaths ...string) {
@@ -861,6 +816,7 @@ var _ = Describe("HotplugVolume", func() {
 			volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 				Name: "filesystemvolume",
 				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+					VolumeName: "pv-fsvolume",
 					VolumeMode: &fs,
 				},
 				HotplugVolume: &v1.HotplugVolumeStatus{
@@ -892,8 +848,8 @@ var _ = Describe("HotplugVolume", func() {
 			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw()))), nil
+			sourceBasePath = func(sourceUID types.UID, kubeletPodsDir, pvName string) (*safepath.Path, error) {
+				return fileSystemPath, nil
 			}
 
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(fileSystemPath.Raw()), "disk.img")
@@ -910,7 +866,7 @@ var _ = Describe("HotplugVolume", func() {
 				return strings.Contains(unsafepath.UnsafeAbsolute(path.Raw()), "blockvolume"), nil
 			}
 			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
-				Expect(unsafepath.UnsafeRelative(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
+				Expect(unsafepath.UnsafeAbsolute(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
 				Expect(unsafepath.UnsafeAbsolute(targetPath.Raw())).To(Equal(targetFilePath))
 				return []byte("Success"), nil
 			}
@@ -1021,6 +977,7 @@ var _ = Describe("HotplugVolume", func() {
 			volumeStatuses = append(volumeStatuses, v1.VolumeStatus{
 				Name: "filesystemvolume",
 				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+					VolumeName: "pv-fsvolume",
 					VolumeMode: &fs,
 				},
 				HotplugVolume: &v1.HotplugVolumeStatus{
@@ -1052,8 +1009,8 @@ var _ = Describe("HotplugVolume", func() {
 			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "filesystemvolume", unsafepath.UnsafeAbsolute(fileSystemPath.Raw()))), nil
+			sourceBasePath = func(sourceUID types.UID, kubeletPodsDir, pvName string) (*safepath.Path, error) {
+				return fileSystemPath, nil
 			}
 
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(fileSystemPath.Raw()), "disk.img")
@@ -1070,7 +1027,7 @@ var _ = Describe("HotplugVolume", func() {
 				return strings.Contains(unsafepath.UnsafeAbsolute(path.Raw()), "blockvolume"), nil
 			}
 			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
-				Expect(unsafepath.UnsafeRelative(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
+				Expect(unsafepath.UnsafeAbsolute(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
 				Expect(unsafepath.UnsafeAbsolute(targetPath.Raw())).To(Equal(targetFilePath))
 				return []byte("Success"), nil
 			}
@@ -1119,31 +1076,6 @@ var _ = Describe("HotplugVolume", func() {
 	})
 
 })
-
-type mockIsolationDetector struct {
-	pid  int
-	ppid int
-	err  error
-}
-
-func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
-	return isolation.NewIsolationResult(i.pid, i.ppid), i.err
-}
-
-func (i *mockIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
-	if i.pid != 9999 {
-		return isolation.NewIsolationResult(i.pid, i.ppid), nil
-	}
-	return nil, fmt.Errorf("isolation error")
-}
-
-func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDetector {
-	return i
-}
-
-func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance, _ *string) error {
-	return nil
-}
 
 func newFile(baseDir string, elems ...string) (*safepath.Path, error) {
 	targetPath := filepath.Join(append([]string{baseDir}, elems...)...)
