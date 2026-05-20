@@ -3213,7 +3213,9 @@ var _ = Describe("VirtualMachine", func() {
 		Context("dynamic annotations and labels", func() {
 			const selectedAnnotationKey = descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction
 			const customSyncAnnotation = "custom/annotation"
+			const customSyncAnnotationPrefix = "custom/annotation-prefix/"
 			const customSyncLabel = "custom/label"
+			const customSyncLabelPrefix = "custom/label-prefix/"
 			const ignoredKey = "anotherKey"
 			const intitialValue = "initialValue"
 			const updatedValue = "updatedValue"
@@ -3305,10 +3307,48 @@ var _ = Describe("VirtualMachine", func() {
 					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotation: customSyncAnnotation},
 					1,
 				),
+				Entry("should sync annotations matching wildcard prefixes",
+					[]string{customSyncAnnotationPrefix + "*"},
+					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotationPrefix + "one": intitialValue},
+					map[string]string{
+						selectedAnnotationKey:              intitialValue,
+						customSyncAnnotationPrefix + "one": updatedValue,
+						customSyncAnnotationPrefix + "two": updatedValue,
+						ignoredKey:                         anotherValue,
+					},
+					map[string]string{
+						selectedAnnotationKey:              intitialValue,
+						customSyncAnnotationPrefix + "one": updatedValue,
+						customSyncAnnotationPrefix + "two": updatedValue,
+					},
+					1,
+				),
+				Entry("should remove annotations matching wildcard prefixes when absent in VM template",
+					[]string{customSyncAnnotationPrefix + "*"},
+					map[string]string{
+						selectedAnnotationKey:              intitialValue,
+						customSyncAnnotationPrefix + "one": intitialValue,
+						customSyncAnnotationPrefix + "two": intitialValue,
+					},
+					map[string]string{
+						selectedAnnotationKey: intitialValue,
+					},
+					map[string]string{
+						selectedAnnotationKey: intitialValue,
+					},
+					1,
+				),
+				Entry("should ignore bare '*' pattern and not sync any annotations",
+					[]string{"*"},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: updatedValue},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					0,
+				),
 			)
 
-			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {
-				controller.additionalLauncherLabelsSync = []string{customSyncLabel}
+			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(additionalLauncherLabelsSync []string, existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {
+				controller.additionalLauncherLabelsSync = additionalLauncherLabelsSync
 
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Template.ObjectMeta.Labels = existingLabels
@@ -3337,32 +3377,75 @@ var _ = Describe("VirtualMachine", func() {
 
 			},
 				Entry("should copy selected custom labels from VM.spec.template.metadata.labels to VMI",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue},
 					map[string]string{customSyncLabel: updatedValue},
 					map[string]string{customSyncLabel: updatedValue},
 					1,
 				),
 				Entry("should remove selected custom labels from VMI if missing in VM.spec.template.metadata.labels",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{ignoredKey: anotherValue},
 					map[string]string{ignoredKey: anotherValue},
 					1,
 				),
 				Entry("should do nothing if selected custom labels are already equal",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					0,
 				),
 				Entry("should update only custom selected labels",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{customSyncLabel: updatedValue, ignoredKey: updatedValue},
 					map[string]string{customSyncLabel: updatedValue, ignoredKey: anotherValue},
 					1,
 				),
 				Entry("should ignore other labels on VM.spec.template.metadata.labels",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: updatedValue},
+					map[string]string{customSyncLabel: intitialValue},
+					0,
+				),
+				Entry("should sync labels matching wildcard prefixes",
+					[]string{customSyncLabelPrefix + "*"},
+					map[string]string{
+						customSyncLabelPrefix + "one": intitialValue,
+					},
+					map[string]string{
+						customSyncLabelPrefix + "one": updatedValue,
+						customSyncLabelPrefix + "two": updatedValue,
+						ignoredKey:                    anotherValue,
+					},
+					map[string]string{
+						customSyncLabelPrefix + "one": updatedValue,
+						customSyncLabelPrefix + "two": updatedValue,
+					},
+					1,
+				),
+				Entry("should remove labels matching wildcard prefixes when absent in VM template",
+					[]string{customSyncLabelPrefix + "*"},
+					map[string]string{
+						customSyncLabelPrefix + "one": intitialValue,
+						customSyncLabelPrefix + "two": intitialValue,
+						ignoredKey:                    anotherValue,
+					},
+					map[string]string{
+						ignoredKey: anotherValue,
+					},
+					map[string]string{
+						ignoredKey: anotherValue,
+					},
+					1,
+				),
+				Entry("should ignore bare '*' pattern and not sync any labels",
+					[]string{"*"},
+					map[string]string{customSyncLabel: intitialValue},
+					map[string]string{customSyncLabel: updatedValue, ignoredKey: updatedValue},
 					map[string]string{customSyncLabel: intitialValue},
 					0,
 				),
