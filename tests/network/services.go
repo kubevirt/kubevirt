@@ -154,7 +154,6 @@ var _ = Describe(SIG("Services", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)
-			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -163,6 +162,7 @@ var _ = Describe(SIG("Services", func() {
 				serviceName := "myservice"
 
 				libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+				startFedoraTCPServer(inboundVMI, servicePort, ipFamily)
 
 				By("setting up resources to expose the VMI via a service")
 				if ipFamily == k8sv1.IPv6Protocol {
@@ -207,4 +207,13 @@ func createServiceConnectivityJob(serviceName, namespace string, servicePort int
 	tcpJob := job.NewHelloWorldJobTCP(serviceFQDN, strconv.Itoa(servicePort))
 	tcpJob.Spec.BackoffLimit = &retries
 	return kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
+}
+
+func startFedoraTCPServer(vmi *v1.VirtualMachineInstance, port int, ipFamily k8sv1.IPFamily) {
+	familyFlag := "-4"
+	if ipFamily == k8sv1.IPv6Protocol {
+		familyFlag = "-6"
+	}
+	serverCommand := fmt.Sprintf("ncat %s -lk %d --sh-exec 'printf \"Hello World!\"' &", familyFlag, port)
+	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
 }

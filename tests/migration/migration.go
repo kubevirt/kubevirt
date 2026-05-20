@@ -97,7 +97,7 @@ import (
 )
 
 const (
-	fedoraVMSize               = "256M"
+	fedoraVMSize               = "512Mi"
 	secretDiskSerial           = "D23YZ9W6WA5DJ487"
 	stressDefaultVMSize        = "100M"
 	stressLargeVMSize          = "400M"

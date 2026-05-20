@@ -370,10 +370,9 @@ oci_pull(
 
 # Pull fedora container-disk preconfigured with ci tooling
 # like stress and qemu guest agent pre-configured
-# TODO build fedora_with_test_tooling for multi-arch
 oci_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522",
+    digest = "sha256:11b6f78fe13216e448b63ef4272da75582450178ca086c98e6b97c03c90e766c",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
@@ -397,13 +396,13 @@ oci_pull(
 
 oci_pull(
     name = "fedora_with_test_tooling_aarch64",
-    digest = "sha256:3d5a2a95f7f9382dc6730073fe19a6b1bc668b424c362339c88c6a13dff2ef49",
+    digest = "sha256:e3b856b2875394c6e0d28287045ce32e917197a3777ab0ca0d5c943fcc6fde93",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
 oci_pull(
     name = "fedora_with_test_tooling_s390x",
-    digest = "sha256:3d9f468750d90845a81608ea13c85237ea295c6295c911a99dc5e0504c8bc05b",
+    digest = "sha256:39fa5525170d055926fc9b473cf65a4f781952c5b5bf84ae0a2ef0e1e2d881e7",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
