@@ -28,6 +28,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 type fakeConfigChecker struct {
@@ -1059,6 +1061,32 @@ var _ = Describe("DRA Admitter", func() {
 			}
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject when GPU and HostDevice share the same claimName/requestName pair", func() {
+			vmi := libvmi.New(
+				libvmi.WithResourceClaim(k8sv1.PodResourceClaim{Name: "shared-claim"}),
+				libvmi.WithGPU(v1.GPU{
+					Name: "gpu1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   ptr.To("shared-claim"),
+						RequestName: ptr.To("shared-req"),
+					},
+				}),
+				libvmi.WithHostDevice(v1.HostDevice{
+					Name: "hd1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   ptr.To("shared-claim"),
+						RequestName: ptr.To("shared-req"),
+					},
+				}),
+			)
+			causes := validateCreationDRA(field, &vmi.Spec, checker)
+			Expect(causes).To(Equal([]metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: `duplicate claimName/requestName pair "shared-claim/shared-req" between GPUs[0] and HostDevices[0]`,
+				Field:   "spec.domain.devices.hostDevices[0]",
+			}}))
 		})
 	})
 
