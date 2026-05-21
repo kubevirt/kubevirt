@@ -921,6 +921,9 @@
         "readOnly": true,
         "type": "typeValue"
       }
+    ],
+    "supplementalGroups": [
+      -18
     ]
   },
   "status": {

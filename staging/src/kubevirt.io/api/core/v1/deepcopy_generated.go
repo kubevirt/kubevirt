@@ -6464,6 +6464,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.SupplementalGroups != nil {
+		in, out := &in.SupplementalGroups, &out.SupplementalGroups
+		*out = make([]int64, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -7760,6 +7760,15 @@ var CRDsValidation map[string]string = map[string]string{
                     If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,
                     no matter if the vmi itself can pick up a hostname.
                   type: string
+                supplementalGroups:
+                  description: |-
+                    SupplementalGroups is a list of groups applied to the first process run in each container,
+                    in addition to the container's primary GID. These are propagated to the virt-launcher pod.
+                  items:
+                    format: int64
+                    type: integer
+                  type: array
+                  x-kubernetes-list-type: atomic
                 terminationGracePeriodSeconds:
                   description: Grace period observed after signalling a VirtualMachineInstance
                     to stop after which the VirtualMachineInstance is force terminated.
@@ -13878,6 +13887,15 @@ var CRDsValidation map[string]string = map[string]string{
             If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,
             no matter if the vmi itself can pick up a hostname.
           type: string
+        supplementalGroups:
+          description: |-
+            SupplementalGroups is a list of groups applied to the first process run in each container,
+            in addition to the container's primary GID. These are propagated to the virt-launcher pod.
+          items:
+            format: int64
+            type: integer
+          type: array
+          x-kubernetes-list-type: atomic
         terminationGracePeriodSeconds:
           description: Grace period observed after signalling a VirtualMachineInstance
             to stop after which the VirtualMachineInstance is force terminated.
@@ -20335,6 +20353,15 @@ var CRDsValidation map[string]string = map[string]string{
                     If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,
                     no matter if the vmi itself can pick up a hostname.
                   type: string
+                supplementalGroups:
+                  description: |-
+                    SupplementalGroups is a list of groups applied to the first process run in each container,
+                    in addition to the container's primary GID. These are propagated to the virt-launcher pod.
+                  items:
+                    format: int64
+                    type: integer
+                  type: array
+                  x-kubernetes-list-type: atomic
                 terminationGracePeriodSeconds:
                   description: Grace period observed after signalling a VirtualMachineInstance
                     to stop after which the VirtualMachineInstance is force terminated.
@@ -25473,6 +25500,15 @@ var CRDsValidation map[string]string = map[string]string{
                             If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,
                             no matter if the vmi itself can pick up a hostname.
                           type: string
+                        supplementalGroups:
+                          description: |-
+                            SupplementalGroups is a list of groups applied to the first process run in each container,
+                            in addition to the container's primary GID. These are propagated to the virt-launcher pod.
+                          items:
+                            format: int64
+                            type: integer
+                          type: array
+                          x-kubernetes-list-type: atomic
                         terminationGracePeriodSeconds:
                           description: Grace period observed after signalling a VirtualMachineInstance
                             to stop after which the VirtualMachineInstance is force
@@ -31073,6 +31109,15 @@ var CRDsValidation map[string]string = map[string]string{
                                 If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,
                                 no matter if the vmi itself can pick up a hostname.
                               type: string
+                            supplementalGroups:
+                              description: |-
+                                SupplementalGroups is a list of groups applied to the first process run in each container,
+                                in addition to the container's primary GID. These are propagated to the virt-launcher pod.
+                              items:
+                                format: int64
+                                type: integer
+                              type: array
+                              x-kubernetes-list-type: atomic
                             terminationGracePeriodSeconds:
                               description: Grace period observed after signalling
                                 a VirtualMachineInstance to stop after which the VirtualMachineInstance
