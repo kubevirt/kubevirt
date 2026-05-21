@@ -643,6 +643,7 @@ type Devices struct {
 	TPMs         []TPM              `xml:"tpm,omitempty"`
 	VSOCK        *VSOCK             `xml:"vsock,omitempty"`
 	Memory       *MemoryDevice      `xml:"memory,omitempty"`
+	IOMMU        []IOMMUDevice      `xml:"iommu,omitempty"`
 }
 
 type PanicDevice struct {
@@ -734,10 +735,20 @@ type HostDevice struct {
 	Alias     *Alias           `xml:"alias,omitempty"`
 	Display   string           `xml:"display,attr,omitempty"`
 	RamFB     string           `xml:"ramfb,attr,omitempty"`
+	Driver    *HostDevDriver   `xml:"driver,omitempty"`
+	ACPI      *ACPIHostDev     `xml:"acpi,omitempty"`
 }
 
 type HostDeviceSource struct {
 	Address *Address `xml:"address,omitempty"`
+}
+
+type HostDevDriver struct {
+	Iommufd string `xml:"iommufd,attr,omitempty"`
+}
+
+type ACPIHostDev struct {
+	NodeSet string `xml:"nodeset,attr,omitempty"`
 }
 
 // END HostDevice -----------------------------
