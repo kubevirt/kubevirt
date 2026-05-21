@@ -90,7 +90,7 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 94 + virtTemplateResourceCount
+	resourceCount = 95 + virtTemplateResourceCount
 	patchCount    = 62 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
@@ -116,7 +116,7 @@ var (
 		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
 		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
-		components.NewVirtualMachineBackupTrackerCrd,
+		components.NewVirtualMachineBackupTrackerCrd, components.NewPluginCrd,
 	}
 	numCRDs = len(crdFunctions) + numVirtTemplateCRDs
 )
