@@ -603,3 +603,83 @@ var _ = ginkgo.Describe("IOMMU SMMUv3 device", func() {
 		})
 	})
 })
+
+var _ = ginkgo.Describe("HostDevice IOMMU driver and ACPI extensions", func() {
+	ginkgo.It("should marshal and unmarshal hostdev with IOMMUFD driver", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+			Driver:  &HostDevDriver{Iommufd: "yes"},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<driver iommufd="yes"></driver>`))
+
+		var unmarshalled HostDevice
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.Driver).ToNot(BeNil())
+		Expect(unmarshalled.Driver.Iommufd).To(Equal("yes"))
+	})
+
+	ginkgo.It("should marshal and unmarshal hostdev with ACPI nodeset", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+			ACPI:    &ACPIHostDev{NodeSet: "2"},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<acpi nodeset="2"></acpi>`))
+
+		var unmarshalled HostDevice
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.ACPI).ToNot(BeNil())
+		Expect(unmarshalled.ACPI.NodeSet).To(Equal("2"))
+	})
+
+	ginkgo.It("should marshal and unmarshal hostdev with both driver and ACPI", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+			Driver:  &HostDevDriver{Iommufd: "yes"},
+			ACPI:    &ACPIHostDev{NodeSet: "2"},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<driver iommufd="yes"></driver>`))
+		Expect(string(xmlBytes)).To(ContainSubstring(`<acpi nodeset="2"></acpi>`))
+
+		var unmarshalled HostDevice
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.Driver).ToNot(BeNil())
+		Expect(unmarshalled.Driver.Iommufd).To(Equal("yes"))
+		Expect(unmarshalled.ACPI).ToNot(BeNil())
+		Expect(unmarshalled.ACPI.NodeSet).To(Equal("2"))
+	})
+
+	ginkgo.It("should omit driver and ACPI when nil", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<driver"))
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<acpi"))
+	})
+})
