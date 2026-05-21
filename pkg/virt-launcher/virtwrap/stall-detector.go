@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/client-go/log"
+
 	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 )
 
