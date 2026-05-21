@@ -141,7 +141,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				Fail("Fail when volume expansion storage class not available")
 			}
 
-			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 				libdv.WithStorage(
@@ -189,7 +189,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			}, 360).Should(Succeed())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo /sbin/resize-filesystem /dev/root /run/resize.rootfs /dev/console && echo $?\n"},
+				&expect.BSnd{S: "resize2fs /dev/root && echo $?\n"},
 				&expect.BExp{R: "0"},
 			}, 30)).To(Succeed(), "failed to resize root")
 
