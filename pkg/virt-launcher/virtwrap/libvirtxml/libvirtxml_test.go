@@ -194,7 +194,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 	})
 
 	Context("CPU with NUMA", func() {
-		cell := api.NUMACell{ID: "123", CPUs: "1", Memory: uint64(123), Unit: "G", MemoryAccess: "test"}
+		cellMem := uint64(123)
+		cell := api.NUMACell{ID: "123", CPUs: "1", Memory: &cellMem, Unit: "G", MemoryAccess: "test"}
 		dcell := libvirtxml.DomainCell{ID: &id, CPUs: "1", Memory: uint(123), Unit: "G", MemAccess: "test"}
 
 		DescribeTable("ConvertKubeVirtNUMACellToDomainDomainCell", func(v []api.NUMACell, expected []libvirtxml.DomainCell, expectErr string) {

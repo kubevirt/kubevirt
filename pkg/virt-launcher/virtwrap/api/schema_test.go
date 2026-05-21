@@ -251,10 +251,11 @@ var _ = ginkgo.Describe("Schema", func() {
 	ginkgo.Context("With numa topology", func() {
 		ginkgo.It("should marshal and unmarshal the values", func() {
 			spec := &DomainSpec{}
+			mem3 := uint64(3)
 			expectedSpec := &DomainSpec{
 				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
-					{ID: "0", CPUs: "0-1", Memory: 3, Unit: "GiB"},
-					{ID: "1", CPUs: "2-3", Memory: 3, Unit: "GiB"},
+					{ID: "0", CPUs: "0-1", Memory: &mem3, Unit: "GiB"},
+					{ID: "1", CPUs: "2-3", Memory: &mem3, Unit: "GiB"},
 				}}},
 				CPUTune: &CPUTune{
 					VCPUPin: []CPUTuneVCPUPin{
