@@ -37,7 +37,6 @@ import (
 )
 
 func (r *Reconciler) syncKubevirtNamespaceLabels() error {
-
 	targetNamespace := r.kv.ObjectMeta.Namespace
 	obj, exists, err := r.stores.NamespaceCache.GetByKey(targetNamespace)
 	if err != nil {
@@ -46,13 +45,13 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 	}
 
 	if !exists {
-		return fmt.Errorf("Could not find namespace in store. Namespace key: %s", targetNamespace)
+		return fmt.Errorf("could not find namespace in store. Namespace key: %s", targetNamespace)
 	}
 
 	cachedNamespace := obj.(*corev1.Namespace)
 	// Prepare namespace metadata patch
 	targetLabels := map[string]string{
-		"openshift.io/cluster-monitoring": "true",
+		"openshift.io/cluster-monitoring": trueString,
 	}
 	cachedLabels := cachedNamespace.ObjectMeta.Labels
 	labelsToPatch := make(map[string]string)
@@ -91,7 +90,6 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 }
 
 func (r *Reconciler) createOrUpdateServices() (bool, error) {
-
 	for _, service := range r.targetStrategy.Services() {
 		pending, err := r.createOrUpdateService(service.DeepCopy())
 		if pending || err != nil {
@@ -115,7 +113,7 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 		_, err := core.Services(service.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Service.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create service %s: %+v", service.Name, service)
+			log.Log.V(2).Infof("failed to create service %s: %+v", service.Name, service) //nolint:mnd
 			return false, fmt.Errorf("unable to create service %s: %v", service.Name, err)
 		}
 
@@ -137,22 +135,22 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 
 	patchBytes, err := generateServicePatch(cachedService, service)
 	if err != nil {
-		log.Log.V(2).Infof("failed to generate service endpoint patch for %s: %+v", service.Name, service)
+		log.Log.V(2).Infof("failed to generate service endpoint patch for %s: %+v", service.Name, service) //nolint:mnd
 		return false, fmt.Errorf("unable to generate service endpoint patch operations for %s: %v", service.Name, err)
 	}
 
 	if len(patchBytes) == 0 {
-		log.Log.V(4).Infof("service %v is up-to-date", service.GetName())
+		log.Log.V(4).Infof("service %v is up-to-date", service.GetName()) //nolint:mnd
 		return false, nil
 	}
 
 	_, err = core.Services(service.Namespace).Patch(context.Background(), service.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch service %s: %+v", service.Name, service)
+		log.Log.V(2).Infof("failed to patch service %s: %+v", service.Name, service) //nolint:mnd
 		return false, fmt.Errorf("unable to patch service %s: %v", service.Name, err)
 	}
 
-	log.Log.V(2).Infof("service %v patched", service.GetName())
+	log.Log.V(2).Infof("service %v patched", service.GetName()) //nolint:mnd
 	return false, nil
 }
 
@@ -174,7 +172,12 @@ func (r *Reconciler) getSecret(secret *corev1.Secret) (*corev1.Secret, bool, err
 	return cachedSecret, true, nil
 }
 
-func certificationNeedsRotation(secret *corev1.Secret, duration *metav1.Duration, ca *tls.Certificate, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) bool {
+func certificationNeedsRotation(
+	secret *corev1.Secret,
+	duration *metav1.Duration,
+	ca *tls.Certificate,
+	renewBefore, caRenewBefore *metav1.Duration,
+) bool {
 	crt, err := components.LoadCertificates(secret)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Infof("Failed to load certificate from secret %s, will rotate it.", secret.Name)
@@ -217,11 +220,16 @@ func deleteService(service *corev1.Service, kvKey string, expectations *util.Exp
 		return err
 	}
 
-	log.Log.V(2).Infof("service %v deleted. It must be re-created", service.GetName())
+	log.Log.V(2).Infof("service %v deleted. It must be re-created", service.GetName()) //nolint:mnd
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLimitingInterface[string], ca *tls.Certificate, secret *corev1.Secret, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) (*tls.Certificate, error) {
+func (r *Reconciler) createOrUpdateCertificateSecret(
+	queue workqueue.TypedRateLimitingInterface[string],
+	ca *tls.Certificate,
+	secret *corev1.Secret,
+	duration, renewBefore, caRenewBefore *metav1.Duration,
+) (*tls.Certificate, error) {
 	var cachedSecret *corev1.Secret
 	var err error
 
@@ -229,7 +237,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &secret.ObjectMeta, version, imageRegistry, id, true)
 
-	log.DefaultLogger().V(4).Infof("checking certificate %v", secret.Name)
+	log.DefaultLogger().V(4).Infof("checking certificate %v", secret.Name) //nolint:mnd
 
 	cachedSecret, exists, err := r.getSecret(secret)
 	if err != nil {
@@ -243,8 +251,8 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 
 	// populate the secret with correct certificate
 	if !exists || rotateCertificate {
-		if err := components.PopulateSecretWithCertificate(secret, ca, duration); err != nil {
-			return nil, err
+		if populateErr := components.PopulateSecretWithCertificate(secret, ca, duration); populateErr != nil {
+			return nil, populateErr
 		}
 	} else {
 		secret.Data = cachedSecret.Data
@@ -256,15 +264,15 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		return nil, err
 	}
 	// we need to ensure that we revisit certificates before they expire
-	wakeupDeadline := components.NextRotationDeadline(crt, ca, renewBefore, caRenewBefore).Sub(time.Now())
+	wakeupDeadline := time.Until(components.NextRotationDeadline(crt, ca, renewBefore, caRenewBefore))
 	queue.AddAfter(r.kvKey, wakeupDeadline)
 
 	if !exists {
 		r.expectations.Secrets.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Secrets.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create secret %s: %+v", secret.Name, secret)
+			log.Log.V(2).Infof("failed to create secret %s: %+v", secret.Name, secret) //nolint:mnd
 			return nil, fmt.Errorf("unable to create secret %s: %v", secret.Name, err)
 		}
 
@@ -275,7 +283,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 	resourcemerge.EnsureObjectMeta(modified, &cachedSecret.ObjectMeta, secret.ObjectMeta)
 
 	if !*modified && !rotateCertificate {
-		log.Log.V(4).Infof("secret %v is up-to-date", secret.GetName())
+		log.Log.V(4).Infof("secret %v is up-to-date", secret.GetName()) //nolint:mnd
 		return crt, nil
 	}
 
@@ -284,13 +292,16 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		return nil, err
 	}
 
-	_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(
+		context.Background(), secret.Name, types.JSONPatchType,
+		patchBytes, metav1.PatchOptions{},
+	)
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch secret %s: %+v", secret.Name, secret)
+		log.Log.V(2).Infof("failed to patch secret %s: %+v", secret.Name, secret) //nolint:mnd
 		return nil, fmt.Errorf("unable to patch secret %s: %v", secret.Name, err)
 	}
 
-	log.Log.V(2).Infof("secret %v updated", secret.GetName())
+	log.Log.V(2).Infof("secret %v updated", secret.GetName()) //nolint:mnd
 
 	return crt, nil
 }
@@ -303,10 +314,12 @@ func createSecretPatch(secret *corev1.Secret) ([]byte, error) {
 	return patch.New(ops...).GeneratePayload()
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
-
+func (r *Reconciler) createOrUpdateCertificateSecrets(
+	queue workqueue.TypedRateLimitingInterface[string],
+	caCert *tls.Certificate,
+	duration, renewBefore, caRenewBefore *metav1.Duration,
+) error {
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
-
 		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
 		switch secret.Name {
 		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, components.KubeVirtBackupCASecretName:
@@ -336,13 +349,19 @@ func getValidCerts(certs []*x509.Certificate) []*tls.Certificate {
 		now := time.Now()
 		if now.After(cert.NotBefore) && now.Before(cert.NotAfter) {
 			// cert is still valid
-			log.Log.V(2).Infof("adding CA from external CA list because it is still valid %s, %s, now %s, not before %s, not after %s", cert.Issuer, cert.Subject, now.Format(time.RFC3339), cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+			log.Log.V(2).Infof( //nolint:mnd
+				"adding CA from external CA list because it is still valid %s, %s, "+
+					"now %s, not before %s, not after %s",
+				cert.Issuer, cert.Subject, now.Format(time.RFC3339),
+				cert.NotBefore.Format(time.RFC3339),
+				cert.NotAfter.Format(time.RFC3339),
+			)
 			externalCAList = append(externalCAList, tlsCert)
 			certMap[hashString] = cert
 		} else if now.Before(cert.NotBefore) {
-			log.Log.V(2).Infof("skipping CA from external CA because it is not yet valid %s, %s", cert.Issuer, cert.Subject)
+			log.Log.V(2).Infof("skipping CA from external CA because it is not yet valid %s, %s", cert.Issuer, cert.Subject) //nolint:mnd
 		} else if now.After(cert.NotAfter) {
-			log.Log.V(2).Infof("skipping CA from external CA because it is expired %s, %s", cert.Issuer, cert.Subject)
+			log.Log.V(2).Infof("skipping CA from external CA because it is expired %s, %s", cert.Issuer, cert.Subject) //nolint:mnd
 		}
 	}
 	return externalCAList
@@ -354,16 +373,16 @@ func (r *Reconciler) getRemotePublicCas() []*tls.Certificate {
 		log.Log.Reason(err).Errorf("failed to get external CA configmap")
 		return nil
 	} else if !exists {
-		log.Log.V(3).Infof("external CA configmap does not exist, returning empty list")
+		log.Log.V(3).Infof("external CA configmap does not exist, returning empty list") //nolint:mnd
 		return nil
 	}
 	externalCaConfigMap := obj.(*corev1.ConfigMap)
 	externalCAData := externalCaConfigMap.Data[components.CABundleKey]
 	if externalCAData == "" {
-		log.Log.V(3).Infof("external CA configmap is empty, returning empty list")
+		log.Log.V(3).Infof("external CA configmap is empty, returning empty list") //nolint:mnd
 		return nil
 	}
-	log.Log.V(4).Infof("external CA data: %s", externalCAData)
+	log.Log.V(4).Infof("external CA data: %s", externalCAData) //nolint:mnd
 	certs, err := cert.ParseCertsPEM([]byte(externalCAData))
 	if err != nil {
 		log.Log.Infof("failed to parse external CA certificates: %v", err)
@@ -384,74 +403,91 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	if !exists {
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
+			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap) //nolint:mnd
 			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 	} else {
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
-			log.Log.V(2).Infof("failed to update configMap %s: %+v", configMap.Name, configMap)
+			log.Log.V(2).Infof("failed to update configMap %s: %+v", configMap.Name, configMap) //nolint:mnd
 			return fmt.Errorf("unable to update configMap %s: %v", configMap.Name, err)
 		}
 	}
 	return nil
 }
 
+// createOrUpdateCASecretAndConfigMap creates or updates a CA certificate secret and its
+// corresponding config map. It returns the CA certificate for further use.
+func (r *Reconciler) createOrUpdateCASecretAndConfigMap(
+	queue workqueue.TypedRateLimitingInterface[string],
+	secretName string,
+	caDuration, renewBefore *metav1.Duration,
+	externalCACerts []*tls.Certificate,
+) (*tls.Certificate, []byte, error) {
+	caCert, err := r.createOrUpdateCACertificateSecret(queue, secretName, caDuration, renewBefore)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(
+		queue, caCert, externalCACerts, renewBefore,
+		findRequiredCAConfigMap(secretName, r.targetStrategy.ConfigMaps()),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return caCert, caBundle, nil
+}
+
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
-	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caExportRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	selfSigned := r.kv.Spec.CertificateRotationStrategy.SelfSigned
+	caDuration := GetCADuration(selfSigned)
+	caRenewBefore := GetCARenewBefore(selfSigned)
+	certDuration := GetCertDuration(selfSigned)
+	certRenewBefore := GetCertRenewBefore(selfSigned)
 
-	// create/update CA Certificate secret
-	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
+	err := r.createExternalKubeVirtCAConfigMap(
+		findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()),
+	)
 	if err != nil {
 		return err
 	}
 
-	// create/update export CA Certificate secret
-	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, caExportDuration, caExportRenewBefore)
-	if err != nil {
-		return err
-	}
-
-	// create/update backup CA Certificate secret
-	caBackupCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtBackupCASecretName, caBackupDuration, caBackupRenewBefore)
-	if err != nil {
-		return err
-	}
-
-	err = r.createExternalKubeVirtCAConfigMap(findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()))
-	if err != nil {
-		return err
-	}
-
-	log.Log.V(3).Info("reading external CA configmap")
+	log.Log.V(3).Info("reading external CA configmap") //nolint:mnd
 	externalCACerts := r.getRemotePublicCas()
-	log.Log.V(3).Infof("found %d external CA certificates", len(externalCACerts))
-	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, externalCACerts, caRenewBefore, findRequiredCAConfigMap(components.KubeVirtCASecretName, r.targetStrategy.ConfigMaps()))
+	log.Log.V(3).Infof("found %d external CA certificates", len(externalCACerts)) //nolint:mnd
+
+	// create/update CA Certificate secret and config map
+	caCert, caBundle, err := r.createOrUpdateCASecretAndConfigMap(
+		queue, components.KubeVirtCASecretName,
+		caDuration, caRenewBefore, externalCACerts,
+	)
 	if err != nil {
 		return err
 	}
 
-	err = r.cleanupExternalCACerts(findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()))
+	err = r.cleanupExternalCACerts(
+		findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, r.targetStrategy.ConfigMaps()),
+	)
 	if err != nil {
 		return err
 	}
 
-	// create/update export CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, nil, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
+	// create/update export CA Certificate secret and config map
+	_, _, err = r.createOrUpdateCASecretAndConfigMap(
+		queue, components.KubeVirtExportCASecretName,
+		caDuration, certRenewBefore, nil,
+	)
 	if err != nil {
 		return err
 	}
 
-	// create/update backup CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caBackupCert, nil, caBackupRenewBefore, findRequiredCAConfigMap(components.KubeVirtBackupCASecretName, r.targetStrategy.ConfigMaps()))
+	// create/update backup CA Certificate secret and config map
+	_, _, err = r.createOrUpdateCASecretAndConfigMap(
+		queue, components.KubeVirtBackupCASecretName,
+		caDuration, certRenewBefore, nil,
+	)
 	if err != nil {
 		return err
 	}
@@ -528,8 +564,8 @@ func hasImmutableFieldChanged(service, cachedService *corev1.Service) bool {
 
 func generateServicePatch(
 	cachedService *corev1.Service,
-	service *corev1.Service) ([]byte, error) {
-
+	service *corev1.Service,
+) ([]byte, error) {
 	patchOps := getObjectMetaPatch(service.ObjectMeta, cachedService.ObjectMeta)
 
 	// set these values in the case they are empty
@@ -562,10 +598,10 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 		_, err := core.ServiceAccounts(r.kv.Namespace).Create(context.Background(), sa, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ServiceAccount.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create serviceaccount %s: %+v", sa.Name, sa)
+			log.Log.V(2).Infof("failed to create serviceaccount %s: %+v", sa.Name, sa) //nolint:mnd
 			return fmt.Errorf("unable to create serviceaccount %s: %v", sa.Name, err)
 		}
-		log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
+		log.Log.V(2).Infof("serviceaccount %v created", sa.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -575,7 +611,7 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 	// there was no change to metadata
 	if !*modified {
 		// Up to date
-		log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
+		log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -585,19 +621,21 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 		return err
 	}
 
-	_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, labelAnnotationPatch, metav1.PatchOptions{})
+	_, err = core.ServiceAccounts(r.kv.Namespace).Patch(
+		context.Background(), sa.Name, types.JSONPatchType,
+		labelAnnotationPatch, metav1.PatchOptions{},
+	)
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch serviceaccount %s: %+v", sa.Name, sa)
+		log.Log.V(2).Infof("failed to patch serviceaccount %s: %+v", sa.Name, sa) //nolint:mnd
 		return fmt.Errorf("unable to patch serviceaccount %s: %v", sa.Name, err)
 	}
 
-	log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
+	log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName()) //nolint:mnd
 
 	return nil
 }
 
 func (r *Reconciler) createOrUpdateRbac() error {
-
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	// create/update ServiceAccounts
@@ -621,7 +659,6 @@ func (r *Reconciler) createOrUpdateRbac() error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	// create/update Roles
@@ -665,7 +702,14 @@ func buildCertMap(certs []*x509.Certificate) map[string]*x509.Certificate {
 	return certMap
 }
 
-func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, externalCACerts []*tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
+func shouldUpdateBundle(
+	required, existing *corev1.ConfigMap,
+	key string,
+	queue workqueue.TypedRateLimitingInterface[string],
+	caCert *tls.Certificate,
+	externalCACerts []*tls.Certificate,
+	overlapInterval *metav1.Duration,
+) (bool, error) {
 	bundle, certCount, err := components.MergeCABundle(caCert, []byte(existing.Data[components.CABundleKey]), overlapInterval.Duration)
 	if err != nil {
 		// the only error that can be returned form MergeCABundle is if the CA caBundle
@@ -701,12 +745,12 @@ func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue 
 
 func (r *Reconciler) createExternalKubeVirtCAConfigMap(configMap *corev1.ConfigMap) error {
 	if configMap == nil {
-		log.Log.V(2).Infof("cannot create external CA configmap because it is nil")
+		log.Log.V(2).Infof("cannot create external CA configmap because it is nil") //nolint:mnd
 		return nil
 	}
 	_, exists, _ := r.stores.ConfigMapCache.Get(configMap)
 	if !exists {
-		log.Log.V(4).Infof("checking external ca config map %v", configMap.Name)
+		log.Log.V(4).Infof("checking external ca config map %v", configMap.Name) //nolint:mnd
 
 		version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 		injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
@@ -714,19 +758,25 @@ func (r *Reconciler) createExternalKubeVirtCAConfigMap(configMap *corev1.ConfigM
 		configMap.Data = map[string]string{components.CABundleKey: ""}
 		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
+			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap) //nolint:mnd
 			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 	}
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, externalCACerts []*tls.Certificate, overlapInterval *metav1.Duration, configMap *corev1.ConfigMap) (caBundle []byte, err error) {
+func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(
+	queue workqueue.TypedRateLimitingInterface[string],
+	caCert *tls.Certificate,
+	externalCACerts []*tls.Certificate,
+	overlapInterval *metav1.Duration,
+	configMap *corev1.ConfigMap,
+) (caBundle []byte, err error) {
 	if configMap == nil {
 		return nil, nil
 	}
 
-	log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name)
+	log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name) //nolint:mnd
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
@@ -735,15 +785,15 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 	obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
 	if !exists {
 		for _, externalCert := range externalCACerts {
-			data = data + string(cert.EncodeCertPEM(externalCert.Leaf))
+			data += string(cert.EncodeCertPEM(externalCert.Leaf))
 		}
-		data = data + string(cert.EncodeCertPEM(caCert.Leaf))
+		data += string(cert.EncodeCertPEM(caCert.Leaf))
 		configMap.Data = map[string]string{components.CABundleKey: data}
 		r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
+			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap) //nolint:mnd
 			return nil, fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 
@@ -756,16 +806,19 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		if !updateBundle {
 			return nil, err
 		}
-		data = data + string(cert.EncodeCertPEM(caCert.Leaf))
+		data += string(cert.EncodeCertPEM(caCert.Leaf))
 		configMap.Data = map[string]string{components.CABundleKey: data}
-		log.Log.Reason(err).V(2).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
+		log.Log.Reason(err).V(2).Infof( //nolint:mnd
+			"There was an error validating the CA bundle stored in configmap %s. "+
+				"We are updating the bundle.", configMap.GetName(),
+		)
 	}
 
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
 
 	if !*modified && !updateBundle {
-		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
+		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName()) //nolint:mnd
 		return []byte(configMap.Data[components.CABundleKey]), nil
 	}
 
@@ -774,13 +827,16 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		return nil, err
 	}
 
-	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(
+		context.Background(), configMap.Name, types.JSONPatchType,
+		patchBytes, metav1.PatchOptions{},
+	)
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch configMap %s: %+v", configMap.Name, configMap)
+		log.Log.V(2).Infof("failed to patch configMap %s: %+v", configMap.Name, configMap) //nolint:mnd
 		return nil, fmt.Errorf("unable to patch configMap %s: %v", configMap.Name, err)
 	}
 
-	log.Log.V(2).Infof("configMap %v updated", configMap.GetName())
+	log.Log.V(2).Infof("configMap %v updated", configMap.GetName()) //nolint:mnd
 
 	return []byte(configMap.Data[components.CABundleKey]), nil
 }
@@ -793,28 +849,33 @@ func createConfigMapPatch(configMap *corev1.ConfigMap) ([]byte, error) {
 	return patch.New(ops...).GeneratePayload()
 }
 
-func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRateLimitingInterface[string], name string, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
+func (r *Reconciler) createOrUpdateCACertificateSecret(
+	queue workqueue.TypedRateLimitingInterface[string],
+	name string,
+	duration, renewBefore *metav1.Duration,
+) (caCert *tls.Certificate, err error) {
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 		// Only work on the ca secrets
 		if secret.Name != name {
 			continue
 		}
-		cert, err := r.createOrUpdateCertificateSecret(queue, nil, secret, duration, renewBefore, nil)
+		crt, err := r.createOrUpdateCertificateSecret(queue, nil, secret, duration, renewBefore, nil)
 		if err != nil {
 			return nil, err
 		}
-		caCert = cert
+		caCert = crt
 	}
 	return caCert, nil
 }
 
-func (r *Reconciler) updateSynchronizationAddress() (err error) {
+func (r *Reconciler) updateSynchronizationAddress() (err error) { //nolint:gocyclo
 	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 		r.kv.Status.SynchronizationAddresses = nil
 		return nil
 	}
 	// Find the lease associated with the virt-synchronization controller
-	lease, err := r.clientset.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
+	lease, err := r.clientset.CoordinationV1().Leases(r.kv.Namespace).Get(
+		context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -854,7 +915,11 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		if err != nil {
 			return err
 		}
-		port = int32(p)
+		if p < 1 || p > 65535 {
+			return fmt.Errorf(
+				"synchronization port %d out of valid range (1-65535)", p)
+		}
+		port = int32(p) // #nosec G109 -- range validated above
 	}
 	addresses := make([]string, len(ips))
 	for i, ip := range ips {
@@ -871,10 +936,10 @@ func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
 			if len(networkStatus.IPs) == 0 {
 				break
 			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
+			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs) //nolint:mnd
 			return networkStatus.IPs
 		}
 	}
-	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
+	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations) //nolint:mnd
 	return nil
 }

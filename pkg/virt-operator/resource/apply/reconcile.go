@@ -53,8 +53,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-const Duration7d = time.Hour * 24 * 7
-const Duration1d = time.Hour * 24
+const (
+	Duration7d               = time.Hour * 24 * 7
+	Duration1d               = time.Hour * 24
+	admissionReviewVersionV1 = "v1"
+)
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
@@ -77,7 +80,12 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 	return false
 }
 
-func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string, id string, injectCustomizationMetadata bool) {
+func injectOperatorMetadata(
+	kv *v1.KubeVirt,
+	objectMeta *metav1.ObjectMeta,
+	version, imageRegistry, id string,
+	injectCustomizationMetadata bool,
+) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
@@ -112,9 +120,11 @@ func GetAppComponent(kv *v1.KubeVirt) string {
 }
 
 func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) []patch.PatchOption {
-	return []patch.PatchOption{patch.WithAdd("/metadata/labels", objectMeta.Labels),
+	return []patch.PatchOption{
+		patch.WithAdd("/metadata/labels", objectMeta.Labels),
 		patch.WithAdd("/metadata/annotations", objectMeta.Annotations),
-		patch.WithAdd("/metadata/ownerReferences", objectMeta.OwnerReferences)}
+		patch.WithAdd("/metadata/ownerReferences", objectMeta.OwnerReferences),
+	}
 }
 
 func getPatchWithObjectMetaAndSpec(ops []patch.PatchOption, meta *metav1.ObjectMeta, spec interface{}) []patch.PatchOption {
@@ -152,10 +162,10 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	return shouldTakeUpdatePath
 }
 
-func haveApiDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
-	for _, deployment := range targetStrategy.ApiDeployments() {
+func haveAPIDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range targetStrategy.APIDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName()) //nolint:mnd
 			// not rolled out yet
 			return false
 		}
@@ -167,7 +177,7 @@ func haveApiDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *
 func haveControllerDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ControllerDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName()) //nolint:mnd
 			// not rolled out yet
 			return false
 		}
@@ -179,7 +189,7 @@ func haveControllerDeploymentsRolledOver(targetStrategy install.StrategyInterfac
 func haveExportProxyDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ExportProxyDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName()) //nolint:mnd
 			// not rolled out yet
 			return false
 		}
@@ -188,10 +198,12 @@ func haveExportProxyDeploymentsRolledOver(targetStrategy install.StrategyInterfa
 	return true
 }
 
-func haveSynchronizationControllerDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
+func haveSynchronizationControllerDeploymentsRolledOver(
+	targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores,
+) bool {
 	for _, deployment := range targetStrategy.SynchronizationControllerDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName()) //nolint:mnd
 			// not rolled out yet
 			return false
 		}
@@ -203,7 +215,7 @@ func haveSynchronizationControllerDeploymentsRolledOver(targetStrategy install.S
 func haveVirtTemplateDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.VirtTemplateDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName()) //nolint:mnd
 			// not rolled out yet
 			return false
 		}
@@ -215,7 +227,7 @@ func haveVirtTemplateDeploymentsRolledOver(targetStrategy install.StrategyInterf
 func haveDaemonSetsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, daemonSet := range targetStrategy.DaemonSets() {
 		if !util.DaemonsetIsReady(kv, daemonSet, stores) {
-			log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
+			log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName()) //nolint:mnd
 			// not rolled out yet
 			return false
 		}
@@ -224,8 +236,20 @@ func haveDaemonSetsRolledOver(targetStrategy install.StrategyInterface, kv *v1.K
 	return true
 }
 
-func (r *Reconciler) createDummyWebhookValidator() error {
+type Reconciler struct {
+	kv    *v1.KubeVirt
+	kvKey string
 
+	targetStrategy   install.StrategyInterface
+	stores           util.Stores
+	config           util.OperatorConfig
+	clientset        kubecli.KubevirtClient
+	aggregatorclient install.APIServiceInterface
+	expectations     *util.Expectations
+	recorder         record.EventRecorder
+}
+
+func (r *Reconciler) createDummyWebhookValidator() error {
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
@@ -234,7 +258,6 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
-
 			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 				// already created blocking webhook for this version
 				return nil
@@ -257,7 +280,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 		path := fmt.Sprintf("/fake-path/%s", crd.Name)
 		webhooks = append(webhooks, admissionregistrationv1.ValidatingWebhook{
 			Name:                    fmt.Sprintf("%s-tmp-validator", crd.Name),
-			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			AdmissionReviewVersions: []string{admissionReviewVersionV1, "v1beta1"},
 			SideEffects:             &sideEffectNone,
 			FailurePolicy:           &failurePolicy,
 			Rules: []admissionregistrationv1.RuleWithOperations{{
@@ -287,7 +310,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 
 	// Set some fake signing cert bytes in for each rule so the k8s apiserver will
 	// allow us to create the webhook.
-	caKeyPair, _ := triple.NewCA("fake.kubevirt.io", time.Hour*24)
+	caKeyPair, _ := triple.NewCA("fake.kubevirt.io", Duration1d)
 	signingCertBytes := cert.EncodeCertPEM(caKeyPair.Cert)
 	for _, webhook := range webhooks {
 		webhook.ClientConfig.CABundle = signingCertBytes
@@ -302,22 +325,24 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	injectOperatorMetadata(r.kv, &validationWebhook.ObjectMeta, version, imageRegistry, id, true)
 
 	r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
-	_, err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
+	_, err := r.clientset.AdmissionregistrationV1().
+		ValidatingWebhookConfigurations().
+		Create(context.Background(), validationWebhook, metav1.CreateOptions{})
 	if err != nil {
 		r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 		return fmt.Errorf("unable to create validation webhook: %v", err)
 	}
-	log.Log.V(2).Infof("Validation webhook created for image %s and registry %s", version, imageRegistry)
+	log.Log.V(2).Infof("Validation webhook created for image %s and registry %s", version, imageRegistry) //nolint:mnd
 
 	return nil
 }
 
-func getTargetVersionRegistryID(kv *v1.KubeVirt) (version string, registry string, id string) {
+func getTargetVersionRegistryID(kv *v1.KubeVirt) (version, registry, id string) {
 	version = kv.Status.TargetKubeVirtVersion
 	registry = kv.Status.TargetKubeVirtRegistry
 	id = kv.Status.TargetDeploymentID
 
-	return
+	return version, registry, id
 }
 
 func isServiceClusterIP(service *corev1.Service) bool {
@@ -328,20 +353,16 @@ func isServiceClusterIP(service *corev1.Service) bool {
 	return false
 }
 
-type Reconciler struct {
-	kv    *v1.KubeVirt
-	kvKey string
-
-	targetStrategy   install.StrategyInterface
-	stores           util.Stores
-	config           util.OperatorConfig
-	clientset        kubecli.KubevirtClient
-	aggregatorclient install.APIServiceInterface
-	expectations     *util.Expectations
-	recorder         record.EventRecorder
-}
-
-func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, config util.OperatorConfig, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
+func NewReconciler(
+	kv *v1.KubeVirt,
+	targetStrategy install.StrategyInterface,
+	stores util.Stores,
+	config util.OperatorConfig,
+	clientset kubecli.KubevirtClient,
+	aggregatorclient install.APIServiceInterface,
+	expectations *util.Expectations,
+	recorder record.EventRecorder,
+) (*Reconciler, error) {
 	kvKey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, err
@@ -370,16 +391,19 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 	}, nil
 }
 
-func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) {
+func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) { //nolint:gocyclo,funlen
 	// Avoid log spam by logging this issue once early instead of for once each object created
 	if !util.IsValidLabel(r.kv.Spec.ProductVersion) {
-		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
+		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less," +
+			" begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
 	if !util.IsValidLabel(r.kv.Spec.ProductName) {
-		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
+		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less," +
+			" begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
 	if !util.IsValidLabel(r.kv.Spec.ProductComponent) {
-		log.Log.Errorf("invalid kubevirt.spec.productComponent: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
+		log.Log.Errorf("invalid kubevirt.spec.productComponent: labels must be 63 characters or less," +
+			" begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
 
 	targetVersion := r.kv.Status.TargetKubeVirtVersion
@@ -388,14 +412,16 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	observedVersion := r.kv.Status.ObservedKubeVirtVersion
 	observedImageRegistry := r.kv.Status.ObservedKubeVirtRegistry
 
-	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	apiDeploymentsRolledOver := haveAPIDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
-	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled ||
+		haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	virtTemplateDeploymentEnabled := r.virtTemplateDeploymentEnabled()
-	virtTemplateDeploymentsRolledOver := !virtTemplateDeploymentEnabled || haveVirtTemplateDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	virtTemplateDeploymentsRolledOver := !virtTemplateDeploymentEnabled ||
+		haveVirtTemplateDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
 
@@ -501,12 +527,14 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	}
 
 	if shouldTakeUpdatePath(targetVersion, observedVersion) {
-		finished, err := r.updateKubeVirtSystem(controllerDeploymentsRolledOver)
+		var finished bool
+		finished, err = r.updateKubeVirtSystem(controllerDeploymentsRolledOver)
 		if !finished || err != nil {
 			return false, err
 		}
 	} else {
-		finished, err := r.createOrRollBackSystem(apiDeploymentsRolledOver)
+		var finished bool
+		finished, err = r.createOrRollBackSystem(apiDeploymentsRolledOver)
 		if !finished || err != nil {
 			return false, err
 		}
@@ -558,21 +586,20 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	return true, nil
 }
 
-func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool, error) {
+func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool, error) { //nolint:gocyclo
 	// CREATE/ROLLBACK PATH IS
 	// 1. apiserver - ensures validation of objects occur before allowing any control plane to act on them.
 	// 2. wait for apiservers to roll over
 	// 3. controllers and daemonsets
 
 	// create/update API Deployments
-	for _, deployment := range r.targetStrategy.ApiDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+	for _, deployment := range r.targetStrategy.APIDeployments() {
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
@@ -584,57 +611,53 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Controller Deployments
 	for _, deployment := range r.targetStrategy.ControllerDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
-		deployment, err := r.syncDeployment(deployment)
-		if err != nil {
-			return false, err
+		syncedDeployment, syncErr := r.syncDeployment(deployment)
+		if syncErr != nil {
+			return false, syncErr
 		}
-		err = r.syncPodDisruptionBudgetForDeployment(deployment)
-		if err != nil {
-			return false, err
+		if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+			return false, syncErr
 		}
 	}
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
 		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
+			syncedDeployment, syncErr := r.syncDeployment(deployment)
+			if syncErr != nil {
+				return false, syncErr
 			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
+			if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+				return false, syncErr
 			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
-			return false, err
+		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
+			return false, deleteErr
 		}
 	}
 
 	// create/update virt-template Deployments
 	for _, deployment := range r.targetStrategy.VirtTemplateDeployments() {
 		if r.virtTemplateDeploymentEnabled() {
-			deployment, err := r.syncDeployment(deployment)
-			if err != nil {
-				return false, err
+			syncedDeployment, syncErr := r.syncDeployment(deployment)
+			if syncErr != nil {
+				return false, syncErr
 			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-			if err != nil {
-				return false, err
+			if syncErr := r.syncPodDisruptionBudgetForDeployment(syncedDeployment); syncErr != nil {
+				return false, syncErr
 			}
-		} else if err := r.deleteDeployment(deployment); err != nil {
-			return false, err
+		} else if deleteErr := r.deleteDeployment(deployment); deleteErr != nil {
+			return false, deleteErr
 		}
 	}
 
@@ -664,7 +687,9 @@ func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
 		return err
 	}
 	r.expectations.Deployment.AddExpectedDeletion(r.kvKey, key)
-	if err := r.clientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{}); err != nil {
+	err = r.clientset.AppsV1().Deployments(deployment.Namespace).
+		Delete(context.Background(), deployment.Name, metav1.DeleteOptions{})
+	if err != nil {
 		r.expectations.Deployment.DeletionObserved(r.kvKey, key)
 		return err
 	}
@@ -672,7 +697,7 @@ func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
 	return nil
 }
 
-func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
+func (r *Reconciler) deleteObjectsNotInInstallStrategy() error { //nolint:gocyclo,funlen
 	gracePeriod := int64(0)
 	deleteOptions := metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
@@ -692,7 +717,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			}
 
 			for _, targetWebhook := range r.targetStrategy.ValidatingWebhookConfigurations() {
-
 				if targetWebhook.Name == webhook.Name {
 					found = true
 					break
@@ -701,7 +725,9 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.ValidationWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.clientset.AdmissionregistrationV1().
+						ValidatingWebhookConfigurations().
+						Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ValidationWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
@@ -715,7 +741,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused mutating webhooks
 	objects = r.stores.MutatingWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil { //nolint:dupl
 			found := false
 			for _, targetWebhook := range r.targetStrategy.MutatingWebhookConfigurations() {
 				if targetWebhook.Name == webhook.Name {
@@ -764,7 +790,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused Secrets
 	objects = r.stores.SecretCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
 			found := false
 			for _, targetSecret := range r.targetStrategy.CertificateSecrets() {
@@ -789,7 +815,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused ConfigMaps
 	objects = r.stores.ConfigMapCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
 			found := false
 			for _, targetConfigMap := range r.targetStrategy.ConfigMaps() {
@@ -814,22 +840,29 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused ValidatingAdmissionPolicyBinding
 	objects = r.stores.ValidatingAdmissionPolicyBindingCache.List()
-	for _, obj := range objects {
-		if validatingAdmissionPolicyBinding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding); ok && validatingAdmissionPolicyBinding.DeletionTimestamp == nil {
+	for _, obj := range objects { //nolint:dupl
+		binding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+		if ok && binding.DeletionTimestamp == nil { //nolint:dupl
 			found := false
-			for _, targetValidatingAdmissionPolicyBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
-				if targetValidatingAdmissionPolicyBinding.Name == validatingAdmissionPolicyBinding.Name {
+			for _, targetBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
+				if targetBinding.Name == binding.Name {
 					found = true
 					break
 				}
 			}
 			if !found {
-				if key, err := controller.KeyFunc(validatingAdmissionPolicyBinding); err == nil {
-					r.expectations.ValidatingAdmissionPolicyBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
+				if key, err := controller.KeyFunc(binding); err == nil {
+					r.expectations.ValidatingAdmissionPolicyBinding.
+						AddExpectedDeletion(r.kvKey, key)
+					err := r.clientset.AdmissionregistrationV1().
+						ValidatingAdmissionPolicyBindings().
+						Delete(context.Background(), binding.Name, deleteOptions)
 					if err != nil {
-						r.expectations.ValidatingAdmissionPolicyBinding.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
+						r.expectations.ValidatingAdmissionPolicyBinding.
+							DeletionObserved(r.kvKey, key)
+						log.Log.Errorf(
+							"Failed to delete validatingAdmissionPolicyBinding %+v: %v",
+							binding, err)
 						return err
 					}
 				}
@@ -839,22 +872,29 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused ValidatingAdmissionPolicy
 	objects = r.stores.ValidatingAdmissionPolicyCache.List()
-	for _, obj := range objects {
-		if validatingAdmissionPolicy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy); ok && validatingAdmissionPolicy.DeletionTimestamp == nil {
+	for _, obj := range objects { //nolint:dupl
+		policy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+		if ok && policy.DeletionTimestamp == nil { //nolint:dupl
 			found := false
-			for _, targetValidatingAdmissionPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
-				if targetValidatingAdmissionPolicy.Name == validatingAdmissionPolicy.Name {
+			for _, targetPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
+				if targetPolicy.Name == policy.Name {
 					found = true
 					break
 				}
 			}
 			if !found {
-				if key, err := controller.KeyFunc(validatingAdmissionPolicy); err == nil {
-					r.expectations.ValidatingAdmissionPolicy.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
+				if key, err := controller.KeyFunc(policy); err == nil {
+					r.expectations.ValidatingAdmissionPolicy.
+						AddExpectedDeletion(r.kvKey, key)
+					err := r.clientset.AdmissionregistrationV1().
+						ValidatingAdmissionPolicies().
+						Delete(context.Background(), policy.Name, deleteOptions)
 					if err != nil {
-						r.expectations.ValidatingAdmissionPolicy.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
+						r.expectations.ValidatingAdmissionPolicy.
+							DeletionObserved(r.kvKey, key)
+						log.Log.Errorf(
+							"Failed to delete validatingAdmissionPolicy %+v: %v",
+							policy, err)
 						return err
 					}
 				}
@@ -889,7 +929,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused daemonsets
 	objects = r.stores.DaemonSetCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
 			found := false
 			for _, targetDs := range r.targetStrategy.DaemonSets() {
@@ -914,7 +954,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused deployments
 	objects = r.stores.DeploymentCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if deployment, ok := obj.(*appsv1.Deployment); ok && deployment.DeletionTimestamp == nil {
 			found := false
 			for _, targetDeployment := range r.targetStrategy.Deployments() {
@@ -939,7 +979,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused services
 	objects = r.stores.ServiceCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
 			found := false
 			for _, targetSvc := range r.targetStrategy.Services() {
@@ -964,7 +1004,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused clusterrolebindings
 	objects = r.stores.ClusterRoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
 			found := false
 			for _, targetCrb := range r.targetStrategy.ClusterRoleBindings() {
@@ -989,7 +1029,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused clusterroles
 	objects = r.stores.ClusterRoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
 			found := false
 			for _, targetCr := range r.targetStrategy.ClusterRoles() {
@@ -1014,7 +1054,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused rolebindings
 	objects = r.stores.RoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
 			found := false
 			for _, targetRb := range r.targetStrategy.RoleBindings() {
@@ -1039,7 +1079,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused roles
 	objects = r.stores.RoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
 			found := false
 			for _, targetR := range r.targetStrategy.Roles() {
@@ -1064,7 +1104,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused serviceaccounts
 	objects = r.stores.ServiceAccountCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
 			found := false
 			for _, targetSa := range r.targetStrategy.ServiceAccounts() {
@@ -1091,7 +1131,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	objects = r.stores.SCCCache.List()
 	for _, obj := range objects {
 		if scc, ok := obj.(*secv1.SecurityContextConstraints); ok && scc.DeletionTimestamp == nil {
-
 			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
 			if !util.IsManagedByOperator(scc.GetLabels()) {
 				continue
@@ -1120,7 +1159,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused prometheus rules
 	objects = r.stores.PrometheusRuleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cachePromRule, ok := obj.(*promv1.PrometheusRule); ok && cachePromRule.DeletionTimestamp == nil {
 			found := false
 			for _, targetPromRule := range r.targetStrategy.PrometheusRules() {
@@ -1148,7 +1187,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 
 	// remove unused prometheus serviceMonitor obejcts
 	objects = r.stores.ServiceMonitorCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cacheServiceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && cacheServiceMonitor.DeletionTimestamp == nil {
 			found := false
 			for _, targetServiceMonitor := range r.targetStrategy.ServiceMonitors() {
@@ -1180,7 +1219,9 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	// remove unused instancetype objects
-	instancetypes, err := r.clientset.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	labelSelector := managedByVirtOperatorLabelSet.String()
+	instancetypes, err := r.clientset.VirtualMachineClusterInstancetype().
+		List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		log.Log.Errorf("Failed to get instancetypes: %v", err)
 	}
@@ -1194,16 +1235,19 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 				}
 			}
 			if !found {
-				if err := r.clientset.VirtualMachineClusterInstancetype().Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{}); err != nil {
-					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, err)
-					return err
+				deleteErr := r.clientset.VirtualMachineClusterInstancetype().
+					Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})
+				if deleteErr != nil {
+					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, deleteErr)
+					return deleteErr
 				}
 			}
 		}
 	}
 
 	// remove unused preference objects
-	preferences, err := r.clientset.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	preferences, err := r.clientset.VirtualMachineClusterPreference().
+		List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		log.Log.Errorf("Failed to get preferences: %v", err)
 	}
@@ -1217,7 +1261,9 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 				}
 			}
 			if !found {
-				if err := r.clientset.VirtualMachineClusterPreference().Delete(context.Background(), preference.Name, metav1.DeleteOptions{}); err != nil {
+				err := r.clientset.VirtualMachineClusterPreference().
+					Delete(context.Background(), preference.Name, metav1.DeleteOptions{})
+				if err != nil {
 					log.Log.Errorf("Failed to delete preference %+v: %v", preference, err)
 					return err
 				}
@@ -1264,5 +1310,5 @@ func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegi
 		ok = false
 	}
 
-	return
+	return imageTag, imageRegistry, id, ok
 }

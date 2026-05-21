@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -51,10 +50,10 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 
 	if !exists {
 		r.expectations.Route.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
+		_, err = r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Route.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route)
+			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route) //nolint:mnd
 			return fmt.Errorf("unable to create route %s: %v", route.Name, err)
 		}
 
@@ -69,7 +68,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	terminationSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.Termination, route.Spec.TLS.Termination)
 	certSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.DestinationCACertificate, route.Spec.TLS.DestinationCACertificate)
 	if !*modified && kindSame && nameSame && terminationSame && certSame {
-		log.Log.V(4).Infof("route %v is up-to-date", route.GetName())
+		log.Log.V(4).Infof("route %v is up-to-date", route.GetName()) //nolint:mnd
 
 		return nil
 	}
@@ -79,35 +78,13 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return err
 	}
 
-	_, err = r.clientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.clientset.RouteClient().Routes(route.Namespace).
+		Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch route %s: %+v", route.Name, route)
+		log.Log.V(2).Infof("failed to patch route %s: %+v", route.Name, route) //nolint:mnd
 		return fmt.Errorf("unable to patch route %s: %v", route.Name, err)
 	}
-	log.Log.V(4).Infof("route %v updated", route.GetName())
-
-	return nil
-}
-
-func (r *Reconciler) deleteRoute(route *routev1.Route) error {
-	obj, exists, err := r.stores.RouteCache.Get(route)
-	if err != nil {
-		return err
-	}
-
-	if !exists || obj.(*routev1.Route).DeletionTimestamp != nil {
-		return nil
-	}
-
-	key, err := controller.KeyFunc(route)
-	if err != nil {
-		return err
-	}
-	r.expectations.Route.AddExpectedDeletion(r.kvKey, key)
-	if err := r.clientset.RouteClient().Routes(route.Namespace).Delete(context.Background(), route.Name, metav1.DeleteOptions{}); err != nil {
-		r.expectations.Route.DeletionObserved(r.kvKey, key)
-		return err
-	}
+	log.Log.V(4).Infof("route %v updated", route.GetName()) //nolint:mnd
 
 	return nil
 }

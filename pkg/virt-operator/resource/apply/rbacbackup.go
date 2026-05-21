@@ -10,8 +10,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func (r *Reconciler) backupRBACs() error {
-
+func (r *Reconciler) backupRBACs() error { //nolint:gocyclo
 	// Backup existing ClusterRoles
 	objects := r.stores.ClusterRoleCache.List()
 	for _, obj := range objects {
@@ -87,13 +86,13 @@ func (r *Reconciler) backupRBACs() error {
 	return nil
 }
 
-func (r *Reconciler) backupRBAC(obj runtime.Object, name, UID, imageTag, imageRegistry, id string) error {
+func (r *Reconciler) backupRBAC(obj runtime.Object, name, uid, imageTag, imageRegistry, id string) error {
 	meta := getRbacMetaObject(obj)
 	*meta = metav1.ObjectMeta{
 		GenerateName: name,
 	}
 	injectOperatorMetadata(r.kv, meta, imageTag, imageRegistry, id, true)
-	meta.Annotations[v1.EphemeralBackupObject] = UID
+	meta.Annotations[v1.EphemeralBackupObject] = uid
 
 	// Create backup
 	createRole := getRbacCreateFunction(r, obj)
@@ -103,7 +102,7 @@ func (r *Reconciler) backupRBAC(obj runtime.Object, name, UID, imageTag, imageRe
 	}
 
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
-	log.Log.V(2).Infof("backup %v %v created", kind, name)
+	log.Log.V(2).Infof("backup %v %v created", kind, name) //nolint:mnd
 	return nil
 }
 
@@ -127,19 +126,18 @@ func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) bool
 	}
 
 	return true
-
 }
 
-func needsBackup(kv *v1.KubeVirt, cache cache.Store, meta *metav1.ObjectMeta) bool {
+func needsBackup(kv *v1.KubeVirt, store cache.Store, meta *metav1.ObjectMeta) bool {
 	shouldBackup := shouldBackupRBACObject(kv, meta)
 	imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(meta)
 	if !shouldBackup || !ok {
 		return false
 	}
 
-	// loop through cache and determine if there's an ephemeral backup
+	// loop through store and determine if there's an ephemeral backup
 	// for this object already
-	objects := cache.List()
+	objects := store.List()
 	for _, obj := range objects {
 		cachedObj, ok := obj.(*metav1.ObjectMeta)
 

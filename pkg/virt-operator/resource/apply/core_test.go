@@ -59,6 +59,13 @@ const (
 	kubevirtNamespace                = "kubevirt"
 	synchronizationControllerPodName = "synchronization-controller"
 	networkAnnotationValue           = "lm-network@migration0"
+	testClusterIP1                   = "10.10.10.10"
+	testClusterIP2                   = "2.2.2.2"
+	testClusterIP3                   = "1.1.1.1"
+	oldVersionValue                  = "oldversion"
+	prometheusSelector               = "prometheus.kubevirt.io"
+	oldValue                         = "old"
+	metricsPortName                  = "metrics"
 	networkStatusAnnotationValue     = `
       [{
           "name": "ovn-kubernetes",
@@ -83,13 +90,11 @@ const (
 )
 
 var _ = Describe("Apply", func() {
-
 	Context("Services", func() {
-
 		It("should not patch if ClusterIp is empty during update", func() {
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
-			cachedService.Spec.ClusterIP = "10.10.10.10"
+			cachedService.Spec.ClusterIP = testClusterIP1
 
 			service := &corev1.Service{}
 			service.Spec.Type = corev1.ServiceTypeClusterIP
@@ -101,7 +106,7 @@ var _ = Describe("Apply", func() {
 		It("should replace if ClusterIp is not empty during update and ip changes", func() {
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
-			cachedService.Spec.ClusterIP = "10.10.10.10"
+			cachedService.Spec.ClusterIP = testClusterIP1
 
 			service := &corev1.Service{}
 			service.Spec.Type = corev1.ServiceTypeClusterIP
@@ -124,7 +129,6 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("should reconcile configmap", func() {
-
 		var clientset *kubecli.MockKubevirtClient
 		var ctrl *gomock.Controller
 		var coreclientset *fake.Clientset
@@ -177,7 +181,7 @@ var _ = Describe("Apply", func() {
 
 			kv = &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
+					Name:      kubevirtNamespace,
 					Namespace: operatorNamespace,
 				},
 			}
@@ -197,14 +201,14 @@ var _ = Describe("Apply", func() {
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
 
-			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			bundle, _, err := components.MergeCABundle(crt, cert.EncodeCertPEM(crt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingCM.Data = map[string]string{
 				components.CABundleKey: string(bundle),
 			}
 
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -233,7 +237,7 @@ var _ = Describe("Apply", func() {
 			existingCM.Data = map[string]string{
 				components.CABundleKey: notRSAParsableString,
 			}
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -283,13 +287,13 @@ var _ = Describe("Apply", func() {
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
 
-			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			bundle, _, err := components.MergeCABundle(crt, cert.EncodeCertPEM(crt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingCM.Data = map[string]string{
 				components.CABundleKey: string(bundle),
 			}
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -350,17 +354,17 @@ var _ = Describe("Apply", func() {
 			existingCM := requiredCM.DeepCopy()
 			crt := createCrt()
 
-			bundle, _, err := components.MergeCABundle(crt, []byte(cert.EncodeCertPEM(crt.Leaf)), time.Hour)
+			bundle, _, err := components.MergeCABundle(crt, cert.EncodeCertPEM(crt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingCM.Data = map[string]string{
 				components.CABundleKey: string(bundle),
 			}
 
-			stores.ConfigMapCache.Add(existingCM)
+			Expect(stores.ConfigMapCache.Add(existingCM)).To(Succeed())
 
 			externalCrt := createCrt()
-			externalBundle, _, err := components.MergeCABundle(externalCrt, []byte(cert.EncodeCertPEM(externalCrt.Leaf)), time.Hour)
+			externalBundle, _, err := components.MergeCABundle(externalCrt, cert.EncodeCertPEM(externalCrt.Leaf), time.Hour)
 			Expect(err).ToNot(HaveOccurred())
 			externalCM := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -374,7 +378,7 @@ var _ = Describe("Apply", func() {
 					components.CABundleKey: string(externalBundle),
 				},
 			}
-			stores.ConfigMapCache.Add(externalCM)
+			Expect(stores.ConfigMapCache.Add(externalCM)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -395,11 +399,10 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("should reconcile service account", func() {
-
 		newServiceAccount := func() *corev1.ServiceAccount {
 			return &corev1.ServiceAccount{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
+					APIVersion: admissionReviewVersionV1,
 					Kind:       "ServiceAccount",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -440,13 +443,12 @@ var _ = Describe("Apply", func() {
 		})
 
 		It("should not patch ServiceAccount on sync when they are equal", func() {
-
 			pr := newServiceAccount()
 
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
 			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-			stores.ServiceAccountCache.Add(pr)
+			Expect(stores.ServiceAccountCache.Add(pr)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -458,12 +460,13 @@ var _ = Describe("Apply", func() {
 			Expect(r.createOrUpdateServiceAccount(pr)).To(Succeed())
 		})
 
+		//nolint:dupl
 		It("should patch ServiceAccount on sync when they are not equal", func() {
 			pr := newServiceAccount()
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
 			injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-			stores.ServiceAccountCache.Add(pr)
+			Expect(stores.ServiceAccountCache.Add(pr)).To(Succeed())
 
 			r := &Reconciler{
 				kv:           kv,
@@ -504,16 +507,16 @@ var _ = Describe("Apply", func() {
 		})
 	})
 
+	//nolint:dupl
 	Context("should handle service endpoint updates", func() {
-
 		config := getConfig("fake-registry", "v9.9.9")
 
 		DescribeTable("with either patch",
 			func(cachedService *corev1.Service,
 				targetService *corev1.Service,
 				expectLabelsAnnotationsPatch bool,
-				expectSpecPatch bool) {
-
+				expectSpecPatch bool,
+			) {
 				Expect(hasImmutableFieldChanged(targetService, cachedService)).To(BeFalse())
 				ops, err := generateServicePatch(cachedService, targetService)
 				Expect(err).ToNot(HaveOccurred())
@@ -548,7 +551,7 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					Spec: corev1.ServiceSpec{
-						ClusterIP: "2.2.2.2",
+						ClusterIP: testClusterIP2,
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				},
@@ -573,7 +576,7 @@ var _ = Describe("Apply", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:    "oldversion",
+							v1.InstallStrategyVersionAnnotation:    oldVersionValue,
 							v1.InstallStrategyRegistryAnnotation:   "oldversion",
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
@@ -583,11 +586,11 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "true",
+							prometheusSelector: trueString,
 						},
 						Ports: []corev1.ServicePort{
 							{
-								Name: "old",
+								Name: oldValue,
 								Port: 444,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.Int,
@@ -612,11 +615,11 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							"prometheus.kubevirt.io": "true",
+							prometheusSelector: trueString,
 						},
 						Ports: []corev1.ServicePort{
 							{
-								Name: "old",
+								Name: oldValue,
 								Port: 444,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.Int,
@@ -644,7 +647,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							v1.AppLabel: "virt-api",
+							v1.AppLabel: components.VirtAPIName,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -656,11 +659,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -682,7 +685,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							v1.AppLabel: "virt-api",
+							v1.AppLabel: components.VirtAPIName,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -694,11 +697,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -711,9 +714,9 @@ var _ = Describe("Apply", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:    "old",
-							v1.InstallStrategyRegistryAnnotation:   "old",
-							v1.InstallStrategyIdentifierAnnotation: "old",
+							v1.InstallStrategyVersionAnnotation:    oldValue,
+							v1.InstallStrategyRegistryAnnotation:   oldValue,
+							v1.InstallStrategyIdentifierAnnotation: oldValue,
 						},
 						Labels: map[string]string{
 							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
@@ -721,7 +724,7 @@ var _ = Describe("Apply", func() {
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
-							v1.AppLabel: "virt-api",
+							v1.AppLabel: components.VirtAPIName,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -733,11 +736,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -770,11 +773,11 @@ var _ = Describe("Apply", func() {
 								Protocol: corev1.ProtocolTCP,
 							},
 							{
-								Name: "metrics",
+								Name: metricsPortName,
 								Port: 443,
 								TargetPort: intstr.IntOrString{
 									Type:   intstr.String,
-									StrVal: "metrics",
+									StrVal: metricsPortName,
 								},
 								Protocol: corev1.ProtocolTCP,
 							},
@@ -787,8 +790,8 @@ var _ = Describe("Apply", func() {
 
 		DescribeTable("complete replacement",
 			func(cachedService *corev1.Service,
-				targetService *corev1.Service) {
-
+				targetService *corev1.Service,
+			) {
 				shouldDeleteAndReplace := hasImmutableFieldChanged(targetService, cachedService)
 				Expect(shouldDeleteAndReplace).To(BeTrue())
 			},
@@ -842,7 +845,7 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					Spec: corev1.ServiceSpec{
-						ClusterIP: "2.2.2.2",
+						ClusterIP: testClusterIP2,
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				},
@@ -853,7 +856,7 @@ var _ = Describe("Apply", func() {
 						},
 					},
 					Spec: corev1.ServiceSpec{
-						ClusterIP: "1.1.1.1",
+						ClusterIP: testClusterIP3,
 						Type:      corev1.ServiceTypeClusterIP,
 					},
 				}),
@@ -880,8 +883,8 @@ var _ = Describe("Apply", func() {
 			expectations := &util.Expectations{}
 			kv = &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
+					Name:      kubevirtNamespace,
+					Namespace: kubevirtNamespace,
 				},
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
@@ -938,7 +941,7 @@ var _ = Describe("Apply", func() {
 		It("should not populate synchronization address, if lease has no holder", func() {
 			lease := createLease("")
 			lease.Spec.HolderIdentity = nil
-			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			err = reconciler.updateSynchronizationAddress()
@@ -948,13 +951,14 @@ var _ = Describe("Apply", func() {
 
 		DescribeTable("update kubevirt synchronization address", func(synchronizationPod *corev1.Pod, port, expectedAddress string) {
 			lease := createLease(synchronizationControllerPodName)
-			lease, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+			_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if port != "" {
 				kv.Spec.SynchronizationPort = port
 			}
 			if synchronizationPod != nil {
-				synchronizationPod, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), synchronizationPod, metav1.CreateOptions{})
+				_, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), synchronizationPod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 			}
 			err = reconciler.updateSynchronizationAddress()
@@ -982,7 +986,7 @@ var _ = Describe("Apply", func() {
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{
 						{
-							IP: "1.1.1.1",
+							IP: testClusterIP3,
 						},
 					},
 				},
@@ -999,7 +1003,7 @@ var _ = Describe("Apply", func() {
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{
 						{
-							IP: "1.1.1.1",
+							IP: testClusterIP3,
 						},
 					},
 				},
@@ -1016,7 +1020,7 @@ var _ = Describe("Apply", func() {
 				Status: corev1.PodStatus{
 					PodIPs: []corev1.PodIP{
 						{
-							IP: "1.1.1.1",
+							IP: testClusterIP3,
 						},
 					},
 				},

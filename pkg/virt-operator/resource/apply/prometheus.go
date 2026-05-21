@@ -30,6 +30,7 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 	return nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.ServiceMonitor) error {
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
@@ -40,14 +41,16 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 	if !exists {
 		// Create non existent
 		r.expectations.ServiceMonitor.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(context.Background(), serviceMonitor, metav1.CreateOptions{})
+		_, err := prometheusClient.MonitoringV1().
+			ServiceMonitors(serviceMonitor.Namespace).
+			Create(context.Background(), serviceMonitor, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ServiceMonitor.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create serviceMonitor %s: %+v", serviceMonitor.Name, serviceMonitor)
+			log.Log.V(2).Infof("failed to create serviceMonitor %s: %+v", serviceMonitor.Name, serviceMonitor) //nolint:mnd
 			return fmt.Errorf("unable to create serviceMonitor %s: %v", serviceMonitor.Name, err)
 		}
 
-		log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
+		log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -62,21 +65,25 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 
 	// there was no change to metadata and the spec fields are equal
 	if !*modified && !endpointsModified {
-		log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
+		log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName()) //nolint:mnd
 		return nil
 	}
-	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &serviceMonitor.ObjectMeta, serviceMonitor.Spec)...).GeneratePayload()
+	patchOps := getPatchWithObjectMetaAndSpec(
+		[]patch.PatchOption{}, &serviceMonitor.ObjectMeta, serviceMonitor.Spec)
+	patchBytes, err := patch.New(patchOps...).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = prometheusClient.MonitoringV1().
+		ServiceMonitors(serviceMonitor.Namespace).
+		Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch serviceMonitor %s: %+v", serviceMonitor.Name, serviceMonitor)
+		log.Log.V(2).Infof("failed to patch serviceMonitor %s: %+v", serviceMonitor.Name, serviceMonitor) //nolint:mnd
 		return fmt.Errorf("unable to patch serviceMonitor %s: %v", serviceMonitor.Name, err)
 	}
 
-	log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
+	log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName()) //nolint:mnd
 
 	return nil
 }
@@ -107,6 +114,7 @@ func (r *Reconciler) createOrUpdatePrometheusRules() error {
 	return nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.PrometheusRule) error {
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
@@ -117,14 +125,16 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 	if !exists {
 		// Create non existent
 		r.expectations.PrometheusRule.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(context.Background(), prometheusRule, metav1.CreateOptions{})
+		_, err := prometheusClient.MonitoringV1().
+			PrometheusRules(prometheusRule.Namespace).
+			Create(context.Background(), prometheusRule, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PrometheusRule.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create PrometheusRule %s: %+v", prometheusRule.Name, prometheusRule)
+			log.Log.V(2).Infof("failed to create PrometheusRule %s: %+v", prometheusRule.Name, prometheusRule) //nolint:mnd
 			return fmt.Errorf("unable to create PrometheusRule %s: %v", prometheusRule.Name, err)
 		}
 
-		log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
+		log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -135,21 +145,25 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, prometheusRule.ObjectMeta)
 
 	if !*modified && equality.Semantic.DeepEqual(cachedPrometheusRule.Spec, prometheusRule.Spec) {
-		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
+		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName()) //nolint:mnd
 		return nil
 	}
-	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &prometheusRule.ObjectMeta, prometheusRule.Spec)...).GeneratePayload()
+	patchOps := getPatchWithObjectMetaAndSpec(
+		[]patch.PatchOption{}, &prometheusRule.ObjectMeta, prometheusRule.Spec)
+	patchBytes, err := patch.New(patchOps...).GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = prometheusClient.MonitoringV1().
+		PrometheusRules(prometheusRule.Namespace).
+		Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch PrometheusRule %s: %+v", prometheusRule.Name, prometheusRule)
+		log.Log.V(2).Infof("failed to patch PrometheusRule %s: %+v", prometheusRule.Name, prometheusRule) //nolint:mnd
 		return fmt.Errorf("unable to patch PrometheusRule %s: %v", prometheusRule.Name, err)
 	}
 
-	log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
+	log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName()) //nolint:mnd
 
 	return nil
 }

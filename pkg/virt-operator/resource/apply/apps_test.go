@@ -34,7 +34,6 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
@@ -57,10 +56,29 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	testTaintKey       = "test-taint"
+	tolerationExists   = "Exists"
+	tolerationNoSched  = "NoSchedule"
+	affinityRequired   = "required"
+	affinityIn         = "in"
+	affinityTest       = "test"
+	affinityPreferred  = "preferred"
+	affinityTerm       = "term"
+	affinityRequired2  = "required2"
+	affinityPreferred2 = "preferred2"
+	nodeSelBar         = "bar"
+	nodeSelFromPodspec = "from-podspec"
+	nodeSelLinuxCustom = "linux-custom"
+	testNamespace      = "kubevirt-test"
+	testUser           = "someuser"
+	tlsCipherSuite     = "TLS_AES_128_GCM_SHA256"
+	patchVerb          = "patch"
+	testLabelValue     = "value"
+)
+
 var _ = Describe("Apply Apps", func() {
-
 	Context("on calling syncPodDisruptionBudgetForDeployment", func() {
-
 		var deployment *appsv1.Deployment
 		var err error
 		var clientset *kubecli.MockKubevirtClient
@@ -87,44 +105,47 @@ var _ = Describe("Apply Apps", func() {
 
 			pdbClient = fake.NewSimpleClientset()
 
-			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.PatchAction)
-				Expect(ok).To(BeTrue())
-				if shouldPatchFail {
-					return true, nil, fmt.Errorf("Patch failed!")
-				}
-				patched = true
-				return true, &policyv1.PodDisruptionBudget{}, nil
-			})
+			pdbClient.Fake.PrependReactor(patchVerb, "poddisruptionbudgets",
+				func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					_, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					if shouldPatchFail {
+						return true, nil, fmt.Errorf("Patch failed!")
+					}
+					patched = true
+					return true, &policyv1.PodDisruptionBudget{}, nil
+				})
 
-			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				if shouldCreateFail {
-					return true, nil, fmt.Errorf("Create failed!")
-				}
-				created = true
-				return true, update.GetObject(), nil
-			})
+			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets",
+				func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					update, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+					if shouldCreateFail {
+						return true, nil, fmt.Errorf("Create failed!")
+					}
+					created = true
+					return true, update.GetObject(), nil
+				})
 
 			stores = util.Stores{}
 			mockPodDisruptionBudgetCacheStore = &MockStore{}
 			stores.PodDisruptionBudgetCache = mockPodDisruptionBudgetCacheStore
 
 			expectations = &util.Expectations{}
-			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
+			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(
+				controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
 
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 			clientset.EXPECT().PolicyV1().Return(pdbClient.PolicyV1()).AnyTimes()
 			kv = &v1.KubeVirt{}
 
-			virtApiConfig := &util.KubeVirtDeploymentConfig{
+			virtAPIConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 				Namespace:       Namespace,
 			}
-			deployment = components.NewApiServerDeployment(virtApiConfig, "", "", "")
+			deployment = components.NewApiServerDeployment(virtAPIConfig, "", "", "")
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
@@ -161,11 +182,11 @@ var _ = Describe("Apply Apps", func() {
 		It("should skip patching of same version", func() {
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
+			kv.Status.TargetDeploymentID = ID
 
 			SetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
+			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, ID, true)
 			r := &Reconciler{
 				clientset:    clientset,
 				kv:           kv,
@@ -231,8 +252,8 @@ var _ = Describe("Apply Apps", func() {
 
 			boolTrue := true
 			pod := &corev1.Pod{
-				ObjectMeta: v12.ObjectMeta{
-					OwnerReferences: []v12.OwnerReference{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{
 						{Name: daemonSet.Name, Controller: &boolTrue, UID: daemonSet.UID},
 					},
 					Annotations: map[string]string{
@@ -338,7 +359,7 @@ var _ = Describe("Apply Apps", func() {
 					recorder:     record.NewFakeRecorder(100),
 				}
 
-				dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				dsClient.Fake.PrependReactor("create", daemonsetsResource, func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					update, ok := action.(testing.CreateAction)
 					Expect(ok).To(BeTrue())
 					created = true
@@ -376,7 +397,7 @@ var _ = Describe("Apply Apps", func() {
 				containMaxDeviceFlag = true
 				kv.SetGeneration(2)
 
-				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				dsClient.Fake.PrependReactor(patchVerb, daemonsetsResource, func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					a, ok := action.(testing.PatchAction)
 					Expect(ok).To(BeTrue())
 					patched = true
@@ -386,11 +407,11 @@ var _ = Describe("Apply Apps", func() {
 
 					var dsSpec *appsv1.DaemonSetSpec
 					for _, v := range patches {
-						if v.Path == "/spec" && v.Op == "replace" {
+						if v.Path == "/spec" && v.Op == replaceOp {
 							dsSpec = &appsv1.DaemonSetSpec{}
 							template, err := json.Marshal(v.Value)
 							Expect(err).ToNot(HaveOccurred())
-							json.Unmarshal(template, dsSpec)
+							Expect(json.Unmarshal(template, dsSpec)).To(Succeed())
 						}
 					}
 
@@ -425,7 +446,6 @@ var _ = Describe("Apply Apps", func() {
 		})
 
 		Context("updating virt-handler", func() {
-
 			addCustomTargetDeployment := func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
 				version := "custom.version"
 				registry := "custom.registry"
@@ -454,25 +474,25 @@ var _ = Describe("Apply Apps", func() {
 					recorder:     record.NewFakeRecorder(100),
 				}
 
-				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				dsClient.Fake.PrependReactor(patchVerb, daemonsetsResource, func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					a, ok := action.(testing.PatchAction)
 					Expect(ok).To(BeTrue())
 					patched = true
 
 					patches := []patch.PatchOperation{}
-					json.Unmarshal(a.GetPatch(), &patches)
+					Expect(json.Unmarshal(a.GetPatch(), &patches)).To(Succeed())
 
 					var annotations map[string]string
 					for _, v := range patches {
 						if v.Path == "/metadata/annotations" {
 							template, err := json.Marshal(v.Value)
 							Expect(err).ToNot(HaveOccurred())
-							json.Unmarshal(template, &annotations)
+							Expect(json.Unmarshal(template, &annotations)).To(Succeed())
 						}
 					}
 
 					patchedDs := &appsv1.DaemonSet{
-						ObjectMeta: v12.ObjectMeta{
+						ObjectMeta: metav1.ObjectMeta{
 							Annotations: annotations,
 						},
 					}
@@ -499,8 +519,8 @@ var _ = Describe("Apply Apps", func() {
 					expectedStatus CanaryUpgradeStatus,
 					expectedDone bool,
 					expectingError bool,
-					expectingPatch bool) {
-
+					expectingPatch bool,
+				) {
 					r := &Reconciler{
 						clientset:    clientset,
 						kv:           kv,
@@ -513,14 +533,14 @@ var _ = Describe("Apply Apps", func() {
 					mockDSCacheStore.get = daemonSet
 					SetGeneration(&kv.Status.Generations, currentDs)
 
-					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
+					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
 
 					patched := false
 					for _, action := range dsClient.Fake.Actions() {
-						if action.GetVerb() == "patch" && action.GetResource().Resource == "daemonsets" {
+						if action.GetVerb() == patchVerb && action.GetResource().Resource == daemonsetsResource {
 							patched = true
 						}
 					}
@@ -534,10 +554,9 @@ var _ = Describe("Apply Apps", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					patchedDs, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, v12.GetOptions{})
+					patchedDs, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					dsCheck(kv, patchedDs)
-
 				},
 				Entry("should start canary upgrade with MaxUnavailable 1",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -699,17 +718,15 @@ var _ = Describe("Apply Apps", func() {
 				),
 			)
 		})
-
 	})
 
+	//nolint:dupl
 	Context("Injecting Metadata", func() {
-
 		It("should set expected values", func() {
-
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
+			kv.Status.TargetDeploymentID = ID
 
 			deployment := appsv1.Deployment{}
 			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)
@@ -739,6 +756,7 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
+	//nolint:dupl
 	Context("on calling placement.InjectPlacementMetadata", func() {
 		var componentConfig *v1.ComponentConfig
 		var nodePlacement *v1.NodePlacement
@@ -756,14 +774,14 @@ var _ = Describe("Apply Apps", func() {
 			podSpec = &corev1.PodSpec{}
 
 			toleration = corev1.Toleration{
-				Key:      "test-taint",
-				Operator: "Exists",
-				Effect:   "NoSchedule",
+				Key:      testTaintKey,
+				Operator: tolerationExists,
+				Effect:   tolerationNoSched,
 			}
 			toleration2 = corev1.Toleration{
 				Key:      "test-taint2",
-				Operator: "Exists",
-				Effect:   "NoSchedule",
+				Operator: tolerationExists,
+				Effect:   tolerationNoSched,
 			}
 
 			affinity = &corev1.Affinity{
@@ -773,9 +791,9 @@ var _ = Describe("Apply Apps", func() {
 							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
-										Key:      "required",
-										Operator: "in",
-										Values:   []string{"test"},
+										Key:      affinityRequired,
+										Operator: affinityIn,
+										Values:   []string{affinityTest},
 									},
 								},
 							},
@@ -786,9 +804,9 @@ var _ = Describe("Apply Apps", func() {
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
-										Key:      "preferred",
-										Operator: "in",
-										Values:   []string{"test"},
+										Key:      affinityPreferred,
+										Operator: affinityIn,
+										Values:   []string{affinityTest},
 									},
 								},
 							},
@@ -799,7 +817,7 @@ var _ = Describe("Apply Apps", func() {
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 						{
 							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"required": "term"},
+								MatchLabels: map[string]string{affinityRequired: affinityTerm},
 							},
 						},
 					},
@@ -807,7 +825,7 @@ var _ = Describe("Apply Apps", func() {
 						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"preferred": "term"},
+									MatchLabels: map[string]string{affinityPreferred: affinityTerm},
 								},
 							},
 						},
@@ -817,7 +835,7 @@ var _ = Describe("Apply Apps", func() {
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 						{
 							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"anti-required": "term"},
+								MatchLabels: map[string]string{"anti-required": affinityTerm},
 							},
 						},
 					},
@@ -825,7 +843,7 @@ var _ = Describe("Apply Apps", func() {
 						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"anti-preferred": "term"},
+									MatchLabels: map[string]string{"anti-preferred": affinityTerm},
 								},
 							},
 						},
@@ -840,9 +858,9 @@ var _ = Describe("Apply Apps", func() {
 							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
-										Key:      "required2",
-										Operator: "in",
-										Values:   []string{"test"},
+										Key:      affinityRequired2,
+										Operator: affinityIn,
+										Values:   []string{affinityTest},
 									},
 								},
 							},
@@ -853,9 +871,9 @@ var _ = Describe("Apply Apps", func() {
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
-										Key:      "preferred2",
-										Operator: "in",
-										Values:   []string{"test"},
+										Key:      affinityPreferred2,
+										Operator: affinityIn,
+										Values:   []string{affinityTest},
 									},
 								},
 							},
@@ -866,7 +884,7 @@ var _ = Describe("Apply Apps", func() {
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 						{
 							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"required2": "term"},
+								MatchLabels: map[string]string{affinityRequired2: affinityTerm},
 							},
 						},
 					},
@@ -874,7 +892,7 @@ var _ = Describe("Apply Apps", func() {
 						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"preferred2": "term"},
+									MatchLabels: map[string]string{affinityPreferred2: affinityTerm},
 								},
 							},
 						},
@@ -884,7 +902,7 @@ var _ = Describe("Apply Apps", func() {
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 						{
 							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"anti-required2": "term"},
+								MatchLabels: map[string]string{"anti-required2": affinityTerm},
 							},
 						},
 					},
@@ -892,14 +910,13 @@ var _ = Describe("Apply Apps", func() {
 						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"anti-preferred2": "term"},
+									MatchLabels: map[string]string{"anti-preferred2": affinityTerm},
 								},
 							},
 						},
 					},
 				},
 			}
-
 		})
 
 		// Node Selectors
@@ -926,33 +943,33 @@ var _ = Describe("Apply Apps", func() {
 
 		It("should copy NodeSelectors when podSpec is empty", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
-			nodePlacement.NodeSelector["foo"] = "bar"
+			nodePlacement.NodeSelector["foo"] = nodeSelBar
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(2))
-			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
+			Expect(podSpec.NodeSelector["foo"]).To(Equal(nodeSelBar))
 			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(placement.KubernetesOSLinux))
 		})
 
 		It("should merge NodeSelectors when podSpec is not empty", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
-			nodePlacement.NodeSelector["foo"] = "bar"
+			nodePlacement.NodeSelector["foo"] = nodeSelBar
 			podSpec.NodeSelector = make(map[string]string)
-			podSpec.NodeSelector["existing"] = "value"
+			podSpec.NodeSelector["existing"] = testLabelValue
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(3))
-			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
-			Expect(podSpec.NodeSelector["existing"]).To(Equal("value"))
+			Expect(podSpec.NodeSelector["foo"]).To(Equal(nodeSelBar))
+			Expect(podSpec.NodeSelector["existing"]).To(Equal(testLabelValue))
 			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(placement.KubernetesOSLinux))
 		})
 
 		It("should favor podSpec if NodeSelectors collide", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
-			nodePlacement.NodeSelector["foo"] = "bar"
+			nodePlacement.NodeSelector["foo"] = nodeSelBar
 			podSpec.NodeSelector = make(map[string]string)
-			podSpec.NodeSelector["foo"] = "from-podspec"
+			podSpec.NodeSelector["foo"] = nodeSelFromPodspec
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(2))
-			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
+			Expect(podSpec.NodeSelector["foo"]).To(Equal(nodeSelFromPodspec))
 			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(placement.KubernetesOSLinux))
 		})
 
@@ -964,47 +981,47 @@ var _ = Describe("Apply Apps", func() {
 
 		It("should favor NodeSelector OS label if present", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
-			nodePlacement.NodeSelector[placement.KubernetesOSLabel] = "linux-custom"
+			nodePlacement.NodeSelector[placement.KubernetesOSLabel] = nodeSelLinuxCustom
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
-			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal("linux-custom"))
+			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(nodeSelLinuxCustom))
 		})
 
 		It("should favor podSpec OS label if present", func() {
 			podSpec.NodeSelector = make(map[string]string)
-			podSpec.NodeSelector[placement.KubernetesOSLabel] = "linux-custom"
+			podSpec.NodeSelector[placement.KubernetesOSLabel] = nodeSelLinuxCustom
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
-			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal("linux-custom"))
+			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(nodeSelLinuxCustom))
 		})
 
 		It("should preserve NodeSelectors if nodePlacement has none", func() {
 			podSpec.NodeSelector = make(map[string]string)
-			podSpec.NodeSelector["foo"] = "from-podspec"
+			podSpec.NodeSelector["foo"] = nodeSelFromPodspec
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(2))
-			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
+			Expect(podSpec.NodeSelector["foo"]).To(Equal(nodeSelFromPodspec))
 			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(placement.KubernetesOSLinux))
 		})
 
 		// tolerations
 		It("should copy tolerations when podSpec is empty", func() {
-			toleration := corev1.Toleration{
-				Key:      "test-taint",
-				Operator: "Exists",
-				Effect:   "NoSchedule",
+			toleration = corev1.Toleration{
+				Key:      testTaintKey,
+				Operator: tolerationExists,
+				Effect:   tolerationNoSched,
 			}
 			nodePlacement.Tolerations = []corev1.Toleration{toleration}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Tolerations).To(HaveLen(1))
-			Expect(podSpec.Tolerations[0].Key).To(Equal("test-taint"))
+			Expect(podSpec.Tolerations[0].Key).To(Equal(testTaintKey))
 		})
 
 		It("should preserve tolerations when nodePlacement is empty", func() {
 			podSpec.Tolerations = []corev1.Toleration{toleration}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Tolerations).To(HaveLen(1))
-			Expect(podSpec.Tolerations[0].Key).To(Equal("test-taint"))
+			Expect(podSpec.Tolerations[0].Key).To(Equal(testTaintKey))
 		})
 
 		It("should merge tolerations when both are defined", func() {
@@ -1018,7 +1035,6 @@ var _ = Describe("Apply Apps", func() {
 			nodePlacement.Affinity = affinity
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should copy NodePlacement if Node, Pod and Anti affinities are empty", func() {
@@ -1026,7 +1042,6 @@ var _ = Describe("Apply Apps", func() {
 			podSpec.Affinity = &corev1.Affinity{}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should merge NodePlacement and podSpec affinity terms", func() {
@@ -1043,51 +1058,57 @@ var _ = Describe("Apply Apps", func() {
 		})
 
 		It("It should copy Required NodeAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
-			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			na := &corev1.NodeAffinity{}
+			na.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			nodePlacement.Affinity = &corev1.Affinity{NodeAffinity: na}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
+			required := podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required.NodeSelectorTerms).To(HaveLen(1))
 		})
 
 		It("It should copy Preferred NodeAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
-			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			na := &corev1.NodeAffinity{}
+			na.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{NodeAffinity: na}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			preferred := podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			Expect(preferred).To(HaveLen(1))
 		})
 
 		It("It should copy Required PodAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
-			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			pa := &corev1.PodAffinity{}
+			pa.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAffinity: pa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			required := podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required).To(HaveLen(1))
 		})
 
 		It("It should copy Preferred PodAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
-			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			pa := &corev1.PodAffinity{}
+			pa.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAffinity: pa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			preferred := podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			Expect(preferred).To(HaveLen(1))
 		})
 
 		It("It should copy Required PodAntiAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			paa := &corev1.PodAntiAffinity{}
+			paa.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAntiAffinity: paa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			required := podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required).To(HaveLen(1))
 		})
 
 		It("It should copy Preferred PodAntiAffinity", func() {
-			nodePlacement.Affinity = &corev1.Affinity{}
-			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			paa := &corev1.PodAntiAffinity{}
+			paa.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity = &corev1.Affinity{PodAntiAffinity: paa}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
-			Expect(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			preferred := podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			Expect(preferred).To(HaveLen(1))
 		})
 	})
 
@@ -1100,11 +1121,11 @@ var _ = Describe("Apply Apps", func() {
 		var secClient *secv1fake.FakeSecurityV1
 		var err error
 
-		namespace := "kubevirt-test"
+		namespace := testNamespace
 
 		generateSCC := func(sccName string, usersList []string) *secv1.SecurityContextConstraints {
 			return &secv1.SecurityContextConstraints{
-				ObjectMeta: v12.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: sccName,
 				},
 				Users: usersList,
@@ -1112,7 +1133,7 @@ var _ = Describe("Apply Apps", func() {
 		}
 
 		setupPrependReactor := func(sccName string, expectedPatch []byte) {
-			secClient.Fake.PrependReactor("patch", "securitycontextconstraints",
+			secClient.Fake.PrependReactor(patchVerb, "securitycontextconstraints",
 				func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					patch, ok := action.(testing.PatchAction)
 					Expect(ok).To(BeTrue())
@@ -1136,7 +1157,7 @@ var _ = Describe("Apply Apps", func() {
 
 		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
 			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
-			stores.SCCCache.Add(scc)
+			Expect(stores.SCCCache.Add(scc)).To(Succeed())
 
 			r := &Reconciler{
 				clientset: virtClient,
@@ -1151,6 +1172,7 @@ var _ = Describe("Apply Apps", func() {
 			close(stop)
 		})
 
+		//nolint:dupl
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
@@ -1177,7 +1199,7 @@ var _ = Describe("Apply Apps", func() {
 			executeTest(scc, string(patches))
 		},
 			Entry("Without custom users", []string{}),
-			Entry("With custom users", []string{"someuser"}),
+			Entry("With custom users", []string{testUser}),
 		)
 	})
 
@@ -1188,8 +1210,11 @@ var _ = Describe("Apply Apps", func() {
 		var kv *v1.KubeVirt
 		var stores util.Stores
 		var ctrl *gomock.Controller
-		const revisionAnnotation = "deployment.kubernetes.io/revision"
-		const fakeAnnotation = "fakeAnnotation.io/fake"
+		const (
+			revisionAnnotation  = "deployment.kubernetes.io/revision"
+			fakeAnnotation      = "fakeAnnotation.io/fake"
+			fakeAnnotationValue = "fake"
+		)
 		var virtAPIDeployment *appsv1.Deployment
 		var dpClient *fake.Clientset
 
@@ -1202,7 +1227,7 @@ var _ = Describe("Apply Apps", func() {
 			clientset.EXPECT().AppsV1().Return(dpClient.AppsV1()).AnyTimes()
 			clientset.EXPECT().CoreV1().Return(dpClient.CoreV1()).AnyTimes()
 
-			kv = &v1.KubeVirt{ObjectMeta: v12.ObjectMeta{Namespace: Namespace}}
+			kv = &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Namespace: Namespace}}
 			virtControllerConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
@@ -1215,7 +1240,7 @@ var _ = Describe("Apply Apps", func() {
 			cachedDeployment.Generation = 2
 			cachedDeployment.Annotations = map[string]string{
 				revisionAnnotation: "4",
-				fakeAnnotation:     "fake",
+				fakeAnnotation:     fakeAnnotationValue,
 			}
 			_, err = clientset.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedDeployment, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -1227,20 +1252,21 @@ var _ = Describe("Apply Apps", func() {
 			virtAPIDeployment.Generation = 2
 			virtAPIDeployment.Annotations = map[string]string{
 				revisionAnnotation: "4",
-				fakeAnnotation:     "fake",
+				fakeAnnotation:     fakeAnnotationValue,
 			}
 
 			_, err = dpClient.AppsV1().Deployments(Namespace).Create(context.TODO(), virtAPIDeployment, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should not remove revision annotation", func() {
 			kv.Status.Generations = []v1.GenerationStatus{{
-				Group:     "apps",
-				Resource:  "deployments",
+				Group:     appsGroup,
+				Resource:  deploymentsResource,
 				Namespace: strategyDeployment.Namespace,
 				Name:      strategyDeployment.Name,
-				//Generation is not up-to-date with cachedDeployment
-				//therefore Operator need to update the deployment
+				// Generation is not up-to-date with cachedDeployment
+				// therefore Operator need to update the deployment
 				LastGeneration: cachedDeployment.Generation - 1,
 			}}
 			r := &Reconciler{
@@ -1256,20 +1282,21 @@ var _ = Describe("Apply Apps", func() {
 			Expect(updatedDeploy.Annotations).ToNot(HaveKey(fakeAnnotation))
 		})
 
-		DescribeTable("should calculate correct replicas for deployments based on node count", func(schedulableNodesCount, unschedulableNodeCount, expectedReplicas int) {
-			createFakeNodes(dpClient, schedulableNodesCount, unschedulableNodeCount)
+		DescribeTable("should calculate correct replicas for deployments based on node count",
+			func(schedulableNodesCount, unschedulableNodeCount, expectedReplicas int) {
+				createFakeNodes(dpClient, schedulableNodesCount, unschedulableNodeCount)
 
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: &util.Expectations{},
-				stores:       stores,
-			}
+				r := &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: &util.Expectations{},
+					stores:       stores,
+				}
 
-			updatedDeployment, err := r.syncDeployment(virtAPIDeployment)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(*updatedDeployment.Spec.Replicas).To(BeEquivalentTo(expectedReplicas))
-		},
+				updatedDeployment, err := r.syncDeployment(virtAPIDeployment)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(BeEquivalentTo(expectedReplicas))
+			},
 			Entry("Single-node cluster", 1, 0, 1),
 			Entry("Small cluster with 5 nodes", 5, 0, 2),
 			Entry("Small cluster with 1 schedulable node", 1, 4, 1),
@@ -1289,38 +1316,44 @@ var _ = Describe("Apply Apps", func() {
 
 			BeforeEach(func() {
 				reconciler = &Reconciler{
-					clientset:    clientset,
-					kv:           kv,
-					expectations: &util.Expectations{Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment"))},
-					stores:       stores,
+					clientset: clientset,
+					kv:        kv,
+					expectations: &util.Expectations{
+						Deployment: controller.NewUIDTrackingControllerExpectations(
+							controller.NewControllerExpectationsWithName("Deployment")),
+					},
+					stores: stores,
 				}
 			})
 
-			DescribeTable("should inject TLS config for virt-template deployments", func(deploymentName, containerName string, tlsConfig *v1.TLSConfiguration, expectedCiphers, expectedMinVersion string) {
-				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+			DescribeTable("should inject TLS config for virt-template deployments",
+				func(deploymentName, containerName string, tlsConfig *v1.TLSConfiguration,
+					expectedCiphers, expectedMinVersion string,
+				) {
+					reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
 
-				kv.Spec.Configuration.TLSConfiguration = tlsConfig
-				deployment := strategyDeployment.DeepCopy()
-				deployment.Name = deploymentName
-				deployment.Spec.Template.Spec.Containers[0].Name = containerName
+					kv.Spec.Configuration.TLSConfiguration = tlsConfig
+					deployment := strategyDeployment.DeepCopy()
+					deployment.Name = deploymentName
+					deployment.Spec.Template.Spec.Containers[0].Name = containerName
 
-				createdDeployment, err := reconciler.syncDeployment(deployment)
-				Expect(err).ToNot(HaveOccurred())
+					createdDeployment, err := reconciler.syncDeployment(deployment)
+					Expect(err).ToNot(HaveOccurred())
 
-				containerIdx := slices.IndexFunc(createdDeployment.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
-					return c.Name == containerName
-				})
-				Expect(containerIdx).ToNot(Equal(-1))
-				args := createdDeployment.Spec.Template.Spec.Containers[containerIdx].Args
-				if expectedCiphers != "" {
-					Expect(args).To(ContainElements(tlsCipherSuitesArg, expectedCiphers))
-				} else {
-					Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
-				}
-				if expectedMinVersion != "" {
-					Expect(args).To(ContainElements(tlsMinVersionArg, expectedMinVersion))
-				}
-			},
+					containerIdx := slices.IndexFunc(createdDeployment.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+						return c.Name == containerName
+					})
+					Expect(containerIdx).ToNot(Equal(-1))
+					args := createdDeployment.Spec.Template.Spec.Containers[containerIdx].Args
+					if expectedCiphers != "" {
+						Expect(args).To(ContainElements(tlsCipherSuitesArg, expectedCiphers))
+					} else {
+						Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
+					}
+					if expectedMinVersion != "" {
+						Expect(args).To(ContainElements(tlsMinVersionArg, expectedMinVersion))
+					}
+				},
 				Entry("virt-template-apiserver with default TLS config",
 					components.VirtTemplateApiserverDeploymentName,
 					components.VirtTemplateApiserverContainerName,
@@ -1340,7 +1373,7 @@ var _ = Describe("Apply Apps", func() {
 					components.VirtTemplateApiserverContainerName,
 					&v1.TLSConfiguration{
 						MinTLSVersion: v1.VersionTLS13,
-						Ciphers:       []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+						Ciphers:       []string{tlsCipherSuite, "TLS_AES_256_GCM_SHA384"},
 					},
 					"TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384",
 					string(v1.VersionTLS13),
@@ -1350,9 +1383,9 @@ var _ = Describe("Apply Apps", func() {
 					components.VirtTemplateControllerContainerName,
 					&v1.TLSConfiguration{
 						MinTLSVersion: v1.VersionTLS13,
-						Ciphers:       []string{"TLS_AES_128_GCM_SHA256"},
+						Ciphers:       []string{tlsCipherSuite},
 					},
-					"TLS_AES_128_GCM_SHA256",
+					tlsCipherSuite,
 					string(v1.VersionTLS13),
 				),
 			)
@@ -1360,7 +1393,7 @@ var _ = Describe("Apply Apps", func() {
 			It("should not inject TLS config for non-virt-template deployments", func() {
 				kv.Spec.Configuration.TLSConfiguration = &v1.TLSConfiguration{
 					MinTLSVersion: v1.VersionTLS13,
-					Ciphers:       []string{"TLS_AES_128_GCM_SHA256"},
+					Ciphers:       []string{tlsCipherSuite},
 				}
 				deployment := strategyDeployment.DeepCopy()
 
@@ -1385,7 +1418,7 @@ func createFakeNodes(client *fake.Clientset, schedulableNodesCount, unschedulabl
 		}
 		if i < schedulableNodesCount {
 			node.Labels = map[string]string{
-				v1.NodeSchedulable: "true",
+				v1.NodeSchedulable: trueString,
 			}
 		}
 		_, err := client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})

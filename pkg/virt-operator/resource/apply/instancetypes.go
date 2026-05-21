@@ -38,6 +38,7 @@ func (r *Reconciler) findInstancetype(name string) (*instancetypev1beta1.Virtual
 	return foundObj, nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) error {
 	foundObj, err := r.findInstancetype(instancetype.Name)
 	if err != nil && !errors.IsNotFound(err) {
@@ -48,27 +49,31 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	injectOperatorMetadata(r.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		if _, err := r.clientset.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
-			log.Log.V(2).Infof("failed to create instancetype %s: %+v", instancetype.Name, instancetype)
-			return fmt.Errorf("unable to create instancetype %s: %v", instancetype.Name, err)
+		_, createErr := r.clientset.VirtualMachineClusterInstancetype().
+			Create(context.Background(), instancetype, metav1.CreateOptions{})
+		if createErr != nil {
+			log.Log.V(2).Infof("failed to create instancetype %s: %+v", instancetype.Name, instancetype) //nolint:mnd
+			return fmt.Errorf("unable to create instancetype %s: %v", instancetype.Name, createErr)
 		}
-		log.Log.V(2).Infof("instancetype %v created", instancetype.GetName())
+		log.Log.V(2).Infof("instancetype %v created", instancetype.GetName()) //nolint:mnd
 		return nil
 	}
 
 	if equality.Semantic.DeepEqual(foundObj.Annotations, instancetype.Annotations) &&
 		equality.Semantic.DeepEqual(foundObj.Labels, instancetype.Labels) &&
 		equality.Semantic.DeepEqual(foundObj.Spec, instancetype.Spec) {
-		log.Log.V(4).Infof("instancetype %v is up-to-date", instancetype.GetName())
+		log.Log.V(4).Infof("instancetype %v is up-to-date", instancetype.GetName()) //nolint:mnd
 		return nil
 	}
 
 	instancetype.ResourceVersion = foundObj.ResourceVersion
-	if _, err := r.clientset.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}); err != nil {
-		log.Log.V(2).Infof("failed to update instancetype %s: %+v", instancetype.Name, instancetype)
+	_, err = r.clientset.VirtualMachineClusterInstancetype().
+		Update(context.Background(), instancetype, metav1.UpdateOptions{})
+	if err != nil {
+		log.Log.V(2).Infof("failed to update instancetype %s: %+v", instancetype.Name, instancetype) //nolint:mnd
 		return fmt.Errorf("unable to update instancetype %s: %v", instancetype.Name, err)
 	}
-	log.Log.V(2).Infof("instancetype %v updated", instancetype.GetName())
+	log.Log.V(2).Infof("instancetype %v updated", instancetype.GetName()) //nolint:mnd
 
 	return nil
 }
@@ -93,9 +98,11 @@ func (r *Reconciler) deleteInstancetypes() error {
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
-	if err := r.clientset.VirtualMachineClusterInstancetype().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: ls.String(),
-	}); err != nil {
+	err := r.clientset.VirtualMachineClusterInstancetype().
+		DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: ls.String(),
+		})
+	if err != nil {
 		return fmt.Errorf("unable to delete preferences: %v", err)
 	}
 
@@ -127,6 +134,7 @@ func (r *Reconciler) findPreference(name string) (*instancetypev1beta1.VirtualMa
 	return foundObj, nil
 }
 
+//nolint:dupl
 func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.VirtualMachineClusterPreference) error {
 	foundObj, err := r.findPreference(preference.Name)
 	if err != nil && !errors.IsNotFound(err) {
@@ -137,27 +145,31 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	injectOperatorMetadata(r.kv, &preference.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		if _, err := r.clientset.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
-			log.Log.V(2).Infof("failed to create preference %s: %+v", preference.Name, preference)
-			return fmt.Errorf("unable to create preference %s: %v", preference.Name, err)
+		_, createErr := r.clientset.VirtualMachineClusterPreference().
+			Create(context.Background(), preference, metav1.CreateOptions{})
+		if createErr != nil {
+			log.Log.V(2).Infof("failed to create preference %s: %+v", preference.Name, preference) //nolint:mnd
+			return fmt.Errorf("unable to create preference %s: %v", preference.Name, createErr)
 		}
-		log.Log.V(2).Infof("preference %v created", preference.GetName())
+		log.Log.V(2).Infof("preference %v created", preference.GetName()) //nolint:mnd
 		return nil
 	}
 
 	if equality.Semantic.DeepEqual(foundObj.Annotations, preference.Annotations) &&
 		equality.Semantic.DeepEqual(foundObj.Labels, preference.Labels) &&
 		equality.Semantic.DeepEqual(foundObj.Spec, preference.Spec) {
-		log.Log.V(4).Infof("preference %v is up-to-date", preference.GetName())
+		log.Log.V(4).Infof("preference %v is up-to-date", preference.GetName()) //nolint:mnd
 		return nil
 	}
 
 	preference.ResourceVersion = foundObj.ResourceVersion
-	if _, err := r.clientset.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}); err != nil {
-		log.Log.V(2).Infof("failed to update preference %s: %+v", preference.Name, preference)
+	_, err = r.clientset.VirtualMachineClusterPreference().
+		Update(context.Background(), preference, metav1.UpdateOptions{})
+	if err != nil {
+		log.Log.V(2).Infof("failed to update preference %s: %+v", preference.Name, preference) //nolint:mnd
 		return fmt.Errorf("unable to update preference %s: %v", preference.Name, err)
 	}
-	log.Log.V(2).Infof("preference %v updated", preference.GetName())
+	log.Log.V(2).Infof("preference %v updated", preference.GetName()) //nolint:mnd
 
 	return nil
 }
@@ -182,9 +194,11 @@ func (r *Reconciler) deletePreferences() error {
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
-	if err := r.clientset.VirtualMachineClusterPreference().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: ls.String(),
-	}); err != nil {
+	err := r.clientset.VirtualMachineClusterPreference().
+		DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: ls.String(),
+		})
+	if err != nil {
 		return fmt.Errorf("unable to delete preferences: %v", err)
 	}
 

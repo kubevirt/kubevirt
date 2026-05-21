@@ -21,6 +21,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 )
 
+const (
+	trueString  = "true"
+	falseString = "false"
+)
+
 type Customizer struct {
 	Patches []v1.CustomizeComponentsPatch
 
@@ -64,8 +69,10 @@ func addFlagsPatch(name, resource string, flags map[string]string, patches []v1.
 	return append(patches, v1.CustomizeComponentsPatch{
 		ResourceName: name,
 		ResourceType: resource,
-		Patch:        fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":["%s","%s"]}]}}}}`, name, name, strings.Join(flagsToArray(flags), `","`)),
-		Type:         v1.StrategicMergePatchType,
+		Patch: fmt.Sprintf( //nolint:gocritic
+			`{"spec":{"template":{"spec":{"containers":[{"name":"%s","command":["%s","%s"]}]}}}}`,
+			name, name, strings.Join(flagsToArray(flags), `","`)),
+		Type: v1.StrategicMergePatchType,
 	})
 }
 
@@ -85,11 +92,10 @@ func flagsToArray(flags map[string]string) []string {
 		switch val {
 		case "":
 			farr = append(farr, fmt.Sprintf("--%s", flagName))
-		case "true", "false":
+		case trueString, falseString:
 			farr = append(farr, fmt.Sprintf("--%s=%s", flagName, val))
 		default:
-			farr = append(farr, fmt.Sprintf("--%s", flagName))
-			farr = append(farr, val)
+			farr = append(farr, fmt.Sprintf("--%s", flagName), val)
 		}
 	}
 
@@ -101,14 +107,14 @@ func (c *Customizer) Hash() string {
 }
 
 func (c *Customizer) GenericApplyPatches(objects interface{}) error {
-	switch reflect.TypeOf(objects).Kind() {
+	switch reflect.TypeOf(objects).Kind() { //nolint:exhaustive
 	case reflect.Slice:
 		s := reflect.ValueOf(objects)
 		for i := 0; i < s.Len(); i++ {
 			o := s.Index(i)
 			obj, ok := o.Interface().(runtime.Object)
 			if !ok {
-				return errors.New("Slice must contain objects of type 'runtime.Object'")
+				return errors.New("slice must contain objects of type 'runtime.Object'")
 			}
 
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
@@ -119,7 +125,7 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 			patches := c.GetPatchesForResource(kind, name)
 
 			patches = append(patches, v1.CustomizeComponentsPatch{
-				Patch: fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`, v1.KubeVirtCustomizeComponentAnnotationHash, c.hash),
+				Patch: fmt.Sprintf(`{"metadata":{"annotations":{%q:%q}}}`, v1.KubeVirtCustomizeComponentAnnotationHash, c.hash),
 				Type:  v1.StrategicMergePatchType,
 			})
 
@@ -128,6 +134,8 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 				return err
 			}
 		}
+	default:
+		return fmt.Errorf("unsupported type %s, expected a slice", reflect.TypeOf(objects).Kind())
 	}
 
 	return nil
@@ -207,7 +215,7 @@ func applyPatch(obj runtime.Object, patch v1.CustomizeComponentsPatch) error {
 			return err
 		}
 
-		if err = json.Unmarshal(modified, obj); err != nil {
+		if err := json.Unmarshal(modified, obj); err != nil {
 			return err
 		}
 	case v1.MergePatchType:
@@ -225,7 +233,7 @@ func applyPatch(obj runtime.Object, patch v1.CustomizeComponentsPatch) error {
 			return err
 		}
 
-		if err = json.Unmarshal(mergedByte, obj); err != nil {
+		if err := json.Unmarshal(mergedByte, obj); err != nil {
 			return err
 		}
 	default:

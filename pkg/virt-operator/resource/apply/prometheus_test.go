@@ -66,13 +66,12 @@ var _ = Describe("Apply Prometheus", func() {
 	})
 
 	It("should not patch ServiceMonitor on sync when they are equal", func() {
-
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.ServiceMonitorCache.Add(sm)
+		Expect(stores.ServiceMonitorCache.Add(sm)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,
@@ -84,13 +83,14 @@ var _ = Describe("Apply Prometheus", func() {
 		Expect(r.createOrUpdateServiceMonitor(sm)).To(Succeed())
 	})
 
+	//nolint:dupl
 	It("should patch ServiceMonitor on sync when they are equal", func() {
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &sm.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.ServiceMonitorCache.Add(sm)
+		Expect(stores.ServiceMonitorCache.Add(sm)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,
@@ -133,14 +133,13 @@ var _ = Describe("Apply Prometheus", func() {
 	})
 
 	It("should not patch PrometheusRules on sync when they are equal", func() {
-
 		pr, err := rules.BuildPrometheusRule("namespace")
 		Expect(err).ToNot(HaveOccurred())
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.PrometheusRuleCache.Add(pr)
+		Expect(stores.PrometheusRuleCache.Add(pr)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,
@@ -153,14 +152,13 @@ var _ = Describe("Apply Prometheus", func() {
 	})
 
 	It("should patch PrometheusRules on sync when they are equal", func() {
-
 		pr, err := rules.BuildPrometheusRule("namespace")
 		Expect(err).ToNot(HaveOccurred())
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
 		injectOperatorMetadata(kv, &pr.ObjectMeta, version, imageRegistry, id, true)
 
-		stores.PrometheusRuleCache.Add(pr)
+		Expect(stores.PrometheusRuleCache.Add(pr)).To(Succeed())
 
 		r := &Reconciler{
 			kv:           kv,

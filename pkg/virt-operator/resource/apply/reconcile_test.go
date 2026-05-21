@@ -33,7 +33,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
@@ -52,8 +51,9 @@ func (m *MockStore) Get(_ interface{}) (item interface{}, exists bool, err error
 	if m.get != nil {
 		exists = true
 	}
-	return
+	return item, exists, err
 }
+
 func (m *MockStore) GetByKey(_ string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
@@ -64,7 +64,7 @@ const (
 	Namespace = "ns"
 	Version   = "1.0"
 	Registry  = "rep"
-	Id        = "42"
+	ID        = "42"
 )
 
 func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
@@ -83,7 +83,7 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 
-	marshalutil.MarshallObject(resource, writer)
+	Expect(marshalutil.MarshallObject(resource, writer)).To(Succeed())
 	writer.Flush()
 
 	configMap := &corev1.ConfigMap{
@@ -101,22 +101,20 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 			},
 		},
 		Data: map[string]string{
-			"manifests": string(b.Bytes()),
+			"manifests": b.String(),
 		},
 	}
 
-	stores.InstallStrategyConfigMapCache.Add(configMap)
-	targetStrategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config)
+	Expect(stores.InstallStrategyConfigMapCache.Add(configMap)).To(Succeed())
+	targetStrategy, err := install.LoadInstallStrategyFromCache(stores, config)
 	Expect(err).ToNot(HaveOccurred())
 
 	return targetStrategy
 }
 
 var _ = Describe("Apply", func() {
-
 	Context("should calculate", func() {
-
-		DescribeTable("update path based on semver", func(target string, current string, expected bool) {
+		DescribeTable("update path based on semver", func(target, current string, expected bool) {
 			takeUpdatePath := shouldTakeUpdatePath(target, current)
 
 			Expect(takeUpdatePath).To(Equal(expected))
@@ -133,14 +131,13 @@ var _ = Describe("Apply", func() {
 		)
 	})
 
+	//nolint:dupl
 	Context("Injecting Metadata", func() {
-
 		It("should set expected values", func() {
-
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
+			kv.Status.TargetDeploymentID = ID
 
 			deployment := appsv1.Deployment{}
 			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)

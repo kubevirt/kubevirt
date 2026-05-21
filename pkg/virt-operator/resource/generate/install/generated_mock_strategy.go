@@ -140,6 +140,20 @@ func (m *MockStrategyInterface) EXPECT() *MockStrategyInterfaceMockRecorder {
 	return m.recorder
 }
 
+// APIDeployments mocks base method.
+func (m *MockStrategyInterface) APIDeployments() []*v13.Deployment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "APIDeployments")
+	ret0, _ := ret[0].([]*v13.Deployment)
+	return ret0
+}
+
+// APIDeployments indicates an expected call of APIDeployments.
+func (mr *MockStrategyInterfaceMockRecorder) APIDeployments() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIDeployments", reflect.TypeOf((*MockStrategyInterface)(nil).APIDeployments))
+}
+
 // APIServices mocks base method.
 func (m *MockStrategyInterface) APIServices() []*v18.APIService {
 	m.ctrl.T.Helper()
@@ -152,20 +166,6 @@ func (m *MockStrategyInterface) APIServices() []*v18.APIService {
 func (mr *MockStrategyInterfaceMockRecorder) APIServices() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIServices", reflect.TypeOf((*MockStrategyInterface)(nil).APIServices))
-}
-
-// ApiDeployments mocks base method.
-func (m *MockStrategyInterface) ApiDeployments() []*v13.Deployment {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApiDeployments")
-	ret0, _ := ret[0].([]*v13.Deployment)
-	return ret0
-}
-
-// ApiDeployments indicates an expected call of ApiDeployments.
-func (mr *MockStrategyInterfaceMockRecorder) ApiDeployments() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiDeployments", reflect.TypeOf((*MockStrategyInterface)(nil).ApiDeployments))
 }
 
 // CRDs mocks base method.

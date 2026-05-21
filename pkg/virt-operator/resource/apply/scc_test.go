@@ -21,7 +21,6 @@ import (
 )
 
 var _ = Describe("Apply Security Context Constraints", func() {
-
 	Context("Manage users", func() {
 		var stop chan struct{}
 		var ctrl *gomock.Controller
@@ -31,7 +30,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 		var secClient *secv1fake.FakeSecurityV1
 		var err error
 
-		namespace := "kubevirt-test"
+		namespace := testNamespace
 
 		generateSCC := func(sccName string, usersList []string) *secv1.SecurityContextConstraints {
 			return &secv1.SecurityContextConstraints{
@@ -67,7 +66,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 
 		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
 			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
-			stores.SCCCache.Add(scc)
+			Expect(stores.SCCCache.Add(scc)).To(Succeed())
 
 			r := &Reconciler{
 				clientset: virtClient,
@@ -82,6 +81,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			close(stop)
 		})
 
+		//nolint:dupl
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
@@ -108,8 +108,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			executeTest(scc, string(patches))
 		},
 			Entry("Without custom users", []string{}),
-			Entry("With custom users", []string{"someuser"}),
+			Entry("With custom users", []string{testUser}),
 		)
 	})
-
 })

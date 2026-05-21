@@ -37,7 +37,10 @@ func needsSubresourceStatusEnable(crd, cachedCrd *extv1.CustomResourceDefinition
 	return false
 }
 
-func needsSubresourceStatusDisable(crdTargetVersion *extv1.CustomResourceDefinitionVersion, cachedCrd *extv1.CustomResourceDefinition) bool {
+func needsSubresourceStatusDisable(
+	crdTargetVersion *extv1.CustomResourceDefinitionVersion,
+	cachedCrd *extv1.CustomResourceDefinition,
+) bool {
 	// subresource support needs to be introduced carefully after the control plane roll-over
 	// to avoid creating zombie entities which don't get processed due to ignored status updates
 	cachedSubresource := getSubresourcesForVersion(cachedCrd, crdTargetVersion.Name)
@@ -45,7 +48,11 @@ func needsSubresourceStatusDisable(crdTargetVersion *extv1.CustomResourceDefinit
 		(crdTargetVersion.Subresources != nil && crdTargetVersion.Subresources.Status != nil)
 }
 
-func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, ops []patch.PatchOption) (*extv1.CustomResourceDefinition, error) {
+func patchCRD(
+	client clientset.Interface,
+	crd *extv1.CustomResourceDefinition,
+	ops []patch.PatchOption,
+) (*extv1.CustomResourceDefinition, error) {
 	name := crd.GetName()
 	ops = append(ops, patch.WithReplace("/spec", crd.Spec))
 	patchBytes, err := patch.New(ops...).GeneratePayload()
@@ -53,13 +60,14 @@ func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, o
 		return nil, err
 	}
 	origCrd := crd
-	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(
+		context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.Log.V(2).Infof("failed to patch crd %s: %+v", origCrd.Name, origCrd)
+		log.Log.V(2).Infof("failed to patch crd %s: %+v", origCrd.Name, origCrd) //nolint:mnd
 		return nil, fmt.Errorf("unable to patch crd %s: %v", origCrd.Name, err)
 	}
 
-	log.Log.V(2).Infof("crd %v updated", name)
+	log.Log.V(2).Infof("crd %v updated", name) //nolint:mnd
 	return crd, nil
 }
 
@@ -88,12 +96,12 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		createdCRD, err := client.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), crd, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.OperatorCrd.LowerExpectations(r.kvKey, 1, 0)
-			log.Log.V(2).Infof("failed to create crd %s: %+v", crd.Name, crd)
+			log.Log.V(2).Infof("failed to create crd %s: %+v", crd.Name, crd) //nolint:mnd
 			return fmt.Errorf("unable to create crd %s: %v", crd.Name, err)
 		}
 
 		SetGeneration(&r.kv.Status.Generations, createdCRD)
-		log.Log.V(2).Infof("crd %v created", crd.GetName())
+		log.Log.V(2).Infof("crd %v created", crd.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -104,7 +112,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 	resourcemerge.EnsureObjectMeta(modified, &cachedCrd.ObjectMeta, crd.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !*modified && cachedCrd.GetGeneration() == expectedGeneration {
-		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName()) //nolint:mnd
 		return nil
 	}
 
@@ -162,6 +170,6 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 		return nil
 	}
 
-	log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+	log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName()) //nolint:mnd
 	return nil
 }

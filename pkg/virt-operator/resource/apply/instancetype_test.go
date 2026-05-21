@@ -21,6 +21,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const modifiedValue = "modified"
+
 var _ = Describe("Apply Instancetypes", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var fakeClient *fake.Clientset
@@ -83,23 +85,24 @@ var _ = Describe("Apply Instancetypes", func() {
 		})
 
 		It("should not update instancetypes on sync when they are equal", func() {
-			reconciler.stores.ClusterInstancetype.Add(instancetype)
+			Expect(reconciler.stores.ClusterInstancetype.Add(instancetype)).To(Succeed())
 			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
 		})
 
-		DescribeTable("should update instancetypes on sync when they are not equal", func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterInstancetype)) {
-			modifiedInstancetype := instancetype.DeepCopy()
-			modifyFn(modifiedInstancetype)
-			reconciler.stores.ClusterInstancetype.Add(modifiedInstancetype)
-			updateCalled := expectUpdate(fakeClient, apiinstancetype.ClusterPluralResourceName, instancetype)
-			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
-			Expect(*updateCalled).To(BeTrue())
-		},
+		DescribeTable("should update instancetypes on sync when they are not equal",
+			func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterInstancetype)) {
+				modifiedInstancetype := instancetype.DeepCopy()
+				modifyFn(modifiedInstancetype)
+				Expect(reconciler.stores.ClusterInstancetype.Add(modifiedInstancetype)).To(Succeed())
+				updateCalled := expectUpdate(fakeClient, apiinstancetype.ClusterPluralResourceName, instancetype)
+				Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
+				Expect(*updateCalled).To(BeTrue())
+			},
 			Entry("on modified annotations", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
-				instancetype.Annotations["test"] = "modified"
+				instancetype.Annotations["test"] = modifiedValue
 			}),
 			Entry("on modified labels", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
-				instancetype.Labels["test"] = "modified"
+				instancetype.Labels["test"] = modifiedValue
 			}),
 			Entry("on modified spec", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
 				instancetype.Spec.CPU.Guest = 2
@@ -107,7 +110,7 @@ var _ = Describe("Apply Instancetypes", func() {
 		)
 
 		It("should delete all deployed instance types managed by virt-operator", func() {
-			reconciler.stores.ClusterInstancetype.Add(instancetype)
+			Expect(reconciler.stores.ClusterInstancetype.Add(instancetype)).To(Succeed())
 			deleteCollectionCalled := expectDeleteCollection(fakeClient, reconciler.kv, apiinstancetype.ClusterPluralResourceName)
 			Expect(reconciler.deleteInstancetypes()).To(Succeed())
 			Expect(*deleteCollectionCalled).To(BeTrue())
@@ -152,23 +155,24 @@ var _ = Describe("Apply Instancetypes", func() {
 		})
 
 		It("should not update preferences on sync when they are equal", func() {
-			reconciler.stores.ClusterPreference.Add(preference)
+			Expect(reconciler.stores.ClusterPreference.Add(preference)).To(Succeed())
 			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
 		})
 
-		DescribeTable("should update preferences on sync when they are not equal", func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterPreference)) {
-			modifiedPreference := preference.DeepCopy()
-			modifyFn(modifiedPreference)
-			reconciler.stores.ClusterPreference.Add(modifiedPreference)
-			updateCalled := expectUpdate(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName, preference)
-			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
-			Expect(*updateCalled).To(BeTrue())
-		},
+		DescribeTable("should update preferences on sync when they are not equal",
+			func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterPreference)) {
+				modifiedPreference := preference.DeepCopy()
+				modifyFn(modifiedPreference)
+				Expect(reconciler.stores.ClusterPreference.Add(modifiedPreference)).To(Succeed())
+				updateCalled := expectUpdate(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName, preference)
+				Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
+				Expect(*updateCalled).To(BeTrue())
+			},
 			Entry("on modified annotations", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
-				preference.Annotations["test"] = "modified"
+				preference.Annotations["test"] = modifiedValue
 			}),
 			Entry("on modified labels", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
-				preference.Labels["test"] = "modified"
+				preference.Labels["test"] = modifiedValue
 			}),
 			Entry("on modified spec", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
 				preference.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.Spread)
@@ -176,7 +180,7 @@ var _ = Describe("Apply Instancetypes", func() {
 		)
 
 		It("should delete all deployed preferences managed by virt-operator", func() {
-			reconciler.stores.ClusterPreference.Add(preference)
+			Expect(reconciler.stores.ClusterPreference.Add(preference)).To(Succeed())
 			deleteCollectionCalled := expectDeleteCollection(fakeClient, reconciler.kv, apiinstancetype.ClusterPluralPreferenceResourceName)
 			Expect(reconciler.deletePreferences()).To(Succeed())
 			Expect(*deleteCollectionCalled).To(BeTrue())
@@ -186,7 +190,6 @@ var _ = Describe("Apply Instancetypes", func() {
 			Expect(reconciler.deletePreferences()).To(Succeed())
 		})
 	})
-
 })
 
 func expectCreate(fakeClient *fake.Clientset, resource string, object runtime.Object) *bool {

@@ -43,7 +43,6 @@ import (
 )
 
 var _ = Describe("RBAC test", func() {
-
 	var (
 		clientset                  *kubecli.MockKubevirtClient
 		ctrl                       *gomock.Controller
@@ -157,19 +156,19 @@ var _ = Describe("RBAC test", func() {
 		default:
 			Expect(false).To(BeTrue(), "unknown type")
 		}
-		return
+		return object
 	}
 
 	assignRulesToRoles := func(rules []rbacv1.PolicyRule, objects ...runtime.Object) {
 		By("Assigning rules to role resources")
 
 		for _, object := range objects {
-			switch object.(type) {
+			switch object := object.(type) {
 			case *rbacv1.Role:
-				role := object.(*rbacv1.Role)
+				role := object
 				role.Rules = rules
 			case *rbacv1.ClusterRole:
-				clusterRole := object.(*rbacv1.ClusterRole)
+				clusterRole := object
 				clusterRole.Rules = rules
 			default:
 				Expect(false).To(BeTrue(), "Rule assignment is valid only for role / cluster role")
@@ -180,12 +179,12 @@ var _ = Describe("RBAC test", func() {
 		By("Assigning Subjects to binding resources")
 
 		for _, object := range objects {
-			switch object.(type) {
+			switch object := object.(type) {
 			case *rbacv1.RoleBinding:
-				roleBinding := object.(*rbacv1.RoleBinding)
+				roleBinding := object
 				roleBinding.Subjects = subjects
 			case *rbacv1.ClusterRoleBinding:
-				clusterRoleBinding := object.(*rbacv1.ClusterRoleBinding)
+				clusterRoleBinding := object
 				clusterRoleBinding.Subjects = subjects
 			default:
 				Expect(false).To(BeTrue(), "Subject assignment is valid only for roleBinding binding / cluster roleBinding binding")
@@ -196,12 +195,12 @@ var _ = Describe("RBAC test", func() {
 		By("Assigning RoleRef to binding resources")
 
 		for _, object := range objects {
-			switch object.(type) {
+			switch object := object.(type) {
 			case *rbacv1.RoleBinding:
-				roleBinding := object.(*rbacv1.RoleBinding)
+				roleBinding := object
 				roleBinding.RoleRef = roleRef
 			case *rbacv1.ClusterRoleBinding:
-				clusterRoleBinding := object.(*rbacv1.ClusterRoleBinding)
+				clusterRoleBinding := object
 				clusterRoleBinding.RoleRef = roleRef
 			default:
 				Expect(false).To(BeTrue(), "RoleRef assignment is valid only for roleBinding binding / cluster roleBinding binding")
@@ -229,7 +228,8 @@ var _ = Describe("RBAC test", func() {
 		expectations.Role = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role"))
 		expectations.RoleBinding = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding"))
 		expectations.ClusterRole = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole"))
-		expectations.ClusterRoleBinding = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding"))
+		expectations.ClusterRoleBinding = controller.NewUIDTrackingControllerExpectations(
+			controller.NewControllerExpectationsWithName("ClusterRoleBinding"))
 
 		clientset = kubecli.NewMockKubevirtClient(ctrl)
 		clientset.EXPECT().RbacV1().Return(rbacClient.RbacV1()).AnyTimes()
@@ -238,21 +238,20 @@ var _ = Describe("RBAC test", func() {
 	})
 
 	Context("when reconciling", func() {
-
 		var reconciler Reconciler
 
 		updateResource := func(required runtime.Object) error {
 			By("Updating resource")
 
-			switch required.(type) {
+			switch required := required.(type) {
 			case *rbacv1.Role:
-				return reconciler.createOrUpdateRole(required.(*rbacv1.Role), version, imageRegistry, id)
+				return reconciler.createOrUpdateRole(required, version, imageRegistry, id)
 			case *rbacv1.ClusterRole:
-				return reconciler.createOrUpdateClusterRole(required.(*rbacv1.ClusterRole), version, imageRegistry, id)
+				return reconciler.createOrUpdateClusterRole(required, version, imageRegistry, id)
 			case *rbacv1.RoleBinding:
-				return reconciler.createOrUpdateRoleBinding(required.(*rbacv1.RoleBinding), version, imageRegistry, id)
+				return reconciler.createOrUpdateRoleBinding(required, version, imageRegistry, id)
 			case *rbacv1.ClusterRoleBinding:
-				return reconciler.createOrUpdateClusterRoleBinding(required.(*rbacv1.ClusterRoleBinding), version, imageRegistry, id)
+				return reconciler.createOrUpdateClusterRoleBinding(required, version, imageRegistry, id)
 			default:
 				Expect(false).To(BeTrue(), "such type is unknown")
 				return nil
@@ -281,7 +280,6 @@ var _ = Describe("RBAC test", func() {
 		})
 
 		DescribeTable("Check reconciliation of PolocyRules for", func(resourceType string, changeExisting bool) {
-
 			Expect(resourceType).To(Or(Equal(roleType), Equal(clusterRoleType)))
 			existing := newEmptyResource(resourceType)
 			required := newEmptyResource(resourceType)
@@ -304,29 +302,29 @@ var _ = Describe("RBAC test", func() {
 			Entry("ClusterRole resource where resource had not changed", clusterRoleType, false),
 		)
 
-		DescribeTable("Check reconciliation of Subjects and RoleRef for", func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
+		DescribeTable("Check reconciliation of Subjects and RoleRef for",
+			func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
+				Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
+				existing := newEmptyResource(resourceType)
+				required := newEmptyResource(resourceType)
 
-			Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
-			existing := newEmptyResource(resourceType)
-			required := newEmptyResource(resourceType)
+				assignSubjectsToBinding(newFakeSubjects("policy1"), existing, required)
+				assignRoleRefToBinding(newFakeRoleRef("policy1"), existing, required)
+				getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
+				addToCache(existing)
 
-			assignSubjectsToBinding(newFakeSubjects("policy1"), existing, required)
-			assignRoleRefToBinding(newFakeRoleRef("policy1"), existing, required)
-			getRbacMetaObject(required).OwnerReferences = []metav1.OwnerReference{}
-			addToCache(existing)
+				if changeExistingSubjects {
+					assignSubjectsToBinding(newFakeSubjects("policy2"), required)
+					expectRbacUpdate(required)
+				}
+				if changeExistingRoleRef {
+					assignRoleRefToBinding(newFakeRoleRef("policy2"), required)
+					expectRbacUpdate(required)
+				}
 
-			if changeExistingSubjects {
-				assignSubjectsToBinding(newFakeSubjects("policy2"), required)
-				expectRbacUpdate(required)
-			}
-			if changeExistingRoleRef {
-				assignRoleRefToBinding(newFakeRoleRef("policy2"), required)
-				expectRbacUpdate(required)
-			}
-
-			err := updateResource(required)
-			Expect(err).ShouldNot(HaveOccurred())
-		},
+				err := updateResource(required)
+				Expect(err).ShouldNot(HaveOccurred())
+			},
 			Entry("RoleBinding resource where resource had changed Subjects and RoleRef", roleBindingType, true, true),
 			Entry("RoleBinding resource where resource had changed Subjects", roleBindingType, true, false),
 			Entry("RoleBinding resource where resource had changed RoleRef", roleBindingType, false, true),
@@ -381,6 +379,5 @@ var _ = Describe("RBAC test", func() {
 			err := reconciler.createOrUpdateRoleBinding(roleBinding, version, imageRegistry, id)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
-
 	})
 })

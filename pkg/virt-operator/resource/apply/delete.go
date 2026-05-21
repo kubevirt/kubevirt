@@ -48,15 +48,16 @@ import (
 )
 
 const (
-	castFailedFmt   = "Cast failed! obj: %+v"
-	deleteFailedFmt = "Failed to delete %s: %v"
+	castFailedFmt                  = "Cast failed! obj: %+v"
+	deleteFailedFmt                = "Failed to delete %s: %v"
+	instanceDeletionCompletedValue = "InstanceDeletionCompleted"
 )
 
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	clientset kubecli.KubevirtClient,
 	stores util.Stores,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
@@ -76,14 +77,14 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 			if webhook.DeletionTimestamp != nil {
 				continue
 			}
-			if key, err := controller.KeyFunc(webhook); err == nil {
+			if key, keyErr := controller.KeyFunc(webhook); keyErr == nil {
 				expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
 				err = clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 				if err != nil {
 					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
 					return fmt.Errorf("unable to delete validation webhook: %v", err)
 				}
-				log.Log.V(2).Infof("Temporary blocking validation webhook %s deleted", webhook.Name)
+				log.Log.V(2).Infof("Temporary blocking validation webhook %s deleted", webhook.Name) //nolint:mnd
 			}
 		}
 	}
@@ -91,12 +92,12 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	return nil
 }
 
-func DeleteAll(kv *v1.KubeVirt,
+func DeleteAll(kv *v1.KubeVirt, //nolint:gocyclo,funlen
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	aggregatorclient install.APIServiceInterface,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
@@ -122,13 +123,12 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects := stores.DaemonSetCache.List()
 	for _, obj := range objects {
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(ds); err == nil {
+			if key, keyErr := controller.KeyFunc(ds); keyErr == nil {
 				expectations.DaemonSet.AddExpectedDeletion(kvkey, key)
-				err := clientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
-				if err != nil {
+				if deleteErr := clientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions); deleteErr != nil {
 					expectations.DaemonSet.DeletionObserved(kvkey, key)
-					log.Log.Errorf(deleteFailedFmt, ds.Name, err)
-					return err
+					log.Log.Errorf(deleteFailedFmt, ds.Name, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -141,14 +141,13 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.PodDisruptionBudgetCache.List()
 	for _, obj := range objects {
 		if pdb, ok := obj.(*policyv1.PodDisruptionBudget); ok && pdb.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(pdb); err == nil {
+			if key, keyErr := controller.KeyFunc(pdb); keyErr == nil {
 				pdbClient := clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace)
 				expectations.PodDisruptionBudget.AddExpectedDeletion(kvkey, key)
-				err = pdbClient.Delete(context.Background(), pdb.Name, metav1.DeleteOptions{})
-				if err != nil {
+				if deleteErr := pdbClient.Delete(context.Background(), pdb.Name, metav1.DeleteOptions{}); deleteErr != nil {
 					expectations.PodDisruptionBudget.DeletionObserved(kvkey, key)
-					log.Log.Errorf(deleteFailedFmt, pdb.Name, err)
-					return err
+					log.Log.Errorf(deleteFailedFmt, pdb.Name, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -161,13 +160,14 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.DeploymentCache.List()
 	for _, obj := range objects {
 		if depl, ok := obj.(*appsv1.Deployment); ok && depl.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(depl); err == nil {
+			if key, keyErr := controller.KeyFunc(depl); keyErr == nil {
 				expectations.Deployment.AddExpectedDeletion(kvkey, key)
-				err = clientset.AppsV1().Deployments(depl.Namespace).Delete(context.Background(), depl.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.AppsV1().Deployments(depl.Namespace).
+					Delete(context.Background(), depl.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.Deployment.DeletionObserved(kvkey, key)
-					log.Log.Errorf(deleteFailedFmt, depl.Name, err)
-					return err
+					log.Log.Errorf(deleteFailedFmt, depl.Name, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -178,15 +178,18 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete validatingwebhooks
 	objects = stores.ValidationWebhookCache.List()
-	for _, obj := range objects {
-		if webhookConfiguration, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(webhookConfiguration); err == nil {
+	for _, obj := range objects { //nolint:dupl
+		if webhookConfiguration, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok &&
+			webhookConfiguration.DeletionTimestamp == nil {
+			if key, keyErr := controller.KeyFunc(webhookConfiguration); keyErr == nil {
 				expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
-				err := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhookConfiguration.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(
+					context.Background(), webhookConfiguration.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete validatingwebhook %+v: %v", webhookConfiguration, err)
-					return err
+					log.Log.Errorf("Failed to delete validatingwebhook %+v: %v",
+						webhookConfiguration, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -197,15 +200,17 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete mutatingwebhooks
 	objects = stores.MutatingWebhookCache.List()
-	for _, obj := range objects {
-		if webhookConfiguration, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(webhookConfiguration); err == nil {
+	for _, obj := range objects { //nolint:dupl
+		if webhookConfiguration, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok &&
+			webhookConfiguration.DeletionTimestamp == nil {
+			if key, keyErr := controller.KeyFunc(webhookConfiguration); keyErr == nil {
 				expectations.MutatingWebhook.AddExpectedDeletion(kvkey, key)
-				err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhookConfiguration.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(
+					context.Background(), webhookConfiguration.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.MutatingWebhook.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete mutatingwebhook %+v: %v", webhookConfiguration, err)
-					return err
+					log.Log.Errorf("Failed to delete mutatingwebhook %+v: %v", webhookConfiguration, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -218,13 +223,13 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.APIServiceCache.List()
 	for _, obj := range objects {
 		if apiservice, ok := obj.(*apiregv1.APIService); ok && apiservice.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(apiservice); err == nil {
+			if key, keyErr := controller.KeyFunc(apiservice); keyErr == nil {
 				expectations.APIService.AddExpectedDeletion(kvkey, key)
-				err := aggregatorclient.Delete(context.Background(), apiservice.Name, deleteOptions)
-				if err != nil {
+				deleteErr := aggregatorclient.Delete(context.Background(), apiservice.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.APIService.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete apiservice %+v: %v", apiservice, err)
-					return err
+					log.Log.Errorf("Failed to delete apiservice %+v: %v", apiservice, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -235,15 +240,15 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete services
 	objects = stores.ServiceCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(svc); err == nil {
+			if key, keyErr := controller.KeyFunc(svc); keyErr == nil {
 				expectations.Service.AddExpectedDeletion(kvkey, key)
-				err := clientset.CoreV1().Services(svc.Namespace).Delete(context.Background(), svc.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.CoreV1().Services(svc.Namespace).Delete(context.Background(), svc.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.Service.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
-					return err
+					log.Log.Errorf("Failed to delete service %+v: %v", svc, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -258,13 +263,14 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.ServiceMonitorCache.List()
 	for _, obj := range objects {
 		if serviceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && serviceMonitor.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(serviceMonitor); err == nil {
+			if key, keyErr := controller.KeyFunc(serviceMonitor); keyErr == nil {
 				expectations.ServiceMonitor.AddExpectedDeletion(kvkey, key)
-				err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Delete(context.Background(), serviceMonitor.Name, deleteOptions)
-				if err != nil {
+				deleteErr := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Delete(
+					context.Background(), serviceMonitor.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ServiceMonitor.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete serviceMonitor %+v: %v", serviceMonitor, err)
-					return err
+					log.Log.Errorf("Failed to delete serviceMonitor %+v: %v", serviceMonitor, deleteErr)
+					return deleteErr
 				}
 				expectations.ServiceMonitor.DeletionObserved(kvkey, key)
 			}
@@ -278,13 +284,14 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.PrometheusRuleCache.List()
 	for _, obj := range objects {
 		if prometheusRule, ok := obj.(*promv1.PrometheusRule); ok && prometheusRule.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(prometheusRule); err == nil {
+			if key, keyErr := controller.KeyFunc(prometheusRule); keyErr == nil {
 				expectations.PrometheusRule.AddExpectedDeletion(kvkey, key)
-				err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Delete(context.Background(), prometheusRule.Name, deleteOptions)
-				if err != nil {
-					log.Log.Errorf("Failed to delete prometheusRule %+v: %v", prometheusRule, err)
+				deleteErr := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Delete(
+					context.Background(), prometheusRule.Name, deleteOptions)
+				if deleteErr != nil {
+					log.Log.Errorf("Failed to delete prometheusRule %+v: %v", prometheusRule, deleteErr)
 					expectations.PrometheusRule.DeletionObserved(kvkey, key)
-					return err
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -295,15 +302,15 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete RBAC
 	objects = stores.ClusterRoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(crb); err == nil {
+			if key, keyErr := controller.KeyFunc(crb); keyErr == nil {
 				expectations.ClusterRoleBinding.AddExpectedDeletion(kvkey, key)
-				err := clientset.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ClusterRoleBinding.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete crb %+v: %v", crb, err)
-					return err
+					log.Log.Errorf("Failed to delete crb %+v: %v", crb, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -313,15 +320,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ClusterRoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(cr); err == nil {
+			if key, keyErr := controller.KeyFunc(cr); keyErr == nil {
 				expectations.ClusterRole.AddExpectedDeletion(kvkey, key)
-				err := clientset.RbacV1().ClusterRoles().Delete(context.Background(), cr.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.RbacV1().ClusterRoles().Delete(context.Background(), cr.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ClusterRole.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete cr %+v: %v", cr, err)
-					return err
+					log.Log.Errorf("Failed to delete cr %+v: %v", cr, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -331,15 +338,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.RoleBindingCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(rb); err == nil {
+			if key, keyErr := controller.KeyFunc(rb); keyErr == nil {
 				expectations.RoleBinding.AddExpectedDeletion(kvkey, key)
-				err := clientset.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.RoleBinding.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)
-					return err
+					log.Log.Errorf("Failed to delete rb %+v: %v", rb, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -349,15 +356,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.RoleCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(role); err == nil {
+			if key, keyErr := controller.KeyFunc(role); keyErr == nil {
 				expectations.Role.AddExpectedDeletion(kvkey, key)
-				err := clientset.RbacV1().Roles(kv.Namespace).Delete(context.Background(), role.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.RbacV1().Roles(kv.Namespace).Delete(context.Background(), role.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.Role.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete role %+v: %v", role, err)
-					return err
+					log.Log.Errorf("Failed to delete role %+v: %v", role, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -367,15 +374,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ServiceAccountCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(sa); err == nil {
+			if key, keyErr := controller.KeyFunc(sa); keyErr == nil {
 				expectations.ServiceAccount.AddExpectedDeletion(kvkey, key)
-				err := clientset.CoreV1().ServiceAccounts(kv.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.CoreV1().ServiceAccounts(kv.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ServiceAccount.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
-					return err
+					log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -385,15 +392,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.SecretCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(secret); err == nil {
+			if key, keyErr := controller.KeyFunc(secret); keyErr == nil {
 				expectations.Secrets.AddExpectedDeletion(kvkey, key)
-				err := clientset.CoreV1().Secrets(kv.Namespace).Delete(context.Background(), secret.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.CoreV1().Secrets(kv.Namespace).Delete(context.Background(), secret.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.Secrets.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete secret %+v: %v", secret, err)
-					return err
+					log.Log.Errorf("Failed to delete secret %+v: %v", secret, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -403,15 +410,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ConfigMapCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(configMap); err == nil {
+			if key, keyErr := controller.KeyFunc(configMap); keyErr == nil {
 				expectations.ConfigMap.AddExpectedDeletion(kvkey, key)
-				err := clientset.CoreV1().ConfigMaps(kv.Namespace).Delete(context.Background(), configMap.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.CoreV1().ConfigMaps(kv.Namespace).Delete(context.Background(), configMap.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ConfigMap.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete configMap %+v: %v", configMap, err)
-					return err
+					log.Log.Errorf("Failed to delete configMap %+v: %v", configMap, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -424,19 +431,18 @@ func DeleteAll(kv *v1.KubeVirt,
 	objects = stores.SCCCache.List()
 	for _, obj := range objects {
 		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && s.DeletionTimestamp == nil {
-
 			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
 			if !util.IsManagedByOperator(s.GetLabels()) {
 				continue
 			}
 
-			if key, err := controller.KeyFunc(s); err == nil {
+			if key, keyErr := controller.KeyFunc(s); keyErr == nil {
 				expectations.SCC.AddExpectedDeletion(kvkey, key)
-				err := scc.SecurityContextConstraints().Delete(context.Background(), s.Name, deleteOptions)
-				if err != nil {
+				deleteErr := scc.SecurityContextConstraints().Delete(context.Background(), s.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.SCC.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", s, err)
-					return err
+					log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", s, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -446,15 +452,15 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.RouteCache.List()
-	for _, obj := range objects {
+	for _, obj := range objects { //nolint:dupl
 		if route, ok := obj.(*routev1.Route); ok && route.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(route); err == nil {
+			if key, keyErr := controller.KeyFunc(route); keyErr == nil {
 				expectations.Route.AddExpectedDeletion(kvkey, key)
-				err := clientset.RouteClient().Routes(kv.Namespace).Delete(context.Background(), route.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.RouteClient().Routes(kv.Namespace).Delete(context.Background(), route.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.Route.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete route %+v: %v", route, err)
-					return err
+					log.Log.Errorf("Failed to delete route %+v: %v", route, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -464,15 +470,18 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ValidatingAdmissionPolicyBindingCache.List()
-	for _, obj := range objects {
-		if validatingAdmissionPolicyBinding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding); ok && validatingAdmissionPolicyBinding.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(validatingAdmissionPolicyBinding); err == nil {
+	for _, obj := range objects { //nolint:dupl
+		if validatingAdmissionPolicyBinding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding); ok &&
+			validatingAdmissionPolicyBinding.DeletionTimestamp == nil {
+			if key, keyErr := controller.KeyFunc(validatingAdmissionPolicyBinding); keyErr == nil {
 				expectations.ValidatingAdmissionPolicyBinding.AddExpectedDeletion(kvkey, key)
-				err := clientset.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(
+					context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ValidatingAdmissionPolicyBinding.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
-					return err
+					log.Log.Errorf("Failed to delete validatingAdmissionPolicyBinding %+v: %v",
+						validatingAdmissionPolicyBinding, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -482,15 +491,17 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	objects = stores.ValidatingAdmissionPolicyCache.List()
-	for _, obj := range objects {
-		if validatingAdmissionPolicy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy); ok && validatingAdmissionPolicy.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(validatingAdmissionPolicy); err == nil {
+	for _, obj := range objects { //nolint:dupl
+		if validatingAdmissionPolicy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy); ok &&
+			validatingAdmissionPolicy.DeletionTimestamp == nil {
+			if key, keyErr := controller.KeyFunc(validatingAdmissionPolicy); keyErr == nil {
 				expectations.ValidatingAdmissionPolicy.AddExpectedDeletion(kvkey, key)
-				err := clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
-				if err != nil {
+				deleteErr := clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(
+					context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
+				if deleteErr != nil {
 					expectations.ValidatingAdmissionPolicy.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
-					return err
+					log.Log.Errorf("Failed to delete validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, deleteErr)
+					return deleteErr
 				}
 			}
 		} else if !ok {
@@ -499,8 +510,8 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
-	if err = deleteKubeVirtLabelsFromNodes(clientset); err != nil {
-		return err
+	if labelErr := deleteKubeVirtLabelsFromNodes(clientset); labelErr != nil {
+		return labelErr
 	}
 
 	err = deleteDummyWebhookValidators(kv, clientset, stores, expectations)
@@ -537,7 +548,8 @@ func deleteKubeVirtLabelsFromNodes(clientset kubecli.KubevirtClient) error {
 			return fmt.Errorf("failed to generate patch payload: %v", err)
 		}
 
-		if _, err = clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
+		if _, err = clientset.CoreV1().Nodes().Patch(
+			context.Background(), node.Name, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
 			return fmt.Errorf("failed to update labels for node %s: %v", node.Name, err)
 		}
 		log.Log.Infof("removed kubevirt labels from node %s", node.Name)
@@ -562,7 +574,7 @@ func crdInstanceDeletionCompleted(crd *extv1.CustomResourceDefinition) bool {
 	for _, condition := range crd.Status.Conditions {
 		if condition.Type == extv1.Terminating &&
 			condition.Status == extv1.ConditionFalse &&
-			condition.Reason == "InstanceDeletionCompleted" {
+			condition.Reason == instanceDeletionCompletedValue {
 			return true
 		}
 	}
@@ -608,8 +620,8 @@ func crdFilterNeedFinalizerRemoved(crds []*extv1.CustomResourceDefinition) []*ex
 func crdHandleDeletion(kvkey string,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	ext := clientset.ExtensionsClient()
 	objects := stores.OperatorCrdCache.List()
 
@@ -634,12 +646,12 @@ func crdHandleDeletion(kvkey string,
 		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
 
 		payload, err := patch.New(patch.WithAdd(finalizerPath, crdCopy.Finalizers)).GeneratePayload()
-
 		if err != nil {
 			return fmt.Errorf("failed to generate patch payload: %v", err)
 		}
 
-		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(
+			context.Background(), crd.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -677,7 +689,8 @@ func crdHandleDeletion(kvkey string,
 		if err != nil {
 			return fmt.Errorf("failed to generate patch payload: %v", err)
 		}
-		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(
+			context.Background(), crd.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
