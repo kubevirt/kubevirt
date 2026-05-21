@@ -31,6 +31,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 )
 
