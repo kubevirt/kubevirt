@@ -597,7 +597,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 						foundHotPlug = true
 					}
 				}
-				Expect(foundHotPlug).To(BeTrue())
+				Expect(foundHotPlug).To(BeTrue(), "expected snapshot content to include hotplug volume %s", persistVolName)
 
 				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(len(content.Spec.VolumeBackups)))
@@ -625,10 +625,10 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 							Expect(err).ToNot(HaveOccurred())
 							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
 							Expect(vs.Status.Error).To(BeNil())
-							Expect(*vs.Status.ReadyToUse).To(BeTrue())
+							Expect(vs.Status.ReadyToUse).To(HaveValue(BeTrue()), "expected VolumeSnapshot %s to be ready", vs.Name)
 						}
 					}
-					Expect(found).To(BeTrue())
+					Expect(found).To(BeTrue(), "expected snapshot content to include a volume backup for DataVolume %s", vol.DataVolume.Name)
 				}
 			})
 
@@ -768,7 +768,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 							foundMemoryDump = true
 						}
 					}
-					Expect(foundMemoryDump).To(BeTrue())
+					Expect(foundMemoryDump).To(BeTrue(), "expected snapshot content to include memory dump volume %s", memoryDumpPVCName)
 
 					Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
 					for _, vol := range updatedVM.Spec.Template.Spec.Volumes {
@@ -794,10 +794,10 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 								Expect(err).ToNot(HaveOccurred())
 								Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.MemoryDump.ClaimName))
 								Expect(vs.Status.Error).To(BeNil())
-								Expect(*vs.Status.ReadyToUse).To(BeTrue())
+								Expect(vs.Status.ReadyToUse).To(HaveValue(BeTrue()), "expected VolumeSnapshot %s to be ready", vs.Name)
 							}
 						}
-						Expect(found).To(BeTrue())
+						Expect(found).To(BeTrue(), "expected snapshot content to include a volume backup for memory dump PVC %s", vol.MemoryDump.ClaimName)
 					}
 				})
 			})
@@ -867,10 +867,10 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
 							Expect(vs.Labels["snapshot.kubevirt.io/source-vm-name"]).Should(Equal(vm.Name))
 							Expect(vs.Status.Error).To(BeNil())
-							Expect(*vs.Status.ReadyToUse).To(BeTrue())
+							Expect(vs.Status.ReadyToUse).To(HaveValue(BeTrue()), "expected VolumeSnapshot %s to be ready", vs.Name)
 						}
 					}
-					Expect(found).To(BeTrue())
+					Expect(found).To(BeTrue(), "expected snapshot content to include a volume backup for DataVolume %s", vol.DataVolume.Name)
 				}
 			})
 
@@ -984,12 +984,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 
 				m := "bad stuff"
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					vs, err := virtClient.KubernetesSnapshotClient().
 						SnapshotV1().
 						VolumeSnapshots(vm.Namespace).
 						Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					vsc := vs.DeepCopy()
 					t := metav1.Now()
@@ -1002,12 +1002,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 						SnapshotV1().
 						VolumeSnapshots(vs.Namespace).
 						UpdateStatus(context.Background(), vsc, metav1.UpdateOptions{})
-					if errors.IsConflict(err) {
-						return false
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return true
-				}, 180*time.Second, time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+				}, 180*time.Second, time.Second).Should(Succeed())
 
 				Eventually(func() *snapshotv1.VirtualMachineSnapshotContentStatus {
 					vmSnapshotContent, err = virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *cn, metav1.GetOptions{})
@@ -1027,7 +1023,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(snapshot.Status.Error).To(BeNil())
-				Expect(*snapshot.Status.ReadyToUse).To(BeTrue())
+				Expect(snapshot.Status.ReadyToUse).To(HaveValue(BeTrue()), "expected VirtualMachineSnapshot %s to be ready", snapshot.Name)
 			})
 
 			It("[test_id:6838]snapshot should fail when deadline exceeded due to volume snapshots failure", func() {
