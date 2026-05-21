@@ -752,7 +752,7 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 		if err != nil {
 			return err
 		}
-		if err = c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
+		if err = c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 			return fmt.Errorf("failed to unmount hotplug volumes: %v", err)
 		}
 	}
