@@ -107,7 +107,6 @@ func NewMigrationTargetController(
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 	passtRepairHandler passtRepairTargetHandler,
 ) (*MigrationTargetController, error) {
-
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
@@ -138,12 +137,12 @@ func NewMigrationTargetController(
 	}
 
 	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
-	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
+	if err := os.MkdirAll(containerDiskState, 0o700); err != nil {
 		return nil, err
 	}
 
 	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
-	if err := os.MkdirAll(hotplugState, 0700); err != nil {
+	if err := os.MkdirAll(hotplugState, 0o700); err != nil {
 		return nil, err
 	}
 
@@ -194,7 +193,6 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 		return true
 	}
 	return false
-
 }
 
 func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -738,14 +736,14 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 		return err
 	}
 
-	// Mount hotplug disk
+	// Unmount all hotplug volumes
 	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
 		cgroupManager, err := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
 			return err
 		}
-		if err = c.hotplugVolumeMounter.Unmount(vmiCopy, cgroupManager); err != nil {
-			return fmt.Errorf("failed to unmount hotplug volumes: %v", err)
+		if err = c.hotplugVolumeMounter.UnmountAll(vmiCopy, cgroupManager); err != nil {
+			return fmt.Errorf("failed to unmount all hotplug volumes: %v", err)
 		}
 	}
 
@@ -893,6 +891,7 @@ func (c *MigrationTargetController) addDomainFunc(obj interface{}) {
 		c.queue.Add(key)
 	}
 }
+
 func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
 	domain, ok := obj.(*api.Domain)
 	if !ok {
@@ -913,6 +912,7 @@ func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
 		c.queue.Add(key)
 	}
 }
+
 func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
 	newDomain := new.(*api.Domain)
 	oldDomain := old.(*api.Domain)
