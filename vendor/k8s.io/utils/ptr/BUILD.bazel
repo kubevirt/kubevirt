@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["ptr.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/utils/ptr",
-    importpath = "k8s.io/utils/ptr",
-    visibility = ["//visibility:public"],
-)

@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["alias.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/crypto/internal/alias",
-    importpath = "golang.org/x/crypto/internal/alias",
-    visibility = ["//vendor/golang.org/x/crypto:__subpackages__"],
-)
