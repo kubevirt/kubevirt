@@ -782,6 +782,25 @@ type ControllerTarget struct {
 
 // END ControllerTarget
 
+// BEGIN IOMMU -----------------------------
+
+type IOMMUDevice struct {
+	XMLName xml.Name     `xml:"iommu"`
+	Model   string       `xml:"model,attr"`
+	Driver  *IOMMUDriver `xml:"driver,omitempty"`
+}
+
+type IOMMUDriver struct {
+	PCIBus   string `xml:"pciBus,attr,omitempty"`
+	Accel    string `xml:"accel,attr,omitempty"`
+	ATS      string `xml:"ats,attr,omitempty"`
+	RIL      string `xml:"ril,attr,omitempty"`
+	SSIDSize string `xml:"ssidSize,attr,omitempty"`
+	OAS      string `xml:"oas,attr,omitempty"`
+}
+
+// END IOMMU -----------------------------
+
 // BEGIN Disk -----------------------------
 
 type Disk struct {
