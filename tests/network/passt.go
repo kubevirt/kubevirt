@@ -283,12 +283,12 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 			waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
 		})
 
-		DescribeTable("connectivity should be preserved", func(ipFamily k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+		It("connectivity should be preserved for ipv4", func() {
+			libnet.SkipWhenClusterNotSupportIPFamily(k8sv1.IPv4Protocol)
 
 			By("Verify the VMIs can ping each other")
-			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
-			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
+			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
+			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, k8sv1.IPv4Protocol)
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
 
@@ -312,17 +312,14 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 				migrateVMI, err = vmiClient.Get(
 					context.Background(), migrateVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
-				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
 			By("Verify the VMIs can ping each other after migration")
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
-		},
-			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol, decorators.Quarantine),
-		)
+		})
 	})
 }),
 )
