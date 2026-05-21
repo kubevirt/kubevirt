@@ -55,6 +55,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
@@ -629,6 +630,11 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, components.NewHandlerV1ValidatingAdmissionPolicyBinding())
 	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, components.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
+
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginValidatingAdmissionPolicy())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginWarningAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginWarningAdmissionPolicy())
 
 	instancetypes, err := components.NewClusterInstancetypes()
 	if err != nil {
