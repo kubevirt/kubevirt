@@ -308,11 +308,21 @@ type NUMA struct {
 }
 
 type NUMACell struct {
-	ID           string `xml:"id,attr"`
-	CPUs         string `xml:"cpus,attr"`
-	Memory       uint64 `xml:"memory,attr,omitempty"`
-	Unit         string `xml:"unit,attr,omitempty"`
-	MemoryAccess string `xml:"memAccess,attr,omitempty"`
+	ID           string             `xml:"id,attr"`
+	CPUs         string             `xml:"cpus,attr,omitempty"`
+	Memory       *uint64            `xml:"memory,attr,omitempty"`
+	Unit         string             `xml:"unit,attr,omitempty"`
+	MemoryAccess string             `xml:"memAccess,attr,omitempty"`
+	Distances    *NUMACellDistances `xml:"distances,omitempty"`
+}
+
+type NUMACellDistances struct {
+	Siblings []NUMACellSibling `xml:"sibling"`
+}
+
+type NUMACellSibling struct {
+	ID    string `xml:"id,attr"`
+	Value uint64 `xml:"value,attr"`
 }
 
 type CPUFeature struct {

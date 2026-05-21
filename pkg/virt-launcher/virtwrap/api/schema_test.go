@@ -251,10 +251,11 @@ var _ = ginkgo.Describe("Schema", func() {
 	ginkgo.Context("With numa topology", func() {
 		ginkgo.It("should marshal and unmarshal the values", func() {
 			spec := &DomainSpec{}
+			mem3 := uint64(3)
 			expectedSpec := &DomainSpec{
 				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
-					{ID: "0", CPUs: "0-1", Memory: 3, Unit: "GiB"},
-					{ID: "1", CPUs: "2-3", Memory: 3, Unit: "GiB"},
+					{ID: "0", CPUs: "0-1", Memory: &mem3, Unit: "GiB"},
+					{ID: "1", CPUs: "2-3", Memory: &mem3, Unit: "GiB"},
 				}}},
 				CPUTune: &CPUTune{
 					VCPUPin: []CPUTuneVCPUPin{
@@ -681,5 +682,54 @@ var _ = ginkgo.Describe("HostDevice IOMMU driver and ACPI extensions", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(xmlBytes)).ToNot(ContainSubstring("<driver"))
 		Expect(string(xmlBytes)).ToNot(ContainSubstring("<acpi"))
+	})
+})
+
+var _ = ginkgo.Describe("NUMACell distances", func() {
+	ginkgo.It("should marshal and unmarshal NUMA cell with distances", func() {
+		mem := uint64(2048)
+		cell := NUMACell{
+			ID:     "0",
+			CPUs:   "0-1",
+			Memory: &mem,
+			Unit:   "MiB",
+			Distances: &NUMACellDistances{
+				Siblings: []NUMACellSibling{
+					{ID: "0", Value: 10},
+					{ID: "1", Value: 20},
+				},
+			},
+		}
+
+		xmlBytes, err := xml.Marshal(cell)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<distances>`))
+		Expect(string(xmlBytes)).To(ContainSubstring(`<sibling id="0" value="10"></sibling>`))
+		Expect(string(xmlBytes)).To(ContainSubstring(`<sibling id="1" value="20"></sibling>`))
+
+		var unmarshalled NUMACell
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.Distances).ToNot(BeNil())
+		Expect(unmarshalled.Distances.Siblings).To(HaveLen(2))
+		Expect(unmarshalled.Distances.Siblings[0].ID).To(Equal("0"))
+		Expect(unmarshalled.Distances.Siblings[0].Value).To(Equal(uint64(10)))
+		Expect(unmarshalled.Distances.Siblings[1].ID).To(Equal("1"))
+		Expect(unmarshalled.Distances.Siblings[1].Value).To(Equal(uint64(20)))
+	})
+
+	ginkgo.It("should omit distances when nil", func() {
+		mem := uint64(2048)
+		cell := NUMACell{
+			ID:     "0",
+			CPUs:   "0-1",
+			Memory: &mem,
+			Unit:   "MiB",
+		}
+
+		xmlBytes, err := xml.Marshal(cell)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<distances"))
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<sibling"))
 	})
 })
