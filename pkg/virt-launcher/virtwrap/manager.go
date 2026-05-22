@@ -1585,8 +1585,8 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 ) (cli.VirDomain, error) {
 	logger := log.Log.Object(vmi)
 
-	if !defaults.SupportsPCIeHotplug(vmi.Spec.Architecture) {
-		logger.Infof("Skipping hotplug port allocation: architecture %s does not use PCIe topology", vmi.Spec.Architecture)
+	if !defaults.SupportsPCIeHotplug(&vmi.Spec) {
+		logger.Infof("Skipping hotplug port allocation: architecture or machine type does not support PCIe topology")
 		return l.setDomainSpecWithHooks(vmi, domainSpec)
 	}
 
