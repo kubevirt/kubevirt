@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "checker.go",
+        "checker-arm64.go",
+        "iommu-pci.go",
+    ],
+    cgo = True,
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/iommu-pci",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:arm64": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "checker_test.go",
+        "iommupci_suite_test.go",
+    ],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)
