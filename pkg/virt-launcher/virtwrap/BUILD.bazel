@@ -67,6 +67,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/disksource:go_default_library",
         "//pkg/virt-launcher/virtwrap/efi:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
+        "//pkg/virt-launcher/virtwrap/iommu-pci:go_default_library",
         "//pkg/virt-launcher/virtwrap/network:go_default_library",
         "//pkg/virt-launcher/virtwrap/plugins:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",
