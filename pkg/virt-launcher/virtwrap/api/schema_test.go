@@ -31,6 +31,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var (
@@ -600,6 +602,115 @@ var _ = ginkgo.Describe("IOMMU SMMUv3 device", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unmarshalled.Model).To(Equal("smmuv3"))
 			Expect(unmarshalled.Driver).To(BeNil())
+		})
+	})
+
+	ginkgo.Context("HostDevice extensions", func() {
+		ginkgo.It("should marshal and unmarshal hostdev with iommufd driver", func() {
+			hostdev := &HostDevice{
+				Source: HostDeviceSource{
+					Address: &Address{
+						Type:     AddressPCI,
+						Domain:   "0x0000",
+						Bus:      "0x01",
+						Slot:     "0x00",
+						Function: "0x0",
+					},
+				},
+				Type: HostDevicePCI,
+				Driver: &HostDevDriver{
+					Iommufd: "yes",
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(hostdev)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(xmlBytes)).To(ContainSubstring(`<driver iommufd="yes"></driver>`))
+
+			var unmarshalled HostDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.Driver).ToNot(BeNil())
+			Expect(unmarshalled.Driver.Iommufd).To(Equal("yes"))
+		})
+
+		ginkgo.It("should marshal and unmarshal hostdev with acpi nodeset", func() {
+			hostdev := &HostDevice{
+				Source: HostDeviceSource{
+					Address: &Address{
+						Type:     AddressPCI,
+						Domain:   "0x0000",
+						Bus:      "0x01",
+						Slot:     "0x00",
+						Function: "0x0",
+					},
+				},
+				Type: HostDevicePCI,
+				ACPI: &ACPIHostDev{
+					NodeSet: "2",
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(hostdev)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(xmlBytes)).To(ContainSubstring(`<acpi nodeset="2"></acpi>`))
+
+			var unmarshalled HostDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.ACPI).ToNot(BeNil())
+			Expect(unmarshalled.ACPI.NodeSet).To(Equal("2"))
+		})
+	})
+
+	ginkgo.Context("NUMA cell with zero memory", func() {
+		ginkgo.It("should marshal CPU-less, zero-memory NUMA cell", func() {
+			numaCell := NUMACell{
+				ID:     "1",
+				Memory: nil,
+				Unit:   "MiB",
+			}
+
+			xmlBytes, err := xml.Marshal(numaCell)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(xmlBytes)).ToNot(ContainSubstring("<memory"))
+			Expect(string(xmlBytes)).ToNot(ContainSubstring("cpus="))
+
+			var unmarshalled NUMACell
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.ID).To(Equal("1"))
+			Expect(unmarshalled.Memory).To(BeNil())
+			Expect(unmarshalled.CPUs).To(BeEmpty())
+		})
+
+		ginkgo.It("should round-trip NUMA topology with mixed cell types", func() {
+			numa := &NUMA{
+				Cells: []NUMACell{
+					{
+						ID:     "0",
+						CPUs:   "0-3",
+						Memory: pointer.P(uint64(2048)),
+						Unit:   "MiB",
+					},
+					{
+						ID:     "1",
+						Memory: nil,
+						Unit:   "MiB",
+					},
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(numa)
+			Expect(err).ToNot(HaveOccurred())
+
+			var unmarshalled NUMA
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.Cells).To(HaveLen(2))
+			Expect(unmarshalled.Cells[0].Memory).ToNot(BeNil())
+			Expect(*unmarshalled.Cells[0].Memory).To(Equal(uint64(2048)))
+			Expect(unmarshalled.Cells[1].Memory).To(BeNil())
 		})
 	})
 })

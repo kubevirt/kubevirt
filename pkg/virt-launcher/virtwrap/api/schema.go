@@ -760,7 +760,7 @@ type HostDevDriver struct {
 
 type ACPIHostDev struct {
 	XMLName xml.Name `xml:"acpi"`
-	NodeSet string `xml:"nodeset,attr,omitempty"`
+	NodeSet string   `xml:"nodeset,attr,omitempty"`
 }
 
 // END HostDevice -----------------------------
@@ -816,12 +816,12 @@ type IOMMUDevice struct {
 
 type IOMMUDriver struct {
 	XMLName  xml.Name `xml:"driver"`
-	PCIBus   string `xml:"pciBus,attr,omitempty"`
-	Accel    string `xml:"accel,attr,omitempty"`
-	ATS      string `xml:"ats,attr,omitempty"`
-	RIL      string `xml:"ril,attr,omitempty"`
-	SSIDSize string `xml:"ssidSize,attr,omitempty"`
-	OAS      string `xml:"oas,attr,omitempty"`
+	PCIBus   string   `xml:"pciBus,attr,omitempty"`
+	Accel    string   `xml:"accel,attr,omitempty"`
+	ATS      string   `xml:"ats,attr,omitempty"`
+	RIL      string   `xml:"ril,attr,omitempty"`
+	SSIDSize string   `xml:"ssidSize,attr,omitempty"`
+	OAS      string   `xml:"oas,attr,omitempty"`
 }
 
 // END IOMMU -----------------------------
@@ -1505,4 +1505,10 @@ func (dl *DomainList) GetListMeta() meta.List {
 func VMINamespaceKeyFunc(vmi *v1.VirtualMachineInstance) string {
 	domName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
 	return domName
+}
+
+type IOMMUFD struct {
+	XMLName xml.Name `xml:"iommufd"`
+	Enabled string   `xml:"enabled,attr,omitempty"`
+	FDGroup string   `xml:"fdgroup,attr,omitempty"`
 }

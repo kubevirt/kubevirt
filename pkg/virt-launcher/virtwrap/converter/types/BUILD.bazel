@@ -14,6 +14,7 @@ go_library(
         "//pkg/os/disk:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
+        "//pkg/virt-launcher/virtwrap/iommu-pci:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
     ],
 )
