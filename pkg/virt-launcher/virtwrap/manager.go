@@ -107,6 +107,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	iommupci "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/iommu-pci"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
@@ -1131,8 +1132,8 @@ func shouldExpandOffline(disk api.Disk) bool {
 	return true
 }
 
-func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance, iommuPCI *iommupci.IommuPCI) ([]api.HostDevice, error) {
+	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs, iommuPCI)
 	if err != nil {
 		return nil, err
 	}
@@ -1314,13 +1315,13 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
 
-		gpuDevices, err := l.getGPUDevices(vmi)
+		gpuDevices, err := l.getGPUDevices(vmi, c.IommuPCI)
 		if err != nil {
 			return nil, err
 		}
 		c.GPUHostDevices = gpuDevices
 	} else if vGPULiveMigrationEnabled {
-		gpuDevices, err := l.getGPUDevices(vmi)
+		gpuDevices, err := l.getGPUDevices(vmi, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1343,13 +1344,21 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			fd, recvErr := ReceiveIOMMUFD(IOMMUFDSocketPath)
 			if recvErr != nil {
 				return nil, fmt.Errorf("IOMMUFD socket exists but failed to receive FD: %w", recvErr)
-			} else {
-				l.iommuFD = fd
-				logger.V(3).Infof("Received IOMMUFD file descriptor: %d", fd)
 			}
+
+			l.iommuFD = fd
+			logger.V(3).Infof("Received IOMMUFD file descriptor: %d", fd)
 		}
 	}
 	c.IOMMUFDEnabled = l.iommuFD != -1
+	// We need the pre-configured FD for iommufd usage.
+	if l.iommuFD >= 0 {
+		c.IommuPCI = iommupci.NewIommuPCI(runtime.GOARCH)
+	} else {
+		c.IommuPCI = &iommupci.IommuPCI{
+			IommufdEnabled: pointer.P(c.IOMMUFDEnabled),
+		}
+	}
 	return c, nil
 }
 

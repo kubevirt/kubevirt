@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iommu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/kvm"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
@@ -67,6 +68,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
+	iommupci "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/iommu-pci"
 )
 
 const (
@@ -1190,8 +1192,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 			if c.PCINUMAAwareTopologyEnabled {
 				if c.Architecture.SupportPCIePlacement() {
-					if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec); err != nil {
+					if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec, c.IommuPCI); err != nil {
 						log.Log.Reason(err).Warningf("Failed to process PCIe NUMA-aware topology, falling back to default placement")
+					} else {
+						iommu.HandleIOMMU(&domain.Spec, c.IommuPCI)
+						if c.IommuPCI != nil && c.IommuPCI.PCIHoleSize != 0 {
+							holeSize := iommupci.CalculateTotalPCIHole64Size(c.IommuPCI.PCIHoleSize, iommupci.PCIHoleMarginKiB)
+							setPCIeRootHole64(&domain.Spec, holeSize)
+						}
 					}
 				} else {
 					log.Log.Infof("Skipping PCIe NUMA alignment: architecture %s does not support PCIe placement", c.Architecture.GetArchitecture())
@@ -1308,5 +1316,17 @@ func convertEFIConfiguration(input *convertertypes.EFIConfiguration) *compute.EF
 		EFIVars:                   input.EFIVars,
 		SecureLoader:              input.SecureLoader,
 		UsesFirmwareAutoSelection: input.UsesFirmwareAutoSelection,
+	}
+}
+
+func setPCIeRootHole64(domainSpec *api.DomainSpec, sizeKiB uint64) {
+	for i := range domainSpec.Devices.Controllers {
+		if domainSpec.Devices.Controllers[i].Model == api.ControllerModelPCIeRoot {
+			domainSpec.Devices.Controllers[i].PCIHole64 = &api.PCIHole64{
+				Value: uint(sizeKiB),
+				Unit:  "KiB",
+			}
+			return
+		}
 	}
 }
