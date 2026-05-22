@@ -308,11 +308,21 @@ type NUMA struct {
 }
 
 type NUMACell struct {
-	ID           string  `xml:"id,attr"`
-	CPUs         string  `xml:"cpus,attr,omitempty"`
-	Memory       *uint64 `xml:"memory,attr,omitempty"`
-	Unit         string  `xml:"unit,attr,omitempty"`
-	MemoryAccess string  `xml:"memAccess,attr,omitempty"`
+	ID           string             `xml:"id,attr"`
+	CPUs         string             `xml:"cpus,attr,omitempty"`
+	Memory       *uint64            `xml:"memory,attr,omitempty"`
+	Unit         string             `xml:"unit,attr,omitempty"`
+	MemoryAccess string             `xml:"memAccess,attr,omitempty"`
+	Distances    *NUMACellDistances `xml:"distances,omitempty"`
+}
+
+type NUMACellDistances struct {
+	Siblings []NUMACellSibling `xml:"sibling"`
+}
+
+type NUMACellSibling struct {
+	ID    string `xml:"id,attr"`
+	Value uint64 `xml:"value,attr"`
 }
 
 type CPUFeature struct {
@@ -743,10 +753,12 @@ type HostDeviceSource struct {
 }
 
 type HostDevDriver struct {
-	Iommufd string `xml:"iommufd,attr,omitempty"`
+	XMLName xml.Name `xml:"driver"`
+	Iommufd string   `xml:"iommufd,attr,omitempty"`
 }
 
 type ACPIHostDev struct {
+	XMLName xml.Name `xml:"acpi"`
 	NodeSet string `xml:"nodeset,attr,omitempty"`
 }
 
@@ -802,6 +814,7 @@ type IOMMUDevice struct {
 }
 
 type IOMMUDriver struct {
+	XMLName  xml.Name `xml:"driver"`
 	PCIBus   string `xml:"pciBus,attr,omitempty"`
 	Accel    string `xml:"accel,attr,omitempty"`
 	ATS      string `xml:"ats,attr,omitempty"`
