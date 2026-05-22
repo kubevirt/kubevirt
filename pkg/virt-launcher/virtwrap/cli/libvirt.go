@@ -26,6 +26,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -663,6 +664,7 @@ type VirDomain interface {
 	BackupBegin(backupXML string, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error
 	CreateCheckpointXML(xmlConfig string, flags libvirt.DomainCheckpointCreateFlags) (*libvirt.DomainCheckpoint, error)
 	QemuMonitorCommand(command string, flags libvirt.DomainQemuMonitorCommandFlags) (string, error)
+	FDAssociate(name string, files []os.File, flags libvirt.DomainFDAssociateFlags) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
