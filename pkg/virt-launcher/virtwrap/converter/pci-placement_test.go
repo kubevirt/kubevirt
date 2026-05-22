@@ -167,14 +167,14 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				[]api.NUMACell{{ID: "0", CPUs: "0-1"}, {ID: "1", CPUs: "2-3"}},
 				[]api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}, {VCPU: 2, CPUSet: "4"}},
 			)
-			assigner = newExpanderBusAssigner(domainSpec)
+			assigner = newExpanderBusAssigner(domainSpec, nil)
 		})
 
 		DescribeTable("addDevices",
 			func(testCase addDevicesTestCase) {
 				if testCase.numaCells != nil || testCase.vcpuPins != nil {
 					domainSpec = createDomainSpecWithNUMA(testCase.numaCells, testCase.vcpuPins)
-					assigner = newExpanderBusAssigner(domainSpec)
+					assigner = newExpanderBusAssigner(domainSpec, nil)
 				}
 
 				assigner.addDevices(testCase.devices)
@@ -223,7 +223,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			func(testCase devicePlacementTestCase) {
 				if testCase.numaCells != nil || testCase.vcpuPins != nil {
 					domainSpec = createDomainSpecWithNUMA(testCase.numaCells, testCase.vcpuPins)
-					assigner = newExpanderBusAssigner(domainSpec)
+					assigner = newExpanderBusAssigner(domainSpec, nil)
 				}
 
 				domainSpec.Devices.HostDevices = testCase.devices
@@ -329,7 +329,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			// Add a device, this would require creating new controllers
 			domainSpec.Devices.HostDevices = []api.HostDevice{createPCIDevice("device1", "0x01")}
 
-			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, nil)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("insufficient bus numbers for NUMA-aligned PCIe topology"))
@@ -343,7 +343,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				createPCIDevice("device2", "0x02"),
 			}
 
-			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Bus numbers calculated as 254 - controllerCount + 1:
@@ -373,7 +373,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				createPCIDevice("device2", "0x02"),
 			}
 
-			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, device := range domainSpec.Devices.HostDevices {
