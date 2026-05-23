@@ -199,13 +199,6 @@ func validateBusSupport(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.St
 				Field:   field.Index(idx).Child("cdrom", "bus").String(),
 			})
 		}
-		if diskType == "lun" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Bus type %s is invalid for LUN device. Only 'scsi' bus is supported.", bus),
-				Field:   field.Index(idx).Child("lun", "bus").String(),
-			})
-		}
 	case v1.DiskBusSATA:
 		// sata disks (in contrast to sata cdroms) don't support readOnly
 		if disk.Disk != nil && disk.Disk.ReadOnly {
@@ -223,6 +216,13 @@ func validateBusSupport(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.St
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s is set with an unrecognized bus %s, must be one of: %v", field.Index(idx).String(), bus, supportedBuses),
 			Field:   field.Index(idx).Child(diskType, "bus").String(),
+		})
+	}
+	if diskType == "lun" && bus != v1.DiskBusSCSI {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Bus type %s is invalid for LUN device. Only 'scsi' bus is supported.", bus),
+			Field:   field.Index(idx).Child("lun", "bus").String(),
 		})
 	}
 	// Reject defining DedicatedIOThread to a disk without VirtIO bus since this configuration
