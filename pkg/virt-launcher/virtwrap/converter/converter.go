@@ -1186,6 +1186,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				return err
 			}
 
+			if c.IommuPCI != nil && c.IommuPCI.IommufdEnabled != nil && *c.IommuPCI.IommufdEnabled {
+				domain.Spec.IOMMUFD = &api.IOMMUFD{
+					Enabled: "yes",
+					FDGroup: "iommufd0",
+				}
+			}
+
 			if c.PCINUMAAwareTopologyEnabled {
 				if c.Architecture.SupportPCIePlacement() {
 					if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec); err != nil {

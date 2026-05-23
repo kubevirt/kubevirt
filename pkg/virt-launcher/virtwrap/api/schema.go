@@ -237,6 +237,7 @@ type DomainSpec struct {
 	NUMATune       *NUMATune       `xml:"numatune"`
 	IOThreads      *IOThreads      `xml:"iothreads,omitempty"`
 	LaunchSecurity *LaunchSecurity `xml:"launchSecurity,omitempty"`
+	IOMMUFD        *IOMMUFD        `xml:"iommufd,omitempty"`
 	OnReboot       string          `xml:"on_reboot,omitempty"`
 }
 

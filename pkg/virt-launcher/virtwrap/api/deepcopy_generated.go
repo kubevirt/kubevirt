@@ -1584,6 +1584,11 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 		*out = new(LaunchSecurity)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.IOMMUFD != nil {
+		in, out := &in.IOMMUFD, &out.IOMMUFD
+		*out = new(IOMMUFD)
+		**out = **in
+	}
 	return
 }
 
