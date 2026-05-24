@@ -4261,7 +4261,10 @@ var CRDsValidation map[string]string = map[string]string{
           type: array
           x-kubernetes-list-type: atomic
         nodeHooks:
-          description: NodeHooks defines hooks that execute during VM lifecycle events.
+          description: |-
+            NodeHooks defines hooks that execute during VM lifecycle events.
+            Hooks are applied in declaration order within each plugin.
+            Across plugins, hooks are applied in alphabetical order by plugin name.
           items:
             description: |-
               NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.
