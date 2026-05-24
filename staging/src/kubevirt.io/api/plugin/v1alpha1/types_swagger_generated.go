@@ -22,7 +22,7 @@ func (PluginSpec) SwaggerDoc() map[string]string {
 		"condition":                   "Condition is a CEL expression that determines whether this plugin applies to a given VM.\nWhen set, this acts as a baseline filter for all hooks in the plugin.\nIndividual hooks may further narrow the scope with their own Condition fields.\n+optional",
 		"failureStrategy":             "FailureStrategy specifies the default behavior when the plugin itself is unhealthy\n(e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).\nIndividual hooks may override this with their own FailureStrategy.\n+optional",
 		"domainHooks":                 "DomainHooks defines hooks that modify the libvirt domain XML.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic",
-		"nodeHooks":                   "NodeHooks defines hooks that execute during VM lifecycle events.\n+optional\n+listType=atomic",
+		"nodeHooks":                   "NodeHooks defines hooks that execute during VM lifecycle events.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic",
 		"mutatingAdmissionPolicies":   "MutatingAdmissionPolicies references MutatingAdmissionPolicy objects managed by the plugin.\n+optional\n+listType=atomic",
 		"validatingAdmissionPolicies": "ValidatingAdmissionPolicies references ValidatingAdmissionPolicy objects managed by the plugin.\n+optional\n+listType=atomic",
 		"mutatingAdmissionWebhooks":   "MutatingAdmissionWebhooks references MutatingWebhookConfiguration objects managed by the plugin.\n+optional\n+listType=atomic",
@@ -55,7 +55,7 @@ func (SidecarDomainHook) SwaggerDoc() map[string]string {
 
 func (NodeHook) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.\nUnlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations\nsuch as configuring networking, storage preparation, or device management.",
+		"":                "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.\nUnlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations\nsuch as configuring networking, storage preparation, or device management.\nHooks may fire multiple times for the same lifecycle event due to reconciliation retries.\nImplementations must be idempotent.",
 		"socket":          "Socket is the path to the Unix socket for hook communication.\n+kubebuilder:validation:MinLength=1",
 		"permittedHooks":  "PermittedHooks lists the VM lifecycle events this hook handles.\n+kubebuilder:validation:MinItems=1\n+listType=atomic",
 		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\n+optional",
