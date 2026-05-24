@@ -35,6 +35,7 @@ go_library(
         "//pkg/network/admitter:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/vmispec:go_default_library",
+        "//pkg/plugins/cel:go_default_library",
         "//pkg/storage/admitters:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",

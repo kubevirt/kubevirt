@@ -360,7 +360,7 @@ var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute
 		ds := createPluginDaemonSet(virtClient, pluginName, pluginSocketPath, pluginMarkerDir)
 		DeferCleanup(cleanupPluginDaemonSet, virtClient, ds)
 
-		celCondition := `vmi.metadata.labels.testLabel == "match"`
+		celCondition := `has(vmi.metadata.labels.testLabel) && vmi.metadata.labels.testLabel == "match"`
 		plugin := createPluginCR(virtClient, pluginName, pluginSocketPath,
 			[]pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
 			pluginv1alpha1.FailureStrategyFail, celCondition)
