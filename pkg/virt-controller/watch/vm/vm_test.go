@@ -2703,6 +2703,49 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Finalizers).To(BeEmpty())
 		})
 
+		It("should remove controller finalizer even when expectations are not satisfied", func() {
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = pointer.P(metav1.Now())
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			controller.expectations.ExpectCreations(key, 1)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Finalizers).To(BeEmpty())
+		})
+
+		It("should stop VirtualMachineInstance when VM is deleted with unsatisfied expectations", func() {
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = pointer.P(metav1.Now())
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			controller.vmiIndexer.Add(vmi)
+
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			controller.expectations.ExpectCreations(key, 1)
+
+			sanityExecute(vm)
+
+			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
+
+			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+		})
+
 		DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy v1.VirtualMachineRunStrategy) {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
 

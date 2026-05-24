@@ -3221,17 +3221,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		startVMSpec *virtv1.VirtualMachineSpec
 	)
 
-	if !c.satisfiedExpectations(key) {
-		return vm, vmi, nil, nil
-	}
-
-	if vmi != nil {
-		startVMSpec, err = c.getLastVMRevisionSpec(vm)
-		if err != nil {
-			return vm, vmi, nil, err
-		}
-	}
-
+	// Handle deletion before checking expectations: a deleted VM must have
+	// its finalizer removed even when expectations from a previous reconcile
+	// cycle are still pending (e.g. because the namespace is terminating and
+	// object creation was rejected).
 	if vm.DeletionTimestamp != nil {
 		if vmi == nil || controller.HasFinalizer(vm, metav1.FinalizerOrphanDependents) {
 			vm, err = c.removeVMFinalizer(vm)
@@ -3246,11 +3239,22 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 			}
 		}
 		return vm, vmi, nil, nil
-	} else {
-		vm, err = c.addVMFinalizer(vm)
+	}
+
+	if !c.satisfiedExpectations(key) {
+		return vm, vmi, nil, nil
+	}
+
+	if vmi != nil {
+		startVMSpec, err = c.getLastVMRevisionSpec(vm)
 		if err != nil {
 			return vm, vmi, nil, err
 		}
+	}
+
+	vm, err = c.addVMFinalizer(vm)
+	if err != nil {
+		return vm, vmi, nil, err
 	}
 
 	vmi, err = c.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi)
