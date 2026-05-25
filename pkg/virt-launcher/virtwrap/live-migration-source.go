@@ -643,37 +643,48 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 }
 
 func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstance) {
+	// Libvirt calls (GetJobInfo, AbortJob) can hang indefinitely if the QEMU
+	// monitor is unresponsive. Wrap with a timeout.
 	l.abortWg.Add(1)
-	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
-		defer l.abortWg.Done()
-		domName := api.VMINamespaceKeyFunc(vmi)
-		dom, err := l.virConn.LookupDomainByName(domName)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
-			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
-			return
-		}
-		defer dom.Free()
-		jobInfo, err := dom.GetJobInfo()
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
-			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
-			return
-		}
-		if jobInfo.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
-			err := dom.AbortJob()
+	go func() {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			domName := api.VMINamespaceKeyFunc(vmi)
+			dom, err := l.virConn.LookupDomainByName(domName)
 			if err != nil {
-				log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
+				log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found")
 				l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 				return
 			}
-			l.setMigrationAbortStatus(v1.MigrationAbortSucceeded)
-			log.Log.Object(vmi).Info("Live migration abort succeeded")
-		} else {
-			log.Log.Object(vmi).Infof("migration job is not active (type=%d), nothing to abort", jobInfo.Type)
+			defer dom.Free()
+			jobInfo, err := dom.GetJobInfo()
+			if err != nil {
+				log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
+				l.setMigrationAbortStatus(v1.MigrationAbortFailed)
+				return
+			}
+			if jobInfo.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
+				if err := dom.AbortJob(); err != nil {
+					log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
+					l.setMigrationAbortStatus(v1.MigrationAbortFailed)
+					return
+				}
+				l.setMigrationAbortStatus(v1.MigrationAbortSucceeded)
+				log.Log.Object(vmi).Info("Live migration abort succeeded")
+			} else {
+				log.Log.Object(vmi).Infof("migration job is not active (type=%d), nothing to abort", jobInfo.Type)
+				l.setMigrationAbortStatus(v1.MigrationAbortFailed)
+			}
+		}()
+		select {
+		case <-done:
+		case <-time.After(30 * time.Second):
+			log.Log.Object(vmi).Error("migration abort timed out waiting for libvirt")
 			l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 		}
-	}(l, vmi)
+		l.abortWg.Done()
+	}()
 }
 
 func generateDomainName(vmi *v1.VirtualMachineInstance) string {
