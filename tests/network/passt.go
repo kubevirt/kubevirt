@@ -53,7 +53,7 @@ const (
 	vmiReadyTimeout = 180
 )
 
-var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Serial, func() {
+var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func() {
 	var err error
 
 	It("should apply the interface configuration", func() {
