@@ -57,15 +57,34 @@ const (
 )
 
 var (
-	nodeIsolationResult = func() isolation.IsolationResult {
-		return isolation.NodeIsolationResult()
-	}
 	deviceBasePath = func(podUID types.UID, kubeletPodsDir string) (*safepath.Path, error) {
 		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", kubeletPodsDir, fmt.Sprintf("/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
 	}
 
-	socketPath = func(podUID types.UID) string {
-		return fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
+	sourceBasePath = func(sourceUID types.UID, kubeletPodsDir, pvName string) (*safepath.Path, error) {
+		volumesBase := filepath.Join(kubeletPodsDir, string(sourceUID), "volumes")
+
+		csiPath, err := safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", volumesBase, "kubernetes.io~csi", pvName, "mount")
+		if err == nil {
+			return csiPath, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+
+		// Fallback for legacy in-tree volume plugins that don't use CSI
+		legacyPlugins := []string{"kubernetes.io~nfs", "kubernetes.io~local-volume"}
+		for _, plugin := range legacyPlugins {
+			p, err := safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", volumesBase, plugin, pvName)
+			if err == nil {
+				return p, nil
+			}
+			if !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			}
+		}
+
+		return nil, fmt.Errorf("no volume source found for pv %s in pod %s: %w", pvName, sourceUID, err)
 	}
 
 	statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
@@ -130,18 +149,6 @@ var (
 
 	isBlockDevice = func(path *safepath.Path) (bool, error) {
 		return isolation.IsBlockDevice(path)
-	}
-
-	isolationDetector = func() isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector()
-	}
-
-	parentPathForMount = func(
-		parent isolation.IsolationResult,
-		child isolation.IsolationResult,
-		findmntInfo FindmntInfo,
-	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target)
 	}
 )
 
@@ -549,12 +556,13 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		return fmt.Errorf("failed to determine if %s is already mounted: %v", target, err)
 	}
 	if !isMounted {
-		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
+		pvName := getPVName(vmi, volume)
+		if pvName == "" {
+			return fmt.Errorf("PV name not found in volume status for volume %s", volume)
+		}
+		sourcePath, err := sourceBasePath(sourceUID, m.kubeletPodsDir, pvName)
 		if err != nil {
-			log.DefaultLogger().V(3).Infof("Error getting source path: %v", err)
-			// We are eating the error to avoid spamming the log with errors, it might take a while for the volume
-			// to get mounted on the node, and this will error until the volume is mounted.
-			return nil
+			return fmt.Errorf("failed to resolve source path for volume %s (pv %s, pod %s): %w", volume, pvName, sourceUID, err)
 		}
 		if err := m.writePathToMountRecord(unsafepath.UnsafeAbsolute(target.Raw()), vmi, record); err != nil {
 			return err
@@ -590,59 +598,13 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 	return ""
 }
 
-func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (*safepath.Path, error) {
-	iso := isolationDetector()
-	isoRes, err := iso.DetectForSocket(socketPath(sourceUID))
-	if err != nil {
-		return nil, err
-	}
-	findmounts, err := LookupFindmntInfoByVolume(volume, isoRes.Pid())
-	if err != nil {
-		return nil, err
-	}
-	nodeIsoRes := nodeIsolationResult()
-	mountRoot, err := nodeIsoRes.MountRoot()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, findmnt := range findmounts {
-		if filepath.Base(findmnt.Target) == volume {
-			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
-			exists := !errors.Is(err, os.ErrNotExist)
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return nil, err
-			}
-
-			isBlock := false
-			if exists {
-				isBlock, _ = isBlockDevice(path)
-			}
-
-			if !exists || isBlock {
-				// file not found, or block device, or directory check if we can find the mount.
-				deviceFindMnt, err := LookupFindmntInfoByDevice(source)
-				if err != nil {
-					// Try the device found from the source
-					deviceFindMnt, err = LookupFindmntInfoByDevice(findmnt.GetSourceDevice())
-					if err != nil {
-						return nil, err
-					}
-					// Check if the path was relative to the device.
-					if !exists {
-						return mountRoot.AppendAndResolveWithRelativeRoot(deviceFindMnt[0].Target, source)
-					}
-					return nil, err
-				}
-				return mountRoot.AppendAndResolveWithRelativeRoot(deviceFindMnt[0].Target)
-			} else {
-				return path, nil
-			}
+func getPVName(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.Name == volumeName && vs.PersistentVolumeClaimInfo != nil {
+			return vs.PersistentVolumeClaimInfo.VolumeName
 		}
 	}
-	// Did not find the disk image file, return error
-	return nil, fmt.Errorf("unable to find source disk image path for pod %s", sourceUID)
+	return ""
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI

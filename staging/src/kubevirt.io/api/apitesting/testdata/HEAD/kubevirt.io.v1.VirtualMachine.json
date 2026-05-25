@@ -1311,6 +1311,7 @@
             "volumeName": "volumeNameValue",
             "sourcePVCInfo": {
               "claimName": "claimNameValue",
+              "volumeName": "volumeNameValue",
               "accessModes": [
                 "accessModesValue"
               ],
@@ -1326,6 +1327,7 @@
             },
             "destinationPVCInfo": {
               "claimName": "claimNameValue",
+              "volumeName": "volumeNameValue",
               "accessModes": [
                 "accessModesValue"
               ],

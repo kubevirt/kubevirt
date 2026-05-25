@@ -691,6 +691,7 @@ status:
       requests:
         requestsKey: "0"
       volumeMode: volumeModeValue
+      volumeName: volumeNameValue
     sourcePVCInfo:
       accessModes:
       - accessModesValue
@@ -702,6 +703,7 @@ status:
       requests:
         requestsKey: "0"
       volumeMode: volumeModeValue
+      volumeName: volumeNameValue
     volumeName: volumeNameValue
   migrationMethod: migrationMethodValue
   migrationState:
@@ -815,6 +817,7 @@ status:
       requests:
         requestsKey: "0"
       volumeMode: volumeModeValue
+      volumeName: volumeNameValue
     phase: phaseValue
     reason: reasonValue
     size: -4

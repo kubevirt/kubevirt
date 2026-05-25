@@ -939,6 +939,7 @@ status:
           requests:
             requestsKey: "0"
           volumeMode: volumeModeValue
+          volumeName: volumeNameValue
         sourcePVCInfo:
           accessModes:
           - accessModesValue
@@ -950,4 +951,5 @@ status:
           requests:
             requestsKey: "0"
           volumeMode: volumeModeValue
+          volumeName: volumeNameValue
         volumeName: volumeNameValue
