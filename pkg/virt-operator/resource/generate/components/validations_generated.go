@@ -9119,6 +9119,10 @@ var CRDsValidation map[string]string = map[string]string{
                               VolumeMode defines what type of volume is required by the claim.
                               Value of Filesystem is implied when not included in claim spec.
                             type: string
+                          volumeName:
+                            description: VolumeName is the name of the PersistentVolume
+                              bound to the PVC
+                            type: string
                         type: object
                       sourcePVCInfo:
                         description: SourcePVCInfo contains the information about
@@ -9168,6 +9172,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: |-
                               VolumeMode defines what type of volume is required by the claim.
                               Value of Filesystem is implied when not included in claim spec.
+                            type: string
+                          volumeName:
+                            description: VolumeName is the name of the PersistentVolume
+                              bound to the PVC
                             type: string
                         type: object
                       volumeName:
@@ -14964,6 +14972,10 @@ var CRDsValidation map[string]string = map[string]string{
                       VolumeMode defines what type of volume is required by the claim.
                       Value of Filesystem is implied when not included in claim spec.
                     type: string
+                  volumeName:
+                    description: VolumeName is the name of the PersistentVolume bound
+                      to the PVC
+                    type: string
                 type: object
               sourcePVCInfo:
                 description: SourcePVCInfo contains the information about the source
@@ -15013,6 +15025,10 @@ var CRDsValidation map[string]string = map[string]string{
                     description: |-
                       VolumeMode defines what type of volume is required by the claim.
                       Value of Filesystem is implied when not included in claim spec.
+                    type: string
+                  volumeName:
+                    description: VolumeName is the name of the PersistentVolume bound
+                      to the PVC
                     type: string
                 type: object
               volumeName:
@@ -15506,6 +15522,10 @@ var CRDsValidation map[string]string = map[string]string{
                     description: |-
                       VolumeMode defines what type of volume is required by the claim.
                       Value of Filesystem is implied when not included in claim spec.
+                    type: string
+                  volumeName:
+                    description: VolumeName is the name of the PersistentVolume bound
+                      to the PVC
                     type: string
                 type: object
               phase:
@@ -32478,6 +32498,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           VolumeMode defines what type of volume is required by the claim.
                                           Value of Filesystem is implied when not included in claim spec.
                                         type: string
+                                      volumeName:
+                                        description: VolumeName is the name of the
+                                          PersistentVolume bound to the PVC
+                                        type: string
                                     type: object
                                   sourcePVCInfo:
                                     description: SourcePVCInfo contains the information
@@ -32528,6 +32552,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: |-
                                           VolumeMode defines what type of volume is required by the claim.
                                           Value of Filesystem is implied when not included in claim spec.
+                                        type: string
+                                      volumeName:
+                                        description: VolumeName is the name of the
+                                          PersistentVolume bound to the PVC
                                         type: string
                                     type: object
                                   volumeName:

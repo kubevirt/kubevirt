@@ -17096,6 +17096,10 @@
        "Filesystem",
        "FromStorageProfile"
       ]
+     },
+     "volumeName": {
+      "description": "VolumeName is the name of the PersistentVolume bound to the PVC",
+      "type": "string"
      }
     }
    },

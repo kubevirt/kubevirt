@@ -24608,6 +24608,13 @@ func schema_kubevirtio_api_core_v1_PersistentVolumeClaimInfo(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the name of the PersistentVolume bound to the PVC",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"accessModes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
