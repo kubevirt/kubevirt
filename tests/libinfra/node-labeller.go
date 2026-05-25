@@ -91,12 +91,9 @@ func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.Kub
 	By(fmt.Sprintf("Patching node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
 	libnode.RemoveAnnotationFromNode(nodeName, v1.LabellerSkipNodeAnnotation)
 
-	// In order to make sure node-labeller has updated the node, the host-model label (which node-labeller
-	// makes sure always resides on any node) will be removed. After node-labeller is enabled again, the
-	// host model label would be expected to show up again on the node.
-	By(fmt.Sprintf("Removing host model label %s from node %s (so we can later expect it to return)", v1.HostModelCPULabel, nodeName))
-	for _, label := range node.Labels {
-		if strings.HasPrefix(label, v1.HostModelCPULabel) {
+	By(fmt.Sprintf("Removing machine type labels from node %s (so we can later expect them to return)", nodeName))
+	for label := range node.Labels {
+		if strings.HasPrefix(label, v1.SupportedMachineTypeLabel) {
 			libnode.RemoveLabelFromNode(nodeName, label)
 		}
 	}
@@ -113,15 +110,15 @@ func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.Kub
 			return fmt.Errorf("node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
 		}
 
-		foundHostModelLabel := false
+		foundMachineTypeLabel := false
 		for labelKey := range node.Labels {
-			if strings.HasPrefix(labelKey, v1.HostModelCPULabel) {
-				foundHostModelLabel = true
+			if strings.HasPrefix(labelKey, v1.SupportedMachineTypeLabel) {
+				foundMachineTypeLabel = true
 				break
 			}
 		}
-		if !foundHostModelLabel {
-			return fmt.Errorf("node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", nodeName, v1.HostModelCPULabel)
+		if !foundMachineTypeLabel {
+			return fmt.Errorf("node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", nodeName, v1.SupportedMachineTypeLabel)
 		}
 
 		return nil
