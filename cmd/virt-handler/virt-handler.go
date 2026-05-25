@@ -261,6 +261,7 @@ func (app *virtHandlerApp) Run() {
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 	backupTrackerInformer := factory.VirtualMachineBackupTracker()
+	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
@@ -388,6 +389,7 @@ func (app *virtHandlerApp) Run() {
 		factory.KubeVirt().HasSynced,
 		nodeInformer.HasSynced,
 		backupTrackerInformer.HasSynced,
+		pluginInformer.HasSynced,
 	)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
@@ -427,6 +429,7 @@ func (app *virtHandlerApp) Run() {
 		netStat,
 		netresources.MemoryCalculator{},
 		passtRepairHandler,
+		pluginInformer.GetStore(),
 	)
 	if err != nil {
 		panic(err)
@@ -455,10 +458,22 @@ func (app *virtHandlerApp) Run() {
 		netConf,
 		netStat,
 		cbtHandler,
+		pluginInformer.GetStore(),
 	)
 	if err != nil {
 		panic(err)
 	}
+
+	pluginInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(_ interface{}) { vmController.InvalidatePluginsCache() },
+		UpdateFunc: func(_, _ interface{}) { vmController.InvalidatePluginsCache() },
+		DeleteFunc: func(_ interface{}) { vmController.InvalidatePluginsCache() },
+	})
+	pluginInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(_ interface{}) { migrationTargetController.InvalidatePluginsCache() },
+		UpdateFunc: func(_, _ interface{}) { migrationTargetController.InvalidatePluginsCache() },
+		DeleteFunc: func(_ interface{}) { migrationTargetController.InvalidatePluginsCache() },
+	})
 
 	promErrCh := make(chan error)
 	go app.runPrometheusServer(promErrCh)

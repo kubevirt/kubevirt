@@ -107,6 +107,7 @@ func NewMigrationTargetController(
 	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 	passtRepairHandler passtRepairTargetHandler,
+	pluginStore cache.Store,
 ) (*MigrationTargetController, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -132,6 +133,7 @@ func NewMigrationTargetController(
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
 		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		pluginStore,
 	)
 	if err != nil {
 		return nil, err
@@ -844,6 +846,11 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+	pluginsJSON, err := c.serializePlugins()
+	if err != nil {
+		return err, false
+	}
+	options.PluginsJson = pluginsJSON
 
 	if c.clusterConfig.PasstBindingEnabled() {
 		if err = c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
