@@ -36,12 +36,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -57,10 +55,6 @@ const (
 
 var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Serial, func() {
 	var err error
-
-	BeforeEach(OncePerOrdered, func() {
-		config.EnableFeatureGate(featuregate.PasstBinding)
-	})
 
 	It("should apply the interface configuration", func() {
 		const testMACAddr = "02:02:02:02:02:02"
