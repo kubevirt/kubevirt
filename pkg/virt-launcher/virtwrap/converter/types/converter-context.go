@@ -74,4 +74,5 @@ type ConverterContext struct {
 	IOMMUFDEnabled                  bool
 	AllowCrossArchEmulation         bool
 	HostArchitecture                string
+	VSOCKProcPath                   string
 }

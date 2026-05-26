@@ -39,9 +39,12 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virtvsock "kubevirt.io/kubevirt/pkg/virt-handler/vsock"
+	"kubevirt.io/kubevirt/pkg/vsock/mode"
 )
 
 type ConsoleHandler struct {
@@ -237,15 +240,16 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 }
 
 func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) (net.Conn, error) {
-	cid := *vmi.Status.VSOCKCID
-	log.Log.Object(vmi).Infof("Connecting to %d:%d", cid, port)
-	conn, err := vsock.Dial(cid, port, &vsock.Config{})
+	dialer := virtvsock.NewDialer(t.podIsolationDetector,
+		mode.DefaultProcPath,
+		func(pid int, fn func() error) error { return netns.New(pid).Do(fn) },
+		vsock.Dial)
+
+	conn, err := dialer.Dial(vmi, port)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
-		return nil, err
+		return nil, fmt.Errorf("failed to dial VSOCK for VM: %w", err)
 	}
 	if !useTLS {
-		log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
 		return conn, nil
 	}
 	tlsConn := tls.Client(conn, &tls.Config{
@@ -260,13 +264,13 @@ func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint32, 
 		},
 	})
 	if err := tlsConn.Handshake(); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to %d:%d over TLS", cid, port)
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
 		if closeErr := tlsConn.Close(); closeErr != nil {
 			log.Log.Object(vmi).Reason(closeErr).Info("Failed to close connection.")
 		}
 		return nil, err
 	}
-	log.Log.Object(vmi).Infof("Connected to %d:%d over TLS", cid, port)
+	log.Log.Object(vmi).Infof("Connected to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
 	return tlsConn, nil
 }
 

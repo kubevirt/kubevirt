@@ -1696,9 +1696,15 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should add VSOCK section when present",
 			func(useVirtioTransitional bool) {
+				fakeProc := GinkgoT().TempDir()
+				vsockPath := filepath.Join(fakeProc, "sys", "net", "vsock")
+				Expect(os.MkdirAll(vsockPath, 0755)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(vsockPath, "ns_mode"), []byte("global\n"), 0600)).To(Succeed())
+
 				vmi.Status.VSOCKCID = pointer.P(uint32(100))
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				c.UseVirtioTransitional = useVirtioTransitional
+				c.VSOCKProcPath = fakeProc
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
 				Expect(domainSpec.Devices.VSOCK.Model).To(Equal("virtio-non-transitional"))

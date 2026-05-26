@@ -1000,7 +1000,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithVirtioModel(virtioModel),
 		),
 		compute.TPMDomainConfigurator{},
-		compute.VSOCKDomainConfigurator{},
+		compute.VSOCKDomainConfigurator{ProcPath: c.VSOCKProcPath},
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
