@@ -2,11 +2,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["virtiofs.go"],
+    srcs = [
+        "converter.go",
+        "paths.go",
+        "virtiofs.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//pkg/virtiofs:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
     ],
@@ -15,6 +20,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "converter_test.go",
         "storage_suite_test.go",
         "virtiofs_test.go",
     ],
@@ -23,6 +29,8 @@ go_test(
         ":go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

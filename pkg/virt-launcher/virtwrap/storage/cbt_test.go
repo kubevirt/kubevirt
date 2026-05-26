@@ -36,7 +36,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	converterstorage "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
@@ -189,8 +189,8 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-pvc-volume"))
 			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-dv-volume"))
 			// Verify hotplug paths are used
-			Expect(capturedPaths).To(ContainElement(converter.GetHotplugFilesystemVolumePath("hotplug-pvc-volume")))
-			Expect(capturedPaths).To(ContainElement(converter.GetHotplugFilesystemVolumePath("hotplug-dv-volume")))
+			Expect(capturedPaths).To(ContainElement(converterstorage.GetHotplugFilesystemVolumePath("hotplug-pvc-volume")))
+			Expect(capturedPaths).To(ContainElement(converterstorage.GetHotplugFilesystemVolumePath("hotplug-dv-volume")))
 		})
 
 		It("should process hotplug block volumes with correct paths", func() {
@@ -215,7 +215,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(createQCOW2OverlayCalled).To(Equal(1))
 			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-block-volume"))
 			// Verify hotplug block path is used
-			Expect(capturedPath).To(Equal(converter.GetHotplugBlockDeviceVolumePath("hotplug-block-volume")))
+			Expect(capturedPath).To(Equal(converterstorage.GetHotplugBlockDeviceVolumePath("hotplug-block-volume")))
 		})
 
 		It("should apply cbt to domain but skip creation when CBT is already enabled", func() {
@@ -506,8 +506,8 @@ var _ = Describe("Changed Block Tracking", func() {
 				Expect(capturedPaths).To(ContainElement(expectedPathFunc("pvc-volume")))
 				Expect(capturedPaths).To(ContainElement(expectedPathFunc("dv-volume")))
 			},
-			Entry("filesystem volumes", false, converter.GetFilesystemVolumePath),
-			Entry("block volumes", true, converter.GetBlockDeviceVolumePath),
+			Entry("filesystem volumes", false, converterstorage.GetFilesystemVolumePath),
+			Entry("block volumes", true, converterstorage.GetBlockDeviceVolumePath),
 		)
 
 		DescribeTable("should create overlays for hotplug volumes with RWO backend",
@@ -535,8 +535,8 @@ var _ = Describe("Changed Block Tracking", func() {
 				Expect(converterContext.ApplyCBT).To(HaveKey(volumeName))
 				Expect(capturedPath).To(Equal(expectedPathFunc(volumeName)))
 			},
-			Entry("filesystem volume", "hotplug-fs-volume", false, converter.GetHotplugFilesystemVolumePath),
-			Entry("block volume", "hotplug-block-volume", true, converter.GetHotplugBlockDeviceVolumePath),
+			Entry("filesystem volume", "hotplug-fs-volume", false, converterstorage.GetHotplugFilesystemVolumePath),
+			Entry("block volume", "hotplug-block-volume", true, converterstorage.GetHotplugBlockDeviceVolumePath),
 		)
 
 		It("should use existing overlay for hotplug volumes with RWX backend (no overlay creation)", func() {
