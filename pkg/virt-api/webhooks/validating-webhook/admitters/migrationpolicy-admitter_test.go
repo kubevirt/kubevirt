@@ -94,6 +94,52 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
 		),
+
+		Entry("allowPostCopy true and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(true),
+					AllowWorkloadDisruption: pointer.P(true),
+				},
+			}},
+		),
+
+		Entry("allowPostCopy false and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(false),
+					AllowWorkloadDisruption: pointer.P(true),
+				},
+			}},
+		),
+
+		Entry("allowPostCopy false and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(false),
+					AllowWorkloadDisruption: pointer.P(false),
+				},
+			}},
+		),
+	)
+
+	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+		By("Setting up a new policy")
+		policy := kubecli.NewMinimalMigrationPolicy(policyName)
+		policy.Spec = policySpec
+
+		By("Expecting admitter would not allow it")
+		admitter.admitAndExpect(policy, false)
+	},
+		Entry("allowPostCopy true and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(true),
+					AllowWorkloadDisruption: pointer.P(false),
+				},
+			},
+			},
+		),
 	)
 })
 
