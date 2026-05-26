@@ -82,6 +82,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
+	results = append(results, validateMigrationConfiguration(newKV.Spec.Configuration.MigrationConfiguration)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -562,4 +563,23 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		Field:   "spec.configuration.roleAggregationStrategy",
 		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
 	}}
+}
+
+func validateMigrationConfiguration(migrationConfiguration *v1.MigrationConfiguration) []metav1.StatusCause {
+	if migrationConfiguration == nil {
+		return nil
+	}
+
+	var causes []metav1.StatusCause
+
+	if migrationConfiguration.AllowPostCopy != nil && *migrationConfiguration.AllowPostCopy &&
+		migrationConfiguration.AllowWorkloadDisruption != nil && !*migrationConfiguration.AllowWorkloadDisruption {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "AllowWorkloadDisruption must be true if AllowPostCopy is true",
+			Field:   "spec.configuration.migrationConfiguration.allowWorkloadDisruption",
+		})
+	}
+
+	return causes
 }

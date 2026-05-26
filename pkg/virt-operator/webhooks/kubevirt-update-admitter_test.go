@@ -149,6 +149,76 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
+	DescribeTable("validateMigrationConfiguration", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateMigrationConfiguration(kvSpec.Configuration.MigrationConfiguration)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.allowWorkloadDisruption"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when AllowPostCopy is true and AllowWorkloadDisruption is false",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+							AllowPostCopy:           pointer.P(true),
+							AllowWorkloadDisruption: pointer.P(false),
+						},
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow when AllowPostCopy is true and AllowWorkloadDisruption is true",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+							AllowPostCopy:           pointer.P(true),
+							AllowWorkloadDisruption: pointer.P(true),
+						},
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when AllowPostCopy is false and AllowWorkloadDisruption is true",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+							AllowPostCopy:           pointer.P(false),
+							AllowWorkloadDisruption: pointer.P(true),
+						},
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when AllowPostCopy is false and AllowWorkloadDisruption is false",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+							AllowPostCopy:           pointer.P(false),
+							AllowWorkloadDisruption: pointer.P(false),
+						},
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when MigrationConfiguration is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+	)
+
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
 		Expect(causes).To(HaveLen(len(expectedFields)))
