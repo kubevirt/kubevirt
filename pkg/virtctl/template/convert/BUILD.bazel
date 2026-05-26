@@ -14,7 +14,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
-        "//vendor/kubevirt.io/virt-template-api/core/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core/v1beta1:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )
@@ -39,7 +39,7 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
-        "//vendor/kubevirt.io/virt-template-api/core/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core/v1beta1:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )

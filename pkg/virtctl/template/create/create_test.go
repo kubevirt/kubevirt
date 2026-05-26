@@ -79,7 +79,7 @@ var _ = Describe("Create command", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			name := parseName(out)
-			tplReq, err := tplClient.TemplateV1alpha1().VirtualMachineTemplateRequests(metav1.NamespaceDefault).
+			tplReq, err := tplClient.TemplateV1beta1().VirtualMachineTemplateRequests(metav1.NamespaceDefault).
 				Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -95,7 +95,7 @@ var _ = Describe("Create command", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			name := parseName(out)
-			tplReq, err := tplClient.TemplateV1alpha1().VirtualMachineTemplateRequests(metav1.NamespaceDefault).
+			tplReq, err := tplClient.TemplateV1beta1().VirtualMachineTemplateRequests(metav1.NamespaceDefault).
 				Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -111,7 +111,7 @@ var _ = Describe("Create command", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tplReqName := parseName(out)
-			tplReq, err := tplClient.TemplateV1alpha1().VirtualMachineTemplateRequests(metav1.NamespaceDefault).
+			tplReq, err := tplClient.TemplateV1beta1().VirtualMachineTemplateRequests(metav1.NamespaceDefault).
 				Get(context.Background(), tplReqName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
