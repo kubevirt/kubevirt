@@ -120,8 +120,8 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 				if diskDevice.Cache == "" {
 					diskDevice.Cache = v1.CacheNone
 				}
-				if diskDevice.Cache != v1.CacheNone {
-					return fmt.Errorf("a sharable disk requires cache = none got: %v", diskDevice.Cache)
+				if diskDevice.Cache != v1.CacheNone && diskDevice.Cache != v1.CacheDirectSync {
+					return fmt.Errorf("a sharable disk requires cache mode none or directsync, got: %v", diskDevice.Cache)
 				}
 				disk.Shareable = &api.Shareable{}
 			}
@@ -486,7 +486,8 @@ func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
 	}
 
 	// O_DIRECT is needed for io="native"
-	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
+	cacheMode := v1.DriverCache(disk.Driver.Cache)
+	if cacheMode == v1.CacheNone || cacheMode == v1.CacheDirectSync {
 		// set native for block device or pre-allocateed image file
 		if ds.BackendIsBlock() || isPreAllocated(ds.BackendPath()) {
 			disk.Driver.IO = v1.IONative
