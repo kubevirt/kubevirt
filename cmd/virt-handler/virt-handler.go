@@ -88,6 +88,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	vsockmode "kubevirt.io/kubevirt/pkg/vsock/mode"
 	"kubevirt.io/kubevirt/pkg/vsock/server"
 )
 
@@ -309,6 +310,7 @@ func (app *virtHandlerApp) Run() {
 
 	vsockConfigCallback := func() {
 		if app.clusterConfig.VSOCKEnabled() {
+			logger.Infof("VSOCK child namespace mode: %s", vsockmode.VsockChildNsMode(vsockmode.DefaultProcPath))
 			vsockMgr.Start()
 		} else {
 			vsockMgr.Stop()
