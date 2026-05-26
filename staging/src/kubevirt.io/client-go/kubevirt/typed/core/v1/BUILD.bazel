@@ -42,6 +42,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "async_test.go",
         "v1_suite_test.go",
         "websocket_test.go",
     ],
