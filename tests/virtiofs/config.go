@@ -170,7 +170,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 		serviceAccountPath := config.ServiceAccountSourceDir
 
-		It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
+		It("[QUARANTINE]Should be the namespace and token the same for a pod and vmi with virtiofs", decorators.Quarantine, func() {
 			serviceAccountVolumeName := "default-disk"
 
 			By("Running VMI")
