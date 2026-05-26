@@ -6074,8 +6074,8 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 		*out = new(string)
 		**out = **in
 	}
-	if in.MigrationConfiguration != nil {
-		in, out := &in.MigrationConfiguration, &out.MigrationConfiguration
+	if in.VMIMConfigurationOptions != nil {
+		in, out := &in.VMIMConfigurationOptions, &out.VMIMConfigurationOptions
 		*out = new(VMIMConfigurationOptions)
 		(*in).DeepCopyInto(*out)
 	}

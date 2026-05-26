@@ -142,6 +142,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFi
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestAgentInfo,GAVersion
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestOSInfo,VersionID
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceMigrationState,MigrationUID
+API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceMigrationState,VMIMConfigurationOptions
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IP
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IPs
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceStatus,VSOCKCID

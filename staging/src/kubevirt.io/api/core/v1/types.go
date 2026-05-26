@@ -997,8 +997,8 @@ type VirtualMachineInstanceMigrationState struct {
 	Mode MigrationMode `json:"mode,omitempty"`
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
-	// Resolved migration options for this migration after applying cluster defaults and policy.
-	MigrationConfiguration *VMIMConfigurationOptions `json:"migrationConfiguration,omitempty"`
+	// Migration configurations to apply
+	VMIMConfigurationOptions *VMIMConfigurationOptions `json:"migrationConfiguration,omitempty"`
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic

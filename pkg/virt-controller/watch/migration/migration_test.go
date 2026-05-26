@@ -202,9 +202,9 @@ var _ = Describe("Migration watcher", func() {
 		updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
-		Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
+		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
 
-		actual := updatedVMI.Status.MigrationState.MigrationConfiguration
+		actual := updatedVMI.Status.MigrationState.VMIMConfigurationOptions
 		Expect(actual.NodeDrainTaintKey).To(Equal(expectedConfiguration.NodeDrainTaintKey))
 		Expect(actual.ParallelOutboundMigrationsPerNode).To(Equal(expectedConfiguration.ParallelOutboundMigrationsPerNode))
 		Expect(actual.ParallelMigrationsPerCluster).To(Equal(expectedConfiguration.ParallelMigrationsPerCluster))
@@ -2368,8 +2368,8 @@ var _ = Describe("Migration watcher", func() {
 			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
-			Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
-			testResolvedConfig(updatedVMI.Status.MigrationState.MigrationConfiguration)
+			Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+			testResolvedConfig(updatedVMI.Status.MigrationState.VMIMConfigurationOptions)
 
 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
 				HaveKeyWithValue(v1.MigrationTargetNodeNameLabel, "node01"),
