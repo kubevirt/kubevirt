@@ -63,6 +63,18 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
+	disableDeclarativeHotplugFeatureGate := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates:         make([]string, 0),
+						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+					},
+				},
+			},
+		})
+	}
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -334,9 +346,14 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
-		for _, featureGate := range featureGates {
-			enableFeatureGate(featureGate)
+		if len(featureGates) == 0 {
+			disableDeclarativeHotplugFeatureGate()
+		} else {
+			for _, featureGate := range featureGates {
+				enableFeatureGate(featureGate)
+			}
 		}
+
 		result := AdmitHotplugStorage(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, config)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	}
