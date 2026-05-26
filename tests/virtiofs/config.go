@@ -186,28 +186,27 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			namespace, err := exec.ExecuteCommandOnPod(
-				vmiPod,
-				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
-				[]string{"cat",
-					serviceAccountPath + "/namespace",
-				},
-			)
+			virtiofsCtr := fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName)
+
+			// Record ..data symlink target BEFORE reading, to detect reconciliation later
+			dataBefore, _ := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+				[]string{"readlink", serviceAccountPath + "/..data"})
+
+			namespace, err := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+				[]string{"cat", serviceAccountPath + "/namespace"})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(namespace).To(Equal(testsuite.GetTestNamespace(vmi)))
 
-			token, err := exec.ExecuteCommandOnPod(
-				vmiPod,
-				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
-				[]string{"tail", "-c", "20",
-					serviceAccountPath + "/token",
-				},
-			)
+			token, err := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+				[]string{"tail", "-c", "20", serviceAccountPath + "/token"})
 			Expect(err).ToNot(HaveOccurred())
+
+			// Snapshot token file permissions right after successful exec read
+			statBefore, _ := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+				[]string{"stat", "-c", "%a %U:%G %C", serviceAccountPath + "/..data/token"})
 
 			By("Checking mounted ServiceAccount")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				// mount iso ConfigMap image
 				&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", serviceAccountVolumeName)},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
@@ -216,7 +215,45 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				&expect.BExp{R: testsuite.GetTestNamespace(vmi)},
 				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
 				&expect.BExp{R: token},
-			}, 200)).To(Succeed())
+			}, 200)).To(Succeed(), func() string {
+				var dbg string
+
+				// 1. Check if projected volume was reconciled (..data target changed)
+				dataAfter, _ := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+					[]string{"readlink", serviceAccountPath + "/..data"})
+				dbg += fmt.Sprintf("..data before=%q after=%q reconciled=%v\n",
+					dataBefore, dataAfter, dataBefore != dataAfter)
+
+				// 2. Actual token file permissions NOW (dereference symlinks)
+				statAfter, _ := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+					[]string{"stat", "-c", "%a %U:%G %C", serviceAccountPath + "/..data/token"})
+				dbg += fmt.Sprintf("token stat before=%q after=%q\n", statBefore, statAfter)
+
+				// 3. Can the virtiofsd container still read the token right now?
+				podRead, podReadErr := exec.ExecuteCommandOnPod(vmiPod, virtiofsCtr,
+					[]string{"cat", serviceAccountPath + "/token"})
+				dbg += fmt.Sprintf("pod cat token len=%d err=%v\n", len(podRead), podReadErr)
+
+				// 4. Guest SELinux state and AVC denials
+				vmDbg, _ := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+					&expect.BSnd{S: "getenforce 2>/dev/null; dmesg | grep -i avc | tail -5; echo ENDDBG\n"},
+					&expect.BExp{R: "ENDDBG"},
+				}, 20)
+				if len(vmDbg) > 0 {
+					dbg += fmt.Sprintf("vm getenforce+avc: %s\n", vmDbg[0].Output)
+				}
+
+				// 5. Does retrying in the VM eventually work?
+				vmRetry, _ := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+					&expect.BSnd{S: "for i in $(seq 1 10); do tail -c 20 /mnt/token && break; sleep 1; done; echo RC=$?\n"},
+					&expect.BExp{R: "RC="},
+				}, 30)
+				if len(vmRetry) > 0 {
+					dbg += fmt.Sprintf("vm retry: %s\n", vmRetry[0].Output)
+				}
+
+				return dbg
+			})
 		})
 	})
 
