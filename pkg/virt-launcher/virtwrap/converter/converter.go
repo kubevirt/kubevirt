@@ -186,7 +186,8 @@ func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
 	}
 
 	// O_DIRECT is needed for io="native"
-	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
+	cacheMode := v1.DriverCache(disk.Driver.Cache)
+	if cacheMode == v1.CacheNone || cacheMode == v1.CacheDirectSync {
 		// set native for block device or pre-allocateed image file
 		if ds.BackendIsBlock() || isPreAllocated(ds.BackendPath()) {
 			disk.Driver.IO = v1.IONative

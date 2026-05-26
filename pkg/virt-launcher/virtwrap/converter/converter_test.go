@@ -4318,6 +4318,14 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
 			v1.IONative, true,
 		),
+		Entry("pre-allocated image with directsync",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheDirectSync)}},
+			v1.IONative, true,
+		),
+		Entry("block device with directsync",
+			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheDirectSync)}},
+			v1.IONative, true,
+		),
 		Entry("datastore block device with O_DIRECT",
 			&api.Disk{
 				Source: api.DiskSource{
