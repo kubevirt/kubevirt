@@ -39,7 +39,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/template/convert"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
@@ -76,7 +76,7 @@ var _ = Describe("Convert command", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			var tpl v1alpha1.VirtualMachineTemplate
+			var tpl v1beta1.VirtualMachineTemplate
 			Expect(unmarshalFn(out, &tpl)).To(Succeed())
 
 			verifyConversion(&tpl, ocpTpl)
@@ -163,7 +163,7 @@ var _ = Describe("Convert command", func() {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			var tpl v1alpha1.VirtualMachineTemplate
+			var tpl v1beta1.VirtualMachineTemplate
 			Expect(unmarshalFn(out, &tpl)).To(Succeed())
 
 			verifyConversion(&tpl, ocpTpl)
@@ -316,7 +316,7 @@ func newOpenShiftTemplate() *ocpv1.Template {
 	}
 }
 
-func verifyConversion(tpl *v1alpha1.VirtualMachineTemplate, ocpTpl *ocpv1.Template) {
+func verifyConversion(tpl *v1beta1.VirtualMachineTemplate, ocpTpl *ocpv1.Template) {
 	// Verify metadata is preserved
 	Expect(tpl.Name).To(Equal(ocpTpl.Name))
 	Expect(tpl.Namespace).To(Equal(ocpTpl.Namespace))

@@ -35,8 +35,8 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/virt-template-api/core/subresourcesv1alpha1"
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/subresourcesv1beta1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 	templateclient "kubevirt.io/virt-template-client-go/virttemplate"
 	"kubevirt.io/virt-template-engine/template"
 
@@ -279,9 +279,9 @@ func (p *process) printTemplateParams() error {
 	return p.print(tpl.Spec.Parameters, "")
 }
 
-func (p *process) getTemplate() (*v1alpha1.VirtualMachineTemplate, error) {
+func (p *process) getTemplate() (*v1beta1.VirtualMachineTemplate, error) {
 	var (
-		tpl *v1alpha1.VirtualMachineTemplate
+		tpl *v1beta1.VirtualMachineTemplate
 		err error
 	)
 	if p.name != "" {
@@ -292,15 +292,15 @@ func (p *process) getTemplate() (*v1alpha1.VirtualMachineTemplate, error) {
 	return tpl, err
 }
 
-func (p *process) fetchRemote() (*v1alpha1.VirtualMachineTemplate, error) {
-	tpl, err := p.client.TemplateV1alpha1().VirtualMachineTemplates(p.namespace).Get(p.cmd.Context(), p.name, metav1.GetOptions{})
+func (p *process) fetchRemote() (*v1beta1.VirtualMachineTemplate, error) {
+	tpl, err := p.client.TemplateV1beta1().VirtualMachineTemplates(p.namespace).Get(p.cmd.Context(), p.name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error fetching remote VirtualMachineTemplate %s/%s: %w", p.namespace, p.name, err)
 	}
 	return tpl, nil
 }
 
-func (p *process) readFromFileOrStdin() (*v1alpha1.VirtualMachineTemplate, error) {
+func (p *process) readFromFileOrStdin() (*v1beta1.VirtualMachineTemplate, error) {
 	var data io.Reader
 	if p.file == "-" {
 		data = os.Stdin
@@ -317,7 +317,7 @@ func (p *process) readFromFileOrStdin() (*v1alpha1.VirtualMachineTemplate, error
 		data = f
 	}
 
-	tpl := &v1alpha1.VirtualMachineTemplate{}
+	tpl := &v1beta1.VirtualMachineTemplate{}
 	if err := k8syaml.NewYAMLOrJSONDecoder(data, jsonBufferSize).Decode(tpl); err != nil {
 		return nil, fmt.Errorf("error decoding VirtualMachineTemplate: %w", err)
 	}
@@ -373,11 +373,11 @@ func (p *process) processTemplate() (*virtv1.VirtualMachine, string, error) {
 }
 
 func (p *process) createRemote() (*virtv1.VirtualMachine, string, error) {
-	opts := subresourcesv1alpha1.ProcessOptions{
+	opts := subresourcesv1beta1.ProcessOptions{
 		Parameters: p.params,
 	}
 
-	created, err := p.client.TemplateV1alpha1().VirtualMachineTemplates(p.namespace).CreateVirtualMachine(p.cmd.Context(), p.name, opts)
+	created, err := p.client.TemplateV1beta1().VirtualMachineTemplates(p.namespace).CreateVirtualMachine(p.cmd.Context(), p.name, opts)
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating VirtualMachine from remote VirtualMachineTemplate %s/%s: %w", p.namespace, p.name, err)
 	}
@@ -386,11 +386,11 @@ func (p *process) createRemote() (*virtv1.VirtualMachine, string, error) {
 }
 
 func (p *process) processRemote() (*virtv1.VirtualMachine, string, error) {
-	opts := subresourcesv1alpha1.ProcessOptions{
+	opts := subresourcesv1beta1.ProcessOptions{
 		Parameters: p.params,
 	}
 
-	processed, err := p.client.TemplateV1alpha1().VirtualMachineTemplates(p.namespace).Process(p.cmd.Context(), p.name, opts)
+	processed, err := p.client.TemplateV1beta1().VirtualMachineTemplates(p.namespace).Process(p.cmd.Context(), p.name, opts)
 	if err != nil {
 		return nil, "", fmt.Errorf("error processing remote VirtualMachineTemplate %s/%s: %w", p.namespace, p.name, err)
 	}
