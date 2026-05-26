@@ -979,7 +979,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node feature discovery", Serial, decorators.CPUModel, func() {
+		Context("with node feature discovery", Serial, decorators.CPUModel, decorators.RequiresAMD64, func() {
 			var node *k8sv1.Node
 			var supportedCPU string
 			var supportedCPUs []string
