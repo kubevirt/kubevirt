@@ -276,7 +276,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
-				MigrationConfiguration:         migrationConfiguration,
+				VMIMConfigurationOptions:       migrationConfiguration,
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -547,7 +547,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 						},
 					},
 				}
-				vmi.Status.MigrationState.MigrationConfiguration = migrationConfiguration
+				vmi.Status.MigrationState.VMIMConfigurationOptions = migrationConfiguration
 				vmi.Spec.Domain.Resources.Limits = vmiLimits
 
 				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {

@@ -1339,8 +1339,8 @@ func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.V
 	if sourceMigrationState.MigrationPolicyName != nil {
 		targetMigrationState.MigrationPolicyName = sourceMigrationState.MigrationPolicyName
 	}
-	if sourceMigrationState.MigrationConfiguration != nil {
-		targetMigrationState.MigrationConfiguration = sourceMigrationState.MigrationConfiguration
+	if sourceMigrationState.VMIMConfigurationOptions != nil {
+		targetMigrationState.VMIMConfigurationOptions = sourceMigrationState.VMIMConfigurationOptions
 	}
 	if sourceMigrationState.StartTimestamp != nil {
 		targetMigrationState.StartTimestamp = sourceMigrationState.StartTimestamp

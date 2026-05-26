@@ -2640,7 +2640,7 @@ func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance) er
 		log.Log.Object(vmi).V(3).Reason(err).Infof("no vm migration policy matched for VMI %s", vmi.Name)
 	}
 
-	vmi.Status.MigrationState.MigrationConfiguration = resolvedConfig
+	vmi.Status.MigrationState.VMIMConfigurationOptions = resolvedConfig
 
 	return nil
 }
