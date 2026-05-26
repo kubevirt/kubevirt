@@ -21,8 +21,11 @@ go_library(
         "//vendor/k8s.io/client-go/discovery/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/kubevirt.io/virt-template-api/core/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core/v1beta1:go_default_library",
         "//vendor/kubevirt.io/virt-template-client-go/virttemplate:go_default_library",
         "//vendor/kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1alpha1/fake:go_default_library",
+        "//vendor/kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1beta1/fake:go_default_library",
     ],
 )
