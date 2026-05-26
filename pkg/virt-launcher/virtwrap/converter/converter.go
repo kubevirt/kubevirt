@@ -67,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
+	"kubevirt.io/kubevirt/pkg/vsock"
 )
 
 const (
@@ -999,7 +1000,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithVirtioModel(virtioModel),
 		),
 		compute.TPMDomainConfigurator{},
-		compute.VSOCKDomainConfigurator{},
+		compute.NewVSOCKDomainConfigurator(vsock.IsLocalMode()),
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},

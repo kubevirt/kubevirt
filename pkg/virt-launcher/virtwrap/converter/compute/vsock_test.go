@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/vsock"
 )
 
 var _ = Describe("VSOCK Domain Configurator", func() {
@@ -37,11 +38,12 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		Expect(compute.VSOCKDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+		configurator := compute.NewVSOCKDomainConfigurator(false)
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
-	It("Should configure VSOCK when VSOCKCID is present", func() {
+	It("Should configure VSOCK when VSOCKCID is present in global mode", func() {
 		const expectedVSOCKID = uint32(50)
 		vmiStatus := v1.VirtualMachineInstanceStatus{
 			VSOCKCID: pointer.P(expectedVSOCKID),
@@ -51,7 +53,8 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 		)
 		var domain api.Domain
 
-		Expect(compute.VSOCKDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+		configurator := compute.NewVSOCKDomainConfigurator(false)
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
@@ -61,6 +64,34 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 						CID: api.CID{
 							Auto:    "no",
 							Address: expectedVSOCKID,
+						},
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("Should configure VSOCK when VSOCKCID is present in local mode", func() {
+		vmiStatus := v1.VirtualMachineInstanceStatus{
+			VSOCKCID: pointer.P[uint32](1234),
+		}
+		vmi := libvmi.New(
+			libvmistatus.WithStatus(vmiStatus),
+		)
+		var domain api.Domain
+
+		configurator := compute.NewVSOCKDomainConfigurator(true)
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					VSOCK: &api.VSOCK{
+						Model: "virtio-non-transitional",
+						CID: api.CID{
+							Auto:    "no",
+							Address: vsock.LocalCID,
 						},
 					},
 				},

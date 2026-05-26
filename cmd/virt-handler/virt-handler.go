@@ -87,6 +87,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
+	vsockpkg "kubevirt.io/kubevirt/pkg/vsock"
 )
 
 const (
@@ -298,6 +299,9 @@ func (app *virtHandlerApp) Run() {
 		os.Exit(2)
 	}
 	vsockMgr := vsock.NewVSOCKHypervisorService(1, app.caManager)
+
+	vsockChildNsMode := vsockpkg.DetectChildNsMode()
+	logger.Infof("VSOCK child namespace mode: %s", vsockChildNsMode)
 
 	vsockConfigCallback := func() {
 		if app.clusterConfig.VSOCKEnabled() {

@@ -39,15 +39,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/vsock"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
@@ -74,8 +77,17 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
+
+			nsMode, err := getVsockNsMode(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
+
+			expectedCID := *vmi.Status.VSOCKCID
+			if nsMode == vsock.ModeLocal {
+				expectedCID = uint32(vsock.LocalCID)
+			}
+			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(expectedCID))
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -220,6 +232,10 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		default:
 		}
 	},
+		// TODO: The TLS handshake will fail when using local namespace,
+		//   because the certificate server is listening in global namespace.
+		//   This will be fixed in a future commit. See "Change 4" in the VEP:
+		//   https://github.com/kubevirt/enhancements/blob/main/veps/sig-compute/222-vsock-netns-vep/vsock-netns-vep.md#change-4-on-demand-vsock-ca-service
 		Entry("should succeed with TLS on both sides", true),
 		Entry("should succeed without TLS on both sides", false),
 	)
@@ -303,4 +319,21 @@ func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port ui
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.ShellSuccess},
 	}, 60)
+}
+
+func getVsockNsMode(vmi *v1.VirtualMachineInstance) (string, error) {
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	if err != nil {
+		return "", err
+	}
+
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
+		vmiPod,
+		libpod.LookupComputeContainer(vmiPod).Name,
+		[]string{"cat", vsock.NsModePath},
+	)
+	if err != nil {
+		return "", fmt.Errorf("could not read %s (remotely on pod %s): %v: %s, %s", vsock.NsModePath, vmiPod.Name, err, stdout, stderr)
+	}
+	return strings.TrimSpace(stdout), nil
 }
