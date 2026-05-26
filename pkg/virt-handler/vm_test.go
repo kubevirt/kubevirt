@@ -648,6 +648,49 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Machine).To(Equal(&v1.Machine{Type: "q35-123"}))
 		})
 
+		It("should continue sync when hotplug mount returns ErrWaitingForHotplugMount", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			addVMI(vmi, domain)
+
+			unmountCalled := false
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(hotplugvolume.ErrWaitingForHotplugMount)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Do(func(_ *v1.VirtualMachineInstance, _ cgroup.Manager) {
+				unmountCalled = true
+			}).Return(nil)
+
+			sanityExecute()
+			Expect(unmountCalled).To(BeTrue(), "Unmount should still be called when Mount returns ErrWaitingForHotplugMount")
+		})
+
+		It("should emit HotplugFailed event when hotplug mount returns os.ErrNotExist", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			addVMI(vmi, domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(os.ErrNotExist)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, "HotplugFailed")
+		})
+
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
