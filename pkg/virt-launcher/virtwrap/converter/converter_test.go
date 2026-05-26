@@ -444,6 +444,43 @@ var _ = Describe("Converter", func() {
 			Entry("on arm64", arm64, "virtio-non-transitional"),
 			Entry("on s390x", s390x, "virtio"),
 		)
+
+		It("should accept sharable disk with directsync cache", func() {
+			v1Disk := &v1.Disk{
+				Name: "mydisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
+					},
+				},
+				Shareable: pointer.P(true),
+				Cache:     v1.CacheDirectSync,
+			}
+			xml := diskToDiskXML(amd64, v1Disk)
+			Expect(xml).To(ContainSubstring(`cache="directsync"`))
+			Expect(xml).To(ContainSubstring(`<shareable></shareable>`))
+		})
+
+		It("should reject sharable disk with writeback cache", func() {
+			v1Disk := &v1.Disk{
+				Name: "mydisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
+					},
+				},
+				Shareable: pointer.P(true),
+				Cache:     v1.CacheWriteBack,
+			}
+			devicePerBus := make(map[string]deviceNamer)
+			libvirtDisk := &api.Disk{}
+			err := Convert_v1_Disk_To_api_Disk(
+				&convertertypes.ConverterContext{Architecture: archconverter.NewConverter(amd64), UseVirtioTransitional: false},
+				v1Disk, libvirtDisk, devicePerBus, nil, make(map[string]v1.VolumeStatus),
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sharable disk requires cache mode none or directsync"))
+		})
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {
@@ -4864,6 +4901,14 @@ var _ = Describe("Driver Cache and IO Settings", func() {
 		),
 		Entry("block device with O_DIRECT",
 			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
+			v1.IONative, true,
+		),
+		Entry("pre-allocated image with directsync",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheDirectSync)}},
+			v1.IONative, true,
+		),
+		Entry("block device with directsync",
+			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheDirectSync)}},
 			v1.IONative, true,
 		),
 		Entry("datastore block device with O_DIRECT",
