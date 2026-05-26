@@ -720,7 +720,7 @@ func indexInterfaceStatusByName(vmi *v1.VirtualMachineInstance) map[string]v1.Vi
 	return interfaceStatusByName
 }
 
-func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool) error {
+func createBridgeNetworkAttachmentDefinition(namespace, networkName, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool) error {
 	netAttachDef := libnet.NewBridgeNetAttachDef(
 		networkName,
 		bridgeName,

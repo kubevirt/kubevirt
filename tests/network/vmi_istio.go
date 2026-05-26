@@ -201,7 +201,6 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-
 				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),

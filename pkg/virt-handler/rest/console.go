@@ -39,9 +39,11 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virtvsock "kubevirt.io/kubevirt/pkg/vsock"
 )
 
 type ConsoleHandler struct {
@@ -237,15 +239,36 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 }
 
 func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint64, useTLS bool) (net.Conn, error) {
-	cid := *vmi.Status.VSOCKCID
-	log.Log.Object(vmi).Infof("Connecting to %d:%d", cid, port)
-	conn, err := vsock.Dial(cid, uint32(port), &vsock.Config{})
+	isolationRes, err := t.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
-		return nil, err
+		log.Log.Object(vmi).Reason(err).Error("failed to detect pod isolation for VSOCK dialing")
+		return nil, fmt.Errorf("failed to detect pod isolation: %w", err)
+	}
+
+	cid := *vmi.Status.VSOCKCID
+	mode := virtvsock.ModeGlobal
+
+	var conn net.Conn
+	nsErr := netns.New(isolationRes.Pid()).Do(func() error {
+		if virtvsock.IsLocalMode() {
+			cid = virtvsock.LocalCID
+			mode = virtvsock.ModeLocal
+		}
+
+		log.Log.Object(vmi).Infof("Connecting to %d:%d in %s mode", cid, port, mode)
+		c, err := vsock.Dial(cid, uint32(port), &vsock.Config{})
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
+			return err
+		}
+		conn = c
+		return nil
+	})
+	if nsErr != nil {
+		return nil, nsErr
 	}
 	if !useTLS {
-		log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
+		log.Log.Object(vmi).Infof("Connected to %d:%d in %s mode", cid, port, mode)
 		return conn, nil
 	}
 	tlsConn := tls.Client(conn, &tls.Config{
@@ -260,13 +283,13 @@ func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint64, 
 		},
 	})
 	if err := tlsConn.Handshake(); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to %d:%d over TLS", cid, port)
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to %d:%d in mode %s over TLS", cid, port, mode)
 		if closeErr := tlsConn.Close(); closeErr != nil {
 			log.Log.Object(vmi).Reason(closeErr).Info("Failed to close connection.")
 		}
 		return nil, err
 	}
-	log.Log.Object(vmi).Infof("Connected to %d:%d over TLS", cid, port)
+	log.Log.Object(vmi).Infof("Connected to %d:%d in mode %s over TLS", cid, port, mode)
 	return tlsConn, nil
 }
 
