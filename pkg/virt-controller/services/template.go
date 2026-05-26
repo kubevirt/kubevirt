@@ -326,7 +326,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 	psc.SeccompProfile = seccomp
 
 	if len(vmi.Spec.SupplementalGroups) > 0 {
-		psc.SupplementalGroups = vmi.Spec.SupplementalGroups
+		psc.SupplementalGroups = slices.Clone(vmi.Spec.SupplementalGroups)
 	}
 
 	return psc
