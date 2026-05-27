@@ -63,6 +63,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	"kubevirt.io/kubevirt/pkg/storage/oci"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
@@ -117,6 +118,7 @@ type ExportServerConfig struct {
 	GzipHandler        func(string) http.Handler
 	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
+	OCIHandler         func(*oci.Builder) http.Handler
 
 	PermissionChecker func(string) bool
 
@@ -133,8 +135,9 @@ type exportServer struct {
 	ExportServerConfig
 	handler http.Handler
 
-	nbdClient nbdv1.NBDClient
-	nbdMu     sync.RWMutex
+	nbdClient  nbdv1.NBDClient
+	nbdMu      sync.RWMutex
+	ociBuilder *oci.Builder
 }
 
 func (er *execReader) Read(p []byte) (int, error) {
@@ -177,6 +180,10 @@ func (s *exportServer) initHandler() {
 		mux.Handle(filepath.Join(internal, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
 		mux.Handle(filepath.Join(external, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
 	}
+	if s.ociBuilder != nil && s.Paths.OCIURI != "" {
+		mux.Handle(s.Paths.OCIURI, tokenChecker(s.TokenGetter, s.OCIHandler(s.ociBuilder)))
+	}
+
 	// Readiness probe
 	mux.HandleFunc(export.ReadinessPath, s.readyHandler)
 
@@ -227,7 +234,14 @@ func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handl
 func (s *exportServer) Run() {
 	s.initHandler()
 
-	srv := s.buildServer()
+	ctx, cancel := context.WithCancel(context.Background())
+	if !s.Deadline.IsZero() {
+		log.Log.Infof("Deadline set to %s", s.Deadline)
+		ctx, cancel = context.WithDeadline(ctx, s.Deadline)
+	}
+	defer cancel()
+
+	srv := s.buildServer(ctx)
 
 	h2Server := &http2.Server{
 		IdleTimeout: tunnelIdleTimeout,
@@ -243,22 +257,24 @@ func (s *exportServer) Run() {
 		ch <- err
 	}()
 
-	if !s.Deadline.IsZero() {
-		log.Log.Infof("Deadline set to %s", s.Deadline)
-		select {
-		case err := <-ch:
-			panic(err)
-		case <-time.After(time.Until(s.Deadline)):
-			log.Log.Info("Deadline exceeded, shutting down")
-			srv.Shutdown(context.TODO())
-		}
-	} else {
-		err := <-ch
+	if s.ociBuilder != nil {
+		go func() {
+			if err := s.ociBuilder.Prepare(ctx); err != nil {
+				log.Log.Reason(err).Error("OCI Pass 1 failed")
+			}
+		}()
+	}
+
+	select {
+	case err := <-ch:
 		panic(err)
+	case <-ctx.Done():
+		log.Log.Info("Deadline exceeded, shutting down")
+		srv.Shutdown(context.Background())
 	}
 }
 
-func (s *exportServer) buildServer() *http.Server {
+func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 	tlsConfig := &tls.Config{
 		MinVersion:   s.TLSMinVersion,
 		CipherSuites: s.TLSCipherSuites,
@@ -287,6 +303,9 @@ func (s *exportServer) buildServer() *http.Server {
 		Addr:      s.ListenAddr,
 		Handler:   rootHandler,
 		TLSConfig: tlsConfig,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
 	}
 }
 
@@ -294,7 +313,7 @@ func (s *exportServer) AddFlags() {
 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 }
 
-func NewExportServer(config ExportServerConfig) service.Service {
+func NewExportServer(config ExportServerConfig) (service.Service, error) {
 	es := &exportServer{
 		ExportServerConfig: config,
 	}
@@ -333,7 +352,21 @@ func NewExportServer(config ExportServerConfig) service.Service {
 		es.PermissionChecker = checkVolumePermissions
 	}
 
-	return es
+	if es.OCIHandler == nil {
+		es.OCIHandler = ociHTTPHandler
+	}
+
+	if es.Paths != nil && es.Paths.OCIURI != "" {
+		builder, err := newOCIBuilder(es.Paths)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct OCI builder: %w", err)
+		}
+		if builder != nil {
+			es.ociBuilder = builder
+		}
+	}
+
+	return es, nil
 }
 
 var getExpandedVM = func() *virtv1.VirtualMachine {
@@ -851,6 +884,10 @@ func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
 }
 
 func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
+	if s.ociBuilder != nil && !s.ociBuilder.Ready() {
+		http.Error(w, "OCI digest computation in progress", http.StatusServiceUnavailable)
+		return
+	}
 	io.WriteString(w, "OK")
 }
 

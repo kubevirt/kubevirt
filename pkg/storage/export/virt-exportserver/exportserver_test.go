@@ -92,7 +92,8 @@ func newTestServer(token string) *exportServer {
 			return true
 		},
 	}
-	s := NewExportServer(config)
+	s, err := NewExportServer(config)
+	Expect(err).ToNot(HaveOccurred())
 	return s.(*exportServer)
 }
 
@@ -1282,7 +1283,7 @@ var _ = Describe("exportserver", func() {
 		})
 
 		It("should return standard TLS config and unmodified base handler when BackupUID is empty", func() {
-			srv := server.buildServer()
+			srv := server.buildServer(context.Background())
 
 			Expect(srv.Addr).To(Equal(":8443"))
 			Expect(srv.Handler).To(BeIdenticalTo(baseHandler))
@@ -1297,7 +1298,7 @@ var _ = Describe("exportserver", func() {
 			server.BackupCACert = []byte("badcert")
 
 			Expect(func() {
-				server.buildServer()
+				server.buildServer(context.Background())
 			}).To(PanicWith("failed to parse Backup CA"))
 		})
 
@@ -1313,7 +1314,7 @@ var _ = Describe("exportserver", func() {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			srv := server.buildServer()
+			srv := server.buildServer(context.Background())
 			Expect(srv.Addr).To(Equal(":8443"))
 			Expect(srv.Handler).ToNot(BeIdenticalTo(baseHandler))
 			Expect(srv.TLSConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))

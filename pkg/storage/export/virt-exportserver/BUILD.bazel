@@ -2,13 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["exportserver.go"],
+    srcs = [
+        "exportserver.go",
+        "oci.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/service:go_default_library",
         "//pkg/storage/cbt/nbd/v1:go_default_library",
         "//pkg/storage/export/export:go_default_library",
+        "//pkg/storage/oci:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -33,14 +37,18 @@ go_test(
     srcs = [
         "exportserver_suite_test.go",
         "exportserver_test.go",
+        "oci_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/storage/cbt/nbd/v1:go_default_library",
         "//pkg/storage/export/export:go_default_library",
+        "//pkg/storage/oci:go_default_library",
         "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

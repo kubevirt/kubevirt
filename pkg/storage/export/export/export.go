@@ -132,6 +132,7 @@ const (
 	manifestData           = "manifest-data"
 	manifestsPath          = "/manifests/all"
 	secretManifestPath     = "/manifests/secret"
+	ociPath                = "/export.oci.tar"
 	externalHostKey        = "external_host"
 	internalHostKey        = "internal_host"
 	externalCaConfigMapKey = "external_ca_cm"
@@ -1187,11 +1188,15 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	if vm, err := ctrl.getVmFromExport(vmExport); err != nil {
 		return nil, err
-	} else {
-		if vm != nil {
-			if err := ctrl.createDataManifestAndAddToPod(vmExport, vm, podManifest, service); err != nil {
-				return nil, err
-			}
+	} else if vm != nil {
+		if ctrl.clusterConfig.OCIExportEnabled() {
+			podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "EXPORT_OCI_URI",
+				Value: ociPath,
+			})
+		}
+		if err := ctrl.createDataManifestAndAddToPod(vmExport, vm, podManifest, service); err != nil {
+			return nil, err
 		}
 	}
 
