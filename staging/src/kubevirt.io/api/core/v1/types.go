@@ -815,6 +815,10 @@ const (
 
 	// Indicates that the VMI has affinity or nodeSelector changes
 	VirtualMachineInstanceNodePlacementNotMatched VirtualMachineInstanceConditionType = "NodePlacementNotMatched"
+
+	// Indicates that the VMI domain shut off before the guest OS could boot,
+	// typically caused by the absence of a bootable device.
+	VirtualMachineInstanceBootFailed VirtualMachineInstanceConditionType = "BootFailed"
 )
 
 // These are valid reasons for VMI conditions.

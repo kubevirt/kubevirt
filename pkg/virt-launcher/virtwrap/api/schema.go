@@ -390,6 +390,7 @@ type KubeVirtMetadata struct {
 	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
 	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
+	BootFailed       bool                      `xml:"bootFailed,omitempty"`
 }
 
 type AccessCredentialMetadata struct {
