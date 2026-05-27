@@ -1,7 +1,10 @@
 package converter
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"sort"
 	"strconv"
 
 	"k8s.io/utils/ptr"
@@ -277,9 +280,11 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 		devicesByAddress[address] = &devices[i]
 	}
 
+	slices.Sort(pciAddresses)
 	numaNodes := hardware.LookupDevicesNumaNodes(pciAddresses, a.domainSpec)
 
-	for address, device := range devicesByAddress {
+	for _, address := range pciAddresses {
+		device := devicesByAddress[address]
 		if numaNode, exists := numaNodes[address]; exists {
 			a.devices[address] = device
 			a.devicesNUMANodes[address] = numaNode
@@ -301,6 +306,12 @@ func (a *expanderBusAssigner) groupDevicesByNUMA() numaDeviceGroups {
 			continue
 		}
 		groups[numaNode] = append(groups[numaNode], device)
+	}
+	for numaNode := range groups {
+		sort.Slice(groups[numaNode], func(i, j int) bool {
+			return hardware.PCIAddressToString(groups[numaNode][i].Source.Address) <
+				hardware.PCIAddressToString(groups[numaNode][j].Source.Address)
+		})
 	}
 	return groups
 }
@@ -353,7 +364,8 @@ func (a *expanderBusAssigner) placeDevice(topology *numaAwareTopology, device *a
 func (a *expanderBusAssigner) buildTopology() error {
 	numaDeviceGroups := a.groupDevicesByNUMA()
 
-	for numaKey, devices := range numaDeviceGroups {
+	for _, numaKey := range sortedKeys(numaDeviceGroups) {
+		devices := numaDeviceGroups[numaKey]
 		topology := a.getNumaAwareTopology(numaKey)
 
 		for _, device := range devices {
@@ -385,14 +397,16 @@ func (a *expanderBusAssigner) PlaceNumaAlignedDevices() error {
 		return fmt.Errorf("failed to create PCIe topology with NUMA alignment: %w", err)
 	}
 
-	for _, topology := range a.topologyMap {
+	for _, numaKey := range sortedKeys(a.topologyMap) {
+		topology := a.topologyMap[numaKey]
 		a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *topology.expanderBus)
 
 		for _, rootPort := range topology.rootPorts {
 			a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *rootPort)
 		}
 
-		for sourceAddress, address := range topology.addressPerDeviceSourcePCI {
+		for _, sourceAddress := range sortedKeys(topology.addressPerDeviceSourcePCI) {
+			address := topology.addressPerDeviceSourcePCI[sourceAddress]
 			if device, exists := a.devices[sourceAddress]; exists {
 				device.Address = address
 			}
@@ -403,4 +417,13 @@ func (a *expanderBusAssigner) PlaceNumaAlignedDevices() error {
 	}
 
 	return nil
+}
+
+func sortedKeys[K cmp.Ordered, V any](values map[K]V) []K {
+	keys := make([]K, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
 }
