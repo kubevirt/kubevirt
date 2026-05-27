@@ -70,6 +70,18 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		}
 	}
 
+	createPCIDeviceWithGuestAddress := func(alias, hostBus, guestBus, guestSlot string) api.HostDevice {
+		device := createPCIDevice(alias, hostBus)
+		device.Address = newPCIAddress(guestBus, guestSlot)
+		return device
+	}
+
+	createPCIDeviceWithPartialGuestAddress := func(alias, hostBus string) api.HostDevice {
+		device := createPCIDevice(alias, hostBus)
+		device.Address = &api.Address{Type: api.AddressPCI, Bus: "0x00"}
+		return device
+	}
+
 	createNonPCIDevice := func(deviceType string) api.HostDevice {
 		return api.HostDevice{
 			Type: deviceType,
@@ -199,6 +211,24 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				},
 				expectedDevices: 1,
 				description:     "should skip devices without source address",
+			}),
+			Entry("filters devices with existing guest PCI addresses", addDevicesTestCase{
+				name: "devices with guest PCI addresses",
+				devices: []api.HostDevice{
+					createPCIDevice("pci1", "0x01"),
+					createPCIDeviceWithGuestAddress("pci2", "0x02", "0x00", "0x07"),
+				},
+				expectedDevices: 1,
+				description:     "should skip devices that already have a guest PCI address",
+			}),
+			Entry("filters devices with partial guest PCI addresses", addDevicesTestCase{
+				name: "devices with partial guest PCI addresses",
+				devices: []api.HostDevice{
+					createPCIDevice("pci1", "0x01"),
+					createPCIDeviceWithPartialGuestAddress("pci2", "0x02"),
+				},
+				expectedDevices: 1,
+				description:     "should skip devices that already have any guest PCI coordinate",
 			}),
 			Entry("filters devices without NUMA affinity", addDevicesTestCase{
 				name:            "devices without NUMA topology",
@@ -382,6 +412,24 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				Expect(device.Address.Bus).ToNot(BeEmpty())
 				Expect(device.Address.Slot).To(Equal("0x00"))
 			}
+		})
+
+		It("should preserve existing hostdev guest PCI addresses", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDeviceWithGuestAddress("addressed", "0x01", "0x00", "0x07"),
+				createPCIDevice("unaddressed", "0x02"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(HaveLen(2))
+			Expect(domainSpec.Devices.Controllers[0].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(*domainSpec.Devices.Controllers[0].Target.NUMANode).To(Equal(uint32(1)))
+			Expect(domainSpec.Devices.Controllers[1].Model).To(Equal(api.ControllerModelPCIeRootPort))
+
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(Equal(newPCIAddress("0x00", "0x07")))
+			Expect(domainSpec.Devices.HostDevices[1].Address).To(Equal(newPCIAddress("2", "0x00")))
 		})
 
 		It("should place NUMA groups and devices in deterministic order", func() {

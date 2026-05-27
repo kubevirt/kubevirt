@@ -276,6 +276,11 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 		}
 
 		address := hardware.PCIAddressToString(devices[i].Source.Address)
+		if hasGuestPCIAddress(devices[i].Address) {
+			log.Log.Warningf("device %s already has a guest PCI address, skipping pcie-expander-bus assignment", address)
+			continue
+		}
+
 		pciAddresses = append(pciAddresses, address)
 		devicesByAddress[address] = &devices[i]
 	}
@@ -426,4 +431,15 @@ func sortedKeys[K cmp.Ordered, V any](values map[K]V) []K {
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+func hasGuestPCIAddress(address *api.Address) bool {
+	if address == nil {
+		return false
+	}
+
+	// Any populated PCI coordinate is treated as explicit guest placement.
+	// This planner must not complete or relocate partially populated addresses;
+	// malformed addresses are left to the normal domain validation path.
+	return address.Domain != "" || address.Bus != "" || address.Slot != "" || address.Function != ""
 }
