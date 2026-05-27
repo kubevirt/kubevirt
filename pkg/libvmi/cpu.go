@@ -92,18 +92,6 @@ func WithArchitecture(arch string) Option {
 	}
 }
 
-// Deprecated: Use WithCPURequest instead
-// WithResourceCPU specifies the vmi CPU resource.
-func WithResourceCPU(value string) Option {
-	return WithCPURequest(value)
-}
-
-// Deprecated: Use WithCPULimit instead
-// WithLimitCPU specifies the VMI CPU limit.
-func WithLimitCPU(value string) Option {
-	return WithCPULimit(value)
-}
-
 // WithCPURequest specifies the vmi CPU resource.
 func WithCPURequest(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
