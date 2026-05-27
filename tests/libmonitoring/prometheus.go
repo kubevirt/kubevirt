@@ -264,7 +264,8 @@ func doHTTPRequest(promURL, endpoint, token string) []byte {
 	var result []byte
 	client := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			ForceAttemptHTTP2: true,
 		},
 	}
 	Eventually(func() error {
