@@ -190,7 +190,9 @@ fi
 NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
 
-if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
+if [[ "${JOB_NAME-}" == *dequarantine* ]]; then
+    echo "Dequarantine lane: skipping repetition count check"
+elif should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     echo "Skipping run due to number of tests in total being too high for repeated run."
     exit 0
 fi
