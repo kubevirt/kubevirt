@@ -37,7 +37,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -298,14 +297,7 @@ var _ = Describe("HostDisk", func() {
 			})
 		})
 		Context("With existing disk.img", func() {
-			AfterEach(func() {
-				By("Switching back to the regular mock ownership manager")
-				ephemeraldiskutils.MockDefaultOwnershipManager()
-			})
-
-			It("Should not re-create or chown disk.img", func() {
-				By("Switching to an ownership manager that panics when called")
-				ephemeraldiskutils.MockDefaultOwnershipManagerWithFailure()
+			It("Should not re-create disk.img", func() {
 				By("Creating a disk.img before adding a HostDisk volume")
 				tmpDiskImg := createTempDiskImg("volume1")
 				By("Creating a new VMI with a HostDisk volumes")

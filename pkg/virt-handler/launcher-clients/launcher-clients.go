@@ -161,6 +161,16 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 	var socketFile string
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
+	if exists && clientInfo.Ready && cmdclient.IsSocketUnresponsive(clientInfo.SocketFile) {
+		if clientInfo.Client != nil {
+			clientInfo.Client.Close()
+		}
+		if clientInfo.DomainPipeStopChan != nil {
+			close(clientInfo.DomainPipeStopChan)
+		}
+		l.launcherClients.Delete(vmi.UID)
+		exists = false
+	}
 	if exists {
 		if clientInfo.Ready == true {
 			// use cached socket if we previously established a connection

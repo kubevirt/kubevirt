@@ -29,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type HotplugMounter interface {
@@ -281,7 +283,7 @@ func (m *hotplugMounter) mountAndVerify(vmi *v1.VirtualMachineInstance, sourceUI
 
 				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", sourceFile, target)
 				opts := []string{
-					"bind", "ro", "uid=107", "gid=107",
+					"bind", "ro", fmt.Sprintf("uid=%d", util.NonRootUID), fmt.Sprintf("gid=%d", util.NonRootUID),
 				}
 				err = virt_chroot.MountChrootWithOptions(sourceFile, target, opts...)
 				if err != nil {
@@ -314,7 +316,7 @@ const (
 func GetImageInfo(imagePath string, context isolation.IsolationResult, config *v1.DiskVerification) (*disk.DiskInfo, error) {
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
 	cmd := ExecChroot(
-		"--user", "qemu", "--mount", context.MountNamespace(), "exec", "--",
+		"--user", util.NonRootUserString, "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
 	)
 	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())

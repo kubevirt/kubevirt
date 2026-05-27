@@ -25,20 +25,23 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/user"
-	"strconv"
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // TODO this should be part of structs, instead of a global
-var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{user: "qemu"}
+var (
+	DefaultOwnershipManager  OwnershipManagerInterface = &OwnershipManager{uid: util.NonRootUID, gid: util.NonRootUID}
+	DiskFileOwnershipManager OwnershipManagerInterface = &OwnershipManager{uid: util.QemuUID, gid: util.NonRootUID}
+)
 
 // For testing
 func MockDefaultOwnershipManager() {
 	DefaultOwnershipManager = &nonOpManager{}
+	DiskFileOwnershipManager = &nonOpManager{}
 }
 
 type nonOpManager struct {
@@ -54,6 +57,7 @@ func (no *nonOpManager) SetFileOwnership(_ *safepath.Path) error {
 
 func MockDefaultOwnershipManagerWithFailure() {
 	DefaultOwnershipManager = &failureManager{}
+	DiskFileOwnershipManager = &failureManager{}
 }
 
 type failureManager struct {
@@ -68,7 +72,8 @@ func (no *failureManager) SetFileOwnership(_ *safepath.Path) error {
 }
 
 type OwnershipManager struct {
-	user string
+	uid int
+	gid int
 }
 
 func (om *OwnershipManager) SetFileOwnership(file *safepath.Path) error {
@@ -81,34 +86,20 @@ func (om *OwnershipManager) SetFileOwnership(file *safepath.Path) error {
 }
 
 func (om *OwnershipManager) UnsafeSetFileOwnership(file string) error {
-	owner, err := user.Lookup(om.user)
-	if err != nil {
-		return fmt.Errorf("failed to look up user %s: %v", om.user, err)
-	}
-
-	uid, err := strconv.Atoi(owner.Uid)
-	if err != nil {
-		return fmt.Errorf("failed to convert UID %s of user %s: %v", owner.Uid, om.user, err)
-	}
-
-	gid, err := strconv.Atoi(owner.Gid)
-	if err != nil {
-		return fmt.Errorf("failed to convert GID %s of user %s: %v", owner.Gid, om.user, err)
-	}
 	fileInfo, err := os.Stat(file)
 	if err != nil {
 		return err
 	}
 
 	if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
-		if uid == int(stat.Uid) && gid == int(stat.Gid) {
+		if om.uid == int(stat.Uid) && om.gid == int(stat.Gid) {
 			return nil
 		}
 	} else {
 		return fmt.Errorf("failed to convert stat info")
 	}
 
-	return os.Chown(file, uid, gid)
+	return os.Chown(file, om.uid, om.gid)
 }
 
 func RemoveFilesIfExist(paths ...string) error {

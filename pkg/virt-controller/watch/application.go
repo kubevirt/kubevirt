@@ -135,7 +135,7 @@ const (
 	defaultSnapshotControllerThreads = 6
 	defaultVMIControllerThreads      = 10
 
-	defaultLauncherSubGid                 = 107
+	defaultLauncherSubGid                 = 64535
 	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
 	defaultNodeTopologyUpdatePeriod       = 30 * time.Second
 

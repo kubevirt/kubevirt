@@ -33,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const SyncTimeout = 200 * time.Millisecond
@@ -110,7 +112,15 @@ func listenUnix(socketPath string) (net.Listener, error) {
 		return nil, err
 	}
 	os.Remove(socketPath)
-	return net.Listen("unix", socketPath)
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Chown(socketPath, util.NonRootUID, util.NonRootUID); err != nil {
+		listener.Close()
+		return nil, err
+	}
+	return listener, nil
 }
 
 func (h *TargetHandler) acceptConnection(vmiUID types.UID, listener net.Listener, handler func(types.UID, net.Conn)) {

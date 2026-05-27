@@ -25,16 +25,24 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 )
 
 const (
 	conntrackHookSock = "/var/run/kubevirt/sockets/conntrack-hook.sock"
 	socketTimeout     = 1 * time.Second
+
+	qemuConfPath             = "/etc/libvirt/qemu.conf"
+	envSharedFilesystemPaths = "SHARED_FILESYSTEM_PATHS"
 )
 
 func main() {
@@ -53,13 +61,138 @@ func main() {
 	operation := os.Args[2]
 	subOperation := os.Args[3]
 
+	if operation == "migrate" && subOperation == "begin" {
+		runMigrateBeginHook(os.Stdin, os.Stdout)
+		return
+	}
+
 	// "started begin" fires on the destination after migration data transfer
 	// completes but before VM resumes. Used to gate conntrack injection.
 	if operation == "started" && subOperation == "begin" {
 		if err := waitForConntrackSync(); err != nil {
 			log.Printf("conntrack sync error: %v", err)
 		}
+		return
 	}
+}
+
+// runMigrateBeginHook reads the original XML from stdin, attempts to inject
+// per-disk seclabel relabel='no' for shared filesystem PVCs, and writes either
+func runMigrateBeginHook(in io.Reader, out io.Writer) {
+	sharedPaths := getSharedFilesystemPaths()
+	if len(sharedPaths) == 0 {
+		if _, err := io.Copy(out, in); err != nil {
+			log.Printf("passthrough copy failed: %v", err)
+		}
+		return
+	}
+
+	xmlBytes, err := io.ReadAll(in)
+	if err != nil {
+		log.Printf("read stdin failed: %v", err)
+		return
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("seclabel injection panicked: %v; passing through original XML", r)
+			_, _ = out.Write(xmlBytes)
+		}
+	}()
+
+	if err := injectSharedDiskSeclabels(xmlBytes, sharedPaths, out); err != nil {
+		log.Printf("seclabel injection error: %v; passing through original XML", err)
+		_, _ = out.Write(xmlBytes)
+	}
+}
+
+// sourceLineRE matches a libvirt disk <source file="X"/> or <source file="X"></source>
+// (single-quoted variants too) with no child elements — required so we never
+// double-inject a seclabel into a source that already has one.
+var sourceLineRE = regexp.MustCompile(`<source\s+file=["']([^"']+)["']\s*((?:/>)|(?:></source>))`)
+
+func injectSharedDiskSeclabels(xmlBytes []byte, sharedPaths []string, out io.Writer) error {
+	matches := sourceLineRE.FindAllSubmatchIndex(xmlBytes, -1)
+	if len(matches) == 0 {
+		_, err := out.Write(xmlBytes)
+		return err
+	}
+
+	var buf bytes.Buffer
+	buf.Grow(len(xmlBytes) + len(matches)*64)
+
+	last := 0
+	for _, m := range matches {
+		matchStart, matchEnd := m[0], m[1]
+		path := string(xmlBytes[m[2]:m[3]])
+
+		buf.Write(xmlBytes[last:matchStart])
+		if pathInShared(path, sharedPaths) {
+			fmt.Fprintf(&buf, `<source file="%s"><seclabel model='dac' relabel='no'/></source>`, path)
+		} else {
+			buf.Write(xmlBytes[matchStart:matchEnd])
+		}
+		last = matchEnd
+	}
+	buf.Write(xmlBytes[last:])
+
+	_, err := out.Write(buf.Bytes())
+	return err
+}
+
+func getSharedFilesystemPaths() []string {
+	var raw []string
+	if env := os.Getenv(envSharedFilesystemPaths); env != "" {
+		raw = splitNonEmpty(env, ":")
+	} else {
+		raw = parseSharedFilesystemsFromQemuConf(qemuConfPath)
+	}
+	for i, p := range raw {
+		raw[i] = filepath.Clean(p)
+	}
+	return raw
+}
+
+func splitNonEmpty(s, sep string) []string {
+	var out []string
+	for part := range strings.SplitSeq(s, sep) {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+var sharedFsConfRE = regexp.MustCompile(`(?m)^\s*shared_filesystems\s*=\s*\[\s*([^\]]*)\]`)
+
+func parseSharedFilesystemsFromQemuConf(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	m := sharedFsConfRE.FindStringSubmatch(string(data))
+	if len(m) < 2 {
+		return nil
+	}
+	var out []string
+	for part := range strings.SplitSeq(m[1], ",") {
+		part = strings.Trim(strings.TrimSpace(part), `"'`)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func pathInShared(path string, sharedPaths []string) bool {
+	p := filepath.Clean(path)
+	for _, sp := range sharedPaths {
+		if p == sp || strings.HasPrefix(p, sp+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func waitForConntrackSync() error {

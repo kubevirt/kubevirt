@@ -25,8 +25,9 @@ const (
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
 
-	NonRootUID        = 107
-	NonRootUserString = "qemu"
+	NonRootUID        = 64535
+	NonRootUserString = "deckhouse"
+	QemuUID           = 107
 	RootUser          = 0
 )
 

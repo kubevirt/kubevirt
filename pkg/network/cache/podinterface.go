@@ -35,6 +35,8 @@ const (
 	PodIfaceNetworkPreparationFinished
 )
 
+const podIfaceCacheDirName = "network-info-cache"
+
 type PodIfaceCacheData struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
 	PodIP  string        `json:"podIP,omitempty"`
@@ -71,7 +73,6 @@ func DeletePodInterfaceCache(c cacheCreator, uid, ifaceName string) error {
 }
 
 func NewPodInterfaceCache(creator cacheCreator, uid string) PodInterfaceCache {
-	const podIfaceCacheDirName = "network-info-cache"
 	return PodInterfaceCache{creator.New(filepath.Join(util.VirtPrivateDir, podIfaceCacheDirName, uid))}
 }
 

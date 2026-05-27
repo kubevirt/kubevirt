@@ -28,6 +28,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
@@ -321,7 +322,7 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 
 		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedPasst != nil:
-			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
+			spec.LinuxStack.IPv4.PingGroupRange = []int{util.NonRootUID, util.NonRootUID}
 			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)
 		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedMacvtap != nil:
