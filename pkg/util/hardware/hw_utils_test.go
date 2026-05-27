@@ -35,7 +35,8 @@ import (
 
 var _ = Describe("Hardware utils test", func() {
 	const (
-		testPCIAddress = "0000:00:01.0"
+		testPCIAddress      = "0000:00:01.0"
+		testPCIAddressNUMA1 = "0000:00:02.0"
 	)
 
 	var (
@@ -61,6 +62,14 @@ var _ = Describe("Hardware utils test", func() {
 
 		numaNodeFile := filepath.Join(pciDevicePath, "numa_node")
 		err = os.WriteFile(numaNodeFile, []byte("0\n"), 0o644)
+		Expect(err).ToNot(HaveOccurred())
+
+		pciDevicePath = filepath.Join(fakePciBasePath, testPCIAddressNUMA1)
+		err = os.MkdirAll(pciDevicePath, 0o755)
+		Expect(err).ToNot(HaveOccurred())
+
+		numaNodeFile = filepath.Join(pciDevicePath, "numa_node")
+		err = os.WriteFile(numaNodeFile, []byte("1\n"), 0o644)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create NUMA node 0 with cpulist
@@ -358,6 +367,158 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(devicesNumaNodes[testPCIAddress]).To(Equal(uint32(0)))
 		})
 
+		It("should use NUMATune memnode mapping without vCPU affinity", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0-3"},
+							{ID: "1", CPUs: "4-7"},
+						},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 1, Mode: "strict", NodeSet: "0"},
+					},
+				},
+			}
+
+			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 1}))
+		})
+
+		It("should prefer NUMATune memnode mapping over vCPU pinning", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0"},
+							{ID: "1", CPUs: "1"},
+						},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "0"},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 1, Mode: "strict", NodeSet: "0"},
+					},
+				},
+			}
+
+			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 1}))
+		})
+
+		It("should fall back to vCPU pinning when NUMATune memnode mapping is ambiguous", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0"},
+							{ID: "1", CPUs: "1"},
+						},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "0"},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 0, Mode: "strict", NodeSet: "0"},
+						{CellID: 1, Mode: "strict", NodeSet: "0"},
+					},
+				},
+			}
+
+			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 0}))
+		})
+
+		It("should report warnings for ambiguous NUMATune memnode mapping", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0"},
+							{ID: "1", CPUs: "1"},
+						},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 0, Mode: "strict", NodeSet: "0"},
+						{CellID: 1, Mode: "strict", NodeSet: "0"},
+					},
+				},
+			}
+
+			devicesNumaNodes, warnings := LookupDevicesNumaNodesWithWarnings([]string{testPCIAddress}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 0}))
+
+			warningMessages := []string{}
+			for _, warning := range warnings {
+				warningMessages = append(warningMessages, warning.String())
+			}
+			Expect(warningMessages).To(ContainElement(ContainSubstring("mapped to multiple guest NUMA cells")))
+		})
+
+		It("should fall back to vCPU pinning when NUMATune memnode references an unknown guest cell", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0"},
+						},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{
+						{VCPU: 0, CPUSet: "0"},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 1, Mode: "strict", NodeSet: "0"},
+					},
+				},
+			}
+
+			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddress: 0}))
+		})
+
+		It("should keep unambiguous NUMATune memnode mappings when another host node is ambiguous", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0"},
+							{ID: "1", CPUs: "1"},
+						},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 0, Mode: "strict", NodeSet: "0"},
+						{CellID: 1, Mode: "strict", NodeSet: "0-1"},
+					},
+				},
+			}
+
+			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress, testPCIAddressNUMA1}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddressNUMA1: 1}))
+		})
+
 		It("should report warnings for devices without host NUMA affinity", func() {
 			domainSpec := &api.DomainSpec{
 				CPU: api.CPU{
@@ -400,6 +561,29 @@ var _ = Describe("Hardware utils test", func() {
 				warningMessages = append(warningMessages, warning.String())
 			}
 			Expect(warningMessages).To(ContainElement(ContainSubstring("cannot be mapped to a guest NUMA cell")))
+		})
+
+		It("should keep valid NUMATune memnode mappings when another memnode is invalid", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{
+							{ID: "0", CPUs: "0"},
+							{ID: "1", CPUs: "1"},
+						},
+					},
+				},
+				NUMATune: &api.NUMATune{
+					MemNodes: []api.MemNode{
+						{CellID: 0, Mode: "strict", NodeSet: "invalid"},
+						{CellID: 2, Mode: "strict", NodeSet: "0"},
+						{CellID: 1, Mode: "strict", NodeSet: "1"},
+					},
+				},
+			}
+
+			devicesNumaNodes := LookupDevicesNumaNodes([]string{testPCIAddress, testPCIAddressNUMA1}, domainSpec)
+			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddressNUMA1: 1}))
 		})
 	})
 })

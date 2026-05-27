@@ -464,6 +464,45 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			Expect(domainSpec.Devices.HostDevices[1].Address).To(Equal(newPCIAddress("2", "0x00")))
 		})
 
+		It("should prefer NUMATune memnode mapping for guest NUMA placement", func() {
+			domainSpec.NUMATune = &api.NUMATune{
+				MemNodes: []api.MemNode{
+					{CellID: 1, Mode: "strict", NodeSet: "0"},
+				},
+			}
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("numa0", "0x01"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(HaveLen(2))
+			Expect(domainSpec.Devices.Controllers[0].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(*domainSpec.Devices.Controllers[0].Target.NUMANode).To(Equal(uint32(1)))
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(Equal(newPCIAddress("2", "0x00")))
+		})
+
+		It("should fall back to vCPU pinning for ambiguous NUMATune memnode mapping", func() {
+			domainSpec.NUMATune = &api.NUMATune{
+				MemNodes: []api.MemNode{
+					{CellID: 0, Mode: "strict", NodeSet: "0"},
+					{CellID: 1, Mode: "strict", NodeSet: "0"},
+				},
+			}
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("numa0", "0x01"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(HaveLen(2))
+			Expect(domainSpec.Devices.Controllers[0].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(*domainSpec.Devices.Controllers[0].Target.NUMANode).To(Equal(uint32(0)))
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(Equal(newPCIAddress("2", "0x00")))
+		})
+
 		It("should place NUMA groups and devices in deterministic order", func() {
 			domainSpec.Devices.HostDevices = []api.HostDevice{
 				createPCIDevice("numa1_b", "0x04"),
