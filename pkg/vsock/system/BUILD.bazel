@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["system.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/vsock/system",
+    importpath = "kubevirt.io/kubevirt/pkg/vsock/system",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/util/tls:go_default_library",
