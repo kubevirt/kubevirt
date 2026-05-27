@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -65,9 +66,11 @@ func NewController(templateService services.TemplateService,
 	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
+	kubeVirtInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
+	storageAnnotationsGenerator storageAnnotationsGenerator,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
@@ -79,33 +82,35 @@ func NewController(templateService services.TemplateService,
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
 		),
-		vmiIndexer:              vmiInformer.GetIndexer(),
-		vmStore:                 vmInformer.GetStore(),
-		podIndexer:              podInformer.GetIndexer(),
-		pvcIndexer:              pvcInformer.GetIndexer(),
-		migrationIndexer:        migrationInformer.GetIndexer(),
-		recorder:                recorder,
-		clientset:               clientset,
-		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		pvcExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeIndexer:       dataVolumeInformer.GetIndexer(),
-		cdiStore:                cdiInformer.GetStore(),
-		cdiConfigStore:          cdiConfigInformer.GetStore(),
-		clusterConfig:           clusterConfig,
-		topologyHinter:          topologyHinter,
-		cidsMap:                 vsock.NewCIDsMap(),
-		backendStorage:          backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
-		netAnnotationsGenerator: netAnnotationsGenerator,
-		updateNetworkStatus:     netStatusUpdater,
-		validateNetworkSpec:     netSpecValidator,
-		netMigrationEvaluator:   netMigrationEvaluator,
+		vmiIndexer:                  vmiInformer.GetIndexer(),
+		vmStore:                     vmInformer.GetStore(),
+		podIndexer:                  podInformer.GetIndexer(),
+		pvcIndexer:                  pvcInformer.GetIndexer(),
+		migrationIndexer:            migrationInformer.GetIndexer(),
+		recorder:                    recorder,
+		clientset:                   clientset,
+		podExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		pvcExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeIndexer:           dataVolumeInformer.GetIndexer(),
+		cdiStore:                    cdiInformer.GetStore(),
+		cdiConfigStore:              cdiConfigInformer.GetStore(),
+		clusterConfig:               clusterConfig,
+		topologyHinter:              topologyHinter,
+		cidsMap:                     vsock.NewCIDsMap(),
+		backendStorage:              backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		netAnnotationsGenerator:     netAnnotationsGenerator,
+		storageAnnotationsGenerator: storageAnnotationsGenerator,
+		updateNetworkStatus:         netStatusUpdater,
+		validateNetworkSpec:         netSpecValidator,
+		netMigrationEvaluator:       netMigrationEvaluator,
 	}
 
 	c.hasSynced = func() bool {
 		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
-			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced()
+			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
+			kubeVirtInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -152,6 +157,13 @@ func NewController(templateService services.TemplateService,
 		return nil, err
 	}
 
+	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateKubeVirt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -180,6 +192,11 @@ type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) erro
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
+type storageAnnotationsGenerator interface {
+	Generate(vmi *virtv1.VirtualMachineInstance) (map[string]string, error)
+	ManagedAnnotationKeys() []string
+}
+
 type migrationEvaluator interface {
 	// Evaluate determines if a VMI should request an automatic migration.
 	//
@@ -191,30 +208,31 @@ type migrationEvaluator interface {
 }
 
 type Controller struct {
-	templateService         services.TemplateService
-	clientset               kubecli.KubevirtClient
-	Queue                   workqueue.TypedRateLimitingInterface[string]
-	vmiIndexer              cache.Indexer
-	vmStore                 cache.Store
-	podIndexer              cache.Indexer
-	pvcIndexer              cache.Indexer
-	migrationIndexer        cache.Indexer
-	topologyHinter          topology.Hinter
-	recorder                record.EventRecorder
-	podExpectations         *controller.UIDTrackingControllerExpectations
-	vmiExpectations         *controller.UIDTrackingControllerExpectations
-	pvcExpectations         *controller.UIDTrackingControllerExpectations
-	dataVolumeIndexer       cache.Indexer
-	cdiStore                cache.Store
-	cdiConfigStore          cache.Store
-	clusterConfig           *virtconfig.ClusterConfig
-	cidsMap                 vsock.Allocator
-	backendStorage          *backendstorage.BackendStorage
-	hasSynced               func() bool
-	netAnnotationsGenerator annotationsGenerator
-	updateNetworkStatus     statusUpdater
-	validateNetworkSpec     specValidator
-	netMigrationEvaluator   migrationEvaluator
+	templateService             services.TemplateService
+	clientset                   kubecli.KubevirtClient
+	Queue                       workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer                  cache.Indexer
+	vmStore                     cache.Store
+	podIndexer                  cache.Indexer
+	pvcIndexer                  cache.Indexer
+	migrationIndexer            cache.Indexer
+	topologyHinter              topology.Hinter
+	recorder                    record.EventRecorder
+	podExpectations             *controller.UIDTrackingControllerExpectations
+	vmiExpectations             *controller.UIDTrackingControllerExpectations
+	pvcExpectations             *controller.UIDTrackingControllerExpectations
+	dataVolumeIndexer           cache.Indexer
+	cdiStore                    cache.Store
+	cdiConfigStore              cache.Store
+	clusterConfig               *virtconfig.ClusterConfig
+	cidsMap                     vsock.Allocator
+	backendStorage              *backendstorage.BackendStorage
+	hasSynced                   func() bool
+	netAnnotationsGenerator     annotationsGenerator
+	storageAnnotationsGenerator storageAnnotationsGenerator
+	updateNetworkStatus         statusUpdater
+	validateNetworkSpec         specValidator
+	netMigrationEvaluator       migrationEvaluator
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -473,6 +491,21 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
 	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
+}
+
+func (c *Controller) updateKubeVirt(old, curr interface{}) {
+	oldKV := old.(*virtv1.KubeVirt)
+	currKV := curr.(*virtv1.KubeVirt)
+
+	oldSkipValue := oldKV.Annotations[velero.SkipHooksAnnotation]
+	currSkipValue := currKV.Annotations[velero.SkipHooksAnnotation]
+
+	// Only requeue all VMIs if the skip-backup-hooks annotation changed
+	if oldSkipValue != currSkipValue {
+		for _, obj := range c.vmiIndexer.List() {
+			c.enqueueVirtualMachine(obj)
+		}
+	}
 }
 
 func (c *Controller) lowerVMIExpectation(curr interface{}) {

@@ -68,6 +68,7 @@ import (
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -3105,6 +3106,18 @@ func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virt
 			} else {
 				delete(newVMIAnnotations, key)
 			}
+		}
+	}
+
+	// Sync velero skip-hooks annotation from VM metadata (not template)
+	vmVal, vmExists := vm.ObjectMeta.Annotations[velero.SkipHooksAnnotation]
+	vmiVal, vmiExists := newVMIAnnotations[velero.SkipHooksAnnotation]
+	if vmExists != vmiExists || vmVal != vmiVal {
+		changed = true
+		if vmExists {
+			newVMIAnnotations[velero.SkipHooksAnnotation] = vmVal
+		} else {
+			delete(newVMIAnnotations, velero.SkipHooksAnnotation)
 		}
 	}
 

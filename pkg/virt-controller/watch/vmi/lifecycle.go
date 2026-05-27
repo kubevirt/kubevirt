@@ -701,14 +701,27 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 		}
 	}
 
+	dynamicLabels := []string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel}
+
+	generatedAnnotations, err := c.storageAnnotationsGenerator.Generate(vmi)
+	if err != nil {
+		return pod, fmt.Errorf("failed to generate storage annotations: %v", err)
+	}
+
+	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
+	dynamicAnnotations = append(dynamicAnnotations, c.storageAnnotationsGenerator.ManagedAnnotationKeys()...)
+
 	syncMap(
-		[]string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel},
+		dynamicLabels,
 		vmi.Labels, newPodLabels, pod.ObjectMeta.Labels, "labels",
 	)
 
+	annotationsToSync := maps.Clone(vmi.Annotations)
+	maps.Copy(annotationsToSync, generatedAnnotations)
+
 	syncMap(
-		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction},
-		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
+		dynamicAnnotations,
+		annotationsToSync, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
 	)
 
 	if patchSet.IsEmpty() {
