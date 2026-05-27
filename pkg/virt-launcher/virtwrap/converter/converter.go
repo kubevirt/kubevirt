@@ -1190,7 +1190,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 			if c.PCINUMAAwareTopologyEnabled {
 				if c.Architecture.SupportPCIePlacement() {
-					if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec); err != nil {
+					// Strict PCI placement is tied to the VMI API request. At this
+					// point the request has already been converted into domain NUMA
+					// state, but deriving strictness from the XML shape would make
+					// other NUMATune users strict by accident.
+					strictPCIPlacement := vmi.Spec.Domain.CPU.NUMA != nil &&
+						vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil
+					var opts []PCIPlacementOption
+					if strictPCIPlacement {
+						opts = append(opts, WithStrictPCINUMAPlacement())
+					}
+					if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec, opts...); err != nil {
+						if strictPCIPlacement {
+							return fmt.Errorf("failed to process strict PCIe NUMA-aware topology: %w", err)
+						}
 						log.Log.Reason(err).Warningf("Failed to process PCIe NUMA-aware topology, falling back to default placement")
 					}
 				} else {

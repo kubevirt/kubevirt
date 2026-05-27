@@ -1907,6 +1907,25 @@ var _ = Describe("Converter", func() {
 					Expect(rootPort.Address.Bus).To(Equal(numaExpander.Index), "root port %d should be attached to the expander bus", i)
 				}
 			})
+
+			It("should fail conversion when guest NUMA passthrough host devices cannot be NUMA placed", func() {
+				if cleanup != nil {
+					cleanup()
+				}
+				cleanup = setupMockHardwarePaths(map[string]string{
+					"0000:81:01.0": "0",
+					"0000:81:02.0": "0",
+					"0000:82:01.0": "0",
+				}, map[string]string{"0": "0-1"})
+
+				c = createContextWithDevices(vmi, c)
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to process strict PCIe NUMA-aware topology"))
+				Expect(err.Error()).To(ContainSubstring("0000:82:02.0"))
+			})
 		})
 
 		Context("with PCINUMAAwareTopology feature gate disabled", func() {

@@ -189,7 +189,8 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 					assigner = newExpanderBusAssigner(domainSpec)
 				}
 
-				assigner.addDevices(testCase.devices)
+				err := assigner.addDevices(testCase.devices)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(assigner.devices).To(HaveLen(testCase.expectedDevices), testCase.description)
 			},
 			Entry("filters non-PCI devices", addDevicesTestCase{
@@ -463,6 +464,46 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			Expect(domainSpec.Devices.HostDevices[0].Address).To(BeNil())
 			Expect(domainSpec.Devices.HostDevices[1].Address).To(Equal(newPCIAddress("2", "0x00")))
 		})
+		It("should fail strict placement when a device has no host NUMA affinity", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("missing_numa", "0x06"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, WithStrictPCINUMAPlacement())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("strict PCI NUMA-aware placement failed"))
+			Expect(err.Error()).To(ContainSubstring("0000:06:00.0"))
+			Expect(domainSpec.Devices.Controllers).To(BeEmpty())
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(BeNil())
+		})
+
+		It("should fail strict placement when a device has an explicit guest PCI address", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDeviceWithGuestAddress("addressed", "0x01", "0x00", "0x07"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, WithStrictPCINUMAPlacement())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("already has a guest PCI address"))
+			Expect(domainSpec.Devices.Controllers).To(BeEmpty())
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(Equal(newPCIAddress("0x00", "0x07")))
+		})
+
+		It("should fail strict placement when a device NUMA node cannot be mapped to a guest NUMA cell", func() {
+			domainSpec = createDomainSpecWithNUMA(
+				[]api.NUMACell{{ID: "0", CPUs: "0-1"}},
+				[]api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "4"}},
+			)
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("numa0", "0x01"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, WithStrictPCINUMAPlacement())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot be mapped to a guest NUMA cell"))
+			Expect(domainSpec.Devices.Controllers).To(BeEmpty())
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(BeNil())
+		})
 
 		It("should prefer NUMATune memnode mapping for guest NUMA placement", func() {
 			domainSpec.NUMATune = &api.NUMATune{
@@ -501,6 +542,24 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			Expect(domainSpec.Devices.Controllers[0].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
 			Expect(*domainSpec.Devices.Controllers[0].Target.NUMANode).To(Equal(uint32(0)))
 			Expect(domainSpec.Devices.HostDevices[0].Address).To(Equal(newPCIAddress("2", "0x00")))
+		})
+
+		It("should fail strict placement for ambiguous NUMATune memnode mapping", func() {
+			domainSpec.NUMATune = &api.NUMATune{
+				MemNodes: []api.MemNode{
+					{CellID: 0, Mode: "strict", NodeSet: "0"},
+					{CellID: 1, Mode: "strict", NodeSet: "0"},
+				},
+			}
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("numa0", "0x01"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec, WithStrictPCINUMAPlacement())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("mapped to multiple guest NUMA cells"))
+			Expect(domainSpec.Devices.Controllers).To(BeEmpty())
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(BeNil())
 		})
 
 		It("should place NUMA groups and devices in deterministic order", func() {
