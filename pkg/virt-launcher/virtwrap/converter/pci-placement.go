@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
@@ -271,7 +272,7 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 		}
 
 		if devices[i].Source.Address == nil {
-			log.Log.Infof("device has no source address, skipping for pcie-expander-bus assignment")
+			log.Log.Warningf("PCI host device has no source address, skipping pcie-expander-bus assignment")
 			continue
 		}
 
@@ -286,15 +287,26 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 	}
 
 	slices.Sort(pciAddresses)
-	numaNodes := hardware.LookupDevicesNumaNodes(pciAddresses, a.domainSpec)
+	devicesNUMANodes, warnings := hardware.LookupDevicesNumaNodesWithWarnings(pciAddresses, a.domainSpec)
+	warningsByAddress := make(map[string][]string)
+	for _, warning := range warnings {
+		log.Log.Warningf("PCI NUMA-aware placement: %s", warning.String())
+		if warning.PCIAddress != "" {
+			warningsByAddress[warning.PCIAddress] = append(warningsByAddress[warning.PCIAddress], warning.Reason)
+		}
+	}
 
 	for _, address := range pciAddresses {
 		device := devicesByAddress[address]
-		if numaNode, exists := numaNodes[address]; exists {
+		if numaNode, exists := devicesNUMANodes[address]; exists {
 			a.devices[address] = device
 			a.devicesNUMANodes[address] = numaNode
 		} else {
-			log.Log.Infof("device %s has no NUMA affinity information, skipping for pcie-expander-bus assignment", address)
+			reason := "no guest NUMA node mapping is available"
+			if warningReasons := warningsByAddress[address]; len(warningReasons) > 0 {
+				reason = strings.Join(warningReasons, "; ")
+			}
+			log.Log.Warningf("device %s cannot be placed on a NUMA-aware PCIe topology: %s", address, reason)
 		}
 	}
 }
