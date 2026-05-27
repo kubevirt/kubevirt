@@ -356,7 +356,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 					Expect(controller.Target.BusNr).ToNot(BeNil())
 					busNr := *controller.Target.BusNr
 					_, expected := expectedBusNumbers[busNr]
-					Expect(expected).To(BeTrue(), "Bus number %d should be one of the expected values (253, 251)", busNr)
+					Expect(expected).To(BeTrue(), "Bus number %d should be one of the expected values (254, 252)", busNr)
 					expectedBusNumbers[busNr] = true
 				}
 			}
@@ -382,6 +382,79 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				Expect(device.Address.Bus).ToNot(BeEmpty())
 				Expect(device.Address.Slot).To(Equal("0x00"))
 			}
+		})
+
+		It("should place NUMA groups and devices in deterministic order", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("numa1_b", "0x04"),
+				createPCIDevice("numa0_b", "0x03"),
+				createPCIDevice("numa0_a", "0x01"),
+				createPCIDevice("numa1_a", "0x02"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(HaveLen(6))
+
+			Expect(domainSpec.Devices.Controllers[0].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(domainSpec.Devices.Controllers[0].Index).To(Equal("1"))
+			Expect(*domainSpec.Devices.Controllers[0].Target.NUMANode).To(Equal(uint32(0)))
+			Expect(*domainSpec.Devices.Controllers[0].Target.BusNr).To(Equal(uint32(253)))
+
+			Expect(domainSpec.Devices.Controllers[1].Model).To(Equal(api.ControllerModelPCIeRootPort))
+			Expect(domainSpec.Devices.Controllers[1].Index).To(Equal("2"))
+			Expect(domainSpec.Devices.Controllers[1].Address.Bus).To(Equal("1"))
+			Expect(domainSpec.Devices.Controllers[1].Address.Slot).To(Equal("0x00"))
+
+			Expect(domainSpec.Devices.Controllers[2].Model).To(Equal(api.ControllerModelPCIeRootPort))
+			Expect(domainSpec.Devices.Controllers[2].Index).To(Equal("3"))
+			Expect(domainSpec.Devices.Controllers[2].Address.Bus).To(Equal("1"))
+			Expect(domainSpec.Devices.Controllers[2].Address.Slot).To(Equal("0x01"))
+
+			Expect(domainSpec.Devices.Controllers[3].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(domainSpec.Devices.Controllers[3].Index).To(Equal("4"))
+			Expect(*domainSpec.Devices.Controllers[3].Target.NUMANode).To(Equal(uint32(1)))
+			Expect(*domainSpec.Devices.Controllers[3].Target.BusNr).To(Equal(uint32(250)))
+
+			Expect(domainSpec.Devices.Controllers[4].Model).To(Equal(api.ControllerModelPCIeRootPort))
+			Expect(domainSpec.Devices.Controllers[4].Index).To(Equal("5"))
+			Expect(domainSpec.Devices.Controllers[4].Address.Bus).To(Equal("4"))
+			Expect(domainSpec.Devices.Controllers[4].Address.Slot).To(Equal("0x00"))
+
+			Expect(domainSpec.Devices.Controllers[5].Model).To(Equal(api.ControllerModelPCIeRootPort))
+			Expect(domainSpec.Devices.Controllers[5].Index).To(Equal("6"))
+			Expect(domainSpec.Devices.Controllers[5].Address.Bus).To(Equal("4"))
+			Expect(domainSpec.Devices.Controllers[5].Address.Slot).To(Equal("0x01"))
+
+			deviceBusBySource := map[string]string{}
+			for _, device := range domainSpec.Devices.HostDevices {
+				deviceBusBySource[hardware.PCIAddressToString(device.Source.Address)] = device.Address.Bus
+			}
+			Expect(deviceBusBySource).To(Equal(map[string]string{
+				"0000:01:00.0": "2",
+				"0000:03:00.0": "3",
+				"0000:02:00.0": "5",
+				"0000:04:00.0": "6",
+			}))
+		})
+
+		It("should allocate new controller indexes after existing controllers", func() {
+			domainSpec.Devices.Controllers = []api.Controller{
+				{Model: api.ControllerModelPCIeRoot, Index: "0"},
+				{Model: api.ControllerModelPCIeRootPort, Index: "7"},
+			}
+			domainSpec.Devices.HostDevices = []api.HostDevice{createPCIDevice("device1", "0x01")}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(HaveLen(4))
+			Expect(domainSpec.Devices.Controllers[2].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(domainSpec.Devices.Controllers[2].Index).To(Equal("8"))
+			Expect(domainSpec.Devices.Controllers[3].Model).To(Equal(api.ControllerModelPCIeRootPort))
+			Expect(domainSpec.Devices.Controllers[3].Index).To(Equal("9"))
+			Expect(domainSpec.Devices.HostDevices[0].Address.Bus).To(Equal("9"))
 		})
 	})
 })
