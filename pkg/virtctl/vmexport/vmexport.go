@@ -92,6 +92,7 @@ const (
 	// Possible output format for volumes
 	GZIP_FORMAT = "gzip"
 	RAW_FORMAT  = "raw"
+	OCI_FORMAT  = "oci"
 
 	ACCEPT           = "Accept"
 	APPLICATION_YAML = "application/yaml"
@@ -583,10 +584,29 @@ func getVirtualMachineManifest(client kubecli.KubevirtClient, vmexport *exportv1
 
 // downloadVolume handles the process of downloading the requested volume from a VirtualMachineExport
 func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (bool, error) {
-	// Extract the URL from the vmexport
-	downloadUrl, err := GetUrlFromVirtualMachineExport(vmexport, vmeInfo)
-	if err != nil {
-		return false, err
+	var downloadUrl string
+	var err error
+
+	if format == OCI_FORMAT {
+		sourceKind := vmexport.Spec.Source.Kind
+		if sourceKind != "VirtualMachine" && sourceKind != "VirtualMachineSnapshot" {
+			return false, fmt.Errorf("OCI export is only supported for VirtualMachine and VirtualMachineSnapshot sources, got %q", sourceKind)
+		}
+		manifestUrls, err := GetManifestUrlsFromVirtualMachineExport(vmexport, vmeInfo)
+		if err != nil {
+			return false, err
+		}
+		ociUrl, ok := manifestUrls[exportv1.OCI]
+		if !ok {
+			return false, fmt.Errorf("OCI export format not available for '%s/%s'", vmexport.Namespace, vmexport.Name)
+		}
+		downloadUrl = ociUrl
+		vmeInfo.Decompress = false
+	} else {
+		downloadUrl, err = GetUrlFromVirtualMachineExport(vmexport, vmeInfo)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	resp, err := HandleHTTPGetRequestFn(client, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
@@ -1005,8 +1025,20 @@ func handleDownloadFlags() error {
 		}
 	}
 
-	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT {
-		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw")
+	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT && format != OCI_FORMAT {
+		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw/oci")
+	}
+
+	if format == OCI_FORMAT {
+		if volumeName != "" {
+			return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, FORMAT_FLAG+"=oci")
+		}
+		if exportManifest {
+			return fmt.Errorf(ErrIncompatibleFlag, MANIFEST_FLAG, FORMAT_FLAG+"=oci")
+		}
+		if pvc != "" {
+			return fmt.Errorf(ErrIncompatibleFlag, PVC_FLAG, FORMAT_FLAG+"=oci")
+		}
 	}
 
 	if downloadRetries < 0 {

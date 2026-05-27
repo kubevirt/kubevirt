@@ -383,7 +383,10 @@ var _ = Describe("vmexport", func() {
 			Entry("Using 'manifest' with volume type", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.VOLUME_FLAG, vmexport.MANIFEST_FLAG), runDownloadCmd, vmexport.MANIFEST_FLAG, setFlag(vmexport.VM_FLAG, "test"), setFlag(vmexport.VOLUME_FLAG, "volume")),
 			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(vmexport.ErrInvalidValue, vmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), runDownloadCmd, vmexport.MANIFEST_FLAG, setFlag(vmexport.OUTPUT_FORMAT_FLAG, "invalid")),
 			Entry("Using 'port-forward' with invalid port", fmt.Sprintf(vmexport.ErrInvalidValue, vmexport.LOCAL_PORT_FLAG, "valid port numbers"), runDownloadCmd, vmexport.PORT_FORWARD_FLAG, setFlag(vmexport.LOCAL_PORT_FLAG, "test")),
-			Entry("Using 'format' with invalid download format", fmt.Sprintf(vmexport.ErrInvalidValue, vmexport.FORMAT_FLAG, "gzip/raw"), runDownloadCmd, setFlag(vmexport.FORMAT_FLAG, "test")),
+			Entry("Using 'format' with invalid download format", fmt.Sprintf(vmexport.ErrInvalidValue, vmexport.FORMAT_FLAG, "gzip/raw/oci"), runDownloadCmd, setFlag(vmexport.FORMAT_FLAG, "test")),
+			Entry("Using 'format=oci' with volume flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.VOLUME_FLAG, vmexport.FORMAT_FLAG+"=oci"), runDownloadCmd, setFlag(vmexport.FORMAT_FLAG, "oci"), setFlag(vmexport.VOLUME_FLAG, "vol")),
+			Entry("Using 'format=oci' with manifest flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.MANIFEST_FLAG, vmexport.FORMAT_FLAG+"=oci"), runDownloadCmd, setFlag(vmexport.FORMAT_FLAG, "oci"), vmexport.MANIFEST_FLAG),
+			Entry("Using 'format=oci' with pvc flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.PVC_FLAG, vmexport.FORMAT_FLAG+"=oci"), runDownloadCmd, setFlag(vmexport.FORMAT_FLAG, "oci"), setFlag(vmexport.PVC_FLAG, "mypvc")),
 			Entry("Downloading volume without specifying output", fmt.Sprintf("warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file", vmexport.OUTPUT_FLAG, vmexport.OUTPUT_FLAG), runDownloadCmd),
 		)
 	})
@@ -642,6 +645,70 @@ var _ = Describe("vmexport", func() {
 				setFlag(vmexport.OUTPUT_FLAG, outputPath),
 			)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("VirtualMachineExport download succeeds with format=oci", func() {
+			vme.Spec.Source = k8sv1.TypedLocalObjectReference{
+				APIGroup: &v1.SchemeGroupVersion.Group,
+				Kind:     "VirtualMachine",
+				Name:     "testvm",
+			}
+			vme.Status = &exportv1.VirtualMachineExportStatus{
+				Phase: exportv1.Ready,
+				Links: &exportv1.VirtualMachineExportLinks{
+					External: &exportv1.VirtualMachineExportLink{
+						Manifests: []exportv1.VirtualMachineExportManifest{{
+							Type: exportv1.OCI,
+							Url:  server.URL + "/export.oci.tar",
+						}},
+					},
+				},
+				TokenSecretRef: &secret.Name,
+			}
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
+				setFlag(vmexport.FORMAT_FLAG, vmexport.OCI_FORMAT),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
+				vmexport.INSECURE_FLAG,
+			)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("VirtualMachineExport download fails with format=oci when OCI link is not available", func() {
+			vme.Spec.Source = k8sv1.TypedLocalObjectReference{
+				APIGroup: &v1.SchemeGroupVersion.Group,
+				Kind:     "VirtualMachine",
+				Name:     "testvm",
+			}
+			vme.Status = &exportv1.VirtualMachineExportStatus{
+				Phase: exportv1.Ready,
+				Links: &exportv1.VirtualMachineExportLinks{
+					External: &exportv1.VirtualMachineExportLink{
+						Manifests: []exportv1.VirtualMachineExportManifest{{
+							Type: exportv1.AllManifests,
+							Url:  server.URL + "/manifests/all",
+						}},
+					},
+				},
+				TokenSecretRef: &secret.Name,
+			}
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = runDownloadCmd(
+				setFlag(vmexport.FORMAT_FLAG, vmexport.OCI_FORMAT),
+				setFlag(vmexport.OUTPUT_FLAG, outputPath),
+				vmexport.INSECURE_FLAG,
+			)
+			Expect(err).To(MatchError(ContainSubstring("OCI export format not available")))
 		})
 
 		It("Successfully create VirtualMachineExport with TTL", func() {
