@@ -424,4 +424,161 @@ var _ = Describe("Operator Config", func() {
 					version:   "latest",
 				}))
 	})
+
+	DescribeTable("GetCrossClusterMigrationNetwork()",
+		func(setupKV func() *KubeVirtDeploymentConfig, expectedNil bool, expectedValue string) {
+			By("Setting up KubeVirt configuration")
+			cfg := setupKV()
+
+			By("Getting cross-cluster migration network")
+			result := cfg.GetCrossClusterMigrationNetwork()
+
+			By("Verifying result")
+			if expectedNil {
+				Expect(result).To(BeNil())
+			} else {
+				Expect(result).ToNot(BeNil())
+				Expect(*result).To(Equal(expectedValue))
+			}
+		},
+		Entry("when config is nil",
+			func() *KubeVirtDeploymentConfig {
+				return &KubeVirtDeploymentConfig{}
+			},
+			true, "",
+		),
+		Entry("when MigrationConfiguration is nil",
+			func() *KubeVirtDeploymentConfig {
+				kv := &v1.KubeVirt{}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is not set",
+			func() *KubeVirtDeploymentConfig {
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							MigrationConfiguration: &v1.MigrationConfiguration{},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set but feature gate is disabled",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								CrossClusterNetwork: &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set and feature gate is enabled",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{"CrossClusterMigrationProxy"},
+							},
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								CrossClusterNetwork: &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			false, "test-crosscluster-network",
+		),
+	)
+
+	DescribeTable("GetSynchronizationPlacement()",
+		func(setupKV func() *v1.KubeVirt, verifyPlacement func(*v1.ComponentConfig)) {
+			By("Setting up KubeVirt configuration")
+			kv := setupKV()
+
+			By("Getting target config from KubeVirt")
+			cfg := GetTargetConfigFromKV(kv)
+
+			By("Getting synchronization placement")
+			placement := cfg.GetSynchronizationPlacement()
+
+			By("Verifying placement")
+			verifyPlacement(placement)
+		},
+		Entry("when config is nil",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).To(BeNil())
+			},
+		),
+		Entry("when SynchronizationPlacement is not set",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).To(BeNil())
+			},
+		),
+		Entry("when set with nodeSelector",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						SynchronizationPlacement: &v1.ComponentConfig{
+							NodePlacement: &v1.NodePlacement{
+								NodeSelector: map[string]string{
+									"kubevirt.io/crosscluster-access": "true",
+								},
+							},
+						},
+					},
+				}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).ToNot(BeNil())
+				Expect(placement.NodePlacement).ToNot(BeNil())
+				Expect(placement.NodePlacement.NodeSelector).To(HaveKeyWithValue("kubevirt.io/crosscluster-access", "true"))
+			},
+		),
+		Entry("when set with tolerations",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						SynchronizationPlacement: &v1.ComponentConfig{
+							NodePlacement: &v1.NodePlacement{
+								Tolerations: []k8sv1.Toleration{
+									{
+										Key:      "dedicated",
+										Operator: k8sv1.TolerationOpEqual,
+										Value:    "kubevirt",
+										Effect:   k8sv1.TaintEffectNoSchedule,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).ToNot(BeNil())
+				Expect(placement.NodePlacement).ToNot(BeNil())
+				Expect(placement.NodePlacement.Tolerations).To(HaveLen(1))
+				Expect(placement.NodePlacement.Tolerations[0].Key).To(Equal("dedicated"))
+			},
+		),
+	)
 })

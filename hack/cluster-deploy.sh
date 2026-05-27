@@ -93,7 +93,7 @@ if [ "${KUBEVIRT_DEPLOY_NP}" == "true" ]; then
 fi
 
 # Deploy kubevirt operator
-_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
+_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml --server-side
 
 # Ensure the KubeVirt CRD is created
 count=0

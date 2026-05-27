@@ -136,7 +136,8 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "crossClusterNetwork": "crossClusterNetworkValue"
       },
       "machineType": "machineTypeValue",
       "network": {
@@ -679,6 +680,254 @@
       "replicas": 248
     },
     "workloads": {
+      "nodePlacement": {
+        "nodeSelector": {
+          "nodeSelectorKey": "nodeSelectorValue"
+        },
+        "affinity": {
+          "nodeAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "nodeSelectorTerms": [
+                {
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ],
+                  "matchFields": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "preference": {
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ],
+                  "matchFields": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "podAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "namespacesValue"
+                ],
+                "topologyKey": "topologyKeyValue",
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
+              }
+            ],
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "namespaces": [
+                    "namespacesValue"
+                  ],
+                  "topologyKey": "topologyKeyValue",
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
+                }
+              }
+            ]
+          },
+          "podAntiAffinity": {
+            "requiredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "labelSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "namespaces": [
+                  "namespacesValue"
+                ],
+                "topologyKey": "topologyKeyValue",
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "matchLabelsKey": "matchLabelsValue"
+                  },
+                  "matchExpressions": [
+                    {
+                      "key": "keyValue",
+                      "operator": "operatorValue",
+                      "values": [
+                        "valuesValue"
+                      ]
+                    }
+                  ]
+                },
+                "matchLabelKeys": [
+                  "matchLabelKeysValue"
+                ],
+                "mismatchLabelKeys": [
+                  "mismatchLabelKeysValue"
+                ]
+              }
+            ],
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 1,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "namespaces": [
+                    "namespacesValue"
+                  ],
+                  "topologyKey": "topologyKeyValue",
+                  "namespaceSelector": {
+                    "matchLabels": {
+                      "matchLabelsKey": "matchLabelsValue"
+                    },
+                    "matchExpressions": [
+                      {
+                        "key": "keyValue",
+                        "operator": "operatorValue",
+                        "values": [
+                          "valuesValue"
+                        ]
+                      }
+                    ]
+                  },
+                  "matchLabelKeys": [
+                    "matchLabelKeysValue"
+                  ],
+                  "mismatchLabelKeys": [
+                    "mismatchLabelKeysValue"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "tolerations": [
+          {
+            "key": "keyValue",
+            "operator": "operatorValue",
+            "value": "valueValue",
+            "effect": "effectValue",
+            "tolerationSeconds": 5
+          }
+        ]
+      },
+      "replicas": 248
+    },
+    "synchronizationPlacement": {
       "nodePlacement": {
         "nodeSelector": {
           "nodeSelectorKey": "nodeSelectorValue"

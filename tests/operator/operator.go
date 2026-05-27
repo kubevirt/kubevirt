@@ -2841,7 +2841,7 @@ func parseImage(image string) (registry, imageName, version string) {
 
 func installOperator(manifestPath string) {
 	// namespace is already hardcoded within the manifests
-	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", manifestPath)
+	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", manifestPath, "--server-side")
 	Expect(err).ToNot(HaveOccurred(), stderr)
 
 	By("Waiting for KubeVirt CRD to be created")

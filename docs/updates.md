@@ -129,3 +129,12 @@ accommodate the eventual removal of the `v1alpha3` version with KubeVirt >=
 tool within their environment. This will ensure any existing `v1alpha3`
 stored objects are migrated to `v1` well in advance of the removal of the
 underlying `v1alpha3` version.
+
+### `v1.9.0` description too long
+
+As of version 1.9.0 the description is too long for the `kubevirt-operator.yaml` when running
+```bash
+kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+```
+Either add `--server-side` or use `kubectl create`. The problem is that apply will cause an annotation to
+be added to the CR and there is a limit to the length which is crossed in version 1.9.0
