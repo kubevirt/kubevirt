@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
@@ -194,9 +195,22 @@ func convertDisks(domSpec *api.DomainSpec, domcfg *libvirtxml.Domain) error {
 		return fmt.Errorf("spec and domain have different disks count")
 	}
 	for i, disk := range domSpec.Devices.Disks {
+		domcfgDisk := (&domcfg.Devices.Disks[i])
+		diskName := disk.Alias.GetName()
+
 		if disk.Source.File != "" {
-			log.Log.Infof("Updating disk %s source file from %s to %s", disk.Alias.GetName(), domcfg.Devices.Disks[i].Source.File.File, disk.Source.File)
-			domcfg.Devices.Disks[i].Source.File.File = disk.Source.File
+			if domcfgDisk.Source == nil || domcfgDisk.Source.File == nil {
+				return fmt.Errorf("disk %s: spec has file source but domain is missing it", diskName)
+			}
+			log.Log.Infof("Updating disk %s source file from %s to %s", diskName, domcfgDisk.Source.File.File, disk.Source.File)
+			domcfgDisk.Source.File.File = disk.Source.File
+		}
+		if disk.Source.DataStore != nil && disk.Source.DataStore.Source != nil && disk.Source.DataStore.Source.File != "" {
+			if domcfgDisk.Source == nil || domcfgDisk.Source.DataStore == nil || domcfgDisk.Source.DataStore.Source == nil || domcfgDisk.Source.DataStore.Source.File == nil {
+				return fmt.Errorf("disk %s: spec has DataStore file source but domain is missing it", diskName)
+			}
+			log.Log.Infof("Updating disk %s datastore backend from %s to %s", diskName, domcfgDisk.Source.DataStore.Source.File.File, disk.Source.DataStore.Source.File)
+			domcfgDisk.Source.DataStore.Source.File.File = disk.Source.DataStore.Source.File
 		}
 	}
 	return nil
@@ -726,20 +740,23 @@ func generateDomainName(vmi *v1.VirtualMachineInstance) string {
 
 func updateFilePathsToNewDomain(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) {
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil && vmi.Status.MigrationState.TargetState.DomainNamespace != nil {
+		targetNS := *vmi.Status.MigrationState.TargetState.DomainNamespace
 		// Modify the domain XML to update paths to the target volumes to match the new domain
 		for i, disk := range domSpec.Devices.Disks {
-			if strings.Contains(disk.Source.File, vmi.Namespace) {
-				// Need to update the namespace in the path to the new namespace.
-				oldPath := disk.Source.File
-				domSpec.Devices.Disks[i].Source.File = strings.Replace(disk.Source.File, vmi.Namespace, *vmi.Status.MigrationState.TargetState.DomainNamespace, 1)
-				log.Log.Object(vmi).V(4).Infof("Updated disk %s source path to %s", oldPath, domSpec.Devices.Disks[i].Source.File)
+			if disk.Source.DataStore != nil &&
+				disk.Source.DataStore.Source != nil &&
+				strings.Contains(disk.Source.DataStore.Source.File, vmi.Namespace) {
+				oldPath := disk.Source.DataStore.Source.File
+				domSpec.Devices.Disks[i].Source.DataStore.Source.File = strings.Replace(disk.Source.DataStore.Source.File, vmi.Namespace, targetNS, 1)
+				log.Log.Object(vmi).V(4).Infof("Updated disk %s datastore backend path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.DataStore.Source.File)
 			}
-		}
-		for _, disk := range domSpec.Devices.Disks {
-			if disk.Source.Dev != "" {
-				log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", disk.Alias.GetName(), disk.Source.Dev)
-			} else if disk.Source.File != "" {
-				log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", disk.Alias.GetName(), disk.Source.File)
+			if disk.Source.File != "" && strings.Contains(disk.Source.File, vmi.Namespace) {
+				oldPath := disk.Source.File
+				domSpec.Devices.Disks[i].Source.File = strings.Replace(disk.Source.File, vmi.Namespace, targetNS, 1)
+				log.Log.Object(vmi).V(4).Infof("Updated disk %s source path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.File)
+			}
+			if bp := disksource.Resolve(domSpec.Devices.Disks[i]).BackendPath(); bp != "" {
+				log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", disk.Alias.GetName(), bp)
 			}
 		}
 	}
@@ -939,8 +956,15 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 		}
 		// Configure the slice to enable to migrate the volume to a destination with different size
 		// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
-		if dom.Devices.Disks[i].Source.Slices == nil {
-			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{
+		var source *libvirtxml.DomainDiskSource
+		if dom.Devices.Disks[i].Source.DataStore != nil && dom.Devices.Disks[i].Source.DataStore.Source != nil {
+			source = dom.Devices.Disks[i].Source.DataStore.Source
+		} else {
+			source = dom.Devices.Disks[i].Source
+		}
+
+		if source.Slices == nil {
+			source.Slices = &libvirtxml.DomainDiskSlices{
 				Slices: []libvirtxml.DomainDiskSlice{
 					{
 						Type:   "storage",
@@ -959,10 +983,8 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 			} else {
 				path = filepath.Join(string(filepath.Separator), "dev", name)
 			}
-			dom.Devices.Disks[i].Source.Block = &libvirtxml.DomainDiskSourceBlock{
-				Dev: path,
-			}
-			dom.Devices.Disks[i].Source.File = nil
+			source.Block = &libvirtxml.DomainDiskSourceBlock{Dev: path}
+			source.File = nil
 		}
 		if _, ok := blockSrcFsDstVols[name]; ok {
 			log.Log.V(2).Infof("Replace block source with destination for volume %s", name)
@@ -971,10 +993,8 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 			} else {
 				path = filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
 			}
-			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
-				File: path,
-			}
-			dom.Devices.Disks[i].Source.Block = nil
+			source.File = &libvirtxml.DomainDiskSourceFile{File: path}
+			source.Block = nil
 		}
 	}
 
