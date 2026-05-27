@@ -206,6 +206,23 @@ var _ = Describe("Hardware utils test", func() {
 		})
 	})
 
+	Context("get device numa node", func() {
+		It("should reject devices without usable NUMA affinity", func() {
+			pciAddress := "0000:00:03.0"
+			pciDevicePath := filepath.Join(fakePciBasePath, pciAddress)
+			err := os.MkdirAll(pciDevicePath, 0o755)
+			Expect(err).ToNot(HaveOccurred())
+
+			numaNodeFile := filepath.Join(pciDevicePath, "numa_node")
+			err = os.WriteFile(numaNodeFile, []byte("-1\n"), 0o644)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = GetDeviceNumaNode(pciAddress)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("has no NUMA node affinity"))
+		})
+	})
+
 	Context("get device aligned CPUs", func() {
 		It("should return device aligned CPUs", func() {
 			alignedCPUs, err := GetDeviceAlignedCPUs(testPCIAddress)
@@ -337,6 +354,50 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(devicesNumaNodes).ToNot(BeEmpty())
 			Expect(devicesNumaNodes).To(HaveKey(testPCIAddress))
 			Expect(devicesNumaNodes[testPCIAddress]).To(Equal(uint32(0)))
+		})
+
+		It("should report warnings for devices without host NUMA affinity", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{{ID: "0", CPUs: "0", Memory: 2048, Unit: "MiB"}},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+				},
+			}
+
+			lookupResult := LookupDevicesNumaNodesWithWarnings([]string{"0000:ff:00.0"}, domainSpec)
+			Expect(lookupResult.NUMANodes).To(BeEmpty())
+
+			warningMessages := []string{}
+			for _, warning := range lookupResult.Warnings {
+				warningMessages = append(warningMessages, warning.String())
+			}
+			Expect(warningMessages).To(ContainElement(ContainSubstring("failed to read host NUMA affinity")))
+		})
+
+		It("should not map a device through a pinned vCPU outside guest NUMA cells", func() {
+			domainSpec := &api.DomainSpec{
+				CPU: api.CPU{
+					NUMA: &api.NUMA{
+						Cells: []api.NUMACell{{ID: "0", CPUs: "1", Memory: 2048, Unit: "MiB"}},
+					},
+				},
+				CPUTune: &api.CPUTune{
+					VCPUPin: []api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+				},
+			}
+
+			lookupResult := LookupDevicesNumaNodesWithWarnings([]string{testPCIAddress}, domainSpec)
+			Expect(lookupResult.NUMANodes).To(BeEmpty())
+
+			warningMessages := []string{}
+			for _, warning := range lookupResult.Warnings {
+				warningMessages = append(warningMessages, warning.String())
+			}
+			Expect(warningMessages).To(ContainElement(ContainSubstring("cannot be mapped to a guest NUMA cell")))
 		})
 	})
 })
