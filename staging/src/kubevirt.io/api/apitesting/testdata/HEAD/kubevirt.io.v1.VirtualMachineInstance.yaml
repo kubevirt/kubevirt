@@ -717,6 +717,7 @@ status:
       allowWorkloadDisruption: true
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
+      crossClusterNetwork: crossClusterNetworkValue
       disableTLS: true
       matchSELinuxLevelOnMigration: true
       network: networkValue

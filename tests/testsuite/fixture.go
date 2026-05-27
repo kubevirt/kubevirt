@@ -22,8 +22,10 @@ package testsuite
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"time"
 
@@ -44,6 +46,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -189,6 +192,95 @@ func EnsureDefaultKubevirtReadyWithTimeout(timeout time.Duration) {
 	EnsureKubevirtReadyWithTimeout(kv, timeout)
 }
 
+func ensureSynchronizationAddressesPointToRunningPods(virtClient kubecli.KubevirtClient, kv *v1.KubeVirt) error {
+	if len(kv.Status.SynchronizationAddresses) == 0 {
+		return nil
+	}
+
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: "kubevirt.io=virt-synchronization-controller",
+	})
+	if err != nil {
+		return err
+	}
+
+	// Determine expected interface based on configuration
+	// If crossClusterNetwork is configured, we MUST have crosscluster0 interface
+	crossClusterNetworkConfigured := kv.Spec.Configuration.MigrationConfiguration != nil &&
+		kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork != nil
+
+	runningPodIPs := make(map[string]bool)
+	podsWithCrossCluster := 0
+
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != k8sv1.PodRunning || pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		// Check if pod has crosscluster0 interface when it's configured
+		var ips []string
+		if crossClusterNetworkConfigured {
+			networkStatuses := multus.NetworkStatusesFromPod(&pod)
+			for _, networkStatus := range networkStatuses {
+				if networkStatus.Interface == v1.CrossClusterMigrationInterfaceName {
+					ips = networkStatus.IPs
+					if len(ips) > 0 {
+						podsWithCrossCluster++
+					}
+					break
+				}
+			}
+			// If crossClusterNetwork is configured but pod doesn't have it, skip this old pod
+			if len(ips) == 0 {
+				continue
+			}
+		} else {
+			// No crossClusterNetwork configured, use normal fallback logic
+			if isCrossClusterProxyEnabled(kv) {
+				ips = multus.GetMigrationNetworkIPs(&pod, v1.CrossClusterMigrationInterfaceName)
+			}
+			if len(ips) == 0 {
+				ips = multus.GetMigrationNetworkIPs(&pod, v1.MigrationInterfaceName)
+			}
+		}
+
+		for _, ip := range ips {
+			runningPodIPs[ip] = true
+		}
+	}
+
+	// If crossClusterNetwork is configured, ensure at least one pod has crosscluster0
+	if crossClusterNetworkConfigured && podsWithCrossCluster == 0 {
+		return fmt.Errorf("crossClusterNetwork is configured but no running sync controller pods have crosscluster0 interface")
+	}
+
+	// If no running pods, this is likely a transient state during rolling update.
+	// Return nil to allow Eventually to retry.
+	if len(runningPodIPs) == 0 {
+		return nil
+	}
+
+	// Validate that all synchronizationAddresses correspond to running pods
+	for _, addr := range kv.Status.SynchronizationAddresses {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return fmt.Errorf("invalid synchronization address %s: %v", addr, err)
+		}
+		if !runningPodIPs[host] {
+			return fmt.Errorf("synchronization address %s does not match any running sync controller pod", addr)
+		}
+	}
+
+	return nil
+}
+
+func isCrossClusterProxyEnabled(kv *v1.KubeVirt) bool {
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		return false
+	}
+	return slices.Contains(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy")
+}
+
 func EnsureKubevirtReadyWithTimeout(kv *v1.KubeVirt, timeout time.Duration) {
 	virtClient := kubevirt.Client()
 
@@ -199,6 +291,8 @@ func EnsureKubevirtReadyWithTimeout(kv *v1.KubeVirt, timeout time.Duration) {
 	Eventually(func(g Gomega) *v1.KubeVirt {
 		foundKV, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(ensureSynchronizationAddressesPointToRunningPods(virtClient, foundKV)).To(Succeed(),
+			"synchronizationAddresses do not match running sync controller pods")
 		return foundKV
 	}, timeout, 1*time.Second).Should(
 		SatisfyAll(

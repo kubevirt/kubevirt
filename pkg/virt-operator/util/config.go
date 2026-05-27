@@ -85,6 +85,9 @@ const (
 	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
 
 	// lookup key in AdditionalProperties
+	AdditionalPropertiesCrossClusterMigrationNetwork = "CrossClusterMigrationNetwork"
+
+	// lookup key in AdditionalProperties
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
 	// lookup key in AdditionalProperties
@@ -161,6 +164,9 @@ type KubeVirtDeploymentConfig struct {
 
 	// environment variables from virt-operator to pass along
 	PassthroughEnvVars map[string]string `json:"passthroughEnvVars,omitempty" optional:"true"`
+
+	// synchronization controller placement configuration
+	SynchronizationPlacement *v1.ComponentConfig `json:"synchronizationPlacement,omitempty" optional:"true"`
 }
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
@@ -174,6 +180,14 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	if kv.Spec.Configuration.MigrationConfiguration != nil &&
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
+	}
+
+	// Only enable cross-cluster migration proxy if feature gate is enabled
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.CrossClusterMigrationProxy) {
+		if kv.Spec.Configuration.MigrationConfiguration != nil &&
+			kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork != nil {
+			additionalProperties[AdditionalPropertiesCrossClusterMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork
+		}
 	}
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PersistentReservation) {
@@ -202,11 +216,18 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
-	return getConfig(kv.Spec.ImageRegistry,
+	cfg := getConfig(kv.Spec.ImageRegistry,
 		kv.Spec.ImageTag,
 		kv.Namespace,
 		additionalProperties,
 		envVarManager)
+
+	// Set synchronization placement if configured
+	if kv.Spec.SynchronizationPlacement != nil {
+		cfg.SynchronizationPlacement = kv.Spec.SynchronizationPlacement
+	}
+
+	return cfg
 }
 
 func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, fg string) bool {
@@ -572,6 +593,19 @@ func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
 	}
 }
 
+func (c *KubeVirtDeploymentConfig) GetCrossClusterMigrationNetwork() *string {
+	value, enabled := c.AdditionalProperties[AdditionalPropertiesCrossClusterMigrationNetwork]
+	if enabled {
+		return &value
+	} else {
+		return nil
+	}
+}
+
+func (c *KubeVirtDeploymentConfig) GetSynchronizationPlacement() *v1.ComponentConfig {
+	return c.SynchronizationPlacement
+}
+
 func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
 	value, enabled := c.AdditionalProperties[AdditionalPropertiesSynchronizationPort]
 	if enabled {
@@ -690,6 +724,11 @@ func fieldsToString(v reflect.Value) string {
 			result += fieldsToString(field)
 		case reflect.String:
 			result += field.String()
+		case reflect.Ptr:
+			// Handle pointer fields - recurse if not nil
+			if !field.IsNil() {
+				result += fieldsToString(field.Elem())
+			}
 		default:
 			panic(fmt.Sprintf("fieldsToString unable to handle field %s", fieldName))
 		}

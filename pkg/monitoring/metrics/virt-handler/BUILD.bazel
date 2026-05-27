@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "component_metrics.go",
+        "decentralized_proxy_metrics.go",
         "machine_type.go",
         "metrics.go",
         "version_metrics.go",

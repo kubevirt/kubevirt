@@ -865,16 +865,19 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 }
 
 func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	networkStatuses := multus.NetworkStatusesFromPod(pod)
-	for _, networkStatus := range networkStatuses {
-		if networkStatus.Interface == v1.MigrationInterfaceName {
-			if len(networkStatus.IPs) == 0 {
-				break
-			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
-			return networkStatus.IPs
+	// Priority order for synchronization address:
+	// 1. If CrossClusterMigrationProxy is enabled, prefer crosscluster network
+	// 2. Else use migration network
+	// 3. Else fall back to pod IP (handled by caller)
+
+	// Check for crosscluster network first if feature gate is enabled
+	if r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
+		ips := multus.GetMigrationNetworkIPs(pod, v1.CrossClusterMigrationInterfaceName)
+		if len(ips) > 0 {
+			return ips
 		}
 	}
-	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
-	return nil
+
+	// Fall back to migration network
+	return multus.GetMigrationNetworkIPs(pod, v1.MigrationInterfaceName)
 }
