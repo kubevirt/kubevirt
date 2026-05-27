@@ -358,6 +358,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 
 			// Add a device, this would require creating new controllers
 			domainSpec.Devices.HostDevices = []api.HostDevice{createPCIDevice("device1", "0x01")}
+			originalDomainSpec := domainSpec.DeepCopy()
 
 			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
 
@@ -365,6 +366,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			Expect(err.Error()).To(ContainSubstring("insufficient bus numbers for NUMA-aligned PCIe topology"))
 			Expect(err.Error()).To(ContainSubstring("current controller index 256"))
 			Expect(err.Error()).To(ContainSubstring("last assigned expander bus number 255"))
+			Expect(domainSpec).To(Equal(originalDomainSpec))
 		})
 
 		It("should assign bus numbers for expander buses calculated as maxBusNr - controllerCount + 1", func() {
@@ -429,6 +431,36 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			Expect(domainSpec.Devices.Controllers[1].Model).To(Equal(api.ControllerModelPCIeRootPort))
 
 			Expect(domainSpec.Devices.HostDevices[0].Address).To(Equal(newPCIAddress("0x00", "0x07")))
+			Expect(domainSpec.Devices.HostDevices[1].Address).To(Equal(newPCIAddress("2", "0x00")))
+		})
+
+		It("should leave devices without host NUMA affinity for default placement", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("missing_numa", "0x06"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(BeEmpty())
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(BeNil())
+		})
+
+		It("should place only devices with host NUMA affinity", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("missing_numa", "0x06"),
+				createPCIDevice("numa0", "0x01"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(domainSpec.Devices.Controllers).To(HaveLen(2))
+			Expect(domainSpec.Devices.Controllers[0].Model).To(Equal(api.ControllerModelPCIeExpanderBus))
+			Expect(*domainSpec.Devices.Controllers[0].Target.NUMANode).To(Equal(uint32(0)))
+			Expect(domainSpec.Devices.Controllers[1].Model).To(Equal(api.ControllerModelPCIeRootPort))
+
+			Expect(domainSpec.Devices.HostDevices[0].Address).To(BeNil())
 			Expect(domainSpec.Devices.HostDevices[1].Address).To(Equal(newPCIAddress("2", "0x00")))
 		})
 
