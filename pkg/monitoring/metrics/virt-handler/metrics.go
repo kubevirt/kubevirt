@@ -34,6 +34,7 @@ import (
 func SetupMetrics(
 	nodeName string, maxRequestsInFlight int,
 	vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine,
+	decentralizedMigrationProxyEnabled bool,
 ) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
@@ -47,7 +48,14 @@ func SetupMetrics(
 		return err
 	}
 
-	if err := operatormetrics.RegisterMetrics(componentMetrics, versionMetrics, machineTypeMetrics, guestPanicMetrics); err != nil {
+	metricsToRegister := [][]operatormetrics.Metric{componentMetrics, versionMetrics, machineTypeMetrics, guestPanicMetrics}
+
+	// Only register proxy metrics if CrossClusterMigrationProxy feature gate is enabled
+	if decentralizedMigrationProxyEnabled {
+		metricsToRegister = append(metricsToRegister, decentralizedMigrationProxyMetrics)
+	}
+
+	if err := operatormetrics.RegisterMetrics(metricsToRegister...); err != nil {
 		return err
 	}
 	SetVersionInfo()
