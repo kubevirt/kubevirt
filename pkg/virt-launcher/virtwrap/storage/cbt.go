@@ -37,8 +37,8 @@ import (
 
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
@@ -280,7 +280,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		}
 
 		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
-		imagePath := converter.GetVolumeImagePath(volumeName, isBlock, isHotplug)
+		imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
 		err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock)
 		if err != nil {
@@ -317,7 +317,7 @@ func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *co
 		if isMigrationNewBackendStorage(vmi) {
 			_, isHotplug := c.HotplugVolumes[volumeName]
 			isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
-			imagePath := converter.GetVolumeImagePath(volumeName, isBlock, isHotplug)
+			imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
 			logger.V(3).Infof("Creating CBT overlay for migration: %s -> %s (block=%v, hotplug=%v)", overlayPath, imagePath, isBlock, isHotplug)
 			if err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock); err != nil {
