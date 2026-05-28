@@ -33,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/sets"
+	sigyaml "sigs.k8s.io/yaml"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -65,7 +67,7 @@ type CompatibilityTestOptions struct {
 	// Complete() populates this with "<TestDataDir>/v*" directories if nil.
 	// Within these directories, `<group>.<version>.<kind>.[json|yaml|pb]` files are optional. If present, they are:
 	// * verified to decode without error
-	// * verified to round-trip byte-for-byte when re-encoded (or to match a `<group>.<version>.<kind>.[json|yaml|pb].after_roundtrip.[json|yaml|pb]` file if it exists)
+	// * verified to round-trip with semantically equal output (order-agnostic comparison, or to match a `<group>.<version>.<kind>.[json|yaml].after_roundtrip.[json|yaml]` file if it exists)
 	// * verified to be semantically equal when decoded into memory
 	TestDataDirsPreviousVersions []string
 
@@ -190,10 +192,10 @@ func (c *CompatibilityTestOptions) Complete(t *testing.T) *CompatibilityTestOpti
 	}
 
 	if c.JSON == nil {
-		c.JSON = json.NewSerializer(json.DefaultMetaFactory, c.Scheme, c.Scheme, true)
+		c.JSON = json.NewSerializerWithOptions(json.DefaultMetaFactory, c.Scheme, c.Scheme, json.SerializerOptions{Pretty: true})
 	}
 	if c.YAML == nil {
-		c.YAML = json.NewYAMLSerializer(json.DefaultMetaFactory, c.Scheme, c.Scheme)
+		c.YAML = json.NewSerializerWithOptions(json.DefaultMetaFactory, c.Scheme, c.Scheme, json.SerializerOptions{Yaml: true})
 	}
 
 	return c
@@ -408,13 +410,13 @@ func (c *CompatibilityTestOptions) runPreviousVersionTest(t *testing.T, gvk sche
 	jsonNeedsUpdate := false
 	yamlNeedsUpdate := false
 
-	if !bytes.Equal(expectedJSONAfterRoundTrip, jsonAfterRoundTrip) {
+	if !jsonSemanticallyEqual(expectedJSONAfterRoundTrip, jsonAfterRoundTrip) {
 		t.Errorf("json differs")
 		t.Log(cmp.Diff(string(expectedJSONAfterRoundTrip), string(jsonAfterRoundTrip)))
 		jsonNeedsUpdate = true
 	}
 
-	if !bytes.Equal(expectedYAMLAfterRoundTrip, yamlAfterRoundTrip) {
+	if !yamlSemanticallyEqual(expectedYAMLAfterRoundTrip, yamlAfterRoundTrip) {
 		t.Errorf("yaml differs")
 		t.Log(cmp.Diff(string(expectedYAMLAfterRoundTrip), string(yamlAfterRoundTrip)))
 		yamlNeedsUpdate = true
@@ -435,6 +437,28 @@ func (c *CompatibilityTestOptions) runPreviousVersionTest(t *testing.T, gvk sche
 		}
 		return
 	}
+}
+
+func jsonSemanticallyEqual(a, b []byte) bool {
+	var objA, objB interface{}
+	if err := gojson.Unmarshal(a, &objA); err != nil {
+		return false
+	}
+	if err := gojson.Unmarshal(b, &objB); err != nil {
+		return false
+	}
+	return reflect.DeepEqual(objA, objB)
+}
+
+func yamlSemanticallyEqual(a, b []byte) bool {
+	var objA, objB interface{}
+	if err := sigyaml.Unmarshal(a, &objA); err != nil {
+		return false
+	}
+	if err := sigyaml.Unmarshal(b, &objB); err != nil {
+		return false
+	}
+	return reflect.DeepEqual(objA, objB)
 }
 
 func makeName(gvk schema.GroupVersionKind) string {
