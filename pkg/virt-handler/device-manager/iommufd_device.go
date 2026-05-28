@@ -358,8 +358,10 @@ func (dpi *IOMMUFDDevicePlugin) setInitialized(initialized bool) {
 	dpi.initialized = initialized
 }
 
+var iommuDeviceCheckPath = iommuDevicePath
+
 func supportsIOMMUFD() bool {
-	_, err := os.Stat(iommuDevicePath)
+	_, err := os.Stat(iommuDeviceCheckPath)
 	return err == nil
 }
 
