@@ -92,7 +92,7 @@ func newOCIBuilder(paths *export.ServerPaths) (*oci.Builder, error) {
 		})
 	}
 
-	return oci.NewBuilder(configJSON, architecture, disks), nil
+	return oci.NewVMBuilder(configJSON, architecture, disks), nil
 }
 
 func prepareVMConfig(vm *virtv1.VirtualMachine) ([]byte, error) {

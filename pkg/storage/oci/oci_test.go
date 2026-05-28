@@ -51,7 +51,7 @@ var _ = Describe("OCI Builder", func() {
 
 		diskPath := createTestDisk()
 		configJSON := []byte(`{"apiVersion":"kubevirt.io/v1","kind":"VirtualMachine"}`)
-		builder := NewBuilder(configJSON, architecture, []DiskInfo{
+		builder := NewVMBuilder(configJSON, architecture, []DiskInfo{
 			{
 				VolumeName: volumeName,
 				FilePath:   diskPath,
@@ -109,7 +109,7 @@ var _ = Describe("OCI Builder", func() {
 
 	It("should set disk size annotation from file size", func() {
 		diskPath := createTestDisk()
-		builder := NewBuilder(emptyConfigJSON(), architecture, []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
 			{VolumeName: "disk", FilePath: diskPath},
 		})
 
@@ -134,7 +134,7 @@ var _ = Describe("OCI Builder", func() {
 
 	It("should default architecture to amd64 when empty", func() {
 		diskPath := createTestDisk()
-		builder := NewBuilder(emptyConfigJSON(), "", []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), "", []DiskInfo{
 			{VolumeName: "disk", FilePath: diskPath},
 		})
 
@@ -156,12 +156,12 @@ var _ = Describe("OCI Builder", func() {
 
 		disks := []DiskInfo{{VolumeName: "vol", FilePath: diskPath}}
 
-		b1 := NewBuilder(configJSON, architecture, disks)
+		b1 := NewVMBuilder(configJSON, architecture, disks)
 		Expect(b1.Prepare(context.Background())).To(Succeed())
 		var buf1 bytes.Buffer
 		Expect(b1.WriteTar(context.Background(), &buf1)).To(Succeed())
 
-		b2 := NewBuilder(configJSON, architecture, disks)
+		b2 := NewVMBuilder(configJSON, architecture, disks)
 		b2.createdAt = b1.createdAt
 		Expect(b2.Prepare(context.Background())).To(Succeed())
 		var buf2 bytes.Buffer
@@ -196,7 +196,7 @@ var _ = Describe("OCI Builder", func() {
 
 		disk1 := createTestDisk()
 		disk2 := createTestDisk()
-		builder := NewBuilder(emptyConfigJSON(), architecture, []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
 			{VolumeName: vol1Name, FilePath: disk1},
 			{VolumeName: vol2Name, FilePath: disk2},
 		})
@@ -219,7 +219,7 @@ var _ = Describe("OCI Builder", func() {
 
 	It("should handle zero disks", func() {
 		configJSON := []byte(`{"apiVersion":"kubevirt.io/v1","kind":"VirtualMachine"}`)
-		builder := NewBuilder(configJSON, architecture, nil)
+		builder := NewVMBuilder(configJSON, architecture, nil)
 
 		Expect(builder.Prepare(context.Background())).To(Succeed())
 
@@ -238,13 +238,13 @@ var _ = Describe("OCI Builder", func() {
 	})
 
 	It("should return -1 from TotalTarSize before Prepare", func() {
-		builder := NewBuilder(emptyConfigJSON(), architecture, nil)
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, nil)
 		Expect(builder.Size()).To(Equal(int64(-1)))
 	})
 
 	It("should return TotalTarSize matching actual TAR length", func() {
 		diskPath := createTestDisk()
-		builder := NewBuilder(emptyConfigJSON(), architecture, []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
 			{VolumeName: "disk", FilePath: diskPath},
 		})
 		Expect(builder.Prepare(context.Background())).To(Succeed())
@@ -258,7 +258,7 @@ var _ = Describe("OCI Builder", func() {
 	It("should return TotalTarSize matching actual TAR length with multiple disks", func() {
 		disk1 := createTestDisk()
 		disk2 := createTestDisk()
-		builder := NewBuilder([]byte(`{"name":"test"}`), architecture, []DiskInfo{
+		builder := NewVMBuilder([]byte(`{"name":"test"}`), architecture, []DiskInfo{
 			{VolumeName: "vol1", FilePath: disk1},
 			{VolumeName: "vol2", FilePath: disk2},
 		})
@@ -271,7 +271,7 @@ var _ = Describe("OCI Builder", func() {
 	})
 
 	It("should return TotalTarSize matching actual TAR length with zero disks", func() {
-		builder := NewBuilder(emptyConfigJSON(), architecture, nil)
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, nil)
 		Expect(builder.Prepare(context.Background())).To(Succeed())
 
 		var buf bytes.Buffer
@@ -281,13 +281,13 @@ var _ = Describe("OCI Builder", func() {
 	})
 
 	It("should fail WriteTar before Prepare", func() {
-		builder := NewBuilder(emptyConfigJSON(), architecture, nil)
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, nil)
 		var buf bytes.Buffer
 		Expect(builder.WriteTar(context.Background(), &buf)).To(MatchError(ContainSubstring("prepare must be called")))
 	})
 
 	It("should fail Prepare with non-existent disk path", func() {
-		builder := NewBuilder(emptyConfigJSON(), architecture, []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
 			{VolumeName: "bad", FilePath: "/nonexistent/disk.img"},
 		})
 		Expect(builder.Prepare(context.Background())).To(MatchError(ContainSubstring("failed to compute digest for disk bad")))
@@ -295,7 +295,7 @@ var _ = Describe("OCI Builder", func() {
 
 	It("should fail WriteTar when context is canceled", func() {
 		diskPath := createTestDisk()
-		builder := NewBuilder(emptyConfigJSON(), architecture, []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
 			{VolumeName: "disk", FilePath: diskPath},
 		})
 		Expect(builder.Prepare(context.Background())).To(Succeed())
@@ -312,10 +312,34 @@ var _ = Describe("OCI Builder", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		builder := NewBuilder(emptyConfigJSON(), architecture, []DiskInfo{
+		builder := NewVMBuilder(emptyConfigJSON(), architecture, []DiskInfo{
 			{VolumeName: "disk", FilePath: diskPath},
 		})
 		Expect(builder.Prepare(ctx)).To(MatchError(ContainSubstring("context canceled")))
+	})
+
+	It("should use VMTemplate artifact type when using NewVMTemplateBuilder", func() {
+		diskPath := createTestDisk()
+		configJSON := []byte(`{"apiVersion":"template.kubevirt.io/v1beta1","kind":"VirtualMachineTemplate"}`)
+		builder := NewVMTemplateBuilder(configJSON, architecture, []DiskInfo{
+			{VolumeName: "rootdisk", FilePath: diskPath},
+		})
+
+		Expect(builder.Prepare(context.Background())).To(Succeed())
+
+		var buf bytes.Buffer
+		Expect(builder.WriteTar(context.Background(), &buf)).To(Succeed())
+
+		files := readTarFiles(&buf)
+
+		var index ocispec.Index
+		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		Expect(index.ArtifactType).To(Equal(artifactTypeVMTemplate))
+
+		var manifest ocispec.Manifest
+		Expect(json.Unmarshal(files[blobPath(index.Manifests[0].Digest)], &manifest)).To(Succeed())
+		Expect(manifest.ArtifactType).To(Equal(artifactTypeVMTemplate))
+		Expect(manifest.Config.MediaType).To(Equal(mediaTypeVMTemplateConfig))
 	})
 })
 
