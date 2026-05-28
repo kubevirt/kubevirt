@@ -61,6 +61,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
@@ -773,8 +774,37 @@ func resourceToBytesYaml(resources []runtime.Object) ([]byte, error) {
 	return data, nil
 }
 
+// symlinkSafeDir is an http.FileSystem that prevents symlink traversal outside root.
+// Unlike http.Dir, it resolves symlinks via safepath and rejects any that escape the
+// root boundary, preventing attackers from reading files outside the exported PVC.
+type symlinkSafeDir struct {
+	root string
+}
+
+func (d symlinkSafeDir) Open(name string) (http.File, error) {
+	cleanName := path.Clean("/" + name)
+	if cleanName == "/" {
+		cleanName = "."
+	} else {
+		cleanName = cleanName[1:]
+	}
+
+	resolved, err := safepath.JoinAndResolveWithRelativeRoot(d.root, cleanName)
+	if err != nil {
+		return nil, err
+	}
+
+	fd, err := safepath.OpenAtNoFollow(resolved)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+
+	return os.Open(fd.SafePath())
+}
+
 func dirHandler(uri, mountPoint string) http.Handler {
-	return http.StripPrefix(uri, http.FileServer(http.Dir(mountPoint)))
+	return http.StripPrefix(uri, http.FileServer(symlinkSafeDir{root: mountPoint}))
 }
 
 func fileHandler(file string) http.Handler {
