@@ -23,10 +23,14 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/precond"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
+	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -78,41 +82,105 @@ func WithDHCPConfiguratorFactory(f DHCPConfiguratorFactory) vmNetConfiguratorOpt
 	}
 }
 
-func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.Network) ([]podNIC, error) {
-	var nics []podNIC
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networks []v1.Network) error {
+	precond.MustNotBeNil(domain)
 
 	for i := range networks {
-		iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name)
+		iface := vmispec.LookupInterfaceByName(n.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name)
 		if iface == nil {
-			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
+			return fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		// Passt, Binding plugin (with non tap domain attachment) and SR-IOV devices are not part of the phases
-		if (iface.PasstBinding != nil || iface.Binding != nil && v.domainAttachments[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
+		if (iface.PasstBinding != nil || iface.Binding != nil && n.domainAttachments[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
 			continue
 		}
 
-		nic, err := newPhase2PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, domain, v.domainAttachments[iface.Name])
+		podIfaceName, err := n.discoverPodInterfaceName(&networks[i])
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if v.dhcpConfiguratorFactory != nil {
-			nic.dhcpConfigurator = v.dhcpConfiguratorFactory(iface, &networks[i], nic.podInterfaceName)
+
+		n.enrichTapDomainInterface(domain, iface, &networks[i], podIfaceName)
+
+		if err := n.ensureDHCP(iface, &networks[i], podIfaceName); err != nil {
+			return err
 		}
-		nics = append(nics, *nic)
 	}
-	return nics, nil
+	return nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networks []v1.Network) error {
-	nics, err := n.getPhase2NICs(domain, networks)
+func (n *VMNetworkConfigurator) discoverPodInterfaceName(network *v1.Network) (string, error) {
+	ifaceLink, err := link.DiscoverByNetwork(n.handler, n.vmi.Spec.Networks, *network, n.vmi.Status.Interfaces)
 	if err != nil {
+		return "", err
+	}
+	if ifaceLink == nil {
+		return "", nil
+	}
+	return ifaceLink.Attrs().Name, nil
+}
+
+func (n *VMNetworkConfigurator) enrichTapDomainInterface(
+	domain *api.Domain,
+	iface *v1.Interface,
+	network *v1.Network,
+	podIfaceName string,
+) {
+	generator := domainspec.NewTapLibvirtSpecGenerator(iface, *network, domain, podIfaceName, n.handler)
+	if err := generator.Generate(); err != nil {
+		log.Log.Reason(err).Critical("failed to create libvirt configuration")
+	}
+}
+
+func (n *VMNetworkConfigurator) ensureDHCP(iface *v1.Interface, network *v1.Network, podIfaceName string) error {
+	var configurator dhcpconfigurator.Configurator
+	if n.dhcpConfiguratorFactory != nil {
+		configurator = n.dhcpConfiguratorFactory(iface, network, podIfaceName)
+	} else {
+		configurator = n.newDHCPConfigurator(iface, network, podIfaceName)
+	}
+
+	if configurator == nil {
+		return nil
+	}
+
+	dhcpConfig, err := configurator.Generate()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a dhcp configuration for: %s", podIfaceName)
 		return err
 	}
-	for _, nic := range nics {
-		if err := nic.PlugPhase2(domain); err != nil {
-			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
-		}
+	log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
+	if err := configurator.EnsureDHCPServerStarted(podIfaceName, *dhcpConfig, iface.DHCPOptions); err != nil {
+		log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", podIfaceName)
+		panic(err)
+	}
+
+	return nil
+}
+
+func (n *VMNetworkConfigurator) newDHCPConfigurator(
+	iface *v1.Interface,
+	network *v1.Network,
+	podIfaceName string,
+) dhcpconfigurator.Configurator {
+	if iface.Bridge != nil {
+		return dhcpconfigurator.NewBridgeConfigurator(
+			n.cacheCreator,
+			link.GenerateBridgeName(podIfaceName),
+			n.handler,
+			podIfaceName,
+			n.vmi.Spec.Domain.Devices.Interfaces,
+			iface,
+			n.vmi.Spec.Subdomain)
+	}
+	if iface.Masquerade != nil {
+		return dhcpconfigurator.NewMasqueradeConfigurator(
+			link.GenerateBridgeName(podIfaceName),
+			n.handler,
+			iface,
+			network,
+			podIfaceName,
+			n.vmi.Spec.Subdomain)
 	}
 	return nil
 }
