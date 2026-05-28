@@ -17,7 +17,7 @@
  *
  */
 
-package components
+package validatingadmissionpolicies
 
 import (
 	"fmt"

@@ -1408,7 +1408,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	}
 
 	userName := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.HandlerServiceAccountName)
-	all = append(all, components.NewHandlerV1ValidatingAdmissionPolicy(userName), components.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewHandlerV1ValidatingAdmissionPolicy(userName), vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
 	all = append(all, vap.NewPluginValidatingAdmissionPolicy(), vap.NewPluginValidatingAdmissionPolicyBinding())
 	all = append(all, vap.NewPluginWarningAdmissionPolicy(), vap.NewPluginWarningAdmissionPolicyBinding())
 

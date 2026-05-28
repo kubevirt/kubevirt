@@ -627,9 +627,9 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
 
-	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, components.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
 	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
-	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, components.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
 
 	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginValidatingAdmissionPolicyBinding())
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginValidatingAdmissionPolicy())
