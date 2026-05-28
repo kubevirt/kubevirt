@@ -88,6 +88,8 @@ const SevDeviceName = "sev"
 const TdxDeviceName = "tdx"
 const SevDevice = K8sDevicePrefix + "/" + SevDeviceName
 const TdxDevice = K8sDevicePrefix + "/" + TdxDeviceName
+const IOMMUFDDeviceName = "iommufd"
+const IOMMUFDDevice = K8sDevicePrefix + "/" + IOMMUFDDeviceName
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"

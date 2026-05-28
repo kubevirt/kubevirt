@@ -235,6 +235,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		}
 	}
 
+	if c.virtConfig.IOMMUFDEnabled() {
+		permittedDevices = append(permittedDevices, NewIOMMUFDDevicePlugin(c.maxDevices))
+	}
+
 	if c.virtConfig.PersistentReservationEnabled() {
 		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager(), false)
 		if err != nil {
