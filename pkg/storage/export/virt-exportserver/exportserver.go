@@ -72,6 +72,7 @@ const (
 	authHeader              = "x-kubevirt-export-token"
 	manifestCmBasePath      = "/manifest_data/"
 	vmManifestPath          = manifestCmBasePath + "virtualmachine-manifest"
+	vmTemplateManifestPath  = manifestCmBasePath + "virtualmachinetemplate-manifest"
 	internalLinkPath        = manifestCmBasePath + "internal_host"
 	internalCaConfigMapPath = manifestCmBasePath + "internal_ca_cm"
 	externalLinkPath        = manifestCmBasePath + "external_host"

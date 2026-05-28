@@ -28,9 +28,10 @@ import (
 	"strconv"
 
 	k8sv1 "k8s.io/api/core/v1"
-
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/oci"
@@ -59,21 +60,23 @@ func ociHTTPHandler(builder *oci.Builder) http.Handler {
 }
 
 func newOCIBuilder(paths *export.ServerPaths) (*oci.Builder, error) {
-	vm := getExpandedVM()
-	if vm == nil {
-		return nil, nil
-	}
-
-	configJSON, err := prepareVMConfig(vm)
+	disks, err := collectDiskInfo(paths)
 	if err != nil {
-		return nil, fmt.Errorf("error preparing VM config: %w", err)
+		return nil, err
 	}
 
-	architecture := ""
-	if vm.Spec.Template != nil {
-		architecture = vm.Spec.Template.Spec.Architecture
+	if tpl := getVMTemplate(); tpl != nil {
+		return newVMTemplateOCIBuilder(tpl, disks)
 	}
 
+	if vm := getExpandedVM(); vm != nil {
+		return newVMOCIBuilder(vm, disks)
+	}
+
+	return nil, nil
+}
+
+func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 	var disks []oci.DiskInfo
 	for _, vi := range paths.Volumes {
 		p := vi.Path
@@ -91,25 +94,82 @@ func newOCIBuilder(paths *export.ServerPaths) (*oci.Builder, error) {
 			VolumeName: path.Base(vi.Path),
 		})
 	}
+	return disks, nil
+}
+
+func getVMTemplate() *v1beta1.VirtualMachineTemplate {
+	data, err := os.ReadFile(vmTemplateManifestPath)
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VMTemplate manifest data")
+		return nil
+	}
+	tpl := &v1beta1.VirtualMachineTemplate{}
+	if err := json.Unmarshal(data, tpl); err != nil {
+		log.Log.Reason(err).Info("Unable to parse VMTemplate manifest data")
+		return nil
+	}
+	return tpl
+}
+
+func newVMTemplateOCIBuilder(tpl *v1beta1.VirtualMachineTemplate, disks []oci.DiskInfo) (*oci.Builder, error) {
+	configJSON, err := prepareVMTemplateConfig(tpl)
+	if err != nil {
+		return nil, fmt.Errorf("error preparing VMTemplate config: %w", err)
+	}
+
+	architecture := extractArchitectureFromVMTemplate(tpl)
+
+	return oci.NewVMTemplateBuilder(configJSON, architecture, disks), nil
+}
+
+func prepareVMTemplateConfig(tpl *v1beta1.VirtualMachineTemplate) ([]byte, error) {
+	out := tpl.DeepCopy()
+	out.APIVersion = v1beta1.GroupVersion.String()
+	out.Kind = "VirtualMachineTemplate"
+	return json.Marshal(out)
+}
+
+func extractArchitectureFromVMTemplate(tpl *v1beta1.VirtualMachineTemplate) string {
+	if tpl.Spec.VirtualMachine == nil || tpl.Spec.VirtualMachine.Raw == nil {
+		return ""
+	}
+
+	var obj map[string]any
+	if err := json.Unmarshal(tpl.Spec.VirtualMachine.Raw, &obj); err != nil {
+		return ""
+	}
+
+	arch, _, _ := unstructured.NestedString(obj, "spec", "template", "spec", "architecture")
+	if arch == "" {
+		return ""
+	}
+	resolved, ok := export.ResolveParameterValue(arch, tpl.Spec.Parameters)
+	if !ok {
+		return ""
+	}
+
+	return resolved
+}
+
+func newVMOCIBuilder(vm *virtv1.VirtualMachine, disks []oci.DiskInfo) (*oci.Builder, error) {
+	configJSON, err := prepareVMConfig(vm)
+	if err != nil {
+		return nil, fmt.Errorf("error preparing VM config: %w", err)
+	}
+
+	architecture := ""
+	if vm.Spec.Template != nil {
+		architecture = vm.Spec.Template.Spec.Architecture
+	}
 
 	return oci.NewVMBuilder(configJSON, architecture, disks), nil
 }
 
 func prepareVMConfig(vm *virtv1.VirtualMachine) ([]byte, error) {
 	out := vm.DeepCopy()
-
 	gvk := virtv1.VirtualMachineGroupVersionKind
 	out.APIVersion, out.Kind = gvk.ToAPIVersionAndKind()
 	out.Namespace = ""
-	out.UID = ""
-	out.ResourceVersion = ""
-	out.CreationTimestamp.Reset()
-	out.Generation = 0
-	out.ManagedFields = nil
-	out.OwnerReferences = nil
-	out.Finalizers = nil
-	out.Status = virtv1.VirtualMachineStatus{}
-
 	out.Spec.DataVolumeTemplates = nil
 	if out.Spec.Template != nil {
 		for i, vol := range out.Spec.Template.Spec.Volumes {

@@ -130,7 +130,6 @@ func (s *VMTemplateSource) ManifestData() (key string, data []byte, extra map[st
 	}
 
 	return vmTemplateManifest, tplBytes, nil, nil
-
 }
 
 func (ctrl *VMExportController) handleVMTemplate(obj any) {
