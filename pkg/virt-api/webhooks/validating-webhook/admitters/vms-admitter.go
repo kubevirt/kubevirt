@@ -224,6 +224,69 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, storageadmitters.ValidateDataVolumeTemplate(field, spec)...)
 	causes = append(causes, validateRunStrategy(field, spec, config)...)
 	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
+	causes = append(causes, validateResourceClaimTemplates(field, spec, config)...)
+
+	return causes
+}
+
+func validateResourceClaimTemplates(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if len(spec.ResourceClaimTemplates) == 0 {
+		return nil
+	}
+
+	if !config.GPUsWithDRAGateEnabled() && !config.HostDevicesWithDRAEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "ResourceClaimTemplates requires the GPUsWithDRA or HostDevicesWithDRA feature gate to be enabled",
+			Field:   field.Child("resourceClaimTemplates").String(),
+		})
+		return causes
+	}
+
+	nameSet := make(map[string]bool)
+	for i, entry := range spec.ResourceClaimTemplates {
+		entryField := field.Child("resourceClaimTemplates").Index(i)
+		if entry.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "ResourceClaimTemplateEntry name is required",
+				Field:   entryField.Child("name").String(),
+			})
+		} else {
+			if nameSet[entry.Name] {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueDuplicate,
+					Message: fmt.Sprintf("Duplicate ResourceClaimTemplateEntry name: %s", entry.Name),
+					Field:   entryField.Child("name").String(),
+				})
+			}
+			nameSet[entry.Name] = true
+		}
+		if entry.ResourceClaimTemplateName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "ResourceClaimTemplateEntry resourceClaimTemplateName is required",
+				Field:   entryField.Child("resourceClaimTemplateName").String(),
+			})
+		}
+
+		if spec.Template != nil {
+			found := false
+			for _, rc := range spec.Template.Spec.ResourceClaims {
+				if rc.Name == entry.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("ResourceClaimTemplateEntry %q has no matching entry in spec.template.spec.resourceClaims", entry.Name),
+					Field:   entryField.Child("name").String(),
+				})
+			}
+		}
+	}
 
 	return causes
 }

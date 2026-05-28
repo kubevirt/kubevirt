@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,6 +106,8 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			resourceClaimInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaim{})
+			resourceClaimTemplInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaimTemplate{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 
 			ns1 := &k8sv1.Namespace{
@@ -145,6 +148,8 @@ var _ = Describe("VirtualMachine", func() {
 				namespaceInformer,
 				pvcInformer,
 				crInformer,
+				resourceClaimInformer,
+				resourceClaimTemplInformer,
 				recorder,
 				virtClient,
 				config,
@@ -7466,6 +7471,8 @@ var _ = Describe("VirtualMachine", func() {
 			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{})
+			rcInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaim{})
+			rctInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaimTemplate{})
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			testController, _ = NewController(
@@ -7477,6 +7484,8 @@ var _ = Describe("VirtualMachine", func() {
 				namespaceInformer,
 				pvcInformer,
 				crInformer,
+				rcInformer,
+				rctInformer,
 				record.NewFakeRecorder(100),
 				virtClient,
 				config,

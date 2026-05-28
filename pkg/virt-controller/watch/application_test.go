@@ -35,6 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,6 +111,8 @@ var _ = Describe("Application", func() {
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		resourceClaimInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaim{})
+		resourceClaimTemplInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaimTemplate{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
@@ -175,6 +178,8 @@ var _ = Describe("Application", func() {
 			namespaceInformer,
 			pvcInformer,
 			crInformer,
+			resourceClaimInformer,
+			resourceClaimTemplInformer,
 			recorder,
 			virtClient,
 			config,
