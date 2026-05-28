@@ -142,7 +142,6 @@ func NewSynchronizationController(
 	}
 
 	if err := syncController.migrationInformer.AddIndexers(map[string]cache.IndexFunc{
-		"byUID":               indexByMigrationUID,
 		"byActiveVMIName":     indexByActiveVmiName,
 		"byTargetMigrationID": indexByTargetMigrationID,
 		"bySourceMigrationID": indexBySourceMigrationID,
@@ -518,7 +517,7 @@ func (s *SynchronizationController) cancelRemoteMigration(migrationUID types.UID
 }
 
 func (s *SynchronizationController) getMigrationIDFromUID(migrationUID types.UID) (string, error) {
-	objs, err := s.migrationInformer.GetIndexer().ByIndex("byUID", string(migrationUID))
+	objs, err := s.migrationInformer.GetIndexer().ByIndex(controller.ByMigrationUIDIndex, string(migrationUID))
 	if err != nil {
 		return "", err
 	}
@@ -1278,14 +1277,6 @@ func patchMigrationStateField[T any](patchSet *patch.PatchSet, field string, ori
 	}
 }
 
-func indexByMigrationUID(obj interface{}) ([]string, error) {
-	migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
-	if !ok {
-		return nil, nil
-	}
-	return []string{string(migration.UID)}, nil
-}
-
 func indexByActiveVmiName(obj interface{}) ([]string, error) {
 	migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
 	if !ok {
@@ -1397,7 +1388,7 @@ func (s *SynchronizationController) runConnectionCleanup() {
 func (s *SynchronizationController) CancelMigration(ctx context.Context, request *syncv1.MigrationCancelRequest) (*syncv1.MigrationCancelResponse, error) {
 	migrationUID := request.MigrationUID
 
-	migration, err := s.findMigrationFromMigrationIDByIndex("byUID", migrationUID)
+	migration, err := s.findMigrationFromMigrationIDByIndex(controller.ByMigrationUIDIndex, migrationUID)
 	if err != nil {
 		return &syncv1.MigrationCancelResponse{
 			Message: fmt.Sprintf("unable to find migration to cancel for migrationUID %s", migrationUID),
