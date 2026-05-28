@@ -41,9 +41,11 @@ import (
 )
 
 const (
-	artifactTypeVM       = "application/vnd.kubevirt.virtualmachine.v1"
-	mediaTypeVMConfig    = "application/vnd.kubevirt.virtualmachine.config.v1+json"
-	mediaTypeDiskRawZstd = "application/vnd.kubevirt.disk.raw+zstd"
+	artifactTypeVM            = "application/vnd.kubevirt.virtualmachine.v1"
+	mediaTypeVMConfig         = "application/vnd.kubevirt.virtualmachine.config.v1+json"
+	artifactTypeVMTemplate    = "application/vnd.kubevirt.virtualmachinetemplate.v1"
+	mediaTypeVMTemplateConfig = "application/vnd.kubevirt.virtualmachinetemplate.config.v1+json"
+	mediaTypeDiskRawZstd      = "application/vnd.kubevirt.disk.raw+zstd"
 
 	annotationDiskName = "io.kubevirt.disk.name"
 	annotationDiskSize = "io.kubevirt.disk.size"
@@ -61,10 +63,12 @@ type DiskInfo struct {
 // Builder constructs an OCI image layout TAR archive using a two-pass strategy.
 // Pass 1 (Prepare) computes digests and sizes. Pass 2 (WriteTar) streams the archive.
 type Builder struct {
-	disks        []DiskInfo
-	configJSON   []byte
-	architecture string
-	createdAt    time.Time
+	disks           []DiskInfo
+	configJSON      []byte
+	architecture    string
+	artifactType    string
+	configMediaType string
+	createdAt       time.Time
 
 	configDesc   ocispec.Descriptor
 	diskDescs    []ocispec.Descriptor
@@ -77,18 +81,28 @@ type Builder struct {
 	ready atomic.Bool
 }
 
-// NewBuilder creates a Builder for the given VM config, architecture and disks.
-// architecture defaults to amd64.
-func NewBuilder(vmConfigJSON []byte, architecture string, disks []DiskInfo) *Builder {
+func newBuilder(configJSON []byte, architecture string, disks []DiskInfo, artifactType, configMediaType string) *Builder {
 	if architecture == "" {
 		architecture = "amd64"
 	}
 	return &Builder{
-		disks:        disks,
-		configJSON:   vmConfigJSON,
-		architecture: architecture,
-		createdAt:    time.Now().UTC(),
+		disks:           disks,
+		configJSON:      configJSON,
+		architecture:    architecture,
+		artifactType:    artifactType,
+		configMediaType: configMediaType,
+		createdAt:       time.Now().UTC(),
 	}
+}
+
+// NewVMBuilder creates a Builder for a VirtualMachine OCI artifact.
+func NewVMBuilder(configJSON []byte, architecture string, disks []DiskInfo) *Builder {
+	return newBuilder(configJSON, architecture, disks, artifactTypeVM, mediaTypeVMConfig)
+}
+
+// NewVMTemplateBuilder creates a Builder for a VirtualMachineTemplate OCI artifact.
+func NewVMTemplateBuilder(configJSON []byte, architecture string, disks []DiskInfo) *Builder {
+	return newBuilder(configJSON, architecture, disks, artifactTypeVMTemplate, mediaTypeVMTemplateConfig)
 }
 
 // Ready returns true after Prepare has completed successfully.
@@ -99,7 +113,7 @@ func (b *Builder) Ready() bool {
 // Prepare runs the first pass of the OCI export that computes SHA-256 digests and sizes for all blobs.
 // After Prepare returns successfully, WriteTar and Size can be called.
 func (b *Builder) Prepare(ctx context.Context) error {
-	b.configDesc = descriptorFromBytes(mediaTypeVMConfig, b.configJSON)
+	b.configDesc = descriptorFromBytes(b.configMediaType, b.configJSON)
 
 	b.diskDescs = make([]ocispec.Descriptor, len(b.disks))
 	g, gCtx := errgroup.WithContext(ctx)
@@ -196,7 +210,7 @@ func (b *Builder) buildManifest() ([]byte, error) {
 	return json.Marshal(ocispec.Manifest{
 		Versioned:    specs.Versioned{SchemaVersion: 2},
 		MediaType:    ocispec.MediaTypeImageManifest,
-		ArtifactType: artifactTypeVM,
+		ArtifactType: b.artifactType,
 		Config:       b.configDesc,
 		Layers:       b.diskDescs,
 	})
@@ -206,7 +220,7 @@ func (b *Builder) buildIndex() ([]byte, error) {
 	return json.Marshal(ocispec.Index{
 		Versioned:    specs.Versioned{SchemaVersion: 2},
 		MediaType:    ocispec.MediaTypeImageIndex,
-		ArtifactType: artifactTypeVM,
+		ArtifactType: b.artifactType,
 		Manifests: []ocispec.Descriptor{
 			{
 				MediaType: ocispec.MediaTypeImageManifest,
