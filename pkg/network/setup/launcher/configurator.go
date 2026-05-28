@@ -91,7 +91,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 			return fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		if (iface.PasstBinding != nil || iface.Binding != nil && n.domainAttachments[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
+		if n.domainAttachments[iface.Name] != string(v1.Tap) {
 			continue
 		}
 
