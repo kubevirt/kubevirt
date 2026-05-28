@@ -431,11 +431,6 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
 	vmi.Spec.Domain.Memory.Guest = pointer.P(resource.MustParse("1024M"))
-	vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-		Requests: k8sv1.ResourceList{
-			k8sv1.ResourceMemory: resource.MustParse("1024M"),
-		},
-	}
 	initFedoraIsolated(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
