@@ -1633,7 +1633,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with grace period greater than 0", func() {
 			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, decorators.WgS390x, func() {
 				By("Setting a VirtualMachineInstance termination grace period to 5")
-				vmi := libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(5))
+				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithTerminationGracePeriod(5))
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
