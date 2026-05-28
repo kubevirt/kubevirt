@@ -39,6 +39,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -205,6 +206,12 @@ type KubeInformerFactory interface {
 
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
+
+	// Watches for ResourceClaim objects (DRA)
+	ResourceClaim() cache.SharedIndexInformer
+
+	// Watches for ResourceClaimTemplate objects (DRA)
+	ResourceClaimTemplate() cache.SharedIndexInformer
 
 	// Watches for ControllerRevision objects
 	ControllerRevision() cache.SharedIndexInformer
@@ -1169,6 +1176,22 @@ func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer 
 		restClient := f.k8sClient.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ResourceClaim() cache.SharedIndexInformer {
+	return f.getInformer("resourceClaimInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.ResourceV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "resourceclaims", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &resourcev1.ResourceClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ResourceClaimTemplate() cache.SharedIndexInformer {
+	return f.getInformer("resourceClaimTemplateInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.ResourceV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "resourceclaimtemplates", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &resourcev1.ResourceClaimTemplate{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
