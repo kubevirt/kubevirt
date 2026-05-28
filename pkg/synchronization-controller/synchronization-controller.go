@@ -1282,6 +1282,22 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	}
 	migration, err := s.findTargetMigrationFromMigrationID(request.MigrationID)
 	if migration == nil {
+		migrations := s.migrationInformer.GetStore().List()
+		log.Log.V(1).Infof("unable to find target migration for migrationID %s", request.MigrationID)
+		log.Log.V(1).Infof("there are the migration in the informer")
+		for _, m := range migrations {
+			migration := m.(*virtv1.VirtualMachineInstanceMigration)
+			log.Log.V(1).Infof("migration name: %s", migration.Name)
+			log.Log.V(1).Infof("migration namespace: %s", migration.Namespace)
+			log.Log.V(1).Infof("migration VMI name: %s", migration.Spec.VMIName)
+			if migration.Spec.Receive != nil {
+				log.Log.V(1).Infof("migration receive migrationID: %s", migration.Spec.Receive.MigrationID)
+			}
+			if migration.Spec.SendTo != nil {
+				log.Log.V(1).Infof("migration sendTo migrationID: %s", migration.Spec.SendTo.MigrationID)
+				log.Log.V(1).Infof("migration sendTo connectURL: %s", migration.Spec.SendTo.ConnectURL)
+			}
+		}
 		return &syncv1.VMIStatusResponse{
 			Message: fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, request.MigrationID),
 		}, fmt.Errorf(sourceUnableToLocateVMIMigrationIDErrorMsg, request.MigrationID)
