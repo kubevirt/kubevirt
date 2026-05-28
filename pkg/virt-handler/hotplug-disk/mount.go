@@ -337,9 +337,17 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	// Collect all device rules first
 	var deviceRules []*devices.Rule
 
+	specVolumes := make(map[string]struct{}, len(vmi.Spec.Volumes))
+	for _, volume := range vmi.Spec.Volumes {
+		specVolumes[volume.Name] = struct{}{}
+	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil || volumeStatus.ContainerDiskVolume != nil {
 			// Skip non hotplug volumes
+			continue
+		}
+		if _, ok := specVolumes[volumeStatus.Name]; !ok {
 			continue
 		}
 		mountDirectory := false
