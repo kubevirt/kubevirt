@@ -694,6 +694,14 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplates
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - pool.kubevirt.io
           resources:
           - virtualmachinepools
