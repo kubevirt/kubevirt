@@ -31,6 +31,7 @@ import (
 
 const (
 	stallMargin               float64 = 0.04
+	stallProgressTimeout      int64   = 40
 	switchoverTimeout         int64   = 60
 	preCopyPossibleFactor     float64 = 1.5
 	patienceWindowDecayFactor float64 = 0.5

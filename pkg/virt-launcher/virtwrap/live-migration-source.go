@@ -437,7 +437,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
 		monitor.stallDetector = &stallDetector{
 			maxDowntimeMs:             options.MaxDowntimeMs,
-			progressTimeoutSeconds:    options.ProgressTimeout,
+			progressTimeoutSeconds:    stallProgressTimeout,
 			patienceWindowDecayFactor: patienceWindowDecayFactor,
 			allowPostCopy:             options.AllowPostCopy,
 			allowWorkloadDisruption:   options.AllowWorkloadDisruption,
@@ -453,7 +453,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 			options.AllowPostCopy,
 			options.AllowWorkloadDisruption,
 			stallMargin,
-			options.ProgressTimeout,
+			stallProgressTimeout,
 			switchoverTimeout,
 			preCopyPossibleFactor,
 			patienceWindowDecayFactor,
@@ -557,7 +557,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 		}
 		if m.options.AllowWorkloadDisruption && completable {
 			logger.Infof("completion timeout reached: setting max downtime to %dms to force switchover", migrationutils.QEMUMaxMigrationDowntimeMS)
-			if err := dom.MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), 0); err != nil {
+			if err := dom.MigrateSetMaxDowntime(migrationutils.QEMUMaxMigrationDowntimeMS, 0); err != nil {
 				logger.Reason(err).Error("setting max downtime failed")
 				return
 			}
