@@ -33,10 +33,12 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
+	templateapi "kubevirt.io/virt-template-api/core"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating VirtualMachineExport Admitter", func() {
@@ -44,8 +46,24 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	snapshotApiGroup := "snapshot.kubevirt.io"
 	kubevirtApiGroup := "kubevirt.io"
 	backupApiGroup := "backup.kubevirt.io"
+	templateApiGroup := templateapi.GroupName
 
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	ociOnlyConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		DeveloperConfiguration: &v1.DeveloperConfiguration{
+			FeatureGates: []string{featuregate.OCIExport},
+		},
+	})
+	templateOnlyConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		DeveloperConfiguration: &v1.DeveloperConfiguration{
+			FeatureGates: []string{featuregate.Template},
+		},
+	})
+	vmTemplateExportConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		DeveloperConfiguration: &v1.DeveloperConfiguration{
+			FeatureGates: []string{featuregate.Template, featuregate.OCIExport},
+		},
+	})
 
 	Context("VMExport", func() {
 		It("should reject invalid request resource", func() {
@@ -92,6 +110,14 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 		}
 
+		createBlankVMTemplateObjectRef := func() corev1.TypedLocalObjectReference {
+			return corev1.TypedLocalObjectReference{
+				APIGroup: &templateApiGroup,
+				Kind:     vmTemplateKind,
+				Name:     "",
+			}
+		}
+
 		DescribeTable("it should reject blank names", func(objectRefFunc func() corev1.TypedLocalObjectReference, errorString string) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
@@ -108,6 +134,49 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("virtual machine", createBlankVMObjectRef, "Virtual Machine name must not be empty"),
 			Entry("virtual machine backup", createBlankVMBackupObjectRef, "VirtualMachineBackup name must not be empty"),
 		)
+
+		It("should reject blank VMTemplate name when Template gate enabled", func() {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: createBlankVMTemplateObjectRef(),
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(vmTemplateExportConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).Should(ContainSubstring("VirtualMachineTemplate name must not be empty"))
+		})
+
+		DescribeTable("should reject VMTemplate source when required feature gates are missing", func(cfg *virtconfig.ClusterConfig) {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: createBlankVMTemplateObjectRef(),
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(cfg).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).Should(ContainSubstring("OCIExport feature gate and virt-template deployment"))
+		},
+			Entry("no feature gates", config),
+			Entry("only OCIExport", ociOnlyConfig),
+			Entry("only Template", templateOnlyConfig),
+		)
+
+		It("should accept valid VMTemplate source when both gates enabled", func() {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &templateApiGroup,
+						Kind:     vmTemplateKind,
+						Name:     "test-template",
+					},
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(vmTemplateExportConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
 
 		It("should reject unknown kind", func() {
 			export := &exportv1.VirtualMachineExport{
@@ -224,6 +293,22 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("virtual machine", "invalid", vmKind),
 			Entry("virtual machine backup", "invalid", vmBackupKind),
 		)
+
+		It("should reject invalid VMTemplate apigroup", func() {
+			invalidGroup := "invalid"
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &invalidGroup,
+						Kind:     vmTemplateKind,
+						Name:     "test",
+					},
+				},
+			}
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(vmTemplateExportConfig).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+		})
 	})
 })
 
