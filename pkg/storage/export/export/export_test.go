@@ -62,6 +62,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	templateapi "kubevirt.io/virt-template-api/core"
+	"kubevirt.io/virt-template-api/core/v1alpha1"
 
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -130,6 +132,7 @@ var _ = Describe("Export controller", func() {
 		clusterPreferenceInformer   cache.SharedIndexInformer
 		controllerRevisionInformer  cache.SharedIndexInformer
 		vmBackupInformer            cache.SharedIndexInformer
+		vmTemplateInformer          cache.SharedIndexInformer
 		rqInformer                  cache.SharedIndexInformer
 		nsInformer                  cache.SharedIndexInformer
 		k8sClient                   *k8sfake.Clientset
@@ -218,6 +221,7 @@ var _ = Describe("Export controller", func() {
 		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		vmBackupInformer, _ = testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
+		vmTemplateInformer, _ = testutils.NewFakeInformerFor(&v1alpha1.VirtualMachineTemplate{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
@@ -265,6 +269,7 @@ var _ = Describe("Export controller", func() {
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
 			VMBackupInformer:            vmBackupInformer,
+			VMTemplateInformer:          vmTemplateInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			ctrl.caCertManager.Start()
@@ -1576,9 +1581,75 @@ var _ = Describe("Export controller", func() {
 			Expect(cm.Data[vmManifest]).To(Equal(string(vmBytes)))
 			return true, cm, nil
 		})
-		err = controller.createDataManifestAndAddToPod(testVMExport, vm, testPod, service)
+		extra, err := controller.extraVMData(vm)
+		Expect(err).ToNot(HaveOccurred())
+		err = controller.createManifestAndAddToPod(testVMExport, vmManifest, vmBytes, testPod, service, extra)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(testVMExport.Status).ToNot(BeNil())
+	})
+
+	It("should create template manifest and add it to the pod spec", func() {
+		populateIngressSecret()
+		apiGroup := templateapi.GroupName
+		testVMExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: createVMExportMeta(vmExportName),
+			Spec: exportv1.VirtualMachineExportSpec{
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     vmTemplateKind,
+					Name:     "test-template",
+				},
+				TokenSecretRef: &tokenSecretName,
+			},
+		}
+		tpl := &v1alpha1.VirtualMachineTemplate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-template",
+				Namespace: testNamespace,
+			},
+			Spec: v1alpha1.VirtualMachineTemplateSpec{
+				VirtualMachine: &runtime.RawExtension{Raw: []byte(`{"spec":{}}`)},
+			},
+		}
+
+		service := &k8sv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controller.getExportServiceName(testVMExport),
+				Namespace: testVMExport.Namespace,
+			},
+		}
+		testPod := &k8sv1.Pod{
+			Spec: k8sv1.PodSpec{
+				Containers: []k8sv1.Container{
+					{
+						VolumeMounts: []k8sv1.VolumeMount{},
+					},
+				},
+				Volumes: []k8sv1.Volume{},
+			},
+		}
+
+		cmName := controller.getVmManifestConfigMapName(testVMExport)
+		tplSource := NewVMTemplateSource(tpl, &sourceVolumes{})
+		key, tplBytes, extra, err := tplSource.ManifestData()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(key).To(Equal(vmTemplateManifest))
+		k8sClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			cm, ok := create.GetObject().(*k8sv1.ConfigMap)
+			Expect(ok).To(BeTrue())
+			Expect(cm.GetName()).To(Equal(cmName))
+			Expect(cm.GetNamespace()).To(Equal(testNamespace))
+			Expect(cm.Data).ToNot(BeEmpty())
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.Data[vmTemplateManifest]).To(Equal(string(tplBytes)))
+			Expect(cm.Data).ToNot(HaveKey(vmManifest))
+			return true, cm, nil
+		})
+
+		err = controller.createManifestAndAddToPod(testVMExport, vmTemplateManifest, tplBytes, testPod, service, extra)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	createVM := func() *virtv1.VirtualMachine {
