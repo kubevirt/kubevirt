@@ -31,6 +31,7 @@ pkg/network/netns
 pkg/network/passt
 pkg/network/pod/annotations
 pkg/network/resources
+pkg/network/setup/launcher
 pkg/network/vmispec
 pkg/network/vmliveupdate
 pkg/pointer
