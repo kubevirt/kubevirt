@@ -50,6 +50,7 @@ import (
 	exportv1 "kubevirt.io/api/export/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+	templateapi "kubevirt.io/virt-template-api/core"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -74,6 +75,7 @@ const (
 	DELETE_FLAG            = "--delete-vme"
 	FORMAT_FLAG            = "--format"
 	PVC_FLAG               = "--pvc"
+	VMTEMPLATE_FLAG        = "--vmtemplate"
 	TTL_FLAG               = "--ttl"
 	MANIFEST_FLAG          = "--manifest"
 	OUTPUT_FORMAT_FLAG     = "--manifest-output-format"
@@ -114,7 +116,7 @@ const (
 	// ErrIncompatibleFlag serves as error message when an incompatible flag is used
 	ErrIncompatibleFlag = "the '%s' flag is incompatible with '%s'"
 	// ErrRequiredExportType serves as error message when no export kind is provided
-	ErrRequiredExportType = "need to specify export kind when attempting to create a VirtualMachineExport [--pvc|--vm|--snapshot]"
+	ErrRequiredExportType = "need to specify export kind when attempting to create a VirtualMachineExport [--pvc|--vm|--snapshot|--vmtemplate]"
 	// ErrIncompatibleExportType serves as error message when an export kind is provided with an incompatible argument
 	ErrIncompatibleExportType = "should not specify export kind"
 	// ErrIncompatibleExportTypeManifest serves as error message when a PVC kind is defined when getting manifest
@@ -131,6 +133,7 @@ var (
 	vm                   string
 	snapshot             string
 	pvc                  string
+	vmtemplate           string
 	outputFile           string
 	insecure             bool
 	keepVme              bool
@@ -244,7 +247,8 @@ func NewVirtualMachineExportCommand() *cobra.Command {
 	cmd.Flags().StringVar(&vm, "vm", "", "Sets VirtualMachine as vmexport kind and specifies the vm name.")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Sets VirtualMachineSnapshot as vmexport kind and specifies the snapshot name.")
 	cmd.Flags().StringVar(&pvc, "pvc", "", "Sets PersistentVolumeClaim as vmexport kind and specifies the PVC name.")
-	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
+	cmd.Flags().StringVar(&vmtemplate, "vmtemplate", "", "Sets VirtualMachineTemplate as vmexport kind and specifies the template name.")
+	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc", "vmtemplate")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
 	cmd.Flags().StringVar(&format, "format", "", "Used to specify the format of the downloaded image. There's two options: gzip (default) and raw.")
@@ -589,9 +593,10 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 	var err error
 
 	if format == OCI_FORMAT {
-		sourceKind := vmexport.Spec.Source.Kind
-		if sourceKind != "VirtualMachine" && sourceKind != "VirtualMachineSnapshot" {
-			return false, fmt.Errorf("OCI export is only supported for VirtualMachine and VirtualMachineSnapshot sources, got %q", sourceKind)
+		switch vmexport.Spec.Source.Kind {
+		case "VirtualMachine", "VirtualMachineSnapshot", "VirtualMachineTemplate":
+		default:
+			return false, fmt.Errorf("OCI export is not supported for %q sources", vmexport.Spec.Source.Kind)
 		}
 		manifestUrls, err := GetManifestUrlsFromVirtualMachineExport(vmexport, vmeInfo)
 		if err != nil {
@@ -919,13 +924,21 @@ func getExportSource() k8sv1.TypedLocalObjectReference {
 			Name:     pvc,
 		}
 	}
+	if vmtemplate != "" {
+		apiGroup := templateapi.GroupName
+		exportSource = k8sv1.TypedLocalObjectReference{
+			APIGroup: &apiGroup,
+			Kind:     "VirtualMachineTemplate",
+			Name:     vmtemplate,
+		}
+	}
 
 	return exportSource
 }
 
 // handleCreateFlags ensures that only compatible flag combinations are used with 'create'
 func handleCreateFlags() error {
-	if vm == "" && snapshot == "" && pvc == "" {
+	if vm == "" && snapshot == "" && pvc == "" && vmtemplate == "" {
 		return fmt.Errorf(ErrRequiredExportType)
 	}
 
@@ -965,7 +978,7 @@ func handleCreateFlags() error {
 
 // handleDeleteFlags ensures that only compatible flag combinations are used with 'delete'
 func handleDeleteFlags() error {
-	if vm != "" || snapshot != "" || pvc != "" {
+	if vm != "" || snapshot != "" || pvc != "" || vmtemplate != "" {
 		return fmt.Errorf(ErrIncompatibleExportType)
 	}
 
@@ -1015,7 +1028,7 @@ func handleDeleteFlags() error {
 // handleDownloadFlags ensures that only compatible flag combinations are used with 'download'
 func handleDownloadFlags() error {
 	// We assume that the vmexport should be created if a source has been specified
-	if hasSource := vm != "" || snapshot != "" || pvc != ""; hasSource {
+	if hasSource := vm != "" || snapshot != "" || pvc != "" || vmtemplate != ""; hasSource {
 		shouldCreate = true
 	}
 

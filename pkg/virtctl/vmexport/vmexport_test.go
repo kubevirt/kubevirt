@@ -364,7 +364,7 @@ var _ = Describe("vmexport", func() {
 		DescribeTable("Bad flag combination", func(expected string, runFn func(args ...string) error, args ...string) {
 			Expect(runFn(args...)).To(MatchError(expected))
 		},
-			Entry("Multiple target types", "if any flags in the group [vm snapshot pvc] are set none of the others can be; [pvc snapshot vm] were all set", runCreateCmd, setFlag(vmexport.PVC_FLAG, "test"), setFlag(vmexport.VM_FLAG, "test2"), setFlag(vmexport.SNAPSHOT_FLAG, "test3")),
+			Entry("Multiple target types", "if any flags in the group [vm snapshot pvc vmtemplate] are set none of the others can be; [pvc snapshot vm] were all set", runCreateCmd, setFlag(vmexport.PVC_FLAG, "test"), setFlag(vmexport.VM_FLAG, "test2"), setFlag(vmexport.SNAPSHOT_FLAG, "test3")),
 			Entry("Retain and delte vmexport", "if any flags in the group [keep-vme delete-vme] are set none of the others can be; [delete-vme keep-vme] were all set", runDownloadCmd, vmexport.DELETE_FLAG, vmexport.KEEP_FLAG),
 		)
 
@@ -377,7 +377,8 @@ var _ = Describe("vmexport", func() {
 			Entry("More arguments than expected download and 'manifest'", "accepts 2 arg(s), received 3", runCmd, vmexport.DOWNLOAD, vmexport.DELETE, vmexport.MANIFEST_FLAG, "test"),
 			Entry("Using 'create' without export type", vmexport.ErrRequiredExportType, runCreateCmd),
 			Entry("Using 'create' with invalid flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.INSECURE_FLAG, vmexport.CREATE), runCreateCmd, setFlag(vmexport.PVC_FLAG, "test"), vmexport.INSECURE_FLAG),
-			Entry("Using 'delete' with export type", vmexport.ErrIncompatibleExportType, runDeleteCmd, setFlag(vmexport.PVC_FLAG, "test")),
+			Entry("Using 'delete' with export type pvc", vmexport.ErrIncompatibleExportType, runDeleteCmd, setFlag(vmexport.PVC_FLAG, "test")),
+			Entry("Using 'delete' with export type vmtemplate", vmexport.ErrIncompatibleExportType, runDeleteCmd, setFlag(vmexport.VMTEMPLATE_FLAG, "test")),
 			Entry("Using 'delete' with invalid flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.INSECURE_FLAG, vmexport.DELETE), runDeleteCmd, vmexport.INSECURE_FLAG),
 			Entry("Using 'manifest' with pvc flag", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.PVC_FLAG, vmexport.MANIFEST_FLAG), runDownloadCmd, vmexport.MANIFEST_FLAG, setFlag(vmexport.PVC_FLAG, "test")),
 			Entry("Using 'manifest' with volume type", fmt.Sprintf(vmexport.ErrIncompatibleFlag, vmexport.VOLUME_FLAG, vmexport.MANIFEST_FLAG), runDownloadCmd, vmexport.MANIFEST_FLAG, setFlag(vmexport.VM_FLAG, "test"), setFlag(vmexport.VOLUME_FLAG, "volume")),
@@ -413,6 +414,7 @@ var _ = Describe("vmexport", func() {
 			Entry("using PVC source", vmexport.PVC_FLAG, "PersistentVolumeClaim"),
 			Entry("using Snapshot source", vmexport.SNAPSHOT_FLAG, "VirtualMachineSnapshot"),
 			Entry("using VM source", vmexport.VM_FLAG, "VirtualMachine"),
+			Entry("using VMTemplate source", vmexport.VMTEMPLATE_FLAG, "VirtualMachineTemplate"),
 		)
 
 		DescribeTable("Delete command runs successfully", func(exists bool) {
