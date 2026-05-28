@@ -201,6 +201,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("ppc64le skipped", "ppc64le", false),
 	)
 
+	It("should skip PCI topology version for i440fx machine type", func() {
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-i440fx-2.12"}
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch("amd64")
+		Expect(vmSpec.Template.ObjectMeta.Annotations).NotTo(HaveKey(v1.PciTopologyVersionAnnotation))
+	})
+
+	It("should set PCI topology version for PCIe-capable machine type on amd64", func() {
+		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch("amd64")
+		Expect(vmSpec.Template.ObjectMeta.Annotations).To(HaveKey(v1.PciTopologyVersionAnnotation))
+	})
+
 	It("should not override existing PCI topology version annotation on VM template", func() {
 		vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 			v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV2,

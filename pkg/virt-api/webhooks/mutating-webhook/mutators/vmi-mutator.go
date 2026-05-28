@@ -85,7 +85,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		if defaults.SupportsPCIeHotplug(newVMI.Spec.Architecture) {
+		if defaults.SupportsPCIeHotplug(&newVMI.Spec) {
 			setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
 		}
 
