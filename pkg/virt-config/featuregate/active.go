@@ -235,6 +235,12 @@ const (
 	//
 	// GraceIOVirtualization enables admission for NVIDIA Grace GPU passthrough.
 	GraceIOVirtualization = "GraceIOVirtualization"
+
+	// Owner: sig-compute / @fossedihelm
+	// Alpha: v1.9.0
+	//
+	// IOMMUFD enables the use of IOMMUFD device plugin for passthrough devices.
+	IOMMUFDGate = "IOMMUFD"
 )
 
 func init() {
@@ -281,4 +287,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 }
