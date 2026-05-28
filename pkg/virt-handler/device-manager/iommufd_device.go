@@ -371,8 +371,10 @@ func (dpi *IOMMUFDDevicePlugin) setInitialized(initialized bool) {
 	dpi.initialized = initialized
 }
 
+var iommuDeviceCheckPath = filepath.Join(util.HostRootMount, iommuDevicePath)
+
 func supportsIOMMUFD() bool {
-	_, err := os.Stat(iommuDevicePath)
+	_, err := os.Stat(iommuDeviceCheckPath)
 	return err == nil
 }
 
@@ -410,6 +412,9 @@ func openAndConfigureIOMMUFD(socketDir string) (int, error) {
 // openUnprivilegedIOMMUFD creates a temporary device node for /dev/iommu,
 // relabels it with a container-friendly SELinux context, and returns an FD
 // that virt-launcher is allowed to receive via SCM_RIGHTS.
+// This directly uses /dev/iommu directly because it needs to stat + mknod + open
+// the device from the container's namespace;
+// the FD must originate from within the container's mount namespace to be usable.
 func openUnprivilegedIOMMUFD(socketDir string) (int, error) {
 	var stat unix.Stat_t
 	if err := unix.Stat(iommuDevicePath, &stat); err != nil {
