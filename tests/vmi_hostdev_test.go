@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -103,6 +104,14 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 					&expect.BExp{R: console.RetValue("1")},
 				}, 15)).To(Succeed(), "Device not found")
 			}
+
+			By("Verifying the host device info metric is reported")
+			labels := map[string]string{
+				"namespace": vmi.Namespace,
+				"name":      vmi.Name,
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_host_device_info", 1, labels, 1)
+
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
 			err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)

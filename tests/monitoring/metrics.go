@@ -108,6 +108,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 			// needs GPU - tested in MediatedDevices
 			"kubevirt_vmi_gpu_info": true,
+
+			// needs a host device (GPU/SRIOV) assigned to the VMI
+			"kubevirt_vmi_host_device_info": true,
 		}
 
 		BeforeAll(func() {
