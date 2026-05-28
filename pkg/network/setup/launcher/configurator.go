@@ -25,6 +25,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -34,11 +35,15 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type DHCPConfiguratorFactory func(iface *v1.Interface, network *v1.Network, podInterfaceName string) dhcpconfigurator.Configurator
+
 type VMNetworkConfigurator struct {
 	vmi               *v1.VirtualMachineInstance
 	handler           netdriver.NetworkHandler
 	cacheCreator      cacheCreator
 	domainAttachments map[string]string
+
+	dhcpConfiguratorFactory DHCPConfiguratorFactory
 }
 
 type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
@@ -61,6 +66,18 @@ func WithDomainAttachments(domainAttachments map[string]string) vmNetConfigurato
 	}
 }
 
+func WithNetworkHandler(handler netdriver.NetworkHandler) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.handler = handler
+	}
+}
+
+func WithDHCPConfiguratorFactory(f DHCPConfiguratorFactory) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.dhcpConfiguratorFactory = f
+	}
+}
+
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.Network) ([]podNIC, error) {
 	var nics []podNIC
 
@@ -78,6 +95,9 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 		nic, err := newPhase2PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, domain, v.domainAttachments[iface.Name])
 		if err != nil {
 			return nil, err
+		}
+		if v.dhcpConfiguratorFactory != nil {
+			nic.dhcpConfigurator = v.dhcpConfiguratorFactory(iface, &networks[i], nic.podInterfaceName)
 		}
 		nics = append(nics, *nic)
 	}

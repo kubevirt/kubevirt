@@ -25,8 +25,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "configurator_test.go",
         "launcher_suite_test.go",
-        "network_test.go",
         "podnic_test.go",
     ],
     embed = [":go_default_library"],
@@ -44,6 +44,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
     ],
 )
