@@ -540,6 +540,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                      schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                              schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                             schema_kubevirtio_api_core_v1_SoundDevice(ref),
+		"kubevirt.io/api/core/v1.StallDetectorOptions":                                                    schema_kubevirtio_api_core_v1_StallDetectorOptions(ref),
 		"kubevirt.io/api/core/v1.StartOptions":                                                            schema_kubevirtio_api_core_v1_StartOptions(ref),
 		"kubevirt.io/api/core/v1.StopOptions":                                                             schema_kubevirtio_api_core_v1_StopOptions(ref),
 		"kubevirt.io/api/core/v1.StorageMigratedVolumeInfo":                                               schema_kubevirtio_api_core_v1_StorageMigratedVolumeInfo(ref),
@@ -18709,8 +18710,24 @@ func schema_kubevirtio_api_core_v1_AdvancedMigrationOptions(ref common.Reference
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stallDetector": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.StallDetectorOptions"),
+						},
+					},
+					"parallelMigrationThreads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will spawn a single thread separate from the main thread to transfer data over.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.StallDetectorOptions"},
 	}
 }
 
@@ -26023,6 +26040,74 @@ func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_kubevirtio_api_core_v1_StallDetectorOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stallMargin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StallMargin is the fractional tolerance used when comparing remaining migration bytes against the best observed value to detect stalls and local minima. A stall is reported when remaining bytes stay above (1 - StallMargin) of the outside-window minimum. Defaults to 0.04.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+					"ewmaAlpha": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of observed migration bandwidth. Higher values weight recent samples more heavily. Defaults to 0.4.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+					"stallProgressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StallProgressTimeout is the duration in seconds of the sliding window used to track minimum remaining-bytes and detect when migration progress has stalled. Defaults to 40.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"switchoverTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy switchover to complete after being triggered before the migration is aborted. Defaults to 60.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"precopyPossibleFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration. Defaults to 1.5.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+					"patienceWindowDecayFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PatienceWindowDecayFactor is the factor by which the relaxation patience window is multiplied after each best-remaining-bytes relaxation step. Defaults to 0.5.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+					"searchLocalMinima": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SearchLocalMinima controls whether convergence actions are delayed until remaining bytes reach a local minimum near the best observed value. When false, actions may trigger as soon as a stall is detected. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"completionTimeoutFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine the total time budget for deciding whether a forced switchover can still finish in time, and to extend the abort deadline after initiating a completion-timeout-driven switchover. Defaults to 2.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_StartOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -33161,12 +33246,6 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Description: "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
 							Type:        []string{"integer"},
 							Format:      "int64",
-						},
-					},
-					"progressTimeout": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
 						},
 					},
 					"maxDowntime": {

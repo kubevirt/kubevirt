@@ -715,7 +715,17 @@ status:
     failed: true
     failureReason: failureReasonValue
     migrationConfiguration:
-      advancedMigrationOptions: {}
+      advancedMigrationOptions:
+        parallelMigrationThreads: 18446744073709551592
+        stallDetector:
+          completionTimeoutFactor: -23
+          ewmaAlpha: -9
+          patienceWindowDecayFactor: -25
+          precopyPossibleFactor: -21
+          searchLocalMinima: true
+          stallMargin: -11
+          stallProgressTimeout: 18446744073709551596
+          switchoverTimeout: 18446744073709551599
       allowAutoConverge: true
       allowPostCopy: true
       allowWorkloadDisruption: true

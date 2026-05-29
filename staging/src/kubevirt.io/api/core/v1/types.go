@@ -3350,8 +3350,69 @@ type TLSConfiguration struct {
 	Ciphers []string `json:"ciphers,omitempty"`
 }
 
+type StallDetectorOptions struct {
+	// StallMargin is the fractional tolerance used when comparing remaining migration bytes
+	// against the best observed value to detect stalls and local minima. A stall is reported
+	// when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+	// Defaults to 0.04.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=1
+	//+optional
+	StallMargin *float64 `json:"stallMargin,omitempty"`
+	// EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+	// observed migration bandwidth. Higher values weight recent samples more heavily.
+	// Defaults to 0.4.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=1
+	//+kubebuilder:validation:ExclusiveMinimum=true
+	//+optional
+	EwmaAlpha *float64 `json:"ewmaAlpha,omitempty"`
+	// StallProgressTimeout is the duration in seconds of the sliding window used to track
+	// minimum remaining-bytes and detect when migration progress has stalled.
+	// Defaults to 40.
+	//+optional
+	StallProgressTimeout *uint64 `json:"stallProgressTimeout,omitempty"`
+	// SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+	// switchover to complete after being triggered before the migration is aborted.
+	// Defaults to 60.
+	//+optional
+	SwitchoverTimeout *uint64 `json:"switchoverTimeout,omitempty"`
+	// PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+	// MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+	// Defaults to 1.5.
+	//+kubebuilder:validation:Minimum=1
+	//+optional
+	PrecopyPossibleFactor *float64 `json:"precopyPossibleFactor,omitempty"`
+	// PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+	// multiplied after each best-remaining-bytes relaxation step.
+	// Defaults to 0.5.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=1
+	//+optional
+	PatienceWindowDecayFactor *float64 `json:"patienceWindowDecayFactor,omitempty"`
+	// SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+	// reach a local minimum near the best observed value. When false, actions may trigger
+	// as soon as a stall is detected.
+	// Defaults to true.
+	//+optional
+	SearchLocalMinima *bool `json:"searchLocalMinima,omitempty"`
+	// CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+	// the total time budget for deciding whether a forced switchover can still finish in time,
+	// and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+	// Defaults to 2.
+	//+kubebuilder:validation:Minimum=1
+	//+optional
+	CompletionTimeoutFactor *float64 `json:"completionTimeoutFactor,omitempty"`
+}
+
 type AdvancedMigrationOptions struct {
-	// TODO
+	//+optional
+	StallDetector *StallDetectorOptions `json:"stallDetector,omitempty"`
+	// Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+	// not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+	// spawn a single thread separate from the main thread to transfer data over.
+	//+optional
+	ParallelMigrationThreads *uint `json:"parallelMigrationThreads,omitempty"`
 }
 
 // VMIMConfigurationOptions holds all migration options that configurable and supplied to the VMIM object
@@ -3377,8 +3438,8 @@ type LegacyVMMigrationConfiguration struct {
 	// If the timeout is reached, the migration will be either paused, switched
 	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=2000000
+	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Maximum=2000000
 	// MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
 	// Defaults to 900
 	MaxDowntime *uint64 `json:"maxDowntime,omitempty"`

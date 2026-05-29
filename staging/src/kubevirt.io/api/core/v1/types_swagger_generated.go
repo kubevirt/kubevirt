@@ -1007,8 +1007,24 @@ func (TLSConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (StallDetectorOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"stallMargin":               "StallMargin is the fractional tolerance used when comparing remaining migration bytes\nagainst the best observed value to detect stalls and local minima. A stall is reported\nwhen remaining bytes stay above (1 - StallMargin) of the outside-window minimum.\nDefaults to 0.04.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=1\n+optional",
+		"ewmaAlpha":                 "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of\nobserved migration bandwidth. Higher values weight recent samples more heavily.\nDefaults to 0.4.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=1\n+kubebuilder:validation:ExclusiveMinimum=true\n+optional",
+		"stallProgressTimeout":      "StallProgressTimeout is the duration in seconds of the sliding window used to track\nminimum remaining-bytes and detect when migration progress has stalled.\nDefaults to 40.\n+optional",
+		"switchoverTimeout":         "SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy\nswitchover to complete after being triggered before the migration is aborted.\nDefaults to 60.\n+optional",
+		"precopyPossibleFactor":     "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed\nMaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.\nDefaults to 1.5.\n+kubebuilder:validation:Minimum=1\n+optional",
+		"patienceWindowDecayFactor": "PatienceWindowDecayFactor is the factor by which the relaxation patience window is\nmultiplied after each best-remaining-bytes relaxation step.\nDefaults to 0.5.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=1\n+optional",
+		"searchLocalMinima":         "SearchLocalMinima controls whether convergence actions are delayed until remaining bytes\nreach a local minimum near the best observed value. When false, actions may trigger\nas soon as a stall is detected.\nDefaults to true.\n+optional",
+		"completionTimeoutFactor":   "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine\nthe total time budget for deciding whether a forced switchover can still finish in time,\nand to extend the abort deadline after initiating a completion-timeout-driven switchover.\nDefaults to 2.\n+kubebuilder:validation:Minimum=1\n+optional",
+	}
+}
+
 func (AdvancedMigrationOptions) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"stallDetector":            "+optional",
+		"parallelMigrationThreads": "Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will\nnot use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will\nspawn a single thread separate from the main thread to transfer data over.\n+optional",
+	}
 }
 
 func (VMIMConfigurationOptions) SwaggerDoc() map[string]string {

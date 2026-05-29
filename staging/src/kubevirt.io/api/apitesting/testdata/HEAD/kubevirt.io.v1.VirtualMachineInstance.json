@@ -1005,7 +1005,19 @@
         "allowPostCopy": true,
         "allowWorkloadDisruption": true,
         "matchSELinuxLevelOnMigration": true,
-        "advancedMigrationOptions": {},
+        "advancedMigrationOptions": {
+          "stallDetector": {
+            "stallMargin": -11,
+            "ewmaAlpha": -9,
+            "stallProgressTimeout": 18446744073709551596,
+            "switchoverTimeout": 18446744073709551599,
+            "precopyPossibleFactor": -21,
+            "patienceWindowDecayFactor": -25,
+            "searchLocalMinima": true,
+            "completionTimeoutFactor": -23
+          },
+          "parallelMigrationThreads": 18446744073709551592
+        },
         "parallelOutboundMigrationsPerNode": 4294967263,
         "nodeDrainTaintKey": "nodeDrainTaintKeyValue",
         "parallelMigrationsPerCluster": 4294967268,

@@ -4114,6 +4114,78 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       properties:
         advancedMigrationOptions:
+          properties:
+            parallelMigrationThreads:
+              description: |-
+                Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+                not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+                spawn a single thread separate from the main thread to transfer data over.
+              type: integer
+            stallDetector:
+              properties:
+                completionTimeoutFactor:
+                  description: |-
+                    CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                    the total time budget for deciding whether a forced switchover can still finish in time,
+                    and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                    Defaults to 2.
+                  minimum: 1
+                  type: number
+                ewmaAlpha:
+                  description: |-
+                    EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                    observed migration bandwidth. Higher values weight recent samples more heavily.
+                    Defaults to 0.4.
+                  exclusiveMinimum: true
+                  maximum: 1
+                  minimum: 0
+                  type: number
+                patienceWindowDecayFactor:
+                  description: |-
+                    PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                    multiplied after each best-remaining-bytes relaxation step.
+                    Defaults to 0.5.
+                  maximum: 1
+                  minimum: 0
+                  type: number
+                precopyPossibleFactor:
+                  description: |-
+                    PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                    MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                    Defaults to 1.5.
+                  minimum: 1
+                  type: number
+                searchLocalMinima:
+                  description: |-
+                    SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                    reach a local minimum near the best observed value. When false, actions may trigger
+                    as soon as a stall is detected.
+                    Defaults to true.
+                  type: boolean
+                stallMargin:
+                  description: |-
+                    StallMargin is the fractional tolerance used when comparing remaining migration bytes
+                    against the best observed value to detect stalls and local minima. A stall is reported
+                    when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+                    Defaults to 0.04.
+                  maximum: 1
+                  minimum: 0
+                  type: number
+                stallProgressTimeout:
+                  description: |-
+                    StallProgressTimeout is the duration in seconds of the sliding window used to track
+                    minimum remaining-bytes and detect when migration progress has stalled.
+                    Defaults to 40.
+                  format: int64
+                  type: integer
+                switchoverTimeout:
+                  description: |-
+                    SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                    switchover to complete after being triggered before the migration is aborted.
+                    Defaults to 60.
+                  format: int64
+                  type: integer
+              type: object
           type: object
         allowAutoConverge:
           description: |-
@@ -4169,9 +4241,6 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             ProgressTimeout is the number of seconds used by migration convergence detection to decide when
             pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
-          format: int64
-          type: integer
-        progressTimeout:
           format: int64
           type: integer
         selectors:
@@ -15178,6 +15247,78 @@ var CRDsValidation map[string]string = map[string]string{
               description: Migration configurations to apply
               properties:
                 advancedMigrationOptions:
+                  properties:
+                    parallelMigrationThreads:
+                      description: |-
+                        Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+                        not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+                        spawn a single thread separate from the main thread to transfer data over.
+                      type: integer
+                    stallDetector:
+                      properties:
+                        completionTimeoutFactor:
+                          description: |-
+                            CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                            the total time budget for deciding whether a forced switchover can still finish in time,
+                            and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                            Defaults to 2.
+                          minimum: 1
+                          type: number
+                        ewmaAlpha:
+                          description: |-
+                            EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                            observed migration bandwidth. Higher values weight recent samples more heavily.
+                            Defaults to 0.4.
+                          exclusiveMinimum: true
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        patienceWindowDecayFactor:
+                          description: |-
+                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                            multiplied after each best-remaining-bytes relaxation step.
+                            Defaults to 0.5.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        precopyPossibleFactor:
+                          description: |-
+                            PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                            MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                            Defaults to 1.5.
+                          minimum: 1
+                          type: number
+                        searchLocalMinima:
+                          description: |-
+                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                            reach a local minimum near the best observed value. When false, actions may trigger
+                            as soon as a stall is detected.
+                            Defaults to true.
+                          type: boolean
+                        stallMargin:
+                          description: |-
+                            StallMargin is the fractional tolerance used when comparing remaining migration bytes
+                            against the best observed value to detect stalls and local minima. A stall is reported
+                            when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+                            Defaults to 0.04.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        stallProgressTimeout:
+                          description: |-
+                            StallProgressTimeout is the duration in seconds of the sliding window used to track
+                            minimum remaining-bytes and detect when migration progress has stalled.
+                            Defaults to 40.
+                          format: int64
+                          type: integer
+                        switchoverTimeout:
+                          description: |-
+                            SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                            switchover to complete after being triggered before the migration is aborted.
+                            Defaults to 60.
+                          format: int64
+                          type: integer
+                      type: object
                   type: object
                 allowAutoConverge:
                   description: |-
@@ -15790,6 +15931,78 @@ var CRDsValidation map[string]string = map[string]string{
               description: Migration configurations to apply
               properties:
                 advancedMigrationOptions:
+                  properties:
+                    parallelMigrationThreads:
+                      description: |-
+                        Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+                        not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+                        spawn a single thread separate from the main thread to transfer data over.
+                      type: integer
+                    stallDetector:
+                      properties:
+                        completionTimeoutFactor:
+                          description: |-
+                            CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                            the total time budget for deciding whether a forced switchover can still finish in time,
+                            and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                            Defaults to 2.
+                          minimum: 1
+                          type: number
+                        ewmaAlpha:
+                          description: |-
+                            EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                            observed migration bandwidth. Higher values weight recent samples more heavily.
+                            Defaults to 0.4.
+                          exclusiveMinimum: true
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        patienceWindowDecayFactor:
+                          description: |-
+                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                            multiplied after each best-remaining-bytes relaxation step.
+                            Defaults to 0.5.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        precopyPossibleFactor:
+                          description: |-
+                            PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                            MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                            Defaults to 1.5.
+                          minimum: 1
+                          type: number
+                        searchLocalMinima:
+                          description: |-
+                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                            reach a local minimum near the best observed value. When false, actions may trigger
+                            as soon as a stall is detected.
+                            Defaults to true.
+                          type: boolean
+                        stallMargin:
+                          description: |-
+                            StallMargin is the fractional tolerance used when comparing remaining migration bytes
+                            against the best observed value to detect stalls and local minima. A stall is reported
+                            when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+                            Defaults to 0.04.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        stallProgressTimeout:
+                          description: |-
+                            StallProgressTimeout is the duration in seconds of the sliding window used to track
+                            minimum remaining-bytes and detect when migration progress has stalled.
+                            Defaults to 40.
+                          format: int64
+                          type: integer
+                        switchoverTimeout:
+                          description: |-
+                            SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                            switchover to complete after being triggered before the migration is aborted.
+                            Defaults to 60.
+                          format: int64
+                          type: integer
+                      type: object
                   type: object
                 allowAutoConverge:
                   description: |-
