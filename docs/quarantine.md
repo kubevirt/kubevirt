@@ -51,9 +51,9 @@ Once a quarantine PR is merged, the following timeline applies:
 
 | Milestone              | Deadline                                 | Action                                                                   |
 |------------------------|------------------------------------------|--------------------------------------------------------------------------|
-| SIG assignment         | 2 days from merge                        | SIG chair assigned as tracking issue owner; delegates within 2 days      |
+| SIG assignment         | 2 days from merge                        | SIG chair ensures a dedicated owner is assigned within 2 days            |
 | Warning                | 3 weeks from merge                       | SIG is notified that the fix deadline expires in 1 week                  |
-| Fix deadline           | 4 weeks from merge                       | Fix must land; merge hold begins if not                                  |
+| Fix deadline           | 4 weeks from merge                       | Fix must land; if not, a merge hold begins (see [escalation](#enforcement-escalation)) |
 | Extension (optional)   | Up to 2 weeks after fix deadline         | Assignee must request with a concrete plan                               |
 | Test removal           | 6 weeks from merge (or end of extension) | sig-ci opens a PR to remove the test (see [removal options](#test-removal-options)) |
 
@@ -135,15 +135,30 @@ PR must reference the tracking issue. The tracking issue must include:
 * Labels: `kind/flake`, `priority/critical-urgent`, and the owning SIG label
   (e.g. `sig/compute`)
 * Quarantine entry date (date the quarantine PR was merged)
-* The SIG chair is assigned as initial owner of the tracking issue
-* The SIG chair either retains ownership or delegates to a specific individual
-  within 2 days
+* The SIG chair is responsible for ensuring the tracking issue has an assigned
+  owner within 2 days; the chair may assign any SIG member (including
+  themselves) as the dedicated owner
 * The assignee decides whether to fix or remove the test within the fix window
   (see [removal options](#test-removal-options))
 * The quarantine deadline (6 weeks from entry date)
 
 The owning SIG must provide a status update on the tracking issue every 2 weeks.
 If no update is provided, sig-ci will ping the SIG chair on the issue.
+
+The tracking issue body should follow this template:
+
+```yaml
+---
+quarantine:
+  test_name: "<full test name including SIG prefix>"
+  quarantine_pr: "<PR URL>"
+  entry_date: "<date the quarantine PR was merged>"
+  deadline: "<6 weeks from entry date>"
+  owning_sig: "<sig-compute | sig-network | sig-storage | sig-operator>"
+  assigned_owner: "<GitHub handle>"
+  plan: "<fix | remove>"
+---
+```
 
 #### Quarantining release blockers
 
@@ -198,6 +213,20 @@ The assignee may request a one-time extension of up to 2 weeks by updating
 the tracking issue before the fix deadline. The extension must include a
 concrete plan for resolution. If the extension expires without a fix, sig-ci
 proceeds with test removal.
+
+The extension request should follow this template (posted as a comment on the
+tracking issue):
+
+```yaml
+---
+extension_request:
+  requested_duration: "<1–2 weeks>"
+  root_cause_status: "<identified | under investigation>"
+  fix_approach: "<brief description of the planned fix>"
+  expected_fix_pr: "<date or 'within N days'>"
+  remaining_blockers: "<any dependencies or open questions>"
+---
+```
 
 #### Enforcement escalation
 
