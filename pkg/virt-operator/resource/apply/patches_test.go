@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -99,6 +100,27 @@ var _ = Describe("Patches", func() {
 
 			err = config.GenericApplyPatches([]string{"string"})
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("should match objects by GenerateName when Name is unset", func() {
+			c, err := NewCustomizer(v1.CustomizeComponents{
+				Patches: []v1.CustomizeComponentsPatch{
+					{
+						ResourceType: "Job",
+						ResourceName: "my-job",
+						Patch:        `{"metadata":{"labels":{"patched":"true"}}}`,
+						Type:         v1.StrategicMergePatchType,
+					},
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			job := &batchv1.Job{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "batch/v1", Kind: "Job"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, GenerateName: "my-job-"},
+			}
+			Expect(c.GenericApplyPatches([]*batchv1.Job{job})).To(Succeed())
+			Expect(job.Labels).To(HaveKeyWithValue("patched", "true"))
 		})
 	})
 

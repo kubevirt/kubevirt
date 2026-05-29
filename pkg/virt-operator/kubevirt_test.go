@@ -47,6 +47,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -2593,6 +2594,54 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(job.Spec.Template.Spec.Affinity).To(Equal(affinity))
 
+		})
+
+		It("should apply customizeComponents.Patches targeting the install job", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					CustomizeComponents: v1.CustomizeComponents{
+						Patches: []v1.CustomizeComponentsPatch{
+							{
+								ResourceType: "Job",
+								ResourceName: "virt-operator-install-strategy",
+								Patch:        `{"spec":{"template":{"spec":{"containers":[{"name":"install-strategy-upload","resources":{"requests":{"cpu":"10m","memory":"64Mi"}}}]}}}}`,
+								Type:         v1.StrategicMergePatchType,
+							},
+						},
+					},
+				},
+			}
+
+			job, err := kvTestData.controller.generateInstallStrategyJob(kv.Spec.Infra, util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			customizer, err := apply.NewCustomizer(kv.Spec.CustomizeComponents)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(customizer.GenericApplyPatches([]*batchv1.Job{job})).To(Succeed())
+
+			var uploadContainer *k8sv1.Container
+			for i := range job.Spec.Template.Spec.Containers {
+				if job.Spec.Template.Spec.Containers[i].Name == "install-strategy-upload" {
+					uploadContainer = &job.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+
+			Expect(uploadContainer).ToNot(BeNil(), "expected container 'install-strategy-upload' to be present in job pod spec")
+
+			Expect(uploadContainer.Resources.Requests).To(Equal(k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("10m"),
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}))
 		})
 
 		It("should label install strategy creation job", func() {
