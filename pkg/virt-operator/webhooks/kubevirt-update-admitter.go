@@ -45,6 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -82,10 +83,20 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
-	results = append(results, validateMigrationConfiguration(
-		&currKV.Spec.Configuration,
-		&newKV.Spec.Configuration,
-	)...)
+
+	if newKV.Spec.Configuration.MigrationConfiguration != nil {
+		sourceConfig := field.NewPath("spec").Child("configuration", "migrationConfiguration")
+		var oldMigrationOptions *v1.VMIMConfigurationOptions
+		if currKV != nil && currKV.Spec.Configuration.MigrationConfiguration != nil {
+			oldMigrationOptions = migrationutils.ToVMIMConfigurationOptions(currKV.Spec.Configuration.MigrationConfiguration)
+		}
+		results = append(results, migrationutils.ValidateMigrationConfigurationOptions(
+			sourceConfig,
+			oldMigrationOptions,
+			migrationutils.ToVMIMConfigurationOptions(newKV.Spec.Configuration.MigrationConfiguration),
+			newKV.Spec.Configuration.DeveloperConfiguration,
+		)...)
+	}
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -566,30 +577,4 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		Field:   "spec.configuration.roleAggregationStrategy",
 		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
 	}}
-}
-
-func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfiguration) []metav1.StatusCause {
-	if newConfig.MigrationConfiguration == nil {
-		return nil
-	}
-
-	var causes []metav1.StatusCause
-	newMigrationConfig := newConfig.MigrationConfiguration
-
-	if newMigrationConfig.MaxDowntimeMs != nil {
-		var oldMaxDowntimeMs *uint64
-		if oldConfig.MigrationConfiguration != nil {
-			oldMaxDowntimeMs = oldConfig.MigrationConfiguration.MaxDowntimeMs
-		}
-		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   "spec.configuration.migrations.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
-			})
-		}
-	}
-
-	return causes
 }
