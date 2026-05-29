@@ -169,7 +169,6 @@ if [[ $TARGET =~ sriov.* ]]; then
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
-  add_feature_gate "ExternalNetResourceInjection"
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
@@ -664,6 +663,21 @@ spec:
     - nfsvers=4.1
   storageClassName: rhel
 EOF
+fi
+
+if [[ $TARGET =~ sig-storage ]]; then
+  # sig-storage cares about persistent reservation, others don't
+  kubectl patch -n ${namespace} kv kubevirt --type merge -p '
+  {
+    "spec": {
+      "configuration": {
+        "persistentReservationConfiguration": {
+          "enabled": true
+        }
+      }
+    }
+  }'
+  kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m
 fi
 
 

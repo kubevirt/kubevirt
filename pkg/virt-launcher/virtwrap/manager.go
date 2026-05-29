@@ -82,6 +82,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -124,9 +125,38 @@ const (
 	hotplugLargeMemoryMinRequiredFreePorts = 6
 	hotplugDefaultTotalPorts               = 8
 	hotplugMinRequiredFreePorts            = 3
+
+	twentySeconds = 20 * time.Second
+	oneMinute     = 1 * time.Minute
+	fiveMinutes   = 5 * time.Minute
+	thirtyMinutes = 30 * time.Minute
 )
 
 const maxConcurrentHotplugHostDevices = 1
+
+var agentDataCommandTTLs = map[string]time.Duration{
+	// 20sec
+	"guest-get-load":      twentySeconds,
+	"guest-get-cpustats":  twentySeconds,
+	"guest-get-diskstats": twentySeconds,
+
+	// 1min
+	"guest-get-time":              oneMinute,
+	"guest-get-vcpus":             oneMinute,
+	"guest-get-memory-block-info": oneMinute,
+	"guest-get-users":             oneMinute,
+
+	// 5min
+	"guest-get-osinfo":             fiveMinutes,
+	"guest-get-disks":              fiveMinutes,
+	"guest-get-host-name":          fiveMinutes,
+	"guest-get-timezone":           fiveMinutes,
+	"guest-network-get-route":      fiveMinutes,
+	"guest-network-get-interfaces": fiveMinutes,
+
+	// 30min
+	"guest-get-memory-blocks": thirtyMinutes,
+}
 
 type contextStore struct {
 	ctx    context.Context
@@ -170,6 +200,8 @@ type DomainManager interface {
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
+	GetGuestAgentVersion() string
+	GetAgentData(dataKey string) (string, error)
 }
 
 type LibvirtDomainManager struct {
@@ -201,6 +233,7 @@ type LibvirtDomainManager struct {
 	metadataCache             *metadata.Cache
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
+	agentDataCaches           map[string]*virtcache.TimeDefinedCache[string]
 
 	// Device aliasas are updated only through hotplug events and SyncVMI
 	devAliasMap  map[string]string
@@ -243,14 +276,14 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc, domainName string, vmStatsCollectorEnabled bool) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer, hypervisorName, registerNBD)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer, hypervisorName, registerNBD, domainName, vmStatsCollectorEnabled)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string, registerNBD storage.RegisterNBDFunc, domainName string, vmStatsCollectorEnabled bool) (DomainManager, error) {
 
 	// Check hypervisor device availability
 	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(hypervisorName).GetHypervisorDevice()
@@ -318,6 +351,20 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		err := manager.domainStatsCache.KeepValueUpdated(stopChan)
 		if err != nil {
 			return nil, fmt.Errorf("failed to keep domain stats updated: %w", err)
+		}
+	}
+
+	if vmStatsCollectorEnabled {
+		manager.agentDataCaches = make(map[string]*virtcache.TimeDefinedCache[string], len(agentDataCommandTTLs))
+		for cmd, ttl := range agentDataCommandTTLs {
+			reCalcFunc := func() (string, error) {
+				return connection.QemuAgentCommand(`{"execute":"`+string(cmd)+`"}`, domainName)
+			}
+			cache, err := virtcache.NewTimeDefinedCache(ttl, true, reCalcFunc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create agent data cache for %s: %w", cmd, err)
+			}
+			manager.agentDataCaches[cmd] = cache
 		}
 	}
 
@@ -1772,7 +1819,7 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 var isHotplugBlockDeviceVolume = isHotplugBlockDeviceVolumeFunc
 
 func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
-	path := converter.GetHotplugBlockDeviceVolumePath(volumeName)
+	path := volumepath.HotplugBlockDevice(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1786,7 +1833,7 @@ func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 var isBlockDeviceVolume = isBlockDeviceVolumeFunc
 
 func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
-	path := converter.GetBlockDeviceVolumePath(volumeName)
+	path := volumepath.BlockDevice(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1796,7 +1843,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		// cross check: is it a filesystem volume
-		path = converter.GetFilesystemVolumePath(volumeName)
+		path = volumepath.Filesystem(volumeName)
 		fileInfo, err := os.Stat(path)
 		if err == nil {
 			if fileInfo.Mode().IsRegular() {
@@ -2524,6 +2571,28 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	return fsList
 }
 
+func (l *LibvirtDomainManager) GetGuestAgentVersion() string {
+	return l.agentData.GetGA().Version
+}
+
+func (l *LibvirtDomainManager) GetAgentData(dataKey string) (string, error) {
+	if l.agentDataCaches == nil {
+		return "", fmt.Errorf("agent data caches not initialized")
+	}
+
+	cache, exists := l.agentDataCaches[dataKey]
+	if !exists {
+		return "", fmt.Errorf("cache not found for data key: %s", dataKey)
+	}
+
+	data, err := cache.Get()
+	if err != nil {
+		return data, fmt.Errorf("failed to get agent data for %s: %w", dataKey, err)
+	}
+
+	return data, nil
+}
+
 func (l *LibvirtDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
@@ -2836,4 +2905,12 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 
 func (l *LibvirtDomainManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
 	return l.storageManager.RedefineCheckpoint(vmi, checkpoint)
+}
+
+func AgentDataCommandTTLKeys() []string {
+	keys := make([]string, 0, len(agentDataCommandTTLs))
+	for k := range agentDataCommandTTLs {
+		keys = append(keys, k)
+	}
+	return keys
 }

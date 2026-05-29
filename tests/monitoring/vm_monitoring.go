@@ -199,7 +199,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(pvcErr).ToNot(HaveOccurred())
 		}
 
-		It("[QUARANTINE][test_id:8639]Number of disks restored metric values should be correct", decorators.Quarantine, func() {
+		It("[test_id:8639]Number of disks restored metric values should be correct", func() {
 			totalMetric := fmt.Sprintf(
 				"vm:kubevirt_vmsnapshot_disks_restored:sum{vm_name='simple-vm',vm_namespace='%s'}",
 				testsuite.NamespaceTestDefault,
@@ -245,7 +245,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 	})
 
 	Context("VM metrics that are based on the guest agent", func() {
-		It("[QUARANTINE][test_id:11267]should have kubevirt_vmi_info correctly configured with guest OS labels", decorators.Quarantine, func() {
+		It("[test_id:11267]should have kubevirt_vmi_info correctly configured with guest OS labels", func() {
 			agentVMI := createAgentVMI()
 			Expect(agentVMI.Status.GuestOSInfo.KernelRelease).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
@@ -574,6 +574,19 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 	}, agentConnTimeout, 1*time.Second).Should(
 		ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition",
 	)
+
+	By("Waiting for guest OS info to be fully reported")
+	Eventually(func() bool {
+		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(
+			context.Background(), vmi.Name, metav1.GetOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		guestOSInfo := agentVMI.Status.GuestOSInfo
+		return guestOSInfo.Name != "" &&
+			guestOSInfo.KernelRelease != "" &&
+			guestOSInfo.Machine != ""
+	}, agentConnTimeout, 1*time.Second).Should(BeTrue(), "Guest OS info should be fully reported")
 
 	return agentVMI
 }

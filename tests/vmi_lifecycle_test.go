@@ -456,8 +456,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("when guest crashes", Serial, decorators.VMIlifecycle, func() {
-			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(device v1.PanicDeviceModel) {
-				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(device))
+			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(arch string, device v1.PanicDeviceModel) {
+				vmi := libvmifact.NewFedora(
+					libvmi.WithPanicDevice(device),
+					libvmi.WithArchitecture(arch),
+				)
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -483,8 +486,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Checking that a GuestPanicked event was emitted")
 				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, "GuestPanicked")
 			},
-				Entry("amd64", v1.Isa, decorators.RequiresAMD64),
-				Entry("arm64", v1.Pvpanic, decorators.RequiresARM64),
+				Entry("amd64", "amd64", v1.Isa, decorators.RequiresAMD64),
+				Entry("arm64", "arm64", v1.Pvpanic, decorators.RequiresARM64),
 			)
 		})
 
@@ -1630,8 +1633,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with grace period greater than 0", func() {
 			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, decorators.WgS390x, func() {
 				By("Setting a VirtualMachineInstance termination grace period to 5")
-				// Give the VirtualMachineInstance a custom grace period
-				vmi := libvmifact.NewAlpine(libvmi.WithTerminationGracePeriod(5))
+				vmi := libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(5))
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)

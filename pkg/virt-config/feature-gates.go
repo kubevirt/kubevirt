@@ -115,10 +115,6 @@ func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
 }
 
-func (config *ClusterConfig) PersistentReservationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PersistentReservation)
-}
-
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
@@ -221,4 +217,8 @@ func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
 
 func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VGPULiveMigration)
+}
+
+func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.VMStatsCollector)
 }

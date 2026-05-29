@@ -1931,10 +1931,15 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		if !goerror.Is(err, os.ErrNotExist) {
+		switch {
+		case goerror.Is(err, hotplugvolume.ErrWaitingForHotplugMount):
+			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		case goerror.Is(err, os.ErrNotExist):
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
+		default:
 			return err
 		}
-		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
 	}
 
 	if err := c.getMemoryDump(vmi); err != nil {
@@ -1980,10 +1985,15 @@ func (c *VirtualMachineController) handleStartingVMI(
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		if !goerror.Is(err, os.ErrNotExist) {
+		switch {
+		case goerror.Is(err, hotplugvolume.ErrWaitingForHotplugMount):
+			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		case goerror.Is(err, os.ErrNotExist):
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
+		default:
 			return false, err
 		}
-		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
 	}
 
 	if !c.hotplugVolumesReady(vmi) {

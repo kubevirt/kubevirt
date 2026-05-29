@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -176,8 +177,16 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
 
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PersistentReservation) {
-		additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+	// TODO: consider passing in clusterconfig and use it's existing persistent reservation enabled state
+	if prcfg := kv.Spec.Configuration.PersistentReservationConfiguration; prcfg != nil && prcfg.Enabled != nil {
+		if *prcfg.Enabled {
+			additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+		}
+	} else {
+		if devcfg := kv.Spec.Configuration.DeveloperConfiguration; devcfg != nil &&
+			slices.Contains(devcfg.FeatureGates, featuregate.PersistentReservation) {
+			additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+		}
 	}
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.Template) {

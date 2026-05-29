@@ -48,8 +48,6 @@ const (
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
 	KubevirtSeccompProfile = "KubevirtSeccompProfile"
-	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
-	PersistentReservation = "PersistentReservation"
 
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
@@ -223,6 +221,14 @@ const (
 	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
+
+	// Owner: @machadovilaca
+	// Alpha: v1.9.0
+	//
+	// VMStatsCollector enables the additional guest agent polling workers
+	// (frequent/medium/infrequent tiers) that collect raw monitoring data
+	// for the GetVMStats gRPC RPC.
+	VMStatsCollector = "VMStatsCollector"
 )
 
 func init() {
@@ -241,7 +247,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
@@ -267,4 +272,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 }

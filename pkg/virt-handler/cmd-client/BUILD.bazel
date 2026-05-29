@@ -28,6 +28,7 @@ go_library(
         "//vendor/google.golang.org/grpc/status:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/json:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
 
