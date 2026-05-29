@@ -884,6 +884,37 @@ type SEVPolicy struct {
 }
 
 type SEVSNP struct {
+	// SNP-Policy flags as defined in AMD SEV-SNP API specification.
+	// Defaults to 0x30000 SMT Allowed + Reserved.
+	// +optional
+	Policy string `json:"policy,omitempty"`
+	// +optional
+	VCEK string `json:"vcek,omitempty"`
+	// +optional
+	AuthorKey *bool `json:"authorKey,omitempty"`
+	// KernelHashes enables measured direct kernel boot by including hashes of
+	// the kernel, initrd and cmline in the launch measurement. Requires
+	// spec.domain.firmware.kernelBoot to be configured
+	// +optional
+	KernelHashes *bool `json:"kernelHashes,omitempty"`
+	// +optional
+	Cbitpos string `json:"cbitpos,omitempty"`
+	// IdBlock is a 96-byte signature block that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the launch environment. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+	// +optional
+	IdBlock string `json:"idBlock,omitempty"`
+	// IdAuth is a 4096-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the launch environment. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+	// +optional
+	IdAuth string `json:"idAuth,omitempty"`
+	// +optional
+	ReducedPhysBits string `json:"reducedPhysBits,omitempty"`
+	// HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+	// libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+	// +optional
+	HostData string `json:"hostData,omitempty"`
+	// GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+	// The size must be 16 bytes
+	// +optional
+	GuestVisibleWorkarounds string `json:"guestVisibleWorkarounds,omitempty"`
 }
 
 type SEVAttestation struct {
