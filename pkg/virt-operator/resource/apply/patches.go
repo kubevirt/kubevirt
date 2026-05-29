@@ -113,8 +113,11 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 
-			v := reflect.Indirect(o).FieldByName("ObjectMeta").FieldByName("Name")
-			name := v.String()
+			meta := reflect.Indirect(o).FieldByName("ObjectMeta")
+			name := meta.FieldByName("Name").String()
+			if name == "" {
+				name = strings.TrimSuffix(meta.FieldByName("GenerateName").String(), "-")
+			}
 
 			patches := c.GetPatchesForResource(kind, name)
 
