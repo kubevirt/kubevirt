@@ -1023,6 +1023,14 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
 		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+		"experimental":                      "Experimental holds advanced migration knobs gated behind the\nAdvancedLiveMigration feature gate. The entire section is ignored\nwhen the gate is disabled.\n+optional",
+	}
+}
+
+func (ExperimentalMigrationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "ExperimentalMigrationConfiguration holds migration knobs that are\ngated behind the AdvancedLiveMigration feature gate. Fields may\ngraduate to top-level or be removed in future versions.",
+		"compression": "Compression selects the algorithm for compressing the live migration\ndata stream. When omitted (nil) or set to \"none\", compression is\ndisabled.\n+optional",
 	}
 }
 

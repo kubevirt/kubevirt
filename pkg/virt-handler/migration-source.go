@@ -535,6 +535,10 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
 	}
 
+	if c.clusterConfig.AdvancedLiveMigrationEnabled() && migrationConfiguration.Experimental != nil {
+		options.Experimental = migrationConfiguration.Experimental.DeepCopy()
+	}
+
 	configureParallelMigrationThreads(options, vmi)
 
 	marshalledOptions, err := json.Marshal(options)

@@ -16,6 +16,7 @@ func (MigrationPolicySpec) SwaggerDoc() map[string]string {
 		"completionTimeoutPerGiB": "+optional",
 		"allowPostCopy":           "+optional",
 		"allowWorkloadDisruption": "+optional",
+		"experimental":            "+optional",
 	}
 }
 
