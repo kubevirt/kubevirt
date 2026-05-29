@@ -61,3 +61,38 @@ func LookupPodPrimaryIfaceName(networkStatuses []networkv1.NetworkStatus) string
 
 	return ""
 }
+
+// GetMigrationNetworkIPs extracts IP addresses from a pod for migration communication.
+// It first checks for migration network IPs in pod network status annotations,
+// falling back to standard pod network IPs if the migration network is not configured.
+func GetMigrationNetworkIPs(pod *k8scorev1.Pod, migrationInterface string) []string {
+	// Check for migration network IPs in pod annotations
+	networkStatuses := NetworkStatusesFromPod(pod)
+	for _, networkStatus := range networkStatuses {
+		if networkStatus.Interface == migrationInterface {
+			if len(networkStatus.IPs) > 0 {
+				log.Log.Object(pod).V(4).Infof("found migration network IP addresses %v", networkStatus.IPs) //nolint:mnd
+				return networkStatus.IPs
+			}
+			break
+		}
+	}
+
+	log.Log.Object(pod).V(4).Infof("didn't find migration network IP in annotations, using pod IPs") //nolint:mnd
+
+	// Fall back to pod network IPs if migration network is not configured
+	if len(pod.Status.PodIPs) > 0 {
+		ips := make([]string, len(pod.Status.PodIPs))
+		for i, podIP := range pod.Status.PodIPs {
+			ips[i] = podIP.IP
+		}
+		return ips
+	}
+
+	// Last resort: use single pod IP
+	if pod.Status.PodIP != "" {
+		return []string{pod.Status.PodIP}
+	}
+
+	return nil
+}

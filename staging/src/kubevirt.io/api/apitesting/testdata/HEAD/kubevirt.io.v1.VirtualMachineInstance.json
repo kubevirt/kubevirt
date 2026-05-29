@@ -1004,7 +1004,8 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
-        "matchSELinuxLevelOnMigration": true
+        "matchSELinuxLevelOnMigration": true,
+        "crossClusterNetwork": "crossClusterNetworkValue"
       },
       "targetCPUSet": [
         -12

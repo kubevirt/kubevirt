@@ -114,6 +114,16 @@ const (
 
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
+	// Owner: sig-compute / @awels
+	// Alpha: v1.9.0
+	//
+	// CrossClusterMigrationProxy enables network proxy support in synchronization controllers
+	// for cross-cluster live migrations. When enabled along with crossClusterNetwork configuration,
+	// sync controllers attach to both in-cluster and cross-cluster networks and proxy migration
+	// traffic between them. This reduces IP address requirements on the cross-cluster network
+	// from N×(M+2) to N×2 addresses (where N=clusters, M=virt-handlers per cluster).
+	CrossClusterMigrationProxy = "CrossClusterMigrationProxy"
+
 	// Owner: sig-storage / @alromeros
 	// Alpha: v1.6.0
 	//
@@ -250,6 +260,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: CrossClusterMigrationProxy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})

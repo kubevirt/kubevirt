@@ -1291,6 +1291,9 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
 		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)
+		if vmi.Annotations == nil {
+			vmi.Annotations = make(map[string]string)
+		}
 		vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
 	}
 
