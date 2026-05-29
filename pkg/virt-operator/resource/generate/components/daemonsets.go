@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,15 +22,17 @@ import (
 )
 
 const (
-	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
-	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
-	PrHelperName                   = "pr-helper"
-	prVolumeName                   = "pr-helper-socket-vol"
-	devDirVol                      = "dev-dir"
-	SidecarShimName                = "sidecar-shim"
-	etcMultipath                   = "etc-multipath"
-	SupportsMigrationCNsValidation = "kubevirt.io/supports-migration-cn-types"
+	VirtHandlerName = "virt-handler"
+	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
+	// virtHandlerKubeletPodsMountPath is the in-container mount for the host kubelet pods directory.
+	// It must stay short so Unix domain socket paths stay under the 108-byte limit.
+	virtHandlerKubeletPodsMountPath = "/pods"
+	PrHelperName                    = "pr-helper"
+	prVolumeName                    = "pr-helper-socket-vol"
+	devDirVol                       = "dev-dir"
+	SidecarShimName                 = "sidecar-shim"
+	etcMultipath                    = "etc-multipath"
+	SupportsMigrationCNsValidation  = "kubevirt.io/supports-migration-cn-types"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -208,6 +211,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	handlerGracePeriod := podGracePeriod - 15
 	podTemplateSpec.Spec.TerminationGracePeriodSeconds = &podGracePeriod
 
+	kubeletRootDir := config.GetKubeletRootDir()
+
 	container := &pod.Containers[0]
 	container.Command = []string{
 		VirtHandlerName,
@@ -227,6 +232,10 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		"8187",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
+		"--kubelet-root",
+		kubeletRootDir,
+		"--kubelet-pods-dir",
+		filepath.Join(kubeletRootDir, "pods"),
 		"-v",
 		config.GetVerbosity(),
 	}
@@ -323,9 +332,23 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
-		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &hostToContainer},
+		{"kubelet-pods", filepath.Join(kubeletRootDir, "pods"), virtHandlerKubeletPodsMountPath, nil},
+		{"kubelet", kubeletRootDir, kubeletRootDir, &hostToContainer},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
+	}
+	// Kubernetes device-plugin sockets live under a fixed host path (/var/lib/kubelet/device-plugins/)
+	// independent of the kubelet --root-dir setting (see kubernetes/kubernetes#120626).
+	// When kubeletRootDir is not the default, the "kubelet" volume above no longer covers that
+	// directory, so we add a separate same-path mount for it so virt-handler's device plugins
+	// can still register with the kubelet.
+	if filepath.Clean(kubeletRootDir) != filepath.Clean(util.KubeletRoot) {
+		devicePluginsHostPath := filepath.Join(util.KubeletRoot, "device-plugins")
+		volumes = append(volumes, volume{
+			name:             "kubelet-device-plugins",
+			path:             devicePluginsHostPath,
+			mountPath:        devicePluginsHostPath,
+			mountPropagation: &hostToContainer,
+		})
 	}
 
 	for _, volume := range volumes {

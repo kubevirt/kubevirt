@@ -29,6 +29,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("Operator Config", func() {
@@ -423,5 +425,92 @@ var _ = Describe("Operator Config", func() {
 					imageName: "blablabla",
 					version:   "latest",
 				}))
+	})
+
+	Context("kubelet root directory configuration", func() {
+		BeforeEach(func() {
+			ExpectWithOffset(1, envVarManager.Unsetenv(KubeletRootDirEnvName)).To(Succeed())
+			ExpectWithOffset(1, envVarManager.Setenv(VirtOperatorImageEnvName, "registry/kubevirt/virt-operator")).To(Succeed())
+		})
+
+		AfterEach(func() {
+			_ = envVarManager.Unsetenv(KubeletRootDirEnvName)
+			_ = envVarManager.Unsetenv(VirtOperatorImageEnvName)
+		})
+
+		It("should read KUBELET_ROOT_DIR from environment variable", func() {
+			customPath := "/var/lib/rancher/k3s/agent/kubelet"
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, customPath)).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal(customPath))
+		})
+
+		It("should use default kubelet root when environment variable is not set", func() {
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/kubelet"))
+		})
+
+		It("should use default kubelet root when environment variable is empty string", func() {
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, "")).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/kubelet"))
+		})
+
+		It("should store kubelet root dir in AdditionalProperties when set", func() {
+			customPath := "/var/lib/k0s/kubelet"
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, customPath)).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			value, exists := config.AdditionalProperties[AdditionalPropertiesKubeletRootDir]
+			Expect(exists).To(BeTrue())
+			Expect(value).To(Equal(customPath))
+		})
+
+		It("should not store empty kubelet root dir in AdditionalProperties", func() {
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			_, exists := config.AdditionalProperties[AdditionalPropertiesKubeletRootDir]
+			Expect(exists).To(BeFalse())
+		})
+
+		It("should ignore a relative KUBELET_ROOT_DIR and fall back to default", func() {
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, "relative/path/kubelet")).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			_, exists := config.AdditionalProperties[AdditionalPropertiesKubeletRootDir]
+			Expect(exists).To(BeFalse(), "relative path must not be stored in AdditionalProperties")
+			Expect(config.GetKubeletRootDir()).To(Equal(virtutil.KubeletRoot))
+		})
+
+		It("should normalize a KUBELET_ROOT_DIR with trailing slash", func() {
+			Expect(envVarManager.Setenv(KubeletRootDirEnvName, "/var/lib/k0s/kubelet/")).To(Succeed())
+
+			config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+			Expect(config.GetKubeletRootDir()).To(Equal("/var/lib/k0s/kubelet"),
+				"filepath.Clean must strip the trailing slash")
+		})
+
+		DescribeTable("should handle various distribution kubelet paths",
+			func(kubeletPath string) {
+				Expect(envVarManager.Setenv(KubeletRootDirEnvName, kubeletPath)).To(Succeed())
+
+				config := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
+
+				Expect(config.GetKubeletRootDir()).To(Equal(kubeletPath))
+				Expect(config.AdditionalProperties[AdditionalPropertiesKubeletRootDir]).To(Equal(kubeletPath))
+			},
+			Entry("k3s", "/var/lib/rancher/k3s/agent/kubelet"),
+			Entry("k0s", "/var/lib/k0s/kubelet"),
+			Entry("MicroK8s", "/var/snap/microk8s/common/var/lib/kubelet"),
+			Entry("custom path with multiple levels", "/custom/path/to/kubelet"),
+		)
 	})
 })

@@ -202,6 +202,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			fakeNodeStore,
 			host,
 			privateDir,
+			util.KubeletRoot,
 			podsDir,
 			launcherClientManager,
 			vmiInformer,
