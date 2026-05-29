@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,9 +54,9 @@ type HeartBeat struct {
 	devicePluginWaitTimeout   time.Duration
 }
 
-func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string, kubeletRoot string) *HeartBeat {
 	const cpuManagerOS3Path = virtutil.HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-	const cpuManagerPath = virtutil.KubeletRoot + "/cpu_manager_state"
+	cpuManagerPath := filepath.Join(kubeletRoot, "cpu_manager_state")
 	return &HeartBeat{
 		clientset:               clientset,
 		deviceManagerController: deviceManager,
@@ -104,7 +105,7 @@ func (h *HeartBeat) labelNodeUnschedulable() {
 			return err
 		}
 
-		cpuManagerEnabled := h.clusterConfig.CPUManagerEnabled() && h.isCPUManagerEnabled(h.cpuManagerPaths)
+		cpuManagerEnabled := h.clusterConfig.CPUManagerEnabled() && h.isCPUManagerEnabled()
 		data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 			v1.NodeSchedulable, "false",
 			v1.DeprecatedCPUManager, cpuManagerEnabled,
@@ -154,7 +155,7 @@ func (h *HeartBeat) do() {
 	// This is a temporary workaround until k8s bug #66525 is resolved
 	cpuManagerEnabled := false
 	if h.clusterConfig.CPUManagerEnabled() {
-		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
+		cpuManagerEnabled = h.isCPUManagerEnabled()
 	}
 
 	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s}}}`,
@@ -180,14 +181,14 @@ func (h *HeartBeat) do() {
 	log.DefaultLogger().V(4).Infof("Heartbeat sent")
 }
 
-func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
+func (h *HeartBeat) isCPUManagerEnabled() bool {
 	var cpuManagerOptions map[string]interface{}
-	cpuManagerPath, err := detectCPUManagerFile(cpuManagerPaths)
+	cpuManagerPath, err := h.detectCPUManagerFile()
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
 		return false
 	}
-	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
+	// #nosec G304 cpuManagerPath is resolved at construction time from a trusted operator env var (KUBELET_ROOT_DIR)
 	content, err := os.ReadFile(cpuManagerPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf(failedSetCPUManagerLabelFmt, h.host)
@@ -209,8 +210,11 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 	}
 }
 
-func detectCPUManagerFile(cpuManagerPaths []string) (string, error) {
-	for _, path := range cpuManagerPaths {
+// detectCPUManagerFile returns the path to kubelet's cpu_manager_state when present.
+// cpuManagerPaths is populated at construction time with the kubelet-root-relative path first,
+// followed by legacy fallback paths.
+func (h *HeartBeat) detectCPUManagerFile() (string, error) {
+	for _, path := range h.cpuManagerPaths {
 		if _, err := os.Stat(path); err == nil {
 			return path, nil
 		}
