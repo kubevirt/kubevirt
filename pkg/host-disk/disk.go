@@ -58,6 +58,46 @@ func (c PVCDiskImgCreator) Create(vmi *v1.VirtualMachineInstance, volumeName, di
 		return fmt.Errorf("the size for volume %s is too low, must be at least 1MiB", pvcInfo.ClaimName)
 	}
 
+	// If it’s a PVC filesystem (we infer this indirectly by the presence of FilesystemOverhead), then prefer the actual
+	// virtual size of the existing source image when creating the target qcow2.
+	//
+	// QEMU requires source and target images used for block migration to have
+	// exactly the same virtual size. Creating a target image based solely on the
+	// requested volume size may result in a size mismatch and cause migration
+	// failures such as
+	//
+	//   "Source and target image have different sizes"
+	//
+	// Align the source image size to 1 MiB and use it for target image creation
+	// to satisfy QEMU strict size checks.
+	//
+	// Hotplugged disks are not replaced with host disks, which is why we need to reapply this logic again."
+	if isHotplugged(vmi, volumeName) {
+		if volumeStatus := getVolumeStatus(vmi, volumeName); volumeStatus != nil {
+			if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead != nil {
+				if volumeStatus.Size > 0 && volumeStatus.Size < requestedSize {
+					requestedSize = util.AlignImageSizeTo1MiB(volumeStatus.Size, log.Log)
+				}
+			}
+		}
+	}
+
 	diskDir := filepath.Dir(diskPath)
 	return c.diskImgCreator.CreateDiskAndSetOwnership(vmi, diskDir, diskPath, pvcInfo.ClaimName, requestedSize)
+}
+
+func isHotplugged(vmi *v1.VirtualMachineInstance, volumeName string) bool {
+	if status := getVolumeStatus(vmi, volumeName); status != nil {
+		return status.HotplugVolume != nil
+	}
+	return false
+}
+
+func getVolumeStatus(vmi *v1.VirtualMachineInstance, volumeName string) *v1.VolumeStatus {
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.Name == volumeName {
+			return &volumeStatus
+		}
+	}
+	return nil
 }

@@ -1232,7 +1232,7 @@ func (d *VirtualMachineController) updatePVCSizeStatus(vmi *v1.VirtualMachineIns
 			}
 		case *volumeMode == k8sv1.PersistentVolumeFilesystem:
 			if hotplugged {
-				volPath = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s/disk.img", volume.Name)
+				volPath = fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s.img", volume.Name)
 			} else {
 				volPath = fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", volume.Name)
 			}
