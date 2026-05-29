@@ -458,6 +458,7 @@ func (app *virtHandlerApp) Run() {
 		nodeInformer.GetStore(),
 		app.HostOverride,
 		app.VirtPrivateDir,
+		app.KubeletRoot,
 		app.KubeletPodsDir,
 		launcherClientsManager,
 		vmiSourceInformer,

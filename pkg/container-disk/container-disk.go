@@ -137,12 +137,12 @@ func setPodsDirectory(dir string) error {
 	return os.MkdirAll(dir, 0750)
 }
 
-// NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
-// can be provided which can for instance point to /tmp.
-func NewSocketPathGetter(baseDir string) SocketPathGetter {
+// NewSocketPathGetter returns a getter for container-disk socket paths under podsDir
+// (the kubelet pod directory whose children are pod UIDs). For tests, pass e.g. filepath.Join(tmp, "pods").
+func NewSocketPathGetter(podsDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
 		for podUID := range vmi.Status.ActivePods {
-			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
+			basePath := getContainerDiskSocketBasePath(podsDir, string(podUID))
 			socketPath := filepath.Join(basePath, fmt.Sprintf("disk_%d.sock", volumeIndex))
 			exists, _ := diskutils.FileExists(socketPath)
 			if exists {
@@ -153,12 +153,11 @@ func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	}
 }
 
-// NewKernelBootSocketPathGetter get the socket pat of the kernel-boot containerDisk. For testing a baseDir
-// can be provided which can for instance point to /tmp.
-func NewKernelBootSocketPathGetter(baseDir string) KernelBootSocketPathGetter {
+// NewKernelBootSocketPathGetter returns a getter for kernel-boot container-disk sockets; podsDir is the kubelet pod directory (see NewSocketPathGetter).
+func NewKernelBootSocketPathGetter(podsDir string) KernelBootSocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance) (string, error) {
 		for podUID := range vmi.Status.ActivePods {
-			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
+			basePath := getContainerDiskSocketBasePath(podsDir, string(podUID))
 			socketPath := filepath.Join(basePath, KernelBootName+".sock")
 			exists, _ := diskutils.FileExists(socketPath)
 			if exists {
@@ -356,8 +355,10 @@ func CreateEphemeralImages(
 	return nil
 }
 
-func getContainerDiskSocketBasePath(baseDir, podUID string) string {
-	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
+// getContainerDiskSocketBasePath returns the directory holding container-disk sockets for podUID.
+// podsDir must be the kubelet pod directory (each child is a pod UID), e.g. /var/lib/kubelet/pods or /pods.
+func getContainerDiskSocketBasePath(podsDir, podUID string) string {
+	return filepath.Join(podsDir, podUID, "volumes", "kubernetes.io~empty-dir", "container-disks")
 }
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,

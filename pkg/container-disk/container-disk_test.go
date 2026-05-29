@@ -323,17 +323,19 @@ var _ = Describe("ContainerDisk", func() {
 				})
 
 				It("should fail if the base directory only exists", func() {
-					_, err := NewSocketPathGetter(tmpDir)(vmi, 2)
+					podsDir := filepath.Join(tmpDir, "pods")
+					_, err := NewSocketPathGetter(podsDir)(vmi, 2)
 					Expect(err).To(HaveOccurred())
 				})
 
 				It("should succeed if the socket is there", func() {
-					path1, err := NewSocketPathGetter(tmpDir)(vmi, 0)
+					podsDir := filepath.Join(tmpDir, "pods")
+					path1, err := NewSocketPathGetter(podsDir)(vmi, 0)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(path1).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid")))
-					path2, err := NewSocketPathGetter(tmpDir)(vmi, 1)
+					Expect(path1).To(Equal(filepath.Join(podsDir, "poduid", "volumes", "kubernetes.io~empty-dir", "container-disks", "disk_0.sock")))
+					path2, err := NewSocketPathGetter(podsDir)(vmi, 1)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(path2).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid")))
+					Expect(path2).To(Equal(filepath.Join(podsDir, "poduid", "volumes", "kubernetes.io~empty-dir", "container-disks", "disk_1.sock")))
 				})
 			})
 		})
@@ -539,6 +541,75 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(c.SecurityContext.Capabilities.Drop).To(Equal([]k8sv1.Capability{"ALL"}))
 				}),
 			)
+		})
+
+		Context("with alternative kubelet root directory (k3s/k0s scenario)", func() {
+			// These tests validate the path invariant required for virt_chroot.MountChroot:
+			// the path returned by GetVolumeMountDirOnHost must equal the real host filesystem
+			// path so that bind-mount operations in the host mount namespace succeed.
+			const customKubeletRelPath = "var/lib/rancher/k3s/agent/kubelet"
+			const podUID = "test-pod-uid-k3s"
+
+			AfterEach(func() {
+				// Restore podsBaseDir to the value set by the outer BeforeEach so that
+				// subsequent tests in the suite do not observe stale state.
+				Expect(setPodsDirectory(tmpDir)).To(Succeed())
+			})
+
+			It("should return the real host path under the custom kubelet root", func() {
+				// Simulate k3s: kubelet lives at a non-default root, mirrored into the
+				// container at the same path (same-path volume mount from our fix).
+				customKubeletRoot := filepath.Join(tmpDir, customKubeletRelPath)
+				customPodsDir := filepath.Join(customKubeletRoot, "pods")
+
+				// This mirrors what virt-handler does on startup after receiving
+				// --kubelet-pods-dir carrying the real host path.
+				SetKubeletPodsDirectory(customPodsDir)
+
+				containerDisksDir := filepath.Join(customPodsDir, podUID, "volumes", "kubernetes.io~empty-dir", "container-disks")
+				Expect(os.MkdirAll(containerDisksDir, 0755)).To(Succeed())
+
+				vmi := libvmi.New(
+					libvmistatus.WithStatus(
+						libvmistatus.New(libvmistatus.WithActivePod(podUID, "k3s-node")),
+					))
+
+				path, err := GetVolumeMountDirOnHost(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				absolutePath := unsafepath.UnsafeAbsolute(path.Raw())
+				// The absolute path must equal the real host path — not the default
+				// /var/lib/kubelet tree — so that virt_chroot can bind-mount it in
+				// the host mount namespace.
+				Expect(absolutePath).To(Equal(containerDisksDir))
+				Expect(absolutePath).To(ContainSubstring(customKubeletRelPath))
+			})
+
+			It("should not find the directory when podsBaseDir points to the wrong path", func() {
+				// Regression guard: if the old approach is used (podsBaseDir = "/pods",
+				// the short-path container alias), and the real disk dirs are created
+				// under the correct kubelet root, GetVolumeMountDirOnHost must return
+				// ErrNotExist — proving that the old approach broke non-default roots.
+				customKubeletRoot := filepath.Join(tmpDir, customKubeletRelPath)
+				customPodsDir := filepath.Join(customKubeletRoot, "pods")
+
+				// Create dirs under the real kubelet root.
+				containerDisksDir := filepath.Join(customPodsDir, podUID, "volumes", "kubernetes.io~empty-dir", "container-disks")
+				Expect(os.MkdirAll(containerDisksDir, 0755)).To(Succeed())
+
+				// Deliberately set podsBaseDir to a wrong path (simulating the old
+				// remapped-container-path approach). tmpDir itself has no pod dirs.
+				SetKubeletPodsDirectory(filepath.Join(tmpDir, "wrong-path", "pods"))
+
+				vmi := libvmi.New(
+					libvmistatus.WithStatus(
+						libvmistatus.New(libvmistatus.WithActivePod(podUID, "k3s-node")),
+					))
+
+				_, err := GetVolumeMountDirOnHost(vmi)
+				Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue(),
+					"a mismatched podsBaseDir must cause ErrNotExist, not silently succeed")
+			})
 		})
 	})
 })
