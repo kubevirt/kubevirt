@@ -1018,7 +1018,18 @@
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true,
-        "experimental": {}
+        "experimental": {
+          "stallDetector": {
+            "stallMargin": -11,
+            "ewmaAlpha": "ewmaAlphaValue",
+            "stallProgressTimeout": 18446744073709551596,
+            "switchoverTimeout": 18446744073709551599,
+            "precopyPossibleFactor": "precopyPossibleFactorValue",
+            "patienceWindowDecayFactor": "patienceWindowDecayFactorValue",
+            "searchLocalMinima": true,
+            "completionTimeoutFactor": "completionTimeoutFactorValue"
+          }
+        }
       },
       "targetCPUSet": [
         -12

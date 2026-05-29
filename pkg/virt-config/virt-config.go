@@ -46,6 +46,15 @@ const (
 	MigrationCompletionTimeoutPerGiB         int64  = 150
 	DefaultMigrationMaxDowntimeMs            uint64 = 900
 	MigrationUtilityVolumesTimeoutSeconds    int64  = 150
+	DefaultStallMargin                       int64  = 4
+	DefaultStallProgressTimeout              uint64 = 40
+	DefaultSwitchoverTimeout                 uint64 = 60
+	DefaultEwmaAlpha                                = "0.4"
+	DefaultPrecopyPossibleFactor                    = "1.5"
+	DefaultPatienceWindowDecayFactor                = "0.5"
+	DefaultSearchLocalMinima                 bool   = true
+	DefaultCompletionTimeoutFactor                  = "2"
+	StallDetectorFactorPrecision                    = 3
 	DefaultAMD64MachineType                         = "q35"
 	DefaultAARCH64MachineType                       = "virt"
 	DefaultS390XMachineType                         = "s390-ccw-virtio"
