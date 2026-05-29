@@ -78,7 +78,7 @@ var _ = Describe("Virt remote commands", func() {
 		socketPath := filepath.Join(shareDir, "server.sock")
 
 		allowEmulation = true
-		options = NewServerOptions(allowEmulation)
+		options = NewServerOptions(allowEmulation, false)
 		RunServer(socketPath, domainManager, stop, options)
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -456,7 +456,7 @@ var _ = Describe("Virt remote commands", func() {
 			BeforeEach(func() {
 				server = &Launcher{
 					domainManager: domainManager,
-					ServerOptions: NewServerOptions(false),
+					ServerOptions: NewServerOptions(false, false),
 				}
 			})
 
@@ -606,7 +606,7 @@ var _ = Describe("Virt remote commands", func() {
 			notifier := notifyclient.NewNotifier("")
 			vmi := v1.NewVMIReferenceFromNameWithNS("testns", "testvmi")
 			vmi.UID = types.UID("test-uid-1234")
-			options := NewServerOptions(true).WithNotifier(notifier).WithVMI(vmi)
+			options := NewServerOptions(true, false).WithNotifier(notifier).WithVMI(vmi)
 
 			Expect(options.allowEmulation).To(BeTrue())
 			Expect(options.notifier).To(Equal(notifier))
@@ -616,7 +616,7 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("should work without notifier and vmi", func() {
-			options := NewServerOptions(false)
+			options := NewServerOptions(false, false)
 
 			Expect(options.allowEmulation).To(BeFalse())
 			Expect(options.notifier).To(BeNil())

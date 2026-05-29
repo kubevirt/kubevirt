@@ -51,15 +51,19 @@ const (
 )
 
 type ServerOptions struct {
-	allowEmulation bool
-	notifier       *notifyclient.Notifier
-	vmiName        string
-	vmiNamespace   string
-	vmiUID         types.UID
+	allowEmulation          bool
+	allowCrossArchEmulation bool
+	notifier                *notifyclient.Notifier
+	vmiName                 string
+	vmiNamespace            string
+	vmiUID                  types.UID
 }
 
-func NewServerOptions(allowEmulation bool) *ServerOptions {
-	return &ServerOptions{allowEmulation: allowEmulation}
+func NewServerOptions(allowEmulation, allowCrossArchEmulation bool) *ServerOptions {
+	return &ServerOptions{
+		allowEmulation:          allowEmulation,
+		allowCrossArchEmulation: allowCrossArchEmulation,
+	}
 }
 
 func (o *ServerOptions) WithNotifier(n *notifyclient.Notifier) *ServerOptions {
@@ -655,7 +659,7 @@ func RunServer(socketPath string,
 	options *ServerOptions) (chan struct{}, error) {
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	if options == nil {
-		options = NewServerOptions(false)
+		options = NewServerOptions(false, false)
 	}
 	server := &Launcher{
 		domainManager: domainManager,

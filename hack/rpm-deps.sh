@@ -47,6 +47,9 @@ BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
 # Select repo file based on version
 bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
+if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+    bazeldnf_repos="--repofile rpm/repo-virt-preview.yaml ${bazeldnf_repos}"
+fi
 if [ "${CUSTOM_REPO}" ]; then
     bazeldnf_repos="--repofile ${CUSTOM_REPO} ${bazeldnf_repos}"
 fi
@@ -158,12 +161,25 @@ launcherbase_x86_64="
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   seabios-${SEABIOS_VERSION}
 "
+if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+    launcherbase_x86_64+="
+  qemu-system-aarch64-core
+  edk2-aarch64
+"
+fi
 launcherbase_aarch64="
   edk2-aarch64-${EDK2_VERSION}
   qemu-kvm-device-usb-redirect-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
 "
+if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
+    launcherbase_aarch64+="
+  qemu-system-x86-core
+  edk2-ovmf
+  seabios
+"
+fi
 launcherbase_s390x="
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}

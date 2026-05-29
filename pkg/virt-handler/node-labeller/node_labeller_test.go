@@ -24,6 +24,7 @@ package nodelabeller
 import (
 	"context"
 	"fmt"
+	goruntime "runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,6 +41,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
@@ -216,6 +218,54 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKeyWithValue(v1.TDXLabel, "true"))
+	})
+
+	It("should add native vm-arch label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(v1.VMArchLabel+goruntime.GOARCH, "true"))
+	})
+
+	It("should add cross-arch vm-arch label when feature gate is enabled", func() {
+		crossArch := ""
+		switch goruntime.GOARCH {
+		case "amd64":
+			crossArch = "arm64"
+		case "arm64":
+			crossArch = "amd64"
+		default:
+			Skip("cross-arch emulation is only supported on amd64 and arm64")
+		}
+
+		initNodeLabeller(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{string(featuregate.CrossArchitectureVirtualization)},
+					},
+				},
+			},
+		})
+		mockQueue := testutils.NewMockWorkQueue(nlController.queue)
+		nlController.queue = mockQueue
+
+		mockQueue.ExpectAdds(1)
+		nlController.queue.Add(nodeName)
+		mockQueue.Wait()
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(v1.VMArchLabel+goruntime.GOARCH, "true"))
+		Expect(node.Labels).To(HaveKeyWithValue(v1.VMArchLabel+crossArch, "true"))
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {
