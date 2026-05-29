@@ -103,6 +103,36 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("negative CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
 		),
+
+		Entry("invalid precopyPossibleFactor",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						PrecopyPossibleFactor: pointer.P("not-a-number"),
+					},
+				},
+			},
+		),
+
+		Entry("precopyPossibleFactor below minimum",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						PrecopyPossibleFactor: pointer.P("0.5"),
+					},
+				},
+			},
+		),
+
+		Entry("patienceWindowDecayFactor above maximum",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						PatienceWindowDecayFactor: pointer.P("1.5"),
+					},
+				},
+			},
+		),
 	)
 
 	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -136,6 +166,26 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
 		),
+
+		Entry("completionTimeoutFactor without upper bound",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						CompletionTimeoutFactor: pointer.P("3"),
+					},
+				},
+			},
+		),
+
+		Entry("precopyPossibleFactor without upper bound",
+			migrationsv1.MigrationPolicySpec{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
+					StallDetector: &v1.StallDetectorOptions{
+						PrecopyPossibleFactor: pointer.P("2"),
+					},
+				},
+			},
+		),
 	)
 
 	DescribeTable("maxDowntimeMs feature gate validation when feature gate is disabled",
@@ -158,6 +208,46 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("allow unchanged update", true, pointer.P(uint64(900)), pointer.P(uint64(900)), true),
 		Entry("reject changing value on update", true, pointer.P(uint64(500)), pointer.P(uint64(900)), false),
 	)
+
+	DescribeTable("experimental.stallDetector feature gate validation when feature gate is disabled",
+		func(isUpdate bool, oldStallDetector, newStallDetector *v1.StallDetectorOptions, expectAllowed bool) {
+			disableFeatureGates()
+			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			if newStallDetector != nil {
+				newPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					StallDetector: newStallDetector,
+				}
+			}
+			if !isUpdate {
+				admitter.admitAndExpect(newPolicy, expectAllowed)
+				return
+			}
+			oldPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			if oldStallDetector != nil {
+				oldPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					StallDetector: oldStallDetector,
+				}
+			}
+			if expectAllowed {
+				newPolicy.Spec.AllowAutoConverge = pointer.P(true)
+			}
+			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
+		},
+		Entry("reject on create", false, nil, &v1.StallDetectorOptions{
+			StallMargin: pointer.P(int64(4)),
+		}, false),
+		Entry("allow unchanged update", true,
+			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
+			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
+			true,
+		),
+		Entry("reject changing value on update", true,
+			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
+			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(8))},
+			false,
+		),
+	)
+
 })
 
 func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace string) *admissionv1.AdmissionReview {
