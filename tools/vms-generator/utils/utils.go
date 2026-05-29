@@ -82,8 +82,8 @@ const (
 )
 
 const (
-	Preemtible    = "preemtible"
-	NonPreemtible = "non-preemtible"
+	Preemptible    = "preemptible"
+	NonPreemptible = "non-preemptible"
 )
 
 const (
@@ -661,7 +661,7 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 	}
 }
 
-func GetPreemtible() *schedulingv1.PriorityClass {
+func GetPreemptible() *schedulingv1.PriorityClass {
 	preemtionPolicy := k8sv1.PreemptLowerPriority
 	pc := schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
@@ -673,11 +673,11 @@ func GetPreemtible() *schedulingv1.PriorityClass {
 		PreemptionPolicy: &preemtionPolicy,
 		Value:            1000000,
 	}
-	pc.ObjectMeta.Name = "preemtible"
+	pc.ObjectMeta.Name = "preemptible"
 	return &pc
 }
 
-func GetNonPreemtible() *schedulingv1.PriorityClass {
+func GetNonPreemptible() *schedulingv1.PriorityClass {
 	preemtionPolicy := k8sv1.PreemptNever
 	pc := schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
@@ -689,14 +689,14 @@ func GetNonPreemtible() *schedulingv1.PriorityClass {
 		PreemptionPolicy: &preemtionPolicy,
 		Value:            999999999,
 	}
-	pc.ObjectMeta.Name = NonPreemtible
+	pc.ObjectMeta.Name = NonPreemptible
 	return &pc
 }
 
 func GetVMPriorityClass() *v1.VirtualMachine {
 	vm := GetVMCirros()
-	vm.Spec.Template.Spec.PriorityClassName = NonPreemtible
-	vm.ObjectMeta.Name = "vm-non-preemtible"
+	vm.Spec.Template.Spec.PriorityClassName = NonPreemptible
+	vm.ObjectMeta.Name = "vm-non-preemptible"
 	return vm
 }
 
