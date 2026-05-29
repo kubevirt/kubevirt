@@ -236,3 +236,7 @@ func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
 func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
 }
+
+func (config *ClusterConfig) AdvancedMigrationOptionsEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.AdvancedMigrationOptions)
+}

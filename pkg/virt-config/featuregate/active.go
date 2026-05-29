@@ -243,6 +243,12 @@ const (
 	//
 	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
 	MigrationStallDetection = "MigrationStallDetection"
+
+	// Owner: @aseeef
+	// Alpha: v1.9.0
+	//
+	// AdvancedMigrationOptions enables advanced migration options.
+	AdvancedMigrationOptions = "AdvancedMigrationOptions"
 )
 
 func init() {
@@ -289,4 +295,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: AdvancedMigrationOptions, State: Alpha})
 }
