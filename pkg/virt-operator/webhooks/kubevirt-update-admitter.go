@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -83,6 +84,18 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
 	results = append(results, validateMigrationConfiguration(newKV.Spec.Configuration.MigrationConfiguration)...)
+
+	if newKV.Spec.Configuration.MigrationConfiguration != nil {
+		sourceConfig := field.NewPath("spec").Child("configuration", "migrationConfiguration")
+		results = append(results, migrationutils.ValidateLegacyVMMigrationConfiguration(
+			sourceConfig,
+			newKV.Spec.Configuration.MigrationConfiguration.LegacyVMMigrationConfiguration,
+		)...)
+		results = append(results, migrationutils.ValidateClusterMigrationConfiguration(
+			sourceConfig,
+			newKV.Spec.Configuration.MigrationConfiguration.ClusterMigrationConfiguration,
+		)...)
+	}
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {

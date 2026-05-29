@@ -67,13 +67,10 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{CompletionTimeoutPerGiB: pointer.P(int64(-1))}}},
 		),
 		Entry("negative ProgressTimeout",
-			migrationsv1.MigrationPolicySpec{ProgressTimeout: pointer.P(int64(-1))},
-		),
-		Entry("non-positive MaxDowntime",
-			migrationsv1.MigrationPolicySpec{MaxDowntime: pointer.P(uint64(0))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{ProgressTimeout: pointer.P(int64(-1))}}},
 		),
 		Entry("too large MaxDowntime",
-			migrationsv1.MigrationPolicySpec{MaxDowntime: pointer.P(migrationutils.QEMUMaxMigrationDowntimeMS + 1)},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{MaxDowntime: pointer.P(migrationutils.QEMUMaxMigrationDowntimeMS + 1)}}},
 		),
 	)
 
@@ -93,17 +90,17 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{CompletionTimeoutPerGiB: pointer.P(int64(1))}}},
 		),
 		Entry("greater than zero ProgressTimeout",
-			migrationsv1.MigrationPolicySpec{ProgressTimeout: pointer.P(int64(1))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{ProgressTimeout: pointer.P(int64(1))}}},
 		),
 
 		Entry("zero ProgressTimeout",
-			migrationsv1.MigrationPolicySpec{ProgressTimeout: pointer.P(int64(0))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{ProgressTimeout: pointer.P(int64(0))}}},
 		),
 		Entry("zero CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{CompletionTimeoutPerGiB: pointer.P(int64(0))}}},
 		),
 		Entry("valid MaxDowntime",
-			migrationsv1.MigrationPolicySpec{MaxDowntime: pointer.P(uint64(900))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{MaxDowntime: pointer.P(uint64(900))}}},
 		),
 
 		Entry("zero BandwidthPerMigration",
@@ -138,6 +135,18 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 					AllowPostCopy:           pointer.P(false),
 					AllowWorkloadDisruption: pointer.P(false),
 				},
+			}},
+		),
+
+		Entry("valid experimental options",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				AdvancedMigrationOptions: &v1.AdvancedMigrationOptions{StallDetector: &v1.StallDetectorOptions{
+					StallMargin:               pointer.P(float64(0.04)),
+					EwmaAlpha:                 pointer.P(float64(0.4)),
+					PatienceWindowDecayFactor: pointer.P(float64(0.5)),
+					PrecopyPossibleFactor:     pointer.P(float64(1.5)),
+					CompletionTimeoutFactor:   pointer.P(float64(2)),
+				}},
 			}},
 		),
 	)

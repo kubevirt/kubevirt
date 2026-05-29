@@ -960,7 +960,7 @@ func (m *migrationMonitor) handleStallDetection(dom cli.VirDomain, stats *libvir
 	sd := m.stallDetector
 
 	if !sd.initialMaxDowntimeSet {
-		initialMaxDowntime := m.options.MaxDowntime
+		initialMaxDowntime := uint64(m.options.MaxDowntime)
 		if initialMaxDowntime > migrationutils.QEMUDefaultTargetDowntimeMS {
 			initialMaxDowntime = migrationutils.QEMUDefaultTargetDowntimeMS
 		}

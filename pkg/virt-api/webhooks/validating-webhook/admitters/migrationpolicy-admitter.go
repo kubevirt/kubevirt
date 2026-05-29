@@ -25,7 +25,6 @@ import (
 	"fmt"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -62,54 +61,11 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 	var causes []metav1.StatusCause
 
 	sourceField := k8sfield.NewPath("spec")
-
 	spec := policy.Spec
-	if spec.CompletionTimeoutPerGiB != nil && *spec.CompletionTimeoutPerGiB < 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "must not be negative",
-			Field:   sourceField.Child("completionTimeoutPerGiB").String(),
-		})
-	}
-	if spec.ProgressTimeout != nil && *spec.ProgressTimeout < 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "must be greater or equal to zero",
-			Field:   sourceField.Child("progressTimeout").String(),
-		})
-	}
-	if spec.MaxDowntime != nil && (*spec.MaxDowntime <= 0 || *spec.MaxDowntime > migrationutils.QEMUMaxMigrationDowntimeMS) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("must be in range 1-%d", migrationutils.QEMUMaxMigrationDowntimeMS),
-			Field:   sourceField.Child("maxDowntime").String(),
-		})
-	}
-
-	if spec.BandwidthPerMigration != nil {
-		quantity, ok := spec.BandwidthPerMigration.AsInt64()
-		if !ok {
-			dec := spec.BandwidthPerMigration.AsDec()
-			quantity = int64(dec.Sign())
-		}
-
-		if quantity < 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "must not be negative",
-				Field:   sourceField.Child("bandwidthPerMigration").String(),
-			})
-		}
-	}
-
-	if spec.AllowPostCopy != nil && *spec.AllowPostCopy &&
-		spec.AllowWorkloadDisruption != nil && !*spec.AllowWorkloadDisruption {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "AllowWorkloadDisruption must be true if AllowPostCopy is true",
-			Field:   sourceField.Child("allowWorkloadDisruption").String(),
-		})
-	}
+	causes = append(causes, migrationutils.ValidateVMMigrationConfiguration(
+		sourceField,
+		spec.VMMigrationConfiguration,
+	)...)
 
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
