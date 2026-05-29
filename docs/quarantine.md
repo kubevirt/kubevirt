@@ -131,7 +131,7 @@ quarantine:
   quarantine_pr: "<PR URL>"
   entry_date: "<date the quarantine PR was merged>"
   deadline: "<6 weeks from entry date>"
-  owning_sig: "<sig-compute | sig-network | sig-storage | sig-operator>"
+  owning_sig: "<e.g. sig-compute, sig-network — see [sigs.yaml]>"
   assigned_owner: "<GitHub handle>"
   plan: "<fix | remove>"
 ---
@@ -281,3 +281,4 @@ rate, the test lane should be set back to required as soon as possible
 [2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
 [3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
 [on testgrid]: https://testgrid.k8s.io/kubevirt-periodics
+[sigs.yaml]: https://github.com/kubevirt/community/blob/main/sigs.yaml
