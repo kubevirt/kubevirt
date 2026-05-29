@@ -152,7 +152,7 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 	if in.ExperimentalMigrationOptions != nil {
 		in, out := &in.ExperimentalMigrationOptions, &out.ExperimentalMigrationOptions
 		*out = new(v1.ExperimentalMigrationOptions)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

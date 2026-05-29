@@ -727,7 +727,16 @@ status:
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
-      experimental: {}
+      experimental:
+        stallDetector:
+          completionTimeoutFactor: completionTimeoutFactorValue
+          ewmaAlpha: ewmaAlphaValue
+          patienceWindowDecayFactor: patienceWindowDecayFactorValue
+          precopyPossibleFactor: precopyPossibleFactorValue
+          searchLocalMinima: true
+          stallMargin: -11
+          stallProgressTimeout: 18446744073709551596
+          switchoverTimeout: 18446744073709551599
       matchSELinuxLevelOnMigration: true
       maxDowntimeMs: 18446744073709551603
       network: networkValue

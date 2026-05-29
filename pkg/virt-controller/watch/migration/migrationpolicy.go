@@ -139,8 +139,43 @@ func applyMigrationPolicySpec(base *k6tv1.VMIMConfigurationOptions, spec *v1alph
 	setIfNotNil(&result.AllowPostCopy, spec.AllowPostCopy)
 	setIfNotNil(&result.AllowWorkloadDisruption, spec.AllowWorkloadDisruption)
 	if spec.ExperimentalMigrationOptions != nil {
-		result.ExperimentalMigrationOptions = &k6tv1.ExperimentalMigrationOptions{}
+		result.ExperimentalMigrationOptions = applyExperimentalMigrationOptions(result.ExperimentalMigrationOptions, spec.ExperimentalMigrationOptions)
 	}
+
+	return result
+}
+
+func applyExperimentalMigrationOptions(base, spec *k6tv1.ExperimentalMigrationOptions) *k6tv1.ExperimentalMigrationOptions {
+	var result *k6tv1.ExperimentalMigrationOptions
+	if base != nil {
+		result = base.DeepCopy()
+	} else {
+		result = &k6tv1.ExperimentalMigrationOptions{}
+	}
+
+	if spec.StallDetector != nil {
+		result.StallDetector = applyStallDetectorOptions(result.StallDetector, spec.StallDetector)
+	}
+
+	return result
+}
+
+func applyStallDetectorOptions(base, spec *k6tv1.StallDetectorOptions) *k6tv1.StallDetectorOptions {
+	var result *k6tv1.StallDetectorOptions
+	if base != nil {
+		result = base.DeepCopy()
+	} else {
+		result = &k6tv1.StallDetectorOptions{}
+	}
+
+	setIfNotNil(&result.StallMargin, spec.StallMargin)
+	setIfNotNil(&result.EwmaAlpha, spec.EwmaAlpha)
+	setIfNotNil(&result.StallProgressTimeout, spec.StallProgressTimeout)
+	setIfNotNil(&result.SwitchoverTimeout, spec.SwitchoverTimeout)
+	setIfNotNil(&result.PrecopyPossibleFactor, spec.PrecopyPossibleFactor)
+	setIfNotNil(&result.PatienceWindowDecayFactor, spec.PatienceWindowDecayFactor)
+	setIfNotNil(&result.SearchLocalMinima, spec.SearchLocalMinima)
+	setIfNotNil(&result.CompletionTimeoutFactor, spec.CompletionTimeoutFactor)
 
 	return result
 }
