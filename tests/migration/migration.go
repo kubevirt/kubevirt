@@ -3068,17 +3068,25 @@ func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfigurat
 }
 
 func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
+	runParticularStressTest(vmi, vmsize, "", stressDefaultSleepDuration*time.Second)
+}
+
+func runParticularStressTest(vmi *v1.VirtualMachineInstance, vmsize string, whichTest string, sleepDuration time.Duration) {
 	By("Run a stress test to dirty some pages and slow down the migration")
-	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
+
+	if whichTest != "" {
+		whichTest = fmt.Sprintf("--vm-method %s", whichTest)
+	}
+	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s %s --vm-keep &\n", vmsize, whichTest)
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: stressCmd},
 		&expect.BExp{R: ""},
-	}, 15)).To(Succeed(), "should run a stress test")
+	}, 20)).To(Succeed(), "should run a stress test")
 
 	// give stress tool some time to trash more memory pages before returning control to next steps
-	time.Sleep(stressDefaultSleepDuration * time.Second)
+	time.Sleep(sleepDuration)
 }
 
 func getIdOfLauncher(vmi *v1.VirtualMachineInstance) string {

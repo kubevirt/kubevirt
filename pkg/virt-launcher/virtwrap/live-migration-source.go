@@ -948,7 +948,7 @@ func (m *migrationMonitor) decideAction(record iterationRecord, estimatedDowntim
 	if float64(estimatedDowntimeMs) <= float64(maxDowntimeMs) {
 		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within max allowed downtime %dms", estimatedDowntimeMs, maxDowntimeMs)
 	} else if float64(estimatedDowntimeMs) <= float64(maxDowntimeMs)*preCopyPossibleFactor {
-		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within tolerable factor %fx to max allowed downtime %dms", estimatedDowntimeMs, preCopyPossibleFactor, maxDowntimeMs)
+		return actionSoftStopAndCopy, fmt.Sprintf("estimated downtime %dms within tolerable factor %.2fx to max allowed downtime %dms", estimatedDowntimeMs, preCopyPossibleFactor, maxDowntimeMs)
 	}
 
 	return actionAbort, fmt.Sprintf("estimated downtime %dms exceeds max allowed downtime %dms by a factor of more than x%.2f", estimatedDowntimeMs, maxDowntimeMs, preCopyPossibleFactor)
