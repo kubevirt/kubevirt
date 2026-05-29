@@ -87,6 +87,8 @@ var _ = Describe("Backup source", func() {
 		clusterPreferenceInformer   cache.SharedIndexInformer
 		vmBackupInformer            cache.SharedIndexInformer
 		controllerRevisionInformer  cache.SharedIndexInformer
+		pvInformer                  cache.SharedIndexInformer
+		nodeInformer                cache.SharedIndexInformer
 		rqInformer                  cache.SharedIndexInformer
 		nsInformer                  cache.SharedIndexInformer
 		k8sClient                   *k8sfake.Clientset
@@ -123,6 +125,8 @@ var _ = Describe("Backup source", func() {
 		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		vmBackupInformer, _ = testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
+		pvInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
@@ -150,7 +154,7 @@ var _ = Describe("Backup source", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), pvInformer.GetStore(), nodeInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               fakeCertManager,
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,

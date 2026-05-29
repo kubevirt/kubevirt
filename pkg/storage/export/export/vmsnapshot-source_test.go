@@ -68,6 +68,8 @@ var _ = Describe("VMSnapshot source", func() {
 		controller                  *VMExportController
 		recorder                    *record.FakeRecorder
 		pvcInformer                 cache.SharedIndexInformer
+		pvInformer                  cache.SharedIndexInformer
+		nodeInformer                cache.SharedIndexInformer
 		podInformer                 cache.SharedIndexInformer
 		cmInformer                  cache.SharedIndexInformer
 		vmExportInformer            cache.SharedIndexInformer
@@ -103,6 +105,8 @@ var _ = Describe("VMSnapshot source", func() {
 		Expect(err).ToNot(HaveOccurred())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
@@ -152,7 +156,7 @@ var _ = Describe("VMSnapshot source", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), pvInformer.GetStore(), nodeInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               fakeCertManager,
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,

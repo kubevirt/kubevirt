@@ -249,12 +249,13 @@ var _ = Describe("Migration watcher", func() {
 		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		kubevirtInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		controller, _ = NewController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), pvInformer.GetStore(), nodeInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
