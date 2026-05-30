@@ -100,10 +100,9 @@ func WithDownwardMetricsChannel() Option {
 	}
 }
 
-func WithoutSerialConsole() Option {
+func WithAutoattachSerialConsole(enable bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		enabled := false
-		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
+		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enable
 	}
 }
 

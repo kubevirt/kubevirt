@@ -257,13 +257,13 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when serial console is explicitly enabled",
-			[]libvmi.Option{withSerialConsole()},
+			[]libvmi.Option{libvmi.WithAutoattachSerialConsole(true)},
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when serial console is disabled",
-			[]libvmi.Option{libvmi.WithoutSerialConsole()},
+			[]libvmi.Option{libvmi.WithAutoattachSerialConsole(false)},
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 			}),
@@ -283,12 +283,5 @@ func newDomainWithControllers(controllers []api.Controller) api.Domain {
 func withHotplugDisabled() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.DisableHotplug = true
-	}
-}
-
-func withSerialConsole() libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		enabled := true
-		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
 	}
 }

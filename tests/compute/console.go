@@ -127,7 +127,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 
 		Context("without a serial console", func() {
 			It("[test_id:4118]should run but not be connectable via the serial console", decorators.Conformance, func() {
-				vmi := libvmifact.NewAlpine(libvmi.WithoutSerialConsole())
+				vmi := libvmifact.NewAlpine(libvmi.WithAutoattachSerialConsole(false))
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 				By("failing to connect to serial console")
