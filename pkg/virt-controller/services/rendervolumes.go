@@ -340,7 +340,7 @@ func hotplugVolumes(vmiVolumeStatus []v1.VolumeStatus, vmiSpecVolumes []v1.Volum
 	return hotplugVolumeSet
 }
 
-func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRendererOption {
+func withAccessCredentials(accessCredentials []v1.AccessCredential, optional bool) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		for _, accessCred := range accessCredentials {
 			secretName := ""
@@ -354,11 +354,16 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 				continue
 			}
 			volumeName := secretName + "-access-cred"
+			var secretOptional *bool
+			if optional {
+				secretOptional = new(true)
+			}
 			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 				Name: volumeName,
 				VolumeSource: k8sv1.VolumeSource{
 					Secret: &k8sv1.SecretVolumeSource{
 						SecretName: secretName,
+						Optional:   secretOptional,
 					},
 				},
 			})

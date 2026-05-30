@@ -553,7 +553,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		args = append(args, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName)
+	// Access credential secrets are optional on migration target pods only: the source pod
+	// already has them mounted, and making them required on the target would block migration
+	// of a VMI whose secret was deleted in the meantime.
+	migrationTarget := role == launcherPodMigrationTarget
+	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName, migrationTarget)
 	if err != nil {
 		return nil, err
 	}
@@ -1004,12 +1008,12 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
+func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string, migrationTarget bool) (*VolumeRenderer, error) {
 	imageVolumeFeatureGateEnabled := t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume)
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
-		withAccessCredentials(vmi.Spec.AccessCredentials),
+		withAccessCredentials(vmi.Spec.AccessCredentials, migrationTarget),
 		withBackendStorage(vmi, backendStoragePVCName),
 	}
 	if imageVolumeFeatureGateEnabled {
