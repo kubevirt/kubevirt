@@ -37,10 +37,33 @@ type VolumeRenderer struct {
 	ephemeralDiskDir      string
 	virtShareDir          string
 	namespace             string
+	migrationTarget       bool
 	podVolumes            []k8sv1.Volume
 	podVolumeMounts       []k8sv1.VolumeMount
 	sharedFilesystemPaths []string
 	volumeDevices         []k8sv1.VolumeDevice
+}
+
+// withMigrationTarget marks the rendered pod as a migration target. It must
+// be applied before the volume options, which consult it to mount the
+// volumes kubevirt renders implicitly from VMI spec references as optional.
+func withMigrationTarget(migrationTarget bool) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.migrationTarget = migrationTarget
+		return nil
+	}
+}
+
+// implicitVolumeOptional returns a pointer to true when rendering a
+// migration target pod, so that volumes kubevirt renders implicitly from
+// VMI spec references tolerate a referenced object that was deleted while
+// the VMI was running. It returns nil otherwise, leaving the volume
+// required, exactly as before.
+func (vr *VolumeRenderer) implicitVolumeOptional() *bool {
+	if vr.migrationTarget {
+		return new(true)
+	}
+	return nil
 }
 
 func NewVolumeRenderer(imageVolumeFeatureGateEnabled bool, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
@@ -260,6 +283,7 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 				VolumeSource: k8sv1.VolumeSource{
 					Secret: &k8sv1.SecretVolumeSource{
 						SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+						Optional:   vr.implicitVolumeOptional(),
 					},
 				},
 			})
@@ -284,6 +308,7 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 				VolumeSource: k8sv1.VolumeSource{
 					Secret: &k8sv1.SecretVolumeSource{
 						SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
+						Optional:   vr.implicitVolumeOptional(),
 					},
 				},
 			})
@@ -307,7 +332,7 @@ func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) error {
 	if volume.Sysprep != nil {
 		var volumeSource k8sv1.VolumeSource
 		// attach a Secret or ConfigMap referenced by the user
-		volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
+		volumeSource, err := sysprepVolumeSource(*volume.Sysprep, vr.implicitVolumeOptional())
 		if err != nil {
 			return err
 		}
@@ -359,6 +384,7 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 				VolumeSource: k8sv1.VolumeSource{
 					Secret: &k8sv1.SecretVolumeSource{
 						SecretName: secretName,
+						Optional:   renderer.implicitVolumeOptional(),
 					},
 				},
 			})
@@ -798,6 +824,7 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
 					SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+					Optional:   vr.implicitVolumeOptional(),
 				},
 			},
 		})
@@ -822,6 +849,7 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 			VolumeSource: k8sv1.VolumeSource{
 				Secret: &k8sv1.SecretVolumeSource{
 					SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
+					Optional:   vr.implicitVolumeOptional(),
 				},
 			},
 		})

@@ -307,12 +307,13 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 	return affinity
 }
 
-func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, error) {
+func sysprepVolumeSource(sysprepVolume v1.SysprepSource, optional *bool) (k8sv1.VolumeSource, error) {
 	logger := log.DefaultLogger()
 	if sysprepVolume.Secret != nil {
 		return k8sv1.VolumeSource{
 			Secret: &k8sv1.SecretVolumeSource{
 				SecretName: sysprepVolume.Secret.Name,
+				Optional:   optional,
 			},
 		}, nil
 	} else if sysprepVolume.ConfigMap != nil {
@@ -321,6 +322,7 @@ func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, er
 				LocalObjectReference: k8sv1.LocalObjectReference{
 					Name: sysprepVolume.ConfigMap.Name,
 				},
+				Optional: optional,
 			},
 		}, nil
 	}
@@ -553,7 +555,13 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		args = append(args, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName)
+	// Volumes kubevirt renders implicitly from VMI spec references are optional on
+	// migration target pods only: the source pod already has them mounted, and making
+	// them required on the target would fail the migration of a VMI whose referenced
+	// object was deleted in the meantime (the target pod stays pending until the
+	// migration times out).
+	migrationTarget := role == launcherPodMigrationTarget
+	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName, migrationTarget)
 	if err != nil {
 		return nil, err
 	}
@@ -1004,9 +1012,12 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
+func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string, migrationTarget bool) (*VolumeRenderer, error) {
 	imageVolumeFeatureGateEnabled := t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume)
 	volumeOpts := []VolumeRendererOption{
+		// withMigrationTarget must come first: the volume options below consult it
+		// to mount implicitly-rendered reference volumes as optional.
+		withMigrationTarget(migrationTarget),
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
