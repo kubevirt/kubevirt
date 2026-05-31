@@ -40,6 +40,7 @@
 | kubevirt_vmi_guest_load_15m | Metric | Gauge | Guest system load average over 15 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
 | kubevirt_vmi_guest_load_1m | Metric | Gauge | Guest system load average over 1 minute as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
 | kubevirt_vmi_guest_load_5m | Metric | Gauge | Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
+| kubevirt_vmi_guest_os_panic_total | Metric | Counter | Total number of guest OS panic events detected, partitioned by VMI and panic type. |
 | kubevirt_vmi_info | Metric | Gauge | Information about VirtualMachineInstances. |
 | kubevirt_vmi_last_api_connection_timestamp_seconds | Metric | Gauge | Virtual Machine Instance last API connection timestamp. Including VNC, console, portforward, SSH and usbredir connections. |
 | kubevirt_vmi_launcher_memory_overhead_bytes | Metric | Gauge | Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU). |
