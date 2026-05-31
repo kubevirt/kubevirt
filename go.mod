@@ -24,7 +24,7 @@ require (
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/insomniacslk/dhcp v0.0.0-20240829085014-a3a4c1f04475
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
 	github.com/kisielk/errcheck v1.6.2
 	github.com/klauspost/pgzip v1.2.6
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414

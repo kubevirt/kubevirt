@@ -272,10 +272,8 @@ github.com/insomniacslk/dhcp/rfc1035label
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
-## explicit; go 1.17
-# github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
-## explicit; go 1.17
+# github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
+## explicit; go 1.21
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
 # github.com/kisielk/errcheck v1.6.2
