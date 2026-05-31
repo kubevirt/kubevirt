@@ -21,8 +21,6 @@ package nbdclient
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
 	"google.golang.org/grpc"
 	"libguestfs.org/libnbd"
@@ -52,76 +50,54 @@ func NewNBDClient(socketPath string) *NBDClient {
 }
 
 type sendFn func(*nbdv1.MapResponse) error
+type descFn func(uint64) string
 
-// mapBuilder accumulates, coalesces, and batches extents.
-type mapBuilder struct {
-	endOffset   uint64
-	send        sendFn
-	lastExtents map[string]*nbdv1.Extent
-	batch       []*nbdv1.Extent
-	batchSize   int
+type mapHandler interface {
+	HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error)
+	Merge() error
+	Flush() error
 }
 
-func newMapBuilder(endOffset uint64, batchSize int, send sendFn) *mapBuilder {
-	return &mapBuilder{
-		endOffset:   endOffset,
-		send:        send,
-		lastExtents: make(map[string]*nbdv1.Extent),
-		batch:       make([]*nbdv1.Extent, 0, batchSize),
-		batchSize:   batchSize,
-	}
+type extentBatcher struct {
+	endOffset uint64
+	batch     []*nbdv1.Extent
+	batchSize int
+	last      *nbdv1.Extent
+	send      sendFn
+	desc      descFn
 }
 
-func (b *mapBuilder) HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error) {
-	localOffset := offset
-	for _, e := range entries {
-		length := e.Length
-		if localOffset+length > b.endOffset {
-			length = b.endOffset - localOffset
-		}
-		if length == 0 {
-			continue
-		}
-		if err := b.coalesce(metacontext, localOffset, length, e.Flags); err != nil {
-			return localOffset, err
-		}
-		localOffset += length
-	}
-	return localOffset, nil
-}
-
-func (b *mapBuilder) coalesce(metacontext string, offset, length, flags uint64) error {
-	last := b.lastExtents[metacontext]
-	if last != nil && last.Flags == flags && last.Offset+last.Length == offset {
-		last.Length += length
+func (b *extentBatcher) coalesce(offset, length, flags uint64) error {
+	if b.last != nil && b.last.Flags == flags && b.last.Offset+b.last.Length == offset {
+		b.last.Length += length
 		return nil
 	}
-	if err := b.flushContext(metacontext); err != nil {
+	if err := b.flushLast(); err != nil {
 		return err
 	}
-	b.lastExtents[metacontext] = &nbdv1.Extent{
+	b.last = &nbdv1.Extent{
 		Offset:      offset,
 		Length:      length,
 		Flags:       flags,
-		Description: getExtentDescription(metacontext, flags),
+		Description: b.desc(flags),
 	}
 	return nil
 }
 
-func (b *mapBuilder) flushContext(metacontext string) error {
-	e, ok := b.lastExtents[metacontext]
-	if !ok || e == nil {
+func (b *extentBatcher) flushLast() error {
+	if b.last == nil {
 		return nil
 	}
+	e := b.last
+	b.last = nil
 	b.batch = append(b.batch, e)
-	delete(b.lastExtents, metacontext)
 	if len(b.batch) >= b.batchSize {
-		return b.Flush()
+		return b.sendBatch()
 	}
 	return nil
 }
 
-func (b *mapBuilder) Flush() error {
+func (b *extentBatcher) sendBatch() error {
 	if len(b.batch) == 0 {
 		return nil
 	}
@@ -134,53 +110,198 @@ func (b *mapBuilder) Flush() error {
 	return err
 }
 
-func (b *mapBuilder) FlushAll() error {
-	contexts := sortedContextsByOffset(b.lastExtents)
-	for _, ctxName := range contexts {
-		if err := b.flushContext(ctxName); err != nil {
-			return fmt.Errorf("flushing final extent for context %s: %w", ctxName, err)
-		}
+func (b *extentBatcher) Flush() error {
+	if err := b.flushLast(); err != nil {
+		return err
 	}
-	return b.Flush()
+	return b.sendBatch()
 }
 
-func sortedContextsByOffset(lastExtents map[string]*nbdv1.Extent) []string {
-	contexts := make([]string, 0, len(lastExtents))
-	for k := range lastExtents {
-		contexts = append(contexts, k)
+// singleContextMapper accumulates, coalesces, and batches extents from a single
+// base:allocation context (full backup path).
+type singleContextMapper struct {
+	extentBatcher
+}
+
+func newSingleContextMapper(endOffset uint64, batchSize int, send sendFn) *singleContextMapper {
+	return &singleContextMapper{
+		extentBatcher: extentBatcher{
+			endOffset: endOffset,
+			batch:     make([]*nbdv1.Extent, 0, batchSize),
+			batchSize: batchSize,
+			send:      send,
+			desc:      allocDescription,
+		},
 	}
-	sort.Slice(contexts, func(i, j int) bool {
-		return lastExtents[contexts[i]].Offset < lastExtents[contexts[j]].Offset
-	})
-	return contexts
+}
+
+func (b *singleContextMapper) HandleExtents(_ string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error) {
+	localOffset := offset
+	for _, e := range entries {
+		if localOffset >= b.endOffset {
+			break
+		}
+		length := e.Length
+		if localOffset+length > b.endOffset {
+			length = b.endOffset - localOffset
+		}
+		if length == 0 {
+			continue
+		}
+		if err := b.coalesce(localOffset, length, e.Flags); err != nil {
+			return localOffset, err
+		}
+		localOffset += length
+	}
+	return localOffset, nil
+}
+
+func (b *singleContextMapper) Merge() error { return nil }
+
+// mergedContextMapper merges extents from base:allocation and qemu:dirty-bitmap
+// contexts into a single stream with combined flags, replicating client-side
+// what QEMU does internally for push-mode backups (block/backup.c).
+//
+// BlockStatus64 delivers both contexts' callbacks sequentially within a
+// single call. The merger buffers each context's extents during the
+// callbacks, then runs a two-pointer walk to merge at boundary splits.
+//
+// Flag remapping avoids the STATE_HOLE/STATE_DIRTY bit collision (both
+// value 1 in different contexts) following the same approach as oVirt's
+// ovirt-imageio client:
+// https://github.com/oVirt/ovirt-imageio/blob/master/ovirt_imageio/_internal/nbdutil.py
+// https://gitlab.com/qemu-project/qemu/-/blob/master/block/backup.c
+type mergedContextMapper struct {
+	extentBatcher
+	allocExtents []nbdv1.Extent
+	dirtyExtents []nbdv1.Extent
+}
+
+func newMergedContextMapper(endOffset uint64, batchSize int, send sendFn) *mergedContextMapper {
+	return &mergedContextMapper{
+		extentBatcher: extentBatcher{
+			endOffset: endOffset,
+			batch:     make([]*nbdv1.Extent, 0, batchSize),
+			batchSize: batchSize,
+			send:      send,
+			desc:      mergedDescription,
+		},
+	}
+}
+
+func (m *mergedContextMapper) HandleExtents(metacontext string, offset uint64, entries []libnbd.LibnbdExtent) (uint64, error) {
+	localOffset := offset
+	for _, e := range entries {
+		if localOffset >= m.endOffset {
+			break
+		}
+		length := e.Length
+		if localOffset+length > m.endOffset {
+			length = m.endOffset - localOffset
+		}
+		if length == 0 {
+			continue
+		}
+		if metacontext == libnbd.CONTEXT_BASE_ALLOCATION {
+			var flags uint64
+			if e.Flags&uint64(libnbd.STATE_ZERO) != 0 {
+				flags = uint64(libnbd.STATE_ZERO)
+			}
+			m.allocExtents = append(m.allocExtents, nbdv1.Extent{Offset: localOffset, Length: length, Flags: flags})
+		} else {
+			m.dirtyExtents = append(m.dirtyExtents, nbdv1.Extent{Offset: localOffset, Length: length, Flags: e.Flags})
+		}
+		localOffset += length
+	}
+	return localOffset, nil
+}
+
+func (m *mergedContextMapper) Merge() error {
+	defer func() {
+		m.allocExtents = m.allocExtents[:0]
+		m.dirtyExtents = m.dirtyExtents[:0]
+	}()
+
+	if len(m.allocExtents) == 0 || len(m.dirtyExtents) == 0 {
+		return nil
+	}
+
+	a, b := 0, 0
+	for a < len(m.allocExtents) && b < len(m.dirtyExtents) {
+		alloc := &m.allocExtents[a]
+		dirty := &m.dirtyExtents[b]
+		n := min(alloc.Length, dirty.Length)
+
+		if err := m.coalesce(alloc.Offset, n, alloc.Flags|dirty.Flags); err != nil {
+			return err
+		}
+
+		alloc.Offset += n
+		alloc.Length -= n
+		if alloc.Length == 0 {
+			a++
+		}
+		dirty.Offset += n
+		dirty.Length -= n
+		if dirty.Length == 0 {
+			b++
+		}
+	}
+
+	return nil
+}
+
+func (c *NBDClient) connectForMap(req *nbdv1.MapRequest) (*libnbd.Libnbd, bool, error) {
+	l, err := libnbd.Create()
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create libnbd handle: %w", err)
+	}
+
+	if err := l.AddMetaContext(libnbd.CONTEXT_BASE_ALLOCATION); err != nil {
+		log.Log.Reason(err).Warningf("AddMetaContext(%s) failed", libnbd.CONTEXT_BASE_ALLOCATION)
+	}
+
+	incremental := req.BitmapName != ""
+	if incremental {
+		bitmapContext := libnbd.CONTEXT_QEMU_DIRTY_BITMAP + req.BitmapName
+		if err := l.AddMetaContext(bitmapContext); err != nil {
+			log.Log.Reason(err).Warningf("AddMetaContext(%s) failed", bitmapContext)
+		}
+	}
+
+	if err := c.connect(l, req.ExportName); err != nil {
+		l.Close()
+		return nil, false, err
+	}
+
+	if err := verifyContexts(l, req.BitmapName); err != nil {
+		l.Close()
+		return nil, false, err
+	}
+
+	return l, incremental, nil
+}
+
+func verifyContexts(l *libnbd.Libnbd, bitmapName string) error {
+	if can, err := l.CanMetaContext(libnbd.CONTEXT_BASE_ALLOCATION); err != nil || !can {
+		return fmt.Errorf("server does not support requested context: %s", libnbd.CONTEXT_BASE_ALLOCATION)
+	}
+	if bitmapName != "" {
+		ctx := libnbd.CONTEXT_QEMU_DIRTY_BITMAP + bitmapName
+		if can, err := l.CanMetaContext(ctx); err != nil || !can {
+			return fmt.Errorf("server does not support requested context: %s", ctx)
+		}
+	}
+	return nil
 }
 
 // based on https://gitlab.com/nbdkit/libnbd/-/blob/master/info/map.c
 func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error {
-	l, err := libnbd.Create()
+	l, incremental, err := c.connectForMap(req)
 	if err != nil {
-		return fmt.Errorf("failed to create libnbd handle: %w", err)
-	}
-	defer l.Close()
-
-	requestedContext := libnbd.CONTEXT_BASE_ALLOCATION
-	if req.BitmapName != "" {
-		requestedContext = libnbd.CONTEXT_QEMU_DIRTY_BITMAP + req.BitmapName
-	}
-
-	if err := l.AddMetaContext(requestedContext); err != nil {
-		log.Log.Reason(err).Warningf("AddMetaContext(%s) failed: %v", requestedContext, err)
-	}
-
-	if err := c.connect(l, req.ExportName); err != nil {
 		return err
 	}
-
-	// if the export lacks the requested context error out
-	// falling back to base:allocation is misleading
-	if can, err := l.CanMetaContext(requestedContext); err != nil || !can {
-		return fmt.Errorf("server does not support requested context: %s", requestedContext)
-	}
+	defer l.Close()
 
 	size, err := l.GetSize()
 	if err != nil {
@@ -192,7 +313,12 @@ func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error
 		return err
 	}
 
-	builder := newMapBuilder(endOffset, mapResponseBatchSize, stream.Send)
+	var handler mapHandler
+	if incremental {
+		handler = newMergedContextMapper(endOffset, mapResponseBatchSize, stream.Send)
+	} else {
+		handler = newSingleContextMapper(endOffset, mapResponseBatchSize, stream.Send)
+	}
 
 	for currentOffset < endOffset {
 		select {
@@ -201,27 +327,29 @@ func (c *NBDClient) Map(req *nbdv1.MapRequest, stream nbdv1.NBD_MapServer) error
 		default:
 		}
 		prevOffset := currentOffset
-		err := l.BlockStatus64(endOffset-currentOffset, currentOffset,
+		if err := l.BlockStatus64(endOffset-currentOffset, currentOffset,
 			func(metacontext string, offset uint64, entries []libnbd.LibnbdExtent, nbdErr *int) int {
-				maxOffset, err := builder.HandleExtents(metacontext, offset, entries)
+				maxOff, err := handler.HandleExtents(metacontext, offset, entries)
 				if err != nil {
 					*nbdErr = 1
 					return -1
 				}
-				if maxOffset > currentOffset {
-					currentOffset = maxOffset
+				if maxOff > currentOffset {
+					currentOffset = maxOff
 				}
 				return 0
-			}, nil)
-		if err != nil {
+			}, nil); err != nil {
 			return fmt.Errorf("BlockStatus64 at offset %d: %w", prevOffset, err)
 		}
+		if err := handler.Merge(); err != nil {
+			return err
+		}
 		if currentOffset <= prevOffset {
-			return fmt.Errorf("BlockStatus64 returned no forward progress at offset %d for context %s", prevOffset, requestedContext)
+			return fmt.Errorf("BlockStatus64 returned no forward progress at offset %d", prevOffset)
 		}
 	}
 
-	return builder.FlushAll()
+	return handler.Flush()
 }
 
 type readChunk struct {
@@ -315,32 +443,34 @@ func (c *NBDClient) connect(l *libnbd.Libnbd, exportName string) error {
 	return nil
 }
 
-func getExtentDescription(metacontext string, flags uint64) string {
-	if metacontext == libnbd.CONTEXT_BASE_ALLOCATION {
-		switch flags {
-		case 0:
-			return "data"
-		case uint64(libnbd.STATE_HOLE):
-			return "hole"
-		case uint64(libnbd.STATE_ZERO):
-			return "zero"
-		case uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO):
-			return "hole,zero"
-		default:
-			return "unknown"
-		}
+func allocDescription(flags uint64) string {
+	switch flags {
+	case 0:
+		return "data"
+	case uint64(libnbd.STATE_HOLE):
+		return "hole"
+	case uint64(libnbd.STATE_ZERO):
+		return "zero"
+	case uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO):
+		return "hole,zero"
+	default:
+		return "unknown"
 	}
-	if strings.HasPrefix(metacontext, libnbd.CONTEXT_QEMU_DIRTY_BITMAP) {
-		switch flags {
-		case 0:
-			return "clean"
-		case uint64(libnbd.STATE_DIRTY):
-			return "dirty"
-		default:
-			return "unknown"
-		}
+}
+
+func mergedDescription(flags uint64) string {
+	switch flags {
+	case 0:
+		return "clean"
+	case uint64(libnbd.STATE_DIRTY):
+		return "dirty"
+	case uint64(libnbd.STATE_ZERO):
+		return "zero"
+	case uint64(libnbd.STATE_DIRTY) | uint64(libnbd.STATE_ZERO):
+		return "dirty,zero"
+	default:
+		return "unknown"
 	}
-	return "unknown"
 }
 
 func resolveRange(offset, length, size uint64) (uint64, uint64, error) {
