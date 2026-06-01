@@ -562,6 +562,10 @@ func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName st
 	}
 	for _, bm := range bitmaps {
 		if bm.Name == bitmapName {
+			if bm.Inconsistent {
+				log.Log.Warningf("Bitmap %s on %s is inconsistent (possibly from failed migration), treating as absent", bitmapName, filePath)
+				return false
+			}
 			return true
 		}
 	}
@@ -569,7 +573,8 @@ func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName st
 }
 
 type qmpBitmapInfo struct {
-	Name string `json:"name"`
+	Name         string `json:"name"`
+	Inconsistent bool   `json:"inconsistent,omitempty"`
 }
 
 type qmpBlockNodeInfo struct {
