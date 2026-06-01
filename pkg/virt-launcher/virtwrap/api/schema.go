@@ -308,11 +308,21 @@ type NUMA struct {
 }
 
 type NUMACell struct {
-	ID           string  `xml:"id,attr"`
-	CPUs         string  `xml:"cpus,attr,omitempty"`
-	Memory       *uint64 `xml:"memory,attr,omitempty"`
-	Unit         string  `xml:"unit,attr,omitempty"`
-	MemoryAccess string  `xml:"memAccess,attr,omitempty"`
+	ID           string             `xml:"id,attr"`
+	CPUs         string             `xml:"cpus,attr,omitempty"`
+	Memory       *uint64            `xml:"memory,attr,omitempty"`
+	Unit         string             `xml:"unit,attr,omitempty"`
+	MemoryAccess string             `xml:"memAccess,attr,omitempty"`
+	Distances    *NUMACellDistances `xml:"distances,omitempty"`
+}
+
+type NUMACellDistances struct {
+	Siblings []NUMACellSibling `xml:"sibling,omitempty"`
+}
+
+type NUMACellSibling struct {
+	ID    uint `xml:"id,attr"`
+	Value uint `xml:"value,attr"`
 }
 
 type CPUFeature struct {
@@ -806,14 +816,8 @@ type IOMMUDriver struct {
 	Accel    string `xml:"accel,attr,omitempty"`
 	ATS      string `xml:"ats,attr,omitempty"`
 	RIL      string `xml:"ril,attr,omitempty"`
-	SSIDSize string `xml:"ssid_size,attr,omitempty"`
-	OAS      string `xml:"oas,attr,omitempty"`
-}
-
-type IOMMUFD struct {
-	XMLName xml.Name `xml:"iommufd"`
-	Enabled string   `xml:"enabled,attr,omitempty"`
-	FDGroup string   `xml:"fdgroup,attr,omitempty"`
+	SSIDSize *uint  `xml:"ssidSize,attr,omitempty"`
+	OAS      *uint  `xml:"oas,attr,omitempty"`
 }
 
 // END IOMMU -----------------------------
