@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["hw_utils.go"],
+    srcs = [
+        "grace.go",
+        "hw_utils.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/util/hardware",
     visibility = ["//visibility:public"],
     deps = [
@@ -14,6 +17,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "grace_test.go",
         "hw_utils_suite_test.go",
         "hw_utils_test.go",
     ],

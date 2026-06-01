@@ -228,6 +228,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateMDEVRamFB(field, spec)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateGraceIOVirtualization(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
