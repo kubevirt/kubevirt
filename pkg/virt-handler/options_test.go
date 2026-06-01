@@ -24,7 +24,11 @@ import (
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirtxml"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Parsing VMI Options", func() {
@@ -46,6 +50,41 @@ var _ = Describe("Parsing VMI Options", func() {
 				},
 			}),
 		)
+		It("should pass Grace feature gates and admitted host device aliases", func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.GraceIOVirtualization},
+				},
+				PermittedHostDevices: &v1.PermittedHostDevices{
+					PciHostDevices: []v1.PciHostDevice{
+						{ResourceName: "nvidia.com/gb200", PCIVendorSelector: "10de:2342"},
+						{ResourceName: "nvidia.com/gh200", PCIVendorSelector: "10de:2941"},
+						{ResourceName: "nvidia.com/a100", PCIVendorSelector: "10de:20b0"},
+					},
+				},
+			})
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							GPUs: []v1.GPU{
+								{Name: "gpu0", DeviceName: "nvidia.com/gb200"},
+								{Name: "gpu1", DeviceName: "nvidia.com/a100"},
+							},
+							HostDevices: []v1.HostDevice{
+								{Name: "hostdev0", DeviceName: "nvidia.com/gh200"},
+							},
+						},
+					},
+				},
+			}
+
+			options := virtualMachineOptions(vmi, nil, 0, nil, nil, clusterConfig)
+
+			Expect(options.ClusterConfig.GetGraceIOVirtualizationEnabled()).To(BeTrue())
+			Expect(options.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0", "hostdevice-hostdev0"}))
+		})
+
 		It("should convert libvirtxml.Caps to cmdv1.Topology with single NUMA node", func() {
 			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
 			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
