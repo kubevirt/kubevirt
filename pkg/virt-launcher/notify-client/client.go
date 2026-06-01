@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -721,6 +722,8 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		if migration, exists := metadataCache.Migration.Load(); exists {
 			uid = migration.UID
 		}
+		completedStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(&jobCompletedEvent.Info)
+		metadataCache.CompletedMigrationStats.Store(*completedStats)
 		virtwrap.LogMigrationInfo(log.Log, uid, &jobCompletedEvent.Info)
 		return false
 	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
