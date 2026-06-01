@@ -247,4 +247,17 @@ var vmsAlerts = []promv1.Rule{
 			operatorHealthImpactLabelKey: "none",
 		},
 	},
+	{
+		Alert: "VMNonRecoverableOSPanic",
+		Expr:  intstr.FromString(`sum by (namespace, name) (increase(kubevirt_vmi_guest_os_panic_total[24h])) > 5`),
+		For:   ptr.To(promv1.Duration("1m")),
+		Annotations: map[string]string{
+			summaryAnnotationKey:     "VM {{ $labels.name }} in namespace {{ $labels.namespace }} experienced a non-recoverable guest OS panic",
+			descriptionAnnotationKey: "The VM has experienced {{ $value }} non-recoverable guest OS panic(s) in the last 24 hours.",
+		},
+		Labels: map[string]string{
+			severityAlertLabelKey:        "critical",
+			operatorHealthImpactLabelKey: "none",
+		},
+	},
 }
