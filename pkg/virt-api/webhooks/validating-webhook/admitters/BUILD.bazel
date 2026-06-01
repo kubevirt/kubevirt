@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "grace_io_virtualization.go",
         "migration-create-admitter.go",
         "migration-update-admitter.go",
         "migrationpolicy-admitter.go",
@@ -78,6 +79,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "admitters_suite_test.go",
+        "grace_io_virtualization_test.go",
         "migration-create-admitter_test.go",
         "migration-update-admitter_test.go",
         "migrationpolicy-admitter_test.go",
