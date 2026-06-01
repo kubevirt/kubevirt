@@ -1301,10 +1301,7 @@ var _ = Describe("Backup with migration", func() {
 		},
 		Entry("[sig-compute-migrations] RWX backend storage", decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, decorators.NoFlakeCheck,
 			corev1.ReadWriteMany),
-		// TODO: Currently there is a bug in libvirt where the bitmap migration fails when using RWO block storage.
-		// Will remove the skip once the bug fix is released. (it passed locally with custom libvirt patch)
-		// Bug: https://issues.redhat.com/browse/RHEL-145770
-		PEntry("[sig-storage] RWO backend storage", decorators.SigStorage, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWOFsVMStateStorageClass, decorators.RequiresRWXBlock,
+		Entry("[sig-storage] RWO backend storage", decorators.SigStorage, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWOFsVMStateStorageClass, decorators.RequiresRWXBlock,
 			corev1.ReadWriteOnce),
 	)
 })
