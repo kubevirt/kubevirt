@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -193,4 +194,23 @@ func checkRequiredLabels(rule promv1.Rule) {
 		"%s kubernetes_operator_part_of label is missing or not valid", rule.Alert)
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "kubevirt"),
 		"%s kubernetes_operator_component label is missing or not valid", rule.Alert)
+
+	checkNamespaceLabel(rule)
 }
+
+// checkNamespaceLabel verifies that every alert produces a namespace label,
+// either via a static label or from its PromQL expression.
+func checkNamespaceLabel(rule promv1.Rule) {
+	if _, hasStatic := rule.Labels["namespace"]; hasStatic {
+		return
+	}
+
+	ExpectWithOffset(2, namespaceRe.MatchString(rule.Expr.String())).To(BeTrue(),
+		"%s has no namespace label and its expression does not reference namespace — "+
+			"add a static namespace label or ensure the PromQL produces one", rule.Alert)
+}
+
+// namespaceRe matches "namespace" used as a PromQL label name — in label
+// matchers, by/on/group_left/group_right clauses — but not as a substring
+// of a metric or recording-rule name.
+var namespaceRe = regexp.MustCompile(`\bnamespace\b`)
