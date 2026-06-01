@@ -240,3 +240,7 @@ func (config *ClusterConfig) OCIExportEnabled() bool {
 func (config *ClusterConfig) IOMMUFDEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IOMMUFDGate)
 }
+
+func (config *ClusterConfig) GraceIOVirtualizationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GraceIOVirtualization)
+}
