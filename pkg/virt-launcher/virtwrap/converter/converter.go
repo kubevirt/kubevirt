@@ -153,8 +153,7 @@ func isARM64(arch string) bool {
 	return false
 }
 
-const maxVirtioDisksOnPCIERoot = 20
-
+// countVirtioBusDisks returns the number of disks with virtio bus.
 func countVirtioBusDisks(disks []api.Disk) int {
 	count := 0
 	for _, disk := range disks {
@@ -165,11 +164,58 @@ func countVirtioBusDisks(disks []api.Disk) int {
 	return count
 }
 
-func shouldUseTransitionalModelOnARM(c *ConverterContext, domain *api.Domain) bool {
-	if !isARM64(c.Architecture) {
-		return false
+// addPCIESwitchControllers injects pcie-switch-upstream-port and
+// pcie-switch-downstream-port controllers into the domain spec. This
+// makes all virtio-bus disks share a single root-port on the root
+// complex, avoiding the pcie-root 31-slot limit (VIR_PCI_ADDRESS_SLOT_LAST)
+// while maintaining dedicated PCIe point-to-point links per disk through
+// the switch fabric. Each disk stays virtio-non-transitional, preserving
+// full native PCIe performance.
+//
+// PCIe switch topology overview:
+//
+//	pcie-root (pcie.0, 31 slots)
+//	  ├── root-port → pcie-switch-upstream-port (index 1)
+//	  │     ├── downstream-port (index 2) → virtio-blk disk #1
+//	  │     ├── downstream-port (index 3) → virtio-blk disk #2
+//	  │     └── ... (up to 32 downstream ports)
+//	  ├── root-port → NIC  (auto-generated)
+//	  ├── root-port → USB controller  (auto-generated)
+//	  ├── root-port → SCSI controller  (auto-generated)
+//	  └── ...
+//
+// Controller indices 1..N are reserved for the switch topology to prevent
+// libvirt's auto-address-assignment from creating individual root-ports for
+// each disk. Non-disk devices get auto-generated root-ports starting from
+// index N+1, consuming remaining root complex slots as needed.
+//
+// Reference: libvirt src/conf/domain_addr.c:
+//
+//	pcie-switch-upstream-port: 32 slots (minSlot=0, maxSlot=31)
+//	pcie-switch-downstream-port: 1 slot (minSlot=0, maxSlot=0)
+//	Both accept PCIE_DEVICE endpoint devices
+func addPCIESwitchControllers(domain *api.Domain, virtioDiskCount int) {
+	switches := make([]api.Controller, 0, 1+virtioDiskCount)
+
+	// Upstream port: connects behind a single pcie-root-port on the root
+	// complex, provides up to 32 slots for downstream ports.
+	switches = append(switches, api.Controller{
+		Type:  "pci",
+		Index: "1",
+		Model: "pcie-switch-upstream-port",
+	})
+
+	// Downstream ports: each provides one dedicated PCIe slot for a
+	// virtio-blk disk. Indices start at 2 to leave index 1 for upstream.
+	for i := 0; i < virtioDiskCount; i++ {
+		switches = append(switches, api.Controller{
+			Type:  "pci",
+			Index: strconv.Itoa(2 + i),
+			Model: "pcie-switch-downstream-port",
+		})
 	}
-	return countVirtioBusDisks(domain.Spec.Devices.Disks) > maxVirtioDisksOnPCIERoot
+
+	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, switches...)
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
@@ -1704,11 +1750,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if shouldUseTransitionalModelOnARM(c, domain) {
-		for i, disk := range domain.Spec.Devices.Disks {
-			if disk.Target.Bus == v1.DiskBusVirtio {
-				domain.Spec.Devices.Disks[i].Model = "virtio-transitional"
-			}
+	// On ARM64, insert a PCIe switch topology so all virtio-bus disks
+	// share a single root-port on the root complex, avoiding the pcie-root
+	// 31-slot limit (VIR_PCI_ADDRESS_SLOT_LAST). Each disk stays
+	// virtio-non-transitional behind its own downstream-port, preserving
+	// full per-disk PCIe performance. This applies uniformly regardless of
+	// disk count.
+	if isARM64(c.Architecture) {
+		virtioCount := countVirtioBusDisks(domain.Spec.Devices.Disks)
+		if virtioCount > 0 {
+			addPCIESwitchControllers(domain, virtioCount)
 		}
 	}
 
