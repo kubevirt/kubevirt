@@ -153,7 +153,7 @@ func isARM64(arch string) bool {
 	return false
 }
 
-const maxVirtioDisksOnPCIERoot = 24
+const maxVirtioDisksOnPCIERoot = 20
 
 func countVirtioBusDisks(disks []api.Disk) int {
 	count := 0
