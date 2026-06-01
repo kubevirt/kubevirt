@@ -90,6 +90,8 @@ const (
 	noVolumeSnapshotReason    = "VMSnapshotNoVolumes"
 	notAllPVCsCreatedReason   = "NotAllPVCsCreated"
 	VMSnapshotNotFoundReason  = "VMSnapshotNotFound"
+	ociDigestsComputedReason  = "DigestsComputed"
+	ociDigestsPendingReason   = "DigestsPending"
 
 	exportServiceLabel = "kubevirt.io.virt-export-service"
 
@@ -1442,7 +1444,21 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		}
 	}
 
+	if ctrl.isOCIExportEnabled(&vmExport.Spec) {
+		ociStatus := corev1.ConditionFalse
+		ociReason := ociDigestsPendingReason
+		if exporterPod != nil && optutil.PodIsReady(exporterPod) {
+			ociStatus = corev1.ConditionTrue
+			ociReason = ociDigestsComputedReason
+		}
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newOCIReadyCondition(ociStatus, ociReason, ""))
+	}
+
 	return nil
+}
+
+func (ctrl *VMExportController) isOCIExportEnabled(spec *exportv1.VirtualMachineExportSpec) bool {
+	return ctrl.clusterConfig.OCIExportEnabled() && (ctrl.isSourceVM(spec) || ctrl.isSourceVMSnapshot(spec))
 }
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
@@ -1521,6 +1537,16 @@ func newPvcCondition(status corev1.ConditionStatus, reason, message string) expo
 func newVolumesCreatedCondition(status corev1.ConditionStatus, reason, message string) exportv1.Condition {
 	return exportv1.Condition{
 		Type:               exportv1.ConditionVolumesCreated,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: *currentTime(),
+	}
+}
+
+func newOCIReadyCondition(status corev1.ConditionStatus, reason, message string) exportv1.Condition {
+	return exportv1.Condition{
+		Type:               exportv1.ConditionOCIReady,
 		Status:             status,
 		Reason:             reason,
 		Message:            message,

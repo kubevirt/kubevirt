@@ -235,6 +235,8 @@ const (
 	ConditionPVC ConditionType = "PVCReady"
 	// ConditionVolumesCreated is the condition to see if volumes are created from volume snapshots
 	ConditionVolumesCreated ConditionType = "VolumesCreated"
+	// ConditionOCIReady indicates whether the OCI artifact export is ready
+	ConditionOCIReady ConditionType = "OCIReady"
 )
 
 // Condition defines conditions
