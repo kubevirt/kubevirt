@@ -1179,22 +1179,31 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if vmi.Spec.Domain.CPU != nil {
+	graceIORequested := graceIOVirtualizationRequested(c)
+	if graceIORequested {
+		if err := validateGraceIOVirtualizationConversion(vmi, c); err != nil {
+			return err
+		}
+	}
+
+	if vmi.Spec.Domain.CPU != nil && vmi.IsCPUDedicated() {
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
-		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet)
-			if err != nil {
+		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet)
+		if err != nil {
+			return err
+		}
+
+		if graceIORequested {
+			if err := configureGraceIOVirtualization(&domain.Spec, c.GraceHostDeviceAliases, c.IOMMUFDEnabled); err != nil {
 				return err
 			}
-
-			if c.PCINUMAAwareTopologyEnabled {
-				if c.Architecture.SupportPCIePlacement() {
-					if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec); err != nil {
-						log.Log.Reason(err).Warningf("Failed to process PCIe NUMA-aware topology, falling back to default placement")
-					}
-				} else {
-					log.Log.Infof("Skipping PCIe NUMA alignment: architecture %s does not support PCIe placement", c.Architecture.GetArchitecture())
+		} else if c.PCINUMAAwareTopologyEnabled {
+			if c.Architecture.SupportPCIePlacement() {
+				if err := PlacePCIDevicesWithNUMAAlignment(&domain.Spec); err != nil {
+					log.Log.Reason(err).Warningf("Failed to process PCIe NUMA-aware topology, falling back to default placement")
 				}
+			} else {
+				log.Log.Infof("Skipping PCIe NUMA alignment: architecture %s does not support PCIe placement", c.Architecture.GetArchitecture())
 			}
 		}
 	}
@@ -1209,6 +1218,38 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	return nil
+}
+
+func graceIOVirtualizationRequested(c *convertertypes.ConverterContext) bool {
+	return c != nil && len(c.GraceHostDeviceAliases) > 0
+}
+
+func validateGraceIOVirtualizationConversion(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
+	if !graceIOVirtualizationRequested(c) {
+		return nil
+	}
+	if !c.GraceIOVirtualizationEnabled {
+		return fmt.Errorf("GraceIOVirtualization conversion requested without the GraceIOVirtualization feature gate")
+	}
+	if !c.PCINUMAAwareTopologyEnabled {
+		return fmt.Errorf("GraceIOVirtualization requires PCINUMAAwareTopology for PCI placement")
+	}
+	if !c.IOMMUFDEnabled {
+		return fmt.Errorf("GraceIOVirtualization requires an IOMMUFD file descriptor in virt-launcher")
+	}
+	if vmi.Spec.Domain.CPU == nil || !vmi.IsCPUDedicated() {
+		return fmt.Errorf("GraceIOVirtualization requires dedicated CPU placement")
+	}
+	if !c.Architecture.SupportPCIePlacement() {
+		return fmt.Errorf("GraceIOVirtualization requires PCIe placement support on architecture %s", c.Architecture.GetArchitecture())
+	}
+	if vmi.Annotations[v1.DisablePCIHole64] == "true" {
+		return fmt.Errorf("GraceIOVirtualization requires the 64-bit PCI hole")
+	}
+	if vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
+		return fmt.Errorf("GraceIOVirtualization cannot be combined with PCI root-complex placement")
+	}
 	return nil
 }
 
