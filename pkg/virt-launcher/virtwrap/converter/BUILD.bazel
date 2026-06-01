@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "converter.go",
         "generated_mock_converter.go",
+        "grace.go",
         "pci-placement.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter",
@@ -52,6 +53,7 @@ go_test(
     srcs = [
         "converter_suite_test.go",
         "converter_test.go",
+        "grace_test.go",
         "pci-placement_test.go",
     ],
     data = glob(["testdata/**"]),
