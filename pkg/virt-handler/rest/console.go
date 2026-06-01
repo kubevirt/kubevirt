@@ -26,8 +26,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
-	"path"
 	"strconv"
 	"sync"
 
@@ -41,6 +39,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -86,7 +85,7 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 	uid := vmi.GetUID()
 	stopChan := make(chan struct{})
 	var slotId int
-	var unixSocketPath string
+	var unixSocketPath *safepath.Path
 	ok := func() bool {
 		// For simplicity, we handle one usbredir request at the time, for all VMIs
 		// handled by virt-handler
@@ -263,30 +262,33 @@ func deleteStopChan(uid types.UID, stopChn chan struct{}, lock *sync.Mutex, stop
 	}
 }
 
-func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socketName string) (string, error) {
+func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socketName string) (*safepath.Path, error) {
 	result, err := t.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	socketDir := path.Join("/proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()))
-	socketPath := path.Join(socketDir, socketName)
-	if _, err = os.Stat(socketPath); errors.Is(err, os.ErrNotExist) {
-		return "", err
+	root, err := result.MountRoot()
+	if err != nil {
+		return nil, err
 	}
-
-	return socketPath, nil
+	return root.AppendAndResolveWithRelativeRoot("run", "kubevirt-private", string(vmi.GetUID()), socketName)
 }
 
-func unixSocketDialer(vmi *v1.VirtualMachineInstance, unixSocketPath string) func() (net.Conn, error) {
+func unixSocketDialer(vmi *v1.VirtualMachineInstance, socketPath *safepath.Path) func() (net.Conn, error) {
 	return func() (net.Conn, error) {
-		log.Log.Object(vmi).Infof("Connecting to %s", unixSocketPath)
-		fd, err := net.Dial("unix", unixSocketPath)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("failed to dial unix socket %s", unixSocketPath)
-			return nil, err
-		}
-		log.Log.Object(vmi).Infof("Connected to %s", unixSocketPath)
-		return fd, nil
+		var conn net.Conn
+		err := socketPath.ExecuteNoFollow(func(safePath string) error {
+			log.Log.Object(vmi).Infof("Connecting to %s", safePath)
+			var dialErr error
+			conn, dialErr = net.Dial("unix", safePath)
+			if dialErr != nil {
+				log.Log.Object(vmi).Reason(dialErr).Errorf("failed to dial unix socket %s", safePath)
+				return dialErr
+			}
+			log.Log.Object(vmi).Infof("Connected to %s", safePath)
+			return nil
+		})
+		return conn, err
 	}
 }
 
