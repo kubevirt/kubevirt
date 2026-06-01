@@ -20,18 +20,21 @@
 package virthandler
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 func virtualMachineOptions(
+	vmi *v1.VirtualMachineInstance,
 	smbios *v1.SMBiosConfiguration,
 	period uint32,
 	preallocatedVolumes []string,
@@ -61,15 +64,57 @@ func virtualMachineOptions(
 			bochsDisplay = false
 		}
 		options.ClusterConfig = &cmdv1.ClusterConfig{
-			FreePageReportingDisabled:   clusterConfig.IsFreePageReportingDisabled(),
-			BochsDisplayForEFIGuests:    bochsDisplay,
-			SerialConsoleLogDisabled:    clusterConfig.IsSerialConsoleLogDisabled(),
-			PCINUMAAwareTopologyEnabled: clusterConfig.PCINUMAAwareTopologyEnabled(),
-			VGPULiveMigrationEnabled:    clusterConfig.VGPULiveMigrationEnabled(),
+			FreePageReportingDisabled:    clusterConfig.IsFreePageReportingDisabled(),
+			BochsDisplayForEFIGuests:     bochsDisplay,
+			SerialConsoleLogDisabled:     clusterConfig.IsSerialConsoleLogDisabled(),
+			PCINUMAAwareTopologyEnabled:  clusterConfig.PCINUMAAwareTopologyEnabled(),
+			VGPULiveMigrationEnabled:     clusterConfig.VGPULiveMigrationEnabled(),
+			GraceIOVirtualizationEnabled: clusterConfig.GraceIOVirtualizationEnabled(),
 		}
+		options.GraceHostDeviceAliases = graceHostDeviceAliases(vmi, clusterConfig)
 	}
 
 	return options
+}
+
+func graceHostDeviceAliases(vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) []string {
+	if vmi == nil || clusterConfig == nil || !clusterConfig.GraceIOVirtualizationEnabled() {
+		return nil
+	}
+
+	graceResourceNames := gracePCIResourceNames(clusterConfig.GetPermittedHostDevices())
+	if len(graceResourceNames) == 0 {
+		return nil
+	}
+
+	var aliases []string
+	for _, gpuDevice := range vmi.Spec.Domain.Devices.GPUs {
+		if _, exists := graceResourceNames[gpuDevice.DeviceName]; exists {
+			aliases = append(aliases, "gpu-"+gpuDevice.Name)
+		}
+	}
+	for _, hostDevice := range vmi.Spec.Domain.Devices.HostDevices {
+		if _, exists := graceResourceNames[hostDevice.DeviceName]; exists {
+			aliases = append(aliases, "hostdevice-"+hostDevice.Name)
+		}
+	}
+	sort.Strings(aliases)
+	return aliases
+}
+
+func gracePCIResourceNames(permittedHostDevices *v1.PermittedHostDevices) map[string]struct{} {
+	if permittedHostDevices == nil || len(permittedHostDevices.PciHostDevices) == 0 {
+		return nil
+	}
+
+	resourceNames := map[string]struct{}{}
+	for _, pciHostDevice := range permittedHostDevices.PciHostDevices {
+		if pciHostDevice.ResourceName == "" || !hardware.IsNVIDIAGracePCIVendorSelector(pciHostDevice.PCIVendorSelector) {
+			continue
+		}
+		resourceNames[pciHostDevice.ResourceName] = struct{}{}
+	}
+	return resourceNames
 }
 
 func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
