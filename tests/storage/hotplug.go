@@ -383,11 +383,11 @@ var _ = Describe(SIG("Hotplug", func() {
 			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 		}
 		dv := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 			libdv.WithStorage(
 				libdv.StorageWithStorageClass(storageClass),
-				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling))),
 			),
 		)
 		vm := libvmi.NewVirtualMachine(
@@ -417,9 +417,9 @@ var _ = Describe(SIG("Hotplug", func() {
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	}
 
-	getCirrosVmiConsoleAndLogin := func(vmi *v1.VirtualMachineInstance) {
+	getAlpineTestToolingVmiConsoleAndLogin := func(vmi *v1.VirtualMachineInstance) {
 		By("Obtaining the serial console")
-		Expect(console.LoginToCirros(vmi)).To(Succeed(), "failed to log in to Cirros VM %s via console", vmi.Name)
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "failed to log in to Alpine VM %s via console", vmi.Name)
 	}
 
 	createDataVolumeAndWaitForImport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
@@ -568,7 +568,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		)
 		BeforeEach(func() {
 			By("Creating VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewCirros()), metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine for offline VM test")
 		})
 
@@ -636,7 +636,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for block volume boot test", vm.Name)
 			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dvName)
 			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dvName)
-			getCirrosVmiConsoleAndLogin(vmi)
+			getAlpineTestToolingVmiConsoleAndLogin(vmi)
 			verifySingleAttachmentPod(virtClient, vmi)
 		})
 
@@ -752,7 +752,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for WFFC boot test", vm.Name)
 			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dvName)
 			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dvName)
-			getCirrosVmiConsoleAndLogin(vmi)
+			getAlpineTestToolingVmiConsoleAndLogin(vmi)
 			verifySingleAttachmentPod(virtClient, vmi)
 		})
 
@@ -843,7 +843,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					Skip("Fail no filesystem storage class available") //nolint:forbidigo
 				}
 
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpineWithTestTooling()
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
@@ -886,7 +886,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				addDVVolumeVMI(vm.Name, vm.Namespace, "ephemeral-volume", dvEphemeral.Name, v1.DiskBusSCSI, false, "")
 				ephemeralCount++
 
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpineWithTestTooling()
 				vm2, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
 
