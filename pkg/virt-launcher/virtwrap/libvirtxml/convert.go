@@ -66,9 +66,25 @@ func ConvertKubeVirtNUMACellToDomainDomainCell(cell []api.NUMACell) ([]libvirtxm
 			Memory:    mem,
 			Unit:      c.Unit,
 			MemAccess: c.MemoryAccess,
+			Distances: convertKubeVirtNUMACellDistancesToDomainCellDistances(c.Distances),
 		})
 	}
 	return ret, nil
+}
+
+func convertKubeVirtNUMACellDistancesToDomainCellDistances(distances *api.NUMACellDistances) *libvirtxml.DomainCellDistances {
+	if distances == nil {
+		return nil
+	}
+
+	siblings := make([]libvirtxml.DomainCellSibling, 0, len(distances.Siblings))
+	for _, sibling := range distances.Siblings {
+		siblings = append(siblings, libvirtxml.DomainCellSibling{
+			ID:    sibling.ID,
+			Value: sibling.Value,
+		})
+	}
+	return &libvirtxml.DomainCellDistances{Siblings: siblings}
 }
 
 func ConvertKubeVirtNUMAToDomainNUMA(numa *api.NUMA) (*libvirtxml.DomainNuma, error) {

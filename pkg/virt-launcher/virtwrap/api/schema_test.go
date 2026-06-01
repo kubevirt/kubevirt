@@ -248,6 +248,69 @@ var _ = ginkgo.Describe("Schema", func() {
 		)
 	})
 
+	ginkgo.Context("With Grace virtualization schema", func() {
+		ginkgo.It("should marshal and unmarshal SMMUv3, hostdev ACPI, and NUMA distances", func() {
+			ssidSize := uint(20)
+			oas := uint(48)
+			zeroMemory := uint64(0)
+			spec := &DomainSpec{
+				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
+					{
+						ID:     "2",
+						Memory: &zeroMemory,
+						Unit:   "KiB",
+						Distances: &NUMACellDistances{Siblings: []NUMACellSibling{
+							{ID: 0, Value: 40},
+							{ID: 2, Value: 10},
+						}},
+					},
+				}}},
+				Devices: Devices{
+					HostDevices: []HostDevice{
+						{
+							Type:    HostDevicePCI,
+							Mode:    "subsystem",
+							Managed: "no",
+							Source: HostDeviceSource{Address: &Address{
+								Domain:   "0x0000",
+								Bus:      "0x09",
+								Slot:     "0x00",
+								Function: "0x0",
+							}},
+							ACPI: &ACPIHostDev{NodeSet: "2"},
+						},
+					},
+					IOMMU: []IOMMUDevice{
+						{
+							Model: "smmuv3",
+							Driver: &IOMMUDriver{
+								PCIBus:   "9",
+								Accel:    "on",
+								ATS:      "on",
+								RIL:      "off",
+								SSIDSize: &ssidSize,
+								OAS:      &oas,
+							},
+						},
+					},
+				},
+			}
+
+			buf, err := xml.Marshal(spec)
+			Expect(err).ToNot(HaveOccurred())
+			xmlStr := string(buf)
+			Expect(xmlStr).To(ContainSubstring(`<driver pciBus="9" accel="on" ats="on" ril="off" ssidSize="20" oas="48"></driver>`))
+			Expect(xmlStr).To(ContainSubstring(`<acpi nodeset="2"></acpi>`))
+			Expect(xmlStr).To(ContainSubstring(`<cell id="2" memory="0" unit="KiB"><distances><sibling id="0" value="40"></sibling><sibling id="2" value="10"></sibling></distances></cell>`))
+
+			newSpec := &DomainSpec{}
+			Expect(xml.Unmarshal(buf, newSpec)).To(Succeed())
+			Expect(newSpec.Devices.IOMMU[0].Driver).To(Equal(spec.Devices.IOMMU[0].Driver))
+			Expect(newSpec.Devices.HostDevices[0].ACPI).To(Equal(spec.Devices.HostDevices[0].ACPI))
+			Expect(newSpec.CPU.NUMA.Cells[0]).To(Equal(spec.CPU.NUMA.Cells[0]))
+		})
+	})
+
 	ginkgo.Context("With numa topology", func() {
 		ginkgo.It("should marshal and unmarshal the values", func() {
 			spec := &DomainSpec{}

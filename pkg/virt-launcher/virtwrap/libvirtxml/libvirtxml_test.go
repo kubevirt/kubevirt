@@ -197,6 +197,16 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		cellMem := uint64(123)
 		cell := api.NUMACell{ID: "123", CPUs: "1", Memory: &cellMem, Unit: "G", MemoryAccess: "test"}
 		dcell := libvirtxml.DomainCell{ID: &id, CPUs: "1", Memory: uint(123), Unit: "G", MemAccess: "test"}
+		cellWithDistances := cell
+		cellWithDistances.Distances = &api.NUMACellDistances{Siblings: []api.NUMACellSibling{
+			{ID: 0, Value: 40},
+			{ID: 123, Value: 10},
+		}}
+		dcellWithDistances := dcell
+		dcellWithDistances.Distances = &libvirtxml.DomainCellDistances{Siblings: []libvirtxml.DomainCellSibling{
+			{ID: 0, Value: 40},
+			{ID: 123, Value: 10},
+		}}
 
 		DescribeTable("ConvertKubeVirtNUMACellToDomainDomainCell", func(v []api.NUMACell, expected []libvirtxml.DomainCell, expectErr string) {
 			res, err := ConvertKubeVirtNUMACellToDomainDomainCell(v)
@@ -210,6 +220,7 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 			Entry("empty", []api.NUMACell{}, []libvirtxml.DomainCell{}, ""),
 			Entry("error parsing the ID", []api.NUMACell{{ID: "wrongid"}}, nil, "invalid syntax"),
 			Entry("set all the field", []api.NUMACell{cell}, []libvirtxml.DomainCell{dcell}, ""),
+			Entry("set NUMA distances", []api.NUMACell{cellWithDistances}, []libvirtxml.DomainCell{dcellWithDistances}, ""),
 		)
 
 		DescribeTable("ConvertKubeVirtNUMAToDomainNUMA", func(v *api.NUMA, expected *libvirtxml.DomainNuma) {
