@@ -153,6 +153,25 @@ func isARM64(arch string) bool {
 	return false
 }
 
+const maxVirtioDisksOnPCIERoot = 24
+
+func countVirtioBusDisks(disks []api.Disk) int {
+	count := 0
+	for _, disk := range disks {
+		if disk.Target.Bus == v1.DiskBusVirtio {
+			count++
+		}
+	}
+	return count
+}
+
+func shouldUseTransitionalModelOnARM(c *ConverterContext, domain *api.Domain) bool {
+	if !isARM64(c.Architecture) {
+		return false
+	}
+	return countVirtioBusDisks(domain.Spec.Devices.Disks) > maxVirtioDisksOnPCIERoot
+}
+
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	// Ensure we assign this disk to the correct scsi controller
 	if disk.Address == nil {
@@ -1684,6 +1703,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 	}
+
+	if shouldUseTransitionalModelOnARM(c, domain) {
+		for i, disk := range domain.Spec.Devices.Disks {
+			if disk.Target.Bus == v1.DiskBusVirtio {
+				domain.Spec.Devices.Disks[i].Model = "virtio-transitional"
+			}
+		}
+	}
+
 	// Handle virtioFS
 	domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, convertFileSystems(vmi.Spec.Domain.Devices.Filesystems)...)
 
