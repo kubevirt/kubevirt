@@ -2114,7 +2114,7 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	smbios := c.clusterConfig.GetSMBIOS()
 	period := c.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
+	options := virtualMachineOptions(vmi, smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 	pluginsJSON, err := c.serializePlugins()
 	if err != nil {

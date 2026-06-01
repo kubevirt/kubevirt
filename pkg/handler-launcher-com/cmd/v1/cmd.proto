@@ -126,6 +126,7 @@ message VirtualMachineOptions {
   map<string, string> interfaceDomainAttachment = 8;
   map<string, InterfaceBindingMigration> interfaceMigration = 9;
   bytes pluginsJson = 10;
+  repeated string GraceHostDeviceAliases = 11;
 }
 
 message VMIRequest {
