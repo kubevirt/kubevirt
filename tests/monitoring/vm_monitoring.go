@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -563,14 +564,14 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 			By("triggering a kernel panic inside the guest")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo su -\n"},
-				&expect.BExp{R: "#"},
-				&expect.BSnd{S: "echo c > /proc/sysrq-trigger\n"},
-				&expect.BExp{R: "sysrq triggered crash"},
+				&expect.BSnd{S: "echo c | sudo tee /proc/sysrq-trigger\n"},
 			}, 15*time.Second)).To(Succeed())
 
 			By("waiting for VMI to reach Failed phase")
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.Failed))
+
+			By("verifying the GuestPanicked event was emitted")
+			events.ExpectEvent(vmi, corev1.EventTypeWarning, "GuestPanicked")
 
 			By("verifying the guest OS panic metric was incremented")
 			labels := map[string]string{
