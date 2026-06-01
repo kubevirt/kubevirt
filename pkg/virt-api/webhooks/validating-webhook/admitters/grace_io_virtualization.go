@@ -40,11 +40,6 @@ type gracePCIDeviceRequest struct {
 	resourceName string
 }
 
-type pciVendorSelector struct {
-	vendorID string
-	deviceID string
-}
-
 func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	graceRequests, ambiguousNVIDIARequests := gracePCIDeviceRequests(field, spec, config.GetPermittedHostDevices())
 	if len(graceRequests) == 0 && len(ambiguousNVIDIARequests) == 0 {
@@ -160,16 +155,11 @@ func gracePCIDeviceRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			continue
 		}
 
-		parsedSelector, ok := parsePCIVendorSelector(selector)
-		if !ok {
-			continue
-		}
-
-		if hwutil.IsNVIDIAGraceGPU(parsedSelector.vendorID, parsedSelector.deviceID) {
+		if hwutil.IsNVIDIAGracePCIVendorSelector(selector) {
 			graceRequests = append(graceRequests, request)
 			continue
 		}
-		if hwutil.IsNVIDIAPCIVendor(parsedSelector.vendorID) && parsedSelector.deviceID == "*" {
+		if hwutil.IsAmbiguousNVIDIAPCIVendorSelector(selector) {
 			ambiguousNVIDIARequests = append(ambiguousNVIDIARequests, request)
 		}
 	}
@@ -213,37 +203,6 @@ func requestedPCIDeviceResources(field *k8sfield.Path, spec *v1.VirtualMachineIn
 		})
 	}
 	return requests
-}
-
-func parsePCIVendorSelector(selector string) (pciVendorSelector, bool) {
-	parts := strings.Split(selector, ":")
-	if len(parts) != 2 {
-		return pciVendorSelector{}, false
-	}
-
-	parsedSelector := pciVendorSelector{
-		vendorID: hwutil.NormalizePCIID(parts[0]),
-		deviceID: hwutil.NormalizePCIID(parts[1]),
-	}
-	if !isHexPCIID(parsedSelector.vendorID) {
-		return pciVendorSelector{}, false
-	}
-	if parsedSelector.deviceID != "*" && !isHexPCIID(parsedSelector.deviceID) {
-		return pciVendorSelector{}, false
-	}
-	return parsedSelector, true
-}
-
-func isHexPCIID(id string) bool {
-	if len(id) != 4 {
-		return false
-	}
-	for _, char := range id {
-		if !strings.ContainsRune("0123456789ABCDEF", char) {
-			return false
-		}
-	}
-	return true
 }
 
 func effectiveGraceArchitecture(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) string {

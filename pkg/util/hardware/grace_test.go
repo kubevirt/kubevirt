@@ -54,4 +54,33 @@ var _ = Describe("NVIDIA Grace PCI IDs", func() {
 		Entry("short vendor ID", "10D", false),
 		Entry("long vendor ID", "010DE", false),
 	)
+	DescribeTable("parses PCI vendor selectors", func(selector string, expectedSelector PCIVendorSelector, expected bool) {
+		parsedSelector, ok := ParsePCIVendorSelector(selector)
+		Expect(ok).To(Equal(expected))
+		if expected {
+			Expect(parsedSelector).To(Equal(expectedSelector))
+		}
+	},
+		Entry("exact selector", "10de:2342", PCIVendorSelector{VendorID: "10DE", DeviceID: "2342"}, true),
+		Entry("sysfs prefixes", "0x10DE:0x2348", PCIVendorSelector{VendorID: "10DE", DeviceID: "2348"}, true),
+		Entry("wildcard device selector", "10de:*", PCIVendorSelector{VendorID: "10DE", DeviceID: "*"}, true),
+		Entry("missing separator", "10de2342", PCIVendorSelector{}, false),
+		Entry("invalid vendor", "10dg:2342", PCIVendorSelector{}, false),
+		Entry("invalid device", "10de:234g", PCIVendorSelector{}, false),
+		Entry("short vendor", "10d:2342", PCIVendorSelector{}, false),
+		Entry("long device", "10de:02342", PCIVendorSelector{}, false),
+	)
+
+	DescribeTable("detects Grace and ambiguous NVIDIA PCI vendor selectors", func(selector string, expectedGrace bool, expectedAmbiguous bool) {
+		Expect(IsNVIDIAGracePCIVendorSelector(selector)).To(Equal(expectedGrace))
+		Expect(IsAmbiguousNVIDIAPCIVendorSelector(selector)).To(Equal(expectedAmbiguous))
+	},
+		Entry("Grace GPU selector", "10de:2342", true, false),
+		Entry("Grace GPU selector with prefixes", "0x10de:0x2941", true, false),
+		Entry("NVIDIA wildcard selector", "10de:*", false, true),
+		Entry("non-Grace NVIDIA selector", "10de:2330", false, false),
+		Entry("non-NVIDIA wildcard selector", "1af4:*", false, false),
+		Entry("malformed selector", "10de", false, false),
+	)
+
 })
