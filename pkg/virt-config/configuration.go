@@ -136,7 +136,20 @@ func isPrometheusRules(crd *extv1.CustomResourceDefinition) bool {
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
-	crd := obj.(*extv1.CustomResourceDefinition)
+
+	crd, ok := obj.(*extv1.CustomResourceDefinition)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return
+		}
+		crd, ok = tombstone.Obj.(*extv1.CustomResourceDefinition)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a crd %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+
 	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) &&
 		!isServiceMonitor(crd) && !isPrometheusRules(crd) {
 		return
