@@ -19,7 +19,7 @@
 
 package virtwrap
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE -exclude_interfaces=diskDriverConfigurator
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
@@ -109,6 +109,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage/diskdriver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
@@ -208,6 +209,11 @@ type DomainManager interface {
 	GetAgentData(dataKey string) (string, error)
 }
 
+type diskDriverConfigurator interface {
+	SetDriverCacheMode(disk *api.Disk) error
+	SetOptimalIOMode(disk *api.Disk)
+}
+
 type LibvirtDomainManager struct {
 	virConn cli.Connection
 
@@ -230,7 +236,7 @@ type LibvirtDomainManager struct {
 	efiEnvironment         *efi.EFIEnvironment
 	ovmfPath               string
 	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
-	directIOChecker        converter.DirectIOChecker
+	driverConfigurator     diskDriverConfigurator
 	disksInfo              map[string]*osdisk.DiskInfo
 	guestDiskSizes         map[string]int64
 	domainInfoStats        *stats.DomainJobInfo
@@ -311,14 +317,13 @@ func NewLibvirtDomainManager(
 	allowCrossArchEmulation bool,
 	eventSender accesscredentials.EventSender,
 ) (DomainManager, error) {
-	directIOChecker := converter.NewDirectIOChecker()
 	return newLibvirtDomainManager(connection,
 		virtShareDir,
 		ephemeralDiskDir,
 		agentStore,
 		ovmfPath,
 		ephemeralDiskCreator,
-		directIOChecker,
+		diskdriver.New(),
 		metadataCache,
 		stopChan,
 		diskMemoryLimitBytes,
@@ -340,7 +345,7 @@ func newLibvirtDomainManager(
 	agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
-	directIOChecker converter.DirectIOChecker,
+	driverConfigurator diskDriverConfigurator,
 	metadataCache *metadata.Cache,
 	stopChan chan struct{},
 	diskMemoryLimitBytes int64,
@@ -379,7 +384,7 @@ func newLibvirtDomainManager(
 		efiEnvironment:       efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		ovmfPath:             ovmfPath,
 		ephemeralDiskCreator: ephemeralDiskCreator,
-		directIOChecker:      directIOChecker,
+		driverConfigurator:   driverConfigurator,
 		disksInfo:            map[string]*osdisk.DiskInfo{},
 		guestDiskSizes:       map[string]int64{},
 		domainInfoStats:      &stats.DomainJobInfo{},
@@ -1052,11 +1057,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
+		err := l.driverConfigurator.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated) //nolint:staticcheck
+		l.driverConfigurator.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1602,11 +1607,11 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
 		// set drivers cache mode
-		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
+		err = l.driverConfigurator.SetDriverCacheMode(&attachDisk)
 		if err != nil {
 			return err
 		}
-		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated) //nolint:staticcheck
+		l.driverConfigurator.SetOptimalIOMode(&attachDisk)
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
