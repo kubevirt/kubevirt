@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 
@@ -93,7 +94,7 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
-				newVMI := libvmifact.NewCirros()
+				newVMI := libvmifact.NewAlpine()
 				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
 				Eventually(func() error {
 					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI, metav1.CreateOptions{})
@@ -111,7 +112,7 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := libvmifact.NewCirros(
+				bridgeVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
@@ -121,11 +122,21 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting the VirtualMachineInstance start")
-				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
+				// Alpine on arm64 UEFI—often needs more than the default 180s console login timeout.
+				loginToAlpine := func(vmi *v1.VirtualMachineInstance, _ ...time.Duration) error {
+					return console.LoginToAlpine(vmi, 10*time.Minute)
+				}
+				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, loginToAlpine)
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
+				// Alpine does not auto-bring-up eth0 or run DHCP. arping -D needs eth0 up
+				// and a configured guest stack; -n exits after one lease attempt (bare udhcpc would hang).
+				By("Configuring network inside Alpine VM")
+				Expect(console.RunCommand(bridgeVMI, "ip link set eth0 up", 30*time.Second)).To(Succeed())
+				Expect(console.RunCommand(bridgeVMI, "udhcpc -i eth0 -n -q", 60*time.Second)).To(Succeed())
+
 				vmIP := libnet.GetVmiPrimaryIPByFamily(bridgeVMI, k8sv1.IPv4Protocol)
-				dadCommand := fmt.Sprintf("sudo /usr/sbin/arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
+				dadCommand := fmt.Sprintf("arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
 
 				Expect(console.SafeExpectBatch(bridgeVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
