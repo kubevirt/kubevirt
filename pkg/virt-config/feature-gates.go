@@ -107,6 +107,10 @@ func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
 }
 
+func (config *ClusterConfig) InjectInitDataEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.InjectInitData)
+}
+
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
 }

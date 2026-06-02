@@ -169,6 +169,17 @@ func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineIn
 				})
 			}
 		}
+
+		// Validate that initDataRef requires the InjectInitData feature gate
+		hasInitDataRef := (launchSecurity.TDX != nil && launchSecurity.TDX.InitDataRef != "") ||
+			(launchSecurity.SNP != nil && launchSecurity.SNP.InitDataRef != "")
+		if hasInitDataRef && !config.InjectInitDataEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.InjectInitData),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
 	}
 
 	return causes

@@ -73,6 +73,7 @@ var (
 	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
 	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1alpha1.SchemeGroupVersion.Group
 	PLUGIN                           = "plugins." + plugin.GroupName
+	INITDATA                         = "initdatas." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -1008,5 +1009,67 @@ func NewPluginCrd() (*extv1.CustomResourceDefinition, error) {
 	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
+	return crd, nil
+}
+
+func NewInitDataCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = INITDATA
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: virtv1.VirtualMachineInstanceGroupVersionKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    "v1",
+				Served:  true,
+				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+				Schema: &extv1.CustomResourceValidation{
+					OpenAPIV3Schema: &extv1.JSONSchemaProps{
+						Type: "object",
+						Properties: map[string]extv1.JSONSchemaProps{
+							"spec": {
+								Type: "object",
+								Properties: map[string]extv1.JSONSchemaProps{
+									"mrConfigId": {
+										Type:        "string",
+										Description: "Base64-encoded 48-byte TDX MR_CONFIG_ID digest. Mutually exclusive with hostData.",
+										MaxLength:   pointer.P(int64(64)),
+									},
+									"hostData": {
+										Type:        "string",
+										Description: "Base64-encoded 32-byte SEV-SNP HOST_DATA digest. Mutually exclusive with mrConfigId.",
+										MaxLength:   pointer.P(int64(44)),
+									},
+									"oemStrings": {
+										Type:        "array",
+										Description: "Init-Data bytes delivered via SMBIOS Type 11.",
+										Items: &extv1.JSONSchemaPropsOrArray{
+											Schema: &extv1.JSONSchemaProps{Type: "string"},
+										},
+									},
+								},
+								Required: []string{"oemStrings"},
+							},
+							"status": {
+								Type:                   "object",
+								XPreserveUnknownFields: pointer.P(true),
+							},
+						},
+					},
+				},
+			},
+		},
+		Scope: extv1.NamespaceScoped,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "initdatas",
+			Singular:   "initdata",
+			Kind:       "InitData",
+			ShortNames: []string{"initdata"},
+		},
+	}
+
 	return crd, nil
 }

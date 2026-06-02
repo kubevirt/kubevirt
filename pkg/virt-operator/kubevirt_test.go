@@ -118,6 +118,7 @@ var (
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
 		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
 		components.NewVirtualMachineBackupTrackerCrd, components.NewPluginCrd,
+		components.NewInitDataCrd,
 	}
 	numCRDs = len(crdFunctions) + numVirtTemplateCRDs
 )

@@ -79,7 +79,18 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 				},
 				Verbs: []string{
-					"update", "list", "watch",
+					"update", "list", "watch", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"initdatas",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 			{

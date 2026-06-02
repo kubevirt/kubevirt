@@ -1935,6 +1935,11 @@ func (in *Firmware) DeepCopyInto(out *Firmware) {
 		*out = new(ACPI)
 		**out = **in
 	}
+	if in.OEMStrings != nil {
+		in, out := &in.OEMStrings, &out.OEMStrings
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
