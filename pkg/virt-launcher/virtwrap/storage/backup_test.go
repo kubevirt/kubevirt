@@ -266,6 +266,9 @@ var _ = Describe("Backup", func() {
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
 
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).To(Equal(api.FSThawed))
+
 				// Verify backup metadata was initialized
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -291,6 +294,9 @@ var _ = Describe("Backup", func() {
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
 
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).ToNot(Equal(api.FSFrozen))
+
 				// Verify backup message was set
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -309,6 +315,9 @@ var _ = Describe("Backup", func() {
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).To(Equal(api.FSFrozen))
 
 				// Verify thaw failure was recorded
 				backupMetadata, exists := metadataCache.Backup.Load()
@@ -332,6 +341,9 @@ var _ = Describe("Backup", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("backup begin failed"))
 
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).To(Equal(api.FSThawed))
+
 				// Verify backup metadata was cleared due to failure
 				// The metadata cache stores an empty BackupMetadata on failure
 				backupMetadata, exists := metadataCache.Backup.Load()
@@ -352,6 +364,9 @@ var _ = Describe("Backup", func() {
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
+
+				fsFreeze, _ := metadataCache.FSFreezeStatus.Load()
+				Expect(fsFreeze.Status).ToNot(Equal(api.FSFrozen))
 			})
 		})
 	})
