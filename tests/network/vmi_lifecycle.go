@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 
@@ -93,7 +94,7 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
-				newVMI := libvmifact.NewCirros()
+				newVMI := libvmifact.NewAlpine()
 				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
 				Eventually(func() error {
 					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI, metav1.CreateOptions{})
@@ -111,7 +112,8 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := libvmifact.NewCirros(
+
+				bridgeVMI := libvmifact.NewFedora(
 					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
@@ -121,10 +123,17 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting the VirtualMachineInstance start")
-				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, console.LoginToCirros)
+				bridgeVMI = libwait.WaitUntilVMIReady(bridgeVMI, console.LoginToFedora)
 				verifyDummyNicForBridgeNetwork(bridgeVMI)
 
-				vmIP := libnet.GetVmiPrimaryIPByFamily(bridgeVMI, k8sv1.IPv4Protocol)
+				var vmIP string
+				Eventually(func() string {
+					var err error
+					bridgeVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(bridgeVMI)).Get(context.Background(), bridgeVMI.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					vmIP = libnet.GetVmiPrimaryIPByFamily(bridgeVMI, k8sv1.IPv4Protocol)
+					return vmIP
+				}, 2*time.Minute, 5*time.Second).ShouldNot(BeEmpty())
 				dadCommand := fmt.Sprintf("sudo /usr/sbin/arping -D -I eth0 -c 2 %s | grep Received | cut -d ' ' -f 2\n", vmIP)
 
 				Expect(console.SafeExpectBatch(bridgeVMI, []expect.Batcher{
