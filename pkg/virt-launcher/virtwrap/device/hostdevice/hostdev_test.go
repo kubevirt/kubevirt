@@ -153,6 +153,36 @@ var _ = Describe("HostDevice", func() {
 		})
 	})
 
+	Context("SRIOV GPU", func() {
+		hostPCIAddress0 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+
+		It("makes sure that a vGPU SRIOV device will turn display and ramfb on", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
+					VirtualGPUOptions: &v1.VGPUOptions{
+						Display: &v1.VGPUDisplayOptions{
+							Enabled: pointer.P(true),
+							RamFB: &v1.FeatureState{
+								Enabled: pointer.P(true),
+							},
+						}}},
+			}
+			pool.AddResource(resourceName0, pciAddresses0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			expectHostDevice1 := api.HostDevice{
+				Alias:   newAlias(devName0),
+				Source:  api.HostDeviceSource{Address: &hostPCIAddress0},
+				Type:    api.HostDevicePCI,
+				Managed: "no",
+			}
+			expectHostDevice1.Display = "on"
+			expectHostDevice1.RamFB = "on"
+
+			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+	})
+
 	Context("MDEV", func() {
 		const uuid0 = "0123456789-0"
 		hostMDEVAddress0 := api.Address{UUID: uuid0}
