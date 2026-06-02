@@ -115,7 +115,8 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	// Guest Agent information will add and conditionally override data gathered from the cache.
 	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
-	if primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks); primaryNetwork != nil {
+	if primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks); primaryNetwork != nil &&
+		vmiInterfacesSpecByName[primaryNetwork.Name].State != v1.InterfaceStateAbsent {
 		interfacesStatus = restorePrimaryIfaceStatus(interfacesStatus, vmi.Status.Interfaces, primaryNetwork.Name)
 		interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork.Name)
 	}

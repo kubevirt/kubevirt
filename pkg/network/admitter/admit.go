@@ -22,8 +22,6 @@ package admitter
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -57,14 +55,6 @@ func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineIn
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%q interface's state %q is supported only for bridge binding", iface.Name, iface.State),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
-			})
-		}
-		defaultNetwork := vmispec.LookUpDefaultNetwork(spec.Networks)
-		if iface.State == v1.InterfaceStateAbsent && defaultNetwork != nil && defaultNetwork.Name == iface.Name {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%q interface's state %q is not supported on default networks", iface.Name, iface.State),
 				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
 			})
 		}

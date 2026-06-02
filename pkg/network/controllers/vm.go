@@ -162,8 +162,7 @@ func applyDynamicIfaceRequestOnVMI(
 			(vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
 
 		shouldUpdateExistingIfaceState := existsInVMISpec &&
-			vmIface.State != vmiIfaceCopy.State &&
-			vmiIfaceCopy.State != v1.InterfaceStateAbsent
+			vmIface.State != vmiIfaceCopy.State
 
 		switch {
 		case shouldHotplugIface:

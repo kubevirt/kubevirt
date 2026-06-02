@@ -449,52 +449,9 @@ var _ = Describe("VM Network Controller", func() {
 		Entry("empty to down", v1.InterfaceState(""), v1.InterfaceStateLinkDown),
 		Entry("empty to absent", v1.InterfaceState(""), v1.InterfaceStateAbsent),
 		Entry("empty to empty", v1.InterfaceState(""), v1.InterfaceState("")),
-	)
-
-	DescribeTable("sync doesn't update link state if hot-unplug is underway ", func(toState v1.InterfaceState) {
-		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
-		const defaultNetName = "default"
-		vmi := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:  defaultNetName,
-				State: v1.InterfaceStateAbsent,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
-			}),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmistatus.WithStatus(
-				libvmistatus.New(libvmistatus.WithInterfaceStatus(
-					v1.VirtualMachineInstanceNetworkInterface{Name: defaultNetName},
-				)),
-			),
-		)
-
-		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
-
-		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].State = toState
-
-		updatedVM, err := c.Sync(vm, vmi)
-		Expect(err).NotTo(HaveOccurred())
-
-		updatedVMI, err := clientset.KubevirtV1().
-			VirtualMachineInstances(vmi.Namespace).
-			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(updatedVMI.Spec.Networks).To(Equal(vmi.Spec.Networks))
-		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(vmi.Spec.Domain.Devices.Interfaces))
-
-		Expect(updatedVM.Spec.Template.Spec.Networks).To(Equal(vm.Spec.Template.Spec.Networks))
-		Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces))
-	},
-		Entry("absent to up", v1.InterfaceStateLinkUp),
-		Entry("absent to down", v1.InterfaceStateLinkDown),
-		Entry("absent to empty", v1.InterfaceState("")),
+		Entry("absent to up", v1.InterfaceStateAbsent, v1.InterfaceStateLinkUp),
+		Entry("absent to down", v1.InterfaceStateAbsent, v1.InterfaceStateLinkDown),
+		Entry("absent to empty", v1.InterfaceStateAbsent, v1.InterfaceState("")),
 	)
 
 	It("sync does not hotunplug interfaces when legacy ordinal interface names are found", func() {

@@ -101,26 +101,4 @@ var _ = Describe("Validating VMI network spec", func() {
 		Entry("absent is not supported when bridge-binding is not used", v1.InterfaceStateAbsent, MatchRegexp("absent.+bridge")),
 	)
 
-	It("network interface state value of absent is not supported on the default network", func() {
-		vm := libvmi.New(
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-			}),
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				State:                  v1.InterfaceStateAbsent,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}),
-		)
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
-		Expect(validator.Validate()).To(
-			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
-				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",
-				Field:   "fake.domain.devices.interfaces[0].state",
-			}))
-	})
 })
