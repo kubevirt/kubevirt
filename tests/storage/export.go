@@ -358,22 +358,15 @@ var _ = Describe(SIG("Export", func() {
 		Expect(md5sum).To(Equal(expectedMD5))
 	}
 
-	verifyKubeVirtGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, volumeMode k8sv1.PersistentVolumeMode) {
+	verifyKubeVirtGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, _ k8sv1.PersistentVolumeMode) {
 		command := []string{
-			"/usr/bin/gzip",
-			"-d",
-			filepath.Join(dataPath, fileName),
+			"/bin/sh",
+			"-c",
+			fmt.Sprintf("gzip -dc %s | md5sum", filepath.Join(dataPath, fileName)),
 		}
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 
-		fileName = strings.Replace(fileName, ".gz", "", 1)
-		fileAndPathName := filepath.Join(dataPath, fileName)
-		if volumeMode == k8sv1.PersistentVolumeBlock {
-			fileAndPathName = blockVolumeMountPath
-		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
