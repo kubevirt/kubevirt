@@ -161,6 +161,13 @@ func (c *fakeVirtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context,
 	return err
 }
 
+func (c *fakeVirtualMachineInstances) TDXInjectInitdata(ctx context.Context, name string, tdxInitdata *v1.TDXInitdataOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "tdx/injectInitdata", name, tdxInitdata), nil)
+
+	return err
+}
+
 func (c *fakeVirtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {
 	obj, err := c.Fake.
 		Invokes(fake2.NewGetSubresourceAction(c.Resource(), c.Namespace(), "objectgraph", name, objectGraphOptions), nil)

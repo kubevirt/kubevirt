@@ -253,6 +253,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 		"serial":     "The system-serial-number in SMBIOS",
 		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
 		"acpi":       "Information that can be set in the ACPI table",
+		"oemStrings": "OEM Strings to be set in the SMBIOS\n+listType=atomic",
 	}
 }
 
@@ -458,8 +459,15 @@ func (SEVAttestation) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (TDX) SwaggerDoc() map[string]string {
+func (TDXAttestation) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (TDX) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"mrConfigId":  "Base64-encoded 48-byte value included in the TDX measurement (MRTD).\nWhen TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.\n+optional",
+		"attestation": "If specified, run the attestation process for a vmi.\n+optional",
+	}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
