@@ -1573,6 +1573,98 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
+			It("should enqueue content when VMI status changes", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotSource.Add(vmSnapshot)
+
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vm := createLockedVM()
+				vmSource.Add(vm)
+
+				vmi := createVMI(vm)
+				syncCaches(stop)
+
+				mockVMSnapshotQueue.ExpectAdds(1)
+				mockVMSnapshotContentQueue.ExpectAdds(1)
+				vmiSource.Add(vmi)
+				mockVMSnapshotQueue.Wait()
+				mockVMSnapshotContentQueue.Wait()
+			})
+
+			It("should create volume snapshot when freeze succeeds asynchronously", func() {
+				storageClass := createStorageClass()
+				storageClassSource.Add(storageClass)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotSource.Add(vmSnapshot)
+
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vm := createLockedVM()
+				vmSource.Add(vm)
+
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				errorMessage := "freezing is already in progress"
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+					Error: &snapshotv1.Error{
+						Time:    timeFunc(),
+						Message: &errorMessage,
+					},
+				}
+
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				addVolumeSnapshotClass(volumeSnapshotClass)
+
+				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf("%s", errorMessage)).Times(1)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+
+				// Simulate async freeze completion: VMI status now shows frozen.
+				// On next reconcile, source.Frozen() returns true so Freeze()
+				// is skipped and VolumeSnapshot creation proceeds immediately.
+				vmi.Status.FSFreezeStatus = "frozen"
+				vmiSource.Modify(vmi)
+				syncCaches(stop)
+
+				updatedContent2 := vmSnapshotContent.DeepCopy()
+				updatedContent2.ResourceVersion = "1"
+				updatedContent2.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+					}
+					updatedContent2.Status.VolumeSnapshotStatus = append(updatedContent2.Status.VolumeSnapshotStatus, vss)
+				}
+
+				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
+				updateStatusCalls2 := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent2)
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*snapshotCreates).To(Equal(1))
+				Expect(*updateStatusCalls2).To(Equal(1))
+			})
+
 			It("should set QuiesceTimeout indication if error contains VSS freeze timeout", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)

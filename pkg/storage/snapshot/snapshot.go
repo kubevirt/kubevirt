@@ -425,14 +425,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 						Message: pointer.P(err.Error()),
 					}
 					contentCpy.Status.ReadyToUse = pointer.P(false)
-					// Retry again in 5 seconds
+					// Freeze may be in progress (async). The VMI watch will
+					// enqueue this content as soon as FSFreezeStatus changes,
+					// so the 5s retry is just a safety fallback.
 					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 				}
-
-				// assuming that VM is frozen once Freeze() returns
-				// which should be the case
-				// if Freeze() were async, we'd have to return
-				// and only continue when source.Frozen() == true
 
 				didFreeze = true
 			}
