@@ -52,10 +52,21 @@ func CreatePCIHostDevices(hostDevicesData []HostDeviceMetaData, pciAddrPool Addr
 	return createHostDevices(hostDevicesData, pciAddrPool, createPCIHostDevice)
 }
 
-func isVgpuDisplaySet(hostDevicesData []HostDeviceMetaData) bool {
+func isVgpuDisplaySet(hostDeviceMetadata HostDeviceMetaData) bool {
+	return hostDeviceMetadata.VirtualGPUOptions != nil &&
+		hostDeviceMetadata.VirtualGPUOptions.Display != nil
+}
+
+func isRamFBSet(hostDeviceMetadata HostDeviceMetaData) bool {
+	return hostDeviceMetadata.VirtualGPUOptions != nil &&
+		hostDeviceMetadata.VirtualGPUOptions.Display != nil &&
+		hostDeviceMetadata.VirtualGPUOptions.Display.RamFB != nil &&
+		hostDeviceMetadata.VirtualGPUOptions.Display.RamFB.Enabled != nil &&
+		*hostDeviceMetadata.VirtualGPUOptions.Display.RamFB.Enabled
+}
+func isVgpuDisplaySetIn(hostDevicesData []HostDeviceMetaData) bool {
 	for _, hostDeviceData := range hostDevicesData {
-		if hostDeviceData.VirtualGPUOptions != nil &&
-			hostDeviceData.VirtualGPUOptions.Display != nil {
+		if isVgpuDisplaySet(hostDeviceData) {
 			return true
 		}
 	}
@@ -70,7 +81,7 @@ func CreateMDEVHostDevices(hostDevicesData []HostDeviceMetaData, mdevAddrPool Ad
 		}
 		// add a default single display option with enabled ramfb
 		// only if no vgpuDisplay option was configured.
-		if !isVgpuDisplaySet(hostDevicesData) && len(devices) > 0 {
+		if !isVgpuDisplaySetIn(hostDevicesData) && len(devices) > 0 {
 			devices[0].Display = "on"
 			devices[0].RamFB = "on"
 		}
@@ -132,6 +143,13 @@ func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress strin
 		Source:  api.HostDeviceSource{Address: hostAddr},
 		Type:    api.HostDevicePCI,
 		Managed: "no",
+	}
+
+	if isVgpuDisplaySet(hostDeviceData) {
+		domainHostDevice.Display = "on"
+		if isRamFBSet(hostDeviceData) {
+			domainHostDevice.RamFB = "on"
+		}
 	}
 	return domainHostDevice, nil
 }
