@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -128,10 +129,19 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
+					var iface v1.Interface
+					if flags.NetworkBindingPlugin != "" {
+						iface = libvmi.InterfaceWithBindingPlugin(
+							v1.DefaultPodNetwork().Name,
+							v1.PluginBinding{Name: flags.NetworkBindingPlugin},
+						)
+					} else {
+						iface = *v1.DefaultMasqueradeNetworkInterface()
+					}
 					vmi = setupVMI(
 						virtClient,
 						libvmifact.NewAlpine(
-							libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+							libvmi.WithInterface(iface),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						),
 					)
