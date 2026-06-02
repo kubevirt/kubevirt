@@ -68,6 +68,9 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 		}
 		// Use Default Policy
 		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+		if hostData := vmi.Annotations[v1.InitDataHostDataAnnotation]; hostData != "" {
+			domain.HostData = hostData
+		}
 		return domain
 	} else if launchSec.SEV != nil {
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
@@ -84,10 +87,14 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 		return domain
 	} else if launchSec.TDX != nil {
 		qgsSocketPath := vmi.Annotations[v1.QGSSocketPathAnnotation]
-		return &api.LaunchSecurity{
+		domain := &api.LaunchSecurity{
 			Type:                   "tdx",
 			QuoteGenerationService: &api.QGS{Path: qgsSocketPath},
 		}
+		if mrConfigId := vmi.Annotations[v1.InitDataMRConfigIdAnnotation]; mrConfigId != "" {
+			domain.MRConfigId = mrConfigId
+		}
+		return domain
 	}
 
 	return nil

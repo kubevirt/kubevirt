@@ -1475,6 +1475,17 @@ const (
 	// return immediate success without contacting the QEMU guest agent.
 	// Remove the annotation (or set to a falsy value) to resume normal probe behavior.
 	PauseGuestAgentProbesAnnotation string = "kubevirt.io/pause-guest-agent-probes"
+	// InitDataMRConfigIdAnnotation carries the base64-encoded TDX MR_CONFIG_ID
+	// digest read from the InitData CR by virt-handler.
+	InitDataMRConfigIdAnnotation = "kubevirt.io/initdata-mrconfigid"
+
+	// InitDataHostDataAnnotation carries the base64-encoded SEV-SNP HOST_DATA
+	// digest read from the InitData CR by virt-handler.
+	InitDataHostDataAnnotation = "kubevirt.io/initdata-hostdata"
+
+	// InitDataOEMStringsAnnotation carries the JSON-encoded []string of OEM
+	// strings read from the InitData CR by virt-handler.
+	InitDataOEMStringsAnnotation = "kubevirt.io/initdata-oemstrings"
 
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).

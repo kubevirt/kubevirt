@@ -20,6 +20,8 @@
 package compute
 
 import (
+	"encoding/json"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -50,6 +52,18 @@ func (s SysInfoDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 
 	domain.Spec.SysInfo.System = buildSystem(vmi.Spec.Domain.Firmware, s.smBIOS)
 	domain.Spec.SysInfo.Chassis = buildChassis(vmi.Spec.Domain.Chassis)
+
+	if vmi.Spec.Domain.Firmware != nil && len(vmi.Spec.Domain.Firmware.OEMStrings) > 0 {
+		domain.Spec.SysInfo.OEMStrings = vmi.Spec.Domain.Firmware.OEMStrings
+	}
+
+	// OEM strings from InitData CR (set by virt-handler via annotation)
+	if oemJSON, ok := vmi.Annotations[v1.InitDataOEMStringsAnnotation]; ok && oemJSON != "" {
+		var oemStrings []string
+		if err := json.Unmarshal([]byte(oemJSON), &oemStrings); err == nil && len(oemStrings) > 0 {
+			domain.Spec.SysInfo.OEMStrings = append(domain.Spec.SysInfo.OEMStrings, oemStrings...)
+		}
+	}
 
 	return nil
 }

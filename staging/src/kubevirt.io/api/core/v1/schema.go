@@ -516,6 +516,9 @@ type Firmware struct {
 	KernelBoot *KernelBoot `json:"kernelBoot,omitempty"`
 	// Information that can be set in the ACPI table
 	ACPI *ACPI `json:"acpi,omitempty"`
+	// OEM Strings to be set in the SMBIOS
+	// +listType=atomic
+	OEMStrings []string `json:"oemStrings,omitempty"`
 }
 
 type ACPI struct {
@@ -885,12 +888,22 @@ type SEVPolicy struct {
 }
 
 type SEVSNP struct {
+	// Name of the InitData CR that carries the launch-time values for this VMI.
+	// When set, virt-handler blocks VM startup until a committed InitData CR with
+	// this name exists in the VMI namespace.
+	// +optional
+	InitDataRef string `json:"initDataRef,omitempty"`
 }
 
 type SEVAttestation struct {
 }
 
 type TDX struct {
+	// Name of the InitData CR that carries the launch-time values for this VMI.
+	// When set, virt-handler blocks VM startup until a committed InitData CR with
+	// this name exists in the VMI namespace.
+	// +optional
+	InitDataRef string `json:"initDataRef,omitempty"`
 }
 
 type LunTarget struct {

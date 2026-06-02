@@ -418,6 +418,8 @@ spec:
           initrdPath: initrdPathValue
           kernelPath: kernelPathValue
         kernelArgs: kernelArgsValue
+      oemStrings:
+      - oemStringsValue
       serial: serialValue
       uuid: uuidValue
     ioThreads:
@@ -430,8 +432,10 @@ spec:
         policy:
           encryptedState: true
         session: sessionValue
-      snp: {}
-      tdx: {}
+      snp:
+        initDataRef: initDataRefValue
+      tdx:
+        initDataRef: initDataRefValue
     machine:
       type: typeValue
     memory:

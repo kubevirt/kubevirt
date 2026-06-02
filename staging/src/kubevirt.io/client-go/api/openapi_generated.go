@@ -21713,6 +21713,26 @@ func schema_kubevirtio_api_core_v1_Firmware(ref common.ReferenceCallback) common
 							Ref:         ref(corev1.ACPI{}.OpenAPIModelName()),
 						},
 					},
+					"oemStrings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "OEM Strings to be set in the SMBIOS",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -25994,6 +26014,15 @@ func schema_kubevirtio_api_core_v1_SEVSNP(ref common.ReferenceCallback) common.O
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"initDataRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the InitData CR that carries the launch-time values for this VMI. When set, virt-handler blocks VM startup until a committed InitData CR with this name exists in the VMI namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -26600,6 +26629,15 @@ func schema_kubevirtio_api_core_v1_TDX(ref common.ReferenceCallback) common.Open
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"initDataRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the InitData CR that carries the launch-time values for this VMI. When set, virt-handler blocks VM startup until a committed InitData CR with this name exists in the VMI namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

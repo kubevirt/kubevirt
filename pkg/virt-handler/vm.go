@@ -41,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -126,6 +128,12 @@ type VirtualMachineController struct {
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
 	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation)
+}
+
+var initDataGVR = schema.GroupVersionResource{
+	Group:    "kubevirt.io",
+	Version:  "v1",
+	Resource: "initdatas",
 }
 
 func NewVirtualMachineController(
@@ -2006,6 +2014,10 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, nil
 	}
 
+	if c.shouldWaitForInitData(vmi) {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -2025,6 +2037,92 @@ func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMa
 		return sev.Session == "" || sev.DHCert == ""
 	}
 	return false
+}
+
+func (c *VirtualMachineController) shouldWaitForInitData(vmi *v1.VirtualMachineInstance) bool {
+	if !c.clusterConfig.InjectInitDataEnabled() {
+		return false
+	}
+
+	initDataRef, hasRef := util.HasInitDataRef(vmi)
+	if !hasRef {
+		return false
+	}
+
+	// If the annotations are already populated, the InitData has been resolved.
+	if vmi.Annotations != nil &&
+		(vmi.Annotations[v1.InitDataMRConfigIdAnnotation] != "" ||
+			vmi.Annotations[v1.InitDataHostDataAnnotation] != "") {
+		return false
+	}
+
+	// Look up the InitData CR in the VMI namespace.
+	ns := vmi.Namespace
+	initDataClient := c.clientset.DynamicClient().Resource(initDataGVR).Namespace(ns)
+	obj, err := initDataClient.Get(context.Background(), initDataRef, metav1.GetOptions{})
+	if err != nil {
+		c.logger.Object(vmi).V(4).Infof("InitData %s/%s not found yet, waiting: %v", ns, initDataRef, err)
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), 2*time.Second)
+		return true
+	}
+
+	spec, ok := obj.Object["spec"].(map[string]interface{})
+	if !ok {
+		c.logger.Object(vmi).Warningf("InitData %s/%s has no spec", ns, initDataRef)
+		return true
+	}
+
+	mrConfigId, _ := spec["mrConfigId"].(string)
+	hostData, _ := spec["hostData"].(string)
+	oemStringsRaw, _ := spec["oemStrings"].([]interface{})
+
+	var oemStrings []string
+	for _, s := range oemStringsRaw {
+		if str, ok := s.(string); ok {
+			oemStrings = append(oemStrings, str)
+		}
+	}
+
+	if mrConfigId == "" && hostData == "" {
+		c.logger.Object(vmi).Warningf("InitData %s/%s has neither mrConfigId nor hostData", ns, initDataRef)
+		return true
+	}
+
+	// Patch the VMI annotations with the resolved InitData values.
+	annotations := map[string]string{}
+	if mrConfigId != "" {
+		annotations[v1.InitDataMRConfigIdAnnotation] = mrConfigId
+	}
+	if hostData != "" {
+		annotations[v1.InitDataHostDataAnnotation] = hostData
+	}
+	if len(oemStrings) > 0 {
+		oemJSON, _ := json.Marshal(oemStrings)
+		annotations[v1.InitDataOEMStringsAnnotation] = string(oemJSON)
+	}
+
+	patchData := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": annotations,
+		},
+	}
+	patchBytes, err := json.Marshal(patchData)
+	if err != nil {
+		c.logger.Object(vmi).Errorf("Failed to marshal InitData annotation patch: %v", err)
+		return true
+	}
+
+	_, err = c.clientset.VirtualMachineInstance(ns).Patch(
+		context.Background(), vmi.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{},
+	)
+	if err != nil {
+		c.logger.Object(vmi).Errorf("Failed to patch VMI with InitData annotations: %v", err)
+		return true
+	}
+
+	c.logger.Object(vmi).Infof("InitData %s resolved, annotations patched on VMI %s/%s — requeueing to pick up updated annotations", initDataRef, ns, vmi.Name)
+	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), 1*time.Second)
+	return true
 }
 
 func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, preallocatedVolumes []string) error {
