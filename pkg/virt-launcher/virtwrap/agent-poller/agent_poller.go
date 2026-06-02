@@ -41,9 +41,8 @@ type AgentCommand string
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
 // only whether it relates to the right data
 const (
-	GetFilesystem     AgentCommand = "guest-get-fsinfo"
-	GetAgent          AgentCommand = "guest-info"
-	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
+	GetFilesystem AgentCommand = "guest-get-fsinfo"
+	GetAgent      AgentCommand = "guest-info"
 
 	pollInitialInterval = 10 * time.Second
 
@@ -82,14 +81,13 @@ func (s *AsyncAgentStore) Store(key, value any) {
 
 	domainInfo := api.DomainGuestInfo{}
 	switch key {
-	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
+	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES:
 		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 		if !updated {
 			return
 		}
 		domainInfo.OSInfo = s.GetGuestOSInfo()
 		domainInfo.Interfaces = s.GetInterfaceStatus()
-		domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
 
 		s.AgentUpdated <- AgentUpdatedEvent{
 			DomainInfo: domainInfo,
@@ -159,17 +157,6 @@ func (s *AsyncAgentStore) GetGA() AgentInfo {
 
 	agent = data.(AgentInfo)
 	return agent
-}
-
-// GetFSFreezeStatus returns the Guest fsfreeze status
-func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
-	data, ok := s.store.Load(GetFSFreezeStatus)
-	if !ok {
-		return nil
-	}
-
-	fsfreezeStatus := data.(api.FSFreeze)
-	return &fsfreezeStatus
 }
 
 // GetFS returns the filesystem list limited to the limit set
@@ -291,7 +278,6 @@ func CreatePoller(
 	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
 ) *AgentPoller {
 	return &AgentPoller{
 		Connection:     connection,
@@ -308,10 +294,6 @@ func CreatePoller(
 			{
 				CallTick:      qemuAgentFileInterval,
 				AgentCommands: []AgentCommand{GetFilesystem},
-			},
-			{
-				CallTick:      qemuAgentFSFreezeStatusInterval,
-				AgentCommands: []AgentCommand{GetFSFreezeStatus},
 			},
 			// Polling for guest info API
 			{
@@ -401,9 +383,6 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 
 // TODO: Remove all commands with this function
 //
-// GET_FSFREEZE_STATUS - This is not implemented in libvirt API and won't be
-// implemented (KubeVirt is expected to provide its own implementation for it).
-//
 // GET_FILESYSTEM - We are missing busType field in the response, which will
 // be included in libvirt 11.2 upstream later (https://gitlab.com/libvirt/libvirt-go-module/-/issues/18).
 //
@@ -420,13 +399,6 @@ func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
 		}
 
 		switch command {
-		case GetFSFreezeStatus:
-			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
-				continue
-			}
-			agentPoller.agentStore.Store(GetFSFreezeStatus, fsfreezeStatus)
 		case GetFilesystem:
 			filesystems, err := parseFilesystem(cmdResult)
 			if err != nil {
