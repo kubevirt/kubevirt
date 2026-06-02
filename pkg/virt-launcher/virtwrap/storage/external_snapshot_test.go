@@ -167,13 +167,11 @@ var _ = Describe("External snapshot", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil).Times(2)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			gomock.InOrder(
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).DoAndReturn(func([]string, uint32) error {
 					now := metav1.Now()
 					metadataCache.GracePeriod.Store(api.GracePeriodMetadata{DeletionTimestamp: &now})
 					return nil
 				}),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil),
 			)
 			Expect(manager.ExternalSnapshot(vmi, overlayDir, volumes)).To(Succeed())
@@ -185,14 +183,12 @@ var _ = Describe("External snapshot", func() {
 			gomock.InOrder(
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).
 					DoAndReturn(func(createdXML string, _ libvirt.DomainSnapshotCreateFlags) (*libvirt.DomainSnapshot, error) {
 						snapshotXML = createdXML
 						return nil, nil
 					}),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onOverlayXML, nil),
 			)
@@ -207,10 +203,8 @@ var _ = Describe("External snapshot", func() {
 			gomock.InOrder(
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).Return(nil, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil),
 				// Only one of the two disks made it onto its overlay.
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(partialXML, nil).Times(2),
@@ -225,7 +219,6 @@ var _ = Describe("External snapshot", func() {
 			thawed := make(chan struct{})
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			gomock.InOrder(
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).
 					DoAndReturn(func(string, libvirt.DomainSnapshotCreateFlags) (*libvirt.DomainSnapshot, error) {
@@ -236,12 +229,12 @@ var _ = Describe("External snapshot", func() {
 							return nil, fmt.Errorf("safety thaw did not run during snapshot creation")
 						}
 					}),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).DoAndReturn(func([]string, uint32) error {
 					close(thawed)
 					return nil
 				}),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil).MaxTimes(1),
+				// The deferred thaw can run before the safety thaw recorded its result.
+				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil).MaxTimes(1),
 			)
 
 			Expect(manager.createSnapshotQuiesced(vmi, mockDomain, overlayDir, "<domainsnapshot/>")).
@@ -252,12 +245,9 @@ var _ = Describe("External snapshot", func() {
 			thawed := make(chan struct{})
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			gomock.InOrder(
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).Return(nil, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(fmt.Errorf("temporary guest agent failure")),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).DoAndReturn(func([]string, uint32) error {
 					close(thawed)
 					return nil
@@ -287,7 +277,7 @@ var _ = Describe("External snapshot", func() {
 			}, "paused domain"),
 			Entry("because no guest agent is connected", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return("", fmt.Errorf("QEMU guest agent is not connected"))
+				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(fmt.Errorf("QEMU guest agent is not connected"))
 			}, "QEMU guest agent is not connected"),
 		)
 
@@ -339,7 +329,6 @@ var _ = Describe("External snapshot", func() {
 			gomock.InOrder(
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(fmt.Errorf("guest agent timed out")),
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 			)
@@ -364,11 +353,9 @@ var _ = Describe("External snapshot", func() {
 			gomock.InOrder(
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).
 					Return(nil, fmt.Errorf("transaction aborted")),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(partialXML, nil),
 			)
@@ -382,11 +369,9 @@ var _ = Describe("External snapshot", func() {
 			gomock.InOrder(
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).
 					Return(nil, fmt.Errorf("transaction aborted")),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return("", fmt.Errorf("libvirt is gone")),
 			)
@@ -419,10 +404,8 @@ var _ = Describe("External snapshot", func() {
 			gomock.InOrder(
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onBaseXML, nil),
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"thawed"}`, nil),
 				mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().CreateSnapshotXML(gomock.Any(), snapshotFlags).Return(nil, nil),
-				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), domainName).Return(`{"return":"frozen"}`, nil),
 				mockDomain.EXPECT().FSThaw(nil, uint32(0)).Return(nil),
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(onOverlayXML, nil),
 			)
