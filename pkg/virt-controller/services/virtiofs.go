@@ -79,6 +79,23 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 	// This migration mode doesn't require any privileges.
 	args = append(args, "--migration-mode=find-paths")
 
+	if volume.ServiceAccount != nil {
+		// In K8s 1.36+, the Service Account symlink token file owner matches
+		// the pod's `RunAsUser` UID
+		// (see https://github.com/kubernetes/kubernetes/pull/137332).
+		//
+		// Because `/var/run/secrets/kubernetes.io/serviceaccount/` has the
+		// sticky bit (`+t`) set, the guest kernel's protected symlinks feature
+		// blocks the `root` user from following this symlink since the symlink
+		// owner no longer matches the directory owner.
+		// (see: https://github.com/kubevirt/kubevirt/issues/17792)
+		//
+		// Workaround: Force the symlink's owner to show up as UID 0.
+		// This is safe because the `serviceaccount` mount point is read-only.
+		mapUidToGuestRoot := fmt.Sprintf("--translate-uid=host:%d:0:1", util.NonRootUID)
+		args = append(args, mapUidToGuestRoot)
+	}
+
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
 		{
