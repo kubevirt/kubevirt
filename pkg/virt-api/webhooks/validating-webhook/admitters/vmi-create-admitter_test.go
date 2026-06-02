@@ -123,6 +123,41 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCauses))
 	})
 
+	It("should accept positive PCIHole64 size annotation", func() {
+		vmi := newBaseVmi(libvmi.WithAnnotation(v1.PCIHole64SizeAnnotation, "64Gi"))
+
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+	})
+
+	It("should reject non-positive PCIHole64 size annotation", func() {
+		vmi := newBaseVmi(libvmi.WithAnnotation(v1.PCIHole64SizeAnnotation, "0"))
+
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Message).To(ContainSubstring(v1.PCIHole64SizeAnnotation))
+	})
+
+	It("should reject PCIHole64 size annotation when PCIHole64 is disabled by annotation", func() {
+		vmi := newBaseVmi(
+			libvmi.WithAnnotation(v1.PCIHole64SizeAnnotation, "64Gi"),
+			libvmi.WithAnnotation(v1.DisablePCIHole64, "true"),
+		)
+
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Message).To(ContainSubstring("cannot be set"))
+	})
+
 	It("should reject invalid VirtualMachineInstance spec on create", func() {
 		vmi := newBaseVmi()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

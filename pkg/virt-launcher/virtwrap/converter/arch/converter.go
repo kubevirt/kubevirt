@@ -40,6 +40,7 @@ type Converter interface {
 	RequiresMPXCPUValidation() bool
 	ShouldVerboseLogsBeEnabled() bool
 	SupportPCIHole64Disabling() bool
+	SupportPCIHole64Sizing() bool
 	SupportPCIePlacement() bool
 }
 

@@ -20,12 +20,16 @@
 package compute
 
 import (
+	"fmt"
 	"slices"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -41,6 +45,7 @@ type ControllersDomainConfigurator struct {
 	autoThreads               uint
 	controllerDriver          *api.ControllerDriver
 	supportPCIHole64Disabling bool
+	supportPCIHole64Sizing    bool
 	virtioSerialModel         string
 }
 
@@ -64,8 +69,21 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
-	if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64Disabled())
+	pciHole64SizeKiB, err := pciHole64SizeAnnotationKiB(vmi)
+	if err != nil {
+		return err
+	}
+
+	if pciHole64SizeKiB != nil {
+		if shouldDisablePCIHole64(vmi) {
+			return fmt.Errorf("%s cannot be set when annotation %s is true", v1.PCIHole64SizeAnnotation, v1.DisablePCIHole64)
+		}
+		if !c.supportPCIHole64Sizing {
+			return fmt.Errorf("pcihole64 sizing is not supported by this architecture")
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64KiB(*pciHole64SizeKiB))
+	} else if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64KiB(0))
 	}
 
 	if requiresVirtioSerialController(vmi) {
@@ -105,6 +123,12 @@ func ControllersWithSupportPCIHole64Disabling(support bool) controllersOption {
 	}
 }
 
+func ControllersWithSupportPCIHole64Sizing(support bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.supportPCIHole64Sizing = support
+	}
+}
+
 func ControllersWithVirtioSerialModel(model string) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
 		c.virtioSerialModel = model
@@ -134,13 +158,13 @@ func newSCSIController(controllerModel string, controllerDriver *api.ControllerD
 	}
 }
 
-func newPCIControllerWithHole64Disabled() api.Controller {
+func newPCIControllerWithHole64KiB(sizeKiB uint) api.Controller {
 	return api.Controller{
 		Type:  "pci",
 		Index: "0",
 		Model: "pcie-root",
 		PCIHole64: &api.PCIHole64{
-			Value: 0,
+			Value: sizeKiB,
 			Unit:  "KiB",
 		},
 	}
@@ -153,6 +177,25 @@ func newVirtioSerialController(model string, controllerDriver *api.ControllerDri
 		Model:  model,
 		Driver: controllerDriver,
 	}
+}
+
+func pciHole64SizeAnnotationKiB(vmi *v1.VirtualMachineInstance) (*uint, error) {
+	value, ok := vmi.Annotations[v1.PCIHole64SizeAnnotation]
+	if !ok {
+		return nil, nil
+	}
+
+	size, err := resource.ParseQuantity(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s annotation: %w", v1.PCIHole64SizeAnnotation, err)
+	}
+
+	sizeKiB, err := hardware.PCIHole64SizeToKiB(size)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s annotation: %w", v1.PCIHole64SizeAnnotation, err)
+	}
+
+	return pointer.P(sizeKiB), nil
 }
 
 func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {

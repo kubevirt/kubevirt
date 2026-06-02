@@ -1037,6 +1037,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
 			compute.ControllersWithControllerDriver(controllerDriver),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
+			compute.ControllersWithSupportPCIHole64Sizing(c.Architecture.SupportPCIHole64Sizing()),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),

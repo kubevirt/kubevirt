@@ -73,6 +73,10 @@ func (converterS390X) SupportPCIHole64Disabling() bool {
 	return false
 }
 
+func (converterS390X) SupportPCIHole64Sizing() bool {
+	return false
+}
+
 func (converterS390X) SupportPCIePlacement() bool {
 	// s390x does not support PCIe topology features used in other architectures.
 	// Specifically:
