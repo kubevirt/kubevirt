@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -133,8 +134,15 @@ func ParseGuestPanicLogLine(line string) *api.GuestPanicInfo {
 // ReadPanicInfoFromLog reads the QEMU log file and extracts panic info.
 // It scans from the end of the file for efficiency since panics are typically logged last.
 func ReadPanicInfoFromLog(logPath string) (*api.GuestPanicInfo, error) {
-	file, err := os.Open(logPath)
+	logSafePath, err := safepath.NewPathNoFollow(logPath)
 	if err != nil {
+		return nil, fmt.Errorf("failed to open log file: %w", err)
+	}
+	var file *os.File
+	if err := logSafePath.ExecuteNoFollow(func(safePath string) (err error) {
+		file, err = os.Open(safePath)
+		return
+	}); err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
 	defer file.Close()
