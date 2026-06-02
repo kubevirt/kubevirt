@@ -462,6 +462,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.HypervTimer{}.OpenAPIModelName():                                                           schema_kubevirtio_api_core_v1_HypervTimer(ref),
 		corev1.HypervisorConfiguration{}.OpenAPIModelName():                                               schema_kubevirtio_api_core_v1_HypervisorConfiguration(ref),
 		corev1.I6300ESBWatchdog{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
+		corev1.InitData{}.OpenAPIModelName():                                                              schema_kubevirtio_api_core_v1_InitData(ref),
+		corev1.InitDataList{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_InitDataList(ref),
+		corev1.InitDataSpec{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_InitDataSpec(ref),
 		corev1.InitrdInfo{}.OpenAPIModelName():                                                            schema_kubevirtio_api_core_v1_InitrdInfo(ref),
 		corev1.Input{}.OpenAPIModelName():                                                                 schema_kubevirtio_api_core_v1_Input(ref),
 		corev1.InstancetypeConfiguration{}.OpenAPIModelName():                                             schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref),
@@ -21713,6 +21716,26 @@ func schema_kubevirtio_api_core_v1_Firmware(ref common.ReferenceCallback) common
 							Ref:         ref(corev1.ACPI{}.OpenAPIModelName()),
 						},
 					},
+					"oemStrings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "OEM Strings to be set in the SMBIOS",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -22258,6 +22281,145 @@ func schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref common.ReferenceCallback
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_InitData(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InitData carries launch-time attestation values for a confidential VMI. The spec is immutable after creation (complete-on-create).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(corev1.InitDataSpec{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ObjectMeta{}.OpenAPIModelName(), corev1.InitDataSpec{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_InitDataList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InitDataList is a list of InitData resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(corev1.InitData{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ListMeta{}.OpenAPIModelName(), corev1.InitData{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_InitDataSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InitDataSpec defines the launch-time values for a confidential VMI.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mrConfigId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64-encoded 48-byte TDX MR_CONFIG_ID digest. Mutually exclusive with HostData.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64-encoded 32-byte SEV-SNP HOST_DATA digest. Mutually exclusive with MRConfigId.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"oemStrings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Init-Data bytes delivered via SMBIOS Type 11.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"oemStrings"},
 			},
 		},
 	}
@@ -26014,6 +26176,15 @@ func schema_kubevirtio_api_core_v1_SEVSNP(ref common.ReferenceCallback) common.O
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"initDataRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the InitData CR that carries the launch-time values for this VMI. When set, virt-controller blocks virt-launcher pod creation until an InitData CR with this name exists in the VMI namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -26620,6 +26791,15 @@ func schema_kubevirtio_api_core_v1_TDX(ref common.ReferenceCallback) common.Open
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"initDataRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the InitData CR that carries the launch-time values for this VMI. When set, virt-controller blocks virt-launcher pod creation until an InitData CR with this name exists in the VMI namespace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

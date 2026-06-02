@@ -20,4 +20,6 @@ Copyright The KubeVirt Authors.
 
 package v1
 
+type InitDataExpansion interface{}
+
 type VirtualMachineInstancePresetExpansion interface{}

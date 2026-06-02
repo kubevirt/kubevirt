@@ -7,6 +7,7 @@ go_library(
         "core_client.go",
         "doc.go",
         "generated_expansion.go",
+        "initdata.go",
         "kubevirt.go",
         "kubevirt_expansion.go",
         "streamer.go",

@@ -62,3 +62,24 @@ func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 func IsTDXVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.TDX != nil
 }
+
+// HasInitDataRef returns the initDataRef name and true if the VMI requires
+// an InitData CR (either TDX or SEV-SNP). Returns ("", false) otherwise.
+func HasInitDataRef(vmi *v1.VirtualMachineInstance) (string, bool) {
+	if vmi.Spec.Domain.LaunchSecurity == nil {
+		return "", false
+	}
+	if tdx := vmi.Spec.Domain.LaunchSecurity.TDX; tdx != nil && tdx.InitDataRef != "" {
+		return tdx.InitDataRef, true
+	}
+	if snp := vmi.Spec.Domain.LaunchSecurity.SNP; snp != nil && snp.InitDataRef != "" {
+		return snp.InitDataRef, true
+	}
+	return "", false
+}
+
+// HasInitDataRefBool returns true if the VMI references an InitData CR.
+func HasInitDataRefBool(vmi *v1.VirtualMachineInstance) bool {
+	_, has := HasInitDataRef(vmi)
+	return has
+}

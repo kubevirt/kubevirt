@@ -164,6 +164,9 @@ type KubeInformerFactory interface {
 	// Watches Plugin objects
 	Plugin() cache.SharedIndexInformer
 
+	// Watches InitData objects
+	InitData() cache.SharedIndexInformer
+
 	// Watches VirtualMachineClone objects
 	VirtualMachineClone() cache.SharedIndexInformer
 
@@ -888,6 +891,13 @@ func (f *kubeInformerFactory) Plugin() cache.SharedIndexInformer {
 	return f.getInformer("pluginInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().PluginV1alpha1().RESTClient(), plugin.ResourcePluginPlural, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &pluginv1alpha1.Plugin{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) InitData() cache.SharedIndexInformer {
+	return f.getInformer("initDataInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().KubevirtV1().RESTClient(), "initdatas", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &v1.InitData{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

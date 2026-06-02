@@ -30,6 +30,7 @@ import (
 
 type KubevirtV1Interface interface {
 	RESTClient() rest.Interface
+	InitDatasGetter
 	KubeVirtsGetter
 	VirtualMachinesGetter
 	VirtualMachineInstancesGetter
@@ -41,6 +42,10 @@ type KubevirtV1Interface interface {
 // KubevirtV1Client is used to interact with features provided by the kubevirt.io group.
 type KubevirtV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *KubevirtV1Client) InitDatas(namespace string) InitDataInterface {
+	return newInitDatas(c, namespace)
 }
 
 func (c *KubevirtV1Client) KubeVirts(namespace string) KubeVirtInterface {

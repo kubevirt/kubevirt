@@ -604,6 +604,27 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InitData) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "InitData carries launch-time attestation values for a confidential VMI.\nThe spec is immutable after creation (complete-on-create).\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient",
+	}
+}
+
+func (InitDataSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "InitDataSpec defines the launch-time values for a confidential VMI.",
+		"mrConfigId": "Base64-encoded 48-byte TDX MR_CONFIG_ID digest. Mutually exclusive with HostData.\n+optional",
+		"hostData":   "Base64-encoded 32-byte SEV-SNP HOST_DATA digest. Mutually exclusive with MRConfigId.\n+optional",
+		"oemStrings": "Init-Data bytes delivered via SMBIOS Type 11.\n+listType=atomic",
+	}
+}
+
+func (InitDataList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "InitDataList is a list of InitData resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
 func (KubeVirtSelfSignConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"caRotateInterval":   "Deprecated. Use CA.Duration instead",

@@ -112,6 +112,12 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates or while we wait for PVCs to appear.")
 			return nil, pod
 		}
+		// ensure InitData CR is available before creating the pod
+		initData, initDataReady := c.getInitData(vmi)
+		if !initDataReady {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while InitData CR is not available.")
+			return nil, pod
+		}
 		// ensure the VMI doesn't have an unfinished migration before creating the pod
 		activeMigration, err := migrations.ActiveMigrationExistsForVMI(c.migrationIndexer, vmi)
 		if err != nil {
@@ -161,6 +167,9 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		} else if err != nil {
 			return common.NewSyncError(fmt.Errorf(services.FailedToRenderLaunchManifestErrFormat, err), controller.FailedCreatePodReason), pod
 		}
+
+		// Inject InitData values as environment variables into the pod
+		injectInitDataEnvVars(templatePod, initData)
 
 		var validateErrors []error
 		for _, cause := range c.validateNetworkSpec(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig) {
@@ -305,6 +314,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	}
 
 	aggregateDataVolumesConditions(vmiCopy, dataVolumes)
+	updateInitDataCondition(vmi, vmiCopy, c.initDataIndexer, c.clusterConfig)
 
 	if pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi); pvc != nil {
 		c.backendStorage.UpdateVolumeStatus(vmiCopy, pvc)

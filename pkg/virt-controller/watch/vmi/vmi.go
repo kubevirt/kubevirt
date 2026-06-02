@@ -77,6 +77,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 	vsockCIDAllocator vsockAllocator,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
+	initDataInformer cache.SharedIndexInformer,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -106,13 +107,14 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		netMigrationEvaluator:             netMigrationEvaluator,
 		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
 		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
+		initDataIndexer:                   initDataInformer.GetIndexer(),
 	}
 
 	c.hasSynced = func() bool {
 		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
 			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
-			kubeVirtInformer.HasSynced()
+			kubeVirtInformer.HasSynced() && initDataInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -152,6 +154,14 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 
 	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateKubeVirt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = initDataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addInitData,
+		DeleteFunc: c.deleteInitData,
 	})
 	if err != nil {
 		return nil, err
@@ -242,6 +252,7 @@ type Controller struct {
 	netMigrationEvaluator             migrationEvaluator
 	additionalLauncherAnnotationsSync []string
 	additionalLauncherLabelsSync      []string
+	initDataIndexer                   cache.Indexer
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {

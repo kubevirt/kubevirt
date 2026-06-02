@@ -30,6 +30,10 @@ type FakeKubevirtV1 struct {
 	*testing.Fake
 }
 
+func (c *FakeKubevirtV1) InitDatas(namespace string) v1.InitDataInterface {
+	return newFakeInitDatas(c, namespace)
+}
+
 func (c *FakeKubevirtV1) KubeVirts(namespace string) v1.KubeVirtInterface {
 	return newFakeKubeVirts(c, namespace)
 }

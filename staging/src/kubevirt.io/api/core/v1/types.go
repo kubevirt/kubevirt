@@ -733,6 +733,9 @@ const (
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
 
+	// Indicates whether the InitData CR referenced by the VMI is available
+	VirtualMachineInstanceInitDataReady VirtualMachineInstanceConditionType = "InitDataReady"
+
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
 
@@ -781,6 +784,10 @@ const (
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and ready
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
+	// Reason means that the InitData CR is resolved and ready
+	VirtualMachineInstanceReasonInitDataReady = "InitDataReady"
+	// Reason means that the InitData CR was not found
+	VirtualMachineInstanceReasonInitDataNotFound = "InitDataNotFound"
 	// Indicates a generic reason that the VMI isn't migratable and more details are specified in the condition message.
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
@@ -1484,6 +1491,17 @@ const (
 	// return immediate success without contacting the QEMU guest agent.
 	// Remove the annotation (or set to a falsy value) to resume normal probe behavior.
 	PauseGuestAgentProbesAnnotation string = "kubevirt.io/pause-guest-agent-probes"
+	// InitDataMRConfigIdEnvVar is the env var carrying the base64-encoded TDX
+	// MR_CONFIG_ID digest read from the InitData CR by virt-controller.
+	InitDataMRConfigIdEnvVar = "INITDATA_MRCONFIGID"
+
+	// InitDataHostDataEnvVar is the env var carrying the base64-encoded
+	// SEV-SNP HOST_DATA digest read from the InitData CR by virt-controller.
+	InitDataHostDataEnvVar = "INITDATA_HOSTDATA"
+
+	// InitDataOEMStringsEnvVar is the env var carrying the JSON-encoded
+	// []string of OEM strings read from the InitData CR by virt-controller.
+	InitDataOEMStringsEnvVar = "INITDATA_OEMSTRINGS"
 
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
@@ -2491,6 +2509,39 @@ type KubeVirtList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KubeVirt `json:"items"`
+}
+
+// InitData carries launch-time attestation values for a confidential VMI.
+// The spec is immutable after creation (complete-on-create).
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +genclient
+type InitData struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              InitDataSpec `json:"spec"`
+}
+
+// InitDataSpec defines the launch-time values for a confidential VMI.
+type InitDataSpec struct {
+	// Base64-encoded 48-byte TDX MR_CONFIG_ID digest. Mutually exclusive with HostData.
+	// +optional
+	MRConfigId string `json:"mrConfigId,omitempty"`
+	// Base64-encoded 32-byte SEV-SNP HOST_DATA digest. Mutually exclusive with MRConfigId.
+	// +optional
+	HostData string `json:"hostData,omitempty"`
+	// Init-Data bytes delivered via SMBIOS Type 11.
+	// +listType=atomic
+	OEMStrings []string `json:"oemStrings"`
+}
+
+// InitDataList is a list of InitData resources.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type InitDataList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []InitData `json:"items"`
 }
 
 type KubeVirtSelfSignConfiguration struct {

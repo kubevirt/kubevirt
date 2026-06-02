@@ -190,6 +190,8 @@ type VirtControllerApp struct {
 	cdiInformer            cache.SharedIndexInformer
 	cdiConfigInformer      cache.SharedIndexInformer
 
+	initDataInformer cache.SharedIndexInformer
+
 	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
 
@@ -439,6 +441,8 @@ func Execute() {
 		app.storageProfileInformer = app.informerFactory.DummyStorageProfile()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
+
+	app.initDataInformer = app.informerFactory.InitData()
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
 	if err != nil {
@@ -760,6 +764,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vsock.NewCIDsMap(),
 		vca.additionalLauncherAnnotationsSync,
 		vca.additionalLauncherLabelsSync,
+		vca.initDataInformer,
 	)
 	if err != nil {
 		panic(err)

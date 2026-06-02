@@ -504,6 +504,21 @@ func (in I6300ESBWatchdog) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in InitData) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.InitData"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in InitDataList) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.InitDataList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in InitDataSpec) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.InitDataSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in InitrdInfo) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.InitrdInfo"
 }

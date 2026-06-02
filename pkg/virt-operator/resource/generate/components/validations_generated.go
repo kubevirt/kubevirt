@@ -636,6 +636,53 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"initdata": `openAPIV3Schema:
+  description: |-
+    InitData carries launch-time attestation values for a confidential VMI.
+    The spec is immutable after creation (complete-on-create).
+  properties:
+    apiVersion:
+      description: |-
+        APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      type: string
+    kind:
+      description: |-
+        Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated.
+        In CamelCase.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: InitDataSpec defines the launch-time values for a confidential
+        VMI.
+      properties:
+        hostData:
+          description: Base64-encoded 32-byte SEV-SNP HOST_DATA digest. Mutually exclusive
+            with MRConfigId.
+          type: string
+        mrConfigId:
+          description: Base64-encoded 48-byte TDX MR_CONFIG_ID digest. Mutually exclusive
+            with HostData.
+          type: string
+        oemStrings:
+          description: Init-Data bytes delivered via SMBIOS Type 11.
+          items:
+            type: string
+          type: array
+          x-kubernetes-list-type: atomic
+      required:
+      - oemStrings
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"kubevirt": `openAPIV3Schema:
   description: KubeVirt represents the object deploying all KubeVirt resources
   properties:
@@ -8610,6 +8657,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 boot time
                               type: string
                           type: object
+                        oemStrings:
+                          description: OEM Strings to be set in the SMBIOS
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -8665,9 +8718,23 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          properties:
+                            initDataRef:
+                              description: |-
+                                Name of the InitData CR that carries the launch-time values for this VMI.
+                                When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                with this name exists in the VMI namespace.
+                              type: string
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
+                          properties:
+                            initDataRef:
+                              description: |-
+                                Name of the InitData CR that carries the launch-time values for this VMI.
+                                When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                with this name exists in the VMI namespace.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -11377,9 +11444,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
           type: object
         memory:
@@ -12135,9 +12216,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
           type: object
         preferredSubdomain:
@@ -14811,6 +14906,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Arguments to be passed to the kernel at boot time
                       type: string
                   type: object
+                oemStrings:
+                  description: OEM Strings to be set in the SMBIOS
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -14865,9 +14966,23 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  properties:
+                    initDataRef:
+                      description: |-
+                        Name of the InitData CR that carries the launch-time values for this VMI.
+                        When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                        with this name exists in the VMI namespace.
+                      type: string
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
+                  properties:
+                    initDataRef:
+                      description: |-
+                        Name of the InitData CR that carries the launch-time values for this VMI.
+                        When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                        with this name exists in the VMI namespace.
+                      type: string
                   type: object
               type: object
             machine:
@@ -19027,6 +19142,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Arguments to be passed to the kernel at boot time
                       type: string
                   type: object
+                oemStrings:
+                  description: OEM Strings to be set in the SMBIOS
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -19081,9 +19202,23 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  properties:
+                    initDataRef:
+                      description: |-
+                        Name of the InitData CR that carries the launch-time values for this VMI.
+                        When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                        with this name exists in the VMI namespace.
+                      type: string
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
+                  properties:
+                    initDataRef:
+                      description: |-
+                        Name of the InitData CR that carries the launch-time values for this VMI.
+                        When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                        with this name exists in the VMI namespace.
+                      type: string
                   type: object
               type: object
             machine:
@@ -21633,6 +21768,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 boot time
                               type: string
                           type: object
+                        oemStrings:
+                          description: OEM Strings to be set in the SMBIOS
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -21688,9 +21829,23 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          properties:
+                            initDataRef:
+                              description: |-
+                                Name of the InitData CR that carries the launch-time values for this VMI.
+                                When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                with this name exists in the VMI namespace.
+                              type: string
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
+                          properties:
+                            initDataRef:
+                              description: |-
+                                Name of the InitData CR that carries the launch-time values for this VMI.
+                                When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                with this name exists in the VMI namespace.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -23280,9 +23435,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
           type: object
         memory:
@@ -26825,6 +26994,12 @@ var CRDsValidation map[string]string = map[string]string{
                                         at boot time
                                       type: string
                                   type: object
+                                oemStrings:
+                                  description: OEM Strings to be set in the SMBIOS
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
                                 serial:
                                   description: The system-serial-number in SMBIOS
                                   type: string
@@ -26883,9 +27058,23 @@ var CRDsValidation map[string]string = map[string]string{
                                 snp:
                                   description: AMD SEV-SNP flags defined by the SEV-SNP
                                     specifications.
+                                  properties:
+                                    initDataRef:
+                                      description: |-
+                                        Name of the InitData CR that carries the launch-time values for this VMI.
+                                        When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                        with this name exists in the VMI namespace.
+                                      type: string
                                   type: object
                                 tdx:
                                   description: Intel Trust Domain Extensions (TDX).
+                                  properties:
+                                    initDataRef:
+                                      description: |-
+                                        Name of the InitData CR that carries the launch-time values for this VMI.
+                                        When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                        with this name exists in the VMI namespace.
+                                      type: string
                                   type: object
                               type: object
                             machine:
@@ -28961,9 +29150,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
+              properties:
+                initDataRef:
+                  description: |-
+                    Name of the InitData CR that carries the launch-time values for this VMI.
+                    When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                    with this name exists in the VMI namespace.
+                  type: string
               type: object
           type: object
         preferredSubdomain:
@@ -32513,6 +32716,12 @@ var CRDsValidation map[string]string = map[string]string{
                                             kernel at boot time
                                           type: string
                                       type: object
+                                    oemStrings:
+                                      description: OEM Strings to be set in the SMBIOS
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
                                     serial:
                                       description: The system-serial-number in SMBIOS
                                       type: string
@@ -32571,9 +32780,23 @@ var CRDsValidation map[string]string = map[string]string{
                                     snp:
                                       description: AMD SEV-SNP flags defined by the
                                         SEV-SNP specifications.
+                                      properties:
+                                        initDataRef:
+                                          description: |-
+                                            Name of the InitData CR that carries the launch-time values for this VMI.
+                                            When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                            with this name exists in the VMI namespace.
+                                          type: string
                                       type: object
                                     tdx:
                                       description: Intel Trust Domain Extensions (TDX).
+                                      properties:
+                                        initDataRef:
+                                          description: |-
+                                            Name of the InitData CR that carries the launch-time values for this VMI.
+                                            When set, virt-controller blocks virt-launcher pod creation until an InitData CR
+                                            with this name exists in the VMI namespace.
+                                          type: string
                                       type: object
                                   type: object
                                 machine:

@@ -87,6 +87,9 @@ const (
 	// FailedPvcNotFoundReason is added in an event
 	// when a PVC for a volume was not found.
 	FailedPvcNotFoundReason = "FailedPvcNotFound"
+	// InitDataNotFoundReason is added in an event
+	// when the InitData CR referenced by a VMI does not exist yet.
+	InitDataNotFoundReason = "InitDataNotFound"
 	// SuccessfulMigrationReason is added when a migration attempt completes successfully
 	SuccessfulMigrationReason = "SuccessfulMigration"
 	// FailedMigrationReason is added when a migration attempt fails

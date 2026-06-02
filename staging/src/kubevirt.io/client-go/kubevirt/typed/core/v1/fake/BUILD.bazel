@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "fake_core_client.go",
+        "fake_initdata.go",
         "fake_kubevirt.go",
         "fake_kubevirt_expansion.go",
         "fake_virtualmachine.go",
