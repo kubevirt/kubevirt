@@ -69,7 +69,7 @@ func (c *Configurator) SetDriverCacheMode(disk *api.Disk) error {
 	supportDirectIO := true
 	mode := v1.DriverCache(disk.Driver.Cache)
 
-	if mode == "" || mode == v1.CacheNone {
+	if mode == "" || mode == v1.CacheNone || mode == v1.CacheDirectSync {
 		if t.BackendIsBlock() {
 			supportDirectIO, err = c.ioChecker.CheckBlockDevice(t.BackendPath())
 		} else {
@@ -94,7 +94,7 @@ func (c *Configurator) SetDriverCacheMode(disk *api.Disk) error {
 		}
 	}
 
-	if mode == v1.CacheNone && !supportDirectIO {
+	if (mode == v1.CacheNone || mode == v1.CacheDirectSync) && !supportDirectIO {
 		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, t.BackendPath())
 	}
 
@@ -125,7 +125,8 @@ func (c *Configurator) SetOptimalIOMode(d *api.Disk) {
 		return
 	}
 
-	if v1.DriverCache(d.Driver.Cache) == v1.CacheNone {
+	cacheMode := v1.DriverCache(d.Driver.Cache)
+	if cacheMode == v1.CacheNone || cacheMode == v1.CacheDirectSync {
 		if ds.BackendIsBlock() || c.isFullyAllocated(ds.BackendPath()) {
 			d.Driver.IO = v1.IONative
 		}

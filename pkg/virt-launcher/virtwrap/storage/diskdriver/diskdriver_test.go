@@ -48,6 +48,18 @@ func (s *configurableIOChecker) CheckFile(_ string) (bool, error) {
 	return s.supportDirectIO, s.err
 }
 
+// perPathIOChecker reports direct I/O support per path, so a disk and its
+// backing file can be answered differently.
+type perPathIOChecker map[string]bool
+
+func (s perPathIOChecker) CheckBlockDevice(path string) (bool, error) {
+	return s[path], nil
+}
+
+func (s perPathIOChecker) CheckFile(path string) (bool, error) {
+	return s[path], nil
+}
+
 var _ = Describe("SetDriverCacheMode", func() {
 	newConfigurator := func(supportDirectIO bool, err error) *Configurator {
 		return &Configurator{ioChecker: &configurableIOChecker{supportDirectIO: supportDirectIO, err: err}}
@@ -77,15 +89,46 @@ var _ = Describe("SetDriverCacheMode", func() {
 		Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), true, nil),
 		Entry("return error without direct io", string(v1.CacheNone), "", false, nil),
 		Entry("return error on error", string(v1.CacheNone), "", false, fmt.Errorf("DirectIOChecker error")),
+		Entry("keep 'directsync' with direct io", string(v1.CacheDirectSync), string(v1.CacheDirectSync), true, nil),
+		Entry("return error for 'directsync' without direct io", string(v1.CacheDirectSync), "", false, nil),
+		Entry("return error for 'directsync' on error", string(v1.CacheDirectSync), "", false, fmt.Errorf("DirectIOChecker error")),
 		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), true, nil),
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), false, nil),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), false, fmt.Errorf("DirectIOChecker error")),
+		Entry("'writeback' with direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), true, nil),
+		Entry("'writeback' without direct io", string(v1.CacheWriteBack), string(v1.CacheWriteBack), false, nil),
 	)
 
 	It("should fail to set appropriate driver cache mode for a nil disk", func() {
 		configurator := newConfigurator(true, nil)
 		Expect(configurator.SetDriverCacheMode(nil)).To(MatchError("unable to set a driver cache mode, disk is nil"))
 	})
+
+	DescribeTable("should error when backing store does not support direct IO", func(cache string) {
+		disk := &api.Disk{
+			Driver: &api.DiskDriver{
+				Cache: cache,
+			},
+			Source: api.DiskSource{
+				File: "/images/disk.img",
+			},
+			BackingStore: &api.BackingStore{
+				Type: "file",
+				Source: &api.DiskSource{
+					File: "/backing/base.img",
+				},
+			},
+		}
+		configurator := &Configurator{ioChecker: perPathIOChecker{
+			"/images/disk.img":  true,
+			"/backing/base.img": false,
+		}}
+
+		Expect(configurator.SetDriverCacheMode(disk)).To(MatchError(ContainSubstring("direct I/O")))
+	},
+		Entry("with cache 'none'", string(v1.CacheNone)),
+		Entry("with cache 'directsync'", string(v1.CacheDirectSync)),
+	)
 
 	It("should check block device paths correctly", func() {
 		disk := &api.Disk{
@@ -153,6 +196,14 @@ var _ = Describe("SetOptimalIOMode", func() {
 		Entry("pre-allocated image without O_DIRECT",
 			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}},
 			v1.DriverIO(""), diskInfo(100, 100),
+		),
+		Entry("pre-allocated image with directsync",
+			&api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheDirectSync)}},
+			v1.IONative, diskInfo(100, 100),
+		),
+		Entry("block device with directsync",
+			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheDirectSync)}},
+			v1.IONative, diskInfoUnavailable,
 		),
 		Entry("block device with O_DIRECT",
 			&api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}},
