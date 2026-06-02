@@ -909,6 +909,15 @@ rules:
   - update
   - list
   - watch
+  - patch
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - initdatas
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
