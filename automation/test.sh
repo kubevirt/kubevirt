@@ -61,6 +61,11 @@ if [[ ! $TARGET =~ .*kind.* && ! $TARGET =~ .*emulated-igb.* ]]; then
   export KUBEVIRT_PSA="true"
 fi
 
+export KUBEVIRTCI_CONTAINER_SUFFIX=numa
+export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+export KUBEVIRTCI_CONTAINER_ORG=oshoval
+export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:numa2
+
 case "$TARGET" in
   *windows*)
     echo "picking the default provider for windows tests"
