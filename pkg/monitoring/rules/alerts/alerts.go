@@ -80,6 +80,16 @@ func Register(registry *operatorrules.Registry, namespace string) error {
 	return registry.RegisterAlerts(allAlerts...)
 }
 
+func componentDownDescription(component, extra string) string {
+	return "{{ if $labels.pod }}" +
+		"Pod {{ $labels.pod }}" + extra +
+		" is unhealthy (reason: {{ $labels.reason }})." +
+		"{{ else }}" +
+		"No running " + component + " pods detected " +
+		"and no container waiting reasons reported." +
+		"{{ end }}"
+}
+
 func getRunbookURLTemplate() string {
 	runbookURLTemplate, exists := os.LookupEnv(runbookURLTemplateEnv)
 	if !exists {
@@ -91,17 +101,4 @@ func getRunbookURLTemplate() string {
 	}
 
 	return runbookURLTemplate
-}
-
-func getErrorRatio(ns, podName, errorCodeRegex string, durationInMinutes int) string {
-	errorRatioQuery := "sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  / " +
-		" sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
-	return fmt.Sprintf(errorRatioQuery, ns, podName, errorCodeRegex, durationInMinutes, ns, podName, durationInMinutes)
-}
-
-func getRestCallsFailedWarning(failingCallsPercentage int, component string, durationInMinutes int) string {
-	duration := fmt.Sprintf("%d minutes", durationInMinutes)
-
-	const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
-	return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
 }

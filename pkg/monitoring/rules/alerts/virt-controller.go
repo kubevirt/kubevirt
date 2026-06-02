@@ -30,13 +30,11 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "LowReadyVirtControllersCount",
-			Expr: intstr.FromString(
-				"cluster:kubevirt_virt_controller_ready:sum < cluster:kubevirt_virt_controller_pods_running:count " +
-					"and cluster:kubevirt_virt_controller_ready:sum > 0",
-			),
-			For: ptr.To(promv1.Duration("10m")),
+			Expr:  intstr.FromString(lowReadyAlertExpr(namespace, "controller")),
+			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "Some virt controllers are running but not ready.",
+				summaryAnnotationKey:     "Some virt controllers are running but not ready.",
+				descriptionAnnotationKey: "virt-controller pod {{ $labels.pod }} has been running but not ready for more than 10 minutes.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -45,7 +43,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtController",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_ready:sum == 0"),
+			Expr:  intstr.FromString(noReadyAlertExpr(namespace, "controller")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-controller was detected for the last 10 min.",
@@ -57,10 +55,11 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "VirtControllerDown",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_pods_running:count == 0"),
+			Expr:  intstr.FromString(componentDownExpr(namespace, "controller")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "No running virt-controller was detected for the last 10 min.",
+				summaryAnnotationKey:     "No running virt-controller was detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-controller", ""),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
