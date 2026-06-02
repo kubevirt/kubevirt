@@ -117,6 +117,24 @@ func IsSupportedContainerPathVolumeType(volume *k8sv1.Volume) bool {
 		vs.EmptyDir != nil
 }
 
+// ProjectedVolumeHasServiceAccountToken checks if a pod volume is a Projected volume
+// containing at least one ServiceAccountToken source.
+// On k8s 1.36+, projected SA token symlinks are owned by the pod's runAsUser instead
+// of root. Combined with the sticky bit on the mount directory, the guest kernel's
+// protected_symlinks feature blocks root from following these symlinks (EACCES).
+// Callers use this to decide whether virtiofsd needs --translate-uid.
+func ProjectedVolumeHasServiceAccountToken(volume *k8sv1.Volume) bool {
+	if volume == nil || volume.Projected == nil {
+		return false
+	}
+	for _, source := range volume.Projected.Sources {
+		if source.ServiceAccountToken != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // FindPodVolumeByName finds a volume in the pod spec by name.
 func FindPodVolumeByName(pod *k8sv1.Pod, name string) *k8sv1.Volume {
 	for i := range pod.Spec.Volumes {
