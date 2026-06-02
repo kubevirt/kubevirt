@@ -62,3 +62,15 @@ func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 func IsTDXVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.TDX != nil
 }
+
+// Check if a VMI spec requests TDX with attestation
+func IsTDXAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
+	if !IsTDXVMI(vmi) {
+		return false
+	}
+	// Check if TDX is configured before accessing Attestation
+	if vmi.Spec.Domain.LaunchSecurity.TDX == nil {
+		return false
+	}
+	return vmi.Spec.Domain.LaunchSecurity.TDX.Attestation != nil
+}
