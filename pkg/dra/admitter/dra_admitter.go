@@ -27,6 +27,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -39,6 +40,7 @@ type Validator struct {
 type DRAConfigChecker interface {
 	GPUsWithDRAGateEnabled() bool
 	HostDevicesWithDRAEnabled() bool
+	NetworkDevicesWithDRAGateEnabled() bool
 }
 
 func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, configChecker DRAConfigChecker) *Validator {
@@ -83,9 +85,15 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 	hdCauses, hdClaimNames, hdClaimRequestPairs := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices, checker)
 	causes = append(causes, hdCauses...)
 
+	var netClaimRequestPairs map[string]int
+	if checker.NetworkDevicesWithDRAGateEnabled() {
+		netClaimRequestPairs = vmispec.ExtractDRANetworkClaimRequestTuples(spec)
+	}
+
 	duplicateChecker := newPairDuplicateChecker()
 	causes = append(causes, duplicateChecker.mergeTupleSource("GPUs", gpuClaimRequestPairs, field.Child("domain", "devices", "gpus"))...)
 	causes = append(causes, duplicateChecker.mergeTupleSource("HostDevices", hdClaimRequestPairs, field.Child("domain", "devices", "hostDevices"))...)
+	causes = append(causes, duplicateChecker.mergeTupleSource("Networks", netClaimRequestPairs, field.Child("networks"))...)
 
 	allClaimNames := gpuClaimNames.Union(hdClaimNames)
 

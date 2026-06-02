@@ -19,7 +19,11 @@
 
 package vmispec
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"slices"
+
+	v1 "kubevirt.io/api/core/v1"
+)
 
 func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
 	for i := range networks {
@@ -56,7 +60,7 @@ func FilterNetworksSpec(nets []v1.Network, predicate func(i v1.Network) bool) []
 
 func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 	for i, network := range networks {
-		if !IsSecondaryMultusNetwork(network) {
+		if network.Pod != nil || (network.Multus != nil && network.Multus.Default) {
 			return &networks[i]
 		}
 	}
@@ -65,6 +69,34 @@ func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 
 func IsSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
+}
+
+func IsDRANetwork(net v1.Network) bool {
+	return net.NetworkSource.ResourceClaim != nil
+}
+
+func HasDRANetwork(networks []v1.Network) bool {
+	return slices.ContainsFunc(networks, IsDRANetwork)
+}
+
+// ExtractDRANetworkClaimRequestTuples returns the first network index
+// for each valid <claimName,requestName> tuple.
+func ExtractDRANetworkClaimRequestTuples(spec *v1.VirtualMachineInstanceSpec) map[string]int {
+	validPairFirstIndexByKey := map[string]int{}
+	for idx, net := range spec.Networks {
+		if !IsDRANetwork(net) ||
+			net.ResourceClaim.ClaimName == "" ||
+			net.ResourceClaim.RequestName == "" {
+			continue
+		}
+
+		key := net.ResourceClaim.ClaimName + "/" + net.ResourceClaim.RequestName
+		if _, exists := validPairFirstIndexByKey[key]; !exists {
+			validPairFirstIndexByKey[key] = idx
+		}
+	}
+
+	return validPairFirstIndexByKey
 }
 
 func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {

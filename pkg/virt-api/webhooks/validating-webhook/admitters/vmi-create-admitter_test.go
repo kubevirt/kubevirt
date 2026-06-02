@@ -1287,6 +1287,78 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
 		})
 
+		It("should reject duplicate claimName/requestName between DRA network and DRA GPU", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.GPUsWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name: "gpu1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "claim1",
+						RequestName: "vf",
+					},
+				},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "claim1", ResourceClaimName: pointer.P("claim1")},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName"))
+			Expect(causes[0].Message).To(ContainSubstring("between GPUs[0] and Networks[0]"))
+		})
+
+		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					Name: "hostdev1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "claim1",
+						RequestName: "vf",
+					},
+				},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "claim1", ResourceClaimName: pointer.P("claim1")},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName"))
+			Expect(causes[0].Message).To(ContainSubstring("between HostDevices[0] and Networks[0]"))
+		})
+
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
