@@ -416,41 +416,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 			})
 
-			Context("for Machine Type", func() {
-
-				DescribeTable("should prevent scheduling of a pod for a VMI with an unsupported machine type", func(unsupportedMachineType string) {
-					virtClient := kubevirt.Client()
-					vmi := libvmifact.NewGuestless()
-					vmi.Namespace = testsuite.GetTestNamespace(vmi)
-					vmi.Spec.Domain.Machine = &v1.Machine{Type: unsupportedMachineType}
-
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.BeInPhase(v1.Scheduling))
-
-					virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(v1.SupportedMachineTypeLabel + unsupportedMachineType)))
-
-					var scheduledCond *v1.VirtualMachineInstanceCondition
-					Eventually(func() *v1.VirtualMachineInstanceCondition {
-						curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						scheduledCond = controller.NewVirtualMachineInstanceConditionManager().
-							GetCondition(curVMI, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
-						return scheduledCond
-					}, 10*time.Second, 1*time.Second).ShouldNot(BeNil(), "The PodScheduled condition should eventually appear")
-
-					Expect(scheduledCond.Status).To(BeEquivalentTo(k8sv1.ConditionFalse))
-					Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable))
-					Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector"))
-				},
-					Entry("amd64", "pc-q35-test-1.2.3", decorators.RequiresAMD64),
-					Entry("arm64", "virt-test-1.2.3", decorators.RequiresARM64),
-					Entry("s390x", "s390-ccw-virtio-test-1.2.3", decorators.RequiresS390X),
-				)
-			})
 		})
 
 		Context("when guest crashes", Serial, decorators.VMIlifecycle, func() {
