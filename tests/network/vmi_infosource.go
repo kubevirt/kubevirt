@@ -21,10 +21,14 @@ package network
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -177,6 +181,119 @@ var _ = Describe(SIG("Infosource", func() {
 			Expect(vmi.Status.Interfaces).To(ConsistOf(expectedInterfaces))
 		})
 	})
+
+	Context("VMI with many interfaces guest only interfaces", func() {
+		const (
+			nadName                 = "test-nad"
+			secondaryNetworkName    = "secondary-net"
+			numGuestBridges         = 3
+			numGuestVethPairs       = 2
+			numGuestDummyInterfaces = 8
+			guestOnlyInterfaceLimit = 10
+		)
+
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, "br1")
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			cloudInitUserData := generateMultipleGuestOnlyInterfaceCloudInit(numGuestBridges, numGuestVethPairs, numGuestDummyInterfaces)
+
+			vmi = libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(cloudInitUserData)),
+			)
+
+			var err error
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(
+				matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		})
+
+		It("should correctly report interface status with limit", func() {
+			const linkStateUp = "up"
+
+			expectedInterfaces := []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					InfoSource: netvmispec.NewInfoSource(
+						netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent),
+					InterfaceName:    "eth0",
+					Name:             "default",
+					PodInterfaceName: namescheme.PrimaryPodInterfaceName,
+					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
+				},
+				{
+					InfoSource: netvmispec.NewInfoSource(
+						netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus),
+					InterfaceName:    "eth1",
+					Name:             secondaryNetworkName,
+					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryNetworkName),
+					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
+				},
+			}
+
+			for i := 0; i < numGuestBridges; i++ {
+				expectedInterfaces = append(expectedInterfaces, v1.VirtualMachineInstanceNetworkInterface{
+					InfoSource:    netvmispec.InfoSourceGuestAgent,
+					InterfaceName: fmt.Sprintf("br%d", i),
+					QueueCount:    network.UnknownInterfaceQueueCount,
+				})
+			}
+
+			for i := 0; i < numGuestVethPairs; i++ {
+				expectedInterfaces = append(expectedInterfaces, v1.VirtualMachineInstanceNetworkInterface{
+					InfoSource:    netvmispec.InfoSourceGuestAgent,
+					InterfaceName: fmt.Sprintf("veth%db", i),
+					QueueCount:    network.UnknownInterfaceQueueCount,
+				})
+				expectedInterfaces = append(expectedInterfaces, v1.VirtualMachineInstanceNetworkInterface{
+					InfoSource:    netvmispec.InfoSourceGuestAgent,
+					InterfaceName: fmt.Sprintf("veth%da", i),
+					QueueCount:    network.UnknownInterfaceQueueCount,
+				})
+			}
+
+			remainingGuestInterfaces := guestOnlyInterfaceLimit - numGuestBridges - (numGuestVethPairs * 2)
+			for i := 0; i < remainingGuestInterfaces; i++ {
+				expectedInterfaces = append(expectedInterfaces, v1.VirtualMachineInstanceNetworkInterface{
+					InfoSource:    netvmispec.InfoSourceGuestAgent,
+					InterfaceName: fmt.Sprintf("dummy%d", i),
+					QueueCount:    network.UnknownInterfaceQueueCount,
+				})
+			}
+
+			var matchers []gomegatypes.GomegaMatcher
+			for _, expected := range expectedInterfaces {
+				matchers = append(matchers, gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"InfoSource":       Equal(expected.InfoSource),
+					"InterfaceName":    Equal(expected.InterfaceName),
+					"Name":             Equal(expected.Name),
+					"PodInterfaceName": Equal(expected.PodInterfaceName),
+					"QueueCount":       Equal(expected.QueueCount),
+					"LinkState":        Equal(expected.LinkState),
+				}))
+			}
+
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return vmi.Status.Interfaces
+			}, 120*time.Second, 5*time.Second).Should(HaveExactElements(matchers))
+		})
+	})
 }))
 
 func dummyInterfaceExists(vmi *v1.VirtualMachineInstance) bool {
@@ -196,4 +313,33 @@ func manipulateGuestLinksScript(eth0NewMac, dummyInterfaceMac string) string {
 		"ip link set eth2 netns testns\n"
 
 	return "#!/bin/bash\n" + changeEth0Mac + createDummyInterface + moveEth2ToOtherNS
+}
+
+func generateMultipleGuestOnlyInterfaceCloudInit(numBridges, numVethPairs, numDummyInterfaces int) string {
+	var b strings.Builder
+
+	b.WriteString("#cloud-config\n")
+	b.WriteString("runcmd:\n")
+
+	for i := 0; i < numBridges; i++ {
+		name := fmt.Sprintf("br%d", i)
+		fmt.Fprintf(&b, "  - [ip, link, add, %s, type, bridge]\n", name)
+		fmt.Fprintf(&b, "  - [ip, link, set, %s, up]\n", name)
+	}
+
+	for i := 0; i < numVethPairs; i++ {
+		vethA := fmt.Sprintf("veth%da", i)
+		vethB := fmt.Sprintf("veth%db", i)
+		fmt.Fprintf(&b, "  - [ip, link, add, %s, type, veth, peer, name, %s]\n", vethA, vethB)
+		fmt.Fprintf(&b, "  - [ip, link, set, %s, up]\n", vethA)
+		fmt.Fprintf(&b, "  - [ip, link, set, %s, up]\n", vethB)
+	}
+
+	for i := 0; i < numDummyInterfaces; i++ {
+		name := fmt.Sprintf("dummy%d", i)
+		fmt.Fprintf(&b, "  - [ip, link, add, %s, type, dummy]\n", name)
+		fmt.Fprintf(&b, "  - [ip, link, set, %s, up]\n", name)
+	}
+
+	return b.String()
 }
