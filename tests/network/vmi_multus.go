@@ -148,17 +148,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		}, 6*time.Minute, 1*time.Second).Should(BeEmpty())
 	})
 
-	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
-		// Arbitrarily select one compute node in the cluster, on which it is possible to create a VMI
-		// (i.e. a schedulable node).
-		vmi := libvmifact.NewAlpine(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-		vmi.Spec.Domain.Devices.Interfaces = interfaces
-		vmi.Spec.Networks = networks
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		return vmi
-	}
-
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
 		const ptpGateway = ptpSubnetIP1
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
@@ -448,16 +437,14 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 			It("[test_id:1756]should report all interfaces in Status", decorators.WgS390x, func() {
-				interfaces := []v1.Interface{
-					*v1.DefaultMasqueradeNetworkInterface(),
-					linuxBridgeInterface,
-				}
-				networks := []v1.Network{
-					*v1.DefaultPodNetwork(),
-					linuxBridgeNetwork,
-				}
-
-				vmiOne := createVMIOnNode(interfaces, networks)
+				vmiOne := libvmifact.NewAlpine(
+					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+					libvmi.WithInterface(linuxBridgeInterface),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(&linuxBridgeNetwork),
+				)
+				vmiOne, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Create(context.Background(), vmiOne, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
@@ -470,8 +457,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					interfacesByName[ifc.Name] = ifc
 				}
 
-				for _, network := range networks {
-					ifc, isPresent := interfacesByName[network.Name]
+				for _, name := range []string{masqueradeIfaceName, linuxBridgeIfaceName} {
+					ifc, isPresent := interfacesByName[name]
 					Expect(isPresent).To(BeTrue())
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
