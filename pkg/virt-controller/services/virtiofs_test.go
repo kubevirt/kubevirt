@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -9,6 +11,7 @@ import (
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -127,5 +130,29 @@ var _ = Describe("virtiofs container", func() {
 		// Only the PVC volume should have a container, not the ContainerPath volume
 		Expect(containers).To(HaveLen(1))
 		Expect(containers[0].Name).To(Equal("virtiofs-pvc-volume"))
+	})
+
+	It("should translate UIDs for ServiceAccounts", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "sa-volume",
+			VolumeSource: v1.VolumeSource{
+				ServiceAccount: &v1.ServiceAccountVolumeSource{
+					ServiceAccountName: "default",
+				},
+			},
+		})
+
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "sa-volume",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		container := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(container).To(HaveLen(1))
+
+		mapUidToGuestRoot := fmt.Sprintf("--translate-uid=host:%d:0:1", util.NonRootUID)
+		Expect(container[0].Args).Should(ContainElement(mapUidToGuestRoot))
 	})
 })
