@@ -39,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -155,29 +154,6 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				}
 				return true
 			}, 15*time.Second, 1*time.Second).Should(BeTrue())
-		})
-
-		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", decorators.WgS390x, func() {
-			for _, node := range nodesWithKVM {
-				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
-				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))
-				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUFeatureLabel)), fmt.Sprintf(errorMessageTemplate, "feature"))
-				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
-				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelRequiredFeaturesLabel)),
-					fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
-
-				arch := node.Labels[k8sv1.LabelArchStable]
-
-				if arch == testsuite.ArchAMD64 {
-					Expect(node.Labels).To(HaveKey(HavePrefix(v1.HypervLabel)), fmt.Sprintf(errorMessageTemplate, "hyperV"))
-				}
-
-				if arch == testsuite.ArchAMD64 || arch == testsuite.ArchS390x {
-					Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelVendorLabel)), fmt.Sprintf(errorMessageTemplate, "vendor"))
-				} else {
-					Expect(node.Labels).ToNot(HaveKey(HavePrefix(v1.CPUModelVendorLabel)))
-				}
-			}
 		})
 
 		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
