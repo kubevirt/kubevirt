@@ -25,6 +25,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -768,6 +770,83 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(list.Items).To(HaveLen(1))
 			verifySecret(string(list.Items[0].Raw))
+		})
+	})
+
+	Context("dirHandler symlink safety", func() {
+		It("should serve files within the mount root", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(root, "hello.txt"), []byte("hello"), 0644)).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/hello.txt", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(Equal("hello"))
+		})
+
+		It("should block symlinks pointing outside the mount root", func() {
+			root := GinkgoT().TempDir()
+			outside := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(outside, "secret"), []byte("ESCAPED"), 0600)).To(Succeed())
+			Expect(os.Symlink(filepath.Join(outside, "secret"), filepath.Join(root, "escape-link"))).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/escape-link", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should allow symlinks that stay within the mount root", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.MkdirAll(filepath.Join(root, "subdir"), 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(root, "subdir", "data.txt"), []byte("internal"), 0644)).To(Succeed())
+			Expect(os.Symlink("subdir/data.txt", filepath.Join(root, "internal-link"))).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/internal-link", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(Equal("internal"))
+		})
+
+		It("should block path traversal via dot-dot segments", func() {
+			root := GinkgoT().TempDir()
+			outside := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(outside, "secret"), []byte("ESCAPED"), 0600)).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/../../"+filepath.Base(outside)+"/secret", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("ESCAPED"))
+		})
+
+		It("should block symlink to absolute path outside root", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.Symlink("/etc/hostname", filepath.Join(root, "host-link"))).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/host-link", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should serve the root directory listing", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(root, "file.txt"), []byte("content"), 0644)).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(ContainSubstring("file.txt"))
 		})
 	})
 })
