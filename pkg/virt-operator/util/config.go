@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"runtime"
 	"slices"
 	"sort"
 	"strconv"
@@ -505,7 +504,7 @@ func SetDefaultArchitecture(kv *v1.KubeVirt) {
 	} else {
 		// only set default architecture in status in the event that it has not been already set previously
 		if kv.Status.DefaultArchitecture == "" {
-			kv.Status.DefaultArchitecture = runtime.GOARCH
+			kv.Status.DefaultArchitecture = "amd64"
 		}
 	}
 }
