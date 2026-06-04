@@ -45,6 +45,7 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -342,11 +343,23 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	if err != nil {
 		return err
 	}
+
+	specVolumes := sets.New[string]()
+	for i := range vmi.Spec.Volumes {
+		specVolumes.Insert(vmi.Spec.Volumes[i].Name)
+	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
 			continue
 		}
+
+		if !specVolumes.Has(volumeStatus.Name) {
+			log.Log.Object(vmi).V(3).Infof("Skipping mount for volume %s: no longer in VMI spec", volumeStatus.Name)
+			continue
+		}
+
 		mountDirectory := false
 		if volumeStatus.MemoryDumpVolume != nil {
 			mountDirectory = true
