@@ -58,12 +58,14 @@ var _ = Describe("EFI environment detection", func() {
 			Expect(efiEnv.Bootable(secureBootEnabled, None)).To(Equal(SBBootable))
 			Expect(efiEnv.Bootable(secureBootEnabled, SEV)).To(BeFalse())
 			Expect(efiEnv.Bootable(secureBootEnabled, SNP)).To(BeFalse())
+			Expect(efiEnv.Bootable(secureBootEnabled, CCA)).To(BeFalse())
 			Expect(efiEnv.Bootable(!secureBootEnabled, None)).To(Equal(NoSBBootable))
 
 			if SBBootable {
 				Expect(efiEnv.EFICode(secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, codeSB)))
 				Expect(efiEnv.EFICode(secureBootEnabled, SEV)).ToNot(Equal(filepath.Join(ovmfPath, codeSB)))
 				Expect(efiEnv.EFICode(secureBootEnabled, SNP)).ToNot(Equal(filepath.Join(ovmfPath, codeSB)))
+				Expect(efiEnv.EFICode(secureBootEnabled, CCA)).ToNot(Equal(filepath.Join(ovmfPath, codeSB)))
 				Expect(efiEnv.EFIVars(secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, varsSB)))
 			}
 			if NoSBBootable {
@@ -153,5 +155,28 @@ var _ = Describe("EFI environment detection", func() {
 		// vars should always be ""
 		Expect(efiEnv.EFIVars(secureBootEnabled, TDX)).To(Equal(""))
 		Expect(efiEnv.EFIVars(!secureBootEnabled, TDX)).To(Equal(""))
+	})
+
+	It("CCA EFI Roms", func() {
+		ovmfPath := createEFIRoms(EFICodeAARCH64CCA)
+		defer os.RemoveAll(ovmfPath)
+
+		efiEnv := DetectEFIEnvironment("arm64", ovmfPath)
+		Expect(efiEnv).ToNot(BeNil())
+
+		Expect(efiEnv.Bootable(secureBootEnabled, CCA)).To(BeTrue())
+		Expect(efiEnv.Bootable(!secureBootEnabled, CCA)).To(BeTrue())
+		Expect(efiEnv.Bootable(secureBootEnabled, None)).To(BeFalse())
+		Expect(efiEnv.Bootable(!secureBootEnabled, None)).To(BeFalse())
+
+		codeCCA := filepath.Join(ovmfPath, EFICodeAARCH64CCA)
+		Expect(efiEnv.EFICode(secureBootEnabled, CCA)).To(Equal(codeCCA))
+		Expect(efiEnv.EFICode(!secureBootEnabled, CCA)).To(Equal(codeCCA))
+		Expect(efiEnv.EFICode(secureBootEnabled, None)).ToNot(Equal(codeCCA))
+		Expect(efiEnv.EFICode(!secureBootEnabled, None)).ToNot(Equal(codeCCA))
+
+		// vars should always be ""
+		Expect(efiEnv.EFIVars(secureBootEnabled, CCA)).To(Equal(""))
+		Expect(efiEnv.EFIVars(!secureBootEnabled, CCA)).To(Equal(""))
 	})
 })
