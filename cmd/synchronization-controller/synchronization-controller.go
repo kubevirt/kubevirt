@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/synchronization-controller"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -289,7 +290,9 @@ func (app *synchronizationControllerApp) runWithLeaderElection(synchronizationCo
 		TLSConfig: tlsConfig,
 		// Disable HTTP/2
 		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		ReadHeaderTimeout: util.DefaultReadHeaderTimeout,
+		IdleTimeout:       util.DefaultIdleTimeout,
 	}
 
 	go func() {

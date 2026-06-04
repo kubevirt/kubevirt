@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +40,12 @@ const (
 	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
 	ENV_VAR_VIRTIOFSD_DEBUG_LOGS        = "VIRTIOFSD_DEBUG_LOGS"
 	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+
+	// HTTP server timeout defaults for all KubeVirt components.
+	// ReadHeaderTimeout limits the time to read request headers (mitigates slowloris).
+	// IdleTimeout limits how long idle keep-alive connections remain open.
+	DefaultReadHeaderTimeout = 10 * time.Second
+	DefaultIdleTimeout       = 60 * time.Second
 )
 
 // Check if a VMI spec requests GPU

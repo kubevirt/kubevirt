@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -285,9 +286,11 @@ func (s *exportServer) buildServer() *http.Server {
 	}
 
 	return &http.Server{
-		Addr:      s.ListenAddr,
-		Handler:   rootHandler,
-		TLSConfig: tlsConfig,
+		Addr:              s.ListenAddr,
+		Handler:           rootHandler,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: util.DefaultReadHeaderTimeout,
+		IdleTimeout:       util.DefaultIdleTimeout,
 	}
 }
 

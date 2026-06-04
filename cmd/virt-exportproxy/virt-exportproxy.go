@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -98,7 +99,9 @@ func (app *exportProxyApp) Run() {
 		TLSConfig: appTLSConfig,
 		// Disable HTTP/2
 		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		ReadHeaderTimeout: util.DefaultReadHeaderTimeout,
+		IdleTimeout:       util.DefaultIdleTimeout,
 	}
 
 	if err := server.ListenAndServeTLS("", ""); err != nil {

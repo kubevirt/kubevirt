@@ -1113,7 +1113,9 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 		TLSConfig: app.tlsConfig,
 		// Disable HTTP/2
 		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		ReadHeaderTimeout: util.DefaultReadHeaderTimeout,
+		IdleTimeout:       util.DefaultIdleTimeout,
 	}
 
 	// start TLS server
