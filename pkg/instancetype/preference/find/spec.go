@@ -39,7 +39,11 @@ type specFinder struct {
 	revisionFinder          *revisionFinder
 }
 
-func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *specFinder {
+func NewSpecFinder(
+	store, clusterStore, revisionStore cache.Store,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
+) *specFinder {
 	return &specFinder{
 		preferenceFinder:        NewPreferenceFinder(store, virtClient),
 		clusterPreferenceFinder: NewClusterPreferenceFinder(clusterStore, virtClient),
