@@ -103,6 +103,10 @@ func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionSEV)
 }
 
+func (config *ClusterConfig) WorkloadEncryptionCCAEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionCCA)
+}
+
 func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
 }

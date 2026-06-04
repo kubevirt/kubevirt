@@ -996,6 +996,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
 			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			network.WithUseLaunchSecurityCCA(c.UseLaunchSecurityCCA),
 			network.WithROMTuningSupport(c.Architecture.IsROMTuningSupported()),
 			network.WithVirtioModel(virtioModel),
 		),

@@ -63,6 +63,7 @@ type ConverterContext struct {
 	UseLaunchSecuritySEV            bool // For AMD SEV/ES/SNP
 	UseLaunchSecurityTDX            bool // For Intel TDX
 	UseLaunchSecurityPV             bool // For IBM SE(s390-pv)
+	UseLaunchSecurityCCA            bool // For ARM CCA
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool

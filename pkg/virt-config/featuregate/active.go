@@ -47,6 +47,7 @@ const (
 	// Alpha: v0.49.0
 	// Beta: v1.9.0
 	WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
+	WorkloadEncryptionCCA = "WorkloadEncryptionCCA"
 	WorkloadEncryptionTDX = "WorkloadEncryptionTDX"
 	VSOCKGate             = "VSOCK"
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
@@ -301,7 +302,8 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionCCA, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
