@@ -498,6 +498,11 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 				volumeStatus.Phase = v1.HotplugVolumeMounted
 				volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
 				volumeStatus.Reason = VolumeMountedToPodReason
+			} else if _, ok := specVolumeMap[volumeStatus.Name]; !ok {
+				// Volume is mounted but no longer in spec. This is a transient state
+				// that should resolve once Unmount() cleans up the stale mount.
+				// Re-queue (needsRefresh is already true) to check again soon.
+				c.logger.Object(vmi).V(3).Infof("Volume %s is mounted but no longer in spec, waiting for unmount to clean up", volumeStatus.Name)
 			}
 		} else {
 			// Not mounted, check if the volume is in the spec, if not update status
