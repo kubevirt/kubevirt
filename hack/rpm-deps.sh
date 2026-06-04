@@ -106,11 +106,15 @@ testimage_x86_64="
 if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
     testimage_aarch64=""
     testimage_s390x=""
+    testimage_ppc64le=""
 else
     testimage_aarch64="
   sevctl
 "
     testimage_s390x="
+  sevctl
+"
+    testimage_ppc64le="
   sevctl
 "
 fi
@@ -168,6 +172,11 @@ launcherbase_s390x="
   qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
   qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}
 "
+launcherbase_ppc64le="
+  edk2-ovmf-${EDK2_VERSION}
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+"
 launcherbase_extra="
   findutils
   nftables
@@ -209,6 +218,9 @@ libguestfstools_x86_64="
 
 libguestfstools_s390x="
   edk2-ovmf-${EDK2_VERSION}
+"
+libguestfstools_ppc64le="
+  libguestfs-tools-c
 "
 libguestfstools_extra="
   selinux-policy
@@ -672,6 +684,164 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         --config=${CS_CONFIG} \
         //rpm:ldd_libnbd_s390x${TARGET_SUFFIX}
+
+    # Note: sandbox regeneration is done separately
+fi
+
+if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "ppc64le" ]; then
+    # create a rpmtree for our test image
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name testimage_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $testimage_main \
+        $testimage_ppc64le
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libvirt-devel_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libvirtdevel_main \
+        $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sandboxroot_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name launcherbase_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $launcherbase_main \
+        $launcherbase_ppc64le \
+        $launcherbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name handlerbase_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $handlerbase_main \
+        $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libguestfs-tools_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        $centos_main \
+        $centos_extra \
+        $libguestfstools_main \
+        $libguestfstools_ppc64le \
+        $libguestfstools_extra \
+        ${bazeldnf_repos} \
+        --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
+        --force-ignore-with-dependencies '^(man-db|mandoc)' \
+        --force-ignore-with-dependencies '^dbus'
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $pr_helper
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_ppc64le${TARGET_SUFFIX} --arch ppc64le \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim_main
+
+    # remove all RPMs which are no longer referenced by a rpmtree
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- prune
+
+    # update tar2files targets which act as an adapter between rpms
+    # and cc_library which we need for virt-launcher and virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_ppc64le${TARGET_SUFFIX}
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_ppc64le${TARGET_SUFFIX}
 
     # Note: sandbox regeneration is done separately
 fi

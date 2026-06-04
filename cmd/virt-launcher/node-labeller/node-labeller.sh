@@ -19,6 +19,8 @@ if [ "$ARCH" == "aarch64" ]; then
   MACHINE=virt
 elif [ "$ARCH" == "s390x" ]; then
   MACHINE=s390-ccw-virtio
+elif [ "$ARCH" == "ppc64le" ]; then
+  MACHINE=pseries-rhel10.0.0
 elif [ "$ARCH" != "x86_64" ]; then
   exit 0
 fi
@@ -46,6 +48,9 @@ if [ -e /dev/sev ]; then
 fi
 
 virtqemud -d
+
+# Set the libvirt URI so virsh can connect to the daemon
+export LIBVIRT_DEFAULT_URI="qemu:///system"
 
 virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
