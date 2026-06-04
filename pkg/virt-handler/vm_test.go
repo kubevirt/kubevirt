@@ -1663,6 +1663,38 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Entry("When current phase is bound for hotplug volume", v1.HotplugVolumeAttachedToNode),
 			)
 
+			DescribeTable("should not change phase when volume is mounted but not in spec", func(currentPhase v1.VolumePhase) {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				// Volume is NOT in spec (simulates RemoveVolume having been called)
+				vmi.Spec.Volumes = []v1.Volume{}
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:    "test",
+					Phase:   currentPhase,
+					Reason:  "reason",
+					Message: "message",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+				})
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				addVMI(vmi, domain)
+				// IsMounted returns true — block device still exists on host
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
+				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
+				Expect(hasHotplug).To(BeTrue())
+				// Phase should NOT change — we wait for Unmount() to clean up the
+				// block device before advancing to avoid breaking the safety invariant
+				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(currentPhase))
+			},
+				Entry("When current phase is VolumeReady", v1.VolumeReady),
+				Entry("When current phase is HotplugVolumeMounted", v1.HotplugVolumeMounted),
+				Entry("When current phase is HotplugVolumeAttachedToNode", v1.HotplugVolumeAttachedToNode),
+			)
+
 			DescribeTable("should generate an unmount event for cdrom when appropriate", func(source string) {
 				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
