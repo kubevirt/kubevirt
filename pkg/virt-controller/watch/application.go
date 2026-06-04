@@ -941,6 +941,7 @@ func (vca *VirtControllerApp) initExportController() {
 		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
 		ControllerRevisionInformer:  vca.controllerRevisionInformer,
 		VMBackupInformer:            vca.vmBackupInformer,
+		VMBackupTrackerInformer:     vca.vmBackupTrackerInformer,
 		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
 	}
 	if err := vca.exportController.Init(); err != nil {
