@@ -25,10 +25,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 )
 
-func MergeParameters(tplParams []v1alpha1.Parameter, params map[string]string) ([]v1alpha1.Parameter, error) {
+func MergeParameters(tplParams []v1beta1.Parameter, params map[string]string) ([]v1beta1.Parameter, error) {
 	newTplParams := slices.Clone(tplParams)
 	for k, v := range params {
 		found := false
@@ -49,7 +49,7 @@ func MergeParameters(tplParams []v1alpha1.Parameter, params map[string]string) (
 // ValidateParameterReferences validates that all defined parameters are referenced
 // in the template and that all referenced parameters are defined.
 // Returns warnings for unused parameters and errors for undefined parameter references.
-func ValidateParameterReferences(tpl *v1alpha1.VirtualMachineTemplate) ([]string, field.ErrorList) {
+func ValidateParameterReferences(tpl *v1beta1.VirtualMachineTemplate) ([]string, field.ErrorList) {
 	obj, err := getVirtualMachineObject(&tpl.Spec)
 	if err != nil {
 		return nil, field.ErrorList{err}
