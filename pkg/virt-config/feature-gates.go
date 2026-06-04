@@ -228,3 +228,11 @@ func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VMStatsCollector)
 }
+
+func (config *ClusterConfig) GraceIOVirtualizationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.GraceIOVirtualization)
+}
+
+func (config *ClusterConfig) IOMMUFDEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.IOMMUFDGate)
+}

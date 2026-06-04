@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -300,8 +301,8 @@ var _ = Describe("Hardware utils test", func() {
 				CPU: api.CPU{
 					NUMA: &api.NUMA{
 						Cells: []api.NUMACell{
-							{ID: "0", CPUs: "0-3", Memory: 2048, Unit: "MiB"},
-							{ID: "1", CPUs: "4-7", Memory: 2048, Unit: "MiB"},
+							{ID: "0", CPUs: "0-3", Memory: ptr.To(uint64(2048)), Unit: "MiB"},
+							{ID: "1", CPUs: "4-7", Memory: ptr.To(uint64(2048)), Unit: "MiB"},
 						},
 					},
 				},
@@ -319,8 +320,8 @@ var _ = Describe("Hardware utils test", func() {
 				CPU: api.CPU{
 					NUMA: &api.NUMA{
 						Cells: []api.NUMACell{
-							{ID: "0", CPUs: "0-3", Memory: 2048, Unit: "MiB"},
-							{ID: "1", CPUs: "4-7", Memory: 2048, Unit: "MiB"},
+							{ID: "0", CPUs: "0-3", Memory: ptr.To(uint64(2048)), Unit: "MiB"},
+							{ID: "1", CPUs: "4-7", Memory: ptr.To(uint64(2048)), Unit: "MiB"},
 						},
 					},
 				},

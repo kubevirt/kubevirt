@@ -229,6 +229,18 @@ const (
 	// (frequent/medium/infrequent tiers) that collect raw monitoring data
 	// for the GetVMStats gRPC RPC.
 	VMStatsCollector = "VMStatsCollector"
+
+	// Owner: sig-compute / @fanzhangio
+	// Alpha: v1.9.0
+	//
+	// GraceIOVirtualization enables admission for NVIDIA Grace GPU passthrough.
+	GraceIOVirtualization = "GraceIOVirtualization"
+
+	// Owner: sig-compute / @fossedihelm
+	// Alpha: v1.9.0
+	//
+	// IOMMUFD enables the use of IOMMUFD device plugin for passthrough devices.
+	IOMMUFDGate = "IOMMUFD"
 )
 
 func init() {
@@ -273,4 +285,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 }
