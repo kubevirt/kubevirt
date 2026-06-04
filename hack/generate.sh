@@ -150,7 +150,7 @@ deepcopy-gen \
     GOFLAGS= controller-gen crd paths=../api/pool/v1beta1/
 
     #include migrations
-    GOFLAGS= controller-gen crd paths=../api/migrations/v1alpha1/
+    GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=../api/migrations/v1alpha1/
 
     #include clone
     GOFLAGS= controller-gen crd paths=../api/clone/v1alpha1/

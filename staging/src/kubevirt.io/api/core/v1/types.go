@@ -998,7 +998,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
-	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
+	VMIMConfigurationOptions *VMIMConfigurationOptions `json:"migrationConfiguration,omitempty"`
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic
@@ -3350,19 +3350,84 @@ type TLSConfiguration struct {
 	Ciphers []string `json:"ciphers,omitempty"`
 }
 
-// MigrationConfiguration holds migration options.
-// Can be overridden for specific groups of VMs though migration policies.
-// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
-type MigrationConfiguration struct {
-	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
-	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
-	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
-	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
-	// allowed per node. Defaults to 2
-	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
-	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
-	// allowed cluster-wide. Defaults to 5
-	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+type StallDetectorOptions struct {
+	// StallMargin is the fractional tolerance used when comparing remaining migration bytes
+	// against the best observed value to detect stalls and local minima. A stall is reported
+	// when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+	// Defaults to 0.04.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=1
+	//+optional
+	StallMargin *float64 `json:"stallMargin,omitempty"`
+	// EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+	// observed migration bandwidth. Higher values weight recent samples more heavily.
+	// Defaults to 0.4.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=1
+	//+kubebuilder:validation:ExclusiveMinimum=true
+	//+optional
+	EwmaAlpha *float64 `json:"ewmaAlpha,omitempty"`
+	// StallProgressTimeout is the duration in seconds of the sliding window used to track
+	// minimum remaining-bytes and detect when migration progress has stalled.
+	// Defaults to 40.
+	//+optional
+	StallProgressTimeout *uint64 `json:"stallProgressTimeout,omitempty"`
+	// SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+	// switchover to complete after being triggered before the migration is aborted.
+	// Defaults to 60.
+	//+optional
+	SwitchoverTimeout *uint64 `json:"switchoverTimeout,omitempty"`
+	// PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+	// MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+	// Defaults to 1.5.
+	//+kubebuilder:validation:Minimum=1
+	//+optional
+	PrecopyPossibleFactor *float64 `json:"precopyPossibleFactor,omitempty"`
+	// PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+	// multiplied after each best-remaining-bytes relaxation step.
+	// Defaults to 0.5.
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:Maximum=1
+	//+optional
+	PatienceWindowDecayFactor *float64 `json:"patienceWindowDecayFactor,omitempty"`
+	// SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+	// reach a local minimum near the best observed value. When false, actions may trigger
+	// as soon as a stall is detected.
+	// Defaults to true.
+	//+optional
+	SearchLocalMinima *bool `json:"searchLocalMinima,omitempty"`
+	// CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+	// the total time budget for deciding whether a forced switchover can still finish in time,
+	// and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+	// Defaults to 2.
+	//+kubebuilder:validation:Minimum=1
+	//+optional
+	CompletionTimeoutFactor *float64 `json:"completionTimeoutFactor,omitempty"`
+}
+
+type AdvancedMigrationOptions struct {
+	//+optional
+	StallDetector *StallDetectorOptions `json:"stallDetector,omitempty"`
+	// Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+	// not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+	// spawn a single thread separate from the main thread to transfer data over.
+	//+optional
+	ParallelMigrationThreads *uint `json:"parallelMigrationThreads,omitempty"`
+}
+
+// VMIMConfigurationOptions holds all migration options that configurable and supplied to the VMIM object
+type VMIMConfigurationOptions struct {
+	VMMigrationConfiguration      `json:",inline"`
+	ClusterMigrationConfiguration `json:",inline"`
+}
+
+// VMMigrationConfiguration holds migration options for a specific virtual machine.
+type VMMigrationConfiguration struct {
+	LegacyVMMigrationConfiguration `json:",inline"`
+	AdvancedMigrationOptions       *AdvancedMigrationOptions `json:"advancedMigrationOptions,omitempty"`
+}
+
+type LegacyVMMigrationConfiguration struct {
 	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
 	// guarantee successful VMI live migrations. Defaults to false
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
@@ -3373,9 +3438,13 @@ type MigrationConfiguration struct {
 	// If the timeout is reached, the migration will be either paused, switched
 	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
-	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
-	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
-	// then considered stuck and therefore cancelled. Defaults to 150
+	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:validation:Maximum=2000000
+	// MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
+	// Defaults to 900
+	MaxDowntime *uint64 `json:"maxDowntime,omitempty"`
+	// ProgressTimeout is the number of seconds used by migration convergence detection to decide when
+	// pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
 	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
 	// UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
 	// for utility volumes to be detached. If utility volumes are still present after this timeout,
@@ -3394,17 +3463,49 @@ type MigrationConfiguration struct {
 	// permitted, migration will be switched to post-copy or the VMI will be
 	// paused to allow the migration to complete
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
+	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
+	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
+	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
+	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// ClusterMigrationConfiguration holds all migration options that are only configurable at the cluster level (i.e.,
+// applied to all migrations on the cluster)
+type ClusterMigrationConfiguration struct {
+	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
+	// allowed per node. Defaults to 2
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
+	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
+	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
+	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
+	// allowed cluster-wide. Defaults to 5
+	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
 	// When set to true, DisableTLS will disable the additional layer of live migration encryption
 	// provided by KubeVirt. This is usually a bad idea. Defaults to false
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
 	Network *string `json:"network,omitempty"`
-	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
-	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
-	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
-	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
-	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// MigrationConfiguration holds migration options.
+// Can be overridden for specific groups of VMs though migration policies.
+// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
+type MigrationConfiguration struct {
+	LegacyVMMigrationConfiguration `json:",inline"`
+	ClusterMigrationConfiguration  `json:",inline"`
+}
+
+func (m *MigrationConfiguration) AsVMIMConfigurationOptions() *VMIMConfigurationOptions {
+	if m == nil {
+		return nil
+	}
+	var vmimco VMIMConfigurationOptions
+	vmimco.LegacyVMMigrationConfiguration = m.LegacyVMMigrationConfiguration
+	vmimco.ClusterMigrationConfiguration = m.ClusterMigrationConfiguration
+	return &vmimco
 }
 
 // DiskVerification holds container disks verification limits

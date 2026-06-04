@@ -94,3 +94,7 @@ func ServeClones(resp http.ResponseWriter, req *http.Request) {
 func ServeVirtLauncherPods(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
 	serve(resp, req, mutators.NewVirtLauncherPodMutator(clusterConfig, virtCli))
 }
+
+func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &mutators.MigrationPolicyMutator{ClusterConfig: clusterConfig})
+}

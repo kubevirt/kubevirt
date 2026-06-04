@@ -900,10 +900,14 @@ func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
 	policy := kubecli.NewMinimalMigrationPolicy(MigrationPolicyName)
 	policy.Spec = v1alpha1.MigrationPolicySpec{
-		AllowAutoConverge:       pointer.P(false),
-		BandwidthPerMigration:   pointer.P(resource.MustParse("2000Mi")),
-		CompletionTimeoutPerGiB: pointer.P(int64(123456789)),
-		AllowPostCopy:           pointer.P(false),
+		VMMigrationConfiguration: v1.VMMigrationConfiguration{
+			LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+				AllowAutoConverge:       pointer.P(false),
+				BandwidthPerMigration:   pointer.P(resource.MustParse("2000Mi")),
+				CompletionTimeoutPerGiB: pointer.P(int64(123456789)),
+				AllowPostCopy:           pointer.P(false),
+			},
+		},
 		Selectors: &v1alpha1.Selectors{
 			NamespaceSelector:              map[string]string{"namespace-key": "namespace-value"},
 			VirtualMachineInstanceSelector: map[string]string{"vmi-key": "vmi-value"},

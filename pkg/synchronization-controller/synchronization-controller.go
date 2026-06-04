@@ -25,7 +25,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -1227,34 +1229,16 @@ func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virt
 		return
 	}
 
-	patchMigrationStateField(patchSet, "startTimestamp", origMS.StartTimestamp, newMS.StartTimestamp)
-	patchMigrationStateField(patchSet, "endTimestamp", origMS.EndTimestamp, newMS.EndTimestamp)
-	patchMigrationStateField(patchSet, "targetNodeDomainReadyTimestamp", origMS.TargetNodeDomainReadyTimestamp, newMS.TargetNodeDomainReadyTimestamp)
-	patchMigrationStateField(patchSet, "targetNodeDomainDetected", origMS.TargetNodeDomainDetected, newMS.TargetNodeDomainDetected)
-	patchMigrationStateField(patchSet, "targetNodeAddress", origMS.TargetNodeAddress, newMS.TargetNodeAddress)
-	patchMigrationStateField(patchSet, "targetDirectMigrationNodePorts", origMS.TargetDirectMigrationNodePorts, newMS.TargetDirectMigrationNodePorts)
-	patchMigrationStateField(patchSet, "targetNode", origMS.TargetNode, newMS.TargetNode)
-	patchMigrationStateField(patchSet, "targetPod", origMS.TargetPod, newMS.TargetPod)
-	patchMigrationStateField(patchSet, "targetAttachmentPodUID", origMS.TargetAttachmentPodUID, newMS.TargetAttachmentPodUID)
-	patchMigrationStateField(patchSet, "sourceNode", origMS.SourceNode, newMS.SourceNode)
-	patchMigrationStateField(patchSet, "sourcePod", origMS.SourcePod, newMS.SourcePod)
-	patchMigrationStateField(patchSet, "completed", origMS.Completed, newMS.Completed)
-	patchMigrationStateField(patchSet, "failed", origMS.Failed, newMS.Failed)
-	patchMigrationStateField(patchSet, "abortRequested", origMS.AbortRequested, newMS.AbortRequested)
-	patchMigrationStateField(patchSet, "abortStatus", origMS.AbortStatus, newMS.AbortStatus)
-	patchMigrationStateField(patchSet, "failureReason", origMS.FailureReason, newMS.FailureReason)
-	patchMigrationStateField(patchSet, "migrationUid", origMS.MigrationUID, newMS.MigrationUID)
-	patchMigrationStateField(patchSet, "mode", origMS.Mode, newMS.Mode)
-	patchMigrationStateField(patchSet, "migrationPolicyName", origMS.MigrationPolicyName, newMS.MigrationPolicyName)
-	patchMigrationStateField(patchSet, "migrationConfiguration", origMS.MigrationConfiguration, newMS.MigrationConfiguration)
-	patchMigrationStateField(patchSet, "targetCPUSet", origMS.TargetCPUSet, newMS.TargetCPUSet)
-	patchMigrationStateField(patchSet, "targetNodeTopology", origMS.TargetNodeTopology, newMS.TargetNodeTopology)
-	patchMigrationStateField(patchSet, "sourcePersistentStatePVCName", origMS.SourcePersistentStatePVCName, newMS.SourcePersistentStatePVCName)
-	patchMigrationStateField(patchSet, "targetPersistentStatePVCName", origMS.TargetPersistentStatePVCName, newMS.TargetPersistentStatePVCName)
-	patchMigrationStateField(patchSet, "sourceState", origMS.SourceState, newMS.SourceState)
-	patchMigrationStateField(patchSet, "targetState", origMS.TargetState, newMS.TargetState)
-	patchMigrationStateField(patchSet, "migrationNetworkType", origMS.MigrationNetworkType, newMS.MigrationNetworkType)
-	patchMigrationStateField(patchSet, "targetMemoryOverhead", origMS.TargetMemoryOverhead, newMS.TargetMemoryOverhead)
+	t := reflect.TypeOf(origMS).Elem()
+	origMSValue := reflect.ValueOf(origMS).Elem()
+	newMSValue := reflect.ValueOf(newMS).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		jsonName, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
+		if jsonName == "" || jsonName == "-" {
+			continue
+		}
+		patchMigrationStateField(patchSet, jsonName, origMSValue.Field(i), newMSValue.Field(i))
+	}
 }
 
 // patchMigrationStateField generates an add or test+replace JSON
@@ -1262,18 +1246,18 @@ func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virt
 // omitempty). Unchanged fields are skipped. Zero originals use add
 // (field absent from JSON), non-zero use test+replace for conflict
 // detection.
-func patchMigrationStateField[T any](patchSet *patch.PatchSet, field string, orig, new T) {
-	if apiequality.Semantic.DeepEqual(orig, new) {
+func patchMigrationStateField(patchSet *patch.PatchSet, field string, origMSFieldValue, newMSFieldValue reflect.Value) {
+	origMSValue, newMSValue := origMSFieldValue.Interface(), newMSFieldValue.Interface()
+	if apiequality.Semantic.DeepEqual(origMSValue, newMSValue) {
 		return
 	}
 	path := "/status/migrationState/" + field
-	var zero T
-	if apiequality.Semantic.DeepEqual(orig, zero) {
-		patchSet.AddOption(patch.WithAdd(path, new))
+	if apiequality.Semantic.DeepEqual(origMSValue, reflect.Zero(origMSFieldValue.Type()).Interface()) {
+		patchSet.AddOption(patch.WithAdd(path, newMSValue))
 	} else {
 		patchSet.AddOption(
-			patch.WithTest(path, orig),
-			patch.WithReplace(path, new),
+			patch.WithTest(path, origMSValue),
+			patch.WithReplace(path, newMSValue),
 		)
 	}
 }
@@ -1355,8 +1339,8 @@ func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.V
 	if sourceMigrationState.MigrationPolicyName != nil {
 		targetMigrationState.MigrationPolicyName = sourceMigrationState.MigrationPolicyName
 	}
-	if sourceMigrationState.MigrationConfiguration != nil {
-		targetMigrationState.MigrationConfiguration = sourceMigrationState.MigrationConfiguration
+	if sourceMigrationState.VMIMConfigurationOptions != nil {
+		targetMigrationState.VMIMConfigurationOptions = sourceMigrationState.VMIMConfigurationOptions
 	}
 	if sourceMigrationState.StartTimestamp != nil {
 		targetMigrationState.StartTimestamp = sourceMigrationState.StartTimestamp

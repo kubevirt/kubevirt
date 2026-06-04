@@ -228,3 +228,11 @@ func (config *ClusterConfig) VGPULiveMigrationEnabled() bool {
 func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VMStatsCollector)
 }
+
+func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
+}
+
+func (config *ClusterConfig) AdvancedMigrationOptionsEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.AdvancedMigrationOptions)
+}

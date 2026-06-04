@@ -229,6 +229,18 @@ const (
 	// (frequent/medium/infrequent tiers) that collect raw monitoring data
 	// for the GetVMStats gRPC RPC.
 	VMStatsCollector = "VMStatsCollector"
+
+	// Owner: @aseeef
+	// Alpha: v1.9.0
+	//
+	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
+	MigrationStallDetection = "MigrationStallDetection"
+
+	// Owner: @aseeef
+	// Alpha: v1.9.0
+	//
+	// AdvancedMigrationOptions enables advanced migration options.
+	AdvancedMigrationOptions = "AdvancedMigrationOptions"
 )
 
 func init() {
@@ -273,4 +285,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: AdvancedMigrationOptions, State: Alpha})
 }

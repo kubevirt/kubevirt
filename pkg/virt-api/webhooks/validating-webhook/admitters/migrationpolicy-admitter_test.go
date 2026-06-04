@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/api/migrations"
 
+	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,6 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
@@ -58,11 +60,17 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		admitter.admitAndExpect(policy, false)
 	},
 		Entry("negative BandwidthPerMigration",
-			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)}}},
 		),
 
 		Entry("negative CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{CompletionTimeoutPerGiB: pointer.P(int64(-1))}}},
+		),
+		Entry("negative ProgressTimeout",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{ProgressTimeout: pointer.P(int64(-1))}}},
+		),
+		Entry("too large MaxDowntime",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{MaxDowntime: pointer.P(migrationutils.QEMUMaxMigrationDowntimeMS + 1)}}},
 		),
 	)
 
@@ -75,23 +83,90 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		admitter.admitAndExpect(policy, true)
 	},
 		Entry("greater than zero BandwidthPerMigration",
-			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)}}},
 		),
 
 		Entry("greater than zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(1))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{CompletionTimeoutPerGiB: pointer.P(int64(1))}}},
+		),
+		Entry("greater than zero ProgressTimeout",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{ProgressTimeout: pointer.P(int64(1))}}},
 		),
 
+		Entry("zero ProgressTimeout",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{ProgressTimeout: pointer.P(int64(0))}}},
+		),
 		Entry("zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(0))},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{CompletionTimeoutPerGiB: pointer.P(int64(0))}}},
+		),
+		Entry("valid MaxDowntime",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{MaxDowntime: pointer.P(uint64(900))}}},
 		),
 
 		Entry("zero BandwidthPerMigration",
-			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)}}},
 		),
 
 		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
+		),
+
+		Entry("allowPostCopy true and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(true),
+					AllowWorkloadDisruption: pointer.P(true),
+				},
+			}},
+		),
+
+		Entry("allowPostCopy false and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(false),
+					AllowWorkloadDisruption: pointer.P(true),
+				},
+			}},
+		),
+
+		Entry("allowPostCopy false and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(false),
+					AllowWorkloadDisruption: pointer.P(false),
+				},
+			}},
+		),
+
+		Entry("valid experimental options",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				AdvancedMigrationOptions: &v1.AdvancedMigrationOptions{StallDetector: &v1.StallDetectorOptions{
+					StallMargin:               pointer.P(float64(0.04)),
+					EwmaAlpha:                 pointer.P(float64(0.4)),
+					PatienceWindowDecayFactor: pointer.P(float64(0.5)),
+					PrecopyPossibleFactor:     pointer.P(float64(1.5)),
+					CompletionTimeoutFactor:   pointer.P(float64(2)),
+				}},
+			}},
+		),
+	)
+
+	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+		By("Setting up a new policy")
+		policy := kubecli.NewMinimalMigrationPolicy(policyName)
+		policy.Spec = policySpec
+
+		By("Expecting admitter would not allow it")
+		admitter.admitAndExpect(policy, false)
+	},
+		Entry("allowPostCopy true and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{VMMigrationConfiguration: v1.VMMigrationConfiguration{
+				LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+					AllowPostCopy:           pointer.P(true),
+					AllowWorkloadDisruption: pointer.P(false),
+				},
+			},
+			},
 		),
 	)
 })

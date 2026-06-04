@@ -1417,6 +1417,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntime:
+                  description: |-
+                    MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -1441,9 +1449,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 progressTimeout:
                   description: |-
-                    ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
-                    Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
-                    then considered stuck and therefore cancelled. Defaults to 150
+                    ProgressTimeout is the number of seconds used by migration convergence detection to decide when
+                    pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
                   format: int64
                   type: integer
                 unsafeMigrationOverride:
@@ -4106,19 +4113,134 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        advancedMigrationOptions:
+          properties:
+            parallelMigrationThreads:
+              description: |-
+                Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+                not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+                spawn a single thread separate from the main thread to transfer data over.
+              type: integer
+            stallDetector:
+              properties:
+                completionTimeoutFactor:
+                  description: |-
+                    CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                    the total time budget for deciding whether a forced switchover can still finish in time,
+                    and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                    Defaults to 2.
+                  minimum: 1
+                  type: number
+                ewmaAlpha:
+                  description: |-
+                    EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                    observed migration bandwidth. Higher values weight recent samples more heavily.
+                    Defaults to 0.4.
+                  exclusiveMinimum: true
+                  maximum: 1
+                  minimum: 0
+                  type: number
+                patienceWindowDecayFactor:
+                  description: |-
+                    PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                    multiplied after each best-remaining-bytes relaxation step.
+                    Defaults to 0.5.
+                  maximum: 1
+                  minimum: 0
+                  type: number
+                precopyPossibleFactor:
+                  description: |-
+                    PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                    MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                    Defaults to 1.5.
+                  minimum: 1
+                  type: number
+                searchLocalMinima:
+                  description: |-
+                    SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                    reach a local minimum near the best observed value. When false, actions may trigger
+                    as soon as a stall is detected.
+                    Defaults to true.
+                  type: boolean
+                stallMargin:
+                  description: |-
+                    StallMargin is the fractional tolerance used when comparing remaining migration bytes
+                    against the best observed value to detect stalls and local minima. A stall is reported
+                    when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+                    Defaults to 0.04.
+                  maximum: 1
+                  minimum: 0
+                  type: number
+                stallProgressTimeout:
+                  description: |-
+                    StallProgressTimeout is the duration in seconds of the sliding window used to track
+                    minimum remaining-bytes and detect when migration progress has stalled.
+                    Defaults to 40.
+                  format: int64
+                  type: integer
+                switchoverTimeout:
+                  description: |-
+                    SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                    switchover to complete after being triggered before the migration is aborted.
+                    Defaults to 60.
+                  format: int64
+                  type: integer
+              type: object
+          type: object
         allowAutoConverge:
+          description: |-
+            AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
+            guarantee successful VMI live migrations. Defaults to false
           type: boolean
         allowPostCopy:
+          description: |-
+            AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
+            to successfully live-migrate. However, events like a network failure can cause a VMI crash.
+            If set to true, migrations will still start in pre-copy, but switch to post-copy when
+            CompletionTimeoutPerGiB triggers. Defaults to false
           type: boolean
         allowWorkloadDisruption:
+          description: |-
+            AllowWorkloadDisruption indicates that the migration shouldn't be
+            canceled after acceptableCompletionTime is exceeded. Instead, if
+            permitted, migration will be switched to post-copy or the VMI will be
+            paused to allow the migration to complete
           type: boolean
         bandwidthPerMigration:
           anyOf:
           - type: integer
           - type: string
+          description: |-
+            BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.
+            The value is in quantity per second. Defaults to 0 (no limit)
           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
           x-kubernetes-int-or-string: true
         completionTimeoutPerGiB:
+          description: |-
+            CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
+            If the timeout is reached, the migration will be either paused, switched
+            to post-copy or cancelled depending on other settings. Defaults to 150
+          format: int64
+          type: integer
+        matchSELinuxLevelOnMigration:
+          description: |-
+            By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
+            When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
+            That will ensure the target virt-launcher doesn't share categories with another pod on the node.
+            However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
+          type: boolean
+        maxDowntime:
+          description: |-
+            MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
+            Defaults to 900
+          format: int64
+          maximum: 2000000
+          minimum: 1
+          type: integer
+        progressTimeout:
+          description: |-
+            ProgressTimeout is the number of seconds used by migration convergence detection to decide when
+            pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
           format: int64
           type: integer
         selectors:
@@ -4132,6 +4254,18 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type: object
           type: object
+        unsafeMigrationOverride:
+          description: |-
+            UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
+            indicates the migration will be unsafe to the guest. Defaults to false
+          type: boolean
+        utilityVolumesTimeout:
+          description: |-
+            UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+            for utility volumes to be detached. If utility volumes are still present after this timeout,
+            the migration will be marked as Failed. Defaults to 150
+          format: int64
+          type: integer
       required:
       - selectors
       type: object
@@ -15112,6 +15246,80 @@ var CRDsValidation map[string]string = map[string]string{
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
+                advancedMigrationOptions:
+                  properties:
+                    parallelMigrationThreads:
+                      description: |-
+                        Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+                        not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+                        spawn a single thread separate from the main thread to transfer data over.
+                      type: integer
+                    stallDetector:
+                      properties:
+                        completionTimeoutFactor:
+                          description: |-
+                            CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                            the total time budget for deciding whether a forced switchover can still finish in time,
+                            and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                            Defaults to 2.
+                          minimum: 1
+                          type: number
+                        ewmaAlpha:
+                          description: |-
+                            EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                            observed migration bandwidth. Higher values weight recent samples more heavily.
+                            Defaults to 0.4.
+                          exclusiveMinimum: true
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        patienceWindowDecayFactor:
+                          description: |-
+                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                            multiplied after each best-remaining-bytes relaxation step.
+                            Defaults to 0.5.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        precopyPossibleFactor:
+                          description: |-
+                            PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                            MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                            Defaults to 1.5.
+                          minimum: 1
+                          type: number
+                        searchLocalMinima:
+                          description: |-
+                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                            reach a local minimum near the best observed value. When false, actions may trigger
+                            as soon as a stall is detected.
+                            Defaults to true.
+                          type: boolean
+                        stallMargin:
+                          description: |-
+                            StallMargin is the fractional tolerance used when comparing remaining migration bytes
+                            against the best observed value to detect stalls and local minima. A stall is reported
+                            when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+                            Defaults to 0.04.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        stallProgressTimeout:
+                          description: |-
+                            StallProgressTimeout is the duration in seconds of the sliding window used to track
+                            minimum remaining-bytes and detect when migration progress has stalled.
+                            Defaults to 40.
+                          format: int64
+                          type: integer
+                        switchoverTimeout:
+                          description: |-
+                            SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                            switchover to complete after being triggered before the migration is aborted.
+                            Defaults to 60.
+                          format: int64
+                          type: integer
+                      type: object
+                  type: object
                 allowAutoConverge:
                   description: |-
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
@@ -15159,6 +15367,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntime:
+                  description: |-
+                    MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -15183,9 +15399,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 progressTimeout:
                   description: |-
-                    ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
-                    Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
-                    then considered stuck and therefore cancelled. Defaults to 150
+                    ProgressTimeout is the number of seconds used by migration convergence detection to decide when
+                    pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
                   format: int64
                   type: integer
                 unsafeMigrationOverride:
@@ -15715,6 +15930,80 @@ var CRDsValidation map[string]string = map[string]string{
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
+                advancedMigrationOptions:
+                  properties:
+                    parallelMigrationThreads:
+                      description: |-
+                        Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will
+                        not use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will
+                        spawn a single thread separate from the main thread to transfer data over.
+                      type: integer
+                    stallDetector:
+                      properties:
+                        completionTimeoutFactor:
+                          description: |-
+                            CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
+                            the total time budget for deciding whether a forced switchover can still finish in time,
+                            and to extend the abort deadline after initiating a completion-timeout-driven switchover.
+                            Defaults to 2.
+                          minimum: 1
+                          type: number
+                        ewmaAlpha:
+                          description: |-
+                            EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
+                            observed migration bandwidth. Higher values weight recent samples more heavily.
+                            Defaults to 0.4.
+                          exclusiveMinimum: true
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        patienceWindowDecayFactor:
+                          description: |-
+                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
+                            multiplied after each best-remaining-bytes relaxation step.
+                            Defaults to 0.5.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        precopyPossibleFactor:
+                          description: |-
+                            PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
+                            MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
+                            Defaults to 1.5.
+                          minimum: 1
+                          type: number
+                        searchLocalMinima:
+                          description: |-
+                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
+                            reach a local minimum near the best observed value. When false, actions may trigger
+                            as soon as a stall is detected.
+                            Defaults to true.
+                          type: boolean
+                        stallMargin:
+                          description: |-
+                            StallMargin is the fractional tolerance used when comparing remaining migration bytes
+                            against the best observed value to detect stalls and local minima. A stall is reported
+                            when remaining bytes stay above (1 - StallMargin) of the outside-window minimum.
+                            Defaults to 0.04.
+                          maximum: 1
+                          minimum: 0
+                          type: number
+                        stallProgressTimeout:
+                          description: |-
+                            StallProgressTimeout is the duration in seconds of the sliding window used to track
+                            minimum remaining-bytes and detect when migration progress has stalled.
+                            Defaults to 40.
+                          format: int64
+                          type: integer
+                        switchoverTimeout:
+                          description: |-
+                            SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
+                            switchover to complete after being triggered before the migration is aborted.
+                            Defaults to 60.
+                          format: int64
+                          type: integer
+                      type: object
+                  type: object
                 allowAutoConverge:
                   description: |-
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
@@ -15762,6 +16051,14 @@ var CRDsValidation map[string]string = map[string]string{
                     That will ensure the target virt-launcher doesn't share categories with another pod on the node.
                     However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
                   type: boolean
+                maxDowntime:
+                  description: |-
+                    MaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.
+                    Defaults to 900
+                  format: int64
+                  maximum: 2000000
+                  minimum: 1
+                  type: integer
                 network:
                   description: |-
                     Network is the name of the CNI network to use for live migrations. By default, migrations go
@@ -15786,9 +16083,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 progressTimeout:
                   description: |-
-                    ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
-                    Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
-                    then considered stuck and therefore cancelled. Defaults to 150
+                    ProgressTimeout is the number of seconds used by migration convergence detection to decide when
+                    pre-copy has stalled and switchover logic should be evaluated. Defaults to 60
                   format: int64
                   type: integer
                 unsafeMigrationOverride:

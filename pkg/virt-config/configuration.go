@@ -168,6 +168,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
+	maxDowntime := DefaultMigrationMaxDowntime
 	utilityVolumesTimeout := MigrationUtilityVolumesTimeoutSeconds
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
@@ -204,16 +205,21 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		},
 		EvictionStrategy: &defaultEvictionStrategy,
 		MigrationConfiguration: &v1.MigrationConfiguration{
-			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
-			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
-			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
-			BandwidthPerMigration:             &bandwidthPerMigrationDefault,
-			ProgressTimeout:                   &progressTimeout,
-			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-			UtilityVolumesTimeout:             &utilityVolumesTimeout,
-			UnsafeMigrationOverride:           &defaultUnsafeMigrationOverride,
-			AllowAutoConverge:                 &allowAutoConverge,
-			AllowPostCopy:                     &allowPostCopy,
+			ClusterMigrationConfiguration: v1.ClusterMigrationConfiguration{
+				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
+				ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
+				NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
+			},
+			LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+				BandwidthPerMigration:   &bandwidthPerMigrationDefault,
+				ProgressTimeout:         &progressTimeout,
+				CompletionTimeoutPerGiB: &completionTimeoutPerGiB,
+				UtilityVolumesTimeout:   &utilityVolumesTimeout,
+				UnsafeMigrationOverride: &defaultUnsafeMigrationOverride,
+				AllowAutoConverge:       &allowAutoConverge,
+				AllowPostCopy:           &allowPostCopy,
+				MaxDowntime:             &maxDowntime,
+			},
 		},
 		CPURequest: &cpuRequestDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{

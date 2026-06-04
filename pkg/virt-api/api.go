@@ -1057,6 +1057,9 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
 	})
+	http.HandleFunc(components.MigrationPolicyMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig)
+	})
 	http.HandleFunc(components.VMCloneCreateMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeClones(w, r)
 	})

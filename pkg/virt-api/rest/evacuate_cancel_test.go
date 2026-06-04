@@ -72,7 +72,9 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{},
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						NodeDrainTaintKey: pointer.P(taintKey),
+						ClusterMigrationConfiguration: v1.ClusterMigrationConfiguration{
+							NodeDrainTaintKey: pointer.P(taintKey),
+						},
 					},
 				},
 			},

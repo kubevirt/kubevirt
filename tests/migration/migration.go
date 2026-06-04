@@ -1476,7 +1476,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				createdPods = []string{}
 				cfg := getCurrentKvConfig(virtClient)
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-					CompletionTimeoutPerGiB: pointer.P(int64(5)),
+					LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+						CompletionTimeoutPerGiB: pointer.P(int64(5)),
+					},
 				}
 				kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
@@ -1485,9 +1487,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-						ProgressTimeout:         pointer.P(int64(5)),
-						CompletionTimeoutPerGiB: pointer.P(int64(5)),
-						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
+						LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+							ProgressTimeout:         pointer.P(int64(5)),
+							CompletionTimeoutPerGiB: pointer.P(int64(5)),
+							BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
+						},
 					}
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 				})
@@ -2136,7 +2140,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(vmi.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
 				confirmMigrationPolicyName(vmi, expectedPolicyName)
 			},
 				Entry("should override cluster-wide policy if defined", true),
@@ -2630,11 +2634,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		By("Ensuring MigrationConfiguration is updated")
 		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vmi).To(haveMigrationState(
-			gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"MigrationConfiguration": Not(BeNil()),
-			})),
-		))
+		Expect(vmi.Status.MigrationState).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
 	})
 
 	Context("with a live-migration in flight", func() {
@@ -3067,17 +3068,25 @@ func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfigurat
 }
 
 func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
+	runParticularStressTest(vmi, vmsize, "", stressDefaultSleepDuration*time.Second)
+}
+
+func runParticularStressTest(vmi *v1.VirtualMachineInstance, vmsize string, whichTest string, sleepDuration time.Duration) {
 	By("Run a stress test to dirty some pages and slow down the migration")
-	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
+
+	if whichTest != "" {
+		whichTest = fmt.Sprintf("--vm-method %s", whichTest)
+	}
+	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s %s --vm-keep &\n", vmsize, whichTest)
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: stressCmd},
 		&expect.BExp{R: ""},
-	}, 15)).To(Succeed(), "should run a stress test")
+	}, 20)).To(Succeed(), "should run a stress test")
 
 	// give stress tool some time to trash more memory pages before returning control to next steps
-	time.Sleep(stressDefaultSleepDuration * time.Second)
+	time.Sleep(sleepDuration)
 }
 
 func getIdOfLauncher(vmi *v1.VirtualMachineInstance) string {

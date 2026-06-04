@@ -1007,23 +1007,67 @@ func (TLSConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
-func (MigrationConfiguration) SwaggerDoc() map[string]string {
+func (StallDetectorOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                                  "MigrationConfiguration holds migration options.\nCan be overridden for specific groups of VMs though migration policies.\nVisit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.",
-		"nodeDrainTaintKey":                 "NodeDrainTaintKey defines the taint key that indicates a node should be drained.\nNote: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
+		"stallMargin":               "StallMargin is the fractional tolerance used when comparing remaining migration bytes\nagainst the best observed value to detect stalls and local minima. A stall is reported\nwhen remaining bytes stay above (1 - StallMargin) of the outside-window minimum.\nDefaults to 0.04.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=1\n+optional",
+		"ewmaAlpha":                 "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of\nobserved migration bandwidth. Higher values weight recent samples more heavily.\nDefaults to 0.4.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=1\n+kubebuilder:validation:ExclusiveMinimum=true\n+optional",
+		"stallProgressTimeout":      "StallProgressTimeout is the duration in seconds of the sliding window used to track\nminimum remaining-bytes and detect when migration progress has stalled.\nDefaults to 40.\n+optional",
+		"switchoverTimeout":         "SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy\nswitchover to complete after being triggered before the migration is aborted.\nDefaults to 60.\n+optional",
+		"precopyPossibleFactor":     "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed\nMaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.\nDefaults to 1.5.\n+kubebuilder:validation:Minimum=1\n+optional",
+		"patienceWindowDecayFactor": "PatienceWindowDecayFactor is the factor by which the relaxation patience window is\nmultiplied after each best-remaining-bytes relaxation step.\nDefaults to 0.5.\n+kubebuilder:validation:Minimum=0\n+kubebuilder:validation:Maximum=1\n+optional",
+		"searchLocalMinima":         "SearchLocalMinima controls whether convergence actions are delayed until remaining bytes\nreach a local minimum near the best observed value. When false, actions may trigger\nas soon as a stall is detected.\nDefaults to true.\n+optional",
+		"completionTimeoutFactor":   "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine\nthe total time budget for deciding whether a forced switchover can still finish in time,\nand to extend the abort deadline after initiating a completion-timeout-driven switchover.\nDefaults to 2.\n+kubebuilder:validation:Minimum=1\n+optional",
+	}
+}
+
+func (AdvancedMigrationOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"stallDetector":            "+optional",
+		"parallelMigrationThreads": "Number of parallel migration threads to use to send data over. Defaults to 8. When set to 0, migrations will\nnot use multifd and therefore all data will be transferred over the main thread. When set to 1, migrations will\nspawn a single thread separate from the main thread to transfer data over.\n+optional",
+	}
+}
+
+func (VMIMConfigurationOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VMIMConfigurationOptions holds all migration options that configurable and supplied to the VMIM object",
+	}
+}
+
+func (VMMigrationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VMMigrationConfiguration holds migration options for a specific virtual machine.",
+	}
+}
+
+func (LegacyVMMigrationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"allowAutoConverge":            "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
+		"bandwidthPerMigration":        "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
+		"completionTimeoutPerGiB":      "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf the timeout is reached, the migration will be either paused, switched\nto post-copy or cancelled depending on other settings. Defaults to 150",
+		"maxDowntime":                  "+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=2000000\nMaxDowntime specifies the maximum tolerable downtime (in milliseconds) during switchover.\nDefaults to 900",
+		"progressTimeout":              "ProgressTimeout is the number of seconds used by migration convergence detection to decide when\npre-copy has stalled and switchover logic should be evaluated. Defaults to 60",
+		"utilityVolumesTimeout":        "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state\nfor utility volumes to be detached. If utility volumes are still present after this timeout,\nthe migration will be marked as Failed. Defaults to 150",
+		"unsafeMigrationOverride":      "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check\nindicates the migration will be unsafe to the guest. Defaults to false",
+		"allowPostCopy":                "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs\nto successfully live-migrate. However, events like a network failure can cause a VMI crash.\nIf set to true, migrations will still start in pre-copy, but switch to post-copy when\nCompletionTimeoutPerGiB triggers. Defaults to false",
+		"allowWorkloadDisruption":      "AllowWorkloadDisruption indicates that the migration shouldn't be\ncanceled after acceptableCompletionTime is exceeded. Instead, if\npermitted, migration will be switched to post-copy or the VMI will be\npaused to allow the migration to complete",
+		"matchSELinuxLevelOnMigration": "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+	}
+}
+
+func (ClusterMigrationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                                  "ClusterMigrationConfiguration holds all migration options that are only configurable at the cluster level (i.e.,\napplied to all migrations on the cluster)",
 		"parallelOutboundMigrationsPerNode": "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations\nallowed per node. Defaults to 2",
+		"nodeDrainTaintKey":                 "NodeDrainTaintKey defines the taint key that indicates a node should be drained.\nNote: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain",
 		"parallelMigrationsPerCluster":      "ParallelMigrationsPerCluster is the total number of concurrent live migrations\nallowed cluster-wide. Defaults to 5",
-		"allowAutoConverge":                 "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
-		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
-		"completionTimeoutPerGiB":           "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf the timeout is reached, the migration will be either paused, switched\nto post-copy or cancelled depending on other settings. Defaults to 150",
-		"progressTimeout":                   "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.\nHitting this timeout means a migration transferred 0 data for that many seconds. The migration is\nthen considered stuck and therefore cancelled. Defaults to 150",
-		"utilityVolumesTimeout":             "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state\nfor utility volumes to be detached. If utility volumes are still present after this timeout,\nthe migration will be marked as Failed. Defaults to 150",
-		"unsafeMigrationOverride":           "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check\nindicates the migration will be unsafe to the guest. Defaults to false",
-		"allowPostCopy":                     "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs\nto successfully live-migrate. However, events like a network failure can cause a VMI crash.\nIf set to true, migrations will still start in pre-copy, but switch to post-copy when\nCompletionTimeoutPerGiB triggers. Defaults to false",
-		"allowWorkloadDisruption":           "AllowWorkloadDisruption indicates that the migration shouldn't be\ncanceled after acceptableCompletionTime is exceeded. Instead, if\npermitted, migration will be switched to post-copy or the VMI will be\npaused to allow the migration to complete",
 		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
-		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+	}
+}
+
+func (MigrationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MigrationConfiguration holds migration options.\nCan be overridden for specific groups of VMs though migration policies.\nVisit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.",
 	}
 }
 

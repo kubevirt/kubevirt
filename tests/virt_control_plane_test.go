@@ -259,7 +259,9 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 				migrationBandwidth := resource.MustParse("1Mi")
 				kv := libkubevirt.GetCurrentKv(virtCli)
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					BandwidthPerMigration: &migrationBandwidth,
+					LegacyVMMigrationConfiguration: v1.LegacyVMMigrationConfiguration{
+						BandwidthPerMigration: &migrationBandwidth,
+					},
 				}
 				kv = testsuite.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
 				config.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", kv.ResourceVersion, config.ExpectResourceVersionToBeLessEqualThanConfigVersion, 60*time.Second)

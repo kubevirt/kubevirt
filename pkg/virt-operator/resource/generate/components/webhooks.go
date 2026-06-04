@@ -169,6 +169,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 	vmPath := VMMutatePath
 	vmiPath := VMIMutatePath
 	migrationPath := MigrationMutatePath
+	migrationPolicyPath := MigrationPolicyMutatePath
 	failurePolicy := admissionregistrationv1.Fail
 
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
@@ -258,6 +259,31 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &migrationPath,
+					},
+				},
+			},
+			{
+				Name:                    "migrationpolicies-mutator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				SideEffects:             &sideEffectNone,
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{migrationsv1.SchemeGroupVersion.Group},
+						APIVersions: []string{migrationsv1.SchemeGroupVersion.Version},
+						Resources:   []string{migrations.ResourceMigrationPolicies},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &migrationPolicyPath,
 					},
 				},
 			},
@@ -930,6 +956,8 @@ const VMMutatePath = "/virtualmachines-mutate"
 const VMIMutatePath = "/virtualmachineinstances-mutate"
 
 const MigrationMutatePath = "/migration-mutate-create"
+
+const MigrationPolicyMutatePath = "/migrationpolicy-mutate"
 
 const VirtApiServiceName = "virt-api"
 

@@ -67,15 +67,29 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
+type StallDetectorOptions struct {
+	StallMargin               float64
+	StallProgressTimeout      uint64
+	SwitchoverTimeout         uint64
+	EwmaAlpha                 float64
+	PrecopyPossibleFactor     float64
+	PatienceWindowDecayFactor float64
+	SearchLocalMinima         bool
+	CompletionTimeoutFactor   float64
+}
+
 type MigrationOptions struct {
 	Bandwidth                resource.Quantity
 	ProgressTimeout          int64
 	CompletionTimeoutPerGiB  int64
+	MaxDowntime              uint64
 	UnsafeMigration          bool
 	AllowAutoConverge        bool
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
 	AllowWorkloadDisruption  bool
+	StallDetectionEnabled    bool
+	StallDetectorOptions     StallDetectorOptions
 }
 
 type LauncherClient interface {

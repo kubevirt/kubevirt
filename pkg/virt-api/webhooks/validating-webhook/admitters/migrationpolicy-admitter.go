@@ -25,7 +25,6 @@ import (
 	"fmt"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -33,6 +32,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -61,31 +61,11 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 	var causes []metav1.StatusCause
 
 	sourceField := k8sfield.NewPath("spec")
-
 	spec := policy.Spec
-	if spec.CompletionTimeoutPerGiB != nil && *spec.CompletionTimeoutPerGiB < 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "must not be negative",
-			Field:   sourceField.Child("completionTimeoutPerGiB").String(),
-		})
-	}
-
-	if spec.BandwidthPerMigration != nil {
-		quantity, ok := spec.BandwidthPerMigration.AsInt64()
-		if !ok {
-			dec := spec.BandwidthPerMigration.AsDec()
-			quantity = int64(dec.Sign())
-		}
-
-		if quantity < 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "must not be negative",
-				Field:   sourceField.Child("bandwidthPerMigration").String(),
-			})
-		}
-	}
+	causes = append(causes, migrationutils.ValidateVMMigrationConfiguration(
+		sourceField,
+		spec.VMMigrationConfiguration,
+	)...)
 
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
