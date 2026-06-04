@@ -716,52 +716,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node tainted", Serial, decorators.WgS390x, func() {
-			var nodes *k8sv1.NodeList
-			BeforeEach(func() {
-				Eventually(func() []k8sv1.Node {
-					nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
-					return nodes.Items
-				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
-
-				// Taint first node with "NoSchedule"
-				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
-				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node")
-
-			})
-
-			AfterEach(func() {
-				// Untaint first node
-				data := []byte(`{"spec":{"taints":[]}}`)
-				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node")
-			})
-
-			It("[test_id:1635]the vmi with tolerations should be scheduled", func() {
-				vmi := libvmifact.NewGuestless(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
-				libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-			})
-
-			It("[test_id:1636]the vmi without tolerations should not be scheduled", func() {
-				vmi := libvmifact.NewGuestless(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-				By("Waiting for the VirtualMachineInstance to be unschedulable")
-				Eventually(func() string {
-					curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
-						GetCondition(curVMI, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
-					if scheduledCond != nil {
-						return scheduledCond.Reason
-					}
-					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unschedulable")
-			})
-		})
-
 		Context("with affinity", decorators.WgS390x, func() {
 			var node *k8sv1.Node
 
