@@ -231,9 +231,9 @@ var _ = Describe("Mediated Device", func() {
 			enabledDevicePlugins, disabledDevicePlugins := deviceController.splitPermittedDevices(
 				deviceController.updatePermittedHostDevicePlugins(),
 			)
-			Expect(enabledDevicePlugins).To(HaveLen(1), "a device plugin wasn't created for the fake device")
-			Expect(disabledDevicePlugins).To(BeEmpty())
-			Ω(enabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
+			// SEV plugin is on-by-default at Beta, so assert on our fake device, not the whole set.
+			Expect(enabledDevicePlugins).To(HaveKey(fakeMdevResourceName), "a device plugin wasn't created for the fake device")
+			Expect(disabledDevicePlugins).ToNot(HaveKey(fakeMdevResourceName), "the fake device plugin should not be disabled")
 			// Manually adding the enabled plugin, since the device controller is not actually running
 			deviceController.startedPlugins[fakeMdevResourceName] = controlledDevice{
 				devicePlugin: enabledDevicePlugins[fakeMdevResourceName],
@@ -250,9 +250,8 @@ var _ = Describe("Mediated Device", func() {
 			enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
 				deviceController.updatePermittedHostDevicePlugins(),
 			)
-			Expect(enabledDevicePlugins).To(BeEmpty())
-			Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
-			Ω(disabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
+			Expect(enabledDevicePlugins).ToNot(HaveKey(fakeMdevResourceName), "the fake device plugin should no longer be enabled")
+			Expect(disabledDevicePlugins).To(HaveKey(fakeMdevResourceName), "the fake device plugin did not get disabled")
 		})
 	})
 })

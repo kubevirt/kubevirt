@@ -172,9 +172,9 @@ pciHostDevices:
 		enabledDevicePlugins, disabledDevicePlugins := deviceController.splitPermittedDevices(
 			deviceController.updatePermittedHostDevicePlugins(),
 		)
-		Expect(enabledDevicePlugins).To(HaveLen(1), "a device plugin wasn't created for the fake device")
-		Expect(disabledDevicePlugins).To(BeEmpty(), "no disabled device plugins are expected")
-		Ω(enabledDevicePlugins).Should(HaveKey(fakeName))
+		// SEV plugin is on-by-default at Beta, so assert on our fake device, not the whole set.
+		Expect(enabledDevicePlugins).To(HaveKey(fakeName), "a device plugin wasn't created for the fake device")
+		Expect(disabledDevicePlugins).ToNot(HaveKey(fakeName), "the fake device plugin should not be disabled")
 		// Manually adding the enabled plugin, since the device controller is not actually running
 		deviceController.startedPlugins[fakeName] = controlledDevice{devicePlugin: enabledDevicePlugins[fakeName]}
 
@@ -189,9 +189,8 @@ pciHostDevices:
 		enabledDevicePlugins, disabledDevicePlugins = deviceController.splitPermittedDevices(
 			deviceController.updatePermittedHostDevicePlugins(),
 		)
-		Expect(enabledDevicePlugins).To(BeEmpty(), "no enabled device plugins should be found")
-		Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
-		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
+		Expect(enabledDevicePlugins).ToNot(HaveKey(fakeName), "the fake device plugin should no longer be enabled")
+		Expect(disabledDevicePlugins).To(HaveKey(fakeName), "the fake device plugin did not get disabled")
 	})
 })
 
