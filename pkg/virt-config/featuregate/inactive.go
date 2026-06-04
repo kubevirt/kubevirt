@@ -121,6 +121,14 @@ const (
 	// GA: v1.8.0
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 
+	// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb) via the `Video` field, overriding default settings.
+	// Requires `autoattachGraphicsDevice` to be true or unset.
+	// Owner: @dasionov
+	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	// GA: v1.9.0
+	VideoConfig = "VideoConfig"
+
 	// Owner: sig-compute
 	// Alpha: v1.0.0
 	// Deprecated: v1.8.0
@@ -203,5 +211,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Deprecated, Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes"})
-
+	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 }
