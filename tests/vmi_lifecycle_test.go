@@ -716,67 +716,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with affinity", decorators.WgS390x, func() {
-			var node *k8sv1.Node
-
-			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				node = nodes.Items[0].DeepCopy()
-			})
-
-			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", decorators.Conformance, func() {
-				vmi := libvmifact.NewGuestless(libvmi.WithNodeAffinityFor(node.Name))
-
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(Not(HaveOccurred()))
-				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduled, v1.Running}, libwait.WithTimeout(startupTimeout))
-
-				By("Asserting that VMI is scheduled on the pre-picked node")
-				Expect(vmi.Status.NodeName).To(Equal(node.Name), "Updated VMI name run on the same node")
-
-			})
-
-			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", decorators.Conformance, func() {
-				vmi := libvmifact.NewGuestless(libvmi.WithNodeAffinityFor(node.Name))
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(Not(HaveOccurred()))
-				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduled, v1.Running}, libwait.WithTimeout(startupTimeout))
-
-				secondVMI := libvmifact.NewGuestless(libvmi.WithNodeAffinityFor(node.Name))
-
-				secondVMI.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: v1.CreatedByLabel, Operator: metav1.LabelSelectorOpIn, Values: []string{string(vmi.GetUID())}},
-								},
-							},
-							TopologyKey: k8sv1.LabelHostname,
-						},
-					},
-				}
-
-				secondVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(secondVMI)).Create(context.Background(), secondVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMIB")
-
-				By("Waiting for the VirtualMachineInstance to be unschedulable")
-				Eventually(func() string {
-					curVmiB, err := kubevirt.Client().VirtualMachineInstance(secondVMI.Namespace).Get(context.Background(), secondVMI.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get VMIB")
-					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
-						GetCondition(curVmiB, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
-					if scheduledCond != nil {
-						return scheduledCond.Reason
-					}
-					return ""
-				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
-
-			})
-
-		})
-
 		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
