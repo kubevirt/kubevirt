@@ -100,13 +100,20 @@ func New(
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
-		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient, k8sClient),
-		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
-		upgradeHandler:          upgrade.New(revisionStore, virtClient, k8sClient),
-		virtClient:              virtClient,
-		k8sClient:               k8sClient,
-		clusterConfig:           clusterConfig,
-		recorder:                recorder,
+		storeHandler: revision.New(
+			instancetypeStore,
+			clusterInstancetypeStore,
+			preferenceStore,
+			clusterPreferenceStore,
+			virtClient,
+			k8sClient,
+		),
+		expandHandler:  expand.New(clusterConfig, finder, prefFinder),
+		upgradeHandler: upgrade.New(revisionStore, virtClient, k8sClient),
+		virtClient:     virtClient,
+		k8sClient:      k8sClient,
+		clusterConfig:  clusterConfig,
+		recorder:       recorder,
 	}
 }
 

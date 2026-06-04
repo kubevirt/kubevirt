@@ -96,7 +96,10 @@ var _ = Describe("Preference SpecFinder", func() {
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		controllerRevisionInformerStore = controllerRevisionInformer.GetStore()
 
-		finder = find.NewSpecFinder(preferenceInformerStore, clusterPreferenceInformerStore, controllerRevisionInformerStore, virtClient, fakeK8sClientSet)
+		finder = find.NewSpecFinder(
+			preferenceInformerStore, clusterPreferenceInformerStore,
+			controllerRevisionInformerStore, virtClient, fakeK8sClientSet,
+		)
 	})
 
 	It("find returns nil when no preference is specified", func() {
