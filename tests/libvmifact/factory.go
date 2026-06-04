@@ -85,7 +85,6 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		libvmi.WithMemoryRequest(alpineMemory()),
@@ -139,6 +138,13 @@ func cirrosMemory() string {
 		return "256Mi"
 	}
 	return "128Mi"
+}
+
+func alpineMemory() string {
+	if isARM64() || isS390X() {
+		return "256Mi"
+	}
+	return "512Mi"
 }
 
 func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
