@@ -1,0 +1,110 @@
+# Copyright (c) 2019 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http:#www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: network-resources-injector
+  name: network-resources-injector
+  namespace: kube-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: network-resources-injector
+  template:
+    metadata:
+      labels:
+        app: network-resources-injector
+    spec:
+      serviceAccount: network-resources-injector-sa
+      containers:
+      - name: webhook-server
+        image: ghcr.io/k8snetworkplumbingwg/network-resources-injector:v1.8.0
+        imagePullPolicy: Always
+        command:
+        - webhook
+        args:
+        - -bind-address=0.0.0.0
+        - -port=8443
+        - -tls-private-key-file=/etc/tls/tls.key
+        - -tls-cert-file=/etc/tls/tls.crt
+        - -health-check-port=8444
+        - -logtostderr
+        - -v=2
+        - -insecure
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        securityContext:
+          runAsUser: 10000
+          runAsGroup: 10000
+          capabilities:
+            drop:
+              - ALL
+            add: ["NET_BIND_SERVICE"]
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - mountPath: /etc/tls
+          name: tls
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "250m"
+          limits:
+            memory: "200Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8444
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      initContainers:
+      - name: installer
+        image: ghcr.io/k8snetworkplumbingwg/network-resources-injector:v1.8.0
+        imagePullPolicy: Always
+        command:
+        - installer
+        args:
+        - -name=network-resources-injector
+        - -namespace=kube-system
+        - -alsologtostderr
+        securityContext:
+          runAsUser: 10000
+          runAsGroup: 10000
+        volumeMounts:
+        - name: tls
+          mountPath: /etc/tls
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      volumes:
+      - name: tls
+        emptyDir: {}
+
+# For third-party certificate, use secret resource
+# instead of self-generated one from installer as below:
+#
+# 1) Remove initContainers from Pod spec.
+# 2) Replace `emptyDir: {}` with below config
+#
+#   secret:
+#     secretName: network-resources-injector-secret

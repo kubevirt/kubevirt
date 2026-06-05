@@ -1,0 +1,36 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"], "image":
+      "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
+    smbios.vm.kubevirt.io/baseBoardManufacturer: Radical Edward
+  labels:
+    special: vmi-with-sidecar-hook
+  name: vmi-with-sidecar-hook
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+      rng: {}
+    memory:
+      guest: 1024M
+    resources: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+    name: cloudinitdisk

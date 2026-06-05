@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["analyzer.go"],
+    importpath = "kubevirt.io/kubevirt/tools/analyzers",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_default_library",
+        "//vendor/github.com/kisielk/errcheck/errcheck:go_default_library",
+        "//vendor/github.com/nunnatsa/ginkgolinter:go_default_library",
+    ],
+)

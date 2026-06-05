@@ -1,0 +1,9 @@
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachinePreference
+metadata:
+  name: virtio
+spec:
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio

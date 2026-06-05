@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metric-client.go"],
+    importpath = "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//tools/perfscale-audit/api:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/api:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/api/prometheus/v1:go_default_library",
+        "//vendor/github.com/prometheus/common/model:go_default_library",
+    ],
+)

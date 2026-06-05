@@ -1,0 +1,10 @@
+sonobuoy-config:
+  driver: Job
+  plugin-name: kubevirt-conformance
+  result-format: junit
+spec:
+  command:
+  - /usr/bin/conformance
+  image: {{.DockerPrefix}}/conformance:{{.DockerTag}}
+  imagePullPolicy: Always
+  name: plugin

@@ -1,0 +1,29 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstanceReplicaSet
+metadata:
+  name: vmi-replicaset-cirros
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      kubevirt.io/vmReplicaSet: vmi-replicaset-cirros
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vmReplicaSet: vmi-replicaset-cirros
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+        memory:
+          guest: 128Mi
+        resources: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - containerDisk:
+          image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+        name: containerdisk

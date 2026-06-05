@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["load-generator.go"],
+    importpath = "kubevirt.io/kubevirt/tools/perfscale-load-generator",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//tools/perfscale-load-generator/api:go_default_library",
+        "//tools/perfscale-load-generator/burst:go_default_library",
+        "//tools/perfscale-load-generator/config:go_default_library",
+        "//tools/perfscale-load-generator/flags:go_default_library",
+        "//tools/perfscale-load-generator/steady-state:go_default_library",
+        "//vendor/github.com/google/uuid:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "perfscale-load-generator",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

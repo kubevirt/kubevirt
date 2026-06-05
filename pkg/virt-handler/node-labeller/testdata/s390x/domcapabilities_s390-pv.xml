@@ -1,0 +1,268 @@
+<domainCapabilities>
+  <path>/usr/libexec/qemu-kvm</path>
+  <domain>qemu</domain>
+  <machine>s390-ccw-virtio-rhel9.4.0</machine>
+  <arch>s390x</arch>
+  <vcpu max='248'/>
+  <iothreads supported='yes'/>
+  <os supported='yes'>
+    <enum name='firmware'/>
+    <loader supported='yes'>
+      <enum name='type'>
+        <value>rom</value>
+        <value>pflash</value>
+      </enum>
+      <enum name='readonly'>
+        <value>yes</value>
+        <value>no</value>
+      </enum>
+      <enum name='secure'>
+        <value>no</value>
+      </enum>
+    </loader>
+  </os>
+  <cpu>
+    <mode name='host-passthrough' supported='no'/>
+    <mode name='maximum' supported='yes'>
+      <enum name='maximumMigratable'>
+        <value>on</value>
+        <value>off</value>
+      </enum>
+    </mode>
+    <mode name='host-model' supported='yes'>
+      <model fallback='forbid'>gen15a-base</model>
+      <feature policy='disable' name='dateh2'/>
+      <feature policy='require' name='aen'/>
+      <feature policy='disable' name='gen13ptff'/>
+      <feature policy='disable' name='kmac-tdea-192'/>
+      <feature policy='require' name='kimd-sha-512'/>
+      <feature policy='disable' name='kmc-tdea-192'/>
+      <feature policy='disable' name='parseh'/>
+      <feature policy='require' name='klmd-sha-512'/>
+      <feature policy='require' name='aefsi'/>
+      <feature policy='disable' name='hfpm'/>
+      <feature policy='disable' name='hfpue'/>
+      <feature policy='disable' name='dfp'/>
+      <feature policy='disable' name='km-dea'/>
+      <feature policy='require' name='vx'/>
+      <feature policy='disable' name='emon'/>
+      <feature policy='disable' name='kimd-sha-1'/>
+      <feature policy='disable' name='cmpsceh'/>
+      <feature policy='disable' name='dfppc'/>
+      <feature policy='disable' name='dfpzc'/>
+      <feature policy='disable' name='dfphp'/>
+      <feature policy='disable' name='kmc-dea'/>
+      <feature policy='disable' name='klmd-sha-1'/>
+      <feature policy='disable' name='opc'/>
+      <feature policy='disable' name='asnlxr'/>
+      <feature policy='require' name='vxeh'/>
+      <feature policy='require' name='esop'/>
+      <feature policy='disable' name='km-tdea-192'/>
+      <feature policy='disable' name='km-tdea-128'/>
+      <feature policy='require' name='vxeh2'/>
+      <feature policy='disable' name='tsi'/>
+      <feature policy='disable' name='kmac-dea'/>
+      <feature policy='require' name='iep'/>
+      <feature policy='disable' name='kmc-tdea-128'/>
+      <feature policy='require' name='prno-trng'/>
+      <feature policy='require' name='ais'/>
+      <feature policy='disable' name='kmac-tdea-128'/>
+      <feature policy='disable' name='sema'/>
+      <feature policy='disable' name='eec'/>
+      <feature policy='require' name='zpci'/>
+      <feature policy='disable' name='nonqks'/>
+      <feature policy='require' name='sea_esop2'/>
+      <feature policy='disable' name='pfpo'/>
+      <feature policy='require' name='msa8-base'/>
+      <feature policy='require' name='msa4-base'/>
+      <feature policy='require' name='msa3-base'/>
+      <feature policy='require' name='msa5-base'/>
+      <feature policy='disable' name='tods'/>
+    </mode>
+    <mode name='custom' supported='yes'>
+      <model usable='no' vendor='IBM'>gen16a-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z890.2-base</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z800-base</model>
+      <model usable='no' vendor='IBM'>gen16a</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9EC.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z13.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.5-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9BC-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z890</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z890.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9BC</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z13</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z196</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z13s</model>
+      <model usable='no' vendor='IBM'>gen16b-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.3</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z13s-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9EC</model>
+      <model usable='no' vendor='IBM'>gen15a</model>
+      <model usable='no' vendor='IBM'>z14ZR1-base</model>
+      <model usable='no' vendor='IBM'>z14.2-base</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z900.3-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z13.2-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z196.2-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>zBC12-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9BC.2-base</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z900.2-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9EC.3</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>zEC12</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z900</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z114-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>zEC12-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10EC.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10EC-base</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z900.3</model>
+      <model usable='no' vendor='IBM'>z14ZR1</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10BC</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10BC.2-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9BC.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.2</model>
+      <model usable='no' vendor='IBM'>z14</model>
+      <model usable='no' vendor='IBM'>gen15b-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.4</model>
+      <model usable='yes' vendor='unknown'>max</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10EC.2-base</model>
+      <model usable='no' vendor='IBM'>gen15a-base</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z800</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10EC</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>zEC12.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.2-base</model>
+      <model usable='no' vendor='IBM'>gen16b</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z900-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10BC.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9EC-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9EC.3-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z114</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z890.3</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z196-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z9EC.2-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z196.2</model>
+      <model usable='no' vendor='IBM'>z14.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990-base</model>
+      <model usable='yes' deprecated='yes' vendor='IBM'>z900.2</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z890-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10EC.3</model>
+      <model usable='no' vendor='IBM'>z14-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.4-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10EC.3-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z10BC-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z13-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.3-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>zEC12.2-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>zBC12</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z890.3-base</model>
+      <model usable='no' deprecated='yes' vendor='IBM'>z990.5</model>
+      <model usable='no' vendor='IBM'>gen15b</model>
+      <model usable='yes' vendor='unknown'>qemu</model>
+    </mode>
+  </cpu>
+  <memoryBacking supported='yes'>
+    <enum name='sourceType'>
+      <value>file</value>
+      <value>anonymous</value>
+      <value>memfd</value>
+    </enum>
+  </memoryBacking>
+  <devices>
+    <disk supported='yes'>
+      <enum name='diskDevice'>
+        <value>disk</value>
+        <value>cdrom</value>
+        <value>floppy</value>
+        <value>lun</value>
+      </enum>
+      <enum name='bus'>
+        <value>fdc</value>
+        <value>scsi</value>
+        <value>virtio</value>
+      </enum>
+      <enum name='model'>
+        <value>virtio</value>
+      </enum>
+    </disk>
+    <graphics supported='yes'>
+      <enum name='type'>
+        <value>vnc</value>
+        <value>dbus</value>
+      </enum>
+    </graphics>
+    <video supported='yes'>
+      <enum name='modelType'>
+        <value>virtio</value>
+        <value>none</value>
+      </enum>
+    </video>
+    <hostdev supported='yes'>
+      <enum name='mode'>
+        <value>subsystem</value>
+      </enum>
+      <enum name='startupPolicy'>
+        <value>default</value>
+        <value>mandatory</value>
+        <value>requisite</value>
+        <value>optional</value>
+      </enum>
+      <enum name='subsysType'>
+        <value>pci</value>
+        <value>scsi</value>
+      </enum>
+      <enum name='capsType'/>
+      <enum name='pciBackend'/>
+    </hostdev>
+    <rng supported='yes'>
+      <enum name='model'>
+        <value>virtio</value>
+      </enum>
+      <enum name='backendModel'>
+        <value>random</value>
+        <value>egd</value>
+        <value>builtin</value>
+      </enum>
+    </rng>
+    <filesystem supported='yes'>
+      <enum name='driverType'>
+        <value>path</value>
+        <value>handle</value>
+        <value>virtiofs</value>
+      </enum>
+    </filesystem>
+    <tpm supported='no'/>
+    <redirdev supported='no'/>
+    <channel supported='yes'>
+      <enum name='type'>
+        <value>pty</value>
+        <value>unix</value>
+      </enum>
+    </channel>
+    <crypto supported='yes'>
+      <enum name='model'/>
+      <enum name='type'>
+        <value>qemu</value>
+      </enum>
+      <enum name='backendModel'>
+        <value>builtin</value>
+      </enum>
+    </crypto>
+  </devices>
+  <features>
+    <gic supported='no'/>
+    <vmcoreinfo supported='no'/>
+    <genid supported='no'/>
+    <backingStoreInput supported='yes'/>
+    <backup supported='yes'/>
+    <async-teardown supported='yes'/>
+    <s390-pv supported='yes'/>
+    <sev supported='no'/>
+    <sgx supported='no'/>
+    <launchSecurity supported='yes'>
+      <enum name='sectype'>
+        <value>s390-pv</value>
+      </enum>
+    </launchSecurity>
+  </features>
+</domainCapabilities>
+

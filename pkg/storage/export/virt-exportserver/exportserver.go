@@ -1,0 +1,1177 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package virtexportserver
+
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
+	goflag "flag"
+	"fmt"
+	"io"
+	golog "log"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	gzip "github.com/klauspost/pgzip"
+	flag "github.com/spf13/pflag"
+	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
+
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+)
+
+const (
+	authHeader              = "x-kubevirt-export-token"
+	manifestCmBasePath      = "/manifest_data/"
+	vmManifestPath          = manifestCmBasePath + "virtualmachine-manifest"
+	internalLinkPath        = manifestCmBasePath + "internal_host"
+	internalCaConfigMapPath = manifestCmBasePath + "internal_ca_cm"
+	externalLinkPath        = manifestCmBasePath + "external_host"
+	externalCaConfigMapPath = manifestCmBasePath + "external_ca_cm"
+	exportNamePath          = manifestCmBasePath + "export-name"
+
+	external = "/external"
+	internal = "/internal"
+
+	defaultMapPageSize = 512
+	tunnelIdleTimeout  = 60 * time.Second
+)
+
+var (
+	excludeMap = map[string]struct{}{
+		"lost+found": {},
+	}
+	h2DummyAddr = &net.TCPAddr{}
+)
+
+type TokenGetterFunc func() (string, error)
+
+type ExportServerConfig struct {
+	Deadline time.Time
+
+	ListenAddr string
+
+	CertFile, KeyFile string
+	BackupCACert      []byte
+	TLSMinVersion     uint16
+	TLSCipherSuites   []uint16
+
+	TokenFile string
+
+	BackupUID        string
+	BackupType       string
+	BackupCheckpoint string
+
+	Paths *export.ServerPaths
+
+	// unit testing helpers
+	ArchiveHandler     func(string) http.Handler
+	DirHandler         func(string, string) http.Handler
+	FileHandler        func(string) http.Handler
+	GzipHandler        func(string) http.Handler
+	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
+	TokenSecretHandler func(TokenGetterFunc) http.Handler
+
+	PermissionChecker func(string) bool
+
+	TokenGetter TokenGetterFunc
+}
+
+type execReader struct {
+	cmd    *exec.Cmd
+	stdout io.ReadCloser
+	stderr io.ReadCloser
+}
+
+type exportServer struct {
+	ExportServerConfig
+	handler http.Handler
+
+	nbdClient nbdv1.NBDClient
+	nbdMu     sync.RWMutex
+}
+
+func (er *execReader) Read(p []byte) (int, error) {
+	n, err := er.stdout.Read(p)
+	if err == io.EOF {
+		if err2 := er.cmd.Wait(); err2 != nil {
+			errBytes, _ := io.ReadAll(er.stderr)
+			log.Log.Reason(err2).Errorf("Subprocess did not execute successfully, result is: %q\n%s", er.cmd.ProcessState.ExitCode(), string(errBytes))
+			return n, err2
+		}
+	}
+	return n, err
+}
+
+func (er *execReader) Close() error {
+	return er.stdout.Close()
+}
+
+func (s *exportServer) initHandler() {
+	mux := http.NewServeMux()
+	for _, vi := range s.Paths.Volumes {
+		if hasPermissions := s.PermissionChecker(vi.Path); !hasPermissions {
+			golog.Fatalf("unable to manipulate %s's contents, exiting", vi.Path)
+		}
+		for path, handler := range s.getHandlerMap(vi) {
+			log.Log.Infof("Handling path %s\n", path)
+			mux.Handle(path, tokenChecker(s.TokenGetter, handler))
+		}
+	}
+	for _, bi := range s.Paths.Backups {
+		log.Log.Infof("Handling backup path %s (Map) and %s (Data)\n", bi.MapURI, bi.DataURI)
+		mux.Handle(bi.MapURI, tokenChecker(s.TokenGetter, s.backupMapHandler(bi.Path)))
+		mux.Handle(bi.DataURI, tokenChecker(s.TokenGetter, s.backupDataHandler(bi.Path)))
+	}
+	if s.Paths.VMURI != "" {
+		mux.Handle(filepath.Join(internal, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getInternalBasePath, getInternalCAConfigMap)))
+		mux.Handle(filepath.Join(external, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getExternalBasePath, getExternalCAConfigMap)))
+	}
+	if s.Paths.SecretURI != "" {
+		mux.Handle(filepath.Join(internal, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
+		mux.Handle(filepath.Join(external, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
+	}
+	// Readiness probe
+	mux.HandleFunc(export.ReadinessPath, s.readyHandler)
+
+	s.handler = mux
+}
+
+func getInternalCAConfigMap() (*corev1.ConfigMap, error) {
+	return getCAConfigMap(internalCaConfigMapPath)
+}
+
+func getExternalCAConfigMap() (*corev1.ConfigMap, error) {
+	return getCAConfigMap(externalCaConfigMapPath)
+}
+
+func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handler {
+	fi, err := os.Stat(vi.Path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error statting %s", vi.Path)
+		return nil
+	}
+
+	var result = make(map[string]http.Handler)
+
+	if vi.ArchiveURI != "" {
+		result[vi.ArchiveURI] = s.ArchiveHandler(vi.Path)
+	}
+
+	if vi.DirURI != "" {
+		result[vi.DirURI] = s.DirHandler(vi.DirURI, vi.Path)
+	}
+
+	p := vi.Path
+	if fi.IsDir() {
+		p = path.Join(p, "disk.img")
+	}
+
+	if vi.RawURI != "" {
+		result[vi.RawURI] = s.FileHandler(p)
+	}
+
+	if vi.RawGzURI != "" {
+		result[vi.RawGzURI] = s.GzipHandler(p)
+	}
+
+	return result
+}
+
+func (s *exportServer) Run() {
+	s.initHandler()
+
+	srv := s.buildServer()
+
+	h2Server := &http2.Server{
+		IdleTimeout: tunnelIdleTimeout,
+	}
+	if err := http2.ConfigureServer(srv, h2Server); err != nil {
+		panic(err)
+	}
+
+	ch := make(chan error)
+
+	go func() {
+		err := srv.ListenAndServeTLS(s.CertFile, s.KeyFile)
+		ch <- err
+	}()
+
+	if !s.Deadline.IsZero() {
+		log.Log.Infof("Deadline set to %s", s.Deadline)
+		select {
+		case err := <-ch:
+			panic(err)
+		case <-time.After(time.Until(s.Deadline)):
+			log.Log.Info("Deadline exceeded, shutting down")
+			srv.Shutdown(context.TODO())
+		}
+	} else {
+		err := <-ch
+		panic(err)
+	}
+}
+
+func (s *exportServer) buildServer() *http.Server {
+	tlsConfig := &tls.Config{
+		MinVersion:   s.TLSMinVersion,
+		CipherSuites: s.TLSCipherSuites,
+		NextProtos:   []string{"h2", "http/1.1"},
+	}
+
+	rootHandler := s.handler
+	if s.BackupUID != "" {
+		clientCAPool := x509.NewCertPool()
+		if ok := clientCAPool.AppendCertsFromPEM(s.BackupCACert); !ok {
+			panic("failed to parse Backup CA")
+		}
+		tlsConfig.ClientCAs = clientCAPool
+		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+
+		rootHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodConnect {
+				s.handleTunnel(w, r)
+				return
+			}
+			s.handler.ServeHTTP(w, r)
+		})
+	}
+
+	return &http.Server{
+		Addr:      s.ListenAddr,
+		Handler:   rootHandler,
+		TLSConfig: tlsConfig,
+	}
+}
+
+func (s *exportServer) AddFlags() {
+	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+}
+
+func NewExportServer(config ExportServerConfig) service.Service {
+	es := &exportServer{
+		ExportServerConfig: config,
+	}
+
+	if es.ArchiveHandler == nil {
+		es.ArchiveHandler = archiveHandler
+	}
+
+	if es.DirHandler == nil {
+		es.DirHandler = dirHandler
+	}
+
+	if es.FileHandler == nil {
+		es.FileHandler = fileHandler
+	}
+
+	if es.GzipHandler == nil {
+		es.GzipHandler = gzipHandler
+	}
+
+	if es.VmHandler == nil {
+		es.VmHandler = vmHandler
+	}
+
+	if es.TokenSecretHandler == nil {
+		es.TokenSecretHandler = secretHandler
+	}
+
+	if es.TokenGetter == nil {
+		es.TokenGetter = func() (string, error) {
+			return getToken(es.TokenFile)
+		}
+	}
+
+	if es.PermissionChecker == nil {
+		es.PermissionChecker = checkVolumePermissions
+	}
+
+	return es
+}
+
+var getExpandedVM = func() *virtv1.VirtualMachine {
+	f, err := os.Open(vmManifestPath)
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+	defer f.Close()
+	fileinfo, err := f.Stat()
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+	buf := make([]byte, fileinfo.Size())
+	_, err = f.Read(buf)
+	if err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+
+	vm := &virtv1.VirtualMachine{}
+	if err := json.Unmarshal(buf, vm); err != nil {
+		log.Log.Reason(err).Info("Unable to load VM manifest data")
+		return nil
+	}
+	return vm
+}
+
+var getInternalBasePath = func() (string, error) {
+	data, err := os.ReadFile(internalLinkPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+var getExportName = func() (string, error) {
+	data, err := os.ReadFile(exportNamePath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+var getExternalBasePath = func() (string, error) {
+	data, err := os.ReadFile(externalLinkPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func GetTypeMetaString(gvk schema.GroupVersionKind) string {
+	return fmt.Sprintf("apiVersion: %s\nkind: %s\n", gvk.GroupVersion().String(), gvk.Kind)
+}
+
+var getCAConfigMap = func(name string) (*corev1.ConfigMap, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fileinfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	buf := make([]byte, fileinfo.Size())
+	_, err = f.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	cm := &corev1.ConfigMap{}
+	if err := json.Unmarshal(buf, cm); err != nil {
+		return nil, err
+	}
+	return cm, nil
+}
+
+var getCdiHeaderSecret = func(token, name string) *corev1.Secret {
+	data := make(map[string]string)
+
+	data["token"] = fmt.Sprintf("x-kubevirt-export-token:%s", token)
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		StringData: data,
+	}
+}
+
+var getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
+	res := make([]*cdiv1.DataVolume, 0)
+	volumes, err := storageutils.GetVolumes(vm, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, volume := range volumes {
+		name := ""
+		if volume.DataVolume != nil {
+			name = volume.DataVolume.Name
+		} else if volume.PersistentVolumeClaim != nil {
+			name = volume.PersistentVolumeClaim.ClaimName
+		}
+		if name == "" {
+			continue
+		}
+		log.Log.V(1).Infof("Opening DV %s", filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
+		f, err := os.Open(filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Log.V(1).Info("DV not found skipping")
+				continue
+			}
+			return nil, err
+		}
+		defer f.Close()
+		fileinfo, err := f.Stat()
+		if err != nil {
+			return nil, err
+		}
+		buf := make([]byte, fileinfo.Size())
+		_, err = f.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+		dv := &cdiv1.DataVolume{}
+		if err := json.Unmarshal(buf, dv); err != nil {
+			return nil, err
+		}
+		res = append(res, dv)
+	}
+	return res, nil
+}
+
+func newTarReader(mountPoint string) (io.ReadCloser, error) {
+	var excludeArgs []string
+	for name := range excludeMap {
+		excludeArgs = append(excludeArgs, "--exclude="+name)
+	}
+
+	args := []string{"Scv"}
+	args = append(args, excludeArgs...)
+	args = append(args, ".")
+
+	cmd := exec.Command("/usr/bin/tar", args...)
+	cmd.Dir = mountPoint
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err = cmd.Start(); err != nil {
+		return nil, err
+	}
+	return &execReader{cmd: cmd, stdout: stdout, stderr: io.NopCloser(&stderr)}, nil
+}
+
+func pipeToGzip(reader io.ReadCloser) io.ReadCloser {
+	pr, pw := io.Pipe()
+	zw := gzip.NewWriter(pw)
+
+	go func() {
+		n, err := io.Copy(zw, reader)
+		if err != nil {
+			log.Log.Reason(err).Error("error piping to gzip")
+		}
+		if err = zw.Close(); err != nil {
+			log.Log.Reason(err).Error("error closing gzip writer")
+		}
+		if err = pw.Close(); err != nil {
+			log.Log.Reason(err).Error("error closing pipe writer")
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	}()
+
+	return pr
+}
+
+func getTokenQueryParam(r *http.Request) (token string) {
+	q := r.URL.Query()
+	if keys, ok := q[authHeader]; ok {
+		token = keys[0]
+		q.Del(authHeader)
+		r.URL.RawQuery = q.Encode()
+	}
+	return
+}
+
+func getTokenHeader(r *http.Request) (token string) {
+	if tok := r.Header.Get(authHeader); tok != "" {
+		r.Header.Del(authHeader)
+		token = tok
+	}
+	return
+}
+
+func tokenChecker(tokenGetter TokenGetterFunc, nextHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := tokenGetter()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		for _, tok := range []string{getTokenQueryParam(r), getTokenHeader(r)} {
+			if tok == token {
+				nextHandler.ServeHTTP(w, r)
+				return
+			}
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+}
+
+func archiveHandler(mountPoint string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if hasPermissions := checkDirectoryPermissions(mountPoint); !hasPermissions {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		tarReader, err := newTarReader(mountPoint)
+		if err != nil {
+			log.Log.Reason(err).Error("error creating tar reader")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer tarReader.Close()
+		gzipReader := pipeToGzip(tarReader)
+		defer gzipReader.Close()
+		n, err := io.Copy(w, gzipReader)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing response body")
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
+}
+
+func checkDirectoryPermissions(filePath string) bool {
+	dir, err := os.Open(filePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error opening %s", filePath)
+		return false
+	}
+	defer dir.Close()
+
+	// Read all filenames
+	contents, err := dir.Readdirnames(-1)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to read directory contents: %v", err)
+		return false
+	}
+
+	for _, item := range contents {
+		if _, ok := excludeMap[item]; ok {
+			continue
+		}
+		itemPath := filepath.Join(filePath, item)
+		// Check if export server has permissions to manipulate the file
+		file, err := os.Open(itemPath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("%s may lack read permissions", itemPath)
+			return false
+		}
+		file.Close()
+	}
+	return true
+}
+
+func checkVolumePermissions(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error statting %s", path)
+		return false
+	}
+	if fi.IsDir() {
+		return checkDirectoryPermissions(path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error opening %s", path)
+		return false
+	}
+	f.Close()
+	return true
+}
+
+func gzipHandler(filePath string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		f, err := os.Open(filePath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error opening %s", filePath)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		gzipReader := pipeToGzip(f)
+		defer gzipReader.Close()
+		n, err := io.Copy(w, gzipReader)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing response body")
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
+}
+
+func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		resources := make([]runtime.Object, 0)
+		outputFunc := resourceToBytesJson
+		contentType := req.Header.Get("Accept")
+		if contentType == runtime.ContentTypeYAML {
+			outputFunc = resourceToBytesYaml
+		}
+		exportName, err := getExportName()
+		if err != nil {
+			log.Log.Reason(err).Error("error reading export name")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		headerSecretName := getSecretTokenName(exportName)
+		path, err := getBasePath()
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Log.Reason(err).Info("path not found")
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				log.Log.Reason(err).Error("error reading path")
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			return
+		}
+		certCm, error := getCmFunc()
+		if error != nil {
+			log.Log.Reason(err).Error("error reading ca configmap information")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		certCm.TypeMeta = metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		}
+		resources = append(resources, certCm)
+		expandedVm := getExpandedVM()
+		if expandedVm == nil {
+			log.Log.Reason(err).Error("error getting VM definition")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		expandedVm.TypeMeta = metav1.TypeMeta{
+			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+			APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		}
+		for i, dvTemplate := range expandedVm.Spec.DataVolumeTemplates {
+			dvTemplate.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, vi[i].RawGzURI))
+			dvTemplate.Spec.Source.HTTP.CertConfigMap = certCm.Name
+			dvTemplate.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
+		}
+		resources = append(resources, expandedVm)
+		datavolumes, err := getDataVolumes(expandedVm)
+		if err != nil {
+			log.Log.Reason(err).Error("error reading datavolumes information")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		for _, dv := range datavolumes {
+			dv.TypeMeta = metav1.TypeMeta{
+				Kind:       "DataVolume",
+				APIVersion: "cdi.kubevirt.io/v1beta1",
+			}
+			for _, info := range vi {
+				if strings.Contains(info.RawGzURI, dv.Name) {
+					dv.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, info.RawGzURI))
+				}
+			}
+			dv.Spec.Source.HTTP.CertConfigMap = certCm.Name
+			dv.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
+			resources = append(resources, dv)
+		}
+		data, err := outputFunc(resources)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		n, err := w.Write(data)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing manifests")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
+}
+
+func resourceToBytesJson(resources []runtime.Object) ([]byte, error) {
+	list := corev1.List{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "List",
+			APIVersion: "v1",
+		},
+		ListMeta: metav1.ListMeta{},
+	}
+	for _, resource := range resources {
+		list.Items = append(list.Items, runtime.RawExtension{Object: resource})
+	}
+	resourceBytes, err := json.MarshalIndent(list, "", "    ")
+	if err != nil {
+		return nil, err
+	}
+	return resourceBytes, nil
+}
+
+func resourceToBytesYaml(resources []runtime.Object) ([]byte, error) {
+	data := []byte{}
+	for _, resource := range resources {
+		resourceBytes, err := yaml.Marshal(resource)
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, resourceBytes...)
+		data = append(data, []byte("---\n")...)
+	}
+	return data, nil
+}
+
+// symlinkSafeDir is an http.FileSystem that prevents symlink traversal outside root.
+// Unlike http.Dir, it resolves symlinks via safepath and rejects any that escape the
+// root boundary, preventing attackers from reading files outside the exported PVC.
+type symlinkSafeDir struct {
+	root string
+}
+
+func (d symlinkSafeDir) Open(name string) (http.File, error) {
+	cleanName := path.Clean("/" + name)
+	if cleanName == "/" {
+		cleanName = "."
+	} else {
+		cleanName = cleanName[1:]
+	}
+
+	resolved, err := safepath.JoinAndResolveWithRelativeRoot(d.root, cleanName)
+	if err != nil {
+		return nil, err
+	}
+
+	fd, err := safepath.OpenAtNoFollow(resolved)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+
+	return os.Open(fd.SafePath())
+}
+
+func dirHandler(uri, mountPoint string) http.Handler {
+	return http.StripPrefix(uri, http.FileServer(symlinkSafeDir{root: mountPoint}))
+}
+
+func fileHandler(file string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f, err := os.Open(file)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error opening %s", file)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+		http.ServeContent(w, r, "disk.img", time.Time{}, f)
+	})
+}
+
+func getToken(tokenFile string) (string, error) {
+	content, err := os.ReadFile(tokenFile)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
+var getSecretTokenName = func(exportName string) string {
+	return fmt.Sprintf("header-secret-%s", exportName)
+}
+
+func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		resources := make([]runtime.Object, 0)
+		outputFunc := resourceToBytesJson
+		contentType := req.Header.Get("Accept")
+		if contentType == runtime.ContentTypeYAML {
+			outputFunc = resourceToBytesYaml
+		}
+		token, err := tokenGetter()
+		if err != nil {
+			log.Log.Reason(err).Error("error getting token")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		exportName, err := getExportName()
+		if err != nil {
+			log.Log.Reason(err).Error("error reading export name")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		headerSecretName := getSecretTokenName(exportName)
+		secret := getCdiHeaderSecret(token, headerSecretName)
+		secret.TypeMeta = metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		}
+		resources = append(resources, secret)
+		data, err := outputFunc(resources)
+		if err != nil {
+			log.Log.Reason(err).Errorf("error generating secret manifest")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		n, err := w.Write(data)
+		if err != nil {
+			log.Log.Reason(err).Error("error writing secret manifest")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Log.Infof("Wrote %d bytes\n", n)
+	})
+}
+
+func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "OK")
+}
+
+func (s *exportServer) handleTunnel(w http.ResponseWriter, r *http.Request) {
+	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		log.Log.Error("tunnel rejected: no client certificate presented")
+		http.Error(w, "mTLS required", http.StatusUnauthorized)
+		return
+	}
+
+	expectedCN := fmt.Sprintf("kubevirt.io:system:client:%s", s.BackupUID)
+	clientCN := r.TLS.PeerCertificates[0].Subject.CommonName
+	if clientCN != expectedCN {
+		log.Log.Errorf("identity mismatch, cert: %s, expected: %s", clientCN, expectedCN)
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	s.nbdMu.Lock()
+	if s.nbdClient != nil {
+		s.nbdMu.Unlock()
+		_ = r.Body.Close()
+		log.Log.Warning("rejecting tunnel: active session already exists")
+		http.Error(w, "Conflict", http.StatusConflict)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	conn := newH2ServerConn(r.Body, w, cancel)
+
+	var dialOnce sync.Once
+	clientConn, err := grpc.NewClient(
+		"passthrough:///backup",
+		grpc.WithContextDialer(func(_ context.Context, _ string) (net.Conn, error) {
+			var c net.Conn
+			dialOnce.Do(func() { c = conn })
+			if c != nil {
+				return c, nil
+			}
+			return nil, fmt.Errorf("tunnel connection is single-use; reconnect not supported")
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			Timeout:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
+	if err != nil {
+		s.nbdMu.Unlock()
+		log.Log.Reason(err).Error("failed to initialize gRPC client for tunnel")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.(http.Flusher).Flush()
+
+	s.nbdClient = nbdv1.NewNBDClient(clientConn)
+	s.nbdMu.Unlock()
+
+	log.Log.Infof("Exclusive backup tunnel established for %s", s.BackupUID)
+
+	<-ctx.Done()
+
+	s.nbdMu.Lock()
+	clientConn.Close()
+	s.nbdClient = nil
+	s.nbdMu.Unlock()
+	log.Log.Info("Backup tunnel disconnected, listener reset")
+}
+
+type h2ServerConn struct {
+	r      io.ReadCloser
+	w      http.ResponseWriter
+	cancel context.CancelFunc
+	once   sync.Once
+}
+
+func newH2ServerConn(r io.ReadCloser, w http.ResponseWriter, cancel context.CancelFunc) *h2ServerConn {
+	return &h2ServerConn{r: r, w: w, cancel: cancel}
+}
+
+func (c *h2ServerConn) Read(b []byte) (int, error) { return c.r.Read(b) }
+
+func (c *h2ServerConn) Write(b []byte) (int, error) {
+	n, err := c.w.Write(b)
+	if f, ok := c.w.(http.Flusher); ok {
+		f.Flush()
+	}
+	return n, err
+}
+
+func (c *h2ServerConn) Close() error {
+	c.once.Do(c.cancel)
+	return c.r.Close()
+}
+
+func (c *h2ServerConn) LocalAddr() net.Addr                { return h2DummyAddr }
+func (c *h2ServerConn) RemoteAddr() net.Addr               { return h2DummyAddr }
+func (c *h2ServerConn) SetDeadline(_ time.Time) error      { return nil }
+func (c *h2ServerConn) SetReadDeadline(_ time.Time) error  { return nil }
+func (c *h2ServerConn) SetWriteDeadline(_ time.Time) error { return nil }
+
+type ExportMapExtent struct {
+	Offset      uint64 `json:"offset"`
+	Length      uint64 `json:"length"`
+	Type        uint64 `json:"type"`
+	Description string `json:"description"`
+}
+
+type ExportMapResponse struct {
+	Extents    []ExportMapExtent `json:"extents"`
+	NextOffset *uint64           `json:"next_offset"`
+}
+
+func (s *exportServer) backupMapHandler(exportName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.nbdMu.RLock()
+		client := s.nbdClient
+		s.nbdMu.RUnlock()
+		if client == nil {
+			http.Error(w, "Backup source (virt-launcher) not connected via tunnel", http.StatusServiceUnavailable)
+			return
+		}
+
+		offset := uint64(0)
+		length := uint64(0)
+		pageSize := defaultMapPageSize
+		query := req.URL.Query()
+
+		if offsetStr := query.Get("offset"); offsetStr != "" {
+			o, err := strconv.ParseUint(offsetStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid offset %q: %v", offsetStr, err), http.StatusBadRequest)
+				return
+			}
+			offset = o
+		}
+		if lengthStr := query.Get("length"); lengthStr != "" {
+			l, err := strconv.ParseUint(lengthStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid length %q: %v", lengthStr, err), http.StatusBadRequest)
+				return
+			}
+			length = l
+		}
+		if pageSizeStr := query.Get("page_size"); pageSizeStr != "" {
+			p, err := strconv.Atoi(pageSizeStr)
+			if err != nil || p <= 0 {
+				http.Error(w, fmt.Sprintf("invalid page_size %q", pageSizeStr), http.StatusBadRequest)
+				return
+			}
+			pageSize = p
+		}
+
+		var bitmapName string
+		if s.BackupType == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
+			bitmapName = s.BackupCheckpoint
+		}
+
+		streamCtx, streamCancel := context.WithCancel(req.Context())
+		defer streamCancel()
+
+		stream, err := client.Map(streamCtx, &nbdv1.MapRequest{
+			ExportName: exportName,
+			BitmapName: bitmapName,
+			Offset:     offset,
+			Length:     length,
+		})
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to call map for export: %s", exportName)
+			log.Log.Reason(err).Error(errMsg)
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			return
+		}
+
+		extents, nextOffsetPtr, err := collectMapPage(stream, pageSize)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to collect map extents for export: %s", exportName)
+			log.Log.Reason(err).Error(errMsg)
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			return
+		}
+
+		page := ExportMapResponse{
+			Extents:    extents,
+			NextOffset: nextOffsetPtr,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(page); err != nil {
+			log.Log.Reason(err).Errorf("failed to encode map page for export %s", exportName)
+		}
+	})
+}
+
+func (s *exportServer) backupDataHandler(exportName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.nbdMu.RLock()
+		client := s.nbdClient
+		s.nbdMu.RUnlock()
+
+		if client == nil {
+			http.Error(w, "Backup source not connected", http.StatusServiceUnavailable)
+			return
+		}
+
+		offset := uint64(0)
+		length := uint64(0)
+
+		query := req.URL.Query()
+		if offsetStr := query.Get("offset"); offsetStr != "" {
+			o, err := strconv.ParseUint(offsetStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid offset %q: %v", offsetStr, err), http.StatusBadRequest)
+				return
+			}
+			offset = o
+		}
+		if lengthStr := query.Get("length"); lengthStr != "" {
+			l, err := strconv.ParseUint(lengthStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid length %q: %v", lengthStr, err), http.StatusBadRequest)
+				return
+			}
+			length = l
+		}
+
+		stream, err := client.Read(req.Context(), &nbdv1.ReadRequest{
+			ExportName: exportName,
+			Offset:     offset,
+			Length:     length,
+		})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to call read for export: %s", exportName), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		for {
+			chunk, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				log.Log.Reason(err).Error("Tunnel stream interrupted")
+				panic(http.ErrAbortHandler)
+			}
+			if _, err := w.Write(chunk.Data); err != nil {
+				log.Log.Reason(err).Error("HTTP client disconnected during stream")
+				return
+			}
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+	})
+}
+
+func collectMapPage(stream nbdv1.NBD_MapClient, pageSize int) ([]ExportMapExtent, *uint64, error) {
+	var extents []ExportMapExtent
+	for {
+		msg, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return extents, nil, nil
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, e := range msg.Extents {
+			if len(extents) >= pageSize {
+				return extents, &e.Offset, nil
+			}
+			extents = append(extents, ExportMapExtent{
+				Offset:      e.Offset,
+				Length:      e.Length,
+				Type:        e.Flags,
+				Description: e.Description,
+			})
+		}
+	}
+}

@@ -1,0 +1,627 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package cmdserver
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/record"
+
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+)
+
+var _ = Describe("Virt remote commands", func() {
+	var domainManager *virtwrap.MockDomainManager
+	var client cmdclient.LauncherClient
+
+	var ctrl *gomock.Controller
+
+	var err error
+	var shareDir string
+	var stop chan struct{}
+	var stopped bool
+	var allowEmulation bool
+	var options *ServerOptions
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		stopped = false
+		shareDir, err = os.MkdirTemp("", "kubevirt-share")
+		Expect(err).ToNot(HaveOccurred())
+
+		ctrl = gomock.NewController(GinkgoT())
+		domainManager = virtwrap.NewMockDomainManager(ctrl)
+
+		socketPath := filepath.Join(shareDir, "server.sock")
+
+		allowEmulation = true
+		options = NewServerOptions(allowEmulation)
+		RunServer(socketPath, domainManager, stop, options)
+		client, err = cmdclient.NewClient(socketPath)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		if stopped == false {
+			close(stop)
+		}
+		client.Close()
+		os.RemoveAll(shareDir)
+	})
+
+	Context("server", func() {
+		It("should start a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domain := api.NewMinimalDomain("testvmi")
+			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, &cmdv1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
+
+			Expect(client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+		})
+
+		It("should kill a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().KillVMI(vmi)
+
+			Expect(client.KillVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should shutdown a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().SignalShutdownVMI(vmi)
+			Expect(client.ShutdownVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should freeze a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FreezeVMI(vmi, int32(0))
+			Expect(client.FreezeVirtualMachine(vmi, int32(0))).To(Succeed())
+		})
+
+		It("should unfreeze a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().UnfreezeVMI(vmi)
+			Expect(client.UnfreezeVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should reset a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().ResetVMI(vmi)
+			Expect(client.ResetVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should soft reboot a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().SoftRebootVMI(vmi)
+			Expect(client.SoftRebootVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should call memory dump", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			dumpPath := "path/to/dump/volMem"
+			domainManager.EXPECT().MemoryDump(vmi, dumpPath)
+			err := client.VirtualMachineMemoryDump(vmi, dumpPath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should pause a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().PauseVMI(vmi)
+			Expect(client.PauseVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should unpause a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().UnpauseVMI(vmi)
+			Expect(client.UnpauseVirtualMachine(vmi)).To(Succeed())
+		})
+
+		It("should list domains when no guest agent info exists", func() {
+			var list []*api.Domain
+			list = append(list, api.NewMinimalDomain("testvmi1"))
+
+			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
+			domainManager.EXPECT().InterfacesStatus().Return(nil)
+			domain, exists, err := client.GetDomain()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(BeTrue())
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
+			Expect(domain.Status.OSInfo).To(Equal(api.GuestOSInfo{}))
+			Expect(domain.Status.Interfaces).To(BeNil())
+		})
+
+		It("should list domains when guest agent info exists", func() {
+			const vmiName = "testvmi1"
+			list := []*api.Domain{api.NewMinimalDomain(vmiName)}
+
+			fakeInterfaces := []api.InterfaceStatus{
+				{
+					Mac: "00:00:00:00:00:01",
+				},
+			}
+			domainManager.EXPECT().InterfacesStatus().Return(fakeInterfaces)
+			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			const osName = "fedora"
+			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{Name: osName})
+
+			domain, exists, err := client.GetDomain()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(BeTrue())
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.ObjectMeta.Name).To(Equal(vmiName))
+			Expect(domain.Status.OSInfo).To(Equal(api.GuestOSInfo{Name: osName}))
+			Expect(domain.Status.Interfaces).To(Equal(fakeInterfaces))
+		})
+
+		It("should list no domain if no domain is there yet", func() {
+			var list []*api.Domain
+
+			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domain, exists, err := client.GetDomain()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(BeFalse())
+			Expect(domain).ToNot(BeNil())
+		})
+
+		It("client should return disconnected after server stops", func() {
+			Expect(client.Ping()).To(Succeed())
+
+			close(stop)
+			stopped = true
+			time.Sleep(time.Second)
+
+			client.Close()
+
+			err := client.Ping()
+			Expect(err).To(HaveOccurred())
+			Expect(cmdclient.IsDisconnected(err)).To(BeTrue())
+
+			_, err = cmdclient.NewClient(filepath.Join(shareDir, "server.sock"))
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return domain stats", func() {
+			dom := api.NewMinimalDomain("testvmstats1")
+			domainStats := &stats.DomainStats{
+				Name: dom.Spec.Name,
+				UUID: dom.Spec.UUID,
+			}
+
+			domainManager.EXPECT().GetDomainStats().Return(domainStats, nil)
+			domStats, exists, err := client.GetDomainStats()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(BeTrue())
+			Expect(domStats).ToNot(BeNil())
+			Expect(domStats.Name).To(Equal(domainStats.Name))
+			Expect(domStats.UUID).To(Equal(domainStats.UUID))
+		})
+
+		It("should return full user list", func() {
+			userList := []v1.VirtualMachineInstanceGuestOSUser{
+				{
+					UserName: "testUser",
+				},
+			}
+
+			domainManager.EXPECT().GetUsers().Return(userList)
+
+			fetchedList, err := client.GetUsers()
+			Expect(err).ToNot(HaveOccurred(), "should fetch users without any issue")
+			Expect(fetchedList.Items).To(Equal(userList), "fetched list should be the same")
+		})
+
+		It("should return full filesystem list", func() {
+			fsList := []v1.VirtualMachineInstanceFileSystem{
+				{
+					DiskName:       "main",
+					MountPoint:     "/",
+					FileSystemType: "EXT4",
+					UsedBytes:      3333,
+					TotalBytes:     9999,
+					Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+						{
+							BusType: "scsi",
+							Serial:  "testserial-1234",
+						},
+					},
+				},
+			}
+
+			domainManager.EXPECT().GetFilesystems().Return(fsList)
+
+			fetchedList, err := client.GetFilesystems()
+			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
+			Expect(fetchedList.Items).To(Equal(fsList), "fetched list should be the same")
+		})
+
+		It("should finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{}).Return(nil)
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).Should(Succeed())
+		})
+
+		It("should fail to finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{}).Return(errors.New("error"))
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).ToNot(Succeed())
+		})
+
+		It("should get the qemu version", func() {
+			server := &Launcher{
+				domainManager: domainManager,
+			}
+			var mockedQemuVersion = "7.2.0"
+			domainManager.EXPECT().GetQemuVersion().Return(mockedQemuVersion, nil)
+			request := &cmdv1.EmptyRequest{}
+			qemuVersion, err := server.GetQemuVersion(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mockedQemuVersion).To(Equal(qemuVersion.GetVersion()))
+		})
+
+		It("should return SEV platform info", func() {
+			sevPlatformInfo := &v1.SEVPlatformInfo{
+				PDH:       "AAABBBCCC",
+				CertChain: "DDDEEEFFF",
+			}
+			domainManager.EXPECT().GetSEVInfo().Return(sevPlatformInfo, nil)
+			fetchedSEVPlatformInfo, err := client.GetSEVInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVPlatformInfo).To(Equal(sevPlatformInfo))
+		})
+
+		It("should return a vmi launch measurement", func() {
+			sevMeasurementInfo := &v1.SEVMeasurementInfo{
+				Measurement: "AAABBBCCC",
+				APIMajor:    1,
+				APIMinor:    2,
+				BuildID:     0xee,
+				Policy:      0xff,
+			}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().GetLaunchMeasurement(vmi).Return(sevMeasurementInfo, nil)
+			fetchedSEVMeasurementInfo, err := client.GetLaunchMeasurement(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVMeasurementInfo).To(Equal(sevMeasurementInfo))
+		})
+
+		It("should inject a launch secret into a vmi", func() {
+			sevSecretOptions := &v1.SEVSecretOptions{}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().InjectLaunchSecret(vmi, sevSecretOptions).Return(nil)
+			err := client.InjectLaunchSecret(vmi, sevSecretOptions)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should call UpdateGuestMemory", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().UpdateGuestMemory(vmi).Return(nil)
+			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+		})
+
+		Context("RedefineCheckpoint", func() {
+			var vmi *v1.VirtualMachineInstance
+			var checkpoint *backupv1.BackupCheckpoint
+
+			BeforeEach(func() {
+				vmi = v1.NewVMIReferenceFromName("testvmi")
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+				}
+				creationTime := metav1.Unix(1234567890, 0)
+				checkpoint = &backupv1.BackupCheckpoint{
+					Name:         "checkpoint-1",
+					CreationTime: &creationTime,
+					Volumes: []backupv1.BackupVolumeInfo{
+						{VolumeName: "disk1", DiskTarget: "vda"},
+						{VolumeName: "disk2", DiskTarget: "vdb"},
+					},
+				}
+			})
+
+			It("should redefine checkpoint successfully", func() {
+				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(vmiArg *v1.VirtualMachineInstance, cpArg *backupv1.BackupCheckpoint) (bool, error) {
+						Expect(vmiArg.Name).To(Equal("testvmi"))
+						Expect(cpArg.Name).To(Equal("checkpoint-1"))
+						Expect(cpArg.Volumes).To(HaveLen(2))
+						Expect(cpArg.Volumes[0].VolumeName).To(Equal("disk1"))
+						Expect(cpArg.Volumes[0].DiskTarget).To(Equal("vda"))
+						Expect(cpArg.CreationTime.Unix()).To(Equal(int64(1234567890)))
+						return false, nil
+					})
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+
+			It("should return error when redefinition fails", func() {
+				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(false, errors.New("redefinition failed"))
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("redefinition failed"))
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+
+			It("should return checkpointInvalid=true when checkpoint is corrupt", func() {
+				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(true, errors.New("bitmap invalid"))
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("bitmap invalid"))
+				Expect(checkpointInvalid).To(BeTrue())
+			})
+
+			It("should fail when CBT is not enabled", func() {
+				vmi.Status.ChangedBlockTracking = nil
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("ChangedBlockTracking is not enabled"))
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+		})
+
+		Context("exec & guestPing", func() {
+			var (
+				testDomainName           = "test"
+				testCommand              = "testCmd"
+				testArgs                 = []string{"-v", "2"}
+				testExecErr              = errors.New("exec error")
+				testGuestPingErr         = errors.New("guest ping error")
+				testStdOut               = "stdOut"
+				testTimeoutSeconds int32 = 10
+
+				expectExec = func() *gomock.Call {
+					return domainManager.EXPECT().Exec(
+						testDomainName,
+						testCommand,
+						testArgs,
+						testTimeoutSeconds,
+					)
+				}
+				execRequest = func() *cmdv1.ExecRequest {
+					return &cmdv1.ExecRequest{
+						DomainName:     testDomainName,
+						Command:        testCommand,
+						Args:           testArgs,
+						TimeoutSeconds: testTimeoutSeconds,
+					}
+				}
+				expectGuestPing = func() *gomock.Call {
+					return domainManager.EXPECT().GuestPing(testDomainName)
+				}
+				guestPingRequest = func() *cmdv1.GuestPingRequest {
+					return &cmdv1.GuestPingRequest{
+						DomainName:     testDomainName,
+						TimeoutSeconds: testTimeoutSeconds,
+					}
+				}
+
+				server cmdv1.CmdServer
+			)
+
+			BeforeEach(func() {
+				server = &Launcher{
+					domainManager: domainManager,
+					ServerOptions: NewServerOptions(false),
+				}
+			})
+
+			It("should call exec", func() {
+				expectExec().Times(1)
+				server.Exec(context.TODO(), execRequest())
+			})
+			It("returns exec errors in the response", func() {
+				expectExec().Times(1).Return("", testExecErr)
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(HaveOccurred())
+				Expect(resp.Response.Success).To(BeFalse())
+				Expect(resp.Response.Message).To(Equal(testExecErr.Error()))
+			})
+			It("does not return exit code errors", func() {
+				expectExec().Times(1).Return("", agent.ExecExitCode{ExitCode: 1})
+				_, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("returns non-zero exit code and stdOut if possible", func() {
+				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.ExitCode).To(BeEquivalentTo(1))
+				Expect(resp.StdOut).To(Equal(testStdOut))
+			})
+			It("returns zero exit code and stdOut if possible", func() {
+				expectExec().Times(1).Return(testStdOut, nil)
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.ExitCode).To(BeEquivalentTo(0))
+				Expect(resp.StdOut).To(Equal(testStdOut))
+			})
+			It("returns true success on execution (including failed executions)", func() {
+				// the success field just indicates the request was successful.
+				// A non-zero exit code does not mean the execution failed, just the command.
+				// An example of a failed execution would be when the guest-agent is not available,
+				// then success should not be true.
+				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.Response.Success).To(BeTrue())
+			})
+			It("should call guest ping", func() {
+				expectGuestPing().Times(1)
+				server.GuestPing(context.TODO(), guestPingRequest())
+			})
+			It("returns zero exit code", func() {
+				expectGuestPing().Times(1).Return(nil)
+				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.Response.Success).To(BeTrue())
+			})
+			It("returns errors in the response when notifier is nil", func() {
+				expectGuestPing().Times(1).Return(testGuestPingErr)
+				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+				Expect(err).To(HaveOccurred())
+				Expect(resp.Response.Success).To(BeFalse())
+				Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+			})
+			Context("event handling", func() {
+				var (
+					notifyShareDir string
+					notifyStop     chan struct{}
+					recorder       *record.FakeRecorder
+					notifier       *notifyclient.Notifier
+					vmi            *v1.VirtualMachineInstance
+				)
+
+				BeforeEach(func() {
+					var err error
+					notifyShareDir, err = os.MkdirTemp("", "kubevirt-notify")
+					Expect(err).ToNot(HaveOccurred())
+
+					notifyStop = make(chan struct{})
+
+					eventChan := make(chan watch.Event, 100)
+					recorder = record.NewFakeRecorder(10)
+					recorder.IncludeObject = true
+					vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+					vmiStore := vmiInformer.GetStore()
+
+					go func() {
+						notifyserver.RunServer(notifyShareDir, notifyStop, eventChan, recorder, vmiStore)
+					}()
+
+					notifyServer := filepath.Join(notifyShareDir, "domain-notify.sock")
+					pipePath := filepath.Join(notifyShareDir, "domain-notify-pipe.sock")
+					Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
+
+					Eventually(func() bool {
+						_, err := os.Stat(filepath.Join(notifyShareDir, "domain-notify.sock"))
+						return err == nil
+					}).WithTimeout(5 * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
+
+					notifier = notifyclient.NewNotifier(notifyShareDir)
+
+					vmi = libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace(k8sv1.NamespaceDefault))
+					vmi.UID = types.UID("1234")
+					vmiStore.Add(vmi)
+
+					server = &Launcher{
+						domainManager: domainManager,
+						ServerOptions: &ServerOptions{
+							notifier:     notifier,
+							vmiName:      vmi.Name,
+							vmiNamespace: vmi.Namespace,
+							vmiUID:       vmi.UID,
+						},
+					}
+				})
+
+				AfterEach(func() {
+					notifier.Close()
+					close(notifyStop)
+					os.RemoveAll(notifyShareDir)
+				})
+
+				It("sends GuestAgentPingFailed event when guest ping fails", func() {
+					expectGuestPing().Times(1).Return(testGuestPingErr)
+					resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+					Expect(err).To(HaveOccurred())
+					Expect(resp.Response.Success).To(BeFalse())
+					Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+
+					var event string
+					Eventually(recorder.Events).Should(Receive(&event))
+					expectedMsg := fmt.Sprintf("GuestAgentPing probe failed for VMI %s", vmi.Name)
+					Expect(event).To(ContainSubstring("Warning"))
+					Expect(event).To(ContainSubstring("GuestAgentPingFailed"))
+					Expect(event).To(ContainSubstring(expectedMsg))
+				})
+
+				It("does not send event when guest ping succeeds", func() {
+					expectGuestPing().Times(1).Return(nil)
+					resp, err := server.GuestPing(context.TODO(), guestPingRequest())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.Response.Success).To(BeTrue())
+					Consistently(recorder.Events).ShouldNot(Receive())
+				})
+			})
+		})
+	})
+
+	Describe("ServerOptions", func() {
+		It("should set notifier and vmi name/namespace/uid", func() {
+			notifier := notifyclient.NewNotifier("")
+			vmi := v1.NewVMIReferenceFromNameWithNS("testns", "testvmi")
+			vmi.UID = types.UID("test-uid-1234")
+			options := NewServerOptions(true).WithNotifier(notifier).WithVMI(vmi)
+
+			Expect(options.allowEmulation).To(BeTrue())
+			Expect(options.notifier).To(Equal(notifier))
+			Expect(options.vmiName).To(Equal(vmi.Name))
+			Expect(options.vmiNamespace).To(Equal(vmi.Namespace))
+			Expect(options.vmiUID).To(Equal(vmi.UID))
+		})
+
+		It("should work without notifier and vmi", func() {
+			options := NewServerOptions(false)
+
+			Expect(options.allowEmulation).To(BeFalse())
+			Expect(options.notifier).To(BeNil())
+			Expect(options.vmiName).To(BeEmpty())
+			Expect(options.vmiNamespace).To(BeEmpty())
+		})
+	})
+})

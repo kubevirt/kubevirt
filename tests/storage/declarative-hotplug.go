@@ -1,0 +1,357 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2020 Red Hat, Inc.
+ *
+ */
+
+package storage
+
+import (
+	"context"
+	"time"
+
+	expect "github.com/google/goexpect"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	cdRomName       = "cdrom"
+	hotplugDiskName = "hotplug-disk"
+	volumeSize      = "1Gi"
+)
+
+var _ = Describe(SIG("Declarative Hotplug", func() {
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	createVM := func(options ...libvmi.Option) *v1.VirtualMachine {
+		vm := libvmi.NewVirtualMachine(
+			libvmifact.NewAlpineWithTestTooling(options...),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300*time.Second).WithPolling(time.Second).Should(matcher.BeReady(), "VM %s did not become ready in time", vm.Name)
+		return vm
+	}
+
+	createAndStartVMWithEmptyCDRom := func() *v1.VirtualMachine {
+		return createVM(libvmi.WithEmptyCDRom(v1.DiskBusSATA, cdRomName))
+	}
+
+	createCDRomVolume := func(namespace string, cdisk cd.ContainerDisk) *cdiv1.DataVolume {
+		url := "docker://" + cd.ContainerDiskFor(cdisk)
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(volumeSize),
+			),
+		)
+
+		var err error
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to create CD-ROM DataVolume in namespace %s", namespace)
+		return dv
+	}
+
+	createBlankVolume := func(namespace string) *cdiv1.DataVolume {
+		dv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(volumeSize),
+			),
+		)
+
+		var err error
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to create blank DataVolume in namespace %s", namespace)
+		return dv
+	}
+
+	patchVM := func(vm *v1.VirtualMachine, disks []v1.Disk, volumes []v1.Volume) *v1.VirtualMachine {
+		patchObj := patch.New()
+		if disks != nil {
+			patchObj.AddOption(patch.WithReplace("/spec/template/spec/domain/devices/disks", disks))
+		}
+		if volumes != nil {
+			patchObj.AddOption(patch.WithReplace("/spec/template/spec/volumes", volumes))
+		}
+		patchBytes, err := patchObj.GeneratePayload()
+		Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload for VirtualMachine %s/%s", vm.Namespace, vm.Name)
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to patch VirtualMachine %s/%s", vm.Namespace, vm.Name)
+		return vm
+	}
+
+	addHotplugVolume := func(vm *v1.VirtualMachine, volumeName, pvcName string) *v1.VirtualMachine {
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
+		newVolumes := vm.DeepCopy().Spec.Template.Spec.Volumes
+		newVolumes = append(newVolumes, v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name:         pvcName,
+					Hotpluggable: true,
+				},
+			},
+		})
+		return patchVM(vm, nil, newVolumes)
+	}
+
+	addHotplugVolumeAtBeginning := func(vm *v1.VirtualMachine, volumeName, pvcName string) *v1.VirtualMachine {
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
+		newVolumes := vm.DeepCopy().Spec.Template.Spec.Volumes
+		newVolume := v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name:         pvcName,
+					Hotpluggable: true,
+				},
+			},
+		}
+		// Prepend volume at the beginning
+		newVolumes = append([]v1.Volume{newVolume}, newVolumes...)
+		return patchVM(vm, nil, newVolumes)
+	}
+
+	verifyNoRestartRequired := func(vm *v1.VirtualMachine) {
+		Eventually(matcher.ThisVM(vm), 30*time.Second, 2*time.Second).
+			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+	}
+
+	removeHotplugVolume := func(vm *v1.VirtualMachine, volumeName string) *v1.VirtualMachine {
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
+		var newVolumes []v1.Volume
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			if volume.Name != volumeName {
+				newVolumes = append(newVolumes, volume)
+			}
+		}
+		return patchVM(vm, nil, newVolumes)
+	}
+
+	swapClaim := func(vm *v1.VirtualMachine, volumeName, newClaimName string) *v1.VirtualMachine {
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine %s/%s", vm.Namespace, vm.Name)
+		var newVolumes []v1.Volume
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			if volume.Name == volumeName {
+				volume.VolumeSource.DataVolume.Name = newClaimName
+			}
+			newVolumes = append(newVolumes, volume)
+		}
+		return patchVM(vm, nil, newVolumes)
+	}
+
+	loginToVM := func(vm *v1.VirtualMachine) {
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+		err = console.LoginToAlpine(vmi)
+		Expect(err).ToNot(HaveOccurred(), "failed to login to Alpine VM %s", vmi.Name)
+	}
+
+	validateVMHasCDRom := func(vm *v1.VirtualMachine, numItems string) {
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "umount -f /mnt\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "mount /dev/sr0 /mnt\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
+			}, 20)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to mount CD-ROM in VM")
+
+		err = console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
+			&expect.BExp{R: console.RetValue(numItems)},
+		}, 60)
+		Expect(err).ToNot(HaveOccurred(), "Failed to validate CD-ROM content in VM")
+
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "umount -f /mnt\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
+				&expect.BExp{R: console.RetValue("0")},
+			}, 20)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to unmount CD-ROM in VM")
+	}
+
+	validateVMHasNoCDRom := func(vm *v1.VirtualMachine) {
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "mount /dev/sr0 /mnt\n"},
+				&expect.BExp{R: "no medium found.*sr0"},
+			}, 20)
+		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to validate that CD-ROM is not present in VM")
+	}
+
+	Context("Inject/Eject CD-ROM", func() {
+		It("Should inject, swap, and eject a CD-ROM", func() {
+			By("Creating a VM with an empty CD-ROM")
+			vm := createAndStartVMWithEmptyCDRom()
+
+			By("creating cd-rom volumes")
+			dv1 := createCDRomVolume(vm.Namespace, cd.ContainerDiskVirtio)
+			dv2 := createCDRomVolume(vm.Namespace, cd.ContainerDiskAlpine)
+
+			By("Hotplugging a CD-ROM at the end of volumes list")
+			vm = addHotplugVolume(vm, cdRomName, dv1.Name)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv1.Name, true)
+			libstorage.EventuallyDV(dv1, 240, matcher.HaveSucceeded())
+
+			By("Verifying no RestartRequired condition after adding volume at the end")
+			verifyNoRestartRequired(vm)
+
+			By("Validate the first CD-ROM is present in the VM")
+			loginToVM(vm)
+			validateVMHasCDRom(vm, "27")
+
+			By("Swapping the CD-ROM")
+			vm = swapClaim(vm, cdRomName, dv2.Name)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv2.Name, true)
+			libstorage.EventuallyDV(dv2, 240, matcher.HaveSucceeded())
+
+			By("Validate the second CD-ROM is present in the VM")
+			loginToVM(vm)
+			validateVMHasCDRom(vm, "4")
+
+			By("Ejecting the CD-ROM")
+			vm = removeHotplugVolume(vm, cdRomName)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv2.Name, false)
+
+			By("Validate the CD-ROM is not present in the VM")
+			validateVMHasNoCDRom(vm)
+
+			By("Re-adding the CD-ROM at the beginning of volumes list")
+			vm = addHotplugVolumeAtBeginning(vm, cdRomName, dv1.Name)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv1.Name, true)
+
+			By("Verifying no RestartRequired condition after adding volume at the beginning")
+			verifyNoRestartRequired(vm)
+
+			By("Validate the CD-ROM is present in the VM again")
+			validateVMHasCDRom(vm, "27")
+
+			By("Ejecting the CD-ROM again")
+			vm = removeHotplugVolume(vm, cdRomName)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv1.Name, false)
+
+			By("Validate the CD-ROM is not present in the VM")
+			validateVMHasNoCDRom(vm)
+		})
+
+		It("Should trigger RestartRequired if CD-ROM disk is removed", func() {
+			By("Creating a VM with an empty CD-ROM")
+			vm := createAndStartVMWithEmptyCDRom()
+
+			By("Creating cd-rom volumes")
+			dv := createCDRomVolume(vm.Namespace, cd.ContainerDiskVirtio)
+
+			By("Hotplugging a CD-ROM")
+			vm = addHotplugVolume(vm, cdRomName, dv.Name)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv.Name, true)
+			libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
+
+			loginToVM(vm)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+
+			attachmentPodName := ""
+			for _, volumeStatus := range vmi.Status.VolumeStatus {
+				if volumeStatus.HotplugVolume != nil {
+					attachmentPodName = volumeStatus.HotplugVolume.AttachPodName
+				}
+			}
+
+			Expect(attachmentPodName).ToNot(BeEmpty(), "could not find hotplugged CD-ROM volume %s in vmi volume status", cdRomName)
+
+			By("Verifying no RestartRequired")
+			verifyNoRestartRequired(vm)
+
+			By("Removing CD-ROM disk and volume")
+			vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, cdRomName)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, cdRomName, dv.Name, false)
+
+			By("Checking RestartRequired Condition")
+			Eventually(matcher.ThisVM(vm), 120*time.Second, 2*time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+
+			By("Checking hotplug voume was properly detached")
+			Eventually(func() error {
+				_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), attachmentPodName, metav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+		})
+	})
+
+	Context("Hotplug disks", func() {
+		It("Should add and remove a hotplug disk", func() {
+			By("Creating a VM")
+			vm := createVM()
+
+			By("Hotplugging a disk")
+			dv1 := createBlankVolume(vm.Namespace)
+			vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugDiskName, dv1.Name)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugDiskName, dv1.Name, true)
+			libstorage.EventuallyDV(dv1, 240, matcher.HaveSucceeded())
+
+			By("Unplug the disk")
+			vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, hotplugDiskName)
+			libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugDiskName, dv1.Name, false)
+		})
+	})
+}))

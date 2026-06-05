@@ -1,0 +1,13 @@
+name: kubevirt-steady-state-test
+timeout: 10m
+count: 100
+churn: 5
+minChurnSleep: 30s
+type: "steady-state"
+object:
+  templateFile: templates/vmi-ephemeral.yaml
+  inputVars:
+    containerPrefix: ""
+    containerImg: cirros-container-disk-demo
+    containerTag: ""
+    namespace: kubevirt-density

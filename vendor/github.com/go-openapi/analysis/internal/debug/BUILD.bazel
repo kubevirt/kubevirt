@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["debug.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/analysis/internal/debug",
+    importpath = "github.com/go-openapi/analysis/internal/debug",
+    visibility = ["//vendor/github.com/go-openapi/analysis:__subpackages__"],
+)

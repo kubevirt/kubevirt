@@ -1,0 +1,163 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package selinux
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+
+	"kubevirt.io/client-go/log"
+)
+
+const procOnePrefix = "/proc/1/root"
+
+type execFunc = func(binary string, args ...string) ([]byte, error)
+type copyPolicy = func(policyName string, dir string) (err error)
+
+func defaultExecFunc(binary string, args ...string) ([]byte, error) {
+	// #nosec No risk for attacker injection. args get specific selinux exec parameters
+	return exec.Command(binary, args...).CombinedOutput()
+}
+
+type SELinuxImpl struct {
+	Paths          []string
+	execFunc       execFunc
+	copyPolicyFunc copyPolicy
+	procOnePrefix  string
+	mode           string
+}
+
+func NewSELinux() (SELinux, bool, error) {
+	paths := []string{
+		"/sbin/",
+		"/usr/sbin/",
+		"/bin/",
+		"/usr/bin/",
+	}
+	selinux := &SELinuxImpl{
+		Paths:          paths,
+		execFunc:       defaultExecFunc,
+		procOnePrefix:  procOnePrefix,
+		copyPolicyFunc: defaultCopyPolicyFunc,
+	}
+	present, mode, err := selinux.IsPresent()
+	selinux.mode = mode
+	return selinux, present, err
+}
+
+func (se *SELinuxImpl) IsPresent() (present bool, mode string, err error) {
+	out, err := se.selinux("getenforce")
+	if err != nil {
+		return false, string(out), err
+	}
+	outStr := strings.TrimSpace(string(out))
+	if outStr == "disabled" {
+		return false, outStr, nil
+	}
+	return true, outStr, nil
+}
+
+func (se *SELinuxImpl) IsPermissive() bool {
+	return se.mode == "permissive"
+}
+
+func (se *SELinuxImpl) Mode() string {
+	return se.mode
+}
+
+func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
+	argsArray := []string{"--mount", virt_chroot.GetChrootMountNamespace(), "selinux"}
+	for _, arg := range args {
+		argsArray = append(argsArray, arg)
+	}
+
+	return se.execFunc(virt_chroot.GetChrootBinaryPath(), argsArray...)
+}
+
+func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
+	sourceFile := filepath.Join("/", policyName+".cil")
+	// #nosec No risk for path injection. Using static string path
+	input, err := os.ReadFile(sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to read a policy file %v: %v ", sourceFile, err)
+	}
+
+	destinationFile := filepath.Join(dir, sourceFile)
+	err = os.WriteFile(destinationFile, input, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
+	}
+	return nil
+}
+
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+type SELinux interface {
+	Mode() string
+	IsPermissive() bool
+}
+
+func RelabelFilesUnprivileged(continueOnError bool, files ...*safepath.Path) error {
+	const unprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
+	relabelArgs := []string{"selinux", "relabel", unprivilegedContainerSELinuxLabel}
+	for _, file := range files {
+		cmd := exec.Command("virt-chroot", append(relabelArgs, "--root", unsafepath.UnsafeRoot(file.Raw()), unsafepath.UnsafeRelative(file.Raw()))...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			err := fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, unprivilegedContainerSELinuxLabel, err)
+			if !continueOnError {
+				return err
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("Relabeling a file faild, continuing since selinux is permissive.")
+			}
+		}
+	}
+	return nil
+}
+
+func GetVirtLauncherContext(vmi *v1.VirtualMachineInstance) (string, error) {
+	detector := isolation.NewSocketBasedIsolationDetector()
+	isolationRes, err := detector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	virtLauncherRoot, err := isolationRes.MountRoot()
+	if err != nil {
+		return "", err
+	}
+	context, err := safepath.GetxattrNoFollow(virtLauncherRoot, "security.selinux")
+	if err != nil {
+		return "", err
+	}
+
+	return string(context), nil
+}

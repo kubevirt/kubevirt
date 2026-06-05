@@ -1,0 +1,360 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package rest
+
+import (
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strconv"
+	"sync"
+
+	"github.com/emicklei/go-restful/v3"
+	"github.com/mdlayher/vsock"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/certificate"
+
+	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+)
+
+type ConsoleHandler struct {
+	podIsolationDetector isolation.PodIsolationDetector
+	serialStopChans      map[types.UID]chan struct{}
+	vncStopChans         map[types.UID]chan struct{}
+	serialLock           *sync.Mutex
+	vncLock              *sync.Mutex
+	vmiStore             cache.Store
+	usbredir             map[types.UID]UsbredirHandlerVMI
+	usbredirLock         *sync.Mutex
+	vsockCertManager     certificate.Manager
+}
+
+type UsbredirHandlerVMI struct {
+	stopChans map[int]chan struct{}
+}
+
+func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager) *ConsoleHandler {
+	return &ConsoleHandler{
+		podIsolationDetector: podIsolationDetector,
+		serialStopChans:      make(map[types.UID]chan struct{}),
+		vncStopChans:         make(map[types.UID]chan struct{}),
+		serialLock:           &sync.Mutex{},
+		vncLock:              &sync.Mutex{},
+		usbredirLock:         &sync.Mutex{},
+		vmiStore:             vmiStore,
+		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
+		vsockCertManager:     certManager,
+	}
+}
+
+func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiStore)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+
+	uid := vmi.GetUID()
+	stopChan := make(chan struct{})
+	var slotId int
+	var unixSocketPath *safepath.Path
+	ok := func() bool {
+		// For simplicity, we handle one usbredir request at the time, for all VMIs
+		// handled by virt-handler
+		t.usbredirLock.Lock()
+		defer t.usbredirLock.Unlock()
+
+		if _, exists := t.usbredir[uid]; !exists {
+			// Initialize
+			t.usbredir[uid] = UsbredirHandlerVMI{
+				stopChans: make(map[int]chan struct{}),
+			}
+		}
+
+		usbHandler := t.usbredir[uid]
+		// Find the first USB device slot available
+		for slotId = 0; slotId < v1.UsbClientPassthroughMaxNumberOf; slotId++ {
+			if _, inUse := usbHandler.stopChans[slotId]; !inUse {
+				break
+			}
+		}
+
+		if slotId == v1.UsbClientPassthroughMaxNumberOf {
+			log.Log.Object(vmi).Reason(err).Errorf("All USB devices are in use.")
+			response.WriteError(http.StatusServiceUnavailable, err)
+			return false
+		}
+
+		unixSocketPath, err = t.getUnixSocketPath(vmi, fmt.Sprintf("virt-usbredir-%d", slotId))
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed on finding unix socket for USBRedir")
+			response.WriteError(http.StatusBadRequest, err)
+			return false
+		}
+
+		usbHandler.stopChans[slotId] = stopChan
+		return true
+	}()
+
+	if !ok {
+		return
+	}
+
+	defer func() {
+		t.usbredirLock.Lock()
+		defer t.usbredirLock.Unlock()
+		usbHandler := t.usbredir[uid]
+		delete(usbHandler.stopChans, slotId)
+	}()
+	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChan)
+}
+
+func (t *ConsoleHandler) vncInUse(uid types.UID) bool {
+	t.vncLock.Lock()
+	defer t.vncLock.Unlock()
+	_, inUse := t.vncStopChans[uid]
+	return inUse
+}
+
+func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiStore)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+
+	uid := vmi.GetUID()
+	preserveSessionParam, err := strconv.ParseBool(request.QueryParameter("preserveSession"))
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warningf("VNC's query parameter preserveSession")
+	}
+
+	if t.vncInUse(uid) && preserveSessionParam {
+		err = fmt.Errorf("%s", "Active VNC connection. Request denied.")
+		log.Log.Object(vmi).Reason(err).Error("Already has an active connection. Preserve it.")
+		response.WriteError(http.StatusServiceUnavailable, err)
+		return
+	}
+
+	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-vnc")
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed finding unix socket for VNC console")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
+	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
+	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChn)
+}
+
+func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiStore)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-serial0")
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed finding unix socket for serial console")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	uid := vmi.GetUID()
+	stopCh := newStopChan(uid, t.serialLock, t.serialStopChans)
+	defer deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
+	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopCh)
+}
+
+func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiStore)
+	if err != nil || vmi == nil {
+		log.Log.Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+	log.Log.Object(vmi).Info("In VSOCKHandler")
+	if !util.IsAutoAttachVSOCK(vmi) {
+		response.WriteError(http.StatusBadRequest, errors.New("VM doesn't have VSOCK enabled"))
+		return
+	}
+	if vmi.Status.VSOCKCID == nil {
+		// This should not happen.
+		err := errors.New("VSOCK CID is nil")
+		log.Log.Object(vmi).Error(err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	portParam := request.QueryParameter("port")
+	tlsParam := request.QueryParameter("tls")
+	if tlsParam == "" {
+		tlsParam = "false"
+	}
+	port, err := strconv.ParseUint(portParam, 10, 32)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed parsing the path parameter port %s", portParam)
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	useTLS, err := strconv.ParseBool(tlsParam)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed parsing the path parameter useTLS %s", tlsParam)
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	cid := *vmi.Status.VSOCKCID
+	t.stream(vmi, request, response, func() (net.Conn, error) {
+		log.Log.Object(vmi).Infof("Connecting to %d:%d", cid, port)
+		conn, err := vsock.Dial(cid, uint32(port), &vsock.Config{})
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
+			return nil, err
+		}
+		if !useTLS {
+			log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
+			return conn, nil
+		}
+		tlsConn := tls.Client(conn, &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS13,
+			GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				certificate := t.vsockCertManager.Current()
+				if certificate == nil {
+					return nil, fmt.Errorf("missing VSOCK certificate")
+				}
+				return certificate, nil
+			},
+		})
+		if err := tlsConn.Handshake(); err != nil {
+			log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to %d:%d over TLS", cid, port)
+			return nil, err
+		}
+		log.Log.Object(vmi).Infof("Connected to %d:%d over TLS", cid, port)
+		return tlsConn, nil
+	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
+}
+
+func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) chan struct{} {
+	lock.Lock()
+	defer lock.Unlock()
+	// close current connection, if exists
+	if c, ok := stopChans[uid]; ok {
+		delete(stopChans, uid)
+		close(c)
+	}
+	// create a stop channel for the new connection
+	stopCh := make(chan struct{})
+	stopChans[uid] = stopCh
+	return stopCh
+}
+
+func deleteStopChan(uid types.UID, stopChn chan struct{}, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) {
+	lock.Lock()
+	defer lock.Unlock()
+	// delete the stop channel from the cache if needed
+	if c, ok := stopChans[uid]; ok && c == stopChn {
+		delete(stopChans, uid)
+	}
+}
+
+func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socketName string) (*safepath.Path, error) {
+	result, err := t.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return nil, err
+	}
+	root, err := result.MountRoot()
+	if err != nil {
+		return nil, err
+	}
+	return root.AppendAndResolveWithRelativeRoot("run", "kubevirt-private", string(vmi.GetUID()), socketName)
+}
+
+func unixSocketDialer(vmi *v1.VirtualMachineInstance, socketPath *safepath.Path) func() (net.Conn, error) {
+	return func() (net.Conn, error) {
+		var conn net.Conn
+		err := socketPath.ExecuteNoFollow(func(safePath string) error {
+			log.Log.Object(vmi).Infof("Connecting to %s", safePath)
+			var dialErr error
+			conn, dialErr = net.Dial("unix", safePath)
+			if dialErr != nil {
+				log.Log.Object(vmi).Reason(dialErr).Errorf("failed to dial unix socket %s", safePath)
+				return dialErr
+			}
+			log.Log.Object(vmi).Infof("Connected to %s", safePath)
+			return nil
+		})
+		return conn, err
+	}
+}
+
+func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, dial func() (net.Conn, error), stopCh chan struct{}) {
+	var upgrader = kvcorev1.NewUpgrader()
+	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	defer clientSocket.Close()
+
+	log.Log.Object(vmi).Infof("Websocket connection upgraded")
+
+	conn, err := dial()
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer conn.Close()
+
+	errCh := make(chan error, 2)
+	go func() {
+		_, err := kvcorev1.CopyTo(clientSocket, conn)
+		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
+		errCh <- err
+	}()
+
+	go func() {
+		_, err := kvcorev1.CopyFrom(conn, clientSocket)
+		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
+		errCh <- err
+	}()
+
+	select {
+	case <-stopCh:
+		break
+	case err := <-errCh:
+		if err != nil && err != io.EOF {
+			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
+			response.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}

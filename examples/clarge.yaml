@@ -1,0 +1,10 @@
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineInstancetype
+metadata:
+  name: clarge
+spec:
+  cpu:
+    guest: 4
+  memory:
+    guest: 2Gi

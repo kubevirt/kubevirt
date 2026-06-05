@@ -1,0 +1,43 @@
+2421 2150 252:28 /rootfs / rw,relatime master:615 - xfs /dev/mapper/docker-253:1-92910528-d0990551ba8254871a449b2ff0d9063061ae96a2c195d7a850b62f030eae1710 rw,context="system_u:object_r:container_file_t:s0:c50,c108",nouuid,attr2,inode64,logbufs=8,logbsize=32k,sunit=128,swidth=128,noquota
+2422 2421 0:312 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw
+2423 2421 0:313 / /dev rw,nosuid - tmpfs tmpfs rw,context="system_u:object_r:container_file_t:s0:c50,c108",size=65536k,mode=755
+2424 2423 0:314 / /dev/pts rw,nosuid,noexec,relatime - devpts devpts rw,context="system_u:object_r:container_file_t:s0:c50,c108",gid=5,mode=620,ptmxmode=666
+2425 2421 0:306 / /sys ro,nosuid,nodev,noexec,relatime - sysfs sysfs ro,seclabel
+2426 2425 0:315 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,context="system_u:object_r:container_file_t:s0:c50,c108",mode=755
+2427 2426 0:26 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/systemd ro,nosuid,nodev,noexec,relatime master:5 - cgroup cgroup rw,seclabel,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd
+2428 2426 0:29 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/perf_event ro,nosuid,nodev,noexec,relatime master:6 - cgroup cgroup rw,seclabel,perf_event
+2429 2426 0:30 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/net_cls,net_prio ro,nosuid,nodev,noexec,relatime master:7 - cgroup cgroup rw,seclabel,net_cls,net_prio
+2430 2426 0:31 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/freezer ro,nosuid,nodev,noexec,relatime master:8 - cgroup cgroup rw,seclabel,freezer
+2431 2426 0:32 / /sys/fs/cgroup/rdma ro,nosuid,nodev,noexec,relatime master:9 - cgroup cgroup rw,seclabel,rdma
+2432 2426 0:33 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/cpu,cpuacct ro,nosuid,nodev,noexec,relatime master:10 - cgroup cgroup rw,seclabel,cpu,cpuacct
+2433 2426 0:34 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/memory ro,nosuid,nodev,noexec,relatime master:11 - cgroup cgroup rw,seclabel,memory
+2434 2426 0:35 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/blkio ro,nosuid,nodev,noexec,relatime master:12 - cgroup cgroup rw,seclabel,blkio
+2435 2426 0:36 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/hugetlb ro,nosuid,nodev,noexec,relatime master:13 - cgroup cgroup rw,seclabel,hugetlb
+2436 2426 0:37 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/cpuset ro,nosuid,nodev,noexec,relatime master:14 - cgroup cgroup rw,seclabel,cpuset
+2437 2426 0:38 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/pids ro,nosuid,nodev,noexec,relatime master:15 - cgroup cgroup rw,seclabel,pids
+2438 2426 0:39 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podd1a9ffa0_15d5_4447_a202_5427b2771049.slice/docker-747f3ec762def86ef7681d6340e09650879e11f75fa3bf35db5d537fef9f98e9.scope /sys/fs/cgroup/devices ro,nosuid,nodev,noexec,relatime master:16 - cgroup cgroup rw,seclabel,devices
+2439 2423 0:302 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw,seclabel
+2440 2423 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/containers/compute/a98298f3 /dev/termination-log rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2441 2421 253:1 /var/lib/docker/containers/8ebddd84c396fed58d06b31cd6a3309e05e50ec84ea4162382ef9087a08303a8/hostname /etc/hostname rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2442 2421 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/etc-hosts /etc/hosts rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2443 2423 0:301 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,context="system_u:object_r:container_file_t:s0:c190,c734",size=65536k
+2444 2421 253:1 /var/lib/docker/containers/8ebddd84c396fed58d06b31cd6a3309e05e50ec84ea4162382ef9087a08303a8/resolv.conf /etc/resolv.conf rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2445 2421 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/volumes/kubernetes.io~empty-dir/ephemeral-disks /run/kubevirt-ephemeral-disks rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2446 2421 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/volumes/kubernetes.io~empty-dir/libvirt-runtime /run/libvirt rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2447 2421 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/volumes/kubernetes.io~empty-dir/hotplug-disks /run/kubevirt/hotplug-disks rw,relatime master:1 - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2448 2421 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/volumes/kubernetes.io~empty-dir/sockets /run/kubevirt/sockets rw,relatime - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2449 2421 253:1 /var/lib/kubelet/pods/d1a9ffa0-15d5-4447-a202-5427b2771049/volumes/kubernetes.io~empty-dir/container-disks /run/kubevirt/container-disks rw,relatime master:1 - xfs /dev/vda1 rw,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+2151 2422 0:312 /asound /proc/asound ro,relatime - proc proc rw
+2152 2422 0:312 /bus /proc/bus ro,relatime - proc proc rw
+2153 2422 0:312 /fs /proc/fs ro,relatime - proc proc rw
+2154 2422 0:312 /irq /proc/irq ro,relatime - proc proc rw
+2155 2422 0:312 /sys /proc/sys ro,relatime - proc proc rw
+2156 2422 0:312 /sysrq-trigger /proc/sysrq-trigger ro,relatime - proc proc rw
+2157 2422 0:316 / /proc/acpi ro,relatime - tmpfs tmpfs ro,context="system_u:object_r:container_file_t:s0:c50,c108"
+2158 2422 0:313 /null /proc/kcore rw,nosuid - tmpfs tmpfs rw,context="system_u:object_r:container_file_t:s0:c50,c108",size=65536k,mode=755
+2159 2422 0:313 /null /proc/keys rw,nosuid - tmpfs tmpfs rw,context="system_u:object_r:container_file_t:s0:c50,c108",size=65536k,mode=755
+2160 2422 0:313 /null /proc/timer_list rw,nosuid - tmpfs tmpfs rw,context="system_u:object_r:container_file_t:s0:c50,c108",size=65536k,mode=755
+2161 2422 0:313 /null /proc/sched_debug rw,nosuid - tmpfs tmpfs rw,context="system_u:object_r:container_file_t:s0:c50,c108",size=65536k,mode=755
+2162 2422 0:317 / /proc/scsi ro,relatime - tmpfs tmpfs ro,context="system_u:object_r:container_file_t:s0:c50,c108"
+2163 2425 0:318 / /sys/firmware ro,relatime - tmpfs tmpfs ro,context="system_u:object_r:container_file_t:s0:c50,c108"
+2188 2449 252:29 /rootfs/disk/downloaded /run/kubevirt/container-disks/disk_0.img rw,relatime master:620 - xfs /dev/mapper/docker-253:1-92910528-149eedb296eb4d169d52a933b29404ceb6dd1f5624a24a2fd4ad857dd20540dd rw,context=system_u:object_r:container_file_t:s0,nouuid,attr2,inode64,logbufs=8,logbsize=32k,sunit=128,swidth=128,noquota

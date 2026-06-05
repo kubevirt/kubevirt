@@ -1,0 +1,524 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package device_manager
+
+import (
+	"fmt"
+	"math"
+	"os"
+	"path"
+	"strings"
+	"sync"
+	"time"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+)
+
+var defaultBackoffTime = []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
+
+type controlledDevice struct {
+	devicePlugin Device
+	started      bool
+	stopChan     chan struct{}
+	backoff      []time.Duration
+}
+
+func (c *controlledDevice) Start() {
+	if c.started {
+		return
+	}
+
+	stop := make(chan struct{})
+
+	logger := log.DefaultLogger()
+	dev := c.devicePlugin
+	deviceName := dev.GetDeviceName()
+	logger.Infof("Starting a device plugin for device: %s", deviceName)
+	retries := 0
+
+	backoff := c.backoff
+	if backoff == nil {
+		backoff = defaultBackoffTime
+	}
+
+	go func() {
+		for {
+			err := dev.Start(stop)
+			if err != nil {
+				logger.Reason(err).Errorf("Error starting %s device plugin", deviceName)
+				retries = int(math.Min(float64(retries+1), float64(len(backoff)-1)))
+			} else {
+				retries = 0
+			}
+
+			select {
+			case <-stop:
+				// Ok we don't want to re-register
+				return
+			case <-time.After(backoff[retries]):
+				// Wait a little and re-register
+				continue
+			}
+		}
+	}()
+
+	c.stopChan = stop
+	c.started = true
+}
+
+func (c *controlledDevice) Stop() {
+	if !c.started {
+		return
+	}
+	close(c.stopChan)
+
+	c.stopChan = nil
+	c.started = false
+}
+
+func (c *controlledDevice) GetName() string {
+	return c.devicePlugin.GetDeviceName()
+}
+
+func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permissions string) []Device {
+	var permanentDevicePluginPaths = map[string]string{
+		hypervisorDevice: "/dev/" + hypervisorDevice,
+		"tun":            "/dev/net/tun",
+		"vhost-net":      "/dev/vhost-net",
+	}
+
+	ret := make([]Device, 0, len(permanentDevicePluginPaths))
+	for name, path := range permanentDevicePluginPaths {
+		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != hypervisorDevice))
+	}
+	return ret
+}
+
+type DeviceControllerInterface interface {
+	Initialized() bool
+	RefreshMediatedDeviceTypes()
+}
+
+type DeviceController struct {
+	permanentPlugins         map[string]Device
+	startedPlugins           map[string]controlledDevice
+	startedPluginsMutex      sync.Mutex
+	host                     string
+	maxDevices               int
+	permissions              string
+	backoff                  []time.Duration
+	virtConfig               *virtconfig.ClusterConfig
+	mdevTypesManager         *MDEVTypesManager
+	nodeStore                cache.Store
+	mdevRefreshWG            *sync.WaitGroup
+	lastTDXAttestationConfig *tdxConfigState
+}
+
+type tdxConfigState struct {
+	socketPath string
+	requireQGS bool
+}
+
+func NewDeviceController(
+	host string,
+	maxDevices int,
+	permissions string,
+	permanentPlugins []Device,
+	clusterConfig *virtconfig.ClusterConfig,
+	nodeStore cache.Store,
+) *DeviceController {
+	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
+	for i := range permanentPlugins {
+		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
+	}
+
+	controller := &DeviceController{
+		permanentPlugins: permanentPluginsMap,
+		startedPlugins:   map[string]controlledDevice{},
+		host:             host,
+		maxDevices:       maxDevices,
+		permissions:      permissions,
+		backoff:          defaultBackoffTime,
+		virtConfig:       clusterConfig,
+		mdevTypesManager: NewMDEVTypesManager(),
+		nodeStore:        nodeStore,
+		mdevRefreshWG:    &sync.WaitGroup{},
+	}
+
+	return controller
+}
+
+func (c *DeviceController) NodeHasDevice(devicePath string) bool {
+	_, err := os.Stat(devicePath)
+	// Since this is a boolean question, any error means "no"
+	return err == nil
+}
+
+func (c *DeviceController) updateTdxDevice() (Device, error) {
+	maxTDXVMs, err := cgroup.GetMiscCapacity("tdx")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TDX capacity from misc.capacity: %v", err)
+	} else if maxTDXVMs > 0 {
+		var selinuxExecutor selinux.SELinuxExecutor
+		socketPath := c.virtConfig.GetQGSSocketPath()
+		socketDir := path.Dir(socketPath)
+		socketFile := path.Base(socketPath)
+		var tdxPlugin Device
+		var err error
+		if c.virtConfig.RequireQGS() {
+			tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
+		} else {
+			tdxPlugin = NewOptionalSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
+		}
+		return tdxPlugin, err
+	} else {
+		return nil, fmt.Errorf("an invalid device capacity of %d was report for tdx", maxTDXVMs)
+	}
+}
+
+// updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
+func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
+	var permittedDevices []Device
+
+	if c.virtConfig.WorkloadEncryptionTDXEnabled() {
+		tdxPlugin, err := c.updateTdxDevice()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure the TDX-QGS device plugin")
+		} else {
+			permittedDevices = append(permittedDevices, tdxPlugin)
+		}
+	}
+
+	var featureGatedGenericDevices = []struct {
+		Name      string
+		Path      string
+		IsAllowed func() bool
+	}{
+		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
+		{"vhost-vsock", "/dev/vhost-vsock", c.virtConfig.VSOCKEnabled},
+	}
+
+	for _, dev := range featureGatedGenericDevices {
+		if dev.IsAllowed() {
+			permittedDevices = append(
+				permittedDevices,
+				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
+			)
+		}
+	}
+
+	if c.virtConfig.PersistentReservationEnabled() {
+		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager(), false)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
+		} else {
+			permittedDevices = append(permittedDevices, d)
+		}
+	}
+
+	hostDevs := c.virtConfig.GetPermittedHostDevices()
+	if hostDevs == nil {
+		return permittedDevices
+	}
+
+	if len(hostDevs.PciHostDevices) != 0 {
+		supportedPCIDeviceMap := make(map[string]string)
+		for _, pciDev := range hostDevs.PciHostDevices {
+			log.Log.V(4).Infof("Permitted PCI device in the cluster, ID: %s, resourceName: %s, externalProvider: %t",
+				strings.ToLower(pciDev.PCIVendorSelector),
+				pciDev.ResourceName,
+				pciDev.ExternalResourceProvider)
+			// do not add a device plugin for this resource if it's being provided via an external device plugin
+			if !pciDev.ExternalResourceProvider {
+				supportedPCIDeviceMap[strings.ToLower(pciDev.PCIVendorSelector)] = pciDev.ResourceName
+			}
+		}
+		for pciResourceName, pciDevices := range discoverPermittedHostPCIDevices(supportedPCIDeviceMap) {
+			log.Log.V(4).Infof("Discovered PCIs %d devices on the node for the resource: %s", len(pciDevices), pciResourceName)
+			// add a device plugin only for new devices
+			permittedDevices = append(permittedDevices, NewPCIDevicePlugin(pciDevices, pciResourceName))
+		}
+	}
+	if len(hostDevs.MediatedDevices) != 0 {
+		supportedMdevsMap := make(map[string]string)
+		for _, supportedMdev := range hostDevs.MediatedDevices {
+			log.Log.V(4).Infof("Permitted mediated device in the cluster, ID: %s, resourceName: %s",
+				supportedMdev.MDEVNameSelector,
+				supportedMdev.ResourceName)
+			// do not add a device plugin for this resource if it's being provided via an external device plugin
+			if !supportedMdev.ExternalResourceProvider {
+				selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
+				supportedMdevsMap[selector] = supportedMdev.ResourceName
+			}
+		}
+		for mdevTypeName, mdevUUIDs := range discoverPermittedHostMediatedDevices(supportedMdevsMap) {
+			mdevResourceName := supportedMdevsMap[mdevTypeName]
+			log.Log.V(4).Infof("Discovered mediated device on the node, type: %s, resourceName: %s", mdevTypeName, mdevResourceName)
+
+			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
+		}
+	}
+
+	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+	}
+
+	return permittedDevices
+}
+
+func removeSelectorSpaces(selectorName string) string {
+	// The name usually contain spaces which should be replaced with _
+	// Such as GRID T4-1Q
+	typeNameStr := strings.Replace(selectorName, " ", "_", -1)
+	typeNameStr = strings.TrimSpace(typeNameStr)
+	return typeNameStr
+}
+
+func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {
+	devicePluginsToRun := make(map[string]Device)
+	devicePluginsToStop := make(map[string]struct{})
+
+	// generate a map of currently started device plugins
+	for resourceName := range c.startedPlugins {
+		_, isPermanent := c.permanentPlugins[resourceName]
+		if !isPermanent {
+			devicePluginsToStop[resourceName] = struct{}{}
+		}
+	}
+
+	for _, device := range devices {
+		if _, isRunning := c.startedPlugins[device.GetDeviceName()]; !isRunning {
+			devicePluginsToRun[device.GetDeviceName()] = device
+		} else {
+			delete(devicePluginsToStop, device.GetDeviceName())
+		}
+	}
+
+	return devicePluginsToRun, devicePluginsToStop
+}
+
+func (c *DeviceController) RefreshMediatedDeviceTypes() {
+	go func() {
+		if c.refreshMediatedDeviceTypes() {
+			c.refreshPermittedDevices()
+		}
+	}()
+}
+
+func (c *DeviceController) getExternallyProvidedMdevs() map[string]struct{} {
+	externalMdevResourcesMap := make(map[string]struct{})
+	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
+		for _, supportedMdev := range hostDevs.MediatedDevices {
+			if supportedMdev.ExternalResourceProvider {
+				selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
+				externalMdevResourcesMap[selector] = struct{}{}
+			}
+		}
+	}
+	return externalMdevResourcesMap
+}
+
+func (c *DeviceController) refreshMediatedDeviceTypes() bool {
+	// the handling of mediated device is disabled
+	if c.virtConfig.MediatedDevicesHandlingDisabled() {
+		return false
+	}
+
+	node, err := c.getNode()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
+		return false
+	}
+	externallyProvidedMdevMap := c.getExternallyProvidedMdevs()
+
+	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
+	requiresDevicePluginsUpdate, err := c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList, externallyProvidedMdevMap)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
+	}
+	return requiresDevicePluginsUpdate
+}
+
+func (c *DeviceController) getNode() (*k8sv1.Node, error) {
+	nodeObj, exists, err := c.nodeStore.GetByKey(c.host)
+	if err != nil {
+		log.DefaultLogger().Errorf("Unable to get node: %s", err.Error())
+		return nil, err
+	}
+	if !exists {
+		log.DefaultLogger().Errorf("node %s does not exist", c.host)
+		return nil, fmt.Errorf("node %s does not exist", c.host)
+	}
+
+	node, ok := nodeObj.(*k8sv1.Node)
+	if !ok {
+		return nil, fmt.Errorf("unknown object type found in node informer")
+	}
+
+	return node, nil
+}
+
+func (c *DeviceController) refreshTDXConfig() bool {
+	if !c.virtConfig.WorkloadEncryptionTDXEnabled() {
+		// TDX not enabled, reset tracking
+		c.lastTDXAttestationConfig = nil
+		return false
+	}
+
+	currentTDXAttestationConfig := tdxConfigState{
+		socketPath: c.virtConfig.GetQGSSocketPath(),
+		requireQGS: c.virtConfig.RequireQGS(),
+	}
+
+	changed := c.lastTDXAttestationConfig == nil || *c.lastTDXAttestationConfig != currentTDXAttestationConfig
+
+	if changed {
+		c.lastTDXAttestationConfig = &currentTDXAttestationConfig
+	}
+
+	return changed
+}
+
+func (c *DeviceController) refreshPermittedDevices() {
+	c.mdevRefreshWG.Add(1)
+	logger := log.DefaultLogger()
+	var debugDevAdded []string
+	var debugDevRemoved []string
+
+	// This function can be called multiple times in parallel, either because of multiple
+	//   informer callbacks for the same event, or because the configmap was quickly updated
+	//   multiple times in a row. To avoid starting/stopping device plugins multiple times,
+	//   we need to protect c.startedPlugins, which we read from in
+	//   c.updatePermittedHostDevicePlugins() and write to below.
+	c.startedPluginsMutex.Lock()
+	defer c.startedPluginsMutex.Unlock()
+
+	// Check if QGS config changed and restart the QGS device plugin if needed
+	if changed := c.refreshTDXConfig(); changed {
+		if _, exists := c.startedPlugins[services.TdxDevice]; exists {
+			logger.Infof("QGS config changed, restarting QGS device plugin")
+			// only call stopDevice here,
+			// startDevice will be called when updatePermittedHostDevicePlugins() is called
+			c.stopDevice(services.TdxDevice)
+		}
+	}
+
+	enabledDevicePlugins, disabledDevicePlugins := c.splitPermittedDevices(
+		c.updatePermittedHostDevicePlugins(),
+	)
+
+	// start device plugin for newly permitted devices
+	for resourceName, dev := range enabledDevicePlugins {
+		c.startDevice(resourceName, dev)
+		debugDevAdded = append(debugDevAdded, resourceName)
+	}
+	// remove device plugin for now forbidden devices
+	for resourceName := range disabledDevicePlugins {
+		c.stopDevice(resourceName)
+		debugDevRemoved = append(debugDevRemoved, resourceName)
+	}
+
+	logger.V(3).Info("refreshed device plugins for permitted/forbidden host devices")
+	if len(debugDevAdded) > 0 {
+		logger.Infof("enabled device-plugins for: %v", debugDevAdded)
+	}
+	if len(debugDevRemoved) > 0 {
+		logger.Infof("disabled device-plugins for: %v", debugDevRemoved)
+	}
+	c.mdevRefreshWG.Done()
+}
+
+func (c *DeviceController) startDevice(resourceName string, dev Device) {
+	c.stopDevice(resourceName)
+	controlledDev := controlledDevice{
+		devicePlugin: dev,
+		backoff:      c.backoff,
+	}
+	controlledDev.Start()
+	c.startedPlugins[resourceName] = controlledDev
+}
+
+func (c *DeviceController) stopDevice(resourceName string) {
+	dev, exists := c.startedPlugins[resourceName]
+	if exists {
+		dev.Stop()
+		delete(c.startedPlugins, resourceName)
+	}
+}
+
+func (c *DeviceController) Run(stop chan struct{}) {
+	logger := log.DefaultLogger()
+
+	// start the permanent DevicePlugins
+	func() {
+		c.startedPluginsMutex.Lock()
+		defer c.startedPluginsMutex.Unlock()
+		for name, dev := range c.permanentPlugins {
+			c.startDevice(name, dev)
+		}
+	}()
+
+	refreshMediatedDeviceTypesFn := func() {
+		c.refreshMediatedDeviceTypes()
+	}
+	c.virtConfig.SetConfigModifiedCallback(refreshMediatedDeviceTypesFn)
+	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
+	c.refreshPermittedDevices()
+
+	// keep running until stop
+	<-stop
+
+	// stop all device plugins
+	func() {
+		c.startedPluginsMutex.Lock()
+		defer c.startedPluginsMutex.Unlock()
+		for name := range c.startedPlugins {
+			c.stopDevice(name)
+		}
+	}()
+
+	// wait for any concurrent mdev refreshes to finish
+	c.mdevRefreshWG.Wait()
+
+	logger.Info("Shutting down device plugin controller")
+}
+
+func (c *DeviceController) Initialized() bool {
+	c.startedPluginsMutex.Lock()
+	defer c.startedPluginsMutex.Unlock()
+	for _, dev := range c.startedPlugins {
+		if !dev.devicePlugin.GetInitialized() {
+			return false
+		}
+	}
+
+	return true
+}

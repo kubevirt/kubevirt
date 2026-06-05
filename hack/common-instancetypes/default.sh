@@ -1,0 +1,3 @@
+common_instancetypes_version=${COMMON_INSTANCETYPES_VERSION:-"v1.6.0"}
+cluster_instancetypes_sha256=${CLUSTER_INSTANCETYPES_SHA256:-"37da4ac63554b9182cc26b12ca99a23e319abd3c76573313458ab2fee914c042"}
+cluster_preferences_sha256=${CLUSTER_PREFERENCES_SHA256:-"1f503c982dd21e000fce8bccde5d0bd9353ded1c17090271d7a1b2a82d42341e"}

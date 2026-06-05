@@ -1,0 +1,10 @@
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  name: cluster-csmall
+spec:
+  cpu:
+    guest: 1
+  memory:
+    guest: 128Mi

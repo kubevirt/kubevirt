@@ -1,0 +1,52 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-windows
+  name: vmi-windows
+spec:
+  domain:
+    clock:
+      timer:
+        hpet:
+          present: false
+        hyperv: {}
+        pit:
+          tickPolicy: delay
+        rtc:
+          tickPolicy: catchup
+      utc: {}
+    cpu:
+      cores: 2
+    devices:
+      interfaces:
+      - masquerade: {}
+        model: e1000
+        name: default
+      tpm: {}
+    features:
+      acpi: {}
+      apic: {}
+      hyperv:
+        relaxed: {}
+        spinlocks:
+          spinlocks: 8191
+        vapic: {}
+      smm: {}
+    firmware:
+      bootloader:
+        efi:
+          secureBoot: true
+      uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
+    memory:
+      guest: 2Gi
+    resources: {}
+  networks:
+  - name: default
+    pod: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: pvcdisk
+    persistentVolumeClaim:
+      claimName: disk-windows

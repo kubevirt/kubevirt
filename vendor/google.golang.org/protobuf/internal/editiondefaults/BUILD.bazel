@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["defaults.go"],
+    embedsrcs = ["editions_defaults.binpb"],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/internal/editiondefaults",
+    importpath = "google.golang.org/protobuf/internal/editiondefaults",
+    visibility = ["//vendor/google.golang.org/protobuf:__subpackages__"],
+)

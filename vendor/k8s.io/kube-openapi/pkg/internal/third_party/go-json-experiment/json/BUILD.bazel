@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "arshal.go",
+        "arshal_any.go",
+        "arshal_default.go",
+        "arshal_funcs.go",
+        "arshal_inlined.go",
+        "arshal_methods.go",
+        "arshal_time.go",
+        "decode.go",
+        "doc.go",
+        "encode.go",
+        "errors.go",
+        "fields.go",
+        "fold.go",
+        "intern.go",
+        "pools.go",
+        "state.go",
+        "token.go",
+        "value.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json",
+    importpath = "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json",
+    visibility = ["//vendor/k8s.io/kube-openapi/pkg:__subpackages__"],
+)

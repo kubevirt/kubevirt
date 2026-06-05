@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["webhooks.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/util/webhooks",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-api/definitions:go_default_library",
+        "//pkg/virt-api/webhooks:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/api/admission/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+    ],
+)

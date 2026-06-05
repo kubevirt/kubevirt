@@ -1,0 +1,175 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - dupl
+    - errcheck
+    - exhaustive
+    - forbidigo
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - goheader
+    - goprintffuncname
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - mnd
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+    - unconvert
+    - unused
+    - whitespace
+  settings:
+    dupl:
+      threshold: 100
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^Skip$
+          pkg: ^github\.com/onsi/ginkgo/v2$
+          msg: >-
+            Use labels/decorators instead of runtime Skip().
+            Runtime skips silently suppress tests, making it easy to
+            unknowingly stop running tests you care about.
+            Labeling shifts the choice of what to run to the test executor.
+    funlen:
+      lines: 100
+      statements: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - dupImport # https://github.com/go-critic/go-critic/issues/845
+        - ifElseChain
+        - octalLiteral
+        - paramTypeCombine
+        - whyNoLint
+        - wrapperFunc
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      settings:
+        hugeParam:
+          sizeThreshold: 1024
+        rangeValCopy:
+          sizeThreshold: 1024
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+    mnd:
+      checks:
+        - argument
+        - case
+        - condition
+        - return
+      ignored-functions:
+        - ^Eventually$
+        - ^EventuallyWithOffset$
+        - ^ExpectWithOffset$
+        - ^console\.ExpectBatch$
+        - ^console\.RunCommand$
+    nolintlint:
+      require-explanation: false # don't require an explanation for nolint directives
+      require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+      allow-unused: false # report any unused nolint directives
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega
+      checks:
+        - all
+        - "-QF1001" # exclude 'could apply De Morgan's law'
+        - "-QF1008" # exclude 'could remove embedded field "<field>" from selector'
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - staticcheck
+        text: 'SA1019: checks.SkipTestIfNoCPUManager'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - (^|/)vendor/
+      - tests/network/bindingplugin_macvtap\.go$
+      - tests/network/bindingplugin_slirp\.go$
+      - tests/network/dual_stack_cluster\.go$
+      - tests/network/framework\.go$
+      - tests/network/hotplug_bridge\.go$
+      - tests/network/hotplug_sriov\.go$
+      - tests/network/link_state\.go$
+      - tests/network/networkpolicy\.go$
+      - tests/network/port_forward\.go$
+      - tests/network/primary_pod_network\.go$
+      - tests/network/probes\.go$
+      - tests/network/services\.go$
+      - tests/network/sriov\.go$
+      - tests/network/vmi_infosource\.go$
+      - tests/network/vmi_istio\.go$
+      - tests/network/vmi_lifecycle\.go$
+      - tests/network/vmi_multus\.go$
+      - tests/network/vmi_networking\.go$
+      - tests/network/vmi_subdomain\.go$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - kubevirt.io/kubevirt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - (^|/)vendor/
+      - tests/network/bindingplugin_macvtap\.go$
+      - tests/network/bindingplugin_slirp\.go$
+      - tests/network/dual_stack_cluster\.go$
+      - tests/network/framework\.go$
+      - tests/network/hotplug_bridge\.go$
+      - tests/network/hotplug_sriov\.go$
+      - tests/network/link_state\.go$
+      - tests/network/networkpolicy\.go$
+      - tests/network/port_forward\.go$
+      - tests/network/primary_pod_network\.go$
+      - tests/network/probes\.go$
+      - tests/network/services\.go$
+      - tests/network/sriov\.go$
+      - tests/network/vmi_infosource\.go$
+      - tests/network/vmi_istio\.go$
+      - tests/network/vmi_lifecycle\.go$
+      - tests/network/vmi_multus\.go$
+      - tests/network/vmi_networking\.go$
+      - tests/network/vmi_subdomain\.go$

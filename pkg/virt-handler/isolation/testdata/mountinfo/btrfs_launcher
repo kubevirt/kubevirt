@@ -1,0 +1,43 @@
+3747 3455 0:44 /@/var/lib/containers/storage/btrfs/subvolumes/e9a94e2cde75c54834378d4835d4eda6bebb56b02068b9254780de6f9344ad0e / rw,relatime - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=2186,subvol=/@/var/lib/containers/storage/btrfs/subvolumes/e9a94e2cde75c54834378d4835d4eda6bebb56b02068b9254780de6f9344ad0e
+3748 3747 0:450 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw
+3749 3747 0:451 / /dev rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+3750 3749 0:452 / /dev/pts rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
+3751 3749 0:352 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw
+3752 3747 0:446 / /sys ro,nosuid,nodev,noexec,relatime - sysfs sysfs ro
+3753 3752 0:453 / /sys/fs/cgroup rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,mode=755,inode64
+3754 3753 0:28 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/systemd ro,nosuid,nodev,noexec,relatime master:6 - cgroup cgroup rw,xattr,name=systemd
+3755 3753 0:31 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/perf_event ro,nosuid,nodev,noexec,relatime master:7 - cgroup cgroup rw,perf_event
+3756 3753 0:32 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/net_cls,net_prio ro,nosuid,nodev,noexec,relatime master:8 - cgroup cgroup rw,net_cls,net_prio
+3757 3753 0:33 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/memory ro,nosuid,nodev,noexec,relatime master:9 - cgroup cgroup rw,memory
+3758 3753 0:34 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/freezer ro,nosuid,nodev,noexec,relatime master:10 - cgroup cgroup rw,freezer
+3759 3753 0:35 / /sys/fs/cgroup/rdma ro,nosuid,nodev,noexec,relatime master:11 - cgroup cgroup rw,rdma
+3760 3753 0:36 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/cpuset ro,nosuid,nodev,noexec,relatime master:12 - cgroup cgroup rw,cpuset
+3761 3753 0:37 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/hugetlb ro,nosuid,nodev,noexec,relatime master:13 - cgroup cgroup rw,hugetlb
+3762 3753 0:38 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/cpu,cpuacct ro,nosuid,nodev,noexec,relatime master:14 - cgroup cgroup rw,cpu,cpuacct
+3763 3753 0:39 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/devices ro,nosuid,nodev,noexec,relatime master:15 - cgroup cgroup rw,devices
+3764 3753 0:40 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/blkio ro,nosuid,nodev,noexec,relatime master:16 - cgroup cgroup rw,blkio
+3765 3753 0:41 /kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod08ff2263_5cf1_49f7_b3e7_80b6e0840fd5.slice/crio-1a5b9a1eb29e863bf504561344f7ffc67cfc469150418b7727c8959e0c5f8982.scope /sys/fs/cgroup/pids ro,nosuid,nodev,noexec,relatime master:17 - cgroup cgroup rw,pids
+3766 3749 0:347 / /dev/shm rw,nosuid,nodev,noexec,relatime master:1087 - tmpfs shm rw,size=65536k,inode64
+3767 3747 0:25 /containers/storage/btrfs-containers/8238828575df6c5fb4c957025b08391fe2ee999741aa5cb51dd60ae13124c04f/userdata/resolv.conf /etc/resolv.conf rw,nosuid,nodev,noexec master:23 - tmpfs tmpfs rw,size=6486096k,nr_inodes=819200,mode=755,inode64
+3768 3747 0:25 /containers/storage/btrfs-containers/8238828575df6c5fb4c957025b08391fe2ee999741aa5cb51dd60ae13124c04f/userdata/hostname /etc/hostname rw,nosuid,nodev master:23 - tmpfs tmpfs rw,size=6486096k,nr_inodes=819200,mode=755,inode64
+3769 3749 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/containers/compute/272dd53d /dev/termination-log rw,relatime - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3770 3747 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/etc-hosts /etc/hosts rw,relatime - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3771 3747 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/volumes/kubernetes.io~empty-dir/libvirt-runtime /run/libvirt rw,relatime - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3772 3747 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/volumes/kubernetes.io~empty-dir/ephemeral-disks /run/kubevirt-ephemeral-disks rw,relatime - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3773 3747 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/volumes/kubernetes.io~empty-dir/container-disks /run/kubevirt/container-disks rw,relatime master:83 - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3774 3747 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/volumes/kubernetes.io~empty-dir/hotplug-disks /run/kubevirt/hotplug-disks rw,relatime master:83 - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3775 3747 0:44 /@/var/lib/kubelet/pods/08ff2263-5cf1-49f7-b3e7-80b6e0840fd5/volumes/kubernetes.io~empty-dir/sockets /run/kubevirt/sockets rw,relatime - btrfs /dev/nvme0n1p2 rw,ssd,space_cache,subvolid=257,subvol=/@/var
+3456 3748 0:450 /asound /proc/asound ro,relatime - proc proc rw
+3457 3748 0:450 /bus /proc/bus ro,relatime - proc proc rw
+3458 3748 0:450 /fs /proc/fs ro,relatime - proc proc rw
+3459 3748 0:450 /irq /proc/irq ro,relatime - proc proc rw
+3460 3748 0:450 /sys /proc/sys ro,relatime - proc proc rw
+3461 3748 0:450 /sysrq-trigger /proc/sysrq-trigger ro,relatime - proc proc rw
+3462 3748 0:454 / /proc/acpi ro,relatime - tmpfs tmpfs ro,inode64
+3463 3748 0:451 /null /proc/kcore rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+3464 3748 0:451 /null /proc/keys rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+3465 3748 0:451 /null /proc/latency_stats rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+3466 3748 0:451 /null /proc/timer_list rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+3467 3748 0:451 /null /proc/sched_debug rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+3468 3748 0:455 / /proc/scsi ro,relatime - tmpfs tmpfs ro,inode64
+3469 3752 0:456 / /sys/firmware ro,relatime - tmpfs tmpfs ro,inode64

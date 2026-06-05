@@ -1,0 +1,235 @@
+#!/usr/bin/env bash
+set -e
+
+# Source common without doing any bootstrap work at this stage
+# Bootstrapping should be done inside the build container
+source $(dirname "$0")/common.sh
+
+if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
+    /bin/bash -c "$@"
+    exit $?
+fi
+
+fail_if_cri_bin_missing
+
+kubevirt_builder_version="2602201229-4494d1587"
+kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
+
+# CentOS Stream 9 builder images (default)
+default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
+kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
+
+# CentOS Stream 10 builder images
+default_kubevirt_cs10_builder_image="quay.io/kubevirt/builder-cs10:${kubevirt_cs10_builder_version}"
+kubevirt_cs10_cross_compile_image="quay.io/kubevirt/builder-cs10-cross:${kubevirt_cs10_builder_version}"
+
+# Select builder based on KUBEVIRT_CENTOS_STREAM_VERSION
+# If KUBEVIRT_BUILDER_IMAGE is already set, use it directly (user override)
+if [ -n "${KUBEVIRT_BUILDER_IMAGE}" ]; then
+    : # User has specified a custom builder image
+elif [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" == "10" ]; then
+    if [ -z "${kubevirt_cs10_builder_version}" ]; then
+        echo "ERROR: KUBEVIRT_CENTOS_STREAM_VERSION=10 requires KUBEVIRT_CS10_BUILDER_VERSION to be set" >&2
+        echo "Build a CS10 builder image with: hack/builder/build-cs10.sh" >&2
+        echo "Then set: export KUBEVIRT_CS10_BUILDER_VERSION=<version>" >&2
+        echo "Or set KUBEVIRT_BUILDER_IMAGE directly to your local CS10 builder image" >&2
+        exit 1
+    fi
+    KUBEVIRT_BUILDER_IMAGE="${default_kubevirt_cs10_builder_image}"
+    kubevirt_cross_compile_image="${kubevirt_cs10_cross_compile_image}"
+else
+    KUBEVIRT_BUILDER_IMAGE="${default_kubevirt_builder_image}"
+fi
+
+# As long as KUBEVIRT_BUILDER_IMAGE is using the default builder, check if cross-compilation is needed and
+# switch to bigger cross-compile image instead.
+# Should KUBEVIRT_BUILDER_IMAGE be modified by the user, do not change it. It is assumed that the user knows
+# what they are doing.
+default_builder_image="${default_kubevirt_builder_image}"
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" == "10" ]; then
+    default_builder_image="${default_kubevirt_cs10_builder_image}"
+fi
+if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_builder_image}" ] && [ -n "${BUILD_ARCH}" ]; then
+    for arch in ${BUILD_ARCH//,/ }; do
+        arch=$(format_archname "${arch}")
+        if [[ ${arch} =~ ^cross-* ]]; then
+            KUBEVIRT_BUILDER_IMAGE="${kubevirt_cross_compile_image}"
+        fi
+    done
+fi
+
+SYNC_OUT=${SYNC_OUT:-true}
+
+BUILDER=${job_prefix}
+
+SYNC_VENDOR=${SYNC_VENDOR:-false}
+
+TEMPFILE=".rsynctemp"
+
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL} --env KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION} --env GOMAXPROCS=${GOMAXPROCS}"
+
+# Create the persistent container volume
+if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
+    $KUBEVIRT_CRI volume create ${BUILDER}
+fi
+
+selinux_bind_options=",z"
+# Using Podman and MacOS and 'z' bind option may not work correctly.
+# See: https://github.com/containers/podman/issues/13631
+if [[ $KUBEVIRT_CRI = podman* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+    selinux_bind_options=""
+fi
+
+# Make sure that the output directory exists on both sides
+$KUBEVIRT_CRI run ${CONTAINER_ENV} -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+mkdir -p ${OUT_DIR}
+
+# Start an rsyncd instance and make sure it gets stopped after the script exits
+RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --cap-add SYS_CHROOT --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
+
+function finish() {
+    # avoid container cleanup affecting the exit code of the build
+    local exit_code=$?
+    set +e
+    $KUBEVIRT_CRI stop --time 1 ${RSYNC_CID} >/dev/null 2>&1
+    $KUBEVIRT_CRI rm -f ${RSYNC_CID} >/dev/null 2>&1
+    set -e
+    return ${exit_code}
+}
+trap finish EXIT
+
+RSYNCD_PORT=$($KUBEVIRT_CRI port $RSYNC_CID 873 | cut -d':' -f2)
+
+rsynch_fail_count=0
+
+while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}" &>/dev/null; do
+    if [[ "$rsynch_fail_count" -eq 0 ]]; then
+        printf "Waiting for rsyncd to be ready"
+        sleep .1
+    elif [[ "$rsynch_fail_count" -lt 30 ]]; then
+        printf "."
+        sleep 1
+    else
+        printf "failed"
+        break
+    fi
+    rsynch_fail_count=$((rsynch_fail_count + 1))
+done
+
+printf "\n"
+
+rsynch_fail_count=0
+
+_rsync() {
+    rsync -al "$@"
+}
+
+# Copy kubevirt into the persistent container volume
+_rsync \
+    --delete \
+    --exclude 'bazel-bin' \
+    --exclude 'bazel-genfiles' \
+    --exclude 'bazel-kubevirt' \
+    --exclude 'bazel-out' \
+    --exclude 'bazel-testlogs' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
+    --exclude "_out" \
+    --exclude ".vagrant" \
+    --exclude ".bazeldnf" \
+    ${KUBEVIRT_DIR}/ \
+    "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
+
+volumes="-v ${BUILDER}:/root:rw${selinux_bind_options}"
+
+# append .docker secrets directory as volume
+mkdir -p "${HOME}/.docker/secrets"
+volumes="$volumes -v ${HOME}/.docker/secrets:/root/.docker/secrets:ro${selinux_bind_options}"
+
+# Use a bind-mount to expose docker/podman auth file to the container
+if [[ $KUBEVIRT_CRI = podman* ]] && [[ -f "${XDG_RUNTIME_DIR}/containers/auth.json" ]]; then
+    volumes="$volumes --mount type=bind,source=${XDG_RUNTIME_DIR}/containers/auth.json,target=/root/.docker/config.json,readonly"
+elif [[ -f "${HOME}/.docker/config.json" && "$(cat ${HOME}/.docker/config.json | jq 'has("credHelpers")')" != "true" ]]; then
+    volumes="$volumes --mount type=bind,source=${HOME}/.docker/config.json,target=/root/.docker/config.json,readonly"
+fi
+
+# add custom docker certs, if needed
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    volumes="$volumes -v ${DOCKER_CA_CERT_FILE}:${DOCKERIZED_CUSTOM_CA_PATH}:ro${selinux_bind_options}"
+fi
+
+# if defined, append the ARTIFACTS directory
+if [ -n "$ARTIFACTS" ]; then
+    mkdir -p "$ARTIFACTS"
+    if [[ "$ARTIFACTS" = /* ]]; then
+        volumes="$volumes -v ${ARTIFACTS}:${ARTIFACTS}:rw${selinux_bind_options}"
+    else
+        echo "ARTIFACTS directory is specified, but it is not an absolute directory"
+        exit 1
+    fi
+fi
+
+# Ensure that a bazel server which is running is the correct one
+if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    # check if the image is correct
+    builder_id=$($KUBEVIRT_CRI inspect --format='{{.Id}}' ${KUBEVIRT_BUILDER_IMAGE})
+    bazel_server_id=$($KUBEVIRT_CRI inspect --format='{{.Image}}' ${BUILDER}-bazel-server)
+    if [ "${builder_id}" != "${bazel_server_id}" ]; then
+        echo "Bazel server is outdated, restarting ..."
+        $KUBEVIRT_CRI stop ${BUILDER}-bazel-server
+    fi
+fi
+
+# Ensure that a bazel server is running
+if [ -z "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    $KUBEVIRT_CRI run ${CONTAINER_ENV} --ulimit nofile=10000:10000 --network host -d ${volumes} --security-opt "label=disable" --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
+fi
+
+# Update cert trust, if custom is provided
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
+fi
+
+# Run the command
+test -t 1 && USE_TTY="-it"
+if ! $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
+    # Copy the build output out of the container, make sure that _out exactly matches the build result
+    if [ "$SYNC_OUT" = "true" ]; then
+        _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+    fi
+    exit 1
+fi
+
+# Copy the whole kubevirt data out to get generated sources and formatting changes
+_rsync \
+    --exclude 'bazel-bin' \
+    --exclude 'bazel-genfiles' \
+    --exclude 'bazel-kubevirt' \
+    --exclude 'bazel-out' \
+    --exclude 'bazel-testlogs' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
+    --exclude "_out" \
+    --exclude "vendor" \
+    --exclude ".vagrant" \
+    --exclude ".git" \
+    --exclude ".bazeldnf" \
+    "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" \
+    ${KUBEVIRT_DIR}/
+
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/manifests/generated/" "${KUBEVIRT_DIR}/manifests/generated"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/containerizeddataimporter/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/containerizeddataimporter"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/externalsnapshotter/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/externalsnapshotter"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/kubevirt/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/kubevirt"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/networkattachmentdefinitionclient/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/networkattachmentdefinitionclient"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/prometheusoperator/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/prometheusoperator"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/examples/" "${KUBEVIRT_DIR}/examples"
+if [ "$SYNC_VENDOR" = "true" ]; then
+    _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"
+fi
+# Copy the build output out of the container, make sure that _out exactly matches the build result
+if [ "$SYNC_OUT" = "true" ]; then
+    _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+fi

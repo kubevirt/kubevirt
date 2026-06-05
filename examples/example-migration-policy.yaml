@@ -1,0 +1,15 @@
+---
+apiVersion: migrations.kubevirt.io/v1alpha1
+kind: MigrationPolicy
+metadata:
+  name: example-migration-policy
+spec:
+  allowAutoConverge: false
+  allowPostCopy: false
+  bandwidthPerMigration: 2000Mi
+  completionTimeoutPerGiB: 123456789
+  selectors:
+    namespaceSelector:
+      namespace-key: namespace-value
+    virtualMachineInstanceSelector:
+      vmi-key: vmi-value

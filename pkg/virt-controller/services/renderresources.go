@@ -1,0 +1,753 @@
+package services
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/client-go/log"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	v1 "kubevirt.io/api/core/v1"
+
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+)
+
+type ResourceRendererOption func(renderer *ResourceRenderer)
+
+type ResourceRenderer struct {
+	vmLimits           k8sv1.ResourceList
+	vmRequests         k8sv1.ResourceList
+	calculatedLimits   k8sv1.ResourceList
+	calculatedRequests k8sv1.ResourceList
+	resourceClaims     []k8sv1.ResourceClaim
+}
+
+type resourcePredicate func(*v1.VirtualMachineInstance) bool
+
+type VMIResourcePredicates struct {
+	resourceRules []VMIResourceRule
+	vmi           *v1.VirtualMachineInstance
+}
+
+type VMIResourceRule struct {
+	predicate resourcePredicate
+	option    ResourceRendererOption
+}
+
+func not(p resourcePredicate) resourcePredicate {
+	return func(vmi *v1.VirtualMachineInstance) bool {
+		return !p(vmi)
+	}
+}
+func NewVMIResourceRule(p resourcePredicate, option ResourceRendererOption) VMIResourceRule {
+	return VMIResourceRule{predicate: p, option: option}
+}
+
+func doesVMIRequireDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.IsCPUDedicated()
+}
+
+func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
+	limits := map[k8sv1.ResourceName]resource.Quantity{}
+	requests := map[k8sv1.ResourceName]resource.Quantity{}
+	copyResources(vmLimits, limits)
+	copyResources(vmRequests, requests)
+
+	resourceRenderer := &ResourceRenderer{
+		vmLimits:           limits,
+		vmRequests:         requests,
+		calculatedLimits:   map[k8sv1.ResourceName]resource.Quantity{},
+		calculatedRequests: map[k8sv1.ResourceName]resource.Quantity{},
+		resourceClaims:     []k8sv1.ResourceClaim{},
+	}
+
+	for _, opt := range options {
+		opt(resourceRenderer)
+	}
+	return resourceRenderer
+}
+
+func (rr *ResourceRenderer) Limits() k8sv1.ResourceList {
+	podLimits := map[k8sv1.ResourceName]resource.Quantity{}
+	copyResources(rr.calculatedLimits, podLimits)
+	copyResources(rr.vmLimits, podLimits)
+	return podLimits
+}
+
+func (rr *ResourceRenderer) Requests() k8sv1.ResourceList {
+	podRequests := map[k8sv1.ResourceName]resource.Quantity{}
+	copyResources(rr.calculatedRequests, podRequests)
+	copyResources(rr.vmRequests, podRequests)
+	return podRequests
+}
+
+func (rr *ResourceRenderer) Claims() []k8sv1.ResourceClaim {
+	return rr.resourceClaims
+}
+
+func (rr *ResourceRenderer) ResourceRequirements() k8sv1.ResourceRequirements {
+	return k8sv1.ResourceRequirements{
+		Limits:   rr.Limits(),
+		Requests: rr.Requests(),
+		Claims:   rr.Claims(),
+	}
+}
+
+func WithEphemeralStorageRequest() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
+		// should be added to the user's request.
+		ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
+		ephemeralStorageRequested := renderer.vmRequests[k8sv1.ResourceEphemeralStorage]
+		ephemeralStorageRequested.Add(ephemeralStorageOverhead)
+		renderer.vmRequests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
+
+		if ephemeralStorageLimit, ephemeralStorageLimitDefined := renderer.vmLimits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
+			ephemeralStorageLimit.Add(ephemeralStorageOverhead)
+			renderer.vmLimits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
+		}
+	}
+}
+
+// Helper function to extract IO thread CPU count from VMI
+func getIOThreadsCount(vmi *v1.VirtualMachineInstance) int64 {
+	if vmi == nil || vmi.Spec.Domain.IOThreads == nil ||
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
+		return 0
+	}
+	return int64(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
+}
+
+func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		cpu := vmi.Spec.Domain.CPU
+		vcpus := calcVCPUs(cpu)
+		ioThreadCPUs := getIOThreadsCount(vmi) // Get IO thread count
+		totalCPUs := vcpus + ioThreadCPUs      // Include IO threads
+		if totalCPUs != 0 && cpuAllocationRatio > 0 {
+			val := float64(totalCPUs) / float64(cpuAllocationRatio)
+			vcpusStr := fmt.Sprintf("%g", val)
+			if val < 1 {
+				val *= 1000
+				vcpusStr = fmt.Sprintf("%gm", val)
+			}
+			renderer.calculatedRequests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+			if withCPULimits {
+				renderer.calculatedLimits[k8sv1.ResourceCPU] = resource.MustParse(strconv.FormatInt(totalCPUs, 10))
+			}
+		}
+	}
+}
+
+func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		res := r.ResourceRequirements()
+		for _, g := range gpus {
+			if g.DeviceName != "" && g.ClaimRequest == nil {
+				requestResource(&res, g.DeviceName)
+			}
+		}
+		copyResources(res.Limits, r.calculatedLimits)
+		copyResources(res.Requests, r.calculatedRequests)
+	}
+}
+
+func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		for _, g := range gpus {
+			if g.DeviceName == "" && g.ClaimRequest != nil {
+				claim := k8sv1.ResourceClaim{
+					Name:    g.ClaimRequest.ClaimName,
+					Request: g.ClaimRequest.RequestName,
+				}
+				r.resourceClaims = append(r.resourceClaims, claim)
+			}
+		}
+	}
+}
+
+// WithHostDevicesDevicePlugins adds resource requests/limits only for HostDevices managed by device plugins.
+func WithHostDevicesDevicePlugins(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		resources := r.ResourceRequirements()
+		for _, hd := range hostDevices {
+			if hd.DeviceName != "" && hd.ClaimRequest == nil {
+				requestResource(&resources, hd.DeviceName)
+			}
+		}
+		copyResources(resources.Limits, r.calculatedLimits)
+		copyResources(resources.Requests, r.calculatedRequests)
+	}
+}
+
+// WithHostDevicesDRA adds ResourceClaims for HostDevices provisioned via DRA.
+func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		for _, hd := range hostDevices {
+			if hd.DeviceName == "" && hd.ClaimRequest != nil {
+				claim := k8sv1.ResourceClaim{
+					Name:    hd.ClaimRequest.ClaimName,
+					Request: hd.ClaimRequest.RequestName,
+				}
+				r.resourceClaims = append(r.resourceClaims, claim)
+			}
+		}
+	}
+}
+
+// WithNetworksDRA adds ResourceClaims for Networks provisioned via DRA.
+func WithNetworksDRA(networks []v1.Network) ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		for _, net := range networks {
+			if netvmispec.IsDRANetwork(net) {
+				claim := k8sv1.ResourceClaim{
+					Name:    net.NetworkSource.ResourceClaim.ClaimName,
+					Request: net.NetworkSource.ResourceClaim.RequestName,
+				}
+				r.resourceClaims = append(r.resourceClaims, claim)
+			}
+		}
+	}
+}
+
+func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
+		hugepagesMemReq := renderer.vmRequests.Memory()
+
+		// If requested, use the guest memory to allocate hugepages
+		if vmMemory != nil && vmMemory.Guest != nil {
+			requests := hugepagesMemReq.Value()
+			guest := vmMemory.Guest.Value()
+			if requests > guest {
+				hugepagesMemReq = vmMemory.Guest
+			}
+		}
+		renderer.calculatedRequests[hugepageType] = *hugepagesMemReq
+		renderer.calculatedLimits[hugepageType] = *hugepagesMemReq
+
+		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		// In case the guest memory and the requested memory are different, add the difference
+		// to the overhead
+		if vmMemory != nil && vmMemory.Guest != nil {
+			requests := renderer.vmRequests.Memory().Value()
+			limits := renderer.vmLimits.Memory().Value()
+			guest := vmMemory.Guest.Value()
+			if requests > guest {
+				reqMemDiff.Add(*renderer.vmRequests.Memory())
+				reqMemDiff.Sub(*vmMemory.Guest)
+			}
+			if limits > guest {
+				limMemDiff.Add(*renderer.vmLimits.Memory())
+				limMemDiff.Sub(*vmMemory.Guest)
+			}
+		}
+		// Set requested memory equals to overhead memory
+		reqMemDiff.Add(memoryOverhead)
+		renderer.vmRequests[k8sv1.ResourceMemory] = *reqMemDiff
+		if _, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
+			limMemDiff.Add(memoryOverhead)
+			renderer.vmLimits[k8sv1.ResourceMemory] = *limMemDiff
+		}
+	}
+}
+
+func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		limit, hasLimit := renderer.vmLimits[k8sv1.ResourceMemory]
+		request, hasRequest := renderer.vmRequests[k8sv1.ResourceMemory]
+		if hasLimit && !limit.IsZero() && (!hasRequest || request.IsZero()) {
+			renderer.vmRequests[k8sv1.ResourceMemory] = limit
+		}
+
+		if _, exists := renderer.vmRequests[k8sv1.ResourceMemory]; exists {
+			return
+		}
+
+		var memory *resource.Quantity
+		if vmiSpecMemory != nil && vmiSpecMemory.Guest != nil {
+			memory = vmiSpecMemory.Guest
+		} else if vmiSpecMemory != nil && vmiSpecMemory.Hugepages != nil {
+			if hugepagesSize, err := resource.ParseQuantity(vmiSpecMemory.Hugepages.PageSize); err == nil {
+				memory = &hugepagesSize
+			}
+		}
+
+		if memory != nil && memory.Value() > 0 {
+			if overcommit == 100 {
+				renderer.vmRequests[k8sv1.ResourceMemory] = *memory
+			} else {
+				value := (memory.Value() * int64(100)) / int64(overcommit)
+				renderer.vmRequests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+			}
+		}
+	}
+}
+
+func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhead resource.Quantity) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
+		if !guestResourceSpec.OvercommitGuestOverhead {
+			memoryRequest.Add(memoryOverhead)
+		}
+		renderer.vmRequests[k8sv1.ResourceMemory] = memoryRequest
+
+		if memoryLimit, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
+			memoryLimit.Add(memoryOverhead)
+			renderer.vmLimits[k8sv1.ResourceMemory] = memoryLimit
+		}
+	}
+}
+
+func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		requestRatio := getMemoryLimitsRatio(namespace, namespaceStore)
+		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
+		value := int64(float64(memoryRequest.Value()) * requestRatio)
+		renderer.calculatedLimits[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memoryRequest.Format)
+	}
+}
+
+func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]string, additionalCPUs uint32) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		cpu := vmi.Spec.Domain.CPU
+		vcpus := hardware.GetNumberOfVCPUs(cpu)
+		ioThreadCPUs := getIOThreadsCount(vmi)
+		if vcpus != 0 {
+			totalCPUs := vcpus + ioThreadCPUs
+			renderer.vmLimits[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI)
+			renderer.vmRequests[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI) // Ensure requests match limits for dedicated CPUs
+		} else {
+			ioThreadsCount := resource.NewQuantity(ioThreadCPUs, resource.BinarySI)
+			if cpuLimit, ok := renderer.vmLimits[k8sv1.ResourceCPU]; ok {
+				cpuLimit.Add(*ioThreadsCount)
+				renderer.vmLimits[k8sv1.ResourceCPU] = cpuLimit
+			}
+			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*ioThreadsCount)
+				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
+		if cpu.IsolateEmulatorThread {
+			emulatorThreadCPUs := resource.NewQuantity(1, resource.BinarySI)
+			limits := renderer.vmLimits[k8sv1.ResourceCPU]
+			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
+			if emulatorThreadCompleteToEvenParityAnnotationExists &&
+				(limits.Value()+int64(additionalCPUs))%2 == 0 {
+				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
+			}
+			limits.Add(*emulatorThreadCPUs)
+			renderer.vmLimits[k8sv1.ResourceCPU] = limits
+			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*emulatorThreadCPUs)
+				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
+		// Align memory limits with requests for consistency
+		if memRequest, ok := renderer.vmRequests[k8sv1.ResourceMemory]; ok {
+			renderer.vmLimits[k8sv1.ResourceMemory] = memRequest
+		}
+	}
+}
+
+func WithNetworkResources(networkToResourceMap map[string]string) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		for _, resourceName := range networkToResourceMap {
+			if resourceName != "" {
+				requestResource(&resources, resourceName)
+			}
+		}
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
+func WithSEV() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, SevDevice)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
+func WithTDX() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, TdxDevice)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
+func WithPersistentReservation() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, PrDevice)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
+func copyResources(srcResources, dstResources k8sv1.ResourceList) {
+	for key, value := range srcResources {
+		dstResources[key] = value
+	}
+}
+
+// Request a resource by name. This function bumps the number of resources,
+// both its limits and requests attributes.
+//
+// If we were operating with a regular resource (CPU, memory, network
+// bandwidth), we would need to take care of QoS. For example,
+// https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/#create-a-pod-that-gets-assigned-a-qos-class-of-guaranteed
+// explains that when Limits are set but Requests are not then scheduler
+// assumes that Requests are the same as Limits for a particular resource.
+//
+// But this function is not called for this standard resources but for
+// resources managed by device plugins. The device plugin design document says
+// the following on the matter:
+// https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#end-user-story
+//
+// ```
+// Devices can be selected using the same process as for OIRs in the pod spec.
+// Devices have no impact on QOS. However, for the alpha, we expect the request
+// to have limits == requests.
+// ```
+//
+// Which suggests that, for resources managed by device plugins, 1) limits
+// should be equal to requests; and 2) QoS rules do not apVFIO//
+// Hence we don't copy Limits value to Requests if the latter is missing.
+func requestResource(resources *k8sv1.ResourceRequirements, resourceName string) {
+	name := k8sv1.ResourceName(resourceName)
+	bumpResources(resources.Limits, name)
+	bumpResources(resources.Requests, name)
+}
+
+func bumpResources(resources k8sv1.ResourceList, name k8sv1.ResourceName) {
+	unitQuantity := *resource.NewQuantity(1, resource.DecimalSI)
+
+	val, ok := resources[name]
+	if ok {
+		val.Add(unitQuantity)
+		resources[name] = val
+	} else {
+		resources[name] = unitQuantity
+	}
+}
+
+func calcVCPUs(cpu *v1.CPU) int64 {
+	if cpu != nil {
+		return hardware.GetNumberOfVCPUs(cpu)
+	}
+	return int64(1)
+}
+
+func getRequiredResources(vmi *v1.VirtualMachineInstance, hypervisorResource k8sv1.ResourceName, allowEmulation bool) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{}
+	if netvmispec.RequiresTunDevice(vmi) {
+		res[TunDevice] = resource.MustParse("1")
+	}
+	if netvmispec.RequiresVirtioNetDevice(vmi, allowEmulation) {
+		// Note that about network interface, allowEmulation does not make
+		// any difference on eventual Domain xml, but uniformly making
+		// /dev/vhost-net unavailable and libvirt implicitly fallback
+		// to use QEMU userland NIC emulation.
+		res[VhostNetDevice] = resource.MustParse("1")
+	}
+	if !allowEmulation {
+		res[hypervisorResource] = resource.MustParse("1")
+	}
+	if util.IsAutoAttachVSOCK(vmi) {
+		res[VhostVsockDevice] = resource.MustParse("1")
+	}
+	return res
+}
+
+func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		copyResources(virtResources, renderer.vmLimits)
+	}
+}
+
+func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {
+	errors := make([]string, 0)
+
+	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
+		// build a map of all permitted host devices
+		supportedHostDevicesMap := make(map[string]bool)
+		for _, dev := range hostDevs.PciHostDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, dev := range hostDevs.MediatedDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, dev := range hostDevs.USB {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		//TODO @alayp: add proper validation for DRA GPUs in beta
+		if !config.GPUsWithDRAGateEnabled() {
+			for _, hostDev := range spec.Domain.Devices.GPUs {
+				if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+					errors = append(errors, fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+				}
+			}
+		}
+		for _, hostDev := range spec.Domain.Devices.HostDevices {
+			// skip host devices backed by DRA claims, since they are validated via DRA instead of the permittedHostDevices config
+			if config.HostDevicesWithDRAEnabled() && hostDev.ClaimRequest != nil {
+				continue
+			}
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				errors = append(errors, fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName))
+			}
+		}
+	}
+
+	if len(errors) != 0 {
+		return fmt.Errorf("%s", strings.Join(errors, " "))
+	}
+
+	return nil
+}
+
+func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+	resources := k8sv1.ResourceRequirements{
+		Requests: k8sv1.ResourceList{},
+		Limits:   k8sv1.ResourceList{},
+	}
+	if reqCpu := config.GetSupportContainerRequest(v1.SideCar, k8sv1.ResourceCPU); reqCpu != nil {
+		resources.Requests[k8sv1.ResourceCPU] = *reqCpu
+	}
+	if reqMem := config.GetSupportContainerRequest(v1.SideCar, k8sv1.ResourceMemory); reqMem != nil {
+		resources.Requests[k8sv1.ResourceMemory] = *reqMem
+	}
+
+	// add default cpu and memory limits to enable cpu pinning if requested
+	// TODO(vladikr): make the hookSidecar express resources
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
+		if limCpu := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceCPU); limCpu != nil {
+			resources.Limits[k8sv1.ResourceCPU] = *limCpu
+		}
+		resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
+		if limMem := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceMemory); limMem != nil {
+			resources.Limits[k8sv1.ResourceMemory] = *limMem
+		}
+		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
+		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
+	} else {
+		if limCpu := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceCPU); limCpu != nil {
+			resources.Limits[k8sv1.ResourceCPU] = *limCpu
+		}
+		if limMem := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceMemory); limMem != nil {
+			resources.Limits[k8sv1.ResourceMemory] = *limMem
+		}
+	}
+	return resources
+}
+
+func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		return k8sv1.ResourceRequirements{
+			Limits:   initContainerDedicatedCPURequiredResources(containerType, config),
+			Requests: initContainerDedicatedCPURequiredResources(containerType, config),
+		}
+	} else {
+		return k8sv1.ResourceRequirements{
+			Limits:   initContainerMinimalLimits(containerType, config),
+			Requests: initContainerMinimalRequests(containerType, config),
+		}
+	}
+}
+
+func initContainerDedicatedCPURequiredResources(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("10m"),
+		k8sv1.ResourceMemory: resource.MustParse("40M"),
+	}
+	if cpuLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceCPU); cpuLim != nil {
+		res[k8sv1.ResourceCPU] = *cpuLim
+	}
+	if memLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceMemory); memLim != nil {
+		res[k8sv1.ResourceMemory] = *memLim
+	}
+	return res
+}
+
+func initContainerMinimalLimits(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("100m"),
+		k8sv1.ResourceMemory: resource.MustParse("40M"),
+	}
+	if cpuLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceCPU); cpuLim != nil {
+		res[k8sv1.ResourceCPU] = *cpuLim
+	}
+	if memLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceMemory); memLim != nil {
+		res[k8sv1.ResourceMemory] = *memLim
+	}
+	return res
+}
+
+func initContainerMinimalRequests(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("10m"),
+		k8sv1.ResourceMemory: resource.MustParse("1M"),
+	}
+	if cpuReq := config.GetSupportContainerRequest(containerType, k8sv1.ResourceCPU); cpuReq != nil {
+		res[k8sv1.ResourceCPU] = *cpuReq
+	}
+	if memReq := config.GetSupportContainerRequest(containerType, k8sv1.ResourceMemory); memReq != nil {
+		res[k8sv1.ResourceMemory] = *memReq
+	}
+	return res
+}
+
+func hotplugContainerResourceRequirementsForVMI(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+	return k8sv1.ResourceRequirements{
+		Limits:   hotplugContainerLimits(config),
+		Requests: hotplugContainerRequests(config),
+	}
+}
+
+func hotplugContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("100m")
+	if cpu := config.GetSupportContainerLimit(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
+		cpuQuantity = *cpu
+	}
+	memQuantity := resource.MustParse("80M")
+	if mem := config.GetSupportContainerLimit(v1.HotplugAttachment, k8sv1.ResourceMemory); mem != nil {
+		memQuantity = *mem
+	}
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("10m")
+	if cpu := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
+		cpuQuantity = *cpu
+	}
+	memQuantity := resource.MustParse("2M")
+	if mem := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceMemory); mem != nil {
+		memQuantity = *mem
+	}
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func hotplugPodTolerations() []k8sv1.Toleration {
+	return []k8sv1.Toleration{
+		{
+			Key:      k8sv1.TaintNodeUnschedulable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeNetworkUnavailable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeDiskPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeMemoryPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodePIDPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+	}
+}
+
+func vmExportContainerResourceRequirements(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+	return k8sv1.ResourceRequirements{
+		Limits:   vmExportContainerLimits(config),
+		Requests: vmExportContainerRequests(config),
+	}
+}
+
+func vmExportContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("1")
+	if cpu := config.GetSupportContainerLimit(v1.VMExport, k8sv1.ResourceCPU); cpu != nil {
+		cpuQuantity = *cpu
+	}
+	memQuantity := resource.MustParse("1024Mi")
+	if mem := config.GetSupportContainerLimit(v1.VMExport, k8sv1.ResourceMemory); mem != nil {
+		memQuantity = *mem
+	}
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func vmExportContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("100m")
+	if cpu := config.GetSupportContainerRequest(v1.VMExport, k8sv1.ResourceCPU); cpu != nil {
+		cpuQuantity = *cpu
+	}
+	memQuantity := resource.MustParse("200Mi")
+	if mem := config.GetSupportContainerRequest(v1.VMExport, k8sv1.ResourceMemory); mem != nil {
+		memQuantity = *mem
+	}
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func getMemoryLimitsRatio(namespace string, namespaceStore cache.Store) float64 {
+	if namespaceStore == nil {
+		return DefaultMemoryLimitOverheadRatio
+	}
+
+	obj, exists, err := namespaceStore.GetByKey(namespace)
+	if err != nil {
+		log.Log.Warningf("Error retrieving namespace from informer. Using the default memory limits ratio. %s", err.Error())
+		return DefaultMemoryLimitOverheadRatio
+	} else if !exists {
+		log.Log.Warningf("namespace %s does not exist. Using the default memory limits ratio.", namespace)
+		return DefaultMemoryLimitOverheadRatio
+	}
+
+	ns, ok := obj.(*k8sv1.Namespace)
+	if !ok {
+		log.Log.Errorf("couldn't cast object to Namespace: %+v", obj)
+		return DefaultMemoryLimitOverheadRatio
+	}
+
+	value, ok := ns.GetLabels()[v1.AutoMemoryLimitsRatioLabel]
+	if !ok {
+		return DefaultMemoryLimitOverheadRatio
+	}
+
+	limitRatioValue, err := strconv.ParseFloat(value, 64)
+	if err != nil || limitRatioValue < 1.0 {
+		log.Log.Warningf("%s is an invalid value for %s label in namespace %s. Using the default one: %f", value, v1.AutoMemoryLimitsRatioLabel, namespace, DefaultMemoryLimitOverheadRatio)
+		return DefaultMemoryLimitOverheadRatio
+	}
+
+	return limitRatioValue
+}

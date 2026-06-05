@@ -1,0 +1,1799 @@
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |2-
+
+            [
+              {
+                "apiVersion":"kubevirt.io/v1",
+                "kind":"KubeVirt",
+                "metadata": {
+                  "name":"kubevirt",
+                  "namespace":"kubevirt"
+                },
+                "spec": {
+                  "imagePullPolicy":"Always"
+                }
+              }
+            ]
+    capabilities: Seamless Upgrades
+    categories: OpenShift Optional
+    certified: "false"
+    containerImage: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+    createdAt: {{.CreatedAt}}
+    description: Creates and maintains KubeVirt deployments
+    repository: https://github.com/kubevirt/kubevirt
+    support: KubeVirt
+  name: kubevirtoperator.{{.CsvVersion}}
+  namespace: {{.CSVNamespace}}
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Represents a KubeVirt deployment
+      displayName: KubeVirt deployment
+      kind: KubeVirt
+      name: kubevirts.kubevirt.io
+      specDescriptors:
+      - description: The ImagePullPolicy to use for the KubeVirt components.
+        displayName: ImagePullPolicy
+        path: imagePullPolicy
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:imagePullPolicy
+      - description: The ImageRegistry to use for the KubeVirt components.
+        displayName: ImageRegistry
+        path: imageRegistry
+        x-descriptors:
+        - urn:alm:descriptor:text
+      - description: The ImageTag to use for the KubeVirt components.
+        displayName: ImageTag
+        path: imageTag
+        x-descriptors:
+        - urn:alm:descriptor:text
+      statusDescriptors:
+      - description: The deployment phase.
+        displayName: Phase
+        path: phase
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.phase
+      - description: Explanation for the current status of the cluster.
+        displayName: Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
+      - description: The observed version of the KubeVirt deployment.
+        displayName: Observed KubeVirt Version
+        path: observedKubeVirtVersion
+        x-descriptors:
+        - urn:alm:descriptor:text
+      - description: The targeted version of the KubeVirt deployment.
+        displayName: Target KubeVirt Version
+        path: targetKubeVirtVersion
+        x-descriptors:
+        - urn:alm:descriptor:text
+      - description: The observed registry of the KubeVirt deployment.
+        displayName: Observed KubeVirt registry
+        path: ObservedKubeVirtRegistry
+        x-descriptors:
+        - urn:alm:descriptor:text
+      - description: The targeted registry of the KubeVirt deployment.
+        displayName: Target KubeVirt registry
+        path: TargetKubeVirtRegistry
+        x-descriptors:
+        - urn:alm:descriptor:text
+      - description: The version of the KubeVirt Operator.
+        displayName: KubeVirt Operator Version
+        path: operatorVersion
+        x-descriptors:
+        - urn:alm:descriptor:text
+      version: v1
+  description: |2
+
+    **KubeVirt** is a virtual machine management add-on for Kubernetes.
+    The aim is to provide a common ground for virtualization solutions on top of
+    Kubernetes.
+
+    # Virtualization extension for Kubernetes
+
+    At its core, KubeVirt extends [Kubernetes](https://kubernetes.io) by adding
+    additional virtualization resource types (especially the `VirtualMachine` type) through
+    [Kubernetes's Custom Resource Definitions API](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/).
+    By using this mechanism, the Kubernetes API can be used to manage these `VirtualMachine`
+    resources alongside all other resources Kubernetes provides.
+
+    The resources themselves are not enough to launch virtual machines.
+    For this to happen the _functionality and business logic_ needs to be added to
+    the cluster. The functionality is not added to Kubernetes itself, but rather
+    added to a Kubernetes cluster by _running_ additional controllers and agents
+    on an existing cluster.
+
+    The necessary controllers and agents are provided by KubeVirt.
+
+    As of today KubeVirt can be used to declaratively
+
+      * Create a predefined VM
+      * Schedule a VM on a Kubernetes cluster
+      * Launch a VM
+      * Migrate a VM
+      * Stop a VM
+      * Delete a VM
+
+    # Start using KubeVirt
+
+      * Try our quickstart at [kubevirt.io](https://kubevirt.io/get_kubevirt/).
+      * See our user documentation at [kubevirt.io/docs](https://kubevirt.io/user-guide).
+
+    # Start developing KubeVirt
+
+    To set up a development environment please read our
+    [Getting Started Guide](https://github.com/kubevirt/kubevirt/blob/main/docs/getting-started.md).
+    To learn how to contribute, please read our [contribution guide](https://github.com/kubevirt/kubevirt/blob/main/CONTRIBUTING.md).
+
+    You can learn more about how KubeVirt is designed (and why it is that way),
+    and learn more about the major components by taking a look at our developer documentation:
+
+      * [Architecture](https://github.com/kubevirt/kubevirt/blob/main/docs/architecture.md) - High-level view on the architecture
+      * [Components](https://github.com/kubevirt/kubevirt/blob/main/docs/components.md) - Detailed look at all components
+      * [API Reference](https://kubevirt.io/api-reference/)
+
+    # Community
+
+    If you got enough of code and want to speak to people, then you got a couple of options:
+
+      * Follow us on [Twitter](https://twitter.com/kubevirt)
+      * Chat with us in the #virtualization channel of the [Kubernetes Slack](https://slack.k8s.io/)
+      * Discuss with us on the [kubevirt-dev Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev)
+      * Stay informed about designs and upcoming events by watching our [community content](https://github.com/kubevirt/community/)
+
+    # License
+
+    KubeVirt is distributed under the
+    [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt).
+  displayName: KubeVirt
+  icon:
+  - base64data: {{.KubeVirtLogo}}
+    mediatype: image/png
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          - services
+          - endpoints
+          - pods/exec
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - patch
+          - delete
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+        - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
+          - patch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          - clusterrolebindings
+          - roles
+          - rolebindings
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+          - update
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+        - apiGroups:
+          - security.openshift.io
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - kubevirt-handler
+          - kubevirt-controller
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - delete
+        - apiGroups:
+          - admissionregistration.k8s.io
+          resources:
+          - validatingwebhookconfigurations
+          - mutatingwebhookconfigurations
+          - validatingadmissionpolicybindings
+          - validatingadmissionpolicies
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - apiregistration.k8s.io
+          resources:
+          - apiservices
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          - prometheusrules
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+        - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplates
+          - virtualmachinetemplaterequests
+          verbs:
+          - create
+          - delete
+          - deletecollection
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplates/status
+          - virtualmachinetemplaterequests/status
+          verbs:
+          - get
+          - patch
+        - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplates/finalizers
+          - virtualmachinetemplaterequests/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplaterequests/source
+          verbs:
+          - create
+        - nonResourceURLs:
+          - /metrics
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+          - list
+          - delete
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines
+          - virtualmachineinstances
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines/status
+          verbs:
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancepresets
+          verbs:
+          - watch
+          - list
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - limitranges
+          verbs:
+          - watch
+          - list
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinerestores
+          - virtualmachinesnapshotcontents
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - cdi.kubevirt.io
+          resources:
+          - datasources
+          - datavolumes
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - migrations.kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - create
+          - list
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+        - apiGroups:
+          - policy
+          resources:
+          - poddisruptionbudgets
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - configmaps
+          - endpoints
+          - services
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+        - apiGroups:
+          - ""
+          resources:
+          - pods/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods/eviction
+          verbs:
+          - create
+        - apiGroups:
+          - ""
+          resources:
+          - pods/status
+          verbs:
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+        - apiGroups:
+          - apps
+          resources:
+          - daemonsets
+          verbs:
+          - list
+        - apiGroups:
+          - apps
+          resources:
+          - controllerrevisions
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
+          - get
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshots/status
+          - virtualmachinesnapshots/finalizers
+          - virtualmachinesnapshotcontents
+          - virtualmachinesnapshotcontents/status
+          - virtualmachinesnapshotcontents/finalizers
+          - virtualmachinerestores
+          - virtualmachinerestores/status
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          - virtualmachineexports/status
+          - virtualmachineexports/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackups/status
+          - virtualmachinebackups/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          - virtualmachinebackuptrackers/status
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          - virtualmachinepools/finalizers
+          - virtualmachinepools/status
+          - virtualmachinepools/scale
+          verbs:
+          - watch
+          - list
+          - create
+          - delete
+          - update
+          - patch
+          - get
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines/finalizers
+          - virtualmachineinstances/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/stop
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
+          - virtualmachineinstances/backup
+          - virtualmachineinstances/redefine-checkpoint
+          - virtualmachineinstances/freeze
+          - virtualmachineinstances/unfreeze
+          - virtualmachineinstances/reset
+          - virtualmachineinstances/softreboot
+          - virtualmachineinstances/sev/setupsession
+          - virtualmachineinstances/sev/injectlaunchsecret
+          verbs:
+          - update
+        - apiGroups:
+          - cdi.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshotclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.storage.k8s.io
+          resources:
+          - volumesnapshots
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
+          - storage.k8s.io
+          resources:
+          - storageclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - migrations.kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
+          - virtualmachineclones/status
+          - virtualmachineclones/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - resourcequotas
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - get
+          - delete
+        - apiGroups:
+          - resource.k8s.io
+          resources:
+          - resourceslices
+          - resourceclaims
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - k8s.cni.cncf.io
+          resources:
+          - network-attachment-definitions
+          verbs:
+          - get
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstances
+          verbs:
+          - update
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - patch
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - migrations.kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          - virtualmachinebackuptrackers/status
+          verbs:
+          - list
+          - watch
+          - patch
+        - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstances
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - delete
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - version
+          - guestfs
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/console
+          - virtualmachineinstances/vnc
+          - virtualmachineinstances/vnc/screenshot
+          - virtualmachineinstances/portforward
+          - virtualmachineinstances/guestosinfo
+          - virtualmachineinstances/filesystemlist
+          - virtualmachineinstances/userlist
+          - virtualmachineinstances/sev/fetchcertchain
+          - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/pause
+          - virtualmachineinstances/unpause
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
+          - virtualmachineinstances/freeze
+          - virtualmachineinstances/unfreeze
+          - virtualmachineinstances/softreboot
+          - virtualmachineinstances/reset
+          - virtualmachineinstances/sev/setupsession
+          - virtualmachineinstances/sev/injectlaunchsecret
+          - virtualmachineinstances/evacuate/cancel
+          verbs:
+          - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/expand-spec
+          - virtualmachines/portforward
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/start
+          - virtualmachines/stop
+          - virtualmachines/restart
+          - virtualmachines/addvolume
+          - virtualmachines/removevolume
+          - virtualmachines/memorydump
+          - virtualmachines/evacuate/cancel
+          verbs:
+          - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - expand-vm-spec
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines
+          - virtualmachineinstances
+          - virtualmachineinstancepresets
+          - virtualmachineinstancereplicasets
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - migrations.kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/console
+          - virtualmachineinstances/vnc
+          - virtualmachineinstances/portforward
+          - virtualmachineinstances/guestosinfo
+          - virtualmachineinstances/filesystemlist
+          - virtualmachineinstances/userlist
+          - virtualmachineinstances/sev/fetchcertchain
+          - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/pause
+          - virtualmachineinstances/unpause
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
+          - virtualmachineinstances/freeze
+          - virtualmachineinstances/unfreeze
+          - virtualmachineinstances/softreboot
+          - virtualmachineinstances/reset
+          - virtualmachineinstances/sev/setupsession
+          - virtualmachineinstances/sev/injectlaunchsecret
+          - virtualmachineinstances/evacuate/cancel
+          verbs:
+          - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/expand-spec
+          - virtualmachines/portforward
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/start
+          - virtualmachines/stop
+          - virtualmachines/restart
+          - virtualmachines/addvolume
+          - virtualmachines/removevolume
+          - virtualmachines/memorydump
+          - virtualmachines/evacuate/cancel
+          verbs:
+          - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - expand-vm-spec
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines
+          - virtualmachineinstances
+          - virtualmachineinstancepresets
+          - virtualmachineinstancereplicasets
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - migrations.kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/expand-spec
+          - virtualmachineinstances/guestosinfo
+          - virtualmachineinstances/filesystemlist
+          - virtualmachineinstances/userlist
+          - virtualmachineinstances/sev/fetchcertchain
+          - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - expand-vm-spec
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachines
+          - virtualmachineinstances
+          - virtualmachineinstancepresets
+          - virtualmachineinstancereplicasets
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineinstancetypes
+          - virtualmachineclusterinstancetypes
+          - virtualmachinepreferences
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - pool.kubevirt.io
+          resources:
+          - virtualmachinepools
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - migrations.kubevirt.io
+          resources:
+          - migrationpolicies
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineclusterinstancetypes
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/migrate
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: kubevirt-operator
+      deployments:
+      - name: virt-operator
+        spec:
+          replicas: 2
+          selector:
+            matchLabels:
+              kubevirt.io: virt-operator
+          strategy:
+            type: RollingUpdate
+          template:
+            metadata:
+              annotations:
+                openshift.io/required-scc: restricted-v2
+              labels:
+                kubevirt.io: virt-operator
+                name: virt-operator
+                np.kubevirt.io/allow-access-cluster-services: "true"
+                prometheus.kubevirt.io: "true"
+              name: virt-operator
+            spec:
+              affinity:
+                nodeAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - preference:
+                      matchExpressions:
+                      - key: node-role.kubernetes.io/worker
+                        operator: DoesNotExist
+                    weight: 100
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/control-plane
+                        operator: Exists
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/master
+                        operator: Exists
+                podAntiAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - podAffinityTerm:
+                      labelSelector:
+                        matchExpressions:
+                        - key: kubevirt.io
+                          operator: In
+                          values:
+                          - virt-operator
+                      topologyKey: kubernetes.io/hostname
+                    weight: 1
+              containers:
+              - args:
+                - --port
+                - "8443"
+                - -v
+                - {{.Verbosity}}
+                command:
+                - virt-operator
+                env:
+                - name: VIRT_OPERATOR_IMAGE
+                  value: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: KUBEVIRT_VERSION
+                  value: {{.DockerTag}}
+                image: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+                imagePullPolicy: {{.ImagePullPolicy}}
+                livenessProbe:
+                  httpGet:
+                    path: /metrics
+                    port: 8443
+                    scheme: HTTPS
+                  initialDelaySeconds: 5
+                  timeoutSeconds: 10
+                name: virt-operator
+                ports:
+                - containerPort: 8443
+                  name: metrics
+                  protocol: TCP
+                - containerPort: 8444
+                  name: webhooks
+                  protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /metrics
+                    port: 8443
+                    scheme: HTTPS
+                  initialDelaySeconds: 5
+                  timeoutSeconds: 10
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 450Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  seccompProfile:
+                    type: RuntimeDefault
+                terminationMessagePolicy: FallbackToLogsOnError
+                volumeMounts:
+                - mountPath: /etc/virt-operator/certificates
+                  name: kubevirt-operator-certs
+                  readOnly: true
+                - mountPath: /profile-data
+                  name: profile-data
+              nodeSelector:
+                kubernetes.io/os: linux
+              priorityClassName: kubevirt-cluster-critical
+              securityContext:
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+              serviceAccountName: kubevirt-operator
+              tolerations:
+              - key: CriticalAddonsOnly
+                operator: Exists
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/control-plane
+                operator: Exists
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/master
+                operator: Exists
+              volumes:
+              - name: kubevirt-operator-certs
+                secret:
+                  optional: true
+                  secretName: kubevirt-operator-certs
+              - emptyDir: {}
+                name: profile-data
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-ca
+          - kubevirt-export-ca
+          - kubevirt-backup-ca
+          - kubevirt-virt-handler-certs
+          - kubevirt-virt-handler-server-certs
+          - kubevirt-virt-handler-migration-client-certs
+          - kubevirt-virt-handler-vsock-client-certs
+          - kubevirt-operator-certs
+          - kubevirt-virt-api-certs
+          - kubevirt-controller-certs
+          - kubevirt-exportproxy-certs
+          - kubevirt-synchronization-controller-certs
+          - kubevirt-synchronization-controller-server-certs
+          - kubevirt-virt-template-api-certs
+          - kubevirt-virt-template-webhook-certs
+          - kubevirt-virt-template-controller-metrics-certs
+          resources:
+          - secrets
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - patch
+          - delete
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - patch
+          - delete
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes/custom-host
+          verbs:
+          - create
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - list
+          - get
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-export-ca
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resourceNames:
+          - kubevirt-ca
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
+        serviceAccountName: kubevirt-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: true
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - KubeVirt
+  - Virtualization
+  labels:
+    alm-owner-kubevirt: kubevirtoperator
+    operated-by: kubevirtoperator
+  links:
+  - name: KubeVirt
+    url: https://kubevirt.io
+  - name: Source Code
+    url: https://github.com/kubevirt/kubevirt
+  maintainers:
+  - email: kubevirt-dev@googlegroups.com
+    name: KubeVirt project
+  maturity: alpha
+  provider:
+    name: KubeVirt project
+  replaces: {{.ReplacesCsvVersion}}
+  selector:
+    matchLabels:
+      alm-owner-kubevirt: kubevirtoperator
+      operated-by: kubevirtoperator
+  version: {{.CsvVersion}}

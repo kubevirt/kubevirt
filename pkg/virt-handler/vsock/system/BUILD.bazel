@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["system.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/vsock/system",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/util/tls:go_default_library",
+        "//pkg/vsock/system/v1:go_default_library",
+    ],
+)

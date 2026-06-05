@@ -1,0 +1,33 @@
+# Virtual Machine Presets
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstancePreset
+metadata:
+  name: windows-server-2012r2
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io/os: win2k12r2
+  domain:
+    cpu:
+      cores: 2
+    resources:
+      requests:
+        memory: 2G
+    features:
+      acpi: {}
+      apic: {}
+      hyperv:
+        relaxed: {}
+        vapic: {}
+        spinlocks:
+          spinlocks: 8191
+    clock:
+      utc: {}
+      timer:
+        hpet:
+          present: false
+        pit:
+          tickPolicy: delay
+        rtc:
+          tickPolicy: catchup
+        hyperv: {}

@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: disks-images-provider
+  namespace: {{.Namespace}}
+  labels:
+    kubevirt.io: "disks-images-provider"
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io: "disks-images-provider"
+  template:
+    metadata:
+      labels:
+        name: disks-images-provider
+        kubevirt.io: disks-images-provider
+      name: disks-images-provider
+    spec:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+      terminationGracePeriodSeconds: 10
+      serviceAccountName: kubevirt-testing
+      containers:
+        - name: target
+          image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
+          imagePullPolicy: Always
+          env:
+          - name: NUM_TEST_IMAGE_REPLICAS
+            value: {{.TestImageReplicas}}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","source /etc/bashrc && chroot /host umount ${LOOP_DEVICE_HP} && chroot /host losetup -d ${LOOP_DEVICE_HP}"]
+          volumeMounts:
+          - name: images
+            mountPath: /hostImages
+          - name: local-storage
+            mountPath: /local-storage
+          - name: host-dir
+            mountPath: /host
+            mountPropagation: Bidirectional
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: false
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /ready
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: images
+          hostPath:
+            path: /tmp/hostImages
+            type: DirectoryOrCreate
+        - name: local-storage
+          hostPath:
+            path: /mnt/local-storage
+            type: DirectoryOrCreate
+        - name: host-dir
+          hostPath:
+            path: /

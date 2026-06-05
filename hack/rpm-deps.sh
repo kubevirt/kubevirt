@@ -1,0 +1,680 @@
+#!/usr/bin/env bash
+
+set -ex
+
+source hack/common.sh
+# Skip bootstrap and sandbox checks during rpm-deps as we're regenerating the targets
+KUBEVIRT_SKIP_BOOTSTRAP=true
+KUBEVIRT_BOOTSTRAPPING=true
+export KUBEVIRT_BOOTSTRAPPING
+source hack/bootstrap.sh
+source hack/config.sh
+
+# CentOS Stream version selection (default to 9)
+KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION:-9}
+TARGET_SUFFIX="_cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
+CS_CONFIG="cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
+
+# Version-specific package versions
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    # CS10: use unversioned packages (latest available)
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-}
+    QEMU_VERSION=${QEMU_VERSION:-}
+    SEABIOS_VERSION=${SEABIOS_VERSION:-}
+    EDK2_VERSION=${EDK2_VERSION:-}
+    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-}
+    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-}
+    PASST_VERSION=${PASST_VERSION:-}
+    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-}
+    SWTPM_VERSION=${SWTPM_VERSION:-}
+    LIBNBD_VERSION=${LIBNBD_VERSION:-}
+else
+    # CS9 defaults (current pinned versions)
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.9.0-1.el9}
+    QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-10.el9}
+    SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
+    EDK2_VERSION=${EDK2_VERSION:-0:20241117-8.el9}
+    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-9.el9}
+    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-5.el9}
+    PASST_VERSION=${PASST_VERSION:-0:0^20250512.g8ec1341-2.el9}
+    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
+    SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
+    LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.20.3-4.el9}
+fi
+
+SINGLE_ARCH=${SINGLE_ARCH:-""}
+BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
+
+# Select repo file based on version
+bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
+if [ "${CUSTOM_REPO}" ]; then
+    bazeldnf_repos="--repofile ${CUSTOM_REPO} ${bazeldnf_repos}"
+fi
+
+# Packages that we want to be included in all container images.
+#
+# Further down we define per-image package lists, which just like
+# this one are split across multiple variables:
+#
+#   * $foo_main  => packages that we want to have in the image;
+#
+#   * $foo_ARCH  => same as above, but specific to one architecture;
+#
+#   * $foo_extra => (indirect) dependencies that can be satisfied by
+#                   more than one package.
+#
+# Listing the "extra" packages explicitly ensures that bazeldnf will
+# always reach the same solution, and thus keeps things reproducible
+
+# Version-specific package names
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    # CS10: curl-minimal was replaced by curl
+    CURL_PACKAGE="curl"
+else
+    # CS9: uses curl-minimal
+    CURL_PACKAGE="curl-minimal"
+fi
+
+centos_main="
+  acl
+  ${CURL_PACKAGE}
+  vim-minimal
+"
+centos_extra="
+  coreutils-single
+  glibc-minimal-langpack
+  libcurl-minimal
+"
+
+# create a rpmtree for our test image with misc. tools.
+testimage_main="
+  device-mapper
+  e2fsprogs
+  iputils
+  nmap-ncat
+  procps-ng
+  qemu-img-${QEMU_VERSION}
+  tar
+  targetcli
+  util-linux
+  which
+"
+# sevctl is x86_64-only in CS10, but available for all architectures in CS9
+testimage_x86_64="
+  sevctl
+"
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    testimage_aarch64=""
+    testimage_s390x=""
+else
+    testimage_aarch64="
+  sevctl
+"
+    testimage_s390x="
+  sevctl
+"
+fi
+
+# create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
+libvirtdevel_main="
+  libvirt-devel-${LIBVIRT_VERSION}
+"
+libvirtdevel_extra="
+  keyutils-libs
+  krb5-libs
+  libmount
+  lz4-libs
+"
+
+# create a rpmtree for libnbd-devel.
+libnbddevel_main="
+  libnbd-devel-${LIBNBD_VERSION}
+"
+
+# TODO: Remove the sssd-client and use a better sssd config
+# This requires a way to inject files into the sandbox via bazeldnf
+sandboxroot_main="
+  findutils
+  gcc
+  glibc-static
+  python3
+  sssd-client
+"
+
+# create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
+launcherbase_main="
+  libvirt-client-${LIBVIRT_VERSION}
+  libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
+  passt-${PASST_VERSION}
+  qemu-kvm-core-${QEMU_VERSION}
+  qemu-kvm-device-usb-host-${QEMU_VERSION}
+  swtpm-tools-${SWTPM_VERSION}
+"
+launcherbase_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-vga-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+  qemu-kvm-device-usb-redirect-${QEMU_VERSION}
+  seabios-${SEABIOS_VERSION}
+"
+launcherbase_aarch64="
+  edk2-aarch64-${EDK2_VERSION}
+  qemu-kvm-device-usb-redirect-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
+"
+launcherbase_s390x="
+  qemu-kvm-device-display-virtio-gpu-${QEMU_VERSION}
+  qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}
+"
+launcherbase_extra="
+  findutils
+  nftables
+  nmap-ncat
+  procps-ng
+  selinux-policy
+  selinux-policy-targeted
+  tar
+  virtiofsd-${VIRTIOFSD_VERSION}
+  xorriso
+  libnbd-${LIBNBD_VERSION}
+"
+
+handlerbase_main="
+  qemu-img-${QEMU_VERSION}
+"
+handlerbase_extra="
+  findutils
+  iproute
+  nftables
+  procps-ng
+  selinux-policy
+  selinux-policy-targeted
+  tar
+  util-linux
+  xorriso
+"
+
+libguestfstools_main="
+  libguestfs-${LIBGUESTFS_VERSION}
+  guestfs-tools-${GUESTFSTOOLS_VERSION}
+  libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
+  qemu-kvm-core-${QEMU_VERSION}
+"
+libguestfstools_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
+  seabios-${SEABIOS_VERSION}
+"
+
+libguestfstools_s390x="
+  edk2-ovmf-${EDK2_VERSION}
+"
+libguestfstools_extra="
+  selinux-policy
+  selinux-policy-targeted
+"
+
+exportserverbase_main="
+  tar
+"
+
+pr_helper="
+  qemu-pr-helper
+"
+
+sidecar_shim="
+    python3
+"
+
+# get latest repo data from repo.yaml
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:bazeldnf -- fetch \
+    ${bazeldnf_repos}
+
+if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name testimage_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $testimage_main \
+        $testimage_x86_64
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libvirt-devel_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libvirtdevel_main \
+        $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sandboxroot_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name launcherbase_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $launcherbase_main \
+        $launcherbase_x86_64 \
+        $launcherbase_extra
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name handlerbase_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $handlerbase_main \
+        $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
+
+    bazel run \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libguestfs-tools_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        $centos_main \
+        $centos_extra \
+        $libguestfstools_main \
+        $libguestfstools_x86_64 \
+        $libguestfstools_extra \
+        ${bazeldnf_repos} \
+        --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
+        --force-ignore-with-dependencies '^(man-db|mandoc)' \
+        --force-ignore-with-dependencies '^dbus'
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $pr_helper
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
+
+    # remove all RPMs which are no longer referenced by a rpmtree
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- prune
+
+    # update tar2files targets which act as an adapter between rpms
+    # and cc_library which we need for virt-launcher and virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_x86_64${TARGET_SUFFIX}
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_x86_64${TARGET_SUFFIX}
+
+    # Note: sandbox regeneration is done separately after all targets are generated
+    # by calling hack/regenerate-sandboxes.sh
+fi
+
+if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name testimage_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $testimage_main \
+        $testimage_aarch64
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libvirt-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libvirtdevel_main \
+        $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sandboxroot_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name launcherbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $launcherbase_main \
+        $launcherbase_aarch64 \
+        $launcherbase_extra
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name handlerbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $handlerbase_main \
+        $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $pr_helper
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
+
+    # remove all RPMs which are no longer referenced by a rpmtree
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- prune
+
+    # update tar2files targets which act as an adapter between rpms
+    # and cc_library which we need for virt-launcher and virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_aarch64${TARGET_SUFFIX}
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_aarch64${TARGET_SUFFIX}
+
+    # Note: sandbox regeneration is done separately
+fi
+
+if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name testimage_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $testimage_main \
+        $testimage_s390x
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libvirt-devel_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libvirtdevel_main \
+        $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sandboxroot_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name launcherbase_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $launcherbase_main \
+        $launcherbase_s390x \
+        $launcherbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
+
+    # create a rpmtree for virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name handlerbase_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        --force-ignore-with-dependencies 'python' \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $handlerbase_main \
+        $handlerbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name exportserverbase_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $exportserverbase_main
+
+    bazel run \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libguestfs-tools_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        $centos_main \
+        $centos_extra \
+        $libguestfstools_main \
+        $libguestfstools_s390x \
+        $libguestfstools_extra \
+        ${bazeldnf_repos} \
+        --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
+        --force-ignore-with-dependencies '^(man-db|mandoc)' \
+        --force-ignore-with-dependencies '^dbus'
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
+
+    # remove all RPMs which are no longer referenced by a rpmtree
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- prune
+
+    # update tar2files targets which act as an adapter between rpms
+    # and cc_library which we need for virt-launcher and virt-handler
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_s390x${TARGET_SUFFIX}
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_s390x${TARGET_SUFFIX}
+
+    # Note: sandbox regeneration is done separately
+fi
+
+# Sandbox regeneration is triggered automatically on next bazel build
+# after the BUILD.bazel hash changes

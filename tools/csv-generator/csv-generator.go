@@ -1,0 +1,173 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 Red Hat, Inc.
+ *
+ */
+
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"os"
+	"slices"
+
+	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/csv"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
+	"kubevirt.io/kubevirt/tools/placement"
+	"kubevirt.io/kubevirt/tools/util"
+)
+
+const (
+	customImageExample   = "Examples: some.registry.com@sha256:abcdefghijklmnop, other.registry.com:tag1"
+	shaEnvDeprecationMsg = "This argument is deprecated. Please use virt-*-image instead"
+)
+
+func main() {
+	namespace := flag.String("namespace", "placeholder", "Namespace to use.")
+	operatorImageVersion := flag.String("operatorImageVersion", "latest", "Image tag used to uniquely identify the operator container image to use in the CSV")
+	imagePrefix := flag.String("imagePrefix", "", "Optional prefix for virt-* image names.")
+	dockerPrefix := flag.String("dockerPrefix", "kubevirt", "Image Repository to use.")
+	kubeVirtVersion := flag.String("kubeVirtVersion", "", "represents the KubeVirt releaseassociated with this CSV. Required when image SHAs are used.")
+	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
+	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
+	runbookURLTemplate := flag.String("", "", "")
+	kubeVirtLogo := flag.String("kubevirtLogo", "", "kubevirt logo data in base64")
+	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
+	replacesCsvVersion := flag.String("replacesCsvVersion", "", "the CSV version being replaced by this generated CSV")
+	csvCreatedAtTimestamp := flag.String("csvCreatedAtTimestamp", "", "creation timestamp set in the 'createdAt' annotation on the CSV")
+	dumpCRDs := flag.Bool("dumpCRDs", false, "dump CRDs along with CSV manifests to stdout")
+	virtOperatorImage := flag.String("virt-operator-image", "", "custom image for virt-operator")
+	virtApiImage := flag.String("virt-api-image", "", "custom image for virt-api. "+customImageExample)
+	virtControllerImage := flag.String("virt-controller-image", "", "custom image for virt-controller. "+customImageExample)
+	virtHandlerImage := flag.String("virt-handler-image", "", "custom image for virt-handler. "+customImageExample)
+	virtLauncherImage := flag.String("virt-launcher-image", "", "custom image for virt-launcher. "+customImageExample)
+	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
+	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
+	virtSynchronizationControllerImage := flag.String("virt-synchronization-controller-image", "", "custom image for virt-synchronization-controller. "+customImageExample)
+	virtTemplateApiserverImage := flag.String("virt-template-apiserver-image", "", "custom image for virt-template-apiserver. "+customImageExample)
+	virtTemplateControllerImage := flag.String("virt-template-controller-image", "", "custom image for virt-template-controller. "+customImageExample)
+	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
+	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
+	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
+	dumpNetworkPolicies := flag.Bool("dump-network-policies", false, "dump Network Policies along with CSV manifests to stdout")
+	withKubeVirtControlPlaneLabel := flag.Bool("with-kubevirt-control-plane-label", false, "add node-role.kubevirt.io/control-plane as an additional node selector term for the operator deployment")
+
+	flag.Parse()
+
+	csvData := csv.NewClusterServiceVersionData{
+		Namespace:                          *namespace,
+		KubeVirtVersion:                    *kubeVirtVersion,
+		OperatorImageVersion:               *operatorImageVersion,
+		DockerPrefix:                       *dockerPrefix,
+		ImagePrefix:                        *imagePrefix,
+		ImagePullPolicy:                    *pullPolicy,
+		Verbosity:                          *verbosity,
+		CsvVersion:                         *csvVersion,
+		RunbookURLTemplate:                 *runbookURLTemplate,
+		ReplacesCsvVersion:                 *replacesCsvVersion,
+		IconBase64:                         *kubeVirtLogo,
+		Replicas:                           2,
+		CreatedAtTimestamp:                 *csvCreatedAtTimestamp,
+		VirtOperatorImage:                  *virtOperatorImage,
+		VirtApiImage:                       *virtApiImage,
+		VirtControllerImage:                *virtControllerImage,
+		VirtHandlerImage:                   *virtHandlerImage,
+		VirtLauncherImage:                  *virtLauncherImage,
+		VirtExportProxyImage:               *virtExportProxyImage,
+		VirtExportServerImage:              *virtExportServerImage,
+		VirtSynchronizationControllerImage: *virtSynchronizationControllerImage,
+		VirtTemplateApiserverImage:         *virtTemplateApiserverImage,
+		VirtTemplateControllerImage:        *virtTemplateControllerImage,
+		GsImage:                            *gsImage,
+		PrHelperImage:                      *prHelperImage,
+		SidecarShimImage:                   *sidecarShimImage,
+	}
+
+	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)
+	if err != nil {
+		panic(err)
+	}
+
+	if *withKubeVirtControlPlaneLabel {
+		if err := injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv); err != nil {
+			panic(err)
+		}
+	}
+
+	util.MarshallObject(operatorCsv, os.Stdout)
+
+	if *dumpCRDs {
+		kvCRD, err := components.NewKubeVirtCrd()
+		if err != nil {
+			panic(err)
+		}
+		util.MarshallObject(kvCRD, os.Stdout)
+	}
+
+	if *dumpNetworkPolicies {
+		virtTemplateResources, err := components.NewVirtTemplateResources(&operatorutil.KubeVirtDeploymentConfig{
+			Namespace: *namespace,
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		kvNPs := components.NewKubeVirtNetworkPolicies(*namespace)
+		kvNPs = append(kvNPs, virtTemplateResources.NetworkPolicies...)
+		for _, v := range kvNPs {
+			util.MarshallObject(v, os.Stdout)
+		}
+	}
+}
+
+// These types mirror the unexported csvDeployments and csvStrategySpec in
+// pkg/virt-operator/resource/generate/csv/csv.go. Keep them in sync.
+type strategyDeployment struct {
+	Name string                `json:"name"`
+	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
+}
+
+type strategySpec struct {
+	ClusterPermissions json.RawMessage      `json:"clusterPermissions"`
+	Permissions        json.RawMessage      `json:"permissions"`
+	Deployments        []strategyDeployment `json:"deployments"`
+}
+
+func injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv *csvv1.ClusterServiceVersion) error {
+	var strategy strategySpec
+	if err := json.Unmarshal(operatorCsv.Spec.InstallStrategy.StrategySpecRaw, &strategy); err != nil {
+		return err
+	}
+
+	idx := slices.IndexFunc(strategy.Deployments, func(dep strategyDeployment) bool {
+		return dep.Name == "virt-operator"
+	})
+	if idx > -1 {
+		placement.InjectKubeVirtControlPlanePlacement(&strategy.Deployments[idx].Spec.Template.Spec)
+	}
+
+	raw, err := json.Marshal(strategy)
+	if err != nil {
+		return err
+	}
+	operatorCsv.Spec.InstallStrategy.StrategySpecRaw = raw
+	return nil
+}

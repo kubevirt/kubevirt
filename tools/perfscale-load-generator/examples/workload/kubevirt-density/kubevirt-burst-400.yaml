@@ -1,0 +1,11 @@
+name: kubevirt-burst-test-400
+timeout: 1h
+count: 400
+type: "burst"
+object:
+  templateFile: templates/vmi-ephemeral.yaml
+  inputVars:
+    containerPrefix: ""
+    containerImg: cirros-container-disk-demo
+    containerTag: ""
+    namespace: kubevirt-density

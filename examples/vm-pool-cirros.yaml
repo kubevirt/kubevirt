@@ -1,0 +1,35 @@
+---
+apiVersion: pool.kubevirt.io/v1beta1
+kind: VirtualMachinePool
+metadata:
+  name: vm-pool-cirros
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      kubevirt.io/vmpool: vm-pool-cirros
+  virtualMachineTemplate:
+    metadata:
+      labels:
+        kubevirt.io/vmpool: vm-pool-cirros
+    spec:
+      runStrategy: Always
+      template:
+        metadata:
+          labels:
+            kubevirt.io/vmpool: vm-pool-cirros
+        spec:
+          domain:
+            devices:
+              disks:
+              - disk:
+                  bus: virtio
+                name: containerdisk
+            memory:
+              guest: 128Mi
+            resources: {}
+          terminationGracePeriodSeconds: 0
+          volumes:
+          - containerDisk:
+              image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+            name: containerdisk

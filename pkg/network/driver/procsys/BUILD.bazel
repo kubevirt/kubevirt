@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "netip.go",
+        "types.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/driver/procsys",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/util/sysctl:go_default_library"],
+)

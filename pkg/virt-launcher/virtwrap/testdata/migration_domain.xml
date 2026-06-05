@@ -1,0 +1,33 @@
+<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <devices>
+    <disk device="disk" type="block">
+      <source dev="/dev/pvc_block_test"></source>
+      <target bus="virtio" dev="vda"></target>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-myvolume"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
+      <target bus="virtio" dev="vdb"></target>
+      <driver cache="none" name="qemu" type="qcow2" iothread="1"></driver>
+      <alias name="ua-myvolume1"></alias>
+      <backingStore type="file">
+        <format type="raw"></format>
+        <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
+      </backingStore>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
+      <target bus="virtio" dev="vdc"></target>
+      <driver name="qemu" type="raw" iothread="2"></driver>
+      <alias name="ua-myvolumehost"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <target bus="virtio" dev="vdd"></target>
+      <driver name="qemu" type="raw" iothread="3"></driver>
+      <alias name="ua-cloudinit"></alias>
+	  <readonly/>
+    </disk>
+  </devices>
+</domain>

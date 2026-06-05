@@ -1,0 +1,12 @@
+# https://github.com/fossas/fossa-cli/blob/v3.6.11/docs/references/files/fossa-yml.md
+
+version: 3
+
+project:
+  id: git@github.com:kubevirt/kubevirt.git
+  url: github.com/kubevirt/kubevirt
+
+target:
+  only:
+  - type: gomod
+    path: ./

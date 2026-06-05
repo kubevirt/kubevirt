@@ -1,0 +1,35 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: kubevirt-density-{{.replica}}
+  labels:
+    name: kubevirt-densit-{{.replica}}
+  namespace: {{.namespace}}
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: disk0
+      - disk:
+          bus: virtio
+        name: disk1
+    resources:
+      limits:
+        cpu: 100m
+        memory: 90Mi
+      requests:
+        cpu: 100m
+        memory: 90Mi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: {{.containerPrefix}}/{{.containerImg}}:{{.containerTag}}
+      imagePullPolicy: IfNotPresent
+    name: disk0
+  - cloudInitNoCloud:
+      userData: |
+        #!/bin/sh
+        echo 'printed from cloud-init userdata'
+    name: disk1

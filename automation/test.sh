@@ -1,0 +1,705 @@
+#!/bin/bash
+#
+# This file is part of the KubeVirt project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Copyright 2017 Red Hat, Inc.
+#
+
+set -ex
+
+export TIMESTAMP=${TIMESTAMP:-1}
+
+export KUBEVIRT_DEPLOY_NP="${KUBEVIRT_DEPLOY_NP:-true}"
+export WORKSPACE="${WORKSPACE:-$PWD}"
+export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
+readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
+readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
+readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
+
+source hack/config-default.sh
+
+# Skip if it's docs changes only
+# Only if we are in CI, and this is a non-batch change
+if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAME" != *"rehearsal"* && "$JOB_NAME" != *"test-subset"* ]]; then
+    SKIP_PATTERN="^(docs/|\.github/)|(OWNERS|OWNERS_ALIASES|.*\.(md|txt))$"
+    CI_GIT_ALL_CHANGES=$(git diff --name-only ${PULL_BASE_SHA}...${PULL_PULL_SHA})
+    CI_GIT_NO_DOCS_CHANGES=$(cat <<<$CI_GIT_ALL_CHANGES | grep -vE "$SKIP_PATTERN" || :)
+    if [[ -z "$CI_GIT_NO_DOCS_CHANGES" ]]; then
+        echo "Aborting as there were only none-code related changes detected."
+        exit 0
+    fi
+ fi
+
+if [ -z $TARGET ]; then
+  echo "FATAL: TARGET must be non empty"
+  exit 1
+fi
+
+add_feature_gate() {
+  if [ -z "$FEATURE_GATES" ]; then
+    export FEATURE_GATES="$1"
+  else
+    export FEATURE_GATES="$FEATURE_GATES,$1"
+  fi
+}
+
+export KUBEVIRT_DEPLOY_CDI=true
+if [[ ! $TARGET =~ .*kind.* ]]; then
+  add_feature_gate "NodeRestriction"
+  export KUBEVIRT_PSA="true"
+fi
+
+case "$TARGET" in
+  *windows*)
+    echo "picking the default provider for windows tests"
+    ;;
+  *sig-network*)
+    export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
+    export KUBEVIRT_DEPLOY_CDI=false
+    export KUBEVIRT_DEPLOY_ISTIO=true
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    ;;
+  *sig-storage*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_WITH_ETC_CAPACITY="1G"
+    ;;
+  *sig-compute-realtime*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
+    export KUBEVIRT_HUGEPAGES_2M=512
+    export KUBEVIRT_REALTIME_SCHEDULER=true
+    ;;
+  *sig-compute-parallel-wg-mshv-amd64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel-wg-mshv-amd64/}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    add_feature_gate "ConfigurableHypervisor"
+    export HYPERVISOR="hyperv-direct"
+    ;;
+  *sig-compute-migrations-wg-arm64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations-wg-arm64/}
+    export KUBEVIRT_E2E_PARALLEL_NODES=3
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+    source hack/config-default.sh
+    ;;
+  *sig-compute-migrations*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
+    export KUBEVIRT_E2E_PARALLEL_NODES=3
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+    source hack/config-default.sh
+    ;;
+  *sig-compute-serial*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
+    ;;
+  *sig-compute-parallel*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
+    ;;
+  *sig-compute-conformance*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
+    ;;
+  *sig-compute*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+    ;;
+  *sig-operator*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    ;;
+  *sig-monitoring*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
+    export KUBEVIRT_DEPLOY_PROMETHEUS=true
+    ;;
+  *wg-s390x*)
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
+    ;;
+  *wg-arm64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    ;;
+  *sev*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sev}
+    ;;
+  *secure-execution*)
+    export KUBEVIRT_PROVIDER=${TARGET/-secure-execution}
+    ;;
+  *)
+    export KUBEVIRT_PROVIDER=${TARGET}
+    ;;
+esac
+
+# Single-node single-replica test lanes need nfs csi to run sig-storage tests
+if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+  export KUBEVIRT_DEPLOY_NFS_CSI=true
+fi
+
+if [ ! -d "kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
+  echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
+  exit 1
+fi
+
+if [[ $TARGET =~ sriov.* ]]; then
+  if [[ $TARGET =~ kind.* ]]; then
+    export KUBEVIRT_NUM_NODES=3
+  fi
+  export KUBEVIRT_DEPLOY_CDI="false"
+  export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
+elif [[ $TARGET =~ vgpu.* ]]; then
+  export KUBEVIRT_NUM_NODES=1
+else
+  export KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-2}
+fi
+
+# Give the nodes enough memory to run tests in parallel, including tests which involve fedora
+export KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-11264M}
+
+export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
+export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
+export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
+export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
+export WINDOWS_SYSPREP_NFS_DIR=${WINDOWS_SYSPREP_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2012_syspreped}
+export WINDOWS_SYSPREP_LOCK_PATH=${WINDOWS_SYSPREP_LOCK_PATH:-/var/lib/stdci/shared/download_windows_syspreped_image.lock}
+export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
+
+wait_for_download_lock() {
+  local max_lock_attempts=60
+  local lock_wait_interval=60
+
+  for ((i = 0; i < $max_lock_attempts; i++)); do
+      if (set -o noclobber; > $1) 2> /dev/null; then
+          echo "Acquired lock: $1"
+          return
+      fi
+      sleep $lock_wait_interval
+  done
+  echo "Timed out waiting for lock: $1" >&2
+  exit 1
+}
+
+safe_download() (
+    # Download files into shared locations using a lock.
+    # The lock will be released as soon as this subprocess will exit
+    local lockfile="${1:?Lockfile was not specified}"
+    local download_from="${2:?Download from was not specified}"
+    local download_to="${3:?Download to was not specified}"
+    local timeout_sec="${4:-3600}"
+
+    touch "$lockfile"
+    exec {fd}< "$lockfile"
+    flock -e  -w "$timeout_sec" "$fd" || {
+        echo "ERROR: Timed out after $timeout_sec seconds waiting for lock" >&2
+        exit 1
+    }
+
+    local remote_sha1_url="${download_from}.sha1"
+    local local_sha1_file="${download_to}.sha1"
+    local remote_sha1
+    local retry=3
+    # Remote file includes only sha1 w/o filename suffix
+    for i in $(seq 1 $retry);
+    do
+      remote_sha1="$(gsutil cat ${remote_sha1_url})"
+      if [[ "$remote_sha1" != "" ]]; then
+        break
+      fi
+    done
+
+    if [[ "$(cat "$local_sha1_file")" != "$remote_sha1" ]]; then
+        echo "${download_to} is not up to date, corrupted or doesn't exist."
+        echo "Downloading file from: ${remote_sha1_url}"
+        gsutil cp $download_from $download_to
+        sha1sum "$download_to" | cut -d " " -f1 > "$local_sha1_file"
+        [[ "$(cat "$local_sha1_file")" == "$remote_sha1" ]] || {
+            echo "${download_to} is corrupted"
+            return 1
+        }
+    else
+        echo "${download_to} is up to date"
+    fi
+)
+
+
+if [[ $TARGET =~ windows_sysprep.* ]]; then
+  # Create images directory
+  if [[ ! -d $WINDOWS_SYSPREP_NFS_DIR ]]; then
+    mkdir -p $WINDOWS_SYSPREP_NFS_DIR
+  fi
+
+  # Download Windows image
+  win_image_url="${TEMPLATES_SERVER}/windows2012_syspreped.img"
+  win_image="$WINDOWS_SYSPREP_NFS_DIR/disk.img"
+  safe_download "$WINDOWS_SYSPREP_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
+elif [[ $TARGET =~ windows.* ]]; then
+  # Create images directory
+  if [[ ! -d $WINDOWS_NFS_DIR ]]; then
+    mkdir -p $WINDOWS_NFS_DIR
+  fi
+
+  # Download Windows image
+  win_image_url="${TEMPLATES_SERVER}/win01.img"
+  win_image="$WINDOWS_NFS_DIR/disk.img"
+  safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
+fi
+
+kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+cli() { kubevirtci/cluster-up/cli.sh "$@"; }
+
+determine_cri_bin() {
+    if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
+        echo podman
+    elif [ "${KUBEVIRTCI_RUNTIME}" = "docker" ]; then
+        echo docker
+    else
+        if curl --unix-socket "${XDG_RUNTIME_DIR}/podman/podman.sock" http://d/v3.0.0/libpod/info >/dev/null 2>&1; then
+            echo podman
+        elif docker ps >/dev/null 2>&1; then
+            echo docker
+        else
+            >&2 echo "no working container runtime found. Neither docker nor podman seems to work."
+            exit 1
+        fi
+    fi
+}
+
+collect_debug_logs() {
+    local containers
+
+    local cri_bin="$(determine_cri_bin)"
+
+    containers=( $("${cri_bin}" ps -a --format '{{ .Names }}') )
+    for container in "${containers[@]}"; do
+        echo "======== $container ========"
+        "${cri_bin}" logs "$container"
+    done
+}
+
+build_images() {
+    # build all images with the basic repeat logic
+    # probably because load on the node, possible situation when the bazel
+    # fails to download artifacts, to avoid job fails because of it,
+    # we repeat the build images action
+    local tries=3
+    for i in $(seq 1 $tries); do
+        make bazel-build-images && return
+        rc=$?
+    done
+
+    return $rc
+}
+
+check_for_panics() {
+    set +x
+    if [ -d "${ARTIFACTS_PATH}" ]; then
+        local panic_files=$(grep -rlE --color=never -i "\bpanic(ked)?\b" "${ARTIFACTS_PATH}" 2>/dev/null | \
+            while IFS= read -r file; do
+                grep -qE "panicked:\s*false" "$file" 2>/dev/null || echo "$file"
+            done)
+        if [ -n "$panic_files" ]; then
+            echo ""
+            echo "================================"
+            echo "ERROR: Found panic in test output"
+            echo "Files:"
+            if [[ -n "${PULL_NUMBER}" && -n "${JOB_NAME}" && -n "${BUILD_ID}" ]]; then
+                while IFS= read -r file; do
+                    local relative_path="${file#/logs/}"
+                    echo "https://storage.googleapis.com/kubevirt-prow/pr-logs/pull/kubevirt_kubevirt/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID}/${relative_path}"
+                done <<< "$panic_files"
+            else
+                echo "$panic_files"
+            fi
+            echo "================================"
+        fi
+    fi
+    set -x
+}
+
+export NAMESPACE="${NAMESPACE:-kubevirt}"
+
+# Make sure that the VM is properly shut down on exit
+trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+
+if [ "$CI" != "true" ]; then
+  make cluster-down
+fi
+
+# Create .bazelrc to use 4 jobs, remote cache and disable progress output.
+# Seed ci.bazelrc with /etc/bazel.bazelrc if it exists so the Bazel remote
+# cache configuration written by create_bazel_cache_rcs.sh during bootstrap
+# is propagated into the hack/dockerized builder container (which only sees
+# files rsync'd from the source tree).
+cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || : >ci.bazelrc
+cat >>ci.bazelrc <<EOF
+build --jobs=4
+build --remote_download_toplevel
+build --noshow_progress
+EOF
+
+echo "=== ci.bazelrc ==="
+cat ci.bazelrc
+echo "=================="
+
+# Build and test images with a custom image name prefix
+export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
+
+build_images
+
+trap '{ collect_debug_logs; }' ERR
+make cluster-up
+trap - ERR
+
+# Wait for nodes to become ready
+set +e
+kubectl get nodes --no-headers
+kubectl_rc=$?
+while [ $kubectl_rc -ne 0 ] || [ -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
+    echo "Waiting for all nodes to become ready ..."
+    kubectl get nodes --no-headers
+    kubectl_rc=$?
+    sleep 10
+done
+set -e
+
+echo "Nodes are ready:"
+kubectl get nodes
+
+ionice --class idle make cluster-sync
+
+# OpenShift is running important containers under default namespace
+namespaces=(kubevirt default)
+if [[ $NAMESPACE != "kubevirt" ]]; then
+  namespaces+=($NAMESPACE)
+fi
+
+timeout=300
+sample=30
+
+for i in ${namespaces[@]}; do
+  # Wait until kubevirt pods are running or completed
+  current_time=0
+  while [ -n "$(kubectl get pods -n $i --no-headers | grep -v -E 'Running|Completed')" ]; do
+    echo "Waiting for kubevirt pods to enter the Running/Completed state ..."
+    kubectl get pods -n $i --no-headers | >&2 grep -v -E 'Running|Completed' || true
+    sleep $sample
+
+    current_time=$((current_time + sample))
+    if [ $current_time -gt $timeout ]; then
+      echo "Dump kubevirt state:"
+      make dump
+      exit 1
+    fi
+  done
+
+  # Make sure all containers are ready
+  current_time=0
+  while [ -n "$(kubectl get pods -n $i --field-selector=status.phase==Running -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
+    echo "Waiting for KubeVirt containers to become ready ..."
+    kubectl get pods -n $i --field-selector=status.phase==Running -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false || true
+    sleep $sample
+
+    current_time=$((current_time + sample))
+    if [ $current_time -gt $timeout ]; then
+      echo "Dump kubevirt state:"
+      make dump
+      exit 1
+    fi
+  done
+  kubectl get pods -n $i
+done
+
+kubectl version
+
+mkdir -p "$ARTIFACTS_PATH"
+export KUBEVIRT_E2E_PARALLEL=true
+# arm64 e2e test lane use kind provider
+if [[ $TARGET =~ .*kind.* ]]; then
+  # MSHV tests do not require serial execution
+  if ! [[ $TARGET =~ .*wg-mshv.* ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
+else
+  if [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
+fi
+
+ginko_params="--no-color"
+
+# Prepare PV for Windows testing
+if [[ $TARGET =~ windows.* ]]; then
+  if [[ $TARGET =~ windows_sysprep.* ]]; then
+    disk_name=disk-windows-sysprep
+    os_label=windows-sysprep
+  else
+    disk_name=disk-windows
+    os_label=windows
+  fi
+  kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: $disk_name
+  labels:
+    kubevirt.io/test: $os_label
+spec:
+  capacity:
+    storage: 35Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+  # W/A https://issues.redhat.com/browse/RHEL-129836
+  mountOptions:
+    - nfsvers=4.1
+  storageClassName: windows
+EOF
+fi
+
+# add_to_label_filter appends the given label and separator to
+# $label_filter which is passed to Ginkgo --filter-label flag.
+# How to use:
+# - Run tests with label
+#     add_to_label_filter '(mylabel)' ','
+# - Dont run tests with label:
+#     add_to_label_filter '(!mylabel)' '&&'
+add_to_label_filter() {
+  local label=$1
+  local separator=$2
+  if [[ -z $label_filter ]]; then
+    label_filter="${1}"
+  else
+    label_filter="${label_filter}${separator}${1}"
+  fi
+}
+
+label_filter="${KUBEVIRT_LABEL_FILTER}"
+# Set label_filter only if KUBEVIRT_E2E_FOCUS, KUBEVIRT_E2E_SKIP and KUBEVIRT_LABEL_FILTER are not set.
+if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} ]]; then
+  echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
+  if [[ $TARGET =~ windows_sysprep.* ]]; then
+    label_filter='(Sysprep)'
+  elif [[ $TARGET =~ windows.* ]]; then
+    # Run only Windows tests
+    label_filter='(Windows)'
+  elif [[ $TARGET =~ sig-network ]]; then
+    label_filter='(sig-network,netCustomBindingPlugins)'
+    # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
+    add_to_label_filter "(!SRIOV)" "&&"
+    if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
+      add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
+    else
+      add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
+    fi
+  elif [[ $TARGET =~ sig-storage ]]; then
+    label_filter='(sig-storage)'
+  elif [[ $TARGET =~ wg-s390x ]]; then
+    label_filter='(wg-s390x) && !(requires-amd64)'
+  elif [[ $TARGET =~ wg-arm64 ]]; then
+    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel,requires-two-worker-nodes-with-cpu-manager,requires-amd64))'
+  elif [[ $TARGET =~ vgpu.* ]]; then
+    label_filter='(VGPU)'
+  elif [[ $TARGET =~ sev.* ]]; then
+    label_filter='(SEV)'
+  elif [[ $TARGET =~ secure-execution ]]; then
+    label_filter='(secure-execution)'
+  elif [[ $TARGET =~ sig-compute-realtime ]]; then
+    label_filter='(sig-compute-realtime) && !(SEV, SEVES, secure-execution)'
+  elif [[ $TARGET =~ sig-compute-migrations ]]; then
+    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
+  elif [[ $TARGET =~ sig-compute-serial ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+  elif [[ $TARGET =~ sig-compute-parallel ]]; then
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
+  elif [[ $TARGET =~ sig-compute-conformance ]]; then
+    label_filter='(sig-compute && conformance)'
+  elif [[ $TARGET =~ sig-compute ]]; then
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES, secure-execution))'
+  elif [[ $TARGET =~ sig-monitoring ]]; then
+    label_filter='(sig-monitoring)'
+  elif [[ $TARGET =~ sig-operator ]]; then
+    if [[ $TARGET =~ sig-operator-upgrade ]]; then
+      label_filter='(Upgrade)'
+    elif [[ $TARGET =~ sig-operator-configuration ]]; then
+      label_filter='(sig-operator && !(Upgrade))'
+    else
+      label_filter='(sig-operator)'
+    fi
+  elif [[ $TARGET =~ sriov.* ]]; then
+    label_filter='(SRIOV)'
+  elif [[ $TARGET =~ gpu.* ]]; then
+    label_filter='(GPU)'
+  else
+    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins))'
+  fi
+
+  # execute tests labelled as PERIODIC only on periodic test lanes (according to lane name)
+  if [[ ! $JOB_NAME =~ .*periodic.* ]]; then
+    add_to_label_filter "(!PERIODIC)" "&&"
+  fi
+
+  if [[ ! $TARGET =~ windows.* ]]; then
+    add_to_label_filter "(!Windows)" "&&"
+    add_to_label_filter "(!Sysprep)" "&&"
+  fi
+
+  if [[ ! $TARGET =~ wg-s390x ]] && [[ ! $TARGET =~ secure-execution ]]; then
+    add_to_label_filter "(!requires-s390x)" "&&"
+  fi
+
+  if [[ ! $TARGET =~ wg-arm64 ]]; then
+    add_to_label_filter "(!requires-arm64)" "&&"
+  fi
+
+  if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
+    add_to_label_filter "(!ImageVolume)" "&&"
+  fi
+
+  rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
+  if [[ "${rwofs_sc}" == "local" ]]; then
+    # local is a primitive non CSI storage class that doesn't support expansion
+    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
+  fi
+
+  vmstate_sc=$(jq -r .storageVMState "${kubevirt_test_config}")
+  if [[ "${vmstate_sc}" == "rook-ceph-block" ]]; then
+    # ceph block doesn't do RWX FS
+    add_to_label_filter '(!RequiresRWXFsVMStateStorageClass)' '&&'
+  fi
+
+fi
+
+# Single-node single-replica test lanes obviously can't run live migrations,
+# but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
+if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  add_to_label_filter '!(multi-replica)' '&&'
+else
+  add_to_label_filter '!(single-replica)' '&&'
+fi
+
+# Single stack IPv6 cluster should skip tests that require dual stack cluster
+if [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
+  add_to_label_filter '(!requires-dual-stack-cluster)' '&&'
+fi
+
+# If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
+# set the whole suite (quarantined and stable) will be run.
+if [ -z "$KUBEVIRT_QUARANTINE" ]; then
+  add_to_label_filter '(!QUARANTINE)' '&&'
+fi
+
+if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
+  add_to_label_filter '(!requireHugepages2Mi)' '&&'
+fi
+
+if [ -z "$KUBEVIRT_HUGEPAGES_1G" ]; then
+  add_to_label_filter '(!requireHugepages1Gi)' '&&'
+fi
+
+# Always override as we want to fail if anything is requiring special handling
+if [[ $TARGET =~ sig-compute-conformance ]]; then
+    label_filter='(sig-compute && conformance)'
+fi
+
+if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
+  add_to_label_filter '(!SwapTest)' '&&'
+fi
+
+# OpenShift-specific tests require features not available in KubeVirtCI
+# (SecurityContextConstraints, Routes). Filter them out when not on OpenShift.
+if ! kubectl get clusterversion version &>/dev/null; then
+  add_to_label_filter '(!OpenShift)' '&&'
+fi
+
+# Prepare RHEL PV for Template testing
+if [[ $TARGET =~ os-.* ]]; then
+  ginko_params="$ginko_params|Networkpolicy"
+
+  kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: disk-rhel
+  labels:
+    kubevirt.io/test: "rhel"
+spec:
+  capacity:
+    storage: 15Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+  # W/A https://issues.redhat.com/browse/RHEL-129836
+  mountOptions:
+    - nfsvers=4.1
+  storageClassName: rhel
+EOF
+fi
+
+if [[ $TARGET =~ sig-storage ]]; then
+  # sig-storage cares about persistent reservation, others don't
+  kubectl patch -n ${namespace} kv kubevirt --type merge -p '
+  {
+    "spec": {
+      "configuration": {
+        "persistentReservationConfiguration": {
+          "enabled": true
+        }
+      }
+    }
+  }'
+  kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m
+fi
+
+
+# Run functional tests
+FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
+
+# Run REST API coverage based on k8s audit log and openapi spec
+if [ -n "$RUN_REST_COVERAGE" ]; then
+  echo "Generating REST API coverage report"
+  wget https://github.com/mfranczy/crd-rest-coverage/releases/download/v0.1.3/rest-coverage -O _out/rest-coverage
+  chmod +x _out/rest-coverage
+  AUDIT_LOG_PATH=${AUDIT_LOG_PATH-/var/log/k8s-audit/k8s-audit.log}
+  log_dest="$ARTIFACTS_PATH/cluster-audit.log"
+  cli scp "$AUDIT_LOG_PATH" - > $log_dest
+  _out/rest-coverage \
+    --swagger-path "api/openapi-spec/swagger.json" \
+    --audit-log-path $log_dest \
+    --output-path "$ARTIFACTS_PATH/rest-coverage.json" \
+    --ignore-resource-version
+  echo "REST API coverage report generated"
+fi
+
+# Sanity check test execution by looking at results file
+./automation/assert-not-all-tests-skipped.sh "${ARTIFACTS}/junit.functest.xml"
+

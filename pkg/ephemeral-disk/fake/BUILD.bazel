@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["ephemeral-disk.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/ephemeral-disk/fake",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+    ],
+)

@@ -1,0 +1,2364 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package storage
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"time"
+
+	expect "github.com/google/goexpect"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	k8sv1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libregistry"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	dataMessage             = "data/message"
+	addingVolumeRunningVM   = "Adding volume to running VM"
+	addingVolumeAgain       = "Adding the same volume again with different name"
+	verifyingVolumeDiskInVM = "Verifying the volume and disk are in the VM and VMI"
+	removingVolumeFromVM    = "removing volume from VM"
+	verifyingVolumeNotExist = "Verifying the volume no longer exists in VM"
+
+	verifyCannotAccessDisk = "No such file or directory"
+	findDevPathCmdFmt      = "$(find /dev/disk/by-id/ -name '*%s')"
+
+	testNewVolume1 = "some-new-volume1"
+	testNewVolume2 = "some-new-volume2"
+
+	waitDiskTemplateError         = "waiting on new disk to appear in template"
+	waitVolumeTemplateError       = "waiting on new volume to appear in template"
+	waitVolumeRequestProcessError = "waiting on all VolumeRequests to be processed"
+)
+
+type addVolumeFunction func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache)
+type removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
+
+var _ = Describe(SIG("Hotplug", func() {
+	var err error
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	getDryRunOption := func(dryRun bool) []string {
+		if dryRun {
+			return []string{metav1.DryRunAll}
+		}
+		return nil
+	}
+
+	deleteVirtualMachine := func(vm *v1.VirtualMachine) error {
+		return virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+	}
+
+	getAddVolumeOptions := func(volumeName string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun, useLUN bool, cache v1.DriverCache) *v1.AddVolumeOptions {
+		opts := &v1.AddVolumeOptions{
+			Name: volumeName,
+			Disk: &v1.Disk{
+				DiskDevice: v1.DiskDevice{},
+				Serial:     volumeName,
+			},
+			VolumeSource: volumeSource,
+			DryRun:       getDryRunOption(dryRun),
+		}
+		if useLUN {
+			opts.Disk.DiskDevice.LUN = &v1.LunTarget{Bus: bus}
+		} else {
+			opts.Disk.DiskDevice.Disk = &v1.DiskTarget{Bus: bus}
+		}
+		if cache == v1.CacheNone ||
+			cache == v1.CacheWriteThrough ||
+			cache == v1.CacheWriteBack {
+			opts.Disk.Cache = cache
+		}
+		return opts
+	}
+
+	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), name, volumeOptions)
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "failed to add volume %s to VMI %s/%s", volumeOptions.Name, namespace, name)
+	}
+
+	addDVVolumeVMI := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
+		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: claimName,
+			},
+		}, dryRun, false, cache))
+	}
+
+	addPVCVolumeVMI := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
+		addVolumeVMIWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			}},
+		}, dryRun, false, cache))
+	}
+
+	addVolumeVMWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
+		Eventually(func() error {
+			return virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, volumeOptions)
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "failed to add volume %s to VM %s/%s", volumeOptions.Name, namespace, name)
+	}
+
+	addDVVolumeVM := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
+		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: claimName,
+			},
+		}, dryRun, false, cache))
+	}
+
+	addPVCVolumeVM := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
+		addVolumeVMWithSource(name, namespace, getAddVolumeOptions(volumeName, bus, &v1.HotplugVolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			}},
+		}, dryRun, false, cache))
+	}
+
+	removeVolumeVMI := func(name, namespace, volumeName string, dryRun bool) {
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), name, &v1.RemoveVolumeOptions{
+				Name:   volumeName,
+				DryRun: getDryRunOption(dryRun),
+			})
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "failed to remove volume %s from VMI %s/%s", volumeName, namespace, name)
+	}
+
+	removeVolumeVM := func(name, namespace, volumeName string, dryRun bool) {
+		Eventually(func() error {
+			return virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), name, &v1.RemoveVolumeOptions{
+				Name:   volumeName,
+				DryRun: getDryRunOption(dryRun),
+			})
+		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "failed to remove volume %s from VM %s/%s", volumeName, namespace, name)
+	}
+
+	verifyVolumeAndDiskVMRemoved := func(vm *v1.VirtualMachine, volumeNames ...string) {
+		nameMap := make(map[string]bool)
+		for _, volumeName := range volumeNames {
+			nameMap[volumeName] = true
+		}
+		Eventually(func() error {
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			if len(updatedVM.Status.VolumeRequests) > 0 {
+				return fmt.Errorf(waitVolumeRequestProcessError)
+			}
+
+			for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
+				if _, ok := nameMap[volume.Name]; ok {
+					return fmt.Errorf("waiting on VM volume to be removed")
+				}
+			}
+			for _, disk := range updatedVM.Spec.Template.Spec.Domain.Devices.Disks {
+				if _, ok := nameMap[disk.Name]; ok {
+					return fmt.Errorf("waiting on VM disk to be removed")
+				}
+			}
+
+			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+
+			for _, volume := range updatedVMI.Spec.Volumes {
+				if _, ok := nameMap[volume.Name]; ok {
+					return fmt.Errorf("waiting on VMI volume to be removed")
+				}
+			}
+			for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
+				if _, ok := nameMap[disk.Name]; ok {
+					return fmt.Errorf("waiting on VMI disk to be removed")
+				}
+			}
+
+			return nil
+		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "timed out waiting for volumes/disks to be removed from VM %s/%s", vm.Namespace, vm.Name)
+	}
+
+	verifyVolumeAndDiskVMIRemoved := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
+		nameMap := make(map[string]bool)
+		for _, volumeName := range volumeNames {
+			nameMap[volumeName] = true
+		}
+		Eventually(func() error {
+			updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+
+			for _, volume := range updatedVMI.Spec.Volumes {
+				if _, ok := nameMap[volume.Name]; ok {
+					return fmt.Errorf("waiting on VMI volume to be removed")
+				}
+			}
+			for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
+				if _, ok := nameMap[disk.Name]; ok {
+					return fmt.Errorf("waiting on VMI disk to be removed")
+				}
+			}
+
+			return nil
+		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "timed out waiting for volumes/disks to be removed from VMI %s/%s", vmi.Namespace, vmi.Name)
+	}
+
+	verifyNoVolumeAttached := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
+		By("Verify that the number of attached volumes does not change")
+		volumeNamesMap := make(map[string]struct{}, len(volumeNames))
+		for _, volumeName := range volumeNames {
+			volumeNamesMap[volumeName] = struct{}{}
+		}
+		Consistently(func() error {
+			currentVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			foundVolume := 0
+			for _, volumeStatus := range currentVMI.Status.VolumeStatus {
+				if _, ok := volumeNamesMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil && volumeStatus.Target != "" {
+					if volumeStatus.Phase == v1.VolumeReady {
+						foundVolume++
+					}
+				}
+			}
+			if foundVolume != 0 {
+				return fmt.Errorf("a volume has been attached")
+			}
+			return nil
+		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "volume unexpectedly became attached to VMI %s/%s", vmi.Namespace, vmi.Name)
+	}
+
+	verifyCreateData := func(vmi *v1.VirtualMachineInstance, device, volName string) {
+		batch := []expect.Batcher{
+			&expect.BSnd{S: fmt.Sprintf("mkfs.ext4 -F %s\n", device)},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: console.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("mkdir -p %s\n", filepath.Join("/test", volName))},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: fmt.Sprintf("mount %s %s\n", device, filepath.Join("/test", volName))},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: console.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("mkdir -p %s\n", filepath.Join("/test", volName, "data"))},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: console.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("chmod a+w %s\n", filepath.Join("/test", volName, "data"))},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: console.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, filepath.Join("/test", volName, dataMessage))},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: console.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("cat %s\n", filepath.Join("/test", volName, dataMessage))},
+			&expect.BExp{R: string(vmi.UID)},
+			&expect.BSnd{S: syncName},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: syncName},
+			&expect.BExp{R: ""},
+		}
+		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed(), "failed to create data on device %s in VMI %s", device, vmi.Name)
+	}
+
+	verifyWriteReadData := func(vmi *v1.VirtualMachineInstance, volName string) {
+		dataFile := filepath.Join("/test", volName, dataMessage)
+		batch := []expect.Batcher{
+			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, dataFile)},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: console.EchoLastReturnValue},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: fmt.Sprintf("cat %s\n", dataFile)},
+			&expect.BExp{R: string(vmi.UID)},
+			&expect.BSnd{S: syncName},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: syncName},
+			&expect.BExp{R: ""},
+		}
+		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed(), "failed to write/read data on volume %s in VMI %s", volName, vmi.Name)
+	}
+
+	verifyVolumeAccessible := func(vmi *v1.VirtualMachineInstance, volumeName string) {
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("ls %s\n", volumeName)},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
+			}, 10)
+		}, 40*time.Second, 2*time.Second).Should(Succeed(), "timed out waiting for volume %s to become accessible in VMI %s/%s", volumeName, vmi.Namespace, vmi.Name)
+	}
+
+	verifyVolumeNolongerAccessible := func(vmi *v1.VirtualMachineInstance, volumeName string) {
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("ls %s\n", volumeName)},
+				&expect.BExp{R: verifyCannotAccessDisk},
+			}, 5)
+		}, 90*time.Second, 2*time.Second).Should(Succeed(), "timed out waiting for volume %s to become inaccessible in VMI %s/%s", volumeName, vmi.Namespace, vmi.Name)
+	}
+
+	createAndStartWFFCStorageHotplugVM := func() *v1.VirtualMachine {
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling(), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to create WFFC storage hotplug VM")
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		return vm
+	}
+
+	createBootableHotplugVM := func(storageClass string) *v1.VirtualMachine {
+		opts := []libvmi.Option{
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+		}
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(storageClass),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling))),
+			),
+		)
+		vm := libvmi.NewVirtualMachine(
+			libstorage.RenderVMIWithHotplugDataVolume(dv.Name, dv.Namespace, opts...),
+			libvmi.WithDataVolumeTemplate(dv),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to create bootable hotplug VM")
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		return vm
+	}
+
+	verifyHotplugAttachedAndUsable := func(vmi *v1.VirtualMachineInstance, volNames []string) []string {
+		targets := make([]string, 0)
+		for _, volName := range volNames {
+			devPath := fmt.Sprintf(findDevPathCmdFmt, volName)
+			verifyVolumeAccessible(vmi, devPath)
+			verifyCreateData(vmi, devPath, volName)
+			targets = append(targets, devPath)
+		}
+		return targets
+	}
+
+	getAlpineVmiConsoleAndLogin := func(vmi *v1.VirtualMachineInstance) {
+		By("Obtaining the serial console")
+		Expect(console.LoginToAlpine(vmi)).To(Succeed())
+	}
+
+	getAlpineTestToolingVmiConsoleAndLogin := func(vmi *v1.VirtualMachineInstance) {
+		By("Obtaining the serial console")
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "failed to log in to Alpine VM %s via console", vmi.Name)
+	}
+
+	createDataVolumeAndWaitForImport := func(sc string, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+		accessMode := k8sv1.ReadWriteOnce
+		if volumeMode == k8sv1.PersistentVolumeBlock {
+			accessMode = k8sv1.ReadWriteMany
+		}
+
+		By("Creating DataVolume")
+		dvBlock := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+				libdv.StorageWithAccessMode(accessMode),
+				libdv.StorageWithVolumeMode(volumeMode),
+			),
+		)
+
+		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for hotplug import")
+		libstorage.EventuallyDV(dvBlock, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+		return dvBlock
+	}
+
+	verifyAttachDetachVolume := func(obj metav1.Object,
+		addVolumeFunc addVolumeFunction,
+		removeVolumeFunc removeVolumeFunction,
+		sc string,
+		volumeMode k8sv1.PersistentVolumeMode,
+		bus v1.DiskBus,
+		waitToStart bool,
+	) {
+		vm, isVM := obj.(*v1.VirtualMachine)
+		dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+
+		vmi, err := virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s/%s for attach/detach verification", obj.GetNamespace(), obj.GetName())
+		if waitToStart {
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+		}
+		By(addingVolumeRunningVM)
+		addVolumeFunc(obj.GetName(), obj.GetNamespace(), "testvolume", dv.Name, bus, false, "")
+		By(verifyingVolumeDiskInVM)
+		if isVM {
+			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+		}
+		vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s/%s after adding volume", obj.GetNamespace(), obj.GetName())
+		libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+		libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+		getAlpineVmiConsoleAndLogin(vmi)
+		targets := verifyHotplugAttachedAndUsable(vmi, []string{"testvolume"})
+		Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+
+		verifySingleAttachmentPod(virtClient, vmi)
+		By(removingVolumeFromVM)
+		removeVolumeFunc(obj.GetName(), obj.GetNamespace(), "testvolume", false)
+		if isVM {
+			By(verifyingVolumeNotExist)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+		}
+		verifyVolumeNolongerAccessible(vmi, targets[0])
+	}
+
+	addRemoveReAddTest := func(obj metav1.Object, addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, sc string, volumeMode k8sv1.PersistentVolumeMode) {
+		vm, isVM := obj.(*v1.VirtualMachine)
+		vmi, err := virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s/%s for add/remove/re-add test", obj.GetNamespace(), obj.GetName())
+		libwait.WaitForSuccessfulVMIStart(vmi,
+			libwait.WithTimeout(240),
+		)
+		testVolumes := make([]string, 0)
+		dvNames := make([]string, 0)
+		for i := 0; i < 5; i++ {
+			volumeName := fmt.Sprintf("volume%d", i)
+			dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+			testVolumes = append(testVolumes, volumeName)
+			dvNames = append(dvNames, dv.Name)
+		}
+
+		for i := 0; i < 4; i++ {
+			By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
+			addVolumeFunc(obj.GetName(), obj.GetNamespace(), testVolumes[i], dvNames[i], v1.DiskBusSCSI, false, "")
+		}
+
+		By(verifyingVolumeDiskInVM)
+		if isVM {
+			verifyVolumeAndDiskVMAdded(virtClient, vm, testVolumes[:len(testVolumes)-1]...)
+		}
+		vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s/%s after adding volumes", obj.GetNamespace(), obj.GetName())
+		libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, testVolumes[:len(testVolumes)-1]...)
+		waitForAttachmentPodToRun(virtClient, vmi)
+		libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes[:len(testVolumes)-1]...)
+		verifySingleAttachmentPod(virtClient, vmi)
+		By("removing volume sdc, with dv" + dvNames[2])
+		Eventually(func() string {
+			vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", obj.GetNamespace(), obj.GetName())
+			return vmi.Status.VolumeStatus[4].Target
+		}, 40*time.Second, 2*time.Second).Should(Equal("sdc"))
+		Eventually(func() string {
+			vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", obj.GetNamespace(), obj.GetName())
+			return vmi.Status.VolumeStatus[5].Target
+		}, 40*time.Second, 2*time.Second).Should(Equal("sdd"))
+
+		removeVolumeFunc(obj.GetName(), obj.GetNamespace(), testVolumes[2], false)
+		Eventually(func() string {
+			vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", obj.GetNamespace(), obj.GetName())
+			return vmi.Status.VolumeStatus[4].Target
+		}, 40*time.Second, 2*time.Second).Should(Equal("sdd"))
+
+		By("Adding remaining volume, it should end up in the spot that was just cleared")
+		addVolumeFunc(obj.GetName(), obj.GetNamespace(), testVolumes[4], dvNames[4], v1.DiskBusSCSI, false, "")
+		Eventually(func() string {
+			vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", obj.GetNamespace(), obj.GetName())
+			return libstorage.LookupVolumeTargetPath(vmi, testVolumes[4])
+		}, 80*time.Second, 2*time.Second).Should(Equal("/dev/sdc"))
+		By("Adding intermediate volume, it should end up at the end")
+		addVolumeFunc(obj.GetName(), obj.GetNamespace(), testVolumes[2], dvNames[2], v1.DiskBusSCSI, false, "")
+		Eventually(func() string {
+			vmi, err = virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", obj.GetNamespace(), obj.GetName())
+			return libstorage.LookupVolumeTargetPath(vmi, testVolumes[2])
+		}, 80*time.Second, 2*time.Second).Should(Equal("/dev/sde"))
+		verifySingleAttachmentPod(virtClient, vmi)
+		for _, volumeName := range testVolumes {
+			By(removingVolumeFromVM)
+			removeVolumeFunc(obj.GetName(), obj.GetNamespace(), volumeName, false)
+			if isVM {
+				By(verifyingVolumeNotExist)
+				verifyVolumeAndDiskVMRemoved(vm, volumeName)
+			}
+		}
+	}
+
+	Context("Offline VM", func() {
+		var (
+			vm *v1.VirtualMachine
+		)
+		BeforeEach(func() {
+			By("Creating VirtualMachine")
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling()), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine for offline VM test")
+		})
+
+		AfterEach(func() {
+			err := deleteVirtualMachine(vm)
+			Expect(err).ToNot(HaveOccurred(), "failed to delete VirtualMachine %s", vm.Name)
+		})
+
+		DescribeTable("Should add volumes on an offline VM", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+			By("Adding test volumes")
+			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume1, "madeup", v1.DiskBusSCSI, false, "")
+			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume2, "madeup2", v1.DiskBusSCSI, false, "")
+			By("Verifying the volumes have been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, testNewVolume1, testNewVolume2)
+			By("Removing new volumes from VM")
+			removeVolumeFunc(vm.Name, vm.Namespace, testNewVolume1, false)
+			removeVolumeFunc(vm.Name, vm.Namespace, testNewVolume2, false)
+
+			verifyVolumeAndDiskVMRemoved(vm, testNewVolume1, testNewVolume2)
+		},
+			Entry("with DataVolume", addDVVolumeVM, removeVolumeVM),
+			Entry("with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
+		)
+	})
+
+	Context("Offline VM with a block volume", decorators.RequiresRWXBlock, func() {
+		var (
+			vm *v1.VirtualMachine
+			sc string
+		)
+
+		BeforeEach(func() {
+			var exists bool
+
+			sc, exists = libstorage.GetRWXBlockStorageClass()
+			if !exists {
+				Fail("Fail test when RWXBlock storage class is not present")
+			}
+
+			dv := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling), cdiv1.RegistryPullNode),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling))),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume for block volume test")
+
+			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
+				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+			)
+
+			By("Creating VirtualMachine")
+			vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine for block volume test")
+		})
+
+		It("Should be able to boot from block volume", decorators.StorageCritical, func() {
+			dvName := "disk0"
+			vm = createBootableHotplugVM(sc)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for block volume boot test", vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dvName)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dvName)
+			getAlpineTestToolingVmiConsoleAndLogin(vmi)
+			verifySingleAttachmentPod(virtClient, vmi)
+		})
+
+		DescribeTable("Should start with a hotplug block", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction) {
+			dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+
+			By("Adding a hotplug block volume")
+			addVolumeFunc(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume has been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
+
+			By("Starting the VM")
+			vm = libvmops.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s after starting with hotplug block volume", vm.Name)
+
+			By("Verifying the volume is attached and usable")
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dv.Name)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dv.Name)
+			getAlpineVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUsable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+		},
+			Entry("DataVolume", addDVVolumeVM),
+			Entry("PersistentVolume", addPVCVolumeVM),
+		)
+
+		It("Should preserve access to block devices if virt-handler crashes", Serial, func() {
+			blockDevices := []string{"/dev/disk0"}
+
+			By("Adding a hotplug block volume")
+			dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+			blockDevices = append(blockDevices, fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", dv.Name))
+			addDVVolumeVM(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume has been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
+
+			By("Starting the VM")
+			vm = libvmops.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+
+			By("Verifying the volume is attached and usable")
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dv.Name)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dv.Name)
+			getAlpineVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUsable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+
+			By("Deleting virt-handler pod")
+			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred(), "failed to get virt-handler pod for node %s", vmi.Status.NodeName)
+			Eventually(func() error {
+				err := virtClient.CoreV1().
+					Pods(virtHandlerPod.GetObjectMeta().GetNamespace()).
+					Delete(context.Background(), virtHandlerPod.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+				return err
+			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "virt-handler pod is expected to be deleted")
+
+			By("Waiting for virt-handler pod to restart")
+			Eventually(func() bool {
+				virtHandlerPod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+				return err == nil && virtHandlerPod.Status.Phase == k8sv1.PodRunning
+			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be restarted")
+
+			By("Adding another hotplug block volume")
+			dv = createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+			blockDevices = append(blockDevices, fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", dv.Name))
+			addDVVolumeVM(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume is attached and usable")
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dv.Name)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dv.Name)
+			getAlpineVmiConsoleAndLogin(vmi)
+			targets = verifyHotplugAttachedAndUsable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+
+			By("Verifying the block devices are still accessible")
+			for _, dev := range blockDevices {
+				By(fmt.Sprintf("Verifying %s", dev))
+				output := libpod.RunCommandOnVmiPod(vmi, []string{
+					"dd", fmt.Sprintf("if=%s", dev), "of=/dev/null", "bs=1", "count=1", "status=none",
+				})
+				Expect(output).To(BeEmpty(), "expected block device to be readable but got unexpected output")
+			}
+		})
+	})
+
+	Context("WFFC storage", decorators.RequiresWFFCStorageClass, func() {
+		var (
+			vm *v1.VirtualMachine
+			sc string
+		)
+		const (
+			numPVs = 3
+		)
+
+		BeforeEach(func() {
+			var exists bool
+			sc, exists = libstorage.GetRWOFileSystemStorageClass()
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				Fail("fail test, no wffc storage class available")
+			}
+			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
+		})
+
+		It("Should be able to boot from WFFC local storage", decorators.StorageCritical, func() {
+			dvName := "disk0"
+			vm = createBootableHotplugVM(sc)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for WFFC boot test", vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dvName)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dvName)
+			getAlpineTestToolingVmiConsoleAndLogin(vmi)
+			verifySingleAttachmentPod(virtClient, vmi)
+		})
+
+		It("Should be able to add and use WFFC local storage", func() {
+			vm = createAndStartWFFCStorageHotplugVM()
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for WFFC storage test", vm.Name)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+			dvNames := make([]string, 0)
+			for i := 0; i < numPVs; i++ {
+				dv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vm)).Create(context.TODO(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+				dvNames = append(dvNames, dv.Name)
+			}
+
+			for i := 0; i < numPVs; i++ {
+				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
+				addDVVolumeVM(vm.Name, vm.Namespace, dvNames[i], dvNames[i], v1.DiskBusSCSI, false, "")
+			}
+
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, dvNames...)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, dvNames...)
+			getAlpineVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUsable(vmi, dvNames)
+			verifySingleAttachmentPod(virtClient, vmi)
+			for _, volumeName := range dvNames {
+				By("removing volume " + volumeName + " from VM")
+				removeVolumeVM(vm.Name, vm.Namespace, volumeName, false)
+				verifyVolumeAndDiskVMRemoved(vm, volumeName)
+			}
+			for _, target := range targets {
+				verifyVolumeNolongerAccessible(vmi, target)
+			}
+		})
+	})
+
+	Context("[storage-req]", decorators.StorageReq, func() {
+		findCPUManagerWorkerNode := func() string {
+			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+				LabelSelector: "node-role.kubernetes.io/worker",
+			})
+			Expect(err).ToNot(HaveOccurred(), "failed to list nodes")
+			for _, node := range nodes.Items {
+				nodeLabels := node.GetLabels()
+
+				for label, val := range nodeLabels {
+					if label == v1.CPUManager && val == "true" {
+						return node.Name
+					}
+				}
+			}
+			return ""
+		}
+
+		validateDryRun := func(obj metav1.Object, addVolumeFunc addVolumeFunction, sc string, volumeMode k8sv1.PersistentVolumeMode) {
+			dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+
+			vmi, err := virtClient.VirtualMachineInstance(obj.GetNamespace()).Get(context.Background(), obj.GetName(), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s for dry-run validation", obj.GetNamespace(), obj.GetName())
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+
+			addVolumeFunc(obj.GetName(), obj.GetNamespace(), "testvolume", dv.Name, v1.DiskBusSCSI, true, "")
+			verifyNoVolumeAttached(vmi, "testvolume")
+		}
+
+		Context("Ephemeral Metrics", decorators.SigMonitoring, func() {
+
+			var (
+				vm *v1.VirtualMachine
+				sc string
+			)
+
+			BeforeEach(func() {
+				exists := false
+				sc, exists = libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Fail no filesystem storage class available") //nolint:forbidigo
+				}
+
+				vmi := libvmifact.NewAlpineWithTestTooling()
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			})
+
+			AfterEach(func() {
+				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+			})
+
+			isPrometheusDeployed := func() bool {
+				ns := "monitoring"
+				if checks.IsOpenShift() {
+					ns = "openshift-monitoring"
+				}
+
+				_, err := virtClient.CoreV1().ServiceAccounts(ns).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+				return err == nil
+			}
+
+			It("should count only vmis with hotplug ephemeral volumes, ignoring persistent volumes and unplugs", Serial, func() {
+				if !isPrometheusDeployed() {
+					Skip("Prometheus not deployed") //nolint:forbidigo
+				}
+				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+				ephemeralCount := 0.0
+
+				By("Creating hotplug volume that will persist")
+				dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+				By("Creating hotplug volume that will be unplugged")
+				dvUnplug := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVM(vm.Name, vm.Namespace, "unplug-volume", dvUnplug.Name, v1.DiskBusSCSI, false, "")
+				removeVolumeVM(vm.Name, vm.Namespace, "unplug-volume", false)
+
+				By("Creating ephemeral hotplug volume")
+				dvEphemeral := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVMI(vm.Name, vm.Namespace, "ephemeral-volume", dvEphemeral.Name, v1.DiskBusSCSI, false, "")
+				ephemeralCount++
+
+				vmi := libvmifact.NewAlpineWithTestTooling()
+				vm2, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+
+				Eventually(matcher.ThisVM(vm2)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+				By("Creating second ephemeral hotplug volume on separate vm")
+				dvEphemeral2 := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", dvEphemeral2.Name, v1.DiskBusSCSI, false, "")
+				ephemeralCount++
+
+				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
+
+				By("Removing ephemeral volume")
+				removeVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", false)
+				ephemeralCount--
+
+				By("Expecting metric to have decremented")
+				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
+
+				By("Checking Alert is fired")
+				libmonitoring.VerifyAlertExist(virtClient, "VirtualMachineInstanceHasEphemeralHotplugVolume")
+			})
+
+			It("should ignore delcarative hotplugs", Serial, func() {
+				if !isPrometheusDeployed() {
+					Skip("Prometheus not deployed") //nolint:forbidigo
+				}
+				kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+
+				By("Adding delcarative hotplug")
+				dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+				By("Expecting no ephemeral metrics")
+				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", -1)
+			})
+		})
+
+		Context("VMI", decorators.RequiresRWXBlock, func() {
+			var (
+				vmi *v1.VirtualMachineInstance
+				sc  string
+			)
+
+			BeforeEach(func() {
+				exists := false
+				sc, exists = libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Fail("Fail test when RWXBlock storage class is not present")
+				}
+
+				node := findCPUManagerWorkerNode()
+				opts := []libvmi.Option{}
+				if node != "" {
+					opts = append(opts, libvmi.WithNodeSelectorFor(node))
+				}
+				vmi = libvmifact.NewAlpineWithTestTooling(opts...)
+
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create VMI %s/%s", vmi.Namespace, vmi.Name)
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+			})
+
+			DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
+				verifyAttachDetachVolume(vmi, addVolumeFunc, removeVolumeFunc, sc, volumeMode, v1.DiskBusSCSI, waitToStart)
+			},
+				Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, false),
+				Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, false),
+			)
+
+			DescribeTable("should not add/remove volume with dry run", func(addVolumeFunc addVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
+				validateDryRun(vmi, addVolumeFunc, sc, volumeMode)
+			},
+				Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, k8sv1.PersistentVolumeFilesystem),
+				Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, k8sv1.PersistentVolumeFilesystem),
+			)
+
+			DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
+				addRemoveReAddTest(vmi, addVolumeFunc, removeVolumeFunc, sc, volumeMode)
+			},
+				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem),
+			)
+		})
+
+		Context("Online VM", decorators.RequiresRWXBlock, func() {
+			var (
+				vm *v1.VirtualMachine
+				sc string
+			)
+
+			BeforeEach(func() {
+				exists := false
+				sc, exists = libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Fail("Fail test when RWXBlock storage class is not present")
+				}
+
+				node := findCPUManagerWorkerNode()
+				opts := []libvmi.Option{}
+				if node != "" {
+					opts = append(opts, libvmi.WithNodeSelectorFor(node))
+				}
+				vmi := libvmifact.NewAlpineWithTestTooling(opts...)
+
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			})
+
+			Context("with legacy hotplug", Serial, func() {
+				BeforeEach(func() {
+					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+				})
+
+				AfterEach(func() {
+					kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+					kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				})
+
+				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
+					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, v1.DiskBusSCSI, waitToStart)
+				},
+					Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+					Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+					Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
+					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
+					Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+				)
+			})
+
+			Context("with declarative hotplug", func() {
+				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
+					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, v1.DiskBusSCSI, waitToStart)
+				},
+					Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+					Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+					Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
+					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
+					Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+				)
+			})
+			DescribeTable("should add/remove volume", decorators.StorageCritical, func(
+				addVolumeFunc addVolumeFunction,
+				removeVolumeFunc removeVolumeFunction,
+				volumeMode k8sv1.PersistentVolumeMode,
+				bus v1.DiskBus,
+				vmiOnly, waitToStart bool,
+			) {
+				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, bus, waitToStart)
+			},
+				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, false),
+				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, false),
+				Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, true),
+				Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusSCSI, false, true),
+				Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, v1.DiskBusSCSI, false, false),
+				Entry("with DataVolume immediate attach (virtio)", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusVirtio, false, false),
+				Entry("with PersistentVolume immediate attach (virtio)", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, v1.DiskBusVirtio, false, false),
+			)
+
+			DescribeTable("should not add/remove volume with dry run", func(addVolumeFunc addVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
+				validateDryRun(vm, addVolumeFunc, sc, volumeMode)
+			},
+				Entry("with DataVolume immediate attach", addDVVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry("with Block DataVolume immediate attach", addDVVolumeVM, k8sv1.PersistentVolumeBlock),
+			)
+
+			DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				getAlpineVmiConsoleAndLogin(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+				testVolumes := make([]string, 0)
+				for i := 0; i < 5; i++ {
+					volumeName := fmt.Sprintf("volume%d", i)
+					dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+					By(addingVolumeRunningVM)
+					addVolumeFunc(vm.Name, vm.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
+					testVolumes = append(testVolumes, volumeName)
+					libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
+				}
+				By(verifyingVolumeDiskInVM)
+				if !vmiOnly {
+					verifyVolumeAndDiskVMAdded(virtClient, vm, testVolumes...)
+				}
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, testVolumes...)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
+				targets := verifyHotplugAttachedAndUsable(vmi, testVolumes)
+				verifySingleAttachmentPod(virtClient, vmi)
+				for _, volumeName := range testVolumes {
+					By("removing volume " + volumeName + " from VM")
+					removeVolumeFunc(vm.Name, vm.Namespace, volumeName, false)
+					if !vmiOnly {
+						By(verifyingVolumeNotExist)
+						verifyVolumeAndDiskVMRemoved(vm, volumeName)
+					}
+				}
+				for i := range targets {
+					verifyVolumeNolongerAccessible(vmi, targets[i])
+				}
+				By("Verifying there are no sync errors")
+				events, err := virtClient.CoreV1().Events(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to list events")
+				for _, event := range events.Items {
+					if event.InvolvedObject.Kind == "VirtualMachineInstance" && event.InvolvedObject.UID == vmi.UID {
+						if event.Reason == string(v1.SyncFailed) {
+							Fail(fmt.Sprintf("Found sync failed event %v", event))
+						}
+					}
+				}
+			},
+				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+				Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+			)
+
+			DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
+				addRemoveReAddTest(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode)
+			},
+				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry(" with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock),
+			)
+
+			It("should allow to hotplug 75 volumes simultaneously", decorators.LargeStoragePoolRequired, func() {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+
+				const howManyVolumes = 75
+				var wg sync.WaitGroup
+
+				dvNames := make([]string, howManyVolumes)
+				testVolumes := make([]string, howManyVolumes)
+				dvReadyChannel := make(chan int, howManyVolumes)
+
+				wg.Add(howManyVolumes)
+				for i := 0; i < howManyVolumes; i++ {
+					testVolumes[i] = fmt.Sprintf("volume%d", i)
+
+					By("Creating Volume" + testVolumes[i])
+					go func(volumeNo int) {
+						defer GinkgoRecover()
+						defer wg.Done()
+
+						dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+						dvNames[volumeNo] = dv.Name
+						dvReadyChannel <- volumeNo
+					}(i)
+				}
+
+				go func() {
+					wg.Wait()
+					close(dvReadyChannel)
+				}()
+
+				for i := range dvReadyChannel {
+					By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
+					addDVVolumeVM(vm.Name, vm.Namespace, testVolumes[i], dvNames[i], v1.DiskBusSCSI, false, "")
+				}
+
+				By(verifyingVolumeDiskInVM)
+				verifyVolumeAndDiskVMAdded(virtClient, vm, testVolumes[:len(testVolumes)-1]...)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, testVolumes...)
+			})
+
+			It("[QUARANTINE] should permanently add hotplug volume when added to VM, but still unpluggable after restart", decorators.Quarantine, func() {
+				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+
+				By(addingVolumeRunningVM)
+				addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
+				By(verifyingVolumeDiskInVM)
+				verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+				verifySingleAttachmentPod(virtClient, vmi)
+
+				By("Verifying the volume is attached and usable")
+				getAlpineVmiConsoleAndLogin(vmi)
+				targets := verifyHotplugAttachedAndUsable(vmi, []string{"testvolume"})
+				Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+
+				By("stopping VM")
+				vm = libvmops.StopVirtualMachine(vm)
+
+				By("starting VM")
+				vm = libvmops.StartVirtualMachine(vm)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+
+				By("Verifying that the hotplugged volume is hotpluggable after a restart")
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+
+				By("Verifying the hotplug device is auto-mounted during booting")
+				getAlpineVmiConsoleAndLogin(vmi)
+				verifyVolumeAccessible(vmi, targets[0])
+
+				By("Remove volume from a running VM")
+				removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+
+				verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+
+				By("Verifying that the hotplugged volume can be unplugged after a restart")
+				verifyVolumeNolongerAccessible(vmi, targets[0])
+			})
+
+			It("should reject hotplugging a volume with the same name as an existing volume", func() {
+				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+
+				By(addingVolumeRunningVM)
+				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, getAddVolumeOptions("disk0", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dvBlock.Name,
+					},
+				}, false, false, ""))
+				Expect(err).To(HaveOccurred(), "expected error when hotplugging volume with an existing disk name")
+				Expect(err.Error()).To(ContainSubstring("Unable to add volume [disk0] because volume with that name already exists"))
+			})
+
+			It("should reject hotplugging the same volume with an existing volume name", func() {
+				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+
+				By(addingVolumeRunningVM)
+				addPVCVolumeVM(vmi.Name, vmi.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
+
+				By(verifyingVolumeDiskInVM)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+
+				By(addingVolumeAgain)
+				err = virtClient.VirtualMachine(vmi.Namespace).AddVolume(context.Background(), vmi.Name, getAddVolumeOptions(dvBlock.Name, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dvBlock.Name,
+					},
+				}, false, false, ""))
+				Expect(err).To(HaveOccurred(), "expected error when hotplugging a volume source that already exists")
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Unable to add volume source [%s] because it already exists", dvBlock.Name)))
+			})
+
+			DescribeTable("should reject removing a volume", func(volName, expectedErr string) {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+
+				By(removingVolumeFromVM)
+				err = virtClient.VirtualMachine(vm.Namespace).RemoveVolume(context.Background(), vm.Name, &v1.RemoveVolumeOptions{Name: volName})
+				Expect(err).To(HaveOccurred(), "expected error when removing volume %s", volName)
+				Expect(err.Error()).To(ContainSubstring(expectedErr), "unexpected error message when removing volume %s", volName)
+			},
+				Entry("which wasn't hotplugged", "disk0", "Unable to remove volume [disk0] because it is not hotpluggable"),
+				Entry("which doesn't exist", "doesntexist", "Unable to remove volume [doesntexist] because it does not exist"),
+			)
+
+			It("should allow hotplugging both a filesystem and block volume", func() {
+				dvBlock := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+				dvFileSystem := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+				getAlpineVmiConsoleAndLogin(vmi)
+
+				By(addingVolumeRunningVM)
+				addDVVolumeVM(vm.Name, vm.Namespace, "block", dvBlock.Name, v1.DiskBusSCSI, false, "")
+				addDVVolumeVM(vm.Name, vm.Namespace, "fs", dvFileSystem.Name, v1.DiskBusSCSI, false, "")
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "block", "fs")
+
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "block", "fs")
+				targets := libstorage.GetVolumeTargetPaths(virtClient, vmi, true, "block", "fs")
+				Expect(targets).To(HaveLen(2), "expected exactly two hotplug volume targets")
+				for i := 0; i < 2; i++ {
+					verifyVolumeAccessible(vmi, targets[i])
+				}
+				verifySingleAttachmentPod(virtClient, vmi)
+				removeVolumeVM(vmi.Name, vmi.Namespace, "block", false)
+				removeVolumeVM(vmi.Name, vmi.Namespace, "fs", false)
+				verifyVolumeAndDiskVMRemoved(vm, "block")
+				verifyVolumeAndDiskVMRemoved(vm, "fs")
+
+				for i := 0; i < 2; i++ {
+					verifyVolumeNolongerAccessible(vmi, targets[i])
+				}
+			})
+		})
+
+		Context("VMI migration", decorators.RequiresRWXBlock, func() {
+			var (
+				vmi *v1.VirtualMachineInstance
+				sc  string
+			)
+
+			containerDiskVMIFunc := func() *v1.VirtualMachineInstance {
+				return libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+			}
+			persistentDiskVMIFunc := func() *v1.VirtualMachineInstance {
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithBlockVolumeMode(),
+					),
+				)
+				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+				vmi := libvmi.New(
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithMemoryRequest("128Mi"),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					// Stir things up, /dev/urandom access will be needed
+					libvmi.WithRng(),
+				)
+
+				return vmi
+			}
+
+			BeforeEach(func() {
+				exists := false
+				sc, exists = libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Fail("Fail test when RWXBlock storage class is not present")
+				}
+			})
+
+			DescribeTable("should allow live migration with attached hotplug volumes", decorators.StorageCritical, func(vmiFunc func() *v1.VirtualMachineInstance) {
+				vmi = vmiFunc()
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				volumeName := "testvolume"
+				volumeMode := k8sv1.PersistentVolumeBlock
+				addVolumeFunc := addDVVolumeVMI
+				removeVolumeFunc := removeVolumeVMI
+				dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+				By("Verifying the VMI is migratable")
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
+
+				By("Adding volume to running VMI")
+				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
+				By("Verifying the volume and disk are in the VMI")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, volumeName)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, volumeName)
+
+				By("Verifying the VMI is still migratable")
+				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
+
+				By("Verifying the volume is attached and usable")
+				getAlpineVmiConsoleAndLogin(vmi)
+				targets := verifyHotplugAttachedAndUsable(vmi, []string{volumeName})
+				Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+
+				By("Starting the migration")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+				sourceAttachmentPods := []string{}
+				for _, volumeStatus := range vmi.Status.VolumeStatus {
+					if volumeStatus.HotplugVolume != nil {
+						sourceAttachmentPods = append(sourceAttachmentPods, volumeStatus.HotplugVolume.AttachPodName)
+					}
+				}
+				Expect(sourceAttachmentPods).To(HaveLen(1), "expected exactly one source attachment pod")
+
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				By("Verifying the volume is still accessible and usable")
+				verifyVolumeAccessible(vmi, targets[0])
+				verifyWriteReadData(vmi, volumeName)
+
+				By("Verifying the source attachment pods are deleted")
+				Eventually(func() error {
+					_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourceAttachmentPods[0], metav1.GetOptions{})
+					return err
+				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+				By("Verifying the volume can be detached and reattached after migration")
+				removeVolumeFunc(vmi.Name, vmi.Namespace, volumeName, false)
+
+				verifyVolumeAndDiskVMIRemoved(vmi, volumeName)
+				verifyVolumeNolongerAccessible(vmi, targets[0])
+				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+				libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, volumeName)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, volumeName)
+			},
+				Entry("containerDisk VMI", containerDiskVMIFunc),
+				Entry("persistent disk VMI", persistentDiskVMIFunc),
+			)
+		})
+
+		Context("disk mutating sidecar", func() {
+			const (
+				hookSidecarImage = "example-disk-mutation-hook-sidecar"
+				newDiskImgName   = "kubevirt-disk.img"
+			)
+
+			var (
+				vm *v1.VirtualMachine
+				dv *cdiv1.DataVolume
+			)
+
+			BeforeEach(func() {
+				if !libstorage.HasCDI() {
+					Fail("Fail tests when CDI is not present")
+				}
+			})
+
+			AfterEach(func() {
+				if vm != nil {
+					err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred(), "failed to delete VirtualMachine")
+					vm = nil
+				}
+			})
+
+			DescribeTable("should be able to add and remove volumes", decorators.RequiresBlockStorage, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
+				// Some permutations of this test want a filesystem on top of a block device
+				sc, exists := libstorage.GetRWOBlockStorageClass()
+				if !exists {
+					Fail("Fail test when block storage class is not available")
+				}
+
+				var err error
+				url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)
+
+				storageClass, foundSC := libstorage.GetRWOFileSystemStorageClass()
+				if !foundSC {
+					Fail("Fail test when Filesystem storage is not present")
+				}
+
+				dv = libdv.NewDataVolume(
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithRegistryURLSource(url),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize("500Mi"),
+						libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+					),
+					libdv.WithForceBindAnnotation(),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+
+				By("waiting for the dv import to pvc to finish")
+				libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
+
+				By("rename disk image on PVC")
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get PersistentVolumeClaim")
+				renameImgFile(pvc, newDiskImgName)
+
+				By("start VM with disk mutation sidecar")
+				hookSidecarsValue := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
+					libregistry.GetUtilityImageFromRegistry(hookSidecarImage))
+				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+					libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars", hookSidecarsValue),
+					libvmi.WithAnnotation("diskimage.vm.kubevirt.io/bootImageName", newDiskImgName),
+				)
+
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, v1.DiskBusSCSI, true)
+			},
+				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry(" with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock),
+			)
+		})
+	})
+
+	Context("delete attachment pod several times", decorators.RequiresRWXBlock, func() {
+		const quotaName = "pod-limit-quota"
+		var (
+			vm       *v1.VirtualMachine
+			hpvolume *cdiv1.DataVolume
+		)
+
+		BeforeEach(func() {
+			if !libstorage.HasCDI() {
+				Fail("Fail tests when CDI is not present")
+			}
+			_, foundSC := libstorage.GetRWXBlockStorageClass()
+			if !foundSC {
+				Fail("Fail test when block RWX storage is not present")
+			}
+		})
+
+		AfterEach(func() {
+			if vm != nil {
+				err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to delete VirtualMachine")
+				vm = nil
+			}
+		})
+
+		createPodLimitingResourceQuota := func(namespace string) {
+			rq := &k8sv1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      quotaName,
+					Namespace: namespace,
+				},
+				Spec: k8sv1.ResourceQuotaSpec{
+					Hard: k8sv1.ResourceList{
+						k8sv1.ResourcePods: resource.MustParse("1"), // Only 1 pod is allowed which is the virt-launcher
+					},
+				},
+			}
+
+			_, err := virtClient.CoreV1().ResourceQuotas(namespace).Create(context.Background(), rq, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create ResourceQuota")
+		}
+
+		DescribeTable("should remain active", func(limitHotplugPodCreation bool, hotplugPodDeletionTimes int) {
+			checkVolumeName := "checkvolume"
+			volumeMode := k8sv1.PersistentVolumeBlock
+			addVolumeFunc := addDVVolumeVM
+			var err error
+			storageClass, _ := libstorage.GetRWXBlockStorageClass()
+
+			blankDv := func() *cdiv1.DataVolume {
+				return libdv.NewDataVolume(
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithBlankImageSource(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithVolumeMode(volumeMode),
+					),
+				)
+			}
+			vmi := libvmifact.NewAlpineWithTestTooling()
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			By("creating blank hotplug volumes")
+			hpvolume = blankDv()
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(hpvolume.Namespace).Create(context.Background(), hpvolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+			By("waiting for the dv import to pvc to finish")
+			libstorage.EventuallyDV(dv, 180, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vmi.Name)
+
+			By("hotplugging the volume check volume")
+			addVolumeFunc(vmi.Name, vmi.Namespace, checkVolumeName, hpvolume.Name, v1.DiskBusSCSI, false, "")
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, checkVolumeName)
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, checkVolumeName)
+			getAlpineVmiConsoleAndLogin(vmi)
+
+			By("verifying the volume is usable and creating some data on it")
+			targets := verifyHotplugAttachedAndUsable(vmi, []string{checkVolumeName})
+			Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
+			verifyWriteReadData(vmi, checkVolumeName)
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+
+			By("deleting the attachment pod, try to make the currently attached volume break")
+			if limitHotplugPodCreation {
+				createPodLimitingResourceQuota(vmi.Namespace)
+			}
+			for range hotplugPodDeletionTimes {
+				attachmentPodName := libstorage.AttachmentPodName(vmi)
+				Expect(attachmentPodName).ToNot(BeEmpty(), "attachment pod name should not be empty for VMI %s/%s", vmi.Namespace, vmi.Name)
+				deleteAttachmentPod(virtClient, vmi)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vmi.Namespace, vmi.Name)
+			}
+			By("verifying the volume has not been disturbed in the VM")
+			verifyWriteReadData(vmi, checkVolumeName)
+
+			if limitHotplugPodCreation {
+				By("verifying the VM state has not changed to paused")
+				Consistently(matcher.ThisVM(vm), 30*time.Second, 1*time.Second).Should(Not(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused)))
+			}
+		},
+			Entry("when deleting the hotplug pod and turning it unschedulable via a ResourceQuota", true, 1),
+			Entry("when repeatedly deleting the hotplug pod and letting it reschedule", false, 10),
+		)
+	})
+
+	Context("with limit range in namespace", decorators.RequiresRWXBlock, func() {
+		var (
+			sc                         string
+			lr                         *k8sv1.LimitRange
+			orgCdiResourceRequirements *k8sv1.ResourceRequirements
+			originalConfig             v1.KubeVirtConfiguration
+		)
+
+		createVMWithRatio := func(memRatio, cpuRatio float64) *v1.VirtualMachine {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			memLimit := int64(1024 * 1024 * 128) //128Mi
+			memRequest := int64(math.Ceil(float64(memLimit) / memRatio))
+			memRequestQuantity := resource.NewScaledQuantity(memRequest, 0)
+			memLimitQuantity := resource.NewScaledQuantity(memLimit, 0)
+			cpuLimit := int64(1)
+			cpuRequest := int64(math.Ceil(float64(cpuLimit) / cpuRatio))
+			cpuRequestQuantity := resource.NewScaledQuantity(cpuRequest, 0)
+			cpuLimitQuantity := resource.NewScaledQuantity(cpuLimit, 0)
+			vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *memRequestQuantity
+			vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = *cpuRequestQuantity
+			vm.Spec.Template.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+			vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = *memLimitQuantity
+			vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = *cpuLimitQuantity
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			return vm
+		}
+
+		updateCDIResourceRequirements := func(requirements *k8sv1.ResourceRequirements) {
+			if !libstorage.HasCDI() {
+				Fail("Test requires CDI CR to be available")
+			}
+			orgCdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get CDI config")
+
+			cdi := libstorage.GetCDI(virtClient)
+			orgCdiResourceRequirements = cdi.Spec.Config.PodResourceRequirements
+			patchSet := patch.New(
+				patch.WithAdd("/spec/config/podResourceRequirements", requirements),
+			)
+			patchBytes, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred(), "failed to generate patch payload")
+
+			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Patch(context.Background(), cdi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to patch CDI")
+			Eventually(func() bool {
+				cdiConfig, _ := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
+				if cdiConfig == nil {
+					return false
+				}
+				return cdiConfig.Generation > orgCdiConfig.Generation
+			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "timed out waiting for CDI config generation to be updated")
+		}
+
+		updateCDIToRatio := func(memRatio, cpuRatio float64) {
+			memLimitQuantity := resource.MustParse("600M")
+			memLimit := memLimitQuantity.Value()
+			memRequest := int64(math.Ceil(float64(memLimit) / memRatio))
+			memRequestQuantity := resource.NewScaledQuantity(memRequest, 0)
+			cpuLimitQuantity := resource.MustParse("750m")
+			cpuLimit := cpuLimitQuantity.AsDec().UnscaledBig().Int64()
+			cpuRequest := int64(math.Ceil(float64(cpuLimit) / cpuRatio))
+			cpuRequestQuantity := resource.NewScaledQuantity(cpuRequest, resource.Milli)
+			updateCDIResourceRequirements(&k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    *cpuRequestQuantity,
+					k8sv1.ResourceMemory: *memRequestQuantity,
+				},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    cpuLimitQuantity,
+					k8sv1.ResourceMemory: memLimitQuantity,
+				},
+			})
+		}
+
+		updateKubeVirtToRatio := func(memRatio, cpuRatio float64) {
+			memLimitQuantity := resource.MustParse("80M")
+			memLimit := memLimitQuantity.Value()
+			memRequest := int64(math.Ceil(float64(memLimit) / memRatio))
+			memRequestQuantity := resource.NewScaledQuantity(memRequest, 0)
+			cpuLimitQuantity := resource.MustParse("100m")
+			cpuLimit := cpuLimitQuantity.AsDec().UnscaledBig().Int64()
+			cpuRequest := int64(math.Ceil(float64(cpuLimit) / cpuRatio))
+			cpuRequestQuantity := resource.NewScaledQuantity(cpuRequest, resource.Milli)
+			By("Updating hotplug and container disks ratio to the specified ratio")
+			resources := v1.ResourceRequirementsWithoutClaims{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    *cpuRequestQuantity,
+					k8sv1.ResourceMemory: *memRequestQuantity,
+				},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    cpuLimitQuantity,
+					k8sv1.ResourceMemory: memLimitQuantity,
+				},
+			}
+			config := originalConfig.DeepCopy()
+			config.SupportContainerResources = []v1.SupportContainerResources{
+				{
+					Type:      v1.HotplugAttachment,
+					Resources: resources,
+				},
+				{
+					Type:      v1.ContainerDisk,
+					Resources: resources,
+				},
+				{
+					Type:      v1.GuestConsoleLog,
+					Resources: resources,
+				},
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
+		}
+
+		createLimitRangeInNamespace := func(namespace string, memRatio, cpuRatio float64) {
+			lr = &k8sv1.LimitRange{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      fmt.Sprintf("%s-lr", namespace),
+				},
+				Spec: k8sv1.LimitRangeSpec{
+					Limits: []k8sv1.LimitRangeItem{
+						{
+							Type: k8sv1.LimitTypeContainer,
+							MaxLimitRequestRatio: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse(fmt.Sprintf("%f", memRatio)),
+								k8sv1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%f", cpuRatio)),
+							},
+							Max: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("1Gi"),
+								k8sv1.ResourceCPU:    resource.MustParse("1"),
+							},
+							Min: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("1Mi"),
+								k8sv1.ResourceCPU:    resource.MustParse("1m"),
+							},
+						},
+					},
+				},
+			}
+			lr, err = virtClient.CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create LimitRange")
+			By("Ensuring LimitRange exists")
+			Eventually(func() error {
+				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
+				return err
+			}, 30*time.Second, 1*time.Second).Should(Succeed(), "timed out waiting for LimitRange %s to be created", lr.Name)
+		}
+
+		BeforeEach(func() {
+			exists := false
+			sc, exists = libstorage.GetRWXBlockStorageClass()
+			if !exists {
+				Fail("Fail test when RWXBlock storage class is not present")
+			}
+			originalConfig = *libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+		})
+
+		AfterEach(func() {
+			if lr != nil {
+				err = virtClient.CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
+				if !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred(), "failed to delete LimitRange")
+				}
+				lr = nil
+			}
+			updateCDIResourceRequirements(orgCdiResourceRequirements)
+			orgCdiResourceRequirements = nil
+			kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
+		})
+
+		// Needs to be serial since I am putting limit range on namespace
+		DescribeTable("hotplug volume should have mem ratio same as VMI with limit range applied", func(memRatio, cpuRatio float64) {
+			updateCDIToRatio(memRatio, cpuRatio)
+			updateKubeVirtToRatio(memRatio, cpuRatio)
+			createLimitRangeInNamespace(testsuite.NamespaceTestDefault, memRatio, cpuRatio)
+			vm := createVMWithRatio(memRatio, cpuRatio)
+			dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+
+			By(addingVolumeRunningVM)
+			addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
+			By(verifyingVolumeDiskInVM)
+			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+			verifySingleAttachmentPod(virtClient, vmi)
+			By("Verifying request/limit ratio on attachment pod")
+			podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to list pods")
+			var virtlauncherPod, attachmentPod k8sv1.Pod
+			By("Finding virt-launcher pod")
+			for _, pod := range podList.Items {
+				for _, ownerRef := range pod.GetOwnerReferences() {
+					if ownerRef.UID == vmi.GetUID() {
+						virtlauncherPod = pod
+						break
+					}
+				}
+			}
+			// Attachment pod is owned by virt-launcher pod
+			for _, pod := range podList.Items {
+				for _, ownerRef := range pod.GetOwnerReferences() {
+					if ownerRef.UID == virtlauncherPod.GetUID() {
+						attachmentPod = pod
+						break
+					}
+				}
+			}
+			By("Checking hotplug attachment pod ratios")
+			Expect(attachmentPod.Name).To(ContainSubstring("hp-volume-"))
+			memLimit := attachmentPod.Spec.Containers[0].Resources.Limits.Memory().Value()
+			memRequest := attachmentPod.Spec.Containers[0].Resources.Requests.Memory().Value()
+			Expect(float64(memRequest) * memRatio).To(BeNumerically(">=", float64(memLimit)))
+			cpuLimit := attachmentPod.Spec.Containers[0].Resources.Limits.Cpu().Value()
+			cpuRequest := attachmentPod.Spec.Containers[0].Resources.Requests.Cpu().Value()
+			Expect(float64(cpuRequest) * cpuRatio).To(BeNumerically(">=", float64(cpuLimit)))
+
+			By("Checking virt-launcher ")
+			for _, container := range virtlauncherPod.Spec.Containers {
+				memLimit := container.Resources.Limits.Memory().Value()
+				memRequest := container.Resources.Requests.Memory().Value()
+				Expect(float64(memRequest) * memRatio).To(BeNumerically(">=", float64(memLimit)))
+				cpuLimit := container.Resources.Limits.Cpu().Value()
+				cpuRequest := container.Resources.Requests.Cpu().Value()
+				Expect(float64(cpuRequest) * cpuRatio).To(BeNumerically(">=", float64(cpuLimit)))
+			}
+
+			for _, container := range virtlauncherPod.Spec.InitContainers {
+				memLimit := container.Resources.Limits.Memory().Value()
+				memRequest := container.Resources.Requests.Memory().Value()
+				Expect(float64(memRequest) * memRatio).To(BeNumerically(">=", float64(memLimit)))
+				cpuLimit := container.Resources.Limits.Cpu().Value()
+				cpuRequest := container.Resources.Requests.Cpu().Value()
+				Expect(float64(cpuRequest) * cpuRatio).To(BeNumerically(">=", float64(cpuLimit)))
+			}
+
+			By("Remove volume from a running VM")
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+		},
+			Entry("[test_id:10002]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
+			Entry("[test_id:10003]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
+			Entry("[test_id:10004]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
+			Entry("[test_id:10005]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
+		)
+	})
+
+	Context("hostpath", func() {
+		var (
+			vm *v1.VirtualMachine
+		)
+
+		const (
+			hotplugPvPath = "/mnt/local-storage/hotplug-test"
+		)
+
+		storageClassHostPath := "host-path"
+		immediateBinding := storagev1.VolumeBindingImmediate
+
+		BeforeEach(func() {
+			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
+			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(customHostPath, testsuite.GetTestNamespace(nil), hotplugPvPath, "1Gi", storageClassHostPath)
+			libstorage.CreatePVC(customHostPath, testsuite.GetTestNamespace(nil), "1Gi", storageClassHostPath, false)
+
+			opts := []libvmi.Option{}
+			if pvNode != "" {
+				opts = append(opts, libvmi.WithNodeSelectorFor(pvNode))
+			}
+			vmi := libvmifact.NewAlpineWithTestTooling(opts...)
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		})
+
+		AfterEach(func() {
+			deletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", customHostPath))
+			libstorage.DeleteStorageClass(storageClassHostPath)
+		})
+
+		It("should attach a hostpath based volume to running VM", func() {
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+
+			By(addingVolumeRunningVM)
+			name := fmt.Sprintf("disk-%s", customHostPath)
+			addPVCVolumeVM(vm.Name, vm.Namespace, "testvolume", name, v1.DiskBusSCSI, false, "")
+
+			By(verifyingVolumeDiskInVM)
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+
+			getAlpineVmiConsoleAndLogin(vmi)
+			target := fmt.Sprintf(findDevPathCmdFmt, "testvolume")
+			verifyVolumeAccessible(vmi, target)
+			verifySingleAttachmentPod(virtClient, vmi)
+			By(removingVolumeFromVM)
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+			verifyVolumeNolongerAccessible(vmi, target)
+		})
+	})
+
+	Context("iothreads", func() {
+		var (
+			vm *v1.VirtualMachine
+		)
+
+		createVM := func(policy v1.IOThreadsPolicy) {
+			vmi := libvmifact.NewAlpineWithTestTooling()
+			vmi.Spec.Domain.IOThreadsPolicy = &policy
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		}
+
+		addDVVolumeWithDedicatedIO := func(name, namespace, volumeName, claimName string) {
+			avr := getAddVolumeOptions(volumeName, v1.DiskBusVirtio, &v1.HotplugVolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: claimName,
+				},
+			}, false, false, "")
+			avr.Disk.DedicatedIOThread = pointer.P(true)
+
+			addVolumeVMWithSource(name, namespace, avr)
+		}
+
+		verifyDedicatedIO := func(vmiSpec *v1.VirtualMachineInstanceSpec, volumeName string) {
+			Expect(vmiSpec.Domain.Devices.Disks).ToNot(BeEmpty(), "expected VMI spec to contain at least one disk")
+			for _, disk := range vmiSpec.Domain.Devices.Disks {
+				if disk.Name == volumeName {
+					Expect(disk.Disk).ToNot(BeNil(), "expected disk %s to have a Disk target", volumeName)
+					Expect(disk.Disk.Bus).To(Equal(v1.DiskBusVirtio), "expected disk %s to use virtio bus", volumeName)
+					Expect(disk.DedicatedIOThread).ToNot(BeNil(), "expected disk %s to have DedicatedIOThread set", volumeName)
+					Expect(*disk.DedicatedIOThread).To(BeTrue(), "expected DedicatedIOThread to be enabled for hotplug disk")
+					return
+				}
+			}
+			Fail(fmt.Sprintf("Disk %s not found in VMI spec", volumeName))
+		}
+
+		DescribeTable("should allow adding and removing hotplugged volumes", func(dedicatedIO bool) {
+			threadPolicy := v1.IOThreadsPolicyShared
+			if dedicatedIO {
+				threadPolicy = v1.IOThreadsPolicyAuto
+			}
+			createVM(threadPolicy)
+
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Fail("Fail no filesystem storage class available")
+			}
+
+			dv := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
+			)
+
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+
+			By(addingVolumeRunningVM)
+			if dedicatedIO {
+				addDVVolumeWithDedicatedIO(vm.Name, vm.Namespace, "testvolume", dv.Name)
+			} else {
+				addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
+			}
+
+			By(verifyingVolumeDiskInVM)
+			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachine")
+			if dedicatedIO {
+				verifyDedicatedIO(&vm.Spec.Template.Spec, "testvolume")
+			}
+
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			if dedicatedIO {
+				verifyDedicatedIO(&vmi.Spec, "testvolume")
+			}
+
+			getAlpineVmiConsoleAndLogin(vmi)
+			target := fmt.Sprintf(findDevPathCmdFmt, "testvolume")
+			verifyVolumeAccessible(vmi, target)
+			verifySingleAttachmentPod(virtClient, vmi)
+			By(removingVolumeFromVM)
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+			verifyVolumeNolongerAccessible(vmi, target)
+		},
+			Entry("without dedicated IO and shared policy", false),
+			Entry("[QUARANTINE]with dedicated IO and auto policy", decorators.Quarantine, true),
+		)
+	})
+
+	Context("hostpath-separate-device", func() {
+		var (
+			vm *v1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			libstorage.CreateAllSeparateDeviceHostPathPvs(customHostPath, testsuite.GetTestNamespace(nil))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling(), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+		})
+
+		AfterEach(func() {
+			libstorage.DeleteAllSeparateDeviceHostPathPvs()
+		})
+
+		It("should attach a hostpath based volume to running VM", func() {
+			dv := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(libstorage.StorageClassHostPathSeparateDevice),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+				),
+			)
+
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create DataVolume")
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
+
+			By(addingVolumeRunningVM)
+			addPVCVolumeVM(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
+
+			By(verifyingVolumeDiskInVM)
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+
+			getAlpineVmiConsoleAndLogin(vmi)
+			target := fmt.Sprintf(findDevPathCmdFmt, "testvolume")
+			verifyVolumeAccessible(vmi, target)
+			verifySingleAttachmentPod(virtClient, vmi)
+			By(removingVolumeFromVM)
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+			verifyVolumeNolongerAccessible(vmi, target)
+		})
+	})
+
+	// Some of the functions used here don't behave well in parallel (CreateSCSIDisk).
+	// The device is created directly on the node and the addition and removal
+	// of the scsi_debug kernel module could create flakiness in parallel.
+	Context("Hotplug LUN disk", Serial, func() {
+		var (
+			nodeName, address, device string
+			pvc                       *k8sv1.PersistentVolumeClaim
+			pv                        *k8sv1.PersistentVolume
+			vm                        *v1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			nodeName = libnode.GetNodeNameWithHandler()
+			address, device = CreateSCSIDisk(nodeName, []string{})
+			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
+			pv, pvc, err = CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+			Expect(err).ToNot(HaveOccurred(), "failed to create PV and PVC for SCSI disk")
+		})
+
+		AfterEach(func() {
+			// Delete the scsi disk
+			RemoveSCSIDisk(nodeName, address)
+			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred(), "failed to delete PersistentVolume %s", pv.Name)
+			err := deleteVirtualMachine(vm)
+			Expect(err).ToNot(HaveOccurred(), "failed to delete VirtualMachine")
+		})
+
+		It("on an offline VM", func() {
+			By("Creating VirtualMachine")
+			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpine()), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+			By("Adding test volumes")
+			pv2, pvc2, err := CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks-test2", "scsipv2", "scsipvc2")
+			Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
+
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions(testNewVolume1, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.Name,
+				}},
+			}, false, true, ""))
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions(testNewVolume2, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc2.Name,
+				}},
+			}, false, true, ""))
+
+			By("Verifying the volumes have been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, testNewVolume1, testNewVolume2)
+
+			By("Removing new volumes from VM")
+			removeVolumeVM(vm.Name, vm.Namespace, testNewVolume1, false)
+			removeVolumeVM(vm.Name, vm.Namespace, testNewVolume2, false)
+
+			verifyVolumeAndDiskVMRemoved(vm, testNewVolume1, testNewVolume2)
+			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv2.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred(), "failed to delete PersistentVolume %s", pv2.Name)
+		})
+
+		It("on an online VM", func() {
+			vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithNodeSelectorFor(nodeName))
+
+			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By(addingVolumeRunningVM)
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions("testvolume", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.Name,
+				}},
+			}, false, true, ""))
+			By(verifyingVolumeDiskInVM)
+			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+			getAlpineVmiConsoleAndLogin(vmi)
+			verifyVolumeAccessible(vmi, device)
+			verifyCreateData(vmi, device, "testvolume")
+			verifySingleAttachmentPod(virtClient, vmi)
+			By(removingVolumeFromVM)
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			By(verifyingVolumeNotExist)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+			verifyVolumeNolongerAccessible(vmi, device)
+		})
+	})
+
+	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
+	Context("with PCI hostdev", Serial, func() {
+		const deviceName = "example.org/soundcard"
+
+		BeforeEach(func() {
+			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "8086:2668",
+						ResourceName:      deviceName,
+					},
+				},
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+		})
+
+		AfterEach(func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+		})
+
+		It("should restart a VM after hotplugging a block volume", decorators.RequiresBlockStorage, func() {
+			sc, exists := libstorage.GetRWOBlockStorageClass()
+			if !exists {
+				Fail("Fail test when block storage class is not available")
+			}
+
+			vmiSpec := libvmifact.NewAlpineWithTestTooling()
+			vmiSpec.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{Name: "sound0", DeviceName: deviceName},
+			}
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmi.NewVirtualMachine(vmiSpec, libvmi.WithRunStrategy(v1.RunStrategyAlways)),
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
+
+			dvBuilder := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), dvBuilder, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+			By("Hotplugging a block volume to the running VM")
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions("hotplug-vol", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				DataVolume: &v1.DataVolumeSource{Name: dv.Name},
+			}, false, false, ""))
+			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "hotplug-vol")
+
+			By("Restarting the VM")
+			vm = libvmops.StopVirtualMachine(vm)
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 300*time.Second, time.Second).Should(matcher.BeReady())
+		})
+	})
+}))
+
+func verifyVolumeAndDiskVMAdded(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeNames ...string) {
+	nameMap := make(map[string]bool)
+	for _, volumeName := range volumeNames {
+		nameMap[volumeName] = true
+	}
+	log.Log.Infof("Checking %d volumes", len(volumeNames))
+	Eventually(func() error {
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if len(updatedVM.Status.VolumeRequests) > 0 {
+			return fmt.Errorf(waitVolumeRequestProcessError)
+		}
+
+		foundVolume := 0
+		foundDisk := 0
+
+		for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
+			if _, ok := nameMap[volume.Name]; ok {
+				foundVolume++
+			}
+		}
+		for _, disk := range updatedVM.Spec.Template.Spec.Domain.Devices.Disks {
+			if _, ok := nameMap[disk.Name]; ok {
+				foundDisk++
+			}
+		}
+
+		if foundDisk != len(volumeNames) {
+			return fmt.Errorf(waitDiskTemplateError)
+		}
+		if foundVolume != len(volumeNames) {
+			return fmt.Errorf(waitVolumeTemplateError)
+		}
+
+		return nil
+	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "timed out waiting for volume and disk to be added to VM template spec")
+}
+
+func renameImgFile(pvc *k8sv1.PersistentVolumeClaim, newName string) {
+	args := []string{fmt.Sprintf("mv %s %s && ls -al %s", filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, newName), libstorage.DefaultPvcMountPath)}
+
+	By("renaming disk.img")
+	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
+
+	virtClient := kubevirt.Client()
+	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred(), "failed to create Pod")
+	Eventually(matcher.ThisPod(pod), 120).Should(matcher.BeInPhase(k8sv1.PodSucceeded), "rename-disk-img pod %s/%s did not succeed", pod.Namespace, pod.Name)
+}
+
+func deleteAttachmentPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	podName := libstorage.AttachmentPodName(vmi)
+	Expect(podName).ToNot(BeEmpty(), "attachment pod name should not be empty for VMI %s/%s", vmi.Namespace, vmi.Name)
+	foreGround := metav1.DeletePropagationForeground
+	err := virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
+		GracePeriodSeconds: pointer.P(int64(0)),
+		PropagationPolicy:  &foreGround,
+	})
+	Expect(err).ToNot(HaveOccurred(), "failed to delete attachment pod %s in namespace %s", podName, vmi.Namespace)
+	Eventually(matcher.ThisPodWith(vmi.Namespace, podName), 300*time.Second, 1*time.Second).Should(matcher.BeGone())
+}
+
+func getAttachmentPodsForVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) []k8sv1.Pod {
+	virtlauncher, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	ExpectWithOffset(2, err).ToNot(HaveOccurred(), "Should find running virtlauncher pod")
+
+	podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred(), "failed to list pods")
+
+	var attachmentPods []k8sv1.Pod
+	for _, pod := range podList.Items {
+		for _, owner := range pod.OwnerReferences {
+			if owner.UID == virtlauncher.UID {
+				attachmentPods = append(attachmentPods, pod)
+				break
+			}
+		}
+	}
+	return attachmentPods
+}
+
+func waitForAttachmentPodToRun(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	Eventually(func() bool {
+		attachmentPods := getAttachmentPodsForVMI(virtClient, vmi)
+		for _, pod := range attachmentPods {
+			By(fmt.Sprintf("Attachment pod %s phase: %s", pod.Name, pod.Status.Phase))
+			return pod.Status.Phase == k8sv1.PodRunning
+		}
+		return false
+	}, 270*time.Second, 2*time.Second).Should(BeTrue(), "timed out waiting for attachment pod to reach Running phase for VMI %s/%s", vmi.Namespace, vmi.Name)
+}
+
+func verifySingleAttachmentPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	attachmentPods := getAttachmentPodsForVMI(virtClient, vmi)
+	Expect(attachmentPods).To(HaveLen(1), "Number of attachment pods is not 1: %d", len(attachmentPods))
+}

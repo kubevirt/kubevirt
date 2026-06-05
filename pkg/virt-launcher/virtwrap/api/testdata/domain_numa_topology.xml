@@ -1,0 +1,20 @@
+<domain>
+<cputune>
+	<vcpupin vcpu="0" cpuset="1"/>
+	<vcpupin vcpu="1" cpuset="5"/>
+	<vcpupin vcpu="2" cpuset="2"/>
+	<vcpupin vcpu="3" cpuset="6"/>
+</cputune>
+<numatune>
+  <memory mode="strict" nodeset="1-2"/> 
+  <memnode cellid="0" mode="strict" nodeset="1"/>
+  <memnode cellid="2" mode="preferred" nodeset="2"/>
+</numatune>
+<cpu>
+	<numa>
+		<cell id="0" cpus="0-1" memory="3" unit="GiB"/>
+		<cell id="1" cpus="2-3" memory="3" unit="GiB"/>
+	</numa>
+</cpu>
+</domain>
+`

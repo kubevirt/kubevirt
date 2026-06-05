@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package kubevirt.hooks.v1alpha3;
+
+service Callbacks {
+    rpc OnDefineDomain (OnDefineDomainParams) returns (OnDefineDomainResult);
+    rpc PreCloudInitIso (PreCloudInitIsoParams) returns (PreCloudInitIsoResult);
+    rpc Shutdown (ShutdownParams) returns (ShutdownResult);
+}
+
+message OnDefineDomainParams {
+    // domainXML is original libvirt domain specification
+    bytes domainXML = 1;
+    // vmi is VirtualMachineInstance is object of virtual machine currently processed by virt-launcher, it is encoded as JSON
+    bytes vmi = 2;
+}
+
+message OnDefineDomainResult {
+    // domainXML is processed libvirt domain specification
+    bytes domainXML = 1;
+}
+
+message PreCloudInitIsoParams {
+    // cloudInitNoCloudSource is an object of CloudInitNoCloudSource encoded as JSON
+    // This is a legacy field to ensure backwards compatibility. New code should use cloudInitData instead.
+    bytes cloudInitNoCloudSource = 1;
+    // vmi is VirtualMachineInstance is object of virtual machine currently processed by virt-launcher, it is encoded as JSON
+    bytes vmi = 2;
+    // cloudInitData is an object of CloudInitData encoded as JSON
+    bytes cloudInitData = 3;
+}
+
+message PreCloudInitIsoResult {
+    // cloudInitNoCloudSource is an object of CloudInitNoCloudSource encoded as JSON
+    // This is a legacy field to ensure backwards compatibility. New code should use cloudInitData instead.
+    bytes cloudInitNoCloudSource = 1;
+    // cloudInitData is an object of CloudInitData encoded as JSON
+    bytes cloudInitData = 3;
+}
+
+message ShutdownParams {
+}
+
+message ShutdownResult {
+}

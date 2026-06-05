@@ -1,0 +1,8 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["flags.go"],
+    importpath = "kubevirt.io/kubevirt/tools/perfscale-load-generator/flags",
+    visibility = ["//visibility:public"],
+)

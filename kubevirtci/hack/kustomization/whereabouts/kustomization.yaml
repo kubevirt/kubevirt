@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ./daemonset-install.yaml
+- ./whereabouts.cni.cncf.io_ippools.yaml
+- ./whereabouts.cni.cncf.io_overlappingrangeipreservations.yaml
+
+images:
+  - name: ghcr.io/k8snetworkplumbingwg/whereabouts
+    newTag: ##VERSION##

@@ -1,0 +1,2292 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package synchronization
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net"
+	"os"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
+	virtv1 "kubevirt.io/api/core/v1"
+	clientgoapi "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/certificates"
+	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+)
+
+const (
+	testMigrationID         = "testMigrationID"
+	testMigrationUID        = "testMigrationUID"
+	targetTestMigrationName = "targetMigrationName"
+	targetTestMigrationUID  = "targetMigrationUID"
+	sourceTestMigrationName = "sourceMigrationName"
+	sourceTestMigrationUID  = "sourceMigrationUID"
+	uniqueMigration         = "uniqueMigrationID"
+	targetNamespace         = "target-namespace"
+	sourcePodName           = "sourcePod"
+	targetPodName           = "targetPod"
+)
+
+var _ = Describe("VMI status synchronization controller", func() {
+	var controller *SynchronizationController
+	var mockQueue *testutils.MockWorkQueue[string]
+	var virtClient *kubecli.MockKubevirtClient
+	var virtfakeClient *kubevirtfake.Clientset
+	var vmiInformer cache.SharedIndexInformer
+	var migrationInformer cache.SharedIndexInformer
+	var tlsConfig *tls.Config
+
+	addVMI := func(vmi *virtv1.VirtualMachineInstance) {
+		// It doesn't really matter what store does get this
+		controller.vmiInformer.GetStore().Add(vmi)
+		key, err := virtcontroller.KeyFunc(vmi)
+		Expect(err).To(Not(HaveOccurred()))
+		controller.queue.Add(key)
+	}
+
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		k8sfakeClient := fake.NewSimpleClientset()
+		virtfakeClient = kubevirtfake.NewSimpleClientset()
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(targetNamespace)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetNamespace)).AnyTimes()
+		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
+		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		tmpDir, err := os.MkdirTemp("", "synchronizationcontrollertest")
+		Expect(err).ToNot(HaveOccurred())
+		store, err := certificates.GenerateSelfSignedCert(tmpDir, "test", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS12,
+			GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, e error) {
+				return store.Current()
+			},
+		}
+
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9185, "")
+		Expect(err).ToNot(HaveOccurred())
+		mockQueue = testutils.NewMockWorkQueue(controller.queue)
+		controller.queue = mockQueue
+
+	})
+
+	Context("controller", func() {
+		It("Should not do anything if not migrating", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			addVMI(vmi)
+			controller.Execute()
+		})
+	})
+
+	Context("getLocalSynchronizationAddress", func() {
+		DescribeTable("should produce an address parseable by net.SplitHostPort", func(ip string, port int, expectedHost, expectedPort string) {
+			ctrl := &SynchronizationController{ip: ip, bindPort: port}
+
+			addr, err := ctrl.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+
+			host, p, err := net.SplitHostPort(addr)
+			Expect(err).ToNot(HaveOccurred(), "address %q must be parseable by net.SplitHostPort", addr)
+			Expect(host).To(Equal(expectedHost))
+			Expect(p).To(Equal(expectedPort))
+		},
+			Entry("IPv4 address", "10.0.0.1", 9185, "10.0.0.1", "9185"),
+			Entry("IPv6 address", "fd02:0:0:1::cb", 9185, "fd02:0:0:1::cb", "9185"),
+			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
+			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
+		)
+	})
+
+	Context("grpc SyncSourceMigrationStatus", func() {
+		var (
+			vmi       *virtv1.VirtualMachineInstance
+			migration *virtv1.VirtualMachineInstanceMigration
+		)
+		BeforeEach(func() {
+			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			err := controller.vmiInformer.GetStore().Add(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			migration = createTargetMigration(testMigrationID, vmi.Name, k8sv1.NamespaceDefault)
+			err = controller.migrationInformer.GetStore().Add(migration)
+			Expect(err).ToNot(HaveOccurred())
+			vmi, err = controller.client.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			foundMig, err := controller.findTargetMigrationFromMigrationID(migration.Spec.Receive.MigrationID)
+			Expect(foundMig).To(Equal(migration))
+		})
+
+		It("should return proper error if no source migration state passed in", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+			}
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(resp.Message).To(Equal("must pass source status"))
+		})
+
+		It("should return proper error if no source migration can be found", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: []byte{1, 2, 3},
+				},
+			}
+			controller.migrationInformer.GetStore().Delete(migration)
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(resp.Message).To(Equal(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+		})
+
+		It("should return proper error if no matching vmi for source migration can be found", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: []byte{1, 2, 3},
+				},
+			}
+			controller.vmiInformer.GetStore().Delete(vmi)
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(resp.Message).To(Equal(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsgVMI, testMigrationID, fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))))
+		})
+
+		It("should return a proper error when the source request vmi status json is invalid", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: []byte{1, 2, 3},
+				},
+			}
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid character"))
+			Expect(resp.Message).To(ContainSubstring(fmt.Sprintf("unable to unmarshal vmistatus for migrationID %s", request.MigrationID)))
+		})
+
+		DescribeTable("should update the VMI if the remote source migration state is different", func(vmiStatus, remoteVMIStatus *virtv1.VirtualMachineInstanceStatus, expectedMessage string, deleteVMI bool) {
+			if vmiStatus != nil {
+				vmi.Status = *vmiStatus
+			}
+			vmi, err := controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			if deleteVMI {
+				controller.client.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+			}
+			vmiStatusJson, err := json.Marshal(remoteVMIStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+			_, err = controller.SyncSourceMigrationStatus(context.TODO(), request)
+			if expectedMessage != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedMessage))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("no vmi status and no source status", nil, nil, "must pass source status", false),
+			Entry("no vmi status and source status", nil, &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node2",
+						},
+					},
+				},
+			}, "", false),
+			Entry("no vmi status and source status, but vmi not found", nil, &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node2",
+						},
+					},
+				},
+			}, "not found", true),
+			Entry("sources are different", &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node3",
+						},
+					},
+				},
+			}, &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node2",
+						},
+					},
+				},
+			}, "", false),
+		)
+
+		It("should return success when source migration is final without updating VMI", func() {
+			By("Set up migration as final (succeeded)")
+			migration.Status.Phase = virtv1.MigrationSucceeded
+			err := controller.migrationInformer.GetStore().Update(migration)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Set up VMI with migration state")
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			vmi, err = controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with source state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncSourceMigrationStatus")
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (SourceState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.SourceState).To(BeNil())
+		})
+
+		It("should return success when source VMI migration UID doesn't match without updating VMI", func() {
+			By("Set up VMI with different migration UID")
+			differentMigrationUID := "different-migration-uid"
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(differentMigrationUID),
+			}
+			vmi, err := controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with source state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncSourceMigrationStatus")
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (SourceState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.SourceState).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.MigrationUID).To(Equal(types.UID(differentMigrationUID)))
+		})
+
+		It("should sync MigrationTransport from source to target", func() {
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "source-node",
+						},
+					},
+				},
+				MigrationTransport: virtv1.MigrationTransportUnix,
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+			_, err = controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationTransport).To(Equal(virtv1.MigrationTransportUnix))
+		})
+	})
+
+	Context("addMigrationStateFieldPatches", func() {
+		It("should generate add operations for fields changing from zero to non-zero", func() {
+			origMS := &virtv1.VirtualMachineInstanceMigrationState{}
+			newMS := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+				TargetPod:  "pod-1",
+			}
+			patchSet := patch.New()
+			addMigrationStateFieldPatches(patchSet, origMS, newMS)
+			payload, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(string(payload)).To(ContainSubstring(`"op":"add"`))
+			Expect(string(payload)).To(ContainSubstring(`/status/migrationState/targetNode`))
+			Expect(string(payload)).To(ContainSubstring(`"node-1"`))
+			Expect(string(payload)).To(ContainSubstring(`/status/migrationState/targetPod`))
+			Expect(string(payload)).To(ContainSubstring(`"pod-1"`))
+			Expect(string(payload)).ToNot(ContainSubstring(`"op":"test"`))
+		})
+
+		It("should generate test+replace operations for fields changing from non-zero to non-zero", func() {
+			origMS := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "old-node",
+			}
+			newMS := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "new-node",
+			}
+			patchSet := patch.New()
+			addMigrationStateFieldPatches(patchSet, origMS, newMS)
+			payload, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(string(payload)).To(ContainSubstring(`"op":"test"`))
+			Expect(string(payload)).To(ContainSubstring(`"old-node"`))
+			Expect(string(payload)).To(ContainSubstring(`"op":"replace"`))
+			Expect(string(payload)).To(ContainSubstring(`"new-node"`))
+		})
+
+		It("should skip unchanged fields", func() {
+			origMS := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "same-node",
+				SourceNode: "source",
+			}
+			newMS := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "same-node",
+				SourceNode: "new-source",
+			}
+			patchSet := patch.New()
+			addMigrationStateFieldPatches(patchSet, origMS, newMS)
+			payload, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(string(payload)).ToNot(ContainSubstring(`targetNode`))
+			Expect(string(payload)).To(ContainSubstring(`sourceNode`))
+		})
+
+		It("should generate empty patch when nothing changed", func() {
+			ms := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+				Completed:  true,
+			}
+			patchSet := patch.New()
+			addMigrationStateFieldPatches(patchSet, ms, ms.DeepCopy())
+			Expect(patchSet.IsEmpty()).To(BeTrue())
+		})
+
+		It("should fall back to whole-object test+remove when newMS is nil", func() {
+			origMS := &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode: "node-1",
+			}
+			patchSet := patch.New()
+			addMigrationStateFieldPatches(patchSet, origMS, nil)
+			payload, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(string(payload)).To(ContainSubstring(`"op":"test"`))
+			Expect(string(payload)).To(ContainSubstring(`"op":"remove"`))
+			Expect(string(payload)).To(ContainSubstring(`/status/migrationState`))
+		})
+	})
+
+	Context("grpc SyncTargetMigrationStatus", func() {
+		var (
+			vmi       *virtv1.VirtualMachineInstance
+			migration *virtv1.VirtualMachineInstanceMigration
+		)
+		BeforeEach(func() {
+			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			err := controller.vmiInformer.GetStore().Add(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			migration = createSourceMigration(testMigrationID, vmi.Name, "", k8sv1.NamespaceDefault)
+			err = controller.migrationInformer.GetStore().Add(migration)
+			Expect(err).ToNot(HaveOccurred())
+			vmi, err = controller.client.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			foundMig, err := controller.findSourceMigrationFromMigrationID(migration.Spec.SendTo.MigrationID)
+			Expect(foundMig).To(Equal(migration))
+		})
+
+		It("should return proper error if no target migration state passed in", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+			}
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(resp.Message).To(Equal("must pass target status"))
+		})
+
+		It("should return proper error if no target migration can be found", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: []byte{1, 2, 3},
+				},
+			}
+			controller.migrationInformer.GetStore().Delete(migration)
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(resp.Message).To(Equal(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+		})
+
+		It("should return proper error if no matching vmi for target migration can be found", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: []byte{1, 2, 3},
+				},
+			}
+			controller.vmiInformer.GetStore().Delete(vmi)
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(resp.Message).To(Equal(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsgVMI, testMigrationID, fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name))))
+		})
+
+		It("should return a proper error when the target request vmi status json is invalid", func() {
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: []byte{1, 2, 3},
+				},
+			}
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid character"))
+			Expect(resp.Message).To(ContainSubstring(fmt.Sprintf("unable to unmarshal vmistatus for migrationID %s", request.MigrationID)))
+		})
+
+		DescribeTable("should update the VMI if the remote target migration state is different", func(vmiStatus, remoteVMIStatus *virtv1.VirtualMachineInstanceStatus, expectedMessage string, deleteVMI bool) {
+			if vmiStatus != nil {
+				vmi.Status = *vmiStatus
+			}
+			vmi, err := controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			if deleteVMI {
+				controller.client.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+			}
+			vmiStatusJson, err := json.Marshal(remoteVMIStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+			_, err = controller.SyncTargetMigrationStatus(context.TODO(), request)
+			if expectedMessage != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedMessage))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("no vmi status and no remote target status", nil, nil, "must pass target status", false),
+			Entry("no vmi status and remote target status", nil, &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node2",
+						},
+					},
+				},
+			}, "", false),
+			Entry("no vmi status and target status, but vmi not found, patch will fail", nil, &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node2",
+						},
+					},
+				},
+			}, "not found", true),
+			Entry("target are different", &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node3",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}, &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node2",
+						},
+					},
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}, "", false),
+		)
+
+		It("should return success when target migration is final without updating VMI", func() {
+			By("Set up migration as final (failed)")
+			migration.Status.Phase = virtv1.MigrationFailed
+			err := controller.migrationInformer.GetStore().Update(migration)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Set up VMI with migration state")
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			vmi, err = controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with target state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncTargetMigrationStatus")
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (TargetState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.TargetState).To(BeNil())
+		})
+
+		It("should return success when target VMI migration UID doesn't match without updating VMI", func() {
+			By("Set up VMI with different migration UID")
+			differentMigrationUID := "different-migration-uid"
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(differentMigrationUID),
+			}
+			vmi, err := controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with target state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncTargetMigrationStatus")
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (TargetState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.TargetState).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.MigrationUID).To(Equal(types.UID(differentMigrationUID)))
+		})
+	})
+
+	verifySource := func(controller *SynchronizationController, vmi *virtv1.VirtualMachineInstance, url string) {
+		updatedSourceVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedSourceVMI).ToNot(BeNil())
+		Expect(updatedSourceVMI.Status.MigrationState).ToNot(BeNil())
+		Expect(updatedSourceVMI.Status.MigrationState.TargetState).ToNot(BeNil())
+		Expect(updatedSourceVMI.Status.MigrationState.TargetState.MigrationUID).To(BeEquivalentTo(targetTestMigrationUID))
+	}
+
+	verifyTarget := func(controller *SynchronizationController, vmi *virtv1.VirtualMachineInstance, url string) {
+		updatedTargetVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedTargetVMI).ToNot(BeNil())
+		Expect(updatedTargetVMI.Status.MigrationState).ToNot(BeNil())
+		Expect(updatedTargetVMI.Status.MigrationState.SourceState).ToNot(BeNil())
+		Expect(updatedTargetVMI.Status.MigrationState.SourceState.MigrationUID).To(BeEquivalentTo(sourceTestMigrationUID))
+	}
+
+	Context("target controller is same as source", func() {
+		// Migration from one namespace to another in same cluster
+		var (
+			err                              error
+			targetVMI, sourceVMI             *virtv1.VirtualMachineInstance
+			localTCPConn                     net.Listener
+			done                             chan struct{}
+			sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
+		)
+
+		BeforeEach(func() {
+			localTCPConn, err = controller.createTcpListener()
+			Expect(err).ToNot(HaveOccurred())
+			done = make(chan struct{})
+
+			go func() {
+				defer close(done)
+				controller.grpcServer.Serve(localTCPConn)
+			}()
+
+			targetVMI = libvmi.New(libvmi.WithNamespace(targetNamespace))
+			targetVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			err = vmiInformer.GetStore().Add(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.VirtualMachineInstance(targetVMI.Namespace).Create(context.TODO(), targetVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
+			err = migrationInformer.GetStore().Add(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetVMI.Namespace).Create(context.TODO(), targetMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			err = vmiInformer.GetStore().Add(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			remoteURL, err := controller.getLocalSynchronizationAddress()
+			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
+			err = migrationInformer.GetStore().Add(sourceMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).Create(context.TODO(), sourceMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			controller.closeConnections()
+			if done != nil {
+				<-done
+			}
+		})
+
+		Context("handleSourceState", func() {
+			It("should not do anything if source doesn't have source migration", func() {
+				// no source migration
+				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+				// no migration at all
+				sourceVMI.Status.MigrationState = nil
+				err = controller.handleSourceState(sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should not do anything if source sync addres is not set", func() {
+				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{}
+				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should error and fail to update target VMI if target VMI doesn't exist", func() {
+				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: sourceTestMigrationUID,
+					},
+				}
+				sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: targetTestMigrationUID,
+					},
+				}
+				err = controller.vmiInformer.GetStore().Delete(targetVMI)
+				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleSourceState(sourceVMI, sourceMigration)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+			})
+
+			It("should update target VMI source migration from source VMI", func() {
+				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: sourceTestMigrationUID,
+					},
+				}
+				sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: targetTestMigrationUID,
+					},
+				}
+				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+				verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
+			})
+		})
+
+		Context("handleTargetState", func() {
+			It("should not do anything if target doesn't have target migration", func() {
+				// no source migration
+				err := controller.handleTargetState(targetVMI, targetMigration)
+				Expect(err).ToNot(HaveOccurred())
+				// no migration at all
+				targetVMI.Status.MigrationState = nil
+				err = controller.handleTargetState(targetVMI, targetMigration)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should not do anything if target sync addres is not set", func() {
+				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
+				err := controller.handleTargetState(targetVMI, targetMigration)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should error and fail to update target VMI if source VMI doesn't exist", func() {
+				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: targetTestMigrationUID,
+					},
+				}
+				targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: sourceTestMigrationUID,
+					},
+				}
+				err = controller.vmiInformer.GetStore().Delete(sourceVMI)
+				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleTargetState(targetVMI, targetMigration)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
+			})
+
+			It("should update source VMI target migration from target VMI", func() {
+				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: targetTestMigrationUID,
+					},
+				}
+				targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+						MigrationUID: sourceTestMigrationUID,
+					},
+				}
+				err := controller.handleTargetState(targetVMI, targetMigration)
+				Expect(err).ToNot(HaveOccurred())
+				verifySource(controller, sourceVMI, localTCPConn.Addr().String())
+			})
+		})
+
+		It("should properly update both source and target if both handlers are called", func() {
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localTCPConn.Addr().String()),
+				},
+			}
+
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localTCPConn.Addr().String()),
+				},
+			}
+			err = controller.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.execute(sourceKey)
+			Expect(err).ToNot(HaveOccurred())
+			targetKey, err := kvcontroller.KeyFunc(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.execute(targetKey)
+			Expect(err).ToNot(HaveOccurred())
+			verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
+			verifySource(controller, sourceVMI, localTCPConn.Addr().String())
+		})
+	})
+
+	Context("target controller different than source", func() {
+		// Migrating from one cluster to another
+		var (
+			err                                  error
+			remoteController                     *SynchronizationController
+			targetVMI, sourceVMI                 *virtv1.VirtualMachineInstance
+			targetMigration, sourceMigration     *virtv1.VirtualMachineInstanceMigration
+			remoteURL, localURL                  string
+			controllerDone, remoteControllerDone chan struct{}
+		)
+
+		BeforeEach(func() {
+			remoteMigrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186, "")
+			Expect(err).ToNot(HaveOccurred())
+
+			remoteTCPConn, err := remoteController.createTcpListener()
+			Expect(err).ToNot(HaveOccurred())
+			remoteControllerDone = make(chan struct{})
+			go func() {
+				defer close(remoteControllerDone)
+				remoteController.grpcServer.Serve(remoteTCPConn)
+			}()
+
+			localTCPConn, err := controller.createTcpListener()
+			Expect(err).ToNot(HaveOccurred())
+			controllerDone = make(chan struct{})
+			go func() {
+				defer close(controllerDone)
+				controller.grpcServer.Serve(localTCPConn)
+			}()
+
+			targetVMI = libvmi.New(libvmi.WithNamespace(targetNamespace))
+			targetVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			err = vmiInformer.GetStore().Add(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.VirtualMachineInstance(targetVMI.Namespace).Create(context.TODO(), targetVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
+			err = remoteMigrationInformer.GetStore().Add(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetVMI.Namespace).Create(context.TODO(), targetMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+			err = vmiInformer.GetStore().Add(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			remoteURL, err = remoteController.getLocalSynchronizationAddress()
+			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
+			err = migrationInformer.GetStore().Add(sourceMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(sourceVMI.Namespace).Create(context.TODO(), sourceMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			localURL, err = controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			remoteController.closeConnections()
+			controller.closeConnections()
+			if remoteControllerDone != nil {
+				<-remoteControllerDone
+			}
+			if controllerDone != nil {
+				<-controllerDone
+			}
+		})
+
+		It("should properly update both source and target if both handlers are called", func() {
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			By("setting up the clients and informers")
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("calling execute on the source")
+			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.execute(sourceKey)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("calling execute on the target")
+			targetKey, err := kvcontroller.KeyFunc(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = remoteController.execute(targetKey)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("verifying the result")
+			verifySource(controller, sourceVMI, remoteURL)
+			verifyTarget(remoteController, targetVMI, localURL)
+
+			By("updating the source state with a new sourcePodName")
+			sourceVMI, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			sourceVMI.Status.MigrationState.SourceState.Pod = sourcePodName
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("updating the remote informer with the remote client, we can properly patch")
+			updatedTargetVMI, err := remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
+
+			By("calling execute on the source")
+			err = controller.execute(sourceKey)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("verifying the result")
+			verifyTarget(controller, targetVMI, localURL)
+			updatedTargetVMI, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(updatedTargetVMI).ToNot(BeNil())
+			Expect(updatedTargetVMI.Status.MigrationState).ToNot(BeNil())
+			Expect(updatedTargetVMI.Status.MigrationState.SourceState).ToNot(BeNil())
+			Expect(updatedTargetVMI.Status.MigrationState.SourceState.MigrationUID).To(BeEquivalentTo(sourceTestMigrationUID))
+			Expect(updatedTargetVMI.Status.MigrationState.SourceState.SyncAddress).ToNot(BeNil())
+			Expect(*updatedTargetVMI.Status.MigrationState.SourceState.SyncAddress).To(Equal(localURL))
+			Expect(updatedTargetVMI.Status.MigrationState.SourceState.Pod).To(Equal(sourcePodName))
+
+			By("updating the target state")
+			targetVMI.Status.MigrationState.TargetState.Pod = targetPodName
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("calling execute on the target")
+			err = remoteController.execute(targetKey)
+			Expect(err).ToNot(HaveOccurred())
+			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedSourceVMI).ToNot(BeNil())
+			Expect(updatedSourceVMI.Status.MigrationState).ToNot(BeNil())
+			Expect(updatedSourceVMI.Status.MigrationState.TargetState).ToNot(BeNil())
+			Expect(updatedSourceVMI.Status.MigrationState.TargetState.MigrationUID).To(BeEquivalentTo(targetTestMigrationUID))
+			Expect(updatedSourceVMI.Status.MigrationState.TargetState.SyncAddress).ToNot(BeNil())
+			Expect(*updatedSourceVMI.Status.MigrationState.TargetState.SyncAddress).To(Equal(remoteURL))
+			Expect(updatedSourceVMI.Status.MigrationState.TargetState.Pod).To(Equal(targetPodName))
+		})
+
+		It("should not rebuild anything without migrations", func() {
+			objs := remoteController.migrationInformer.GetStore().List()
+			for _, obj := range objs {
+				remoteController.migrationInformer.GetStore().Delete(obj)
+			}
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should not rebuild anything if migrations are not ongoing", func() {
+			objs := remoteController.migrationInformer.GetStore().List()
+			for _, obj := range objs {
+				migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+				Expect(ok).To(BeTrue())
+				migration.Status.Phase = virtv1.MigrationFailed
+				remoteController.migrationInformer.GetStore().Update(migration)
+			}
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should not rebuild anything if migration references missing VMI", func() {
+			objs := remoteController.vmiInformer.GetStore().List()
+			for _, obj := range objs {
+				remoteController.vmiInformer.GetStore().Delete(obj)
+			}
+
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should not rebuild anything if VMI doesn't have sync address", func() {
+			err := remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			remoteController.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+			err = controller.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			controller.syncReceivingConnectionMap.Range(func(key, value any) bool {
+				Fail(fmt.Sprintf("found object in outbound map %v, %v", key, value))
+				return true
+			})
+		})
+
+		It("should properly rebuild target", func() {
+			remoteURL, err := remoteController.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = remoteController.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			count := 0
+			remoteController.syncReceivingConnectionMap.Range(func(key, value any) bool {
+				count++
+				Expect(key).To(Equal(testMigrationID))
+				conn, ok := value.(*SynchronizationConnection)
+				Expect(ok).To(BeTrue())
+				Expect(conn.migrationID).To(Equal(testMigrationID))
+				Expect(conn.grpcClientConnection.CanonicalTarget()).To(ContainSubstring(remoteURL))
+				return true
+			})
+			Expect(count).To(Equal(1), "there should be one item in the map")
+		})
+
+		It("should properly rebuild source", func() {
+			remoteURL, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.rebuildConnectionsAndUpdateSyncAddress()
+			Expect(err).ToNot(HaveOccurred())
+			count := 0
+			controller.syncOutboundConnectionMap.Range(func(key, value any) bool {
+				count++
+				Expect(key).To(Equal(testMigrationID))
+				conn, ok := value.(*SynchronizationConnection)
+				Expect(ok).To(BeTrue())
+				Expect(conn.migrationID).To(Equal(testMigrationID))
+				Expect(conn.grpcClientConnection.CanonicalTarget()).To(ContainSubstring(remoteURL))
+				return true
+			})
+			Expect(count).To(Equal(1), "there should be one item in the map")
+		})
+
+		It("should cancel remote migration", func() {
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			By("setting up the clients and informers")
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetMigration.DeletionTimestamp = pointer.P(metav1.Now())
+			err = remoteController.migrationInformer.GetStore().Update(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+
+			res, err := controller.CancelMigration(context.Background(), &syncv1.MigrationCancelRequest{
+				MigrationUID: targetTestMigrationUID,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Message).To(Equal("migration canceled"))
+		})
+	})
+
+	It("should return nil, nil if invalid resource type passed into index function", func() {
+		res, err := indexByMigrationUID("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		res, err = indexByActiveVmiName("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		res, err = indexBySourceMigrationID("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		res, err = indexByTargetMigrationID("invalid")
+		Expect(res).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should properly close connections", func() {
+		testConnection := &SynchronizationConnection{
+			migrationID: testMigrationID,
+		}
+		controller.syncOutboundConnectionMap.Store(testMigrationID, testConnection)
+		controller.syncOutboundConnectionMap.Store("invalidID", "invalidConnection")
+		_, loaded := controller.syncOutboundConnectionMap.Load("invalidID")
+		Expect(loaded).To(BeTrue())
+		_, loaded = controller.syncOutboundConnectionMap.Load(testMigrationID)
+		Expect(loaded).To(BeTrue())
+
+		controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, testMigrationID)
+		controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, "invalidID")
+		controller.closeConnectionForMigrationID(controller.syncOutboundConnectionMap, "unknownID")
+		_, loaded = controller.syncOutboundConnectionMap.Load("invalidID")
+		Expect(loaded).To(BeFalse())
+		_, loaded = controller.syncOutboundConnectionMap.Load(testMigrationID)
+		Expect(loaded).To(BeFalse())
+		_, loaded = controller.syncOutboundConnectionMap.Load("unknownID")
+		Expect(loaded).To(BeFalse())
+	})
+
+	Context("resource handler functions", func() {
+		var (
+			sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
+		)
+		BeforeEach(func() {
+			sourceMigration = createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
+			targetMigration = createTargetMigration(testMigrationID, "test-vmi", k8sv1.NamespaceDefault)
+			Expect(controller.queue.Len()).To(Equal(0))
+		})
+
+		It("should add proper key to queue when adding/updating new VMIM", func() {
+			controller.addMigrationFunc(sourceMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key := fmt.Sprintf("%s/%s", sourceMigration.Namespace, sourceMigration.Spec.VMIName)
+			res, shutdown := controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+
+			controller.updateMigrationFunc(nil, sourceMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key = fmt.Sprintf("%s/%s", sourceMigration.Namespace, sourceMigration.Spec.VMIName)
+			res, shutdown = controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+		})
+
+		It("should close existing connections when deleting vmim", func() {
+			testConnection := &SynchronizationConnection{
+				migrationID: testMigrationID,
+			}
+			controller.syncOutboundConnectionMap.Store(testMigrationID, testConnection)
+
+			controller.deleteMigrationFunc(sourceMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key := fmt.Sprintf("%s/%s", sourceMigration.Namespace, sourceMigration.Spec.VMIName)
+			res, shutdown := controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+			_, loaded := controller.syncOutboundConnectionMap.Load(testMigrationID)
+			Expect(loaded).To(BeFalse())
+
+			controller.syncReceivingConnectionMap.Store(testMigrationID, testConnection)
+			controller.deleteMigrationFunc(targetMigration)
+			Expect(controller.queue.Len()).To(Equal(1))
+			key = fmt.Sprintf("%s/%s", targetMigration.Namespace, targetMigration.Spec.VMIName)
+			res, shutdown = controller.queue.Get()
+			Expect(shutdown).To(BeFalse())
+			Expect(res).To(Equal(key))
+			controller.queue.Done(key)
+			Expect(controller.queue.Len()).To(Equal(0))
+			_, loaded = controller.syncReceivingConnectionMap.Load(testMigrationID)
+			Expect(loaded).To(BeFalse())
+		})
+	})
+
+	It("should be able to find the VMI from the migration", func() {
+		vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+		err := controller.vmiInformer.GetStore().Add(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		migration := createTargetMigration(testMigrationID, vmi.Name, vmi.Namespace)
+		res, err := controller.getVMIFromMigration(migration)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(BeEquivalentTo(vmi))
+		migration = createTargetMigration(testMigrationID, "unknown", vmi.Namespace)
+		res, err = controller.getVMIFromMigration(migration)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(BeNil())
+	})
+
+	Context("Decentralized Live Migration Failure", func() {
+		It("should recognize x509 hostname error", func() {
+			err := x509.HostnameError{
+				Host: "1.1.1.1",
+			}
+			message := getErrorMessageForDecentralizedLiveMigrationFailure(err)
+			Expect(message).To(Equal("x509 hostname error"))
+		})
+
+		It("should return the error message if not a x509 hostname error", func() {
+			err := errors.New("test error")
+			message := getErrorMessageForDecentralizedLiveMigrationFailure(err)
+			Expect(message).To(Equal("test error"))
+		})
+
+		It("should set/clear the decentralized live migration failure condition", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.setDecentralizedLiveMigrationFailure(vmi, "test error")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
+			Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+			Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+			Expect(vmi.Status.Conditions[0].Message).To(Equal("test error"))
+			err = controller.clearDecentralizedLiveMigrationFailure(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.Conditions).To(BeEmpty())
+		})
+
+		Context("updateDecentralizedFailureOnSource", func() {
+			var (
+				vmi       *virtv1.VirtualMachineInstance
+				migration *virtv1.VirtualMachineInstanceMigration
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				migration = createSourceMigration(testMigrationID, vmi.Name, "", k8sv1.NamespaceDefault)
+			})
+
+			It("should clear the failure condition when opErr is nil", func() {
+				// First set a failure condition
+				err := controller.setDecentralizedLiveMigrationFailure(vmi, "previous error")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+
+				// Then call updateDecentralizedFailureOnSource with nil error
+				err = controller.updateDecentralizedFailureOnSource(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(BeEmpty())
+			})
+
+			It("should set the failure condition when opErr is not nil, should return the original error", func() {
+				testErr := errors.New("test operation error")
+				err := controller.updateDecentralizedFailureOnSource(vmi, migration, testErr)
+				Expect(err).To(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("test operation error"))
+			})
+
+			It("should handle x509 hostname error correctly", func() {
+				x509Err := x509.HostnameError{
+					Host: "example.com",
+				}
+				err := controller.updateDecentralizedFailureOnSource(vmi, migration, x509Err)
+				Expect(err).To(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("x509 hostname error"))
+			})
+		})
+
+		Context("updateDecentralizedFailureOnTarget", func() {
+			var (
+				vmi       *virtv1.VirtualMachineInstance
+				migration *virtv1.VirtualMachineInstanceMigration
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				migration = createTargetMigration(testMigrationID, vmi.Name, k8sv1.NamespaceDefault)
+			})
+
+			It("should clear the failure condition when opErr is nil and migration phase is not MigrationWaitingForSync", func() {
+				// Set migration phase to something other than MigrationWaitingForSync
+				migration.Status.Phase = virtv1.MigrationRunning
+
+				// First set a failure condition
+				err := controller.setDecentralizedLiveMigrationFailure(vmi, "previous error")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+
+				// Then call updateDecentralizedFailureOnTarget with nil error
+				err = controller.updateDecentralizedFailureOnTarget(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(BeEmpty())
+			})
+
+			It("should set the failure condition when opErr is nil and migration phase is MigrationWaitingForSync", func() {
+				migration.Status.Phase = virtv1.MigrationWaitingForSync
+
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal(waitingForSyncErrorMessage))
+			})
+
+			It("should set the failure condition when opErr is not nil", func() {
+				testErr := errors.New("test operation error")
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, testErr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("test operation error"))
+			})
+
+			It("should prioritize opErr over MigrationWaitingForSync phase", func() {
+				migration.Status.Phase = virtv1.MigrationWaitingForSync
+				testErr := errors.New("operation failed")
+
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, testErr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("operation failed"))
+				Expect(vmi.Status.Conditions[0].Message).ToNot(Equal(waitingForSyncErrorMessage))
+			})
+
+			It("should handle x509 hostname error correctly", func() {
+				x509Err := x509.HostnameError{
+					Host: "example.com",
+				}
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, x509Err)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("x509 hostname error"))
+			})
+		})
+
+	})
+
+	// Unit tests for getMergedTargetMigratedVolumes function.
+	// These tests verify the merging logic for StorageMigratedVolumeInfo slices, specifically:
+	// - Merging destination PVC volume mode and access modes from remote volumes when local volumes lack them
+	// - Handling empty volume lists (both VMI and remote)
+	// - Handling nil PVC info (SourcePVCInfo and DestinationPVCInfo)
+	// - Preserving local source PVC info when merging destination from remote
+	// - Handling multiple volumes with different volume mode and access mode combinations
+	// - Edge cases like empty volume names
+	// The merging logic focuses on VolumeMode and AccessModes of PVCs - if the local volume doesn't have
+	// volume mode or access mode, it should take the value from the remote volume.
+	Context("getMergedTargetMigratedVolumes", func() {
+		It("should merge destination PVC volume mode and access modes from remote when local destination lacks them", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1", nil, nil),
+				verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should include VMI volumes that don't have matches in remote", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", nil, nil),
+					withDestinationPVC("dest-pvc-2", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifyDestinationPVC("dest-pvc-1-new", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifyDestinationPVC("dest-pvc-2", nil, nil),
+				},
+			)
+		})
+
+		DescribeTable("should handle empty volume lists",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectedLen int, description string) {
+				result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+				Expect(result).To(HaveLen(expectedLen), description)
+				if expectedLen > 0 {
+					verifyVolume(result[0],
+						verifyVolumeName("volume1"),
+						verifySourcePVC("source-pvc-1", nil, nil),
+						verifyDestinationPVC("dest-pvc-1", nil, nil),
+					)
+				}
+			},
+			Entry("empty VMI volumes list", createVmiVolumes(), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), 0, "should return empty when VMI volumes is empty"),
+			Entry("empty remote volumes list", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(), 1, "should return VMI volumes when remote is empty"),
+		)
+
+		DescribeTable("should handle nil PVC info",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectNilSource, expectNilDest bool, destClaimName string) {
+				result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+				opts := []volumeVerificationOption{verifyVolumeName("volume1")}
+				if expectNilSource {
+					opts = append(opts, verifySourceIsNil())
+				} else {
+					opts = append(opts, verifySourcePVC("source-pvc-1", nil, nil))
+				}
+				if expectNilDest {
+					opts = append(opts, verifyDestinationIsNil())
+				} else {
+					opts = append(opts, verifyDestinationPVC(destClaimName, nil, nil))
+				}
+				verifyVolumes(result, 1, opts)
+			},
+			Entry("nil SourcePVCInfo in VMI volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			), true, false, "dest-pvc-1-new"),
+			Entry("nil DestinationPVCInfo in remote volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withNilDestinationPVC(),
+				),
+			), false, true, ""),
+		)
+
+		It("should preserve local source PVC info when merging destination from remote", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifySourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should merge multiple volumes with different volume mode and access mode combinations", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", nil, nil),
+					withDestinationPVC("dest-pvc-2", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withDestinationPVC("dest-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifyDestinationPVC("dest-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				},
+			)
+		})
+
+		It("should handle volumes with empty volume names", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName(""),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName(""),
+			})
+		})
+	})
+
+	// Unit tests for getMergedSourceMigratedVolumes function.
+	// These tests verify the merging logic for StorageMigratedVolumeInfo slices, specifically:
+	// - Using VMI SourcePVCInfo when present, even if remote has volume mode and access modes
+	// - Using remote SourcePVCInfo with volume mode and access modes when VMI SourcePVCInfo is nil
+	// - Including remote volumes that don't have matches in VMI
+	// - Handling empty volume lists (both VMI and remote)
+	// - Handling nil PVC info (SourcePVCInfo and DestinationPVCInfo)
+	// - Preserving VMI SourcePVCInfo volume mode and access modes when VMI has them set
+	// - Handling multiple volumes with various combinations
+	// - Edge cases like empty volume names
+	// The merging logic focuses on VolumeMode and AccessModes of PVCs - if the local volume doesn't have
+	// volume mode or access mode, it should take the value from the remote volume.
+	Context("getMergedSourceMigratedVolumes", func() {
+		It("should use VMI SourcePVCInfo when present, even if remote has volume mode and access modes", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-vmi", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1-vmi", nil, nil),
+				verifySourceVolumeModeIsNil(),
+				verifySourceAccessModesIsNil(),
+				verifyDestinationPVC("dest-pvc-1", nil, nil),
+			})
+		})
+
+		It("should use remote SourcePVCInfo with volume mode and access modes when VMI SourcePVCInfo is nil", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				verifyDestinationPVC("dest-pvc-1", nil, nil),
+			})
+		})
+
+		It("should include remote volumes with volume mode and access modes that don't have matches in VMI", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifySourcePVC("source-pvc-1", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifySourcePVC("source-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				},
+			)
+		})
+
+		DescribeTable("should handle empty volume lists",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectedLen int, description string) {
+				result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+				Expect(result).To(HaveLen(expectedLen), description)
+				if expectedLen > 0 {
+					verifyVolume(result[0],
+						verifyVolumeName("volume1"),
+						verifySourcePVC("source-pvc-1", nil, nil),
+					)
+				}
+			},
+			Entry("empty VMI volumes list", createVmiVolumes(), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+				),
+			), 1, "should return remote volumes when VMI volumes is empty"),
+			Entry("empty remote volumes list", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(), 0, "should return empty when remote volumes is empty"),
+		)
+
+		DescribeTable("should handle nil PVC info",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectNilSource, expectNilDest bool, sourceClaimName string) {
+				result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+				opts := []volumeVerificationOption{verifyVolumeName("volume1")}
+				if expectNilSource {
+					opts = append(opts, verifySourceIsNil())
+				} else {
+					opts = append(opts, verifySourcePVC(sourceClaimName, nil, nil))
+				}
+				if expectNilDest {
+					opts = append(opts, verifyDestinationIsNil())
+				} else {
+					opts = append(opts, verifyDestinationPVC("dest-pvc-1", nil, nil))
+				}
+				verifyVolumes(result, 1, opts)
+			},
+			Entry("nil SourcePVCInfo in both VMI and remote volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+				),
+			), true, false, ""),
+			Entry("nil DestinationPVCInfo in VMI volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withNilDestinationPVC(),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+			), false, true, "source-pvc-1"),
+		)
+
+		It("should preserve VMI SourcePVCInfo volume mode and access modes when VMI has them set", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+			})
+		})
+
+		It("should ensure returned volumes have valid structure", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifySourcePVC("source-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				verifyDestinationPVC("dest-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should handle multiple volumes with various combinations", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-2", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume3"),
+					withSourcePVC("source-pvc-3", nil, nil),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 3,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifySourcePVC("source-pvc-1", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifySourcePVC("source-pvc-2-remote", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume3"),
+					verifySourcePVC("source-pvc-3", nil, nil),
+				},
+			)
+		})
+
+		It("should handle volumes with empty volume names", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName(""),
+			})
+		})
+	})
+})
+
+func createSourceMigration(migrationID, vmiName, connectionURL, namespace string) *virtv1.VirtualMachineInstanceMigration {
+	return &virtv1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sourceTestMigrationName,
+			Namespace: namespace,
+			UID:       sourceTestMigrationUID,
+		},
+		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+			SendTo: &virtv1.VirtualMachineInstanceMigrationSource{
+				MigrationID: migrationID,
+				ConnectURL:  connectionURL,
+			},
+			VMIName: vmiName,
+		},
+	}
+}
+
+func createTargetMigration(migrationID, vmiName, namespace string) *virtv1.VirtualMachineInstanceMigration {
+	return &virtv1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      targetTestMigrationName,
+			Namespace: namespace,
+			UID:       targetTestMigrationUID,
+		},
+		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+			Receive: &virtv1.VirtualMachineInstanceMigrationTarget{
+				MigrationID: migrationID,
+			},
+			VMIName: vmiName,
+		},
+	}
+}
+
+// Helper functions for creating test volumes
+
+type volumeOption func(*virtv1.StorageMigratedVolumeInfo)
+
+func withVolumeName(name string) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.VolumeName = name
+	}
+}
+
+func withSourcePVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.SourcePVCInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			VolumeMode:  volumeMode,
+			AccessModes: accessModes,
+		}
+	}
+}
+
+func withNilSourcePVC() volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.SourcePVCInfo = nil
+	}
+}
+
+func withDestinationPVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.DestinationPVCInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			VolumeMode:  volumeMode,
+			AccessModes: accessModes,
+		}
+	}
+}
+
+func withNilDestinationPVC() volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.DestinationPVCInfo = nil
+	}
+}
+
+func createVmiVolume(opts ...volumeOption) virtv1.StorageMigratedVolumeInfo {
+	volume := virtv1.StorageMigratedVolumeInfo{}
+	for _, opt := range opts {
+		opt(&volume)
+	}
+	return volume
+}
+
+func createVmiVolumes(volumes ...virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	return volumes
+}
+
+func createRemoteVolume(opts ...volumeOption) virtv1.StorageMigratedVolumeInfo {
+	return createVmiVolume(opts...)
+}
+
+func createRemoteVolumes(volumes ...virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	return volumes
+}
+
+// Verification helper functions
+
+type volumeVerificationOption func(*volumeVerification)
+
+type volumeVerification struct {
+	volumeName                 string
+	sourceClaimName            string
+	sourceVolumeMode           *k8sv1.PersistentVolumeMode
+	sourceAccessModes          []k8sv1.PersistentVolumeAccessMode
+	sourceShouldBeNil          bool
+	sourceVolumeModeShouldNil  bool
+	sourceAccessModesShouldNil bool
+	destClaimName              string
+	destVolumeMode             *k8sv1.PersistentVolumeMode
+	destAccessModes            []k8sv1.PersistentVolumeAccessMode
+	destShouldBeNil            bool
+	destVolumeModeShouldNil    bool
+	destAccessModesShouldNil   bool
+}
+
+func verifyVolumeName(name string) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.volumeName = name
+	}
+}
+
+func verifySourcePVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceClaimName = claimName
+		v.sourceVolumeMode = volumeMode
+		v.sourceAccessModes = accessModes
+		v.sourceShouldBeNil = false
+	}
+}
+
+func verifySourceVolumeModeIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceVolumeModeShouldNil = true
+	}
+}
+
+func verifySourceAccessModesIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceAccessModesShouldNil = true
+	}
+}
+
+func verifySourceIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceShouldBeNil = true
+	}
+}
+
+func verifyDestinationPVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destClaimName = claimName
+		v.destVolumeMode = volumeMode
+		v.destAccessModes = accessModes
+		v.destShouldBeNil = false
+	}
+}
+
+func verifyDestinationVolumeModeIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destVolumeModeShouldNil = true
+	}
+}
+
+func verifyDestinationAccessModesIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destAccessModesShouldNil = true
+	}
+}
+
+func verifyDestinationIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destShouldBeNil = true
+	}
+}
+
+func verifyVolume(volume virtv1.StorageMigratedVolumeInfo, opts ...volumeVerificationOption) {
+	verification := &volumeVerification{}
+	for _, opt := range opts {
+		opt(verification)
+	}
+
+	if verification.volumeName != "" {
+		Expect(volume.VolumeName).To(Equal(verification.volumeName))
+	}
+
+	if verification.sourceShouldBeNil {
+		Expect(volume.SourcePVCInfo).To(BeNil())
+	} else if verification.sourceClaimName != "" {
+		Expect(volume.SourcePVCInfo).ToNot(BeNil())
+		Expect(volume.SourcePVCInfo.ClaimName).To(Equal(verification.sourceClaimName))
+		if verification.sourceVolumeModeShouldNil {
+			Expect(volume.SourcePVCInfo.VolumeMode).To(BeNil())
+		} else if verification.sourceVolumeMode != nil {
+			Expect(volume.SourcePVCInfo.VolumeMode).ToNot(BeNil())
+			Expect(*volume.SourcePVCInfo.VolumeMode).To(Equal(*verification.sourceVolumeMode))
+		}
+		if verification.sourceAccessModesShouldNil {
+			Expect(volume.SourcePVCInfo.AccessModes).To(BeNil())
+		} else if verification.sourceAccessModes != nil {
+			Expect(volume.SourcePVCInfo.AccessModes).To(Equal(verification.sourceAccessModes))
+		}
+	}
+
+	if verification.destShouldBeNil {
+		Expect(volume.DestinationPVCInfo).To(BeNil())
+	} else if verification.destClaimName != "" {
+		Expect(volume.DestinationPVCInfo).ToNot(BeNil())
+		Expect(volume.DestinationPVCInfo.ClaimName).To(Equal(verification.destClaimName))
+		if verification.destVolumeModeShouldNil {
+			Expect(volume.DestinationPVCInfo.VolumeMode).To(BeNil())
+		} else if verification.destVolumeMode != nil {
+			Expect(volume.DestinationPVCInfo.VolumeMode).ToNot(BeNil())
+			Expect(*volume.DestinationPVCInfo.VolumeMode).To(Equal(*verification.destVolumeMode))
+		}
+		if verification.destAccessModesShouldNil {
+			Expect(volume.DestinationPVCInfo.AccessModes).To(BeNil())
+		} else if verification.destAccessModes != nil {
+			Expect(volume.DestinationPVCInfo.AccessModes).To(Equal(verification.destAccessModes))
+		}
+	}
+}
+
+func verifyVolumes(result []virtv1.StorageMigratedVolumeInfo, expectedLen int, verifications ...[]volumeVerificationOption) {
+	Expect(result).To(HaveLen(expectedLen))
+	for i, verifyOpts := range verifications {
+		if i < len(result) {
+			verifyVolume(result[i], verifyOpts...)
+		}
+	}
+}

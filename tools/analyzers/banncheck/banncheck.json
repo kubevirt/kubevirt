@@ -1,0 +1,48 @@
+{
+  "functions": [
+     {
+       "name": "os.IsNotExist",
+       "msg": "use errors.Is(err, os.ErrNotExist) instead of os.IsNotExist(err)"
+     }
+  ],
+  "imports": [
+    {
+      "name": "kubevirt.io/kubevirt/pkg/unsafepath",
+      "msg": "unsafepath functions allows accessing a safepath.Path in an unsafe way and needs do be used carefully",
+      "exemptions": [
+        {
+          "justification ": "safepath needs access to unsafepath, to construct symbol link for the ImageVolume disk file",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+        },
+        {
+          "justification ": "safepath needs access to unsafepath, to construct an unsafepath.Path for unsafe usage",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/safepath"
+        },
+        {
+          "justification ": "virt-chroot needs to deconstruct safepaths to pass them over to the virt-chroot binary",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
+        },
+        {
+          "justification ": "TODO: can get away from unsafepath but has no additional security risk since host-disk is insecure by default",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/host-disk"
+        },
+        {
+          "justification ": "TODO: checking if a path is mounted requires a path-string to check against the mount table, can be improved, exploitability risk is very low.",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+        },
+        {
+          "justification ": "XXX: mount entries are recoreded in a separate file with absolute files. No additional risk, but confusing from an audit perspective, must be changed at some point.",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+        },
+        {
+          "justification ": "XXX: mount entries are recoreded in a separate file with absolute files. No additional risk, but confusing from an audit perspective, must be changed at some point.",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+        },
+        {
+          "justification ": "for selinux labeling safepaths need to be deconstructed to hand them over to the virt-chroot binary",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+        }
+      ]
+    }
+  ]
+}

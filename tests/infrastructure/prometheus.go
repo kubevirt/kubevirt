@@ -1,0 +1,437 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package infrastructure
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	expect "github.com/google/goexpect"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metricsutil "github.com/rhobs/operator-observability-toolkit/pkg/testutil"
+
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnode"
+
+	"kubevirt.io/kubevirt/tests/libwait"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v "
+)
+
+var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", decorators.SigMonitoring, decorators.WgS390x, func() { //nolint:lll
+	var virtClient kubecli.KubevirtClient
+
+	// start a VMI, wait for it to run and return the node it runs on
+	startVMI := func(vmi *v1.VirtualMachineInstance) string {
+		By("Starting a new VirtualMachineInstance")
+		obj, err := virtClient.
+			RestClient().
+			Post().
+			Resource("virtualmachineinstances").
+			Namespace(testsuite.GetTestNamespace(vmi)).
+			Body(vmi).
+			Do(context.Background()).Get()
+		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+		vmiObj, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+
+		By("Waiting until the VM is ready")
+		return libwait.WaitForSuccessfulVMIStart(vmiObj).Status.NodeName
+	}
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	/*
+		This test is querying the metrics from Prometheus *after* they were
+		scraped and processed by the different components on the way.
+	*/
+
+	It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
+		/*
+			This test is required because in cases of misconfigurations on
+			monitoring objects (such for the ServiceMonitor), our rules will
+			still be picked up by the monitoring-operator, but Prometheus
+			will fail to load it.
+		*/
+
+		By("creating a VMI in a user defined namespace")
+		vmi := libvmifact.NewGuestless()
+		vmi.Namespace = testsuite.GetTestNamespace(vmi)
+		startVMI(vmi)
+
+		By("querying Prometheus for a VMI exported metric")
+		labels := map[string]string{
+			"namespace": vmi.Namespace,
+			"name":      vmi.Name,
+		}
+		libmonitoring.WaitForMetricValueWithLabelsToBe(
+			virtClient, "kubevirt_vmi_memory_resident_bytes", labels, 0, ">=", 0,
+		)
+	})
+})
+
+var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", Ordered, decorators.OncePerOrderedCleanup, func() { //nolint:lll
+	var (
+		virtClient       kubecli.KubevirtClient
+		preparedVMIs     []*v1.VirtualMachineInstance
+		pod              *k8sv1.Pod
+		handlerMetricIPs []string
+	)
+
+	prepareVMIForTests := func(preferredNodeName string) string {
+		By("Creating the VirtualMachineInstance")
+
+		// WARNING: we assume the VM will have a VirtIO disk (vda)
+		// and we add our own vdb on which we do our test.
+		// but if the default disk is not vda, the test will break
+		// TODO: introspect the VMI and get the device name of this
+		// block device?
+		options := []libvmi.Option{
+			libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
+		}
+
+		if preferredNodeName != "" {
+			options = append(options, libvmi.WithNodeSelectorFor(preferredNodeName))
+		}
+
+		vmi := libvmifact.NewAlpine(options...)
+
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
+		nodeName := vmi.Status.NodeName
+
+		By("Expecting the VirtualMachineInstance console")
+		// This also serves as a sync point to make sure the VM completed the boot
+		// (and reduce the risk of false negatives)
+		Expect(console.LoginToAlpine(vmi)).To(Succeed())
+		const expectTimeout = 10
+		By("Writing some data to the disk")
+		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "sync\n"},
+			&expect.BExp{R: ""},
+		}, expectTimeout)).To(Succeed())
+
+		preparedVMIs = append(preparedVMIs, vmi)
+		return nodeName
+	}
+
+	BeforeAll(func() {
+		var err error
+		virtClient = kubevirt.Client()
+
+		// The initial test for the metrics subsystem used only a single VM for the sake of simplicity.
+		// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
+		// in maps? and so on).
+		// Thus, we run now two VMIs per testcase. A more realistic test would use a random number of VMIs >= 3,
+		// but we don't do now to make test run quickly and (more important) because lack of resources on CI.
+
+		nodeName := prepareVMIForTests("")
+		// any node is fine, we don't really care, as long as we run all VMIs on it.
+		prepareVMIForTests(nodeName)
+
+		By("Finding the virt-handler prometheus endpoint")
+		pod, err = libnode.GetVirtHandlerPod(virtClient, nodeName)
+		Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+		for _, ip := range pod.Status.PodIPs {
+			handlerMetricIPs = append(handlerMetricIPs, ip.IP)
+		}
+	})
+
+	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
+		By("scraping the metrics endpoint on virt-controller pods")
+		results, err := countReadyAndLeaderPods(pod, "controller")
+		const expectedReady = 2
+		Expect(err).ToNot(HaveOccurred())
+		Expect(results["ready"]).To(Equal(expectedReady), "expected 2 ready virt-controllers")
+		Expect(results["leading"]).To(Equal(1), "expected 1 leading virt-controller")
+	})
+
+	It("[test_id:4137]should find one leading virt-operator and two ready", func() {
+		By("scraping the metrics endpoint on virt-operator pods")
+		results, err := countReadyAndLeaderPods(pod, "operator")
+		const expectedReady = 2
+		Expect(err).ToNot(HaveOccurred())
+		Expect(results["ready"]).To(Equal(expectedReady), "expected 2 ready virt-operators")
+		Expect(results["leading"]).To(Equal(1), "expected 1 leading virt-operator")
+	})
+
+	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
+		epsList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{
+				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			})
+		Expect(err).ToNot(HaveOccurred())
+		// should only have one EndpointSlice
+		Expect(epsList.Items).To(HaveLen(1), "Expected exactly one EndpointSlice")
+		epSlice := epsList.Items[0]
+
+		l, err := labels.Parse("prometheus.kubevirt.io=true")
+		Expect(err).ToNot(HaveOccurred())
+		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{LabelSelector: l.String()})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("checking if the endpoint contains the metrics port")
+		const metricsPort = 8443
+		// we don't need to check the length, the endpointSlice Obj only contains one port
+		Expect(epSlice.Ports[0].Name).ToNot(BeNil())
+		Expect(*epSlice.Ports[0].Name).To(Equal("metrics"))
+		Expect(epSlice.Ports[0].Port).ToNot(BeNil())
+		Expect(*epSlice.Ports[0].Port).To(Equal(int32(metricsPort)))
+
+		By("checking if the IPs in the endpoint slice match the KubeVirt system Pod count")
+		const minVirtPods = 3
+		Expect(len(pods.Items)).To(BeNumerically(">=", minVirtPods), "At least one api, controller and handler need to be present")
+		Expect(epSlice.Endpoints).To(HaveLen(len(pods.Items)))
+
+		ips := map[string]string{}
+		for _, ep := range epSlice.Endpoints {
+			for _, addr := range ep.Addresses {
+				ips[addr] = ""
+			}
+		}
+		for _, pod := range pods.Items {
+			Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
+		}
+	})
+	It("[test_id:4139]should return Prometheus metrics", func() {
+		endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{
+				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(endpointSliceList.Items).ToNot(BeEmpty(), "Expected at least one EndpointSlice")
+
+		for _, epSlice := range endpointSliceList.Items {
+			for _, ep := range epSlice.Endpoints {
+				for _, addr := range ep.Addresses {
+					cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(addr))
+					stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+					Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
+					Expect(stdout).To(ContainSubstring("go_goroutines"))
+				}
+			}
+		}
+	})
+
+	It("[test_id:4141]should include the metrics for a running VM", func() {
+		By("Scraping the Prometheus endpoint")
+		Eventually(func() string {
+			out := libmonitoring.GetKubevirtVMMetrics(pod)
+			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt")
+			return strings.Join(lines, "\n")
+		}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
+	})
+
+	It("should expose kubevirt_node_deprecated_machine_types metric", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+
+		fetcher := metricsutil.NewMetricsFetcher("")
+		fetcher.AddNameFilter("kubevirt_node_deprecated_machine_types")
+
+		metrics, err := fetcher.LoadMetrics(metricsPayload)
+		Expect(err).ToNot(HaveOccurred())
+
+		results := metrics["kubevirt_node_deprecated_machine_types"]
+		Expect(results).ToNot(BeEmpty(), "Expected to find deprecated machine types metrics")
+
+		for _, result := range results {
+			Expect(result.Labels).To(HaveKey("machine_type"), fmt.Sprintf("Expected machine_type label in metric: %+v", result))
+		}
+	})
+
+	DescribeTable("should include the storage metrics for a running VM", func(metricName, operator string) {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+
+		By("Checking the collected metrics")
+		for _, vmi := range preparedVMIs {
+			for _, vol := range vmi.Spec.Volumes {
+				fetcher := metricsutil.NewMetricsFetcher("")
+				fetcher.AddNameFilter(metricName)
+				fetcher.AddLabelFilter("name", vmi.Name, "drive", vol.Name)
+
+				metrics, err := fetcher.LoadMetrics(metricsPayload)
+				Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
+
+				results := metrics[metricName]
+				Expect(results).ToNot(BeEmpty(), "Expected to find metric for VMI %s and disk %s", vmi.Name, vol.Name)
+
+				GinkgoLogr.Info("Metric value", "value", results[0].Value)
+				Expect(results[0].Value).To(BeNumerically(operator, 0.0))
+			}
+		}
+	},
+		Entry("[test_id:4142] storage flush requests metric",
+			"kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:4142] time spent on cache flushing metric",
+			"kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:4142] I/O read operations metric", "kubevirt_vmi_storage_iops_read_total", ">="),
+		Entry("[test_id:4142] I/O write operations metric", "kubevirt_vmi_storage_iops_write_total", ">="),
+		Entry("[test_id:4142] storage read operation time metric",
+			"kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage read traffic in bytes metric",
+			"kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage write operation time metric",
+			"kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage write traffic in bytes metric",
+			"kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+	)
+
+	DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+
+		fetcher := metricsutil.NewMetricsFetcher("")
+		fetcher.AddNameFilter(metricSubstring)
+
+		metrics, err := fetcher.LoadMetrics(metricsPayload)
+		Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
+		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected for %s", metricSubstring)
+
+		for _, results := range metrics {
+			for _, result := range results {
+				Expect(result.Value).To(BeNumerically(operator, float64(0.0)))
+			}
+		}
+	},
+		Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
+		Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
+		Entry("[test_id:4553] vcpu wait", "kubevirt_vmi_vcpu_wait", "=="),
+		Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds_total", ">="),
+		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
+	)
+
+	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+
+		fetcher := metricsutil.NewMetricsFetcher("")
+		fetcher.AddNameFilter("kubevirt_vmi_vcpu_seconds_total")
+
+		metrics, err := fetcher.LoadMetrics(metricsPayload)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
+
+		// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
+		// be enough to its metrics to contain a kubernetes label
+		containK8sLabel := false
+		for _, results := range metrics {
+			for _, metricResult := range results {
+				for label := range metricResult.Labels {
+					if strings.Contains(label, "kubernetes_vmi_label_") {
+						containK8sLabel = true
+					}
+				}
+			}
+		}
+		Expect(containK8sLabel).To(BeTrue())
+	})
+
+	// explicit test swap metrics as test_id:4144 doesn't catch if they are missing
+	It("[test_id:4555]should include swap metrics", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+
+		fetcher := metricsutil.NewMetricsFetcher("")
+		fetcher.AddNameFilter("kubevirt_vmi_memory_swap_")
+
+		metrics, err := fetcher.LoadMetrics(metricsPayload)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
+
+		var in, out bool
+		for metricName := range metrics {
+			if in && out {
+				break
+			}
+			if strings.Contains(metricName, "swap_in") {
+				in = true
+			}
+			if strings.Contains(metricName, "swap_out") {
+				out = true
+			}
+		}
+
+		Expect(in).To(BeTrue())
+		Expect(out).To(BeTrue())
+	})
+}))
+
+func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
+	virtClient := kubevirt.Client()
+	target := fmt.Sprintf("virt-%s", component)
+	leadingMetric := fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component)
+	readyMetric := fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component)
+	endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+		context.Background(), metav1.ListOptions{
+			LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+		})
+	if err != nil {
+		return nil, err
+	}
+	foundMetrics = map[string]int{
+		"ready":   0,
+		"leading": 0,
+	}
+	for _, epSlice := range endpointSliceList.Items {
+		for _, ep := range epSlice.Endpoints {
+			if ep.TargetRef == nil || !strings.HasPrefix(ep.TargetRef.Name, target) {
+				continue
+			}
+
+			for _, addr := range ep.Addresses {
+				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(addr))
+				var stdout, stderr string
+				stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+				if err != nil {
+					return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
+				}
+				foundMetrics["leading"] += strings.Count(stdout, leadingMetric)
+				foundMetrics["ready"] += strings.Count(stdout, readyMetric)
+			}
+		}
+	}
+
+	return foundMetrics, err
+}
