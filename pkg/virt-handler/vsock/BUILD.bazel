@@ -2,17 +2,25 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["dial.go"],
+    srcs = [
+        "dial.go",
+        "refcount.go",
+        "servers.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/vsock",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/netns:go_default_library",
+        "//pkg/util/tls:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/vsock:go_default_library",
         "//pkg/vsock/mode:go_default_library",
+        "//pkg/vsock/system:go_default_library",
+        "//pkg/vsock/system/v1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/mdlayher/vsock:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
     ],
 )
@@ -21,6 +29,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "dial_test.go",
+        "refcount_test.go",
         "vsock_suite_test.go",
     ],
     race = "on",

@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/netns"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtvsock "kubevirt.io/kubevirt/pkg/vsock"
 	"kubevirt.io/kubevirt/pkg/vsock/mode"
@@ -49,6 +50,7 @@ type tlsWrapperFunc func(conn net.Conn) TLSConn
 
 type Dialer struct {
 	isolationDetector isolation.PodIsolationDetector
+	servers           *ServerCache
 	procPath          string
 	netnsDoFn         netnsDoFunc
 	dialFn            vsockDialFunc
@@ -57,6 +59,7 @@ type Dialer struct {
 
 func NewDialer(
 	isolationDetector isolation.PodIsolationDetector,
+	serverCache *ServerCache,
 	procPath string,
 	netnsFn netnsDoFunc,
 	dialFn vsockDialFunc,
@@ -64,6 +67,7 @@ func NewDialer(
 ) *Dialer {
 	return &Dialer{
 		isolationDetector: isolationDetector,
+		servers:           serverCache,
 		procPath:          procPath,
 		dialFn:            dialFn,
 		netnsDoFn:         netnsFn,
@@ -71,8 +75,13 @@ func NewDialer(
 	}
 }
 
-func NewDefaultDialer(isolationDetector isolation.PodIsolationDetector, certManager certificate.Manager) *Dialer {
+func NewDefaultDialer(
+	isolationDetector isolation.PodIsolationDetector,
+	certManager certificate.Manager,
+	caManager kvtls.ClientCAManager,
+) *Dialer {
 	return NewDialer(isolationDetector,
+		NewServerCache(caManager),
 		mode.DefaultProcPath,
 		func(pid int, fn func() error) error { return netns.New(pid).Do(fn) },
 		vsock.Dial,
@@ -101,14 +110,25 @@ func (d *Dialer) Dial(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) 
 		return nil, fmt.Errorf("failed to detect pod isolation: %w", err)
 	}
 
+	pid := isolationRes.Pid()
+
 	cid := *vmi.Status.VSOCKCID
 	vsockMode := mode.ModeGlobal
 
 	var conn net.Conn
-	nsErr := d.netnsDoFn(isolationRes.Pid(), func() error {
+	var releaseCAServer func()
+	nsErr := d.netnsDoFn(pid, func() error {
 		if mode.VsockNsMode(d.procPath) == mode.ModeLocal {
 			cid = virtvsock.LocalCID
 			vsockMode = mode.ModeLocal
+
+			if useTLS {
+				var serverErr error
+				releaseCAServer, serverErr = d.servers.StartCAServer(pid)
+				if serverErr != nil {
+					return serverErr
+				}
+			}
 		}
 
 		log.Log.Object(vmi).Infof("Connecting to %d:%d in %s mode", cid, port, vsockMode)
@@ -119,8 +139,13 @@ func (d *Dialer) Dial(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) 
 		conn = c
 		return nil
 	})
+	defer func() {
+		if releaseCAServer != nil {
+			releaseCAServer()
+		}
+	}()
 	if nsErr != nil {
-		return nil, nsErr
+		return nil, fmt.Errorf("failed to dial VSOCK for VM: %w", nsErr)
 	}
 
 	if !useTLS {

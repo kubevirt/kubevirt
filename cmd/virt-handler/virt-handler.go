@@ -555,7 +555,7 @@ func (app *virtHandlerApp) Run() {
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
 		vmiSourceInformer.GetStore(),
-		vsock.NewDefaultDialer(podIsolationDetector, app.vsockClientCertManager),
+		vsock.NewDefaultDialer(podIsolationDetector, app.vsockClientCertManager, app.caManager),
 	)
 
 	errCh := make(chan error)
