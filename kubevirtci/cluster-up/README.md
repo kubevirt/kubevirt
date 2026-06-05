@@ -3,16 +3,7 @@
 ## Prerequisites: podman or docker
 
 cluster-up requires that either podman or docker be installed on the host.
-
-If podman is being used, it is also necessary to enable podman socket with:
-
-```
-sudo systemctl enable podman.socket
-sudo systemctl start podman.socket
-```
-
-for more information see:
-
+To use podman, follow setup instructions at:
 https://github.com/kubevirt/kubevirtci/blob/main/PODMAN.md
 
 
