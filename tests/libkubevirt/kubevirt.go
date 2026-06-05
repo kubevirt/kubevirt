@@ -21,6 +21,7 @@ package libkubevirt
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -35,6 +36,14 @@ func GetCurrentKv(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
 	kvs := GetKvList(virtClient)
 	gomega.Expect(kvs).To(gomega.HaveLen(1))
 	return &kvs[0]
+}
+
+func GetDefaultArchitecture(virtClient kubecli.KubevirtClient) (string, error) {
+	kv := GetCurrentKv(virtClient)
+	if kv.Status.DefaultArchitecture == "" {
+		return "", fmt.Errorf("KubeVirt CR %s/%s has no default architecture set in status", kv.Namespace, kv.Name)
+	}
+	return kv.Status.DefaultArchitecture, nil
 }
 
 func GetKvList(virtClient kubecli.KubevirtClient) []v1.KubeVirt {
