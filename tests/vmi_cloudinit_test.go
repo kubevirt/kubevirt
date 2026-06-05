@@ -335,7 +335,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					tag        = "specialNet"
 				)
 				testInstancetype := "testInstancetype"
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveNetworkData(testNoCloudNetworkData)),
 					libvmi.WithInterface(v1.Interface{
 						Name: "default",
@@ -350,7 +350,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libvmi.WithAnnotation(v1.InstancetypeAnnotation, testInstancetype),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
