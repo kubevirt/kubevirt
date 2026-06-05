@@ -130,8 +130,12 @@ var _ = Describe("netconf", func() {
 			nodeName  = "node1"
 		)
 
+		oldStateKey := fmt.Sprintf("%s/%s", vmi.UID, oldPodUID)
+		newStateKey := fmt.Sprintf("%s/%s", vmi.UID, newPodUID)
+
 		oldStateCache := newConfigStateCacheStub()
-		stateMap[fmt.Sprintf("%s/%s", vmi.UID, oldPodUID)] = netpod.NewState(oldStateCache, ns)
+		oldState := netpod.NewState(oldStateCache, ns)
+		stateMap[oldStateKey] = oldState
 		Expect(oldStateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
@@ -151,6 +155,78 @@ var _ = Describe("netconf", func() {
 		Expect(oldStateCache.stateCache).To(Equal(map[string]cache.PodIfaceState{
 			testNetworkName: cache.PodIfaceNetworkPreparationFinished,
 		}))
+
+		newState, ok := stateMap[newStateKey]
+		Expect(ok).To(BeTrue())
+		Expect(newState).NotTo(BeNil())
+		Expect(newState).NotTo(BeIdenticalTo(oldState))
+	})
+
+	It("falls back to the VMI UID key when ActivePods has no entry matching NodeName", func() {
+		const nodeName = "node-a"
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		vmi.Status.NodeName = nodeName
+		vmi.Status.ActivePods = map[types.UID]string{
+			types.UID("pod-on-other-node"): "node-b",
+		}
+
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		Expect(stateMap).To(HaveKey(string(vmi.UID)))
+		Expect(stateMap).NotTo(HaveKey(fmt.Sprintf("%s/%s", vmi.UID, "pod-on-other-node")))
+	})
+
+	It("uses only the pod UID matching NodeName when multiple ActivePods entries exist", func() {
+		const (
+			nodeName      = "node-a"
+			matchingPod   = "pod-on-node-a"
+			nonMatchingPod = "pod-on-node-b"
+		)
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		vmi.Status.NodeName = nodeName
+		vmi.Status.ActivePods = map[types.UID]string{
+			types.UID(matchingPod):    nodeName,
+			types.UID(nonMatchingPod): "node-b",
+		}
+
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		Expect(stateMap).To(HaveKey(fmt.Sprintf("%s/%s", vmi.UID, matchingPod)))
+		Expect(stateMap).NotTo(HaveKey(fmt.Sprintf("%s/%s", vmi.UID, nonMatchingPod)))
+	})
+
+	It("removes all pod-specific state entries on teardown", func() {
+		const vmiUID = "vmi-cleanup"
+
+		vmi.ObjectMeta.UID = types.UID(vmiUID)
+		stateMap[vmiUID] = netpod.NewState(newConfigStateCacheStub(), ns)
+		stateMap[fmt.Sprintf("%s/old-pod", vmiUID)] = netpod.NewState(newConfigStateCacheStub(), ns)
+		stateMap[fmt.Sprintf("%s/new-pod", vmiUID)] = netpod.NewState(newConfigStateCacheStub(), ns)
+
+		otherVmiUID := "other-vmi"
+		stateMap[otherVmiUID] = netpod.NewState(newConfigStateCacheStub(), ns)
+		stateMap[fmt.Sprintf("%s/pod", otherVmiUID)] = netpod.NewState(newConfigStateCacheStub(), ns)
+
+		Expect(netConf.Teardown(vmi)).To(Succeed())
+		Expect(stateMap).To(HaveKey(otherVmiUID))
+		Expect(stateMap).To(HaveKey(fmt.Sprintf("%s/pod", otherVmiUID)))
+		Expect(stateMap).NotTo(HaveKey(vmiUID))
+		Expect(stateMap).NotTo(HaveKey(fmt.Sprintf("%s/old-pod", vmiUID)))
+		Expect(stateMap).NotTo(HaveKey(fmt.Sprintf("%s/new-pod", vmiUID)))
 	})
 })
 

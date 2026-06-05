@@ -21,6 +21,7 @@ package network
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -86,12 +87,31 @@ func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator
 // with a fresh network setup, even when the VMI UID is unchanged.
 func networkConfigStateKey(vmi *v1.VirtualMachineInstance) string {
 	vmiUID := string(vmi.UID)
-	for podUID, nodeName := range vmi.Status.ActivePods {
-		if nodeName == vmi.Status.NodeName {
-			return vmiUID + "/" + string(podUID)
+	nodeName := vmi.Status.NodeName
+	if nodeName == "" || len(vmi.Status.ActivePods) == 0 {
+		return vmiUID
+	}
+
+	var matchingPodUIDs []string
+	for podUID, podNodeName := range vmi.Status.ActivePods {
+		if podNodeName == nodeName {
+			matchingPodUIDs = append(matchingPodUIDs, string(podUID))
 		}
 	}
-	return vmiUID
+
+	switch len(matchingPodUIDs) {
+	case 0:
+		return vmiUID
+	case 1:
+		return vmiUID + "/" + matchingPodUIDs[0]
+	default:
+		sort.Strings(matchingPodUIDs)
+		log.Log.Object(vmi).Warningf(
+			"multiple active pods (%v) found on node %s; using %s for network state key",
+			matchingPodUIDs, nodeName, matchingPodUIDs[0],
+		)
+		return vmiUID + "/" + matchingPodUIDs[0]
+	}
 }
 
 func deleteNetworkConfigStatesForVMI(state map[string]*netpod.State, vmiUID string) {
