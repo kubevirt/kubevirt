@@ -229,6 +229,12 @@ const (
 	// (frequent/medium/infrequent tiers) that collect raw monitoring data
 	// for the GetVMStats gRPC RPC.
 	VMStatsCollector = "VMStatsCollector"
+
+	// Owner: sig-compute, sig-storage / @0xFelix
+	// Alpha: v1.9.0
+	//
+	// OCIExport enables exporting VM disks as OCI image layout TAR archives.
+	OCIExport = "OCIExport"
 )
 
 func init() {
@@ -273,4 +279,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 }

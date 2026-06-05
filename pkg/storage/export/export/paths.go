@@ -22,6 +22,7 @@ package export
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +48,7 @@ type BackupInfo struct {
 type ServerPaths struct {
 	VMURI     string
 	SecretURI string
+	OCIURI    string
 	Volumes   []VolumeInfo
 	Backups   []BackupInfo
 }
@@ -75,28 +77,40 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 	result := &ServerPaths{
 		VMURI:     env["EXPORT_VM_DEF_URI"],
 		SecretURI: env["EXPORT_SECRET_DEF_URI"],
+		OCIURI:    env["EXPORT_OCI_URI"],
 	}
-	for k, v := range env {
+	var volumeKeys []string
+	var backupKeys []string
+	for k := range env {
 		if strings.HasSuffix(k, "_EXPORT_PATH") {
-			envPrefix := strings.TrimSuffix(k, "_EXPORT_PATH")
-			vi := VolumeInfo{
-				Path:       v,
-				ArchiveURI: env[envPrefix+"_EXPORT_ARCHIVE_URI"],
-				DirURI:     env[envPrefix+"_EXPORT_DIR_URI"],
-				RawURI:     env[envPrefix+"_EXPORT_RAW_URI"],
-				RawGzURI:   env[envPrefix+"_EXPORT_RAW_GZIP_URI"],
-			}
-			result.Volumes = append(result.Volumes, vi)
+			volumeKeys = append(volumeKeys, k)
 		}
 		if strings.HasSuffix(k, "_BACKUP_PATH") {
-			envPrefix := strings.TrimSuffix(k, "_BACKUP_PATH")
-			bi := BackupInfo{
-				Path:    v,
-				DataURI: env[envPrefix+"_DATA_URI"],
-				MapURI:  env[envPrefix+"_MAP_URI"],
-			}
-			result.Backups = append(result.Backups, bi)
+			backupKeys = append(backupKeys, k)
 		}
+	}
+	sort.Strings(volumeKeys)
+	sort.Strings(backupKeys)
+
+	for _, k := range volumeKeys {
+		envPrefix := strings.TrimSuffix(k, "_EXPORT_PATH")
+		vi := VolumeInfo{
+			Path:       env[k],
+			ArchiveURI: env[envPrefix+"_EXPORT_ARCHIVE_URI"],
+			DirURI:     env[envPrefix+"_EXPORT_DIR_URI"],
+			RawURI:     env[envPrefix+"_EXPORT_RAW_URI"],
+			RawGzURI:   env[envPrefix+"_EXPORT_RAW_GZIP_URI"],
+		}
+		result.Volumes = append(result.Volumes, vi)
+	}
+	for _, k := range backupKeys {
+		envPrefix := strings.TrimSuffix(k, "_BACKUP_PATH")
+		bi := BackupInfo{
+			Path:    env[k],
+			DataURI: env[envPrefix+"_DATA_URI"],
+			MapURI:  env[envPrefix+"_MAP_URI"],
+		}
+		result.Backups = append(result.Backups, bi)
 	}
 	return result
 }

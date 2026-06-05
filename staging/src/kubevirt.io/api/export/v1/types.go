@@ -163,6 +163,8 @@ const (
 	AllManifests ExportManifestType = "all"
 	// AuthHeader returns a CDI compatible secret containing the token as an Auth header
 	AuthHeader ExportManifestType = "auth-header-secret"
+	// OCI returns the OCI image layout TAR archive
+	OCI ExportManifestType = "oci"
 )
 
 // VirtualMachineExportVolume contains the name and available formats for the exported volume
@@ -233,6 +235,8 @@ const (
 	ConditionPVC ConditionType = "PVCReady"
 	// ConditionVolumesCreated is the condition to see if volumes are created from volume snapshots
 	ConditionVolumesCreated ConditionType = "VolumesCreated"
+	// ConditionOCIReady indicates whether the OCI artifact export is ready
+	ConditionOCIReady ConditionType = "OCIReady"
 )
 
 // Condition defines conditions

@@ -73,6 +73,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -1030,6 +1031,94 @@ var _ = Describe("Export controller", func() {
 		Entry("for PVC source", createPVCVMExport(), NewPVCSource(&sourceVolumes{}), false),
 	)
 
+	It("should set OCI env vars when OCIExport feature gate is enabled and source is VM", func() {
+		syncCaches(stop)
+		enableOCIExportFeatureGate(kvInformer.GetStore())
+		vmInformer.GetStore().Add(&virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: testVmName, Namespace: testNamespace},
+			Spec: virtv1.VirtualMachineSpec{Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+				Spec: virtv1.VirtualMachineInstanceSpec{Volumes: []virtv1.Volume{}},
+			}},
+		})
+
+		svc := &k8sv1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: testNamespace}}
+		pod, err := controller.createExporterPodManifest(createVMVMExport(), svc, NewVMSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).To(ContainElement(
+			k8sv1.EnvVar{Name: "EXPORT_OCI_URI", Value: ociPath},
+		))
+	})
+
+	It("should not set OCI env vars when OCIExport feature gate is disabled", func() {
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("EXPORT_OCI_URI")}),
+		))
+	})
+
+	It("should not set OCI env vars for PVC source even when OCIExport is enabled", func() {
+		syncCaches(stop)
+		enableOCIExportFeatureGate(kvInformer.GetStore())
+
+		pod, err := controller.createExporterPodManifest(createPVCVMExport(), nil, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{"Name": Equal("EXPORT_OCI_URI")}),
+		))
+	})
+
+	DescribeTable("should set OCIReady condition based on pod state when OCI export is enabled", func(pod *k8sv1.Pod, expectedStatus k8sv1.ConditionStatus) {
+		syncCaches(stop)
+		enableOCIExportFeatureGate(kvInformer.GetStore())
+
+		vmExport := createVMVMExport()
+		populateInitialVMExportStatus(vmExport)
+		vmExportCopy := vmExport.DeepCopy()
+		svc := &k8sv1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: testNamespace}}
+
+		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, NewVMSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+
+		var ociCond *exportv1.Condition
+		for i := range vmExportCopy.Status.Conditions {
+			if vmExportCopy.Status.Conditions[i].Type == exportv1.ConditionOCIReady {
+				ociCond = &vmExportCopy.Status.Conditions[i]
+			}
+		}
+		Expect(ociCond).ToNot(BeNil())
+		Expect(ociCond.Status).To(Equal(expectedStatus))
+	},
+		Entry("pod is ready", &k8sv1.Pod{
+			Spec:   k8sv1.PodSpec{Containers: []k8sv1.Container{{Name: "export"}}},
+			Status: k8sv1.PodStatus{Phase: k8sv1.PodRunning, ContainerStatuses: []k8sv1.ContainerStatus{{Ready: true}}},
+		}, k8sv1.ConditionTrue),
+		Entry("pod is pending", &k8sv1.Pod{
+			Status: k8sv1.PodStatus{Phase: k8sv1.PodPending},
+		}, k8sv1.ConditionFalse),
+	)
+
+	It("should not set OCIReady condition for PVC source", func() {
+		syncCaches(stop)
+		enableOCIExportFeatureGate(kvInformer.GetStore())
+
+		vmExport := createPVCVMExport()
+		populateInitialVMExportStatus(vmExport)
+		vmExportCopy := vmExport.DeepCopy()
+		svc := &k8sv1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: testNamespace}}
+		pod := &k8sv1.Pod{
+			Spec:   k8sv1.PodSpec{Containers: []k8sv1.Container{{Name: "export"}}},
+			Status: k8sv1.PodStatus{Phase: k8sv1.PodRunning, ContainerStatuses: []k8sv1.ContainerStatus{{Ready: true}}},
+		}
+
+		err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, NewPVCSource(&sourceVolumes{}))
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, cond := range vmExportCopy.Status.Conditions {
+			Expect(cond.Type).ToNot(Equal(exportv1.ConditionOCIReady))
+		}
+	})
+
 	DescribeTable("Volumemount names should be trimmed depending on the PVC name", func(pvcName string) {
 		testVMExport := createPVCVMExportWithName(pvcName)
 		testPVC := &k8sv1.PersistentVolumeClaim{
@@ -1119,6 +1208,16 @@ var _ = Describe("Export controller", func() {
 		Entry("Name with dots", "pvc.with.dots"),
 		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
 	)
+
+	It("CreateServerPaths should parse OCI URI", func() {
+		const uri = "/export.oci.tar"
+
+		env := map[string]string{
+			"EXPORT_OCI_URI": uri,
+		}
+		paths := CreateServerPaths(env)
+		Expect(paths.OCIURI).To(Equal(uri))
+	})
 
 	DescribeTable("service name should be sanitized", func(exportName, expectedServiceName string) {
 		var service *k8sv1.Service
@@ -1948,4 +2047,16 @@ func (v *MockVolumeSnapshotProvider) GetVolumeSnapshot(namespace, name string) (
 
 func (v *MockVolumeSnapshotProvider) Add(s *vsv1.VolumeSnapshot) {
 	v.volumeSnapshots = append(v.volumeSnapshots, s)
+}
+
+func enableOCIExportFeatureGate(kvStore cache.Store) {
+	testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &virtv1.KubeVirt{
+		Spec: virtv1.KubeVirtSpec{
+			Configuration: virtv1.KubeVirtConfiguration{
+				DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.OCIExport},
+				},
+			},
+		},
+	})
 }
