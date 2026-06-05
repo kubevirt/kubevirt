@@ -87,7 +87,9 @@ var _ = Describe("Dialer", func() {
 			return nil
 		}
 
-		dialer = virthandlervsock.NewDialer(fakeIsolation, procPath,
+		dialer = virthandlervsock.NewDialer(fakeIsolation,
+			virthandlervsock.NewServerCache(nil),
+			procPath,
 			func(pid int, fn func() error) error {
 				netnsDoFnCalled = true
 				return netnsDoFn(pid, fn)
