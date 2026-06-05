@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -120,6 +121,36 @@ var _ = Describe("netconf", func() {
 	It("fails the teardown run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, stateMap, cConfigStub{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
+	})
+
+	It("uses a fresh network state when the virt-launcher pod is replaced", func() {
+		const (
+			oldPodUID = "old-pod-uid"
+			newPodUID = "new-pod-uid"
+			nodeName  = "node1"
+		)
+
+		oldStateCache := newConfigStateCacheStub()
+		stateMap[fmt.Sprintf("%s/%s", vmi.UID, oldPodUID)] = netpod.NewState(oldStateCache, ns)
+		Expect(oldStateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		vmi.Status.NodeName = nodeName
+		vmi.Status.ActivePods = map[types.UID]string{
+			types.UID(newPodUID): nodeName,
+		}
+
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		Expect(oldStateCache.stateCache).To(Equal(map[string]cache.PodIfaceState{
+			testNetworkName: cache.PodIfaceNetworkPreparationFinished,
+		}))
 	})
 })
 
