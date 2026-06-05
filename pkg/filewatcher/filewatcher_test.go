@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/filewatcher"
+	"kubevirt.io/kubevirt/pkg/filewatcher"
 )
 
 var _ = Describe("Filewatcher", func() {
