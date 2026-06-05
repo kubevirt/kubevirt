@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -65,10 +66,14 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		virtClient      kubecli.KubevirtClient
 		err             error
 		migrationPolicy *migrationsv1.MigrationPolicy
+		defaultArch     string
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+		var err error
+		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Allowing post-copy and limiting migration bandwidth")
 		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
@@ -88,7 +93,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			}
 
 			dv = libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
+				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),

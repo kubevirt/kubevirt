@@ -108,6 +108,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	var (
 		virtClient              kubecli.KubevirtClient
 		migrationBandwidthLimit resource.Quantity
+		defaultArch             string
 	)
 
 	const (
@@ -157,6 +158,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		migrationBandwidthLimit = resource.MustParse("1Ki")
+		var err error
+		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("with Headless service", func() {
@@ -370,7 +374,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					Fail("Failed test when RWX Block storage is not present")
 				}
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
@@ -851,7 +855,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
@@ -1023,7 +1027,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			createDV := func(namespace string) {
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(url), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(storageClass),
 						libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
@@ -1085,7 +1089,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(size),
@@ -1828,7 +1832,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
@@ -3143,8 +3147,11 @@ func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 
+	arch, err := libkubevirt.GetDefaultArchitecture(virtClient)
+	Expect(err).ToNot(HaveOccurred())
+
 	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(containerDisk), cdiv1.RegistryPullNode),
+		libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(arch)),
 		libdv.WithStorage(
 			libdv.StorageWithStorageClass(storageClass),
 			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
@@ -3153,7 +3160,7 @@ func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode
 		),
 	)
 
-	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 
