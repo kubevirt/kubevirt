@@ -519,6 +519,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		vmiSourceInformer.GetStore(),
 		app.vsockClientCertManager,
+		app.caManager,
 	)
 
 	errCh := make(chan error)

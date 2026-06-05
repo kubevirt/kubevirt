@@ -31,6 +31,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/mdlayher/vsock"
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
@@ -42,8 +43,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/vsock/system"
 	virtvsock "kubevirt.io/kubevirt/pkg/vsock"
+	systemv1 "kubevirt.io/kubevirt/pkg/vsock/system/v1"
 )
 
 type ConsoleHandler struct {
@@ -56,13 +60,15 @@ type ConsoleHandler struct {
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
 	vsockCertManager     certificate.Manager
+	servers              RefCounter[int, *grpc.Server]
+	caManager            kvtls.ClientCAManager
 }
 
 type UsbredirHandlerVMI struct {
 	stopChans map[int]chan struct{}
 }
 
-func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager) *ConsoleHandler {
+func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager, caManager kvtls.ClientCAManager) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
 		serialStopChans:      make(map[types.UID]chan struct{}),
@@ -73,6 +79,8 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiS
 		vmiStore:             vmiStore,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
 		vsockCertManager:     certManager,
+		servers:              NewRefCounter[int, *grpc.Server](),
+		caManager:            caManager,
 	}
 }
 
@@ -233,23 +241,51 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
-	t.stream(vmi, request, response, func() (net.Conn, error) {
-		return t.dialVSOCK(vmi, port, useTLS)
-	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
-}
-
-func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint64, useTLS bool) (net.Conn, error) {
 	isolationRes, err := t.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("failed to detect pod isolation for VSOCK dialing")
-		return nil, fmt.Errorf("failed to detect pod isolation: %w", err)
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	pid := isolationRes.Pid()
+
+	if useTLS {
+		isLocal := false
+		nsErr := netns.New(pid).Do(func() error {
+			isLocal = virtvsock.IsLocalMode()
+			return nil
+		})
+		if nsErr != nil {
+			log.Log.Object(vmi).Reason(nsErr).Error("failed to check VSOCK mode")
+			response.WriteError(http.StatusInternalServerError, nsErr)
+			return
+		}
+		if isLocal {
+			// Create VSOCK server listening in the local namespace.
+			// The same server instance will be shared for multiple simultaneous connections.
+			_, release, err := t.servers.Get(pid, func() (*grpc.Server, func(), error) {
+				return t.createVSOCKServer(pid)
+			})
+			if err != nil {
+				log.Log.Object(vmi).Reason(err).Error("failed to start VSOCK namespace listener")
+				response.WriteError(http.StatusInternalServerError, err)
+				return
+			}
+			defer release()
+		}
 	}
 
+	t.stream(vmi, request, response, func() (net.Conn, error) {
+		return t.dialVSOCK(vmi, pid, port, useTLS)
+	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
+}
+
+func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, pid int, port uint64, useTLS bool) (net.Conn, error) {
 	cid := *vmi.Status.VSOCKCID
 	mode := virtvsock.ModeGlobal
 
 	var conn net.Conn
-	nsErr := netns.New(isolationRes.Pid()).Do(func() error {
+	nsErr := netns.New(pid).Do(func() error {
 		if virtvsock.IsLocalMode() {
 			cid = virtvsock.LocalCID
 			mode = virtvsock.ModeLocal
@@ -291,6 +327,42 @@ func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint64, 
 	}
 	log.Log.Object(vmi).Infof("Connected to %d:%d in mode %s over TLS", cid, port, mode)
 	return tlsConn, nil
+}
+
+func (t *ConsoleHandler) createVSOCKServer(pid int) (*grpc.Server, func(), error) {
+	const vsockPort = 1
+
+	// Create listener in the namespace of the VM.
+	var lis net.Listener
+	err := netns.New(pid).Do(func() error {
+		var lisErr error
+		lis, lisErr = vsock.ListenContextID(vsock.Host, vsockPort, &vsock.Config{})
+		if lisErr != nil {
+			return fmt.Errorf("failed to listen on VSOCK CID %d port %d in namespace of PID %d: %w", vsock.Host, vsockPort, pid, lisErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	server := grpc.NewServer()
+	systemv1.RegisterSystemServer(server, system.NewSystemService(t.caManager))
+	go func() {
+		serveErr := server.Serve(lis)
+		if serveErr != nil {
+			log.DefaultLogger().Errorf("VSOCK ns listener for PID %d on port %d failed: %v", pid, vsockPort, serveErr)
+		}
+	}()
+
+	log.DefaultLogger().Infof("VSOCK ns listener created for PID %d on port %d", pid, vsockPort)
+
+	destroyFn := func() {
+		server.Stop()
+		log.DefaultLogger().Infof("VSOCK ns listener removed for PID %d", pid)
+	}
+
+	return server, destroyFn, nil
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) chan struct{} {

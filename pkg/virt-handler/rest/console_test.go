@@ -48,7 +48,7 @@ var _ = Describe("Console handler", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
-		handler = NewConsoleHandler(mockIsolationDetector, nil, nil)
+		handler = NewConsoleHandler(mockIsolationDetector, nil, nil, nil)
 	})
 
 	Describe("getUnixSocketPath", func() {
