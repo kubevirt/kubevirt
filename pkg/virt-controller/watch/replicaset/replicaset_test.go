@@ -220,7 +220,7 @@ var _ = Describe("Replicaset", func() {
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			}
-			// TODO test for missing 5
+			Expect(testing.FilterActions(&virtClientset.Fake, "create", "virtualmachineinstances")).To(HaveLen(10))
 		})
 
 		It("should already create replacement VMIs once it discovers that a VMI is marked for deletion", func() {
@@ -272,7 +272,7 @@ var _ = Describe("Replicaset", func() {
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			}
-			// TODO test for missing 5
+			Expect(testing.FilterActions(&virtClientset.Fake, "delete", "virtualmachineinstances")).To(HaveLen(10))
 		})
 
 		It("should not delete vmis which are already marked deleted", func() {
