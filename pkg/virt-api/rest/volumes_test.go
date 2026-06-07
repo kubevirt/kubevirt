@@ -39,6 +39,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -123,7 +124,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, k8sfake.NewSimpleClientset(), backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {
