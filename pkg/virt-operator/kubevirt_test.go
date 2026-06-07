@@ -76,6 +76,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -90,8 +91,8 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 94 + virtTemplateResourceCount
-	patchCount    = 62 + virtTemplatePatchCount
+	resourceCount = 99 + virtTemplateResourceCount
+	patchCount    = 67 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -116,7 +117,7 @@ var (
 		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
 		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
-		components.NewVirtualMachineBackupTrackerCrd,
+		components.NewVirtualMachineBackupTrackerCrd, components.NewPluginCrd,
 	}
 	numCRDs = len(crdFunctions) + numVirtTemplateCRDs
 )
@@ -1407,7 +1408,9 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	}
 
 	userName := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.HandlerServiceAccountName)
-	all = append(all, components.NewHandlerV1ValidatingAdmissionPolicy(userName), components.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewHandlerV1ValidatingAdmissionPolicy(userName), vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewPluginValidatingAdmissionPolicy(), vap.NewPluginValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewPluginWarningAdmissionPolicy(), vap.NewPluginWarningAdmissionPolicyBinding())
 
 	if config.VirtTemplateDeploymentEnabled() {
 		resources, err := components.NewVirtTemplateResources(config)

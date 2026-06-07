@@ -62,6 +62,8 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/api/migrations"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	"kubevirt.io/api/plugin"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/api/snapshot"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -151,6 +153,9 @@ type KubeInformerFactory interface {
 
 	// Watches MigrationPolicy objects
 	MigrationPolicy() cache.SharedIndexInformer
+
+	// Watches Plugin objects
+	Plugin() cache.SharedIndexInformer
 
 	// Watches VirtualMachineClone objects
 	VirtualMachineClone() cache.SharedIndexInformer
@@ -842,6 +847,13 @@ func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
 	return f.getInformer("migrationPolicyInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().MigrationsV1alpha1().RESTClient(), migrations.ResourceMigrationPolicies, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &migrationsv1.MigrationPolicy{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) Plugin() cache.SharedIndexInformer {
+	return f.getInformer("pluginInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().PluginV1alpha1().RESTClient(), plugin.ResourcePluginPlural, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &pluginv1alpha1.Plugin{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

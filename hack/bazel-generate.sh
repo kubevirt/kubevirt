@@ -7,6 +7,10 @@ source hack/config.sh
 # remove libvirt and libnbd BUILD files to regenerate them each time
 rm -f vendor/libvirt.org/go/libvirt/BUILD.bazel
 rm -f vendor/libguestfs.org/libnbd/BUILD.bazel
+# cel.dev/expr ships upstream workspace files that create a workspace boundary,
+# preventing gazelle from generating BUILD files for this directory
+rm -f vendor/cel.dev/expr/BUILD.bazel
+rm -f vendor/cel.dev/expr/WORKSPACE vendor/cel.dev/expr/WORKSPACE.bzlmod vendor/cel.dev/expr/MODULE.bazel
 
 # generate BUILD files
 bazel run \

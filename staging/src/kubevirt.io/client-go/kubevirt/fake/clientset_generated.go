@@ -43,6 +43,8 @@ import (
 	fakeinstancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1/fake"
 	migrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	fakemigrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1/fake"
+	pluginv1alpha1 "kubevirt.io/client-go/kubevirt/typed/plugin/v1alpha1"
+	fakepluginv1alpha1 "kubevirt.io/client-go/kubevirt/typed/plugin/v1alpha1/fake"
 	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 	fakepoolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1/fake"
 	poolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
@@ -145,6 +147,11 @@ func (c *Clientset) InstancetypeV1beta1() instancetypev1beta1.InstancetypeV1beta
 // MigrationsV1alpha1 retrieves the MigrationsV1alpha1Client
 func (c *Clientset) MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface {
 	return &fakemigrationsv1alpha1.FakeMigrationsV1alpha1{Fake: &c.Fake}
+}
+
+// PluginV1alpha1 retrieves the PluginV1alpha1Client
+func (c *Clientset) PluginV1alpha1() pluginv1alpha1.PluginV1alpha1Interface {
+	return &fakepluginv1alpha1.FakePluginV1alpha1{Fake: &c.Fake}
 }
 
 // PoolV1alpha1 retrieves the PoolV1alpha1Client

@@ -918,6 +918,14 @@ spec:
           - watch
           - patch
         - apiGroups:
+          - plugin.kubevirt.io
+          resources:
+          - plugins
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - export.kubevirt.io
           resources:
           - virtualmachineexports
@@ -1093,6 +1101,19 @@ spec:
           resources:
           - virtualmachinebackups
           - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - plugin.kubevirt.io
+          resources:
+          - plugins
           verbs:
           - get
           - delete

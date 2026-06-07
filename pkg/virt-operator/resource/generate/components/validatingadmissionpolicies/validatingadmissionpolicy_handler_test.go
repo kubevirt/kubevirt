@@ -17,7 +17,7 @@
  *
  */
 
-package components_test
+package validatingadmissionpolicies_test
 
 import (
 	"fmt"
@@ -25,14 +25,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 )
 
 var _ = Describe("Validation Admission Policy", func() {
 	Context("ValidatingAdmissionPolicy", func() {
 		It("should generate the expected policy", func() {
 			const userName = "system:serviceaccount:kubevirt-ns:kubevirt-handler"
-			validatingAdmissionPolicy := components.NewHandlerV1ValidatingAdmissionPolicy(userName)
+			validatingAdmissionPolicy := vap.NewHandlerV1ValidatingAdmissionPolicy(userName)
 
 			expectedMatchConditionExpression := fmt.Sprintf("request.userInfo.username == %q", userName)
 			Expect(validatingAdmissionPolicy.Spec.MatchConditions[0].Expression).To(Equal(expectedMatchConditionExpression))
@@ -43,8 +43,8 @@ var _ = Describe("Validation Admission Policy", func() {
 	Context("ValidatingAdmissionPolicyBinding", func() {
 		It("should generate the expected policy binding", func() {
 			const userName = "system:serviceaccount:kubevirt-ns:kubevirt-handler"
-			validatingAdmissionPolicy := components.NewHandlerV1ValidatingAdmissionPolicy(userName)
-			validatingAdmissionPolicyBinding := components.NewHandlerV1ValidatingAdmissionPolicyBinding()
+			validatingAdmissionPolicy := vap.NewHandlerV1ValidatingAdmissionPolicy(userName)
+			validatingAdmissionPolicyBinding := vap.NewHandlerV1ValidatingAdmissionPolicyBinding()
 
 			Expect(validatingAdmissionPolicyBinding.Spec.PolicyName).To(Equal(validatingAdmissionPolicy.Name))
 			Expect(validatingAdmissionPolicyBinding.Kind).ToNot(BeEmpty())

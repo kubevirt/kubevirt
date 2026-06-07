@@ -48,7 +48,6 @@ const (
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
 	KubevirtSeccompProfile = "KubevirtSeccompProfile"
-
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
 
@@ -222,7 +221,7 @@ const (
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
 
-	// Owner: @machadovilaca
+	// Owner: sig-compute / @enp0s3
 	// Alpha: v1.9.0
 	//
 	// VMStatsCollector enables the additional guest agent polling workers
@@ -235,6 +234,13 @@ const (
 	//
 	// OCIExport enables exporting VM disks as OCI image layout TAR archives.
 	OCIExport = "OCIExport"
+
+	// Owner: @iholder101
+	// Alpha: v1.9.0
+	//
+	// Plugins enables the Plugin CRD for declarative VM extension
+	// via domain hooks, node hooks, and admission references (VEP-190).
+	PluginsGate = "Plugins"
 )
 
 func init() {
@@ -280,4 +286,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
 }

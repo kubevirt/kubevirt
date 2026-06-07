@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -86,14 +86,14 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 
 	It("reject not allowed patches to node", func() {
 		patchSetList := map[string]testPatchMap{
-			"patch spec":          {patch.New(patch.WithAdd("/spec/unschedulable", true)), components.NodeRestrictionErrModifySpec},
-			"metadata patch":      {patch.New(patch.WithAdd("/metadata/finalizers", []string{"kubernetes.io/evil-finalizer"})), components.NodeRestrictionErrChangeMetadataFields},
-			"label addition":      {patch.New(patch.WithAdd("/metadata/labels/other.io~1newNotAllowedLabel", "value")), components.NodeRestrictionErrAddDeleteLabels},
-			"label update":        {patch.New(patch.WithReplace(notAllowedLabelPath, "other-value")), components.NodeRestrictionErrUpdateLabels},
-			"label removal":       {patch.New(patch.WithRemove(notAllowedLabelPath)), components.NodeRestrictionErrAddDeleteLabels},
-			"annotation addition": {patch.New(patch.WithAdd("/metadata/annotations/other.io~1newNotAllowedAnnotation", "value")), components.NodeRestrictionErrAddDeleteAnnotations},
-			"annotation update":   {patch.New(patch.WithReplace(notAllowedAnnotationPath, "other-value")), components.NodeRestrictionErrUpdateAnnotations},
-			"annotation removal":  {patch.New(patch.WithRemove(notAllowedAnnotationPath)), components.NodeRestrictionErrAddDeleteAnnotations},
+			"patch spec":          {patch.New(patch.WithAdd("/spec/unschedulable", true)), vap.NodeRestrictionErrModifySpec},
+			"metadata patch":      {patch.New(patch.WithAdd("/metadata/finalizers", []string{"kubernetes.io/evil-finalizer"})), vap.NodeRestrictionErrChangeMetadataFields},
+			"label addition":      {patch.New(patch.WithAdd("/metadata/labels/other.io~1newNotAllowedLabel", "value")), vap.NodeRestrictionErrAddDeleteLabels},
+			"label update":        {patch.New(patch.WithReplace(notAllowedLabelPath, "other-value")), vap.NodeRestrictionErrUpdateLabels},
+			"label removal":       {patch.New(patch.WithRemove(notAllowedLabelPath)), vap.NodeRestrictionErrAddDeleteLabels},
+			"annotation addition": {patch.New(patch.WithAdd("/metadata/annotations/other.io~1newNotAllowedAnnotation", "value")), vap.NodeRestrictionErrAddDeleteAnnotations},
+			"annotation update":   {patch.New(patch.WithReplace(notAllowedAnnotationPath, "other-value")), vap.NodeRestrictionErrUpdateAnnotations},
+			"annotation removal":  {patch.New(patch.WithRemove(notAllowedAnnotationPath)), vap.NodeRestrictionErrAddDeleteAnnotations},
 		}
 		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())

@@ -141,6 +141,7 @@ func NewVirtualMachineController(
 	netConf netconf,
 	netStat netstat,
 	cbtHandler *CBTHandler,
+	pluginStore cache.Store,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -167,6 +168,7 @@ func NewVirtualMachineController(
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
 		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		pluginStore,
 	)
 	if err != nil {
 		return nil, err
@@ -2045,8 +2047,13 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+	pluginsJSON, err := c.serializePlugins()
+	if err != nil {
+		return err
+	}
+	options.PluginsJson = pluginsJSON
 
-	err := client.SyncVirtualMachine(vmi, options)
+	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
 		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}

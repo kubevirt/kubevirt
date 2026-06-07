@@ -673,6 +673,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicySpec":                                         schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref),
 		"kubevirt.io/api/migrations/v1alpha1.MigrationPolicyStatus":                                       schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyStatus(ref),
 		"kubevirt.io/api/migrations/v1alpha1.Selectors":                                                   schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref),
+		"kubevirt.io/api/plugin/v1alpha1.AdmissionReference":                                              schema_kubevirtio_api_plugin_v1alpha1_AdmissionReference(ref),
+		"kubevirt.io/api/plugin/v1alpha1.CELDomainHook":                                                   schema_kubevirtio_api_plugin_v1alpha1_CELDomainHook(ref),
+		"kubevirt.io/api/plugin/v1alpha1.DomainHook":                                                      schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref),
+		"kubevirt.io/api/plugin/v1alpha1.NodeHook":                                                        schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref),
+		"kubevirt.io/api/plugin/v1alpha1.Plugin":                                                          schema_kubevirtio_api_plugin_v1alpha1_Plugin(ref),
+		"kubevirt.io/api/plugin/v1alpha1.PluginList":                                                      schema_kubevirtio_api_plugin_v1alpha1_PluginList(ref),
+		"kubevirt.io/api/plugin/v1alpha1.PluginSpec":                                                      schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref),
+		"kubevirt.io/api/plugin/v1alpha1.PluginStatus":                                                    schema_kubevirtio_api_plugin_v1alpha1_PluginStatus(ref),
+		"kubevirt.io/api/plugin/v1alpha1.SidecarDomainHook":                                               schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachineOpportunisticUpdateStrategy":                         schema_kubevirtio_api_pool_v1alpha1_VirtualMachineOpportunisticUpdateStrategy(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePool":                                                schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolAutohealingStrategy":                             schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolAutohealingStrategy(ref),
@@ -32862,6 +32871,440 @@ func schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref common.ReferenceCal
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_AdmissionReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdmissionReference is a reference to an admission object by name.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the admission object.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_CELDomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"expression": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Expression is the CEL expression applied to the domain XML.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"expression"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DomainHook defines a hook that modifies the libvirt domain XML. Exactly one of cel or sidecar must be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CEL defines a CEL expression that transforms the domain XML.",
+							Ref:         ref("kubevirt.io/api/plugin/v1alpha1.CELDomainHook"),
+						},
+					},
+					"sidecar": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Sidecar defines a sidecar-based hook that transforms the domain XML via a Unix socket.",
+							Ref:         ref("kubevirt.io/api/plugin/v1alpha1.SidecarDomainHook"),
+						},
+					},
+					"condition": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"failureStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Fail", "Ignore"},
+						},
+					},
+					"timeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timeout specifies the maximum duration to wait for the hook to complete.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration", "kubevirt.io/api/plugin/v1alpha1.CELDomainHook", "kubevirt.io/api/plugin/v1alpha1.SidecarDomainHook"},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"socket": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Socket is the path to the Unix socket for hook communication.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"permittedHooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "PermittedHooks lists the VM lifecycle events this hook handles.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+										Enum:    []interface{}{"PostMigrationSource", "PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart", "PreVMStop"},
+									},
+								},
+							},
+						},
+					},
+					"condition": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"failureStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Fail", "Ignore"},
+						},
+					},
+					"timeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timeout specifies the maximum duration to wait for the hook to complete.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+				Required: []string{"socket", "permittedHooks"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_Plugin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Plugin defines a KubeVirt extension that can modify VM domain XML, hook into VM lifecycle events, and reference admission objects.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec defines the plugin's hooks and admission references.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("kubevirt.io/api/plugin/v1alpha1.PluginSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status reflects the observed state of the plugin.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("kubevirt.io/api/plugin/v1alpha1.PluginStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/plugin/v1alpha1.PluginSpec", "kubevirt.io/api/plugin/v1alpha1.PluginStatus"},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_PluginList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.Plugin"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/plugin/v1alpha1.Plugin"},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"condition": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"failureStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FailureStrategy specifies the default behavior when the plugin itself is unhealthy (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable). Individual hooks may override this with their own FailureStrategy.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Fail", "Ignore"},
+						},
+					},
+					"domainHooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "DomainHooks defines hooks that modify the libvirt domain XML. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.DomainHook"),
+									},
+								},
+							},
+						},
+					},
+					"nodeHooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeHooks defines hooks that execute during VM lifecycle events.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.NodeHook"),
+									},
+								},
+							},
+						},
+					},
+					"mutatingAdmissionPolicies": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "MutatingAdmissionPolicies references MutatingAdmissionPolicy objects managed by the plugin.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.AdmissionReference"),
+									},
+								},
+							},
+						},
+					},
+					"validatingAdmissionPolicies": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ValidatingAdmissionPolicies references ValidatingAdmissionPolicy objects managed by the plugin.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.AdmissionReference"),
+									},
+								},
+							},
+						},
+					},
+					"mutatingAdmissionWebhooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "MutatingAdmissionWebhooks references MutatingWebhookConfiguration objects managed by the plugin.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.AdmissionReference"),
+									},
+								},
+							},
+						},
+					},
+					"validatingAdmissionWebhooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ValidatingAdmissionWebhooks references ValidatingWebhookConfiguration objects managed by the plugin.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/plugin/v1alpha1.AdmissionReference"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/plugin/v1alpha1.AdmissionReference", "kubevirt.io/api/plugin/v1alpha1.DomainHook", "kubevirt.io/api/plugin/v1alpha1.NodeHook"},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_PluginStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"socketPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SocketPath is the path to the Unix socket used to communicate with the sidecar.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"socketPath"},
 			},
 		},
 	}

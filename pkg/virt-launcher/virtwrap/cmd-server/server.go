@@ -34,6 +34,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
@@ -92,6 +94,19 @@ func NewLauncher(domainManager virtwrap.DomainManager, options *ServerOptions) *
 		domainManager: domainManager,
 		ServerOptions: options,
 	}
+}
+
+func setPluginsFromOptions(options *cmdv1.VirtualMachineOptions) error {
+	if options == nil || len(options.PluginsJson) == 0 {
+		plugins.SetPlugins(nil)
+		return nil
+	}
+	var pluginList []pluginv1alpha1.Plugin
+	if err := json.Unmarshal(options.PluginsJson, &pluginList); err != nil {
+		return fmt.Errorf("failed to deserialize plugins from options: %w", err)
+	}
+	plugins.SetPlugins(pluginList)
+	return nil
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -197,6 +212,11 @@ func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequ
 	if !response.Success {
 		return response, nil
 	}
+	if err := setPluginsFromOptions(request.Options); err != nil {
+		response.Success = false
+		response.Message = err.Error()
+		return response, nil
+	}
 
 	if err := l.domainManager.PrepareMigrationTarget(vmi, l.allowEmulation, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
@@ -231,6 +251,11 @@ func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
+		return response, nil
+	}
+	if err := setPluginsFromOptions(request.Options); err != nil {
+		response.Success = false
+		response.Message = err.Error()
 		return response, nil
 	}
 

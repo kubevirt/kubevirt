@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/api/backup"
 	"kubevirt.io/api/clone"
 	"kubevirt.io/api/export"
+	"kubevirt.io/api/plugin"
 	"kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot"
 
@@ -60,6 +61,7 @@ const (
 	apiVMSnapshotContents = "virtualmachinesnapshotcontents"
 	apiVMBackups          = "virtualmachinebackups"
 	apiVMBackupTrackers   = "virtualmachinebackuptrackers"
+	apiPlugins            = "plugins"
 	apiVMRestores         = "virtualmachinerestores"
 	apiVMExports          = "virtualmachineexports"
 	apiVMClones           = "virtualmachineclones"
@@ -330,6 +332,17 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					apiVMBackups,
 					apiVMBackupTrackers,
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
+				},
+			},
+			{
+				APIGroups: []string{
+					plugin.GroupName,
+				},
+				Resources: []string{
+					apiPlugins,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",

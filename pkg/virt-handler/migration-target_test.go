@@ -215,6 +215,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
 			migrationTargetPasstRepairHandler,
+			nil,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

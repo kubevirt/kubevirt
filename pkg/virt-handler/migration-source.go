@@ -103,6 +103,7 @@ func NewMigrationSourceController(
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
 		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		nil,
 	)
 	if err != nil {
 		return nil, err

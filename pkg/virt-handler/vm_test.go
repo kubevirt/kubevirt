@@ -205,6 +205,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			&netConfStub{},
 			&netStatStub{},
 			cbtHandler,
+			nil,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

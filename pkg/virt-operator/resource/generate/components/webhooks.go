@@ -13,6 +13,9 @@ import (
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
 
+	"kubevirt.io/api/plugin"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	"kubevirt.io/api/instancetype"
 
 	"kubevirt.io/api/core"
@@ -312,6 +315,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	statusValidatePath := StatusValidatePath
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
+	pluginValidatePath := PluginValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -901,6 +905,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					},
 				},
 			},
+			{
+				Name:                    "plugin-validator.plugin.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{pluginv1alpha1.SchemeGroupVersion.Group},
+						APIVersions: plugin.ApiSupportedWebhookVersions,
+						Resources:   []string{plugin.ResourcePluginPlural},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &pluginValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -982,6 +1011,8 @@ const PodEvictionValidatePath = "/pod-eviction-validate"
 const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
 
 const VMCloneCreateValidatePath = "/vm-clone-validate-create"
+
+const PluginValidatePath = "/plugin-validate"
 
 const VMCloneCreateMutatePath = "/vm-clone-mutate-create"
 

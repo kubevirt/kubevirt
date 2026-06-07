@@ -81,6 +81,7 @@ go_test(
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//pkg/virt-operator/resource/generate/components/validatingadmissionpolicies:go_default_library",
         "//pkg/virt-operator/resource/generate/install:go_default_library",
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
