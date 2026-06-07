@@ -192,19 +192,111 @@ func validatePciAddress(field *k8sfield.Path, idx int, iface v1.Interface) []met
 
 func validatePortConfiguration(field *k8sfield.Path, idx int, iface v1.Interface, network v1.Network) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if network.Pod != nil && iface.Ports != nil {
-		causes = append(causes, validateForwardPortName(field, idx, iface.Ports)...)
-
-		for portIdx, forwardPort := range iface.Ports {
-			causes = append(causes, validateForwardPortNonZero(field, idx, forwardPort, portIdx)...)
-			causes = append(causes, validateForwardPortInRange(field, idx, forwardPort, portIdx)...)
-			causes = append(causes, validateForwardPortProtocol(field, idx, forwardPort, portIdx)...)
+	if network.Pod != nil {
+		if iface.Ports != nil && iface.PortRanges != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(
+					"Cannot define both ports and portRanges on interface %s",
+					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				),
+				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		}
+		if iface.Ports != nil {
+			causes = append(causes, validateForwardPorts(field, idx, iface.Ports)...)
+		}
+		if iface.PortRanges != nil {
+			if iface.Masquerade == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type: metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf(
+						"portRanges are only supported on masquerade interfaces (%s)",
+						field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+					),
+					Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			}
+			causes = append(causes, validateForwardPortRanges(field, idx, iface.PortRanges)...)
 		}
 	}
 	return causes
 }
 
-func validateForwardPortName(field *k8sfield.Path, idx int, ports []v1.Port) []metav1.StatusCause {
+func validateForwardPortRanges(field *k8sfield.Path, idx int, portRanges []v1.PortRange) (causes []metav1.StatusCause) {
+	type protocolInterval struct {
+		start, end int32
+	}
+	byProtocol := map[string][]protocolInterval{}
+	for portRangeIdx, portRange := range portRanges {
+		protocol := portRange.Protocol
+		if protocol != "TCP" && protocol != "UDP" {
+			if protocol == "" {
+				protocol = "TCP"
+			} else {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Unknown protocol, only TCP or UDP allowed",
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("portRanges").Index(portRangeIdx).Child("protocol").String(),
+				})
+			}
+		}
+		if portRange.Start <= 0 || portRange.Start >= 65536 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Start must be a valid port number, 0 < x < 65536",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("portRanges").Index(portRangeIdx).Child("start").String(),
+			})
+		}
+		if portRange.End <= 0 || portRange.End >= 65536 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "End must be a valid port number, 0 < x < 65536",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("portRanges").Index(portRangeIdx).Child("end").String(),
+			})
+		}
+		if portRange.Start > portRange.End {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Start must be less than or equal to end",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("portRanges").Index(portRangeIdx).Child("start").String(),
+			})
+		}
+		byProtocol[protocol] = append(byProtocol[protocol], protocolInterval{portRange.Start, portRange.End})
+	}
+
+	// overlap check: two ranges of the same protocol must not overlap
+	for protocol, intervals := range byProtocol {
+		for i := 0; i < len(intervals); i++ {
+			for j := i + 1; j < len(intervals); j++ {
+				a, b := intervals[i], intervals[j]
+				if a.start <= b.end && b.start <= a.end {
+					causes = append(causes, metav1.StatusCause{
+						Type: metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf(
+							"%s portRanges [%d-%d] and [%d-%d] overlap",
+							protocol, a.start, a.end, b.start, b.end,
+						),
+						Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("portRanges").String(),
+					})
+				}
+			}
+		}
+	}
+	return causes
+}
+
+func validateForwardPorts(field *k8sfield.Path, idx int, ports []v1.Port) (causes []metav1.StatusCause) {
+	causes = append(causes, validateForwardPortNames(field, idx, ports)...)
+	for portIdx, forwardPort := range ports {
+		causes = append(causes, validateForwardPortNonZero(field, idx, forwardPort, portIdx)...)
+		causes = append(causes, validateForwardPortInRange(field, idx, forwardPort, portIdx)...)
+		causes = append(causes, validateForwardPortProtocol(field, idx, forwardPort, portIdx)...)
+	}
+	return causes
+}
+
+func validateForwardPortNames(field *k8sfield.Path, idx int, ports []v1.Port) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	portForwardMap := map[string]struct{}{}
 	for portIdx, forwardPort := range ports {

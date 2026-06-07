@@ -1456,7 +1456,13 @@ type Interface struct {
 	// version: 1alphav1
 	Binding *PluginBinding `json:"binding,omitempty"`
 	// List of ports to be forwarded to the virtual machine.
+	// Mutually exclusive with portRanges.
 	Ports []Port `json:"ports,omitempty"`
+	// List of port ranges to be forwarded to the virtual machine.
+	// Mutually exclusive with ports. Only supported on masquerade interfaces.
+	// +listType=atomic
+	// +optional
+	PortRanges []PortRange `json:"portRanges,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
 	MacAddress string `json:"macAddress,omitempty"`
 	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
@@ -1612,6 +1618,22 @@ type Port struct {
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
 	Port int32 `json:"port"`
+}
+
+// PortRange represents a range of ports to be forwarded to the virtual machine.
+// Default protocol TCP. The start and end fields are mandatory.
+type PortRange struct {
+	// Protocol for the port range. Must be UDP or TCP.
+	// Defaults to "TCP".
+	// +optional
+	Protocol string `json:"protocol,omitempty"`
+	// First port of the range to expose for the virtual machine.
+	// This must be a valid port number, 0 < x < 65536.
+	Start int32 `json:"start"`
+	// Last port of the range to expose for the virtual machine.
+	// This must be a valid port number, 0 < x < 65536.
+	// Must be greater than or equal to start.
+	End int32 `json:"end"`
 }
 
 type AccessCredentialSecretSource struct {

@@ -313,6 +313,125 @@ var _ = Describe("Validating VMI network spec", func() {
 		)
 	})
 
+	When("the interface portRanges is specified", func() {
+		It("should reject when binding method is not masquerade", func() {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+				PortRanges:             []v1.PortRange{{Start: 80, End: 90}},
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "portRanges are only supported on masquerade interfaces (fake.domain.devices.interfaces[0].name)",
+				Field:   "fake.domain.devices.interfaces[0].name",
+			}))
+		})
+
+		It("should reject when portRanges and ports are both set", func() {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Ports:                  []v1.Port{{Port: 22}},
+				PortRanges:             []v1.PortRange{{Start: 80, End: 90}},
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "Cannot define both ports and portRanges on interface fake.domain.devices.interfaces[0].name",
+				Field:   "fake.domain.devices.interfaces[0].name",
+			}))
+		})
+
+		DescribeTable("should reject portRanges with", func(portRanges []v1.PortRange, expectedCauses []metav1.StatusCause) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				PortRanges:             portRanges,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
+		},
+			Entry(
+				"bad protocol",
+				[]v1.PortRange{{Protocol: "SCTP", Start: 80, End: 90}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Unknown protocol, only TCP or UDP allowed",
+					Field:   "fake.domain.devices.interfaces[0].portRanges[0].protocol",
+				}},
+			),
+			Entry(
+				"start port out of range",
+				[]v1.PortRange{{Start: 0, End: 100}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Start must be a valid port number, 0 < x < 65536",
+					Field:   "fake.domain.devices.interfaces[0].portRanges[0].start",
+				}},
+			),
+			Entry(
+				"end port out of range",
+				[]v1.PortRange{{Start: 80, End: 70000}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "End must be a valid port number, 0 < x < 65536",
+					Field:   "fake.domain.devices.interfaces[0].portRanges[0].end",
+				}},
+			),
+			Entry(
+				"start greater than end",
+				[]v1.PortRange{{Start: 100, End: 80}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Start must be less than or equal to end",
+					Field:   "fake.domain.devices.interfaces[0].portRanges[0].start",
+				}},
+			),
+			Entry(
+				"two TCP ranges overlapping",
+				[]v1.PortRange{{Start: 80, End: 200}, {Start: 150, End: 300}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "TCP portRanges [80-200] and [150-300] overlap",
+					Field:   "fake.domain.devices.interfaces[0].portRanges",
+				}},
+			),
+		)
+
+		DescribeTable("should accept portRanges with", func(portRanges []v1.PortRange) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				PortRanges:             portRanges,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(BeEmpty())
+		},
+			Entry("single range", []v1.PortRange{{Start: 80, End: 90}}),
+			Entry("single port (start == end)", []v1.PortRange{{Start: 22, End: 22}}),
+			Entry("two non-overlapping TCP ranges", []v1.PortRange{{Start: 80, End: 100}, {Start: 200, End: 300}}),
+			Entry(
+				"TCP and UDP ranges that overlap (allowed)",
+				[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 200}, {Protocol: "UDP", Start: 150, End: 300}},
+			),
+		)
+	})
+
 	When("the interface DHCP options is specified", func() {
 		DescribeTable("should reject interface DHCP options with", func(dhcpOpts v1.DHCPOptions, expectedCauses []metav1.StatusCause) {
 			spec := &v1.VirtualMachineInstanceSpec{}

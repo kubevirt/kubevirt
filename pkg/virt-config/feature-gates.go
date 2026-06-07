@@ -232,3 +232,7 @@ func (config *ClusterConfig) VMStatsCollectorEnabled() bool {
 func (config *ClusterConfig) OCIExportEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.OCIExport)
 }
+
+func (config *ClusterConfig) PortRangesSpecEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.PortRangesSpec)
+}

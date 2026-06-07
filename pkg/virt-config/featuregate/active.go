@@ -235,6 +235,13 @@ const (
 	//
 	// OCIExport enables exporting VM disks as OCI image layout TAR archives.
 	OCIExport = "OCIExport"
+
+	// Owner: @g-nitti
+	// Alpha: v1.9.0
+	//
+	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
+	// allowing compact specification of contiguous port intervals to forward to the VM guest.
+	PortRangesSpec = "PortRangesSpec"
 )
 
 func init() {
@@ -280,4 +287,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 }

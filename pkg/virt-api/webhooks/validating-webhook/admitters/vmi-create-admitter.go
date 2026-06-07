@@ -238,6 +238,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
 	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
+	causes = append(causes, validatePortRangesSpec(field, spec, config)...)
 
 	return causes
 }
@@ -2143,6 +2144,27 @@ func validateReservedOverheadMemlock(field *k8sfield.Path, spec *v1.VirtualMachi
 		})
 		return causes
 	}
+	return causes
+}
 
+func validatePortRangesSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if len(iface.PortRanges) == 0 {
+			continue
+		}
+		if !config.PortRangesSpecEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(
+					"portRanges is specified on interface %s but the %s feature gate is not enabled",
+					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+					featuregate.PortRangesSpec,
+				),
+				Field: field.Child("domain", "devices", "interfaces").Index(idx).String(),
+			})
+			return causes
+		}
+	}
 	return causes
 }
