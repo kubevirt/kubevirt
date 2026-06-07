@@ -4733,7 +4733,7 @@ var _ = Describe("VirtualMachine", func() {
 					clusterPreferenceInformerStore,
 					controllerrevisionInformerStore,
 					virtClient,
-					virtClient,
+					k8sfake.NewSimpleClientset(),
 					config,
 					controller.recorder,
 				)
@@ -6221,7 +6221,7 @@ var _ = Describe("VirtualMachine", func() {
 						nil,
 						controllerrevisionInformerStore,
 						virtClient,
-						virtClient,
+						k8sfake.NewSimpleClientset(),
 						config,
 						controller.recorder,
 					)
