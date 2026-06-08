@@ -251,6 +251,11 @@ type LibvirtDomainManager struct {
 	hypervisorName            string
 
 	abortWg sync.WaitGroup
+
+	// iommuFD holds the IOMMUFD file descriptor received from the device plugin
+	// via SCM_RIGHTS. A value of -1 means no IOMMUFD FD is available.
+	// See: https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFDAssociate
+	iommuFD int
 }
 
 type pausedVMIs struct {
@@ -322,6 +327,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		hookServer:                         hookServer,
 		hypervisorName:                     hypervisorName,
 		hypervisorDeviceAvailable:          hypervisorDeviceAvailable,
+		iommuFD:                            -1,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1310,6 +1316,23 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.GPUHostDevices = gpuDevices
 		}
 	}
+
+	// Receive IOMMUFD file descriptor from the device plugin if available.
+	// The device plugin creates a one-shot Unix socket and bind-mounts it
+	// into the container at IOMMUFDSocketPath. If present, we receive the
+	// pre-configured FD via SCM_RIGHTS for later use with libvirt.
+	if l.iommuFD == -1 {
+		if _, statErr := os.Stat(IOMMUFDSocketPath); statErr == nil {
+			fd, recvErr := ReceiveIOMMUFD(IOMMUFDSocketPath)
+			if recvErr != nil {
+				logger.Warningf("IOMMUFD socket exists but failed to receive FD: %v", recvErr)
+			} else {
+				l.iommuFD = fd
+				logger.V(3).Infof("Received IOMMUFD file descriptor: %d", fd)
+			}
+		}
+	}
+
 	return c, nil
 }
 
