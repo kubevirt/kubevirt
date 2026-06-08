@@ -10,6 +10,7 @@
 package cli
 
 import (
+	os "os"
 	reflect "reflect"
 	time "time"
 
@@ -579,6 +580,20 @@ func (m *MockVirDomain) DetachDeviceFlags(xml string, flags libvirt.DomainDevice
 func (mr *MockVirDomainMockRecorder) DetachDeviceFlags(xml, flags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachDeviceFlags", reflect.TypeOf((*MockVirDomain)(nil).DetachDeviceFlags), xml, flags)
+}
+
+// FDAssociate mocks base method.
+func (m *MockVirDomain) FDAssociate(name string, files []os.File, flags libvirt.DomainFDAssociateFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FDAssociate", name, files, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FDAssociate indicates an expected call of FDAssociate.
+func (mr *MockVirDomainMockRecorder) FDAssociate(name, files, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FDAssociate", reflect.TypeOf((*MockVirDomain)(nil).FDAssociate), name, files, flags)
 }
 
 // FSFreeze mocks base method.
