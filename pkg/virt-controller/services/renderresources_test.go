@@ -583,6 +583,17 @@ var _ = Describe("Resource pod spec renderer", func() {
 		}))
 	})
 
+	It("WithIOMMUFD option adds IOMMUFD device resource", func() {
+		iommufdResourceKey := kubev1.ResourceName(IOMMUFDDevice)
+		rr = NewResourceRenderer(nil, nil, WithIOMMUFD())
+		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{
+			iommufdResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
+			iommufdResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+	})
+
 	defaultRequest := func() kubev1.ResourceList {
 		return kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("10m"),
