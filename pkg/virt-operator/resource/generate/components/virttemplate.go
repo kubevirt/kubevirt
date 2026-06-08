@@ -34,6 +34,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -134,6 +135,12 @@ func parseBundle() (*VirtTemplateResources, error) {
 }
 
 func (r *VirtTemplateResources) addObject(obj runtime.Object) error {
+	if accessor, ok := obj.(metav1.ObjectMetaAccessor); ok {
+		labels := accessor.GetObjectMeta().GetLabels()
+		delete(labels, v1.ManagedByLabel)
+		accessor.GetObjectMeta().SetLabels(labels)
+	}
+
 	switch typedObj := obj.(type) {
 	case *extv1.CustomResourceDefinition:
 		r.CRDs = append(r.CRDs, typedObj)
