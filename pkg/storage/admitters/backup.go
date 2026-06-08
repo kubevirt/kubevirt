@@ -107,7 +107,7 @@ func (admitter *VMBackupAdmitter) validateSingleBackup(vmBackup *backupv1.Virtua
 		}
 		// Reject if another backup is in progress for the same source
 		if equality.Semantic.DeepEqual(existingBackup.Spec.Source, vmBackup.Spec.Source) &&
-			!cbt.IsBackupDone(existingBackup) {
+			!cbt.IsBackupTerminal(existingBackup) {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("VirtualMachineBackup %q in progress for source", existingBackup.Name),

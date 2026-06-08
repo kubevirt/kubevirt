@@ -231,8 +231,11 @@ type VirtualMachineBackupStatus struct {
 type ConditionType string
 
 const (
-	// ConditionDone indicates the backup was completed
-	ConditionDone ConditionType = "Done"
+	// ConditionComplete indicates the backup completed successfully
+	ConditionComplete ConditionType = "Complete"
+
+	// ConditionFailed indicates the backup has encountered a terminal failure
+	ConditionFailed ConditionType = "Failed"
 
 	// ConditionProgressing indicates the backup is in progress
 	ConditionProgressing ConditionType = "Progressing"
