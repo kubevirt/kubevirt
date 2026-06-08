@@ -69,4 +69,5 @@ type ConverterContext struct {
 	GraceIOVirtualizationEnabled    bool
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
+	IOMMUFDEnabled                  bool
 }
