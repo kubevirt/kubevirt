@@ -3715,6 +3715,34 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with IOMMUFD feature gate", func() {
+			It("should add IOMMUFD device resource when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.IOMMUFDGate)
+				vmi := api.NewMinimalVMI("testvmi")
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resources := pod.Spec.Containers[0].Resources
+				val, ok := resources.Limits[k8sv1.ResourceName(IOMMUFDDevice)]
+				Expect(ok).To(BeTrue())
+				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
+			})
+
+			It("should not add IOMMUFD device resource when feature gate is disabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI("testvmi")
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resources := pod.Spec.Containers[0].Resources
+				_, ok := resources.Limits[k8sv1.ResourceName(IOMMUFDDevice)]
+				Expect(ok).To(BeFalse())
+			})
+		})
+
 		Context("with specified priorityClass", func() {
 			It("should add priorityClass", func() {
 				config, kvStore, svc = configFactory(defaultArch)
