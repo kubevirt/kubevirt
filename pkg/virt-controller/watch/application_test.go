@@ -321,6 +321,7 @@ var _ = Describe("Application", func() {
 			app.clusterConfig = clusterConfig
 			app.reInitChan = make(chan string, 10)
 			app.hasCDI = hasCDIAtInit
+			app.isVirtTemplateDeploymentEnabled = clusterConfig.VirtTemplateDeploymentEnabled()
 
 			app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
