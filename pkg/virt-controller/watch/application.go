@@ -438,7 +438,7 @@ func Execute() {
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
-	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet.DiscoveryClient())
 	if err != nil {
 		golog.Fatalf("Error determining cluster type: %v", err)
 	}
