@@ -11,12 +11,29 @@ message NodeContext {
 }
 
 message ExecuteNodeHookRequest {
-    // hookPoint identifies which lifecycle hook point is being invoked (e.g. "PreVMStart", "PreVMStop")
     string hookPoint = 1;
-    // vmi is the VirtualMachineInstance object encoded as JSON
     bytes vmi = 2;
-    // node_context provides node-level context for the hook
     NodeContext node_context = 3;
 }
 
 message ExecuteNodeHookResponse {}
+
+service DomainHookService {
+    rpc MutateDomain(MutateDomainRequest) returns (MutateDomainResponse);
+}
+
+message SidecarContext {
+    string invocation_context = 1;
+    reserved 2;
+}
+
+message MutateDomainRequest {
+    string domain_type = 1;
+    bytes domain = 2;
+    bytes vmi = 3;
+    SidecarContext sidecar_context = 4;
+}
+
+message MutateDomainResponse {
+    bytes domain = 1;
+}
