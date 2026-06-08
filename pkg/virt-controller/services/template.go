@@ -71,13 +71,15 @@ import (
 )
 
 const (
-	containerDisks   = "container-disks"
-	hotplugDisks     = "hotplug-disks"
-	hookSidecarSocks = "hook-sidecar-sockets"
-	varRun           = "/var/run"
-	virtBinDir       = "virt-bin-share-dir"
-	hotplugDisk      = "hotplug-disk"
-	virtExporter     = "virt-exporter"
+	containerDisks          = "container-disks"
+	hotplugDisks            = "hotplug-disks"
+	hookSidecarSocks        = "hook-sidecar-sockets"
+	pluginSocketsVolumeName = "kubevirt-plugin-sockets"
+	pluginSocketsDir        = "/var/run/kubevirt-plugin"
+	varRun                  = "/var/run"
+	virtBinDir              = "virt-bin-share-dir"
+	hotplugDisk             = "hotplug-disk"
+	virtExporter            = "virt-exporter"
 )
 
 const K8sDevicePrefix = "devices.kubevirt.io"
@@ -920,6 +922,9 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
+	}
+	if t.clusterConfig.PluginsEnabled() {
+		volumeOpts = append(volumeOpts, withPluginSocketVolume())
 	}
 
 	if hasHugePages(vmi) {
