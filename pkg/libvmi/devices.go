@@ -20,7 +20,6 @@
 package libvmi
 
 import (
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -134,7 +133,7 @@ func WithHostDevice(hostDevice v1.HostDevice) Option {
 	}
 }
 
-func WithResourceClaim(claim k8sv1.PodResourceClaim) Option {
+func WithResourceClaim(claim v1.VirtualMachineInstanceResourceClaim) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.ResourceClaims = append(vmi.Spec.ResourceClaims, claim)
 	}

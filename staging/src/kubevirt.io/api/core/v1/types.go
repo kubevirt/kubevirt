@@ -187,7 +187,7 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	// +optional
-	ResourceClaims []k8sv1.PodResourceClaim `json:"resourceClaims,omitempty"`
+	ResourceClaims []VirtualMachineInstanceResourceClaim `json:"resourceClaims,omitempty"`
 	// List of utility volumes that can be mounted to the vmi virt-launcher pod
 	// without having a matching disk in the domain.
 	// Used to collect data for various operational workflows.
@@ -196,6 +196,31 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
+}
+
+type VirtualMachineInstanceResourceClaim struct {
+	// Name uniquely identifies this resource claim inside the VMI.
+	// This field is required and must be a DNS_LABEL.
+	Name string `json:"name"`
+	// ResourceClaimName is the name of a ResourceClaim object in the same
+	// namespace as this VMI.
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimName *string `json:"resourceClaimName,omitempty"`
+	// ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+	// object in the same namespace as this VMI.
+	//
+	// The template name is passed through to the generated virt-launcher Pod
+	// spec. From the Pod spec, the template is used to create a new
+	// ResourceClaim, which is bound to the virt-launcher Pod. When the
+	// virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+	// generated ResourceClaim name is unique and is recorded in
+	// pod.status.resourceClaimStatuses.
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimTemplateName *string `json:"resourceClaimTemplateName,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {

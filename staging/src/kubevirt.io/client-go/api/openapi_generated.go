@@ -602,6 +602,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSetList":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSetSpec":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSetStatus":                                  schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetStatus(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceResourceClaim":                                     schema_kubevirtio_api_core_v1_VirtualMachineInstanceResourceClaim(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceSpec":                                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceStatus":                                            schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec":                                      schema_kubevirtio_api_core_v1_VirtualMachineInstanceTemplateSpec(ref),
@@ -28862,6 +28863,41 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetStatus(ref co
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceResourceClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name uniquely identifies this resource claim inside the VMI. This field is required and must be a DNS_LABEL.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceClaimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this VMI.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceClaimTemplateName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this VMI.\n\nThe template name is passed through to the generated virt-launcher Pod spec. From the Pod spec, the template is used to create a new ResourceClaim, which is bound to the virt-launcher Pod. When the virt-launcher Pod is deleted, the ResourceClaim is also deleted. The generated ResourceClaim name is unique and is recorded in pod.status.resourceClaimStatuses.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -29082,7 +29118,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/api/core/v1.PodResourceClaim"),
+										Ref:     ref("kubevirt.io/api/core/v1.VirtualMachineInstanceResourceClaim"),
 									},
 								},
 							},
@@ -29115,7 +29151,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "kubevirt.io/api/core/v1.AccessCredential", "kubevirt.io/api/core/v1.DomainSpec", "kubevirt.io/api/core/v1.Network", "kubevirt.io/api/core/v1.Probe", "kubevirt.io/api/core/v1.UtilityVolume", "kubevirt.io/api/core/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "kubevirt.io/api/core/v1.AccessCredential", "kubevirt.io/api/core/v1.DomainSpec", "kubevirt.io/api/core/v1.Network", "kubevirt.io/api/core/v1.Probe", "kubevirt.io/api/core/v1.UtilityVolume", "kubevirt.io/api/core/v1.VirtualMachineInstanceResourceClaim", "kubevirt.io/api/core/v1.Volume"},
 	}
 }
 

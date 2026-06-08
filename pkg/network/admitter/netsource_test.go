@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
@@ -93,7 +92,7 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{Name: draSRIOVNetName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 		}
-		spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 		spec.Networks = []v1.Network{
 			{
 				Name: draSRIOVNetName,
@@ -116,7 +115,7 @@ var _ = Describe("Validate network source", func() {
 			spec.Domain.Devices.Interfaces = []v1.Interface{
 				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 			}
-			spec.ResourceClaims = []k8sv1.PodResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
 			spec.Networks = []v1.Network{
 				{
 					Name: "default",

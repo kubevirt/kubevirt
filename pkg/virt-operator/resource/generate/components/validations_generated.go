@@ -7933,23 +7933,16 @@ var CRDsValidation map[string]string = map[string]string{
                     or NetworkDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
-                    description: |-
-                      PodResourceClaim references exactly one ResourceClaim, either directly
-                      or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                      for the pod.
-
-                      It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                      Containers that need access to the ResourceClaim reference it with this name.
                     properties:
                       name:
                         description: |-
-                          Name uniquely identifies this resource claim inside the pod.
-                          This must be a DNS_LABEL.
+                          Name uniquely identifies this resource claim inside the VMI.
+                          This field is required and must be a DNS_LABEL.
                         type: string
                       resourceClaimName:
                         description: |-
                           ResourceClaimName is the name of a ResourceClaim object in the same
-                          namespace as this pod.
+                          namespace as this VMI.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -7957,17 +7950,14 @@ var CRDsValidation map[string]string = map[string]string{
                       resourceClaimTemplateName:
                         description: |-
                           ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                          object in the same namespace as this pod.
+                          object in the same namespace as this VMI.
 
-                          The template will be used to create a new ResourceClaim, which will
-                          be bound to this pod. When this pod is deleted, the ResourceClaim
-                          will also be deleted. The pod name and resource name, along with a
-                          generated component, will be used to form a unique name for the
-                          ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                          This field is immutable and no changes will be made to the
-                          corresponding ResourceClaim by the control plane after creating the
-                          ResourceClaim.
+                          The template name is passed through to the generated virt-launcher Pod
+                          spec. From the Pod spec, the template is used to create a new
+                          ResourceClaim, which is bound to the virt-launcher Pod. When the
+                          virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+                          generated ResourceClaim name is unique and is recorded in
+                          pod.status.resourceClaimStatuses.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -14074,23 +14064,16 @@ var CRDsValidation map[string]string = map[string]string{
             or NetworkDevicesWithDRA is enabled.
             This feature is in alpha.
           items:
-            description: |-
-              PodResourceClaim references exactly one ResourceClaim, either directly
-              or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-              for the pod.
-
-              It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-              Containers that need access to the ResourceClaim reference it with this name.
             properties:
               name:
                 description: |-
-                  Name uniquely identifies this resource claim inside the pod.
-                  This must be a DNS_LABEL.
+                  Name uniquely identifies this resource claim inside the VMI.
+                  This field is required and must be a DNS_LABEL.
                 type: string
               resourceClaimName:
                 description: |-
                   ResourceClaimName is the name of a ResourceClaim object in the same
-                  namespace as this pod.
+                  namespace as this VMI.
 
                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                   be set.
@@ -14098,17 +14081,14 @@ var CRDsValidation map[string]string = map[string]string{
               resourceClaimTemplateName:
                 description: |-
                   ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                  object in the same namespace as this pod.
+                  object in the same namespace as this VMI.
 
-                  The template will be used to create a new ResourceClaim, which will
-                  be bound to this pod. When this pod is deleted, the ResourceClaim
-                  will also be deleted. The pod name and resource name, along with a
-                  generated component, will be used to form a unique name for the
-                  ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                  This field is immutable and no changes will be made to the
-                  corresponding ResourceClaim by the control plane after creating the
-                  ResourceClaim.
+                  The template name is passed through to the generated virt-launcher Pod
+                  spec. From the Pod spec, the template is used to create a new
+                  ResourceClaim, which is bound to the virt-launcher Pod. When the
+                  virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+                  generated ResourceClaim name is unique and is recorded in
+                  pod.status.resourceClaimStatuses.
 
                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                   be set.
@@ -20554,23 +20534,16 @@ var CRDsValidation map[string]string = map[string]string{
                     or NetworkDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
-                    description: |-
-                      PodResourceClaim references exactly one ResourceClaim, either directly
-                      or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                      for the pod.
-
-                      It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                      Containers that need access to the ResourceClaim reference it with this name.
                     properties:
                       name:
                         description: |-
-                          Name uniquely identifies this resource claim inside the pod.
-                          This must be a DNS_LABEL.
+                          Name uniquely identifies this resource claim inside the VMI.
+                          This field is required and must be a DNS_LABEL.
                         type: string
                       resourceClaimName:
                         description: |-
                           ResourceClaimName is the name of a ResourceClaim object in the same
-                          namespace as this pod.
+                          namespace as this VMI.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -20578,17 +20551,14 @@ var CRDsValidation map[string]string = map[string]string{
                       resourceClaimTemplateName:
                         description: |-
                           ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                          object in the same namespace as this pod.
+                          object in the same namespace as this VMI.
 
-                          The template will be used to create a new ResourceClaim, which will
-                          be bound to this pod. When this pod is deleted, the ResourceClaim
-                          will also be deleted. The pod name and resource name, along with a
-                          generated component, will be used to form a unique name for the
-                          ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                          This field is immutable and no changes will be made to the
-                          corresponding ResourceClaim by the control plane after creating the
-                          ResourceClaim.
+                          The template name is passed through to the generated virt-launcher Pod
+                          spec. From the Pod spec, the template is used to create a new
+                          ResourceClaim, which is bound to the virt-launcher Pod. When the
+                          virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+                          generated ResourceClaim name is unique and is recorded in
+                          pod.status.resourceClaimStatuses.
 
                           Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                           be set.
@@ -25715,23 +25685,16 @@ var CRDsValidation map[string]string = map[string]string{
                             or NetworkDevicesWithDRA is enabled.
                             This feature is in alpha.
                           items:
-                            description: |-
-                              PodResourceClaim references exactly one ResourceClaim, either directly
-                              or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                              for the pod.
-
-                              It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                              Containers that need access to the ResourceClaim reference it with this name.
                             properties:
                               name:
                                 description: |-
-                                  Name uniquely identifies this resource claim inside the pod.
-                                  This must be a DNS_LABEL.
+                                  Name uniquely identifies this resource claim inside the VMI.
+                                  This field is required and must be a DNS_LABEL.
                                 type: string
                               resourceClaimName:
                                 description: |-
                                   ResourceClaimName is the name of a ResourceClaim object in the same
-                                  namespace as this pod.
+                                  namespace as this VMI.
 
                                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                   be set.
@@ -25739,17 +25702,14 @@ var CRDsValidation map[string]string = map[string]string{
                               resourceClaimTemplateName:
                                 description: |-
                                   ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                                  object in the same namespace as this pod.
+                                  object in the same namespace as this VMI.
 
-                                  The template will be used to create a new ResourceClaim, which will
-                                  be bound to this pod. When this pod is deleted, the ResourceClaim
-                                  will also be deleted. The pod name and resource name, along with a
-                                  generated component, will be used to form a unique name for the
-                                  ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                                  This field is immutable and no changes will be made to the
-                                  corresponding ResourceClaim by the control plane after creating the
-                                  ResourceClaim.
+                                  The template name is passed through to the generated virt-launcher Pod
+                                  spec. From the Pod spec, the template is used to create a new
+                                  ResourceClaim, which is bound to the virt-launcher Pod. When the
+                                  virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+                                  generated ResourceClaim name is unique and is recorded in
+                                  pod.status.resourceClaimStatuses.
 
                                   Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                   be set.
@@ -31338,23 +31298,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 or NetworkDevicesWithDRA is enabled.
                                 This feature is in alpha.
                               items:
-                                description: |-
-                                  PodResourceClaim references exactly one ResourceClaim, either directly
-                                  or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                                  for the pod.
-
-                                  It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                                  Containers that need access to the ResourceClaim reference it with this name.
                                 properties:
                                   name:
                                     description: |-
-                                      Name uniquely identifies this resource claim inside the pod.
-                                      This must be a DNS_LABEL.
+                                      Name uniquely identifies this resource claim inside the VMI.
+                                      This field is required and must be a DNS_LABEL.
                                     type: string
                                   resourceClaimName:
                                     description: |-
                                       ResourceClaimName is the name of a ResourceClaim object in the same
-                                      namespace as this pod.
+                                      namespace as this VMI.
 
                                       Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                       be set.
@@ -31362,17 +31315,14 @@ var CRDsValidation map[string]string = map[string]string{
                                   resourceClaimTemplateName:
                                     description: |-
                                       ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                                      object in the same namespace as this pod.
+                                      object in the same namespace as this VMI.
 
-                                      The template will be used to create a new ResourceClaim, which will
-                                      be bound to this pod. When this pod is deleted, the ResourceClaim
-                                      will also be deleted. The pod name and resource name, along with a
-                                      generated component, will be used to form a unique name for the
-                                      ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
-
-                                      This field is immutable and no changes will be made to the
-                                      corresponding ResourceClaim by the control plane after creating the
-                                      ResourceClaim.
+                                      The template name is passed through to the generated virt-launcher Pod
+                                      spec. From the Pod spec, the template is used to create a new
+                                      ResourceClaim, which is bound to the virt-launcher Pod. When the
+                                      virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+                                      generated ResourceClaim name is unique and is recorded in
+                                      pod.status.resourceClaimStatuses.
 
                                       Exactly one of ResourceClaimName and ResourceClaimTemplateName must
                                       be set.

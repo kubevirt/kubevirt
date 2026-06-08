@@ -22,8 +22,6 @@ package dra
 import (
 	"fmt"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -78,7 +76,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 	return hostDevices, nil
 }
 
-func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
+func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []v1.VirtualMachineInstanceResourceClaim) (*api.HostDevice, error) {
 	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == "" || gpu.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("GPU %s has incomplete ClaimRequest", gpu.Name)
 	}
