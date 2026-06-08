@@ -37,6 +37,8 @@ import (
 
 	"libvirt.org/go/libvirt"
 
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -220,7 +222,8 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, _, err := plugins.ApplyDomainHooks(pluginList, vmi, &dom.Spec)
+		updatedSpec, _, err := plugins.ApplyDomainHooks(pluginList, vmi, &dom.Spec,
+			pluginv1alpha1.InvocationContextMigrationTarget)
 		if err != nil {
 			return fmt.Errorf("applying plugin domain hooks failed: %v", err)
 		}
