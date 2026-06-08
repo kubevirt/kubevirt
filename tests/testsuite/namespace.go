@@ -34,11 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/flags"
@@ -136,18 +134,9 @@ func CleanNamespaces() {
 		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error()).To(Succeed())
 
 		// Remove all VMIs
+		vmiGVR := schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstances"}
 		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
-		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, vmi := range vmis.Items {
-			if controller.HasFinalizer(&vmi, v1.DeprecatedVirtualMachineInstanceFinalizer) || controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
-				Expect(err).To(Or(
-					Not(HaveOccurred()),
-					MatchError(errors.IsNotFound, "errors.IsNotFound"),
-				))
-			}
-		}
+		Expect(stripFinalizersFromGVR(vmiGVR, namespace)).To(Succeed())
 
 		// Remove all Pods
 		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
@@ -217,18 +206,9 @@ func CleanNamespaces() {
 		Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error()).To(Succeed())
 
 		// Remove all Migration Objects
+		migrationGVR := schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstancemigrations"}
 		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error()).To(Succeed())
-		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, migration := range migrations.Items {
-			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
-				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(context.Background(), migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
-				Expect(err).To(Or(
-					Not(HaveOccurred()),
-					MatchError(errors.IsNotFound, "errors.IsNotFound"),
-				))
-			}
-		}
+		Expect(stripFinalizersFromGVR(migrationGVR, namespace)).To(Succeed())
 		// Remove all NetworkAttachmentDefinitions
 		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).To(Or(
@@ -281,6 +261,19 @@ func CleanNamespaces() {
 		// Remove vmexports
 		Expect(virtCli.VirtualMachineExport(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
+		// Remove VirtualMachineTemplateRequests and strip finalizers
+		for _, version := range []string{"v1alpha1", "v1beta1"} {
+			vmtrGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: version, Resource: "virtualmachinetemplaterequests"}
+			Expect(removeAllGroupVersionResourceFromNamespace(vmtrGVR, namespace)).To(Succeed())
+			Expect(stripFinalizersFromGVR(vmtrGVR, namespace)).To(Succeed())
+		}
+
+		// Remove VirtualMachineTemplates
+		for _, version := range []string{"v1alpha1", "v1beta1"} {
+			vmtGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: version, Resource: "virtualmachinetemplates"}
+			Expect(removeAllGroupVersionResourceFromNamespace(vmtGVR, namespace)).To(Succeed())
+		}
+
 	}
 }
 
@@ -321,6 +314,26 @@ func removeAllGroupVersionResourceFromNamespace(groupVersionResource schema.Grou
 		err = virtCli.DynamicClient().Resource(groupVersionResource).Namespace(namespace).Delete(context.Background(), r.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func stripFinalizersFromGVR(gvr schema.GroupVersionResource, namespace string) error {
+	virtCli := kubevirt.Client()
+	list, err := virtCli.DynamicClient().Resource(gvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, item := range list.Items {
+		if len(item.GetFinalizers()) > 0 {
+			_, err := virtCli.DynamicClient().Resource(gvr).Namespace(namespace).Patch(context.Background(), item.GetName(), types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 	return nil
