@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "validatingadmissionpolicy_handler.go",
         "validatingadmissionpolicy_plugin.go",
+        "validatingadmissionpolicy_sidecar.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies",
     visibility = ["//visibility:public"],
