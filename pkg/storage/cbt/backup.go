@@ -430,7 +430,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 	logger := log.Log.With("VirtualMachineBackup", backup.Name)
 	backupDeleting := isBackupDeleting(backup)
 	// If backup is done and not being deleted, nothing to do
-	if IsBackupDone(backup) {
+	if IsBackupTerminal(backup) {
 		if !backupDeleting {
 			logger.V(4).Info("Backup is already done, skipping reconciliation")
 			return nil
@@ -890,13 +890,13 @@ func (ctrl *VMBackupController) resolveCompletion(backup *backupv1.VirtualMachin
 	if status.BackupMsg != nil {
 		message := fmt.Sprintf(backupCompletedWithWarningMsg, *status.BackupMsg)
 		log.Log.Object(backup).Info(message)
-		setDoneWithWarning(backup, message)
+		setCompleteWithWarning(backup, message)
 		ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupCompletedWithWarningEvent, message)
 		return
 	}
 
 	log.Log.Object(backup).Info(backupCompleted)
-	setDone(backup)
+	setComplete(backup)
 	ctrl.recorder.Eventf(backup, corev1.EventTypeNormal, backupCompletedEvent, backupCompleted)
 }
 
@@ -989,8 +989,16 @@ func isBackupProgressing(backup *backupv1.VirtualMachineBackup) bool {
 	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionProgressing))
 }
 
-func IsBackupDone(backup *backupv1.VirtualMachineBackup) bool {
-	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionDone))
+func isBackupComplete(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionComplete))
+}
+
+func isBackupFailed(backup *backupv1.VirtualMachineBackup) bool {
+	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionFailed))
+}
+
+func IsBackupTerminal(backup *backupv1.VirtualMachineBackup) bool {
+	return isBackupComplete(backup) || isBackupFailed(backup)
 }
 
 func isBackupAborting(backup *backupv1.VirtualMachineBackup) bool {
@@ -1025,10 +1033,6 @@ func setProgressing(backup *backupv1.VirtualMachineBackup) {
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
 		Reason: "Initiated", Message: backupInProgress,
 	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionDone), Status: metav1.ConditionFalse,
-		Reason: "Initiated", Message: backupInProgress,
-	})
 }
 
 func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBackup, message string) {
@@ -1048,15 +1052,15 @@ func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBacku
 }
 
 func (ctrl *VMBackupController) setFailed(backup *backupv1.VirtualMachineBackup, reason string) {
-	markDone(backup, "Failed", fmt.Sprintf(backupFailed, reason))
+	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+		Type: string(backupv1.ConditionFailed), Status: metav1.ConditionTrue,
+		Reason: "Failed", Message: fmt.Sprintf(backupFailed, reason),
+	})
+	markTerminal(backup, "Failed", fmt.Sprintf(backupFailed, reason))
 	ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupFailedEvent, reason)
 }
 
-func markDone(backup *backupv1.VirtualMachineBackup, reason, message string) {
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionDone), Status: metav1.ConditionTrue,
-		Reason: reason, Message: message,
-	})
+func markTerminal(backup *backupv1.VirtualMachineBackup, reason, message string) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionFalse,
 		Reason: reason, Message: message,
@@ -1069,10 +1073,18 @@ func markDone(backup *backupv1.VirtualMachineBackup, reason, message string) {
 	}
 }
 
-func setDone(backup *backupv1.VirtualMachineBackup) {
-	markDone(backup, "Completed", backupCompleted)
+func setComplete(backup *backupv1.VirtualMachineBackup) {
+	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+		Type: string(backupv1.ConditionComplete), Status: metav1.ConditionTrue,
+		Reason: "Completed", Message: backupCompleted,
+	})
+	markTerminal(backup, "Completed", backupCompleted)
 }
 
-func setDoneWithWarning(backup *backupv1.VirtualMachineBackup, message string) {
-	markDone(backup, "CompletedWithWarning", message)
+func setCompleteWithWarning(backup *backupv1.VirtualMachineBackup, message string) {
+	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+		Type: string(backupv1.ConditionComplete), Status: metav1.ConditionTrue,
+		Reason: "CompletedWithWarning", Message: message,
+	})
+	markTerminal(backup, "CompletedWithWarning", message)
 }
