@@ -354,6 +354,11 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
+				IPv6: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+				},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 			},
 			&nmstate.Interface{
 				Name:       "eth0",
@@ -367,6 +372,13 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
+					}},
+				},
+				IPv6: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        "2001::1",
+						PrefixLen: 64,
 					}},
 				},
 			},
@@ -433,6 +445,10 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 443-444 
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
 				},
+				IPv6: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+				},
 			},
 			&nmstate.Interface{
 				Name:       "eth0",
@@ -446,6 +462,13 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 443-444 
 					Address: []nmstate.IPAddress{{
 						IP:        "10.222.222.1",
 						PrefixLen: 30,
+					}},
+				},
+				IPv6: nmstate.IP{
+					Enabled: pointer.P(true),
+					Address: []nmstate.IPAddress{{
+						IP:        "2001::1",
+						PrefixLen: 64,
 					}},
 				},
 			},
