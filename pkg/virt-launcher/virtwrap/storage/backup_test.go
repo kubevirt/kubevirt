@@ -966,6 +966,37 @@ var _ = Describe("Backup", func() {
 			Expect(disksWithoutBitmap[0]).To(Equal("vda"))
 		})
 
+		It("should treat inconsistent bitmap as absent", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			queryBitmaps = func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
+				return map[string][]qmpBitmapInfo{
+					"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": {
+						{Name: checkpointName, Inconsistent: true},
+					},
+				}, nil
+			}
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(BeEmpty())
+			Expect(disksWithoutBitmap).To(HaveLen(1))
+			Expect(disksWithoutBitmap[0]).To(Equal("vda"))
+		})
+
 		It("should find multiple disks with checkpoint bitmap", func() {
 			domainXML := `<domain>
 				<devices>
