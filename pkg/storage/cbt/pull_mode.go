@@ -344,10 +344,6 @@ func setExportInitiated(backup *backupv1.VirtualMachineBackup) {
 		Type: string(backupv1.ConditionExportReady), Status: metav1.ConditionFalse,
 		Reason: "ExportInitiated", Message: backupExportInitiated,
 	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionDone), Status: metav1.ConditionFalse,
-		Reason: "ExportInitiated", Message: backupExportInitiated,
-	})
 }
 
 func setExportReady(backup *backupv1.VirtualMachineBackup) {
@@ -361,10 +357,6 @@ func setExportReady(backup *backupv1.VirtualMachineBackup) {
 	})
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionExportReady), Status: metav1.ConditionTrue,
-		Reason: "ExportReady", Message: backupExportReady,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionDone), Status: metav1.ConditionFalse,
 		Reason: "ExportReady", Message: backupExportReady,
 	})
 }
