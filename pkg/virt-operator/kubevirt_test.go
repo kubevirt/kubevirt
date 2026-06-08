@@ -1221,10 +1221,6 @@ func (k *KubeVirtTestData) generateRandomResources() int {
 	return len(all)
 }
 
-func enableTemplateFeatureGate(kv *v1.KubeVirt) {
-	enableFeatureGate(kv, featuregate.Template)
-}
-
 func enableFeatureGate(kv *v1.KubeVirt, fg string) {
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
@@ -1864,7 +1860,6 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 			ImageTag:      version,
 		},
 	}
-	enableTemplateFeatureGate(kv)
 	enableContainerPathVolumesFeatureGate(kv)
 	return util.GetTargetConfigFromKVWithEnvVarManager(kv, k.mockEnvVarManager)
 }
@@ -1904,7 +1899,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					ObservedGeneration: pointer.P(int64(1)),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			// Add kubevirt deployment and mark everything as ready
 			kvTestData.addKubeVirt(kv)
@@ -1938,7 +1932,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Phase: v1.KubeVirtPhaseDeleted,
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kv.DeletionTimestamp = now()
 			util.UpdateConditionsDeleting(kv)
@@ -1977,7 +1970,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					ObservedGeneration: pointer.P(int64(1)),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 
 			// create all resources which should already exist
@@ -2021,7 +2013,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					ObservedGeneration: pointer.P(int64(1)),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2067,7 +2058,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2139,7 +2129,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2163,12 +2152,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 		})
 
-		It("should advance ObservedDeploymentID only once all pods are ready when toggling an optional feature gate", func() {
+		It("should advance ObservedDeploymentID only once all pods are ready when enabling virt-template", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			// Start with KubeVirt deployed without any optional feature gates.
+			// Start with KubeVirt deployed with virt-template disabled.
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-install",
@@ -2182,6 +2171,9 @@ var _ = Describe("KubeVirt Operator", func() {
 						CommonInstancetypesDeployment: &v1.CommonInstancetypesDeployment{
 							Enabled: pointer.P(false),
 						},
+						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+							Enabled: pointer.P(false),
+						},
 					},
 				},
 				Status: v1.KubeVirtStatus{
@@ -2191,28 +2183,26 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			oldConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
-			oldConfig.SetTargetDeploymentConfig(kv)
-			oldConfig.SetObservedDeploymentConfig(kv)
+			Expect(oldConfig.SetTargetDeploymentConfig(kv)).To(Succeed())
+			Expect(oldConfig.SetObservedDeploymentConfig(kv)).To(Succeed())
 			util.UpdateConditionsCreated(kv)
 			util.UpdateConditionsAvailable(kv)
 
-			// Toggle the Template feature gate — changes TargetDeploymentID but not version/registry.
-			enableTemplateFeatureGate(kv)
+			// Save a copy before toggling -- used below to skip virt-template
+			// pods in the first cycle (simulating them still starting).
+			kvNoTemplate := kv.DeepCopy()
+
+			// Enable virt-template - changes TargetDeploymentID but not version/registry.
+			kv.Spec.Configuration.VirtTemplateDeployment.Enabled = pointer.P(true)
 			initialObservedID := kv.Status.ObservedDeploymentID
-
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
-
-			// kvNoFG: a minimal KV without the Template FG, used to restrict
-			// makeDeploymentsReady and addPodsWithOptionalPodDisruptionBudgets to
-			// non-virt-template components only (simulating pods still starting).
-			kvNoFG := &v1.KubeVirt{}
 
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
 			kvTestData.addInstallStrategy(newConfig)
 			kvTestData.addAll(newConfig, kv)
-			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kvNoFG)
-			kvTestData.makeDeploymentsReady(kvNoFG)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kvNoTemplate)
+			kvTestData.makeDeploymentsReady(kvNoTemplate)
 			kvTestData.makeHandlerReady()
 
 			kvTestData.fakeNamespaceModificationEvent()
@@ -2270,7 +2260,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					ObservedGeneration: pointer.P(int64(1)),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2336,7 +2325,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					ObservedGeneration: pointer.P(int64(1)),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2384,7 +2372,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: "v0.0.0-master+$Format:%h$",
 				},
 			}
-			enableTemplateFeatureGate(kv1)
 
 			kv2 := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2394,7 +2381,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{},
 			}
-			enableTemplateFeatureGate(kv2)
 
 			kubecontroller.SetLatestApiVersionAnnotation(kv1)
 			util.UpdateConditionsCreated(kv1)
@@ -2432,7 +2418,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2549,7 +2534,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 
 			// create all resources which should already exist
@@ -2679,7 +2663,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 
 			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, util.GetTargetConfigFromKV(kv))
@@ -2718,7 +2701,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 
 			job, err := kvTestData.controller.generateInstallStrategyJob(kv.Spec.Infra, util.GetTargetConfigFromKV(kv))
@@ -2749,7 +2731,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Namespace: NAMESPACE,
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
@@ -2818,7 +2799,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{"foregroundDeleteKubeVirt"},
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
@@ -2866,7 +2846,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -2938,7 +2917,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -3009,7 +2987,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -3121,7 +3098,6 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 				}
-				enableTemplateFeatureGate(kv)
 				enableContainerPathVolumesFeatureGate(kv)
 
 				kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -3188,7 +3164,6 @@ var _ = Describe("KubeVirt Operator", func() {
 						Namespace: NAMESPACE,
 					},
 				}
-				enableTemplateFeatureGate(kv)
 				enableContainerPathVolumesFeatureGate(kv)
 
 				kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -3278,7 +3253,6 @@ var _ = Describe("KubeVirt Operator", func() {
 						OperatorVersion: version.Get().String(),
 					},
 				}
-				enableTemplateFeatureGate(kv)
 				enableContainerPathVolumesFeatureGate(kv)
 				customConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -3464,6 +3438,13 @@ var _ = Describe("KubeVirt Operator", func() {
 				exportProxyDeployment.ObjectMeta.Generation = 123
 				handlerDaemonset.ObjectMeta.Generation = 123
 
+				virtTemplateResources, err := components.NewVirtTemplateResources(customConfig)
+				Expect(err).ToNot(HaveOccurred())
+				for i := range virtTemplateResources.Deployments {
+					virtTemplateResources.Deployments[i].ObjectMeta.Generation = 123
+					kvTestData.addDeployment(virtTemplateResources.Deployments[i], kv)
+				}
+
 				kvTestData.addDeployment(apiDeployment, kv)
 				kvTestData.addDeployment(controllerDeployment, kv)
 				kvTestData.addDeployment(exportProxyDeployment, kv)
@@ -3525,7 +3506,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -3599,7 +3579,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -3688,7 +3667,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					OperatorVersion: version.Get().String(),
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
@@ -3732,7 +3710,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Namespace: NAMESPACE,
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kv.DeletionTimestamp = now()
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -3775,7 +3752,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Namespace: NAMESPACE,
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 
 			kv.DeletionTimestamp = now()
@@ -3877,7 +3853,8 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.ContainerPathVolumesGate},
+							FeatureGates:         []string{featuregate.ContainerPathVolumesGate},
+							DisabledFeatureGates: []string{featuregate.Template},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 							Enabled: pointer.P(true),
@@ -3893,7 +3870,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.Template, featuregate.ContainerPathVolumesGate},
+							FeatureGates: []string{featuregate.ContainerPathVolumesGate},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 							Enabled: pointer.P(false),
@@ -3919,7 +3896,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					},
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -3976,7 +3952,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					},
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -4038,7 +4013,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Namespace: NAMESPACE,
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			// ContainerPathVolumes NOT enabled
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -4074,16 +4048,13 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
 			// Create new KV with ContainerPathVolumes disabled
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
-			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.Template},
-			}
+			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 
 			kvTestData.deleteFromCache = true
@@ -4123,7 +4094,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			// ContainerPathVolumes NOT enabled
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -4175,7 +4145,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 			}
-			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
