@@ -2350,6 +2350,23 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("virt-template deployment", func() {
+		var fgDisabled bool
+
+		BeforeEach(func() {
+			fgDisabled = !checks.HasFeature(featuregate.Template)
+			if fgDisabled {
+				kvconfig.EnableFeatureGate(featuregate.Template)
+			}
+		})
+
+		AfterEach(func() {
+			if fgDisabled {
+				kvconfig.DisableFeatureGate(featuregate.Template)
+			} else {
+				kvconfig.EnableFeatureGate(featuregate.Template)
+			}
+		})
+
 		setVirtTemplateDeploymentEnabled := func(enabled bool) {
 			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 			kv.Spec.Configuration.VirtTemplateDeployment = &v1.VirtTemplateDeployment{
@@ -2361,9 +2378,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// Note: virt-template requires the Snapshot feature gate for full functionality,
 		// but these tests only verify deployment/removal behavior.
 		DescribeTable("should deploy and remove virt-template", func(setup func(), enable func(), disable func()) {
-			if setup != nil {
-				setup()
-			}
+			setup()
 
 			By("Ensuring virt-template deployments do not exist initially")
 			eventuallyVirtTemplateDeploymentsNotFound()
@@ -2381,15 +2396,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			eventuallyVirtTemplateDeploymentsNotFound()
 		},
 			Entry("when feature gate is toggled",
-				nil,
+				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
 				func() { kvconfig.EnableFeatureGate(featuregate.Template) },
 				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
 			),
 			Entry("when VirtTemplateDeployment.Enabled is toggled",
-				func() {
-					setVirtTemplateDeploymentEnabled(false)
-					kvconfig.EnableFeatureGate(featuregate.Template)
-				},
+				func() { setVirtTemplateDeploymentEnabled(false) },
 				func() { setVirtTemplateDeploymentEnabled(true) },
 				func() { setVirtTemplateDeploymentEnabled(false) },
 			),

@@ -51,7 +51,8 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	ociOnlyConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{featuregate.OCIExport},
+			FeatureGates:         []string{featuregate.OCIExport},
+			DisabledFeatureGates: []string{featuregate.Template},
 		},
 	})
 	templateOnlyConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
