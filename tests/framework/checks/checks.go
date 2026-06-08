@@ -111,7 +111,7 @@ func HasAtLeastTwoNodes() bool {
 func IsOpenShift() bool {
 	virtClient := kubevirt.Client()
 
-	isOpenShift, err := cluster.IsOnOpenShift(virtClient)
+	isOpenShift, err := cluster.IsOnOpenShift(virtClient.DiscoveryClient())
 	if err != nil {
 		fmt.Printf("ERROR: Can not determine cluster type %v\n", err)
 		panic(err)

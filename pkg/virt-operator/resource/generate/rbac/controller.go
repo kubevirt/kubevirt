@@ -35,12 +35,12 @@ import (
 	"kubevirt.io/api/migrations"
 )
 
-func GetAllController(namespace string, includeNADRules bool) []runtime.Object {
+func GetAllController(namespace string, includeNADRules bool, onOpenShift bool) []runtime.Object {
 	return []runtime.Object{
 		newControllerServiceAccount(namespace),
 		newControllerClusterRole(includeNADRules),
 		newControllerClusterRoleBinding(namespace),
-		newControllerRole(namespace),
+		newControllerRole(namespace, onOpenShift),
 		newControllerRoleBinding(namespace),
 	}
 }
@@ -61,7 +61,65 @@ func newControllerServiceAccount(namespace string) *corev1.ServiceAccount {
 	}
 }
 
-func newControllerRole(namespace string) *rbacv1.Role {
+func newControllerRole(namespace string, onOpenShift bool) *rbacv1.Role {
+	var rules []rbacv1.PolicyRule
+
+	if onOpenShift {
+		rules = append(rules, rbacv1.PolicyRule{
+			APIGroups: []string{
+				GroupNameRoute,
+			},
+			Resources: []string{
+				"routes",
+			},
+			Verbs: []string{
+				"list",
+				"get",
+				"watch",
+			},
+		})
+	}
+
+	rules = append(rules,
+		rbacv1.PolicyRule{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"secrets",
+			},
+			Verbs: []string{
+				"list",
+				"get",
+				"watch",
+			},
+		},
+		rbacv1.PolicyRule{
+			APIGroups: []string{
+				"networking.k8s.io",
+			},
+			Resources: []string{
+				"ingresses",
+			},
+			Verbs: []string{
+				"list",
+				"get",
+				"watch",
+			},
+		},
+		rbacv1.PolicyRule{
+			APIGroups: []string{
+				"coordination.k8s.io",
+			},
+			Resources: []string{
+				"leases",
+			},
+			Verbs: []string{
+				"get", "list", "watch", "delete", "update", "create", "patch",
+			},
+		},
+	)
+
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: VersionNamev1,
@@ -74,58 +132,7 @@ func newControllerRole(namespace string) *rbacv1.Role {
 				virtv1.AppLabel: "",
 			},
 		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{
-					GroupNameRoute,
-				},
-				Resources: []string{
-					"routes",
-				},
-				Verbs: []string{
-					"list",
-					"get",
-					"watch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"secrets",
-				},
-				Verbs: []string{
-					"list",
-					"get",
-					"watch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"networking.k8s.io",
-				},
-				Resources: []string{
-					"ingresses",
-				},
-				Verbs: []string{
-					"list",
-					"get",
-					"watch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"coordination.k8s.io",
-				},
-				Resources: []string{
-					"leases",
-				},
-				Verbs: []string{
-					"get", "list", "watch", "delete", "update", "create", "patch",
-				},
-			},
-		},
+		Rules: rules,
 	}
 }
 

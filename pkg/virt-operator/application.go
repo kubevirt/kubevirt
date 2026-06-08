@@ -251,7 +251,7 @@ func Execute() {
 		Leases:                   app.informerFactory.Leases(),
 	}
 
-	onOpenShift, err := clusterutil.IsOnOpenShift(app.virtClient)
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.virtClient.DiscoveryClient())
 	if err != nil {
 		golog.Fatalf("Error determining cluster type: %v", err)
 	}
