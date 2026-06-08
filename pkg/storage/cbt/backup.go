@@ -552,11 +552,9 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 }
 
 func (ctrl *VMBackupController) handleBackupInitiation(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker, logger *log.FilteredLogger) error {
-	backup, err := ctrl.addBackupFinalizer(backup)
-	if err != nil {
-		return fmt.Errorf("failed to add finalizer: %w", err)
+	if err := ctrl.addBackupFinalizer(backup); err != nil {
+		return err
 	}
-
 	if err := ctrl.updateSourceBackupInProgress(vmi, backup.Name, backup.CreationTimestamp); err != nil {
 		return fmt.Errorf("failed to update source backup in progress: %w", err)
 	}
@@ -650,9 +648,9 @@ func generateFinalizerPatch(test, replace []string) ([]byte, error) {
 	).GeneratePayload()
 }
 
-func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachineBackup) (*backupv1.VirtualMachineBackup, error) {
+func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachineBackup) error {
 	if controller.HasFinalizer(backup, vmBackupFinalizer) {
-		return backup, nil
+		return nil
 	}
 
 	cpy := backup.DeepCopy()
@@ -660,10 +658,15 @@ func (ctrl *VMBackupController) addBackupFinalizer(backup *backupv1.VirtualMachi
 
 	patchBytes, err := generateFinalizerPatch(backup.Finalizers, cpy.Finalizers)
 	if err != nil {
-		return backup, err
+		return err
 	}
 
-	return ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	patched, err := ctrl.client.VirtualMachineBackup(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to add finalizer: %w", err)
+	}
+	patched.DeepCopyInto(backup)
+	return nil
 }
 
 func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMachineBackup) error {
