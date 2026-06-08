@@ -415,6 +415,13 @@ oci_push(
 )
 
 oci_push(
+    name = "push-test-domain-hook-sidecar",
+    testonly = True,
+    image = "//cmd/plugin-sidecars/test-domain-hook:test-domain-hook-sidecar-image",
+    repository = "quay.io/kubevirt/test-domain-hook-sidecar",
+)
+
+oci_push(
     name = "push-winrmcli",
     image = "//images/winrmcli:winrmcli-image",
     repository = "quay.io/kubevirt/winrmcli",
