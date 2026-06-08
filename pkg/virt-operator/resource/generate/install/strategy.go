@@ -638,6 +638,12 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginWarningAdmissionPolicyBinding())
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginWarningAdmissionPolicy())
 
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewSidecarSubPathValidatingAdmissionPolicy())
+
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginSocketPathValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginSocketPathValidatingAdmissionPolicy())
+
 	instancetypes, err := components.NewClusterInstancetypes()
 	if err != nil {
 		return nil, fmt.Errorf("error generating instancetypes for environment %v", err)

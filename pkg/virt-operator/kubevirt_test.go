@@ -92,8 +92,8 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 100 + virtTemplateResourceCount
-	patchCount    = 68 + virtTemplatePatchCount
+	resourceCount = 104 + virtTemplateResourceCount
+	patchCount    = 72 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -1406,6 +1406,8 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, vap.NewHandlerV1ValidatingAdmissionPolicy(userName), vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
 	all = append(all, vap.NewPluginValidatingAdmissionPolicy(), vap.NewPluginValidatingAdmissionPolicyBinding())
 	all = append(all, vap.NewPluginWarningAdmissionPolicy(), vap.NewPluginWarningAdmissionPolicyBinding())
+	all = append(all, vap.NewSidecarSubPathValidatingAdmissionPolicy(), vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
+	all = append(all, vap.NewPluginSocketPathValidatingAdmissionPolicy(), vap.NewPluginSocketPathValidatingAdmissionPolicyBinding())
 
 	if config.VirtTemplateDeploymentEnabled() {
 		resources, err := components.NewVirtTemplateResources(config)
