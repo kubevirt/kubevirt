@@ -73,9 +73,7 @@ func pluginToUnstructured(plugin *pluginv1alpha1.Plugin) map[string]interface{} 
 	return obj
 }
 
-func evaluatePolicy(policy *admissionregistrationv1.ValidatingAdmissionPolicy, plugin *pluginv1alpha1.Plugin) error {
-	obj := pluginToUnstructured(plugin)
-
+func evaluatePolicy(policy *admissionregistrationv1.ValidatingAdmissionPolicy, obj map[string]interface{}) error {
 	vars := map[string]interface{}{}
 	for _, v := range policy.Spec.Variables {
 		val := evalCELValue(v.Expression, obj, vars)
@@ -95,11 +93,11 @@ func evaluatePolicy(policy *admissionregistrationv1.ValidatingAdmissionPolicy, p
 }
 
 func admitPlugin(plugin *pluginv1alpha1.Plugin) error {
-	return evaluatePolicy(vap.NewPluginValidatingAdmissionPolicy(), plugin)
+	return evaluatePolicy(vap.NewPluginValidatingAdmissionPolicy(), pluginToUnstructured(plugin))
 }
 
 func warnPlugin(plugin *pluginv1alpha1.Plugin) error {
-	return evaluatePolicy(vap.NewPluginWarningAdmissionPolicy(), plugin)
+	return evaluatePolicy(vap.NewPluginWarningAdmissionPolicy(), pluginToUnstructured(plugin))
 }
 
 func generateCELDomainPlugin(expression, condition string) *pluginv1alpha1.Plugin {

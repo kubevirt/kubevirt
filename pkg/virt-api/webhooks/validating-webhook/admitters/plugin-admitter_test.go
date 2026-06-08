@@ -192,6 +192,39 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		resp := admit(p)
 		Expect(resp.Allowed).To(BeTrue())
 	})
+
+	Context("sidecar socketPath validation", func() {
+		It("should accept a valid sidecar socketPath", func() {
+			p := newMinimalPlugin()
+			p.Name = "my-plugin"
+			p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
+				Sidecar: &pluginv1alpha1.SidecarDomainHook{
+					SocketPath: "/var/run/kubevirt-plugin/my-plugin/hook.sock",
+				},
+			}}
+			resp := admit(p)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		DescribeTable("should reject socketPath with unclean path segments", func(socketPath string) {
+			p := newMinimalPlugin()
+			p.Name = "my-plugin"
+			p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
+				Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+			}}
+			resp := admit(p)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(ContainElement(
+				WithTransform(func(c metav1.StatusCause) string { return c.Message }, ContainSubstring("must be a clean path")),
+			))
+		},
+			Entry("path traversal with ..", "/var/run/kubevirt-plugin/my-plugin/../other/hook.sock"),
+			Entry("dot segment", "/var/run/kubevirt-plugin/my-plugin/./hook.sock"),
+			Entry("double slash", "/var/run/kubevirt-plugin/my-plugin//hook.sock"),
+			Entry("trailing slash", "/var/run/kubevirt-plugin/my-plugin/hook.sock/"),
+		)
+
+	})
 })
 
 func newMinimalPlugin() *pluginv1alpha1.Plugin {
