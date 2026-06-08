@@ -1474,8 +1474,9 @@ func waitBackupExportReady(virtClient kubecli.KubevirtClient, namespace string, 
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(string(backupv1.ConditionExportReady)),
+					"Type":   Equal(string(backupv1.ConditionProgressing)),
 					"Status": Equal(metav1.ConditionTrue),
+					"Reason": Equal(backupv1.ReasonExportReady),
 				}),
 			),
 		})),

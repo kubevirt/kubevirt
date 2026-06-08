@@ -239,16 +239,17 @@ const (
 
 	// ConditionProgressing indicates the backup is in progress
 	ConditionProgressing ConditionType = "Progressing"
+)
 
-	// ConditionInitializing indicates the backup is initializing
-	ConditionInitializing ConditionType = "Initializing"
-
-	// ConditionExportInitiated indicates the backup export has been initiated
-	ConditionExportInitiated ConditionType = "ExportInitiated"
-
-	// ConditionExportReady indicates the backup export is ready
-	ConditionExportReady ConditionType = "ExportReady"
-
-	// ConditionAborting indicates the backup is aborting
-	ConditionAborting ConditionType = "Aborting"
+// Reason constants for ConditionProgressing, ConditionComplete, and ConditionFailed
+const (
+	ReasonInitializing         = "Initializing"
+	ReasonInitiated            = "Initiated"
+	ReasonPreparingExport      = "PreparingExport"
+	ReasonExportInitiated      = "ExportInitiated"
+	ReasonExportReady          = "ExportReady"
+	ReasonAborting             = "Aborting"
+	ReasonCompleted            = "Completed"
+	ReasonCompletedWithWarning = "CompletedWithWarning"
+	ReasonFailed               = "Failed"
 )

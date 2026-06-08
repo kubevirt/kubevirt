@@ -980,13 +980,22 @@ func backupConditions(backup *backupv1.VirtualMachineBackup) []metav1.Condition 
 	return nil
 }
 
+func progressingReason(backup *backupv1.VirtualMachineBackup) string {
+	cond := meta.FindStatusCondition(backupConditions(backup), string(backupv1.ConditionProgressing))
+	if cond != nil && cond.Status == metav1.ConditionTrue {
+		return cond.Reason
+	}
+	return ""
+}
+
 func isBackupInitializing(backup *backupv1.VirtualMachineBackup) bool {
 	conds := backupConditions(backup)
-	return conds == nil || meta.IsStatusConditionTrue(conds, string(backupv1.ConditionInitializing))
+	return conds == nil || progressingReason(backup) == backupv1.ReasonInitializing
 }
 
 func isBackupProgressing(backup *backupv1.VirtualMachineBackup) bool {
-	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionProgressing))
+	r := progressingReason(backup)
+	return r != "" && r != backupv1.ReasonInitializing
 }
 
 func isBackupComplete(backup *backupv1.VirtualMachineBackup) bool {
@@ -1002,7 +1011,7 @@ func IsBackupTerminal(backup *backupv1.VirtualMachineBackup) bool {
 }
 
 func isBackupAborting(backup *backupv1.VirtualMachineBackup) bool {
-	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionAborting))
+	return progressingReason(backup) == backupv1.ReasonAborting
 }
 
 func isBackupDeleting(backup *backupv1.VirtualMachineBackup) bool {
@@ -1015,34 +1024,22 @@ func hasVMIBackupStatus(vmi *v1.VirtualMachineInstance) bool {
 
 func setInitializing(backup *backupv1.VirtualMachineBackup, reason string) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionInitializing), Status: metav1.ConditionTrue,
-		Reason: "Initializing", Message: reason,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionFalse,
-		Reason: "Initializing", Message: reason,
+		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
+		Reason: backupv1.ReasonInitializing, Message: reason,
 	})
 }
 
 func setProgressing(backup *backupv1.VirtualMachineBackup) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionInitializing), Status: metav1.ConditionFalse,
-		Reason: "Initiated", Message: backupInProgress,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-		Reason: "Initiated", Message: backupInProgress,
+		Reason: backupv1.ReasonInitiated, Message: backupInProgress,
 	})
 }
 
 func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBackup, message string) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-		Reason: "Aborting", Message: message,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionAborting), Status: metav1.ConditionTrue,
-		Reason: "Aborting", Message: message,
+		Reason: backupv1.ReasonAborting, Message: message,
 	})
 	eventSev := corev1.EventTypeNormal
 	if isPushMode(backup) {
@@ -1054,9 +1051,9 @@ func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBacku
 func (ctrl *VMBackupController) setFailed(backup *backupv1.VirtualMachineBackup, reason string) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionFailed), Status: metav1.ConditionTrue,
-		Reason: "Failed", Message: fmt.Sprintf(backupFailed, reason),
+		Reason: backupv1.ReasonFailed, Message: fmt.Sprintf(backupFailed, reason),
 	})
-	markTerminal(backup, "Failed", fmt.Sprintf(backupFailed, reason))
+	markTerminal(backup, backupv1.ReasonFailed, fmt.Sprintf(backupFailed, reason))
 	ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupFailedEvent, reason)
 }
 
@@ -1065,26 +1062,20 @@ func markTerminal(backup *backupv1.VirtualMachineBackup, reason, message string)
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionFalse,
 		Reason: reason, Message: message,
 	})
-	if isBackupAborting(backup) {
-		meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-			Type: string(backupv1.ConditionAborting), Status: metav1.ConditionFalse,
-			Reason: reason, Message: message,
-		})
-	}
 }
 
 func setComplete(backup *backupv1.VirtualMachineBackup) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionComplete), Status: metav1.ConditionTrue,
-		Reason: "Completed", Message: backupCompleted,
+		Reason: backupv1.ReasonCompleted, Message: backupCompleted,
 	})
-	markTerminal(backup, "Completed", backupCompleted)
+	markTerminal(backup, backupv1.ReasonCompleted, backupCompleted)
 }
 
 func setCompleteWithWarning(backup *backupv1.VirtualMachineBackup, message string) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionComplete), Status: metav1.ConditionTrue,
-		Reason: "CompletedWithWarning", Message: message,
+		Reason: backupv1.ReasonCompletedWithWarning, Message: message,
 	})
-	markTerminal(backup, "CompletedWithWarning", message)
+	markTerminal(backup, backupv1.ReasonCompletedWithWarning, message)
 }
