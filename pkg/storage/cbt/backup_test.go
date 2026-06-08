@@ -652,11 +652,9 @@ var _ = Describe("Backup Controller", func() {
 				return true, updatedBackup, nil
 			})
 
-			result, err := controller.addBackupFinalizer(backup)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.addBackupFinalizer(backup)).To(Succeed())
 			Expect(patched).To(BeTrue())
-			Expect(result.Finalizers).To(ContainElement(vmBackupFinalizer))
-
+			Expect(backup.Finalizers).To(ContainElement(vmBackupFinalizer))
 		})
 
 		It("should not re-add finalizer if already present", func() {
@@ -668,10 +666,8 @@ var _ = Describe("Backup Controller", func() {
 				return true, nil, fmt.Errorf("unexpected patch call")
 			})
 
-			result, err := controller.addBackupFinalizer(backup)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(backup))
-			Expect(result.Finalizers).To(ContainElement(vmBackupFinalizer))
+			Expect(controller.addBackupFinalizer(backup)).To(Succeed())
+			Expect(backup.Finalizers).To(ContainElement(vmBackupFinalizer))
 		})
 	})
 
