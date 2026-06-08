@@ -23,6 +23,7 @@ go_test(
         "validatingadmissionpolicies_suite_test.go",
         "validatingadmissionpolicy_handler_test.go",
         "validatingadmissionpolicy_plugin_test.go",
+        "validatingadmissionpolicy_sidecar_test.go",
     ],
     race = "on",
     deps = [
@@ -33,5 +34,7 @@ go_test(
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
