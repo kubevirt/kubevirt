@@ -475,7 +475,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 			if !done {
 				return fmt.Errorf("ongoing cleanup for backup deletion")
 			}
-			ctrl.setFailed(backup, "backup was deleted during initialization")
+			ctrl.setFailed(backup, backupv1.ReasonDeletedDuringInit, "backup was deleted during initialization")
 			return nil
 		}
 
@@ -512,7 +512,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 
 	if isBackupProgressing(backup) {
 		if !vmiExists {
-			ctrl.setFailed(backup, "VMI was deleted during backup")
+			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI was deleted during backup")
 			return nil
 		}
 
@@ -525,7 +525,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 			if !done {
 				return fmt.Errorf("ongoing cleanup for backup deletion")
 			}
-			ctrl.setFailed(backup, "VMI backup status was lost")
+			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI backup status was lost")
 			return nil
 		}
 
@@ -635,7 +635,7 @@ func (ctrl *VMBackupController) validateVMIHealth(backup *backupv1.VirtualMachin
 		if !done {
 			return fmt.Errorf("not done cleaning backup for failed VMI: %s", vmi.Name)
 		}
-		ctrl.setFailed(backup, "VMI is not in a running state")
+		ctrl.setFailed(backup, backupv1.ReasonSourceUnhealthy, "VMI is not in a running state")
 		return fmt.Errorf("VMI %s is not in a running state", vmi.Name)
 	}
 	return nil
@@ -832,7 +832,7 @@ func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMach
 
 func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker) error {
 	if vmi == nil {
-		ctrl.setFailed(backup, "unexpected state: VMI is nil")
+		ctrl.setFailed(backup, backupv1.ReasonSourceLost, "unexpected state: VMI is nil")
 		return nil
 	}
 	backupStatus := vmi.Status.ChangedBlockTracking.BackupStatus
@@ -883,7 +883,7 @@ func (ctrl *VMBackupController) resolveCompletion(backup *backupv1.VirtualMachin
 	if status.Failed {
 		reason := msgOrDefault(status.BackupMsg)
 		log.Log.Object(backup).Infof(backupFailed, reason)
-		ctrl.setFailed(backup, reason)
+		ctrl.setFailed(backup, backupv1.ReasonFailed, reason)
 		return
 	}
 
@@ -1048,13 +1048,13 @@ func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBacku
 	ctrl.recorder.Eventf(backup, eventSev, backupAbortingEvent, message)
 }
 
-func (ctrl *VMBackupController) setFailed(backup *backupv1.VirtualMachineBackup, reason string) {
+func (ctrl *VMBackupController) setFailed(backup *backupv1.VirtualMachineBackup, reason, message string) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionFailed), Status: metav1.ConditionTrue,
-		Reason: backupv1.ReasonFailed, Message: fmt.Sprintf(backupFailed, reason),
+		Reason: reason, Message: fmt.Sprintf(backupFailed, message),
 	})
-	markTerminal(backup, backupv1.ReasonFailed, fmt.Sprintf(backupFailed, reason))
-	ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupFailedEvent, reason)
+	markTerminal(backup, reason, fmt.Sprintf(backupFailed, message))
+	ctrl.recorder.Eventf(backup, corev1.EventTypeWarning, backupFailedEvent, message)
 }
 
 func markTerminal(backup *backupv1.VirtualMachineBackup, reason, message string) {

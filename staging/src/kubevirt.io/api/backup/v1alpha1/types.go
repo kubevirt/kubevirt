@@ -252,4 +252,7 @@ const (
 	ReasonCompleted            = "Completed"
 	ReasonCompletedWithWarning = "CompletedWithWarning"
 	ReasonFailed               = "Failed"
+	ReasonSourceLost           = "SourceLost"
+	ReasonSourceUnhealthy      = "SourceUnhealthy"
+	ReasonDeletedDuringInit    = "DeletedDuringInit"
 )
