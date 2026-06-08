@@ -738,6 +738,7 @@ var _ = Describe("Backup Controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
 		failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+		Expect(failedCond.Reason).To(Equal(backupv1.ReasonSourceLost))
 		Expect(failedCond.Message).To(ContainSubstring("VMI backup status was lost"))
 	})
 
@@ -901,6 +902,7 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
 			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonDeletedDuringInit))
 			Expect(failedCond.Message).To(ContainSubstring("backup was deleted during initialization"))
 		})
 
@@ -944,6 +946,7 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
 			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonSourceLost))
 			Expect(failedCond.Message).To(ContainSubstring("VMI was deleted during backup"))
 			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
 		})
@@ -1067,6 +1070,7 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
 			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonFailed))
 			Expect(failedCond.Message).To(ContainSubstring("backup aborted"))
 			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
 			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
@@ -1124,6 +1128,7 @@ var _ = Describe("Backup Controller", func() {
 			Expect(err.Error()).To(ContainSubstring("VMI test-vm is not in a running state"))
 			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
 			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonSourceUnhealthy))
 			Expect(failedCond.Message).To(ContainSubstring("VMI is not in a running state"))
 		})
 	})
@@ -1135,6 +1140,7 @@ var _ = Describe("Backup Controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backup.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
 		failedCond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionFailed))
+		Expect(failedCond.Reason).To(Equal(backupv1.ReasonSourceLost))
 		Expect(failedCond.Message).To(ContainSubstring("unexpected state: VMI is nil"))
 	})
 
@@ -1253,19 +1259,19 @@ var _ = Describe("Backup Controller", func() {
 			},
 			Entry("failure with a message",
 				true, pointer.P("disk error"),
-				backupv1.ConditionFailed, "Failed", "disk error", backupFailedEvent,
+				backupv1.ConditionFailed, backupv1.ReasonFailed, "disk error", backupFailedEvent,
 			),
 			Entry("failure without a message (nil check)",
 				true, nil,
-				backupv1.ConditionFailed, "Failed", "unknown, no completion message", backupFailedEvent,
+				backupv1.ConditionFailed, backupv1.ReasonFailed, "unknown, no completion message", backupFailedEvent,
 			),
 			Entry("success with a warning message",
 				false, pointer.P("quiesce failed"),
-				backupv1.ConditionComplete, "CompletedWithWarning", "quiesce failed", backupCompletedWithWarningEvent,
+				backupv1.ConditionComplete, backupv1.ReasonCompletedWithWarning, "quiesce failed", backupCompletedWithWarningEvent,
 			),
 			Entry("success",
 				false, nil,
-				backupv1.ConditionComplete, "Completed", backupCompleted, backupCompletedEvent,
+				backupv1.ConditionComplete, backupv1.ReasonCompleted, backupCompleted, backupCompletedEvent,
 			),
 		)
 	})
