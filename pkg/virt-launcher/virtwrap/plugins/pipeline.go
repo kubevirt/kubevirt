@@ -21,9 +21,13 @@ package plugins
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
+	"time"
+
+	libvirtxml "libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/client-go/log"
 
@@ -35,7 +39,7 @@ import (
 	celutil "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins/cel"
 )
 
-func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec) (*virtwrapApi.DomainSpec, string, error) {
+func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec, invocationContext pluginv1alpha1.InvocationContext) (*virtwrapApi.DomainSpec, string, error) {
 	if len(plugins) == 0 {
 		return spec, "", nil
 	}
@@ -55,11 +59,12 @@ func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineIns
 	})
 
 	pluginNames := make([]string, len(sortedPlugins))
-	for i, p := range sortedPlugins {
-		pluginNames[i] = p.Name
+	for i, plugin := range sortedPlugins {
+		pluginNames[i] = plugin.Name
 	}
 	log.Log.Infof("Applying domain hooks from plugins: [%s]", strings.Join(pluginNames, ", "))
 
+	deadline := time.Now().Add(sidecarReadinessTimeout)
 	for _, plugin := range sortedPlugins {
 		for hookIdx, hook := range plugin.Spec.DomainHooks {
 			failureStrategy := hook.FailureStrategy
@@ -92,8 +97,46 @@ func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineIns
 				}
 				domain = mutated
 			} else if hook.Sidecar != nil {
-				log.Log.Infof("Plugin %s hook %d: sidecar hooks not yet implemented, skipping", plugin.Name, hookIdx)
-				continue
+				if err := waitForSidecarSocket(hook.Sidecar.SocketPath, deadline); err != nil {
+					if failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
+						log.Log.Warningf("Plugin %s hook %d: %v (ignored)", plugin.Name, hookIdx, err)
+						continue
+					}
+					return nil, "", fmt.Errorf("plugin %s hook %d: %w", plugin.Name, hookIdx, err)
+				}
+
+				domainXML, err := domain.Marshal()
+				if err != nil {
+					return nil, "", fmt.Errorf("plugin %s hook %d: marshal domain: %w", plugin.Name, hookIdx, err)
+				}
+				vmiJSON, err := json.Marshal(vmi)
+				if err != nil {
+					return nil, "", fmt.Errorf("plugin %s hook %d: marshal VMI: %w", plugin.Name, hookIdx, err)
+				}
+
+				timeout := defaultSidecarCallTimeout
+				if hook.Timeout != nil {
+					timeout = hook.Timeout.Duration
+				}
+
+				resultXML, err := callSidecarHook(hook.Sidecar.SocketPath, plugin.Name, []byte(domainXML), vmiJSON, string(invocationContext), timeout)
+				if err != nil {
+					if failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
+						log.Log.Warningf("Plugin %s hook %d: sidecar call failed (ignored): %v", plugin.Name, hookIdx, err)
+						continue
+					}
+					return nil, "", fmt.Errorf("plugin %s hook %d sidecar failed: %w", plugin.Name, hookIdx, err)
+				}
+
+				mutated := &libvirtxml.Domain{}
+				if err := mutated.Unmarshal(string(resultXML)); err != nil {
+					if failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
+						log.Log.Warningf("Plugin %s hook %d: unmarshal sidecar response failed (ignored): %v", plugin.Name, hookIdx, err)
+						continue
+					}
+					return nil, "", fmt.Errorf("plugin %s hook %d: unmarshal sidecar response: %w", plugin.Name, hookIdx, err)
+				}
+				domain = mutated
 			}
 		}
 	}
