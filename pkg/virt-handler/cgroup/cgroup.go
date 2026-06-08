@@ -151,7 +151,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule, spliceDeviceMap boo
 		log.Log.Errorf("error occurred while initialized a new cgroup %s manager: %v", version, err)
 		return manager, err
 	}
-	log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+	log.Log.V(5).Infof("initialized cgroup %s manager. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
 
 	if v2mgr, ok := manager.(*v2Manager); ok && v2mgr.spliceDeviceMap {
 		// Splice the eBPF device map into the cgroup's device filter once per
