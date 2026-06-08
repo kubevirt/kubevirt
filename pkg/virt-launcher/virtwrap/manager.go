@@ -1329,7 +1329,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			}
 		}
 	}
-
+	c.IOMMUFDEnabled = l.iommuFD != -1
 	return c, nil
 }
 
@@ -1401,6 +1401,15 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO blocked state
 	switch {
 	case cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal():
+		// Associate IOMMUFD FD with the domain before starting.
+		// libvirt will use this FD (named "iommu") for hostdev elements
+		// that specify fdgroup='iommu' in their driver configuration.
+		if l.iommuFD >= 0 {
+			iommuFile := os.NewFile(uintptr(l.iommuFD), "iommufd")
+			if err := dom.FDAssociate("iommu", []os.File{*iommuFile}, 0); err != nil {
+				return nil, fmt.Errorf("failed to associate IOMMUFD FD with domain: %w", err)
+			}
+		}
 		if err := l.startDomain(vmi, dom); err != nil {
 			return nil, err
 		}
