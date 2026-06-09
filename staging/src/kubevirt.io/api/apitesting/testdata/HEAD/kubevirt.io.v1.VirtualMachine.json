@@ -1365,7 +1365,8 @@
             "dataEndpoint": "dataEndpointValue",
             "mapEndpoint": "mapEndpointValue"
           }
-        ]
+        ],
+        "quiesceStatus": "quiesceStatusValue"
       }
     },
     "instancetypeRef": {

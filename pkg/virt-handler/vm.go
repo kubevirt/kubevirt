@@ -2503,4 +2503,7 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumes
 		}
 	}
+	if backupMetadata.QuiesceStatus != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.QuiesceStatus = backupMetadata.QuiesceStatus
+	}
 }
