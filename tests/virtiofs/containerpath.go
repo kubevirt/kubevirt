@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigStorage, decorators.VirtioFS, func() {
+var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigStorage, decorators.ConfigVolumesVirtiofs, func() {
 	Context("With a ContainerPath volume pointing to non-existent path", func() {
 		const (
 			containerPathFilesystemName = "nonexistent-path"
