@@ -1004,15 +1004,18 @@ func setProgressing(backup *backupv1.VirtualMachineBackup) {
 }
 
 func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBackup, message string) {
+	cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionProgressing))
+	if cond == nil || cond.Reason != backupv1.ReasonAborting {
+		eventSev := corev1.EventTypeNormal
+		if isPushMode(backup) {
+			eventSev = corev1.EventTypeWarning
+		}
+		ctrl.recorder.Eventf(backup, eventSev, backupAbortingEvent, message)
+	}
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
 		Reason: backupv1.ReasonAborting, Message: message,
 	})
-	eventSev := corev1.EventTypeNormal
-	if isPushMode(backup) {
-		eventSev = corev1.EventTypeWarning
-	}
-	ctrl.recorder.Eventf(backup, eventSev, backupAbortingEvent, message)
 }
 
 func (ctrl *VMBackupController) setFailed(backup *backupv1.VirtualMachineBackup, reason, message string) {

@@ -1061,6 +1061,7 @@ var _ = Describe("Backup Controller", func() {
 
 			_, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
+			Consistently(recorder.Events).ShouldNot(Receive(ContainSubstring(backupAbortingEvent)))
 		})
 
 		It("should finalize backup as failed when abort completes", func() {
