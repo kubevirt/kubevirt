@@ -245,6 +245,7 @@ var _ = Describe("Backup Controller", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      backup.Name,
 				Namespace: testNamespace,
+				UID:       "test-export-uid",
 				OwnerReferences: []metav1.OwnerReference{
 					*metav1.NewControllerRef(backup, backupv1.SchemeGroupVersion.WithKind(
 						backupv1.VirtualMachineBackupGroupVersionKind.Kind)),
@@ -1710,10 +1711,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return nil when export is not yet in Ready phase", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 
 			vmExport = createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Pending}
@@ -1724,10 +1723,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should update includedVolumes when export is in Ready phase but the backup has no included volumes", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 
 			vmExport := createBackupVMExport(backup)
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{Phase: exportv1.Ready}
@@ -1746,10 +1743,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return an error when export is ready but has no links", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
 				DiskTarget: "vda",
@@ -1763,10 +1758,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return an error when the export is ready but the cert is empty", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = append(backup.Status.IncludedVolumes, backupv1.BackupVolumeInfo{
 				VolumeName: "datadisk",
 				DiskTarget: "vda",
@@ -1794,10 +1787,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return ExportReady with populated endpoints using internal links", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
@@ -1827,10 +1818,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should prioritize external links over internal links", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
 			vmExport.Status = &exportv1.VirtualMachineExportStatus{
 				Phase: exportv1.Ready,
@@ -1868,10 +1857,8 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should map endpoints independently for multiple volumes", func() {
-			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-				Reason: backupv1.ReasonExportInitiated, Message: "",
-			})
+			exportUID := types.UID("test-export-uid")
+			backup.Status.ExportUID = &exportUID
 			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{
 				{VolumeName: "rootdisk"},
 				{VolumeName: "datadisk"},

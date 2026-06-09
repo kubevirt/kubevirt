@@ -22,6 +22,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // BackupMode is the const type for the backup possible modes
@@ -225,6 +226,10 @@ type VirtualMachineBackupStatus struct {
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
+	// +optional
+	// ExportUID tracks the UID of the associated VMExport for pull-mode backups
+	// used to detect VMExport recreation and re-initiate the export handshake
+	ExportUID *types.UID `json:"exportUID,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
