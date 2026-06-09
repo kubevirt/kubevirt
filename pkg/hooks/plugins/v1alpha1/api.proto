@@ -11,8 +11,11 @@ message NodeContext {
 }
 
 message ExecuteNodeHookRequest {
+    // hookPoint identifies which lifecycle hook point is being invoked (e.g. "PreVMStart", "PreVMStop")
     string hookPoint = 1;
+    // vmi is the VirtualMachineInstance object encoded as JSON
     bytes vmi = 2;
+    // node_context provides node-level context for the hook
     NodeContext node_context = 3;
 }
 
