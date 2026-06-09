@@ -357,6 +357,7 @@ cat >>ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
 build --noshow_progress
+build --experimental_remote_cache_eviction_retries=5
 EOF
 
 echo "=== ci.bazelrc ==="
