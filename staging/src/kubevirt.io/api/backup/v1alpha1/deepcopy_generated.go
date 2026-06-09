@@ -246,6 +246,11 @@ func (in *VirtualMachineBackupStatus) DeepCopyInto(out *VirtualMachineBackupStat
 		*out = make([]BackupVolumeInfo, len(*in))
 		copy(*out, *in)
 	}
+	if in.FSFreezeStatus != nil {
+		in, out := &in.FSFreezeStatus, &out.FSFreezeStatus
+		*out = new(FSFreezeStatus)
+		**out = **in
+	}
 	return
 }
 

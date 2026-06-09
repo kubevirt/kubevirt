@@ -410,6 +410,7 @@ type SyncInfo struct {
 	backupType      backupv1.BackupType
 	includedVolumes []backupv1.BackupVolumeInfo
 	caCert          *string
+	fsFreezeStatus  *backupv1.FSFreezeStatus
 }
 
 func syncInfoError(err error) *SyncInfo {
@@ -1010,6 +1011,9 @@ func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBack
 		if syncInfo.checkpointName != nil {
 			backupOut.Status.CheckpointName = syncInfo.checkpointName
 		}
+		if syncInfo.fsFreezeStatus != nil {
+			backupOut.Status.FSFreezeStatus = syncInfo.fsFreezeStatus
+		}
 	}
 
 	if isBackupDeleting(backupOut) && controller.HasFinalizer(backupOut, vmBackupFinalizer) {
@@ -1230,6 +1234,14 @@ func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMach
 	return nil
 }
 
+// setFSFreezeStatus sets the FSFreezeStatus in syncInfo if statusStr is not empty
+func setFSFreezeStatus(syncInfo *SyncInfo, statusStr backupv1.FSFreezeStatus) {
+	if statusStr == "" {
+		return
+	}
+	syncInfo.fsFreezeStatus = &statusStr
+}
+
 func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker) *SyncInfo {
 	if vmi == nil {
 		return &SyncInfo{
@@ -1239,13 +1251,21 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 	}
 	backupStatus := vmi.Status.ChangedBlockTracking.BackupStatus
 	if !backupStatus.Completed {
+		syncInfo := &SyncInfo{}
+
 		if len(backupStatus.Volumes) > 0 && len(backup.Status.IncludedVolumes) == 0 {
-			return &SyncInfo{
-				includedVolumes: backupStatus.Volumes,
-				checkpointName:  backupStatus.CheckpointName,
-			}
+			syncInfo.includedVolumes = backupStatus.Volumes
+			syncInfo.checkpointName = backupStatus.CheckpointName
 		}
-		return nil
+
+		if backupStatus.FSFreezeStatus != "" && backup.Status.FSFreezeStatus == nil {
+			setFSFreezeStatus(syncInfo, backupStatus.FSFreezeStatus)
+		}
+
+		if syncInfo.includedVolumes == nil && syncInfo.fsFreezeStatus == nil {
+			return nil
+		}
+		return syncInfo
 	}
 
 	// Update BackupTracker with the new checkpoint if applicable
@@ -1272,6 +1292,9 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 		syncInfo.checkpointName = backupStatus.CheckpointName
 	}
 	syncInfo.includedVolumes = backupStatus.Volumes
+
+	// Propagate fsfreeze status at completion
+	setFSFreezeStatus(syncInfo, backupStatus.FSFreezeStatus)
 
 	return syncInfo
 }

@@ -8588,6 +8588,10 @@ var CRDsValidation map[string]string = map[string]string{
                 failed:
                   description: Failed indicates that the backup failed
                   type: boolean
+                fsFreezeStatus:
+                  description: FSFreezeStatus indicates whether filesystem freeze
+                    succeeded, failed, or was skipped.
+                  type: string
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -9396,6 +9400,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             EndpointCert is the raw CACert that is to be used when connecting
             to an exported backup endpoint in pull mode.
+          type: string
+        fsFreezeStatus:
+          description: FSFreezeStatus indicates whether the filesystem freeze succeeded,
+            failed, or was skipped.
           type: string
         includedVolumes:
           description: IncludedVolumes lists the volumes that were included in the
@@ -14722,6 +14730,10 @@ var CRDsValidation map[string]string = map[string]string{
                 failed:
                   description: Failed indicates that the backup failed
                   type: boolean
+                fsFreezeStatus:
+                  description: FSFreezeStatus indicates whether filesystem freeze
+                    succeeded, failed, or was skipped.
+                  type: string
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -32018,6 +32030,10 @@ var CRDsValidation map[string]string = map[string]string{
                             failed:
                               description: Failed indicates that the backup failed
                               type: boolean
+                            fsFreezeStatus:
+                              description: FSFreezeStatus indicates whether filesystem
+                                freeze succeeded, failed, or was skipped.
+                              type: string
                             startTimestamp:
                               description: StartTimestamp is the timestamp when the
                                 backup started

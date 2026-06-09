@@ -1183,7 +1183,8 @@
             "dataEndpoint": "dataEndpointValue",
             "mapEndpoint": "mapEndpointValue"
           }
-        ]
+        ],
+        "fsFreezeStatus": "fsFreezeStatusValue"
       }
     }
   }

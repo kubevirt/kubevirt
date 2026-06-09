@@ -2214,6 +2214,9 @@ type VirtualMachineInstanceBackupStatus struct {
 	// +optional
 	// +listType=atomic
 	Volumes []backupv1.BackupVolumeInfo `json:"volumes,omitempty"`
+	// FSFreezeStatus indicates whether filesystem freeze succeeded, failed, or was skipped.
+	// +optional
+	FSFreezeStatus backupv1.FSFreezeStatus `json:"fsFreezeStatus,omitempty"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM

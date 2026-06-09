@@ -17655,6 +17655,13 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							},
 						},
 					},
+					"fsFreezeStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FSFreezeStatus indicates whether the filesystem freeze succeeded, failed, or was skipped.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -26932,6 +26939,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref common
 									},
 								},
 							},
+						},
+					},
+					"fsFreezeStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FSFreezeStatus indicates whether filesystem freeze succeeded, failed, or was skipped.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

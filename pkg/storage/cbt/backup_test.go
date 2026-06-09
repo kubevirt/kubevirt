@@ -820,6 +820,100 @@ var _ = Describe("Backup Controller", func() {
 			Expect(syncInfo).To(BeNil())
 		})
 
+		It("should populate fsfreeze status early when backup in progress", func() {
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+				},
+				// FSFreezeStatus not yet set
+			}
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+
+			volumesInfo := []backupv1.BackupVolumeInfo{
+				{VolumeName: "rootdisk", DiskTarget: "vda"},
+			}
+			vmi := createInitializedVMI()
+			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
+			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumesInfo
+			vmi.Status.ChangedBlockTracking.BackupStatus.FSFreezeStatus = "Succeeded"
+			controller.vmiStore.Add(vmi)
+
+			pvc := createPVC(pvcName)
+			controller.pvcStore.Add(pvc)
+
+			syncInfo := controller.sync(backup)
+			Expect(syncInfo).ToNot(BeNil())
+			Expect(syncInfo.err).ToNot(HaveOccurred())
+			Expect(syncInfo.fsFreezeStatus).ToNot(BeNil())
+			Expect(*syncInfo.fsFreezeStatus).To(Equal(backupv1.FSFreezeSucceeded))
+		})
+
+		It("should populate fsfreeze status as Failed when freeze failed", func() {
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+				},
+			}
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+
+			volumesInfo := []backupv1.BackupVolumeInfo{
+				{VolumeName: "rootdisk", DiskTarget: "vda"},
+			}
+			vmi := createInitializedVMI()
+			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
+			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumesInfo
+			vmi.Status.ChangedBlockTracking.BackupStatus.FSFreezeStatus = "Failed"
+			controller.vmiStore.Add(vmi)
+
+			pvc := createPVC(pvcName)
+			controller.pvcStore.Add(pvc)
+
+			syncInfo := controller.sync(backup)
+			Expect(syncInfo).ToNot(BeNil())
+			Expect(syncInfo.err).ToNot(HaveOccurred())
+			Expect(syncInfo.fsFreezeStatus).ToNot(BeNil())
+			Expect(*syncInfo.fsFreezeStatus).To(Equal(backupv1.FSFreezeFailed))
+		})
+
+		It("should populate fsfreeze status as Skipped when quiesce was skipped", func() {
+			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.Finalizers = []string{vmBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+				},
+			}
+
+			vm := createVM(vmName)
+			controller.vmStore.Add(vm)
+
+			volumesInfo := []backupv1.BackupVolumeInfo{
+				{VolumeName: "rootdisk", DiskTarget: "vda"},
+			}
+			vmi := createInitializedVMI()
+			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
+			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumesInfo
+			vmi.Status.ChangedBlockTracking.BackupStatus.FSFreezeStatus = "Skipped"
+			controller.vmiStore.Add(vmi)
+
+			pvc := createPVC(pvcName)
+			controller.pvcStore.Add(pvc)
+
+			syncInfo := controller.sync(backup)
+			Expect(syncInfo).ToNot(BeNil())
+			Expect(syncInfo.err).ToNot(HaveOccurred())
+			Expect(syncInfo.fsFreezeStatus).ToNot(BeNil())
+			Expect(*syncInfo.fsFreezeStatus).To(Equal(backupv1.FSFreezeSkipped))
+		})
+
 		It("should patch VMI to remove backup status when backup is completed", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Finalizers = []string{vmBackupFinalizer}

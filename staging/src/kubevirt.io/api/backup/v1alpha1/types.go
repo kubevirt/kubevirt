@@ -205,6 +205,18 @@ type VirtualMachineBackupSpec struct {
 	TTLDuration *metav1.Duration `json:"ttlDuration,omitempty"`
 }
 
+// FSFreezeStatus represents the outcome of a filesystem freeze operation
+type FSFreezeStatus string
+
+const (
+	// FSFreezeSucceeded indicates the filesystem was successfully frozen
+	FSFreezeSucceeded FSFreezeStatus = "Succeeded"
+	// FSFreezeFailed indicates the filesystem freeze failed
+	FSFreezeFailed FSFreezeStatus = "Failed"
+	// FSFreezeSkipped indicates the filesystem freeze was skipped (e.g., skipQuiesce=true)
+	FSFreezeSkipped FSFreezeStatus = "Skipped"
+)
+
 // VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource
 type VirtualMachineBackupStatus struct {
 	// +optional
@@ -225,6 +237,9 @@ type VirtualMachineBackupStatus struct {
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
+	// +optional
+	// FSFreezeStatus indicates whether the filesystem freeze succeeded, failed, or was skipped.
+	FSFreezeStatus *FSFreezeStatus `json:"fsFreezeStatus,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
