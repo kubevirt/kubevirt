@@ -689,8 +689,8 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
 		}
-		if vmi.Spec.LivenessProbe != nil {
-			return errors.NewForbidden(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Pausing VMIs with LivenessProbe is currently not supported"))
+		if vmi.Spec.LivenessProbe != nil && vmi.Spec.LivenessProbe.GuestAgentPing == nil {
+			return errors.NewForbidden(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Pausing VMIs with a non-GuestAgentPing LivenessProbe is not supported"))
 		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
