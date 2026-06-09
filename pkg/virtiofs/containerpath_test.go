@@ -27,6 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("ContainerPath helpers", func() {
@@ -120,6 +122,64 @@ var _ = Describe("ContainerPath helpers", func() {
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "claim"},
 				},
 			}, false),
+		)
+	})
+
+	Context("ProjectedVolumeHasServiceAccountToken", func() {
+		DescribeTable("should correctly detect projected SA token sources",
+			func(volume *k8sv1.Volume, expected bool) {
+				Expect(ProjectedVolumeHasServiceAccountToken(volume)).To(Equal(expected))
+			},
+			Entry("nil volume", nil, false),
+			Entry("non-projected volume", &k8sv1.Volume{
+				Name: "cm",
+				VolumeSource: k8sv1.VolumeSource{
+					ConfigMap: &k8sv1.ConfigMapVolumeSource{},
+				},
+			}, false),
+			Entry("projected without sources", &k8sv1.Volume{
+				Name: "projected",
+				VolumeSource: k8sv1.VolumeSource{
+					Projected: &k8sv1.ProjectedVolumeSource{},
+				},
+			}, false),
+			Entry("projected with only configmap source", &k8sv1.Volume{
+				Name: "projected",
+				VolumeSource: k8sv1.VolumeSource{
+					Projected: &k8sv1.ProjectedVolumeSource{
+						Sources: []k8sv1.VolumeProjection{
+							{ConfigMap: &k8sv1.ConfigMapProjection{}},
+						},
+					},
+				},
+			}, false),
+			Entry("projected with SA token source", &k8sv1.Volume{
+				Name: "aws-iam-token",
+				VolumeSource: k8sv1.VolumeSource{
+					Projected: &k8sv1.ProjectedVolumeSource{
+						Sources: []k8sv1.VolumeProjection{
+							{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+								Audience:          "sts.amazonaws.com",
+								ExpirationSeconds: pointer.P(int64(3600)),
+								Path:              "token",
+							}},
+						},
+					},
+				},
+			}, true),
+			Entry("projected with mixed sources including SA token", &k8sv1.Volume{
+				Name: "mixed-projected",
+				VolumeSource: k8sv1.VolumeSource{
+					Projected: &k8sv1.ProjectedVolumeSource{
+						Sources: []k8sv1.VolumeProjection{
+							{ConfigMap: &k8sv1.ConfigMapProjection{}},
+							{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+								Path: "token",
+							}},
+						},
+					},
+				},
+			}, true),
 		)
 	})
 

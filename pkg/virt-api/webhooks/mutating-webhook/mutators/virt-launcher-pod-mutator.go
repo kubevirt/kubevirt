@@ -172,7 +172,8 @@ func (m *VirtLauncherPodMutator) generateContainerPathVirtiofsContainers(
 			continue
 		}
 
-		container := m.createVirtiofsContainer(vmi, volume, computeContainer.Image, volumeMount, subPath)
+		translateUID := virtiofs.ProjectedVolumeHasServiceAccountToken(podVolume)
+		container := m.createVirtiofsContainer(vmi, volume, computeContainer.Image, volumeMount, subPath, translateUID)
 		containers = append(containers, container)
 	}
 
@@ -185,6 +186,7 @@ func (m *VirtLauncherPodMutator) createVirtiofsContainer(
 	image string,
 	sourceMount *k8sv1.VolumeMount,
 	subPath string,
+	translateUID bool,
 ) k8sv1.Container {
 	// Use an internal mount path to avoid conflicts with third-party webhooks
 	// that may inject volumes at the same containerPath (e.g., IRSA, Vault).
@@ -200,6 +202,10 @@ func (m *VirtLauncherPodMutator) createVirtiofsContainer(
 		"--cache=auto",
 		"--migration-on-error=guest-error",
 		"--migration-mode=find-paths",
+	}
+
+	if translateUID {
+		args = append(args, fmt.Sprintf("--translate-uid=host:%d:0:1", util.NonRootUID))
 	}
 
 	// Volume mounts for the virtiofs container

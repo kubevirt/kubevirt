@@ -269,6 +269,52 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			}, 200)).To(Succeed())
 		})
 	})
+
+	Context("With projected ServiceAccountToken volume via native k8s SA projection", func() {
+		const (
+			containerPathFilesystemName = "sa-projected-fs"
+			saTokenPath                 = "/var/run/secrets/kubernetes.io/serviceaccount"
+		)
+
+		It("Should access projected ServiceAccountToken volume via ContainerPath virtiofs", func() {
+			virtClient := kubevirt.Client()
+
+			By("Creating VMI with ContainerPath pointing to SA token projected volume")
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithFilesystemContainerPath(containerPathFilesystemName, saTokenPath),
+			)
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sa-enabler",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: "default",
+					},
+				},
+			})
+
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for virt-launcher pod and verifying virtiofsd container exists")
+			_ = waitForVirtiofsContainerInPod(vmi, containerPathFilesystemName)
+
+			By("Waiting for VMI to be running")
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running})
+
+			By("Logging into the VMI")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Mounting and reading the projected SA token file via virtiofs")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt\n", containerPathFilesystemName)},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "cat /mnt/token > /dev/null 2>&1 && echo ok\n"},
+				&expect.BExp{R: "ok"},
+			}, 200)).To(Succeed())
+		})
+	})
 })
 
 // setupWebhook creates and deploys a test webhook with TLS certificates
