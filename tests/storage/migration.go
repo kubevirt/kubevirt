@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -61,7 +60,6 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -81,7 +79,6 @@ import (
 var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
-	getCSIStorageClass := libstorage.GetCSIStorageClass
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
 		dv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
@@ -116,25 +113,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
-		scName, exist := getCSIStorageClass()
-
-		if !exist {
-			Fail("Fail test when a CSI storage class is not present")
-		}
-
-		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+		scName, err := libstorage.CreateWFFCStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
-		wffcSc := sc.DeepCopy()
-		wffcSc.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-wffc", scName),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		}
-		wffcSc.VolumeBindingMode = pointer.P(storagev1.VolumeBindingWaitForFirstConsumer)
-		sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		testSc = sc.Name
+		testSc = scName
 	})
 	AfterEach(func() {
 		virtClient.StorageV1().StorageClasses().Delete(context.Background(), testSc, metav1.DeleteOptions{})
