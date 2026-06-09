@@ -119,6 +119,64 @@ var _ = Describe(SIG("Backup", func() {
 		Entry("2 backups to the same PVC should succeed", getDoubleTargetPVCSize(cd.AlpineVolumeSize), 2),
 	)
 
+	It("Should expose FS Freeze status early in backup", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		targetPVC := libstorage.CreateFSPVC("target-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating backup")
+		backupName := backupName(vm.Name)
+		backup := NewBackup(backupName, vm.Namespace, targetPVC.Name)
+		backup.Spec.Source = corev1.TypedLocalObjectReference{
+			APIGroup: pointer.P(backupapi.GroupName),
+			Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+			Name:     tracker.Name,
+		}
+		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for FSFreezeStatus to be set early (before backup completion)")
+		Eventually(func() *backupv1.FSFreezeStatus {
+			var err error
+			backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if backup.Status == nil {
+				return nil
+			}
+			return backup.Status.FSFreezeStatus
+		}, 60*time.Second, 2*time.Second).ShouldNot(BeNil(), "FSFreezeStatus should be set early in backup process")
+
+		By("Verifying FSFreezeStatus is Succeeded (guest agent connected)")
+		Expect(backup.Status.FSFreezeStatus).ToNot(BeNil())
+		Expect(*backup.Status.FSFreezeStatus).To(Equal(backupv1.FSFreezeSucceeded), "FSFreezeStatus should be Succeeded when guest agent is available")
+
+		By("Waiting for backup to complete")
+		completedBackup := waitBackupSucceeded(virtClient, backup.Namespace, backup.Name)
+
+		By("Verifying FSFreezeStatus persists in completed backup")
+		Expect(completedBackup.Status.FSFreezeStatus).ToNot(BeNil())
+		Expect(*completedBackup.Status.FSFreezeStatus).To(Equal(backupv1.FSFreezeSucceeded), "FSFreezeStatus should persist through backup completion")
+	})
+
 	It("Full and Incremental Backup with BackupTracker", func() {
 		const (
 			testDataSizeMB    = 50
@@ -1427,6 +1485,9 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 	))
 
 	events.ExpectEvent(vmbackup, corev1.EventTypeNormal, "VirtualMachineBackupCompletedSuccessfully")
+
+	Expect(vmbackup.Status.FSFreezeStatus).ToNot(BeNil(), "FSFreezeStatus should be set in successful backups")
+
 	return vmbackup
 }
 
