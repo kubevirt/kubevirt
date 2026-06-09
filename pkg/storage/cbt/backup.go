@@ -61,7 +61,6 @@ const (
 
 	backupInProgress                     = "Backup is in progress"
 	backupPreparingVMExport              = "Backup export is being initialized"
-	backupExportInitiated                = "Backup export has been initiated, waiting for export links"
 	backupExportReady                    = "Backup export is ready to pull"
 	backupAborting                       = "Backup is aborting"
 	backupCompleted                      = "Successfully completed VirtualMachineBackup"
