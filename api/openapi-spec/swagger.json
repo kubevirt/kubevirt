@@ -18610,6 +18610,10 @@
       "description": "Failed indicates that the backup failed",
       "type": "boolean"
      },
+     "quiesceStatus": {
+      "description": "QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.",
+      "type": "string"
+     },
      "startTimestamp": {
       "description": "StartTimestamp is the timestamp when the backup started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
