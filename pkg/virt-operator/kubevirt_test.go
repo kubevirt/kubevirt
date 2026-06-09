@@ -99,9 +99,9 @@ const (
 	expectedTemporaryResources = 1
 	externalCAConfigMapCount   = 1
 
-	// virtTemplateResourceCount consists of 30 objects from the bundled template + 3 secrets
-	virtTemplateResourceCount = 34
-	virtTemplatePatchCount    = 16
+	// virtTemplateResourceCount consists of 31 objects from the bundled template + 3 secrets
+	virtTemplateResourceCount = 35
+	virtTemplatePatchCount    = 17
 	virtTemplateUpdateCount   = 18
 
 	numVirtTemplateCRDs = 2
@@ -2666,7 +2666,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ServiceMonitorCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.PrometheusRuleCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.MutatingWebhookCache.List()).To(HaveLen(2))
-			Expect(kvTestData.controller.stores.APIServiceCache.List()).To(HaveLen(3))
+			Expect(kvTestData.controller.stores.APIServiceCache.List()).To(HaveLen(4))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
