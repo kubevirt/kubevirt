@@ -662,15 +662,15 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 }
 
 func GetPreemptible() *schedulingv1.PriorityClass {
-	preemtionPolicy := k8sv1.PreemptLowerPriority
+	preemptionPolicy := k8sv1.PreemptLowerPriority
 	pc := schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: schedulingv1.SchemeGroupVersion.String(),
 			Kind:       "PriorityClass",
 		},
 		GlobalDefault:    false,
-		Description:      "Priority class for VMs which are allowed to be preemtited.",
-		PreemptionPolicy: &preemtionPolicy,
+		Description:      "Priority class for VMs which are allowed to be preemptited.",
+		PreemptionPolicy: &preemptionPolicy,
 		Value:            1000000,
 	}
 	pc.ObjectMeta.Name = "preemptible"
@@ -678,15 +678,15 @@ func GetPreemptible() *schedulingv1.PriorityClass {
 }
 
 func GetNonPreemptible() *schedulingv1.PriorityClass {
-	preemtionPolicy := k8sv1.PreemptNever
+	preemptionPolicy := k8sv1.PreemptNever
 	pc := schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: schedulingv1.SchemeGroupVersion.String(),
 			Kind:       "PriorityClass",
 		},
 		GlobalDefault:    false,
-		Description:      "Priority class for VMs which should not be preemtited.",
-		PreemptionPolicy: &preemtionPolicy,
+		Description:      "Priority class for VMs which should not be preemptited.",
+		PreemptionPolicy: &preemptionPolicy,
 		Value:            999999999,
 	}
 	pc.ObjectMeta.Name = NonPreemptible
