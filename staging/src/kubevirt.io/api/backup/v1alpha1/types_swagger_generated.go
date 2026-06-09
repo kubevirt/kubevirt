@@ -87,5 +87,6 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
 		"endpointCert":    "+optional\nEndpointCert is the raw CACert that is to be used when connecting\nto an exported backup endpoint in pull mode.",
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",
+		"exportUID":       "+optional\nExportUID tracks the UID of the associated VMExport for pull-mode backups\nused to detect VMExport recreation and re-initiate the export handshake",
 	}
 }

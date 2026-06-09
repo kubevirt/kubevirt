@@ -17665,6 +17665,13 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							},
 						},
 					},
+					"exportUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExportUID tracks the UID of the associated VMExport for pull-mode backups used to detect VMExport recreation and re-initiate the export handshake",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
