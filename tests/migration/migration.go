@@ -2761,8 +2761,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 	})
 
-	Context("Virtiofs", decorators.VirtioFS, func() {
-		It("should migrate with a shared ConfigMap", func() {
+	Context("Virtiofs", func() {
+		It("should migrate with a shared ConfigMap", decorators.ConfigVolumesVirtiofs, func() {
 			configMapName := "configmap-" + uuid.NewString()[:6]
 			data := map[string]string{
 				"option1": "value1",
@@ -2812,7 +2812,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}, 200)).To(Succeed())
 		})
 
-		It("should migrate with a shared DV", decorators.RequiresRWXFilesystemStorage, func() {
+		It("should migrate with a shared DV", decorators.RequiresRWXFilesystemStorage, decorators.StorageVolumesVirtiofs, func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 
 			if !foundSC {
