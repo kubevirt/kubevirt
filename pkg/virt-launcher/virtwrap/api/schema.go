@@ -930,6 +930,7 @@ type BlockIO struct {
 
 type Reservations struct {
 	Managed            string              `xml:"managed,attr,omitempty"`
+	Migration          string              `xml:"migration,attr,omitempty"`
 	SourceReservations *SourceReservations `xml:"source,omitempty"`
 }
 
