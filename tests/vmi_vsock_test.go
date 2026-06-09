@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"crypto/md5"
 	"fmt"
 	"io"
 	"net"
@@ -261,9 +262,12 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 })
 
 func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
-	const port = 4444
+	const (
+		port           = 4444
+		guestAgentPath = "/usr/bin/example-guest-agent"
+	)
 
-	err := console.RunCommand(vmi, fmt.Sprintf("nc -vl %d > /usr/bin/example-guest-agent < /dev/null &", port), 60*time.Second)
+	err := console.RunCommand(vmi, fmt.Sprintf("nc -vl %d > %s < /dev/null &", port, guestAgentPath), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	file, err := os.Open(flags.KubeVirtExampleGuestAgentPath)
@@ -277,14 +281,25 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 	conn := stream.AsConn()
-	_, err = io.Copy(conn, file)
+	md5Hasher := md5.New()
+	_, err = io.Copy(conn, io.TeeReader(file, md5Hasher))
 	Expect(err).ToNot(HaveOccurred())
 	err = conn.Close()
 	Expect(err).ToNot(HaveOccurred())
 
-	// Wait for netcat to exit
-	err = console.RunCommand(vmi, "while pgrep netcat; do sleep 1; done", 90*time.Second)
-	Expect(err).ToNot(HaveOccurred())
+	expectedMD5 := fmt.Sprintf("%x", md5Hasher.Sum(nil))
+	guestAgentMD5Command := fmt.Sprintf("md5sum %s | awk '{print $1}'", guestAgentPath)
+	Eventually(func() error {
+		guestMD5Output, err := console.RunCommandAndStoreOutput(vmi, guestAgentMD5Command, 30*time.Second)
+		if err != nil {
+			return err
+		}
+		guestMD5 := strings.TrimSpace(guestMD5Output)
+		if guestMD5 != expectedMD5 {
+			return fmt.Errorf("guest agent md5 mismatch: got %q, expected %q", guestMD5, expectedMD5)
+		}
+		return nil
+	}, 2*time.Minute, 10*time.Second).Should(Succeed(), "should validate the guest agent file was copied correctly")
 }
 
 func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port uint32) error {
