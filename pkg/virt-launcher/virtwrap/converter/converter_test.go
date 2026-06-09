@@ -1150,6 +1150,7 @@ var _ = Describe("Converter", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			reserv := domainSpec.Devices.Disks[0].Source.Reservations
 			Expect(reserv.Managed).To(Equal("no"))
+			Expect(reserv.Migration).To(Equal("yes"))
 			Expect(reserv.SourceReservations.Type).To(Equal("unix"))
 			Expect(reserv.SourceReservations.Path).To(Equal("/var/run/kubevirt/daemons/pr/pr-helper.sock"))
 			Expect(reserv.SourceReservations.Mode).To(Equal("client"))
