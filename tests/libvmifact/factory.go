@@ -35,6 +35,7 @@ const (
 	windowsDiskName = "windows-disk"
 	WindowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 	WindowsPVCName  = "disk-windows"
+	FedoraMemory    = "544Mi"
 )
 
 // NewFedora instantiates a new Fedora based VMI configuration,
@@ -42,7 +43,7 @@ const (
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []libvmi.Option{
-		libvmi.WithMemoryRequest("512Mi"),
+		libvmi.WithMemoryRequest(FedoraMemory),
 		libvmi.WithRng(),
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
