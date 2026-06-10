@@ -1227,10 +1227,6 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses Secure Execution", v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable), isBlockMigration
 	}
 
-	if reservation.HasVMIPersistentReservation(vmi) {
-		return newNonMigratableCondition("VMI uses SCSI persistent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
-	}
-
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
 		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
 	}
