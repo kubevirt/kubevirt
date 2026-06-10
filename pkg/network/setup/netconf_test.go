@@ -66,7 +66,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("runs setup successfully with networks", func() {
-		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
+		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns, launcherPid)
 		Expect(stateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
@@ -84,7 +84,7 @@ var _ = Describe("netconf", func() {
 	DescribeTable("setup ignores specific network bindings", func(binding v1.InterfaceBindingMethod) {
 		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
 
-		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
+		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns, launcherPid)
 
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   testNetworkName,
@@ -120,6 +120,33 @@ var _ = Describe("netconf", func() {
 	It("fails the teardown run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, stateMap, cConfigStub{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
+	})
+
+	It("reuses the cached state when the launcher PID is unchanged", func() {
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		cachedState := stateMap[string(vmi.UID)]
+		Expect(cachedState).NotTo(BeNil())
+
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		Expect(stateMap[string(vmi.UID)]).To(BeIdenticalTo(cachedState))
+	})
+
+	It("clears the stale state when the launcher PID changes (target pod replaced)", func() {
+		const replacedPid = launcherPid + 1
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+		staleState := stateMap[string(vmi.UID)]
+		Expect(staleState).NotTo(BeNil())
+
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, replacedPid)).To(Succeed())
+		Expect(stateMap[string(vmi.UID)]).NotTo(BeIdenticalTo(staleState))
+	})
+
+	It("propagates the teardown error when clearing stale state fails on PID change", func() {
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, failingCacheCreator{}, stateMap, cConfigStub{})
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
+
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid+1)).NotTo(Succeed())
+		Expect(stateMap).NotTo(HaveKey(string(vmi.UID)))
 	})
 })
 

@@ -78,7 +78,7 @@ var _ = Describe("netpod", func() {
 
 	BeforeEach(func() {
 		cache := newConfigStateCacheStub()
-		state = netpod.NewState(cache, netnsStub{})
+		state = netpod.NewState(cache, netnsStub{}, 0)
 	})
 
 	It("fails setup when reading nmstate status fails", func() {

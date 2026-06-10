@@ -38,10 +38,15 @@ type State struct {
 	cache stateCacheReaderWriterDeleter
 
 	NSExec NSExecutor
+
+	// LauncherPid is the virt-launcher PID the namespaced (NSExec) state was
+	// built for. It lets the caller detect a replaced (failed) target pod so
+	// the stale per-VMI network config-state can be invalidated.
+	LauncherPid int
 }
 
-func NewState(cache stateCacheReaderWriterDeleter, ns NSExecutor) *State {
-	return &State{cache: cache, NSExec: ns}
+func NewState(cache stateCacheReaderWriterDeleter, ns NSExecutor, launcherPid int) *State {
+	return &State{cache: cache, NSExec: ns, LauncherPid: launcherPid}
 }
 
 func (s *State) PendingStartedFinished(nets []v1.Network) ([]v1.Network, []v1.Network, []v1.Network, error) {

@@ -43,7 +43,7 @@ var _ = Describe("state", func() {
 		cache := newConfigStateCacheStub()
 		cache.readErr = readErr
 
-		state := netpod.NewState(cache, nil)
+		state := netpod.NewState(cache, nil, 0)
 		_, _, _, err := state.PendingStartedFinished([]v1.Network{{Name: netName}})
 
 		Expect(err).To(MatchError(readErr))
@@ -53,7 +53,7 @@ var _ = Describe("state", func() {
 		cache := newConfigStateCacheStub()
 		cache.writeErr = writeErr
 
-		state := netpod.NewState(cache, nil)
+		state := netpod.NewState(cache, nil, 0)
 		Expect(state.SetStarted([]v1.Network{{Name: netName}})).To(MatchError(ContainSubstring(writeErr.Error())))
 	})
 
@@ -61,7 +61,7 @@ var _ = Describe("state", func() {
 		cache := newConfigStateCacheStub()
 		cache.writeErr = writeErr
 
-		state := netpod.NewState(cache, nil)
+		state := netpod.NewState(cache, nil, 0)
 		Expect(state.SetFinished([]v1.Network{{Name: netName}})).To(MatchError(ContainSubstring(writeErr.Error())))
 	})
 
@@ -69,12 +69,12 @@ var _ = Describe("state", func() {
 		cache := newConfigStateCacheStub()
 		cache.deleteErr = deleteErr
 
-		state := netpod.NewState(cache, nil)
+		state := netpod.NewState(cache, nil, 0)
 		Expect(state.Delete([]v1.Network{{Name: netName}})).To(MatchError(ContainSubstring(deleteErr.Error())))
 	})
 
 	It("succeeds setting started state", func() {
-		state := netpod.NewState(newConfigStateCacheStub(), nil)
+		state := netpod.NewState(newConfigStateCacheStub(), nil, 0)
 		Expect(state.SetStarted([]v1.Network{{Name: netName}})).To(Succeed())
 
 		pending, started, finished, err := state.PendingStartedFinished([]v1.Network{{Name: netName}})
@@ -86,7 +86,7 @@ var _ = Describe("state", func() {
 	})
 
 	It("succeeds setting finished state", func() {
-		state := netpod.NewState(newConfigStateCacheStub(), nil)
+		state := netpod.NewState(newConfigStateCacheStub(), nil, 0)
 		Expect(state.SetFinished([]v1.Network{{Name: netName}})).To(Succeed())
 
 		pending, started, finished, err := state.PendingStartedFinished([]v1.Network{{Name: netName}})
@@ -114,7 +114,7 @@ var _ = Describe("state", func() {
 		cache.stateCache[nets[4].Name] = netcache.PodIfaceNetworkPreparationFinished
 		cache.stateCache[nets[5].Name] = netcache.PodIfaceNetworkPreparationFinished
 
-		state := netpod.NewState(cache, nil)
+		state := netpod.NewState(cache, nil, 0)
 		pending, started, finished, err := state.PendingStartedFinished(nets)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -124,7 +124,7 @@ var _ = Describe("state", func() {
 	})
 
 	It("succeeds deleting network state", func() {
-		state := netpod.NewState(newConfigStateCacheStub(), nil)
+		state := netpod.NewState(newConfigStateCacheStub(), nil, 0)
 		nets := []v1.Network{{Name: netName}}
 		Expect(state.SetFinished(nets)).To(Succeed())
 
