@@ -241,6 +241,9 @@ func (ctrl *VMBackupController) populateExportLinks(backup *backupv1.VirtualMach
 
 func (ctrl *VMBackupController) generateBackupTunnelCert(backup *backupv1.VirtualMachineBackup) (*triple.KeyPair, error) {
 	caCert := ctrl.caCertManager.Current()
+	if caCert == nil {
+		return nil, fmt.Errorf("CA certificate not yet available")
+	}
 	caKeyPair := &triple.KeyPair{
 		Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
 		Cert: caCert.Leaf,
