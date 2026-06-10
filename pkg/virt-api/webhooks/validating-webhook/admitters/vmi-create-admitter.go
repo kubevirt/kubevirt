@@ -1354,7 +1354,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 		if len(option.Name) == 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Option.Name must not be empty"),
+				Message: "Option.Name must not be empty",
 				Field:   "options",
 			})
 		}
@@ -1404,7 +1404,7 @@ func validateFirmwareACPI(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	if acpi.SlicNameRef == "" && acpi.MsdmNameRef == "" {
 		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("ACPI was set but no SLIC nor MSDM volume reference was set"),
+			Message: "ACPI was set but no SLIC nor MSDM volume reference was set",
 			Field:   field.String(),
 		})
 	}
@@ -2042,7 +2042,7 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 		if spec.Domain.CPU.Sockets > spec.Domain.CPU.MaxSockets {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
+				Message: "Number of sockets in CPU topology is greater than the maximum sockets allowed",
 				Field:   field.Child("domain", "cpu", "sockets").String(),
 			})
 		}
