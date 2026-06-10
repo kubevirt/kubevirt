@@ -82,9 +82,10 @@ http_archive(
 
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "68af54cb97fbdee5e5e8fe8d210d15a518f9d62abfd71620c3eaff3b26a5ff86",
+    sha256 = "763f4a3f6b03469fdb00a77a333dd0b5546d3ee1fa29db373128c08fee73e0e8",
     urls = [
-        "https://github.com/bazel-contrib/rules_go/releases/download/v0.59.0/rules_go-v0.59.0.zip",
+        "https://mirror.bazel.build/github.com/bazel-contrib/rules_go/releases/download/v0.61.1/rules_go-v0.61.1.zip",
+        "https://github.com/bazel-contrib/rules_go/releases/download/v0.61.1/rules_go-v0.61.1.zip",
     ],
 )
 

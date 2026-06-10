@@ -1,6 +1,6 @@
 module kubevirt.io/kubevirt
 
-go 1.26.4
+go 1.26.0
 
 require (
 	dario.cat/mergo v1.0.2

@@ -1,6 +1,6 @@
 module kubevirt.io/client-go
 
-go 1.26.4
+go 1.26.0
 
 require (
 	github.com/go-kit/log v0.2.1
