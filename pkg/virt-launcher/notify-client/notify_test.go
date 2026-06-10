@@ -342,11 +342,6 @@ var _ = Describe("Notify", func() {
 	})
 
 	Describe("K8s Events", func() {
-		var err error
-		var shareDir string
-		var stop chan struct{}
-		var stopped bool
-		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
 		var client *Notifier
 		var recorder *record.FakeRecorder
@@ -354,11 +349,10 @@ var _ = Describe("Notify", func() {
 		var e *eventCaller
 
 		BeforeEach(func() {
-			stop = make(chan struct{})
-			eventChan = make(chan watch.Event, 100)
+			stop := make(chan struct{})
+			eventChan := make(chan watch.Event, 100)
 			deleteNotificationSent = make(chan watch.Event, 100)
-			stopped = false
-			shareDir, err = os.MkdirTemp("", "kubevirt-share")
+			shareDir, err := os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 
 			recorder = record.NewFakeRecorder(10)
@@ -367,25 +361,21 @@ var _ = Describe("Notify", func() {
 			vmiStore = vmiInformer.GetStore()
 			e = &eventCaller{}
 
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
-			}()
+			go func(rec record.EventRecorder, store cache.Store) {
+				notifyserver.RunServer(shareDir, stop, eventChan, rec, store)
+			}(recorder, vmiStore)
 			// mimic pipe
 			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
 			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
 			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
-			time.Sleep(1 * time.Second)
-
 			client = NewNotifier(shareDir)
-		})
 
-		AfterEach(func() {
-			if stopped == false {
+			DeferCleanup(func() {
 				close(stop)
-			}
-			client.Close()
-			os.RemoveAll(shareDir)
+				client.Close()
+				os.RemoveAll(shareDir)
+			})
 		})
 
 		It("Should send a k8s event", func() {
