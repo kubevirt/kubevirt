@@ -79,6 +79,74 @@ func newVMIWithPRPVC(namespace, diskName, pvcName string) *v1.VirtualMachineInst
 }
 
 var _ = Describe("PersistentReservation", func() {
+	Context("HasVMIPersistentReservation", func() {
+		It("should return true when VMI has LUN with reservation", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Reservation: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.HasVMIPersistentReservation(vmi)).To(BeTrue())
+		})
+
+		It("should return false when VMI has LUN without reservation", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Reservation: false,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.HasVMIPersistentReservation(vmi)).To(BeFalse())
+		})
+
+		It("should return false when VMI has no LUN disks", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: v1.DiskBusVirtio,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.HasVMIPersistentReservation(vmi)).To(BeFalse())
+		})
+	})
+
 	Context("PersistentReservationPVCLabels", func() {
 		It("should return no labels when there are no PR disks", func() {
 			vmi := &v1.VirtualMachineInstance{
@@ -336,6 +404,155 @@ var _ = Describe("PersistentReservation", func() {
 			for _, term := range terms {
 				Expect(term.TopologyKey).To(Equal("kubernetes.io/hostname"))
 			}
+		})
+	})
+
+	Context("IsPersistentReservationMigratable", func() {
+		It("should return true for SCSI LUN with reservation (virtio-scsi)", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Bus:         v1.DiskBusSCSI,
+											Reservation: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.IsPersistentReservationMigratable(vmi)).To(BeTrue())
+		})
+
+		It("should return false for LUN with reservation and SATA bus", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Bus:         v1.DiskBusSATA,
+											Reservation: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.IsPersistentReservationMigratable(vmi)).To(BeFalse())
+		})
+
+		It("should return true when VMI has no persistent reservations", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: v1.DiskBusVirtio,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.IsPersistentReservationMigratable(vmi)).To(BeTrue())
+		})
+
+		It("should return false for non-SCSI bus with reservation", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Bus:         v1.DiskBusSATA,
+											Reservation: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.IsPersistentReservationMigratable(vmi)).To(BeFalse())
+		})
+
+		It("should return true for multiple SCSI LUNs with reservation", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Bus:         v1.DiskBusSCSI,
+											Reservation: true,
+										},
+									},
+								},
+								{
+									Name: "disk2",
+									DiskDevice: v1.DiskDevice{
+										LUN: &v1.LunTarget{
+											Bus:         v1.DiskBusSCSI,
+											Reservation: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(reservation.IsPersistentReservationMigratable(vmi)).To(BeTrue())
+		})
+
+		It("should return true for nil VMI", func() {
+			Expect(reservation.IsPersistentReservationMigratable(nil)).To(BeTrue())
 		})
 	})
 })

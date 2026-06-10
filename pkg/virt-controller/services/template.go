@@ -156,7 +156,7 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-func setPersistentReservationAntiAffinity(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, pvcStore cache.Store) error {
+func setPersistentReservationAntiAffinity(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, pvcStore cache.Store, isMigrationTarget bool) error {
 	prLabels, err := reservation.PersistentReservationPVCLabels(vmi, pvcStore)
 	if err != nil {
 		return err
@@ -165,7 +165,13 @@ func setPersistentReservationAntiAffinity(vmi *v1.VirtualMachineInstance, pod *k
 		return nil
 	}
 
+	// Always add labels so pods can be identified, even for migration targets
 	maps.Copy(pod.Labels, prLabels)
+
+	// Skip anti-affinity for migration target pods to allow co-location with source pod during migration
+	if isMigrationTarget {
+		return nil
+	}
 
 	terms := reservation.PersistentReservationPodAntiAffinityTerms(prLabels)
 	if len(terms) == 0 {
@@ -722,7 +728,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	setNodeAffinityForPod(vmi, &pod)
-	if err := setPersistentReservationAntiAffinity(vmi, &pod, t.persistentVolumeClaimStore); err != nil {
+	// imageIDs != nil indicates this is a migration target pod
+	isMigrationTarget := imageIDs != nil
+	if err := setPersistentReservationAntiAffinity(vmi, &pod, t.persistentVolumeClaimStore, isMigrationTarget); err != nil {
 		return nil, err
 	}
 
