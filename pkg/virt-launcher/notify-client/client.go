@@ -354,9 +354,6 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			updateEvents(event, domain, events)
 		}
 	default:
-		if libvirtEvent.Event != nil && libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED {
-			metadataCache.BootFailed.Set(false)
-		}
 		if libvirtEvent.Event != nil {
 			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 				event := watch.Event{Type: watch.Added, Object: domain}
@@ -579,6 +576,8 @@ func (n *Notifier) StartDomainNotifier(
 			Event   string `json:"event"`
 			Details string `json:"details"`
 		}
+
+		metadataCache.BootFailed.Set(false)
 
 		log.Log.Infof("Domain Qemu Monitor Shutdown event received")
 

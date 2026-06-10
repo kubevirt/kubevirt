@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -140,6 +141,15 @@ func reconnectIface(dom cli.VirDomain, iface api.Interface) error {
 	return nil
 }
 
+func hasBootFailedCondition(vmi *v1.VirtualMachineInstance) bool {
+	for _, condition := range vmi.Status.Conditions {
+		if condition.Type == v1.VirtualMachineInstanceBootFailed && condition.Status == k8sv1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 func shouldBlockMigrationTargetPreparation(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Annotations == nil {
 		return false
@@ -186,6 +196,9 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
+	if hasBootFailedCondition(vmi) {
+		l.metadataCache.BootFailed.Set(true)
+	}
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {

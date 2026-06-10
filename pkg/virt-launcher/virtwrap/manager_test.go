@@ -2251,6 +2251,25 @@ var _ = Describe("Manager", func() {
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 
+		It("should preserve boot failure condition on the target pod", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				TargetPod:    "fakepod",
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceBootFailed,
+				Status: k8sv1.ConditionTrue,
+			})
+
+			manager, _ := newLibvirtDomainManagerDefault()
+			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+
+			bootFailed, exists := manager.metadataCache.BootFailed.Load()
+			Expect(exists).To(BeTrue())
+			Expect(bootFailed).To(BeTrue())
+		})
+
 		It("should detect inprogress migration job", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
