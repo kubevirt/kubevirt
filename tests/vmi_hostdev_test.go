@@ -20,6 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -37,19 +38,30 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 	var (
 		virtClient kubecli.KubevirtClient
 		config     v1.KubeVirtConfiguration
+		fgWasOff   bool
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+
+		fgWasOff = !checks.HasFeature(featuregate.HostDevicesGate)
+		if fgWasOff {
+			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+		}
+
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
 	})
 
 	AfterEach(func() {
+		if fgWasOff {
+			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+		}
 		kv := libkubevirt.GetCurrentKv(virtClient)
-		// Reinitialized the DeveloperConfiguration to avoid to influence the next test
 		config = kv.Spec.Configuration
-		config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+		if config.DeveloperConfiguration != nil {
+			config.DeveloperConfiguration.DiskVerification = nil
+		}
 		config.PermittedHostDevices = &v1.PermittedHostDevices{}
 		kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 	})
@@ -59,11 +71,8 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 			deviceName := "example.org/soundcard"
 
 			By("Adding the emulated sound card to the permitted host devices")
-			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.HostDevicesGate},
-				DiskVerification: &v1.DiskVerification{
-					MemoryLimit: resource.NewScaledQuantity(2, resource.Giga),
-				},
+			config.DeveloperConfiguration.DiskVerification = &v1.DiskVerification{
+				MemoryLimit: resource.NewScaledQuantity(2, resource.Giga),
 			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
 			var hostDevs []v1.HostDevice

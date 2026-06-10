@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -36,9 +37,16 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 		var virtClient kubecli.KubevirtClient
 		var config v1.KubeVirtConfiguration
 		var vmi *v1.VirtualMachineInstance
+		var fgWasOff bool
 
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
+
+			fgWasOff = !checks.HasFeature(featuregate.HostDevicesGate)
+			if fgWasOff {
+				kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+			}
+
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
 
@@ -62,6 +70,14 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 
 			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout*time.Second)).To(Succeed())
+
+			if fgWasOff {
+				kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+			}
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			config = kv.Spec.Configuration
+			config.PermittedHostDevices = &v1.PermittedHostDevices{}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		})
 
 		Context("with usb storage", func() {
@@ -69,9 +85,6 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 				const resourceName = "kubevirt.io/usb-storage"
 
 				By("Adding the emulated USB device to the permitted host devices")
-				config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.HostDevicesGate},
-				}
 				config.PermittedHostDevices = &v1.PermittedHostDevices{
 					USB: []v1.USBHostDevice{
 						{
