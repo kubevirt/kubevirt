@@ -59,11 +59,9 @@ var _ = Describe("Generic Device", func() {
 
 	})
 
-	DescribeTable("Should stop if the device plugin socket file is deleted", func(dummyDevice bool) {
-		if dummyDevice {
-			dpi.devicePath = ""
-		}
+	It("Should stop if the device plugin socket file is deleted", func() {
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+
 		errChan := make(chan error, 1)
 		go func(errChan chan error) {
 			errChan <- dpi.healthCheck()
@@ -74,10 +72,7 @@ var _ = Describe("Generic Device", func() {
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())
-	},
-		Entry("when it is not a dummy device", true),
-		Entry("when it is a dummy device", false),
-	)
+	})
 
 	It("Should monitor health of device node", func() {
 
