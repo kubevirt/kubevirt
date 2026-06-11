@@ -1902,7 +1902,6 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 	case virtv1.MigrationPreparingTarget, virtv1.MigrationTargetReady:
 		if migration.IsLocalOrDecentralizedTarget() && (!targetPodExists || controller.PodIsDown(pod)) &&
 			vmi.IsMigrationSynchronized(migration) &&
-			len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 &&
 			vmi.Status.MigrationState.StartTimestamp == nil &&
 			!vmi.Status.MigrationState.Failed &&
 			!vmi.Status.MigrationState.Completed {
