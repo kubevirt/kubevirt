@@ -14,7 +14,8 @@ import (
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
-const uninstallErrorMsg = "Rejecting the uninstall request, since there are still %s present. Either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt."
+const uninstallErrorMsg = "rejecting the uninstall request, since there are still %s present; " +
+	"either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt"
 
 var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
@@ -41,7 +42,8 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 	} else {
-		list, err := k.client.KubeVirt(review.Request.Namespace).List(ctx, metav1.ListOptions{})
+		var list *v1.KubeVirtList
+		list, err = k.client.KubeVirt(review.Request.Namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
@@ -61,7 +63,6 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 	}
 
 	vmis, err := k.client.VirtualMachineInstance(metav1.NamespaceAll).List(ctx, metav1.ListOptions{Limit: 2})
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -71,7 +72,6 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 	}
 
 	vms, err := k.client.VirtualMachine(metav1.NamespaceAll).List(ctx, metav1.ListOptions{Limit: 2})
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -81,7 +81,6 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 	}
 
 	vmirs, err := k.client.ReplicaSet(metav1.NamespaceAll).List(ctx, metav1.ListOptions{Limit: 2})
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
