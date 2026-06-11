@@ -21,6 +21,7 @@ package apply
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -55,6 +57,7 @@ import (
 
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
+const startupValidationPatchTimeout = 10 * time.Second
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
@@ -122,6 +125,46 @@ func getPatchWithObjectMetaAndSpec(ops []patch.PatchOption, meta *metav1.ObjectM
 	ops = append(ops, createLabelsAndAnnotationsPatch(meta)...)
 	// and spec replacement to patch
 	return append(ops, patch.WithReplace("/spec", spec))
+}
+
+func (r *Reconciler) ensureKubeVirtStartupValidation() (bool, error) {
+	targetID := r.kv.Status.TargetDeploymentID
+	if targetID == "" {
+		log.Log.V(4).Info("skip startup validation patch: status.targetDeploymentID is empty")
+		return false, nil
+	}
+	if r.kv.Annotations != nil && r.kv.Annotations[v1.KubeVirtStartupValidationAnnotation] == targetID {
+		return false, nil
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]string{
+				v1.KubeVirtStartupValidationAnnotation: targetID,
+			},
+		},
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to build startup validation patch: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), startupValidationPatchTimeout)
+	defer cancel()
+
+	kv, err := r.clientset.KubeVirt(r.kv.Namespace).Patch(
+		ctx,
+		r.kv.Name,
+		types.MergePatchType,
+		payload,
+		metav1.PatchOptions{},
+	)
+
+	if err != nil {
+		return false, fmt.Errorf("startup validation patch rejected: %w", err)
+	}
+
+	r.kv = kv
+	return true, nil
 }
 
 func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
@@ -497,6 +540,16 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		err = r.removeKvServiceAccountsFromDefaultSCC(r.kv.Namespace)
 		if err != nil {
 			return false, err
+		}
+	}
+
+	if apiDeploymentsRolledOver {
+		patched, err := r.ensureKubeVirtStartupValidation()
+		if err != nil {
+			return false, err
+		}
+		if patched {
+			return false, nil
 		}
 	}
 
