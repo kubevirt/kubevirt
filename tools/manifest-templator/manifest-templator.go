@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
+	"kubevirt.io/kubevirt/tools/placement"
 	"kubevirt.io/kubevirt/tools/util"
 )
 
@@ -83,6 +84,7 @@ type templateData struct {
 	PrHelperImage                      string
 	SidecarShimImage                   string
 	Hypervisor                         string
+	WithKubeVirtControlPlaneLabel      bool
 }
 
 func main() {
@@ -120,6 +122,7 @@ func main() {
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
 	hypervisor := flag.String("hypervisor", "", "hypervisor name (e.g., kvm or hyperv-direct).")
+	withKubeVirtControlPlaneLabel := flag.Bool("with-kubevirt-control-plane-label", false, "add node-role.kubevirt.io/control-plane as an additional node selector term for the operator deployment")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -173,6 +176,7 @@ func main() {
 		data.PrHelperImage = *prHelperImage
 		data.SidecarShimImage = *sidecarShimImage
 		data.Hypervisor = *hypervisor
+		data.WithKubeVirtControlPlaneLabel = *withKubeVirtControlPlaneLabel
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
@@ -285,6 +289,10 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.SidecarShimImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
+
+	if data.WithKubeVirtControlPlaneLabel {
+		placement.InjectKubeVirtControlPlanePlacement(&deployment.Spec.Template.Spec)
+	}
 
 	writer := strings.Builder{}
 	err := util.MarshallObject(deployment.Spec, &writer)
