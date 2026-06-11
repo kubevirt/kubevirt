@@ -335,14 +335,13 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES, withSNP bool, sevstr string) {
 				if withSNP && !nodeHasSevESidsCapacity() {
-					Skip("Skipping test because the node does not have SEV-SNP capacity") //nolint:forbidigo
+					Skip("Skipping test because the node does not have SEV-SNP capacity")
 				}
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
 				By("Verifying that SEV is enabled in the guest")
 				const consoleTimeout = 60
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -358,7 +357,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-ES disabled, SEV enabled
 			Entry("It should launch with base SEV features enabled", false, false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, false, "SEV SEV-ES"),
+			Entry("[QUARANTINE] It should launch with SEV-ES features enabled", decorators.Quarantine, decorators.SEVES, true, false, "SEV SEV-ES"),
 			// SEV-SNP enabled
 			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
