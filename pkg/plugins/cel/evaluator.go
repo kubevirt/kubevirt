@@ -22,6 +22,7 @@ package cel
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/google/cel-go/cel"
@@ -81,7 +82,14 @@ func NewEvaluator(opts ...Option) (*Evaluator, error) {
 	}
 
 	envOpts := []cel.EnvOption{
-		ext.NativeTypes(append(nativeTypes, ext.ParseStructTag("json"))...),
+		ext.NativeTypes(append(nativeTypes, ext.ParseStructField(func(field reflect.StructField) string {
+			if tag, ok := field.Tag.Lookup("json"); ok {
+				if name := strings.SplitN(tag, ",", 2)[0]; name != "" {
+					return name
+				}
+			}
+			return field.Name
+		}))...),
 		ext.Strings(),
 		ext.Math(),
 		ext.Lists(),
