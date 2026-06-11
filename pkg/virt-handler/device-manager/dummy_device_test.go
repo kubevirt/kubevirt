@@ -20,8 +20,8 @@
 package device_manager
 
 import (
+	"context"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -32,31 +32,45 @@ import (
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
-var _ = Describe("Generic Device", func() {
-	var dpi *GenericDevicePlugin
-	var devicePath string
+var _ = Describe("Dummy Device", func() {
+	var dpi *DummyDevicePlugin
 
 	BeforeEach(func() {
 		workDir, err := os.MkdirTemp("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
 
-		devicePath = path.Join(workDir, "foo")
-		fileObj, err := os.Create(devicePath)
-		Expect(err).ToNot(HaveOccurred())
-		fileObj.Close()
-
-		dpi = NewGenericDevicePlugin("foo", devicePath, 1, "rw", true)
+		dpi = NewDummyDevicePlugin("foo", 3)
 		dpi.socketPath = filepath.Join(workDir, "test.sock")
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.done = make(chan struct{})
-		dpi.deviceRoot = "/"
 		stop := make(chan struct{})
 		dpi.stop = stop
 		DeferCleanup(func() {
 			close(stop)
 			os.RemoveAll(workDir)
 		})
+	})
 
+	It("Should advertise the requested capacity as healthy devices", func() {
+		Expect(dpi.devs).To(HaveLen(3))
+		for _, dev := range dpi.devs {
+			Expect(dev.Health).To(Equal(pluginapi.Healthy))
+		}
+	})
+
+	It("Should allocate without exposing any device", func() {
+		response, err := dpi.Allocate(context.Background(), &pluginapi.AllocateRequest{
+			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
+				{DevicesIDs: []string{"foo0"}},
+				{DevicesIDs: []string{"foo1"}},
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(response.ContainerResponses).To(HaveLen(2))
+		for _, containerResponse := range response.ContainerResponses {
+			Expect(containerResponse.Devices).To(BeEmpty())
+			Expect(containerResponse.Mounts).To(BeEmpty())
+		}
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
@@ -72,33 +86,5 @@ var _ = Describe("Generic Device", func() {
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())
-	})
-
-	It("Should monitor health of device node", func() {
-
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
-
-		go dpi.healthCheck()
-		Consistently(func() string {
-			return dpi.devs[0].Health
-		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
-
-		By("Removing a (fake) device node")
-		os.Remove(devicePath)
-
-		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
-
-		By("Creating a new (fake) device node")
-		fileObj, err := os.Create(devicePath)
-		Expect(err).ToNot(HaveOccurred())
-		fileObj.Close()
-
-		By("waiting for healthcheck to send Healthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
 	})
 })
