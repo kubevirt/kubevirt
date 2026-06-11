@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -129,7 +130,7 @@ func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance,
 	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
 	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
 	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
-	if util.IsVFIOVMI(vmi) {
+	if vmitrait.HasVFIO(vmi) {
 		overhead.Add(resource.MustParse("1Gi"))
 	}
 
