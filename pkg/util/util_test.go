@@ -261,5 +261,12 @@ var _ = Describe("Misc Capacity", func() {
 			Expect(caps).To(BeNil())
 			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
+		It("should skip malformed lines and parse the rest", func() {
+			Expect(os.WriteFile(miscCapacityPath, []byte("tdx abc\nsev_es 99\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(1))
+			Expect(caps["sev_es"]).To(Equal(99))
+		})
 	})
 })

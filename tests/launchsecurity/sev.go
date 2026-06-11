@@ -49,8 +49,22 @@ import (
 
 var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SEV, decorators.SigCompute, func() {
 	const (
-		diskSecret = "qwerty123"
+		diskSecret           = "qwerty123"
+		sevESidsResourceName = "devices.kubevirt.io/sev-esids"
 	)
+
+	nodeHasSevESidsCapacity := func() bool {
+		nodes, err := kubevirt.Client().CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
+		if err != nil {
+			return false
+		}
+		for i := range nodes.Items {
+			if val, ok := nodes.Items[i].Status.Allocatable[sevESidsResourceName]; ok && !val.IsZero() {
+				return true
+			}
+		}
+		return false
+	}
 
 	newSEVFedora := func(withES, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 		const secureBoot = false
@@ -320,6 +334,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	Context("lifecycle", func() {
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES, withSNP bool, sevstr string) {
+				if withSNP && !nodeHasSevESidsCapacity() {
+					Skip("Skipping test because the node does not have SEV-SNP capacity") //nolint:forbidigo
+				}
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 
