@@ -121,49 +121,50 @@ func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permiss
 	return ret
 }
 
-type secureGuestCapacityDeviceHandler struct {
-	IsFgEnabled                     func() bool
-	UpdateSecureGuestCapacityDevice func(capacity int) (Device, error)
-}
-
-func (c *DeviceController) updateSecureGuestCapacityDevicePlugins() []Device {
-	var capacityDeviceHandlers = map[string]secureGuestCapacityDeviceHandler{
-		"tdx":    {c.virtConfig.WorkloadEncryptionTDXEnabled, c.updateTdxDevice},
-		"sev_es": {c.virtConfig.WorkloadEncryptionSEVEnabled, c.updateSNPCapacityDevice},
+// updateSecureGuestCapacityDevicePlugin returns a device plugin exposing the
+// secure guest capacity of the node, read from the misc cgroup controller. A
+// node is either an Intel TDX or an AMD SEV host, never both, so at most one
+// plugin is returned; TDX is checked first to keep the order deterministic.
+func (c *DeviceController) updateSecureGuestCapacityDevicePlugin() Device {
+	tdxEnabled := c.virtConfig.WorkloadEncryptionTDXEnabled()
+	sevEnabled := c.virtConfig.WorkloadEncryptionSEVEnabled()
+	if !tdxEnabled && !sevEnabled {
+		return nil
 	}
 
-	var caps map[string]int
-	var err error
-	plugins := []Device{}
-	for capKey, deviceHandler := range capacityDeviceHandlers {
-		if deviceHandler.IsFgEnabled() {
-			if len(caps) == 0 {
-				caps, err = util.GetMiscCapacity()
+	caps, err := util.GetMiscCapacity()
+	if err != nil {
+		log.Log.V(4).Infof("Error getting secure guest capacity: %s", err.Error())
+		return nil
+	}
 
-				if err != nil {
-					log.Log.V(4).Infof("Error getting secure guest capacity: %s", err.Error())
-					return nil
-				}
-
-				if len(caps) == 0 {
-					log.Log.V(4).Infof("No secure guest capacity available")
-					return nil
-				}
+	if tdxEnabled {
+		if capacity, exists := caps["tdx"]; exists {
+			if capacity <= 0 {
+				log.Log.Warningf("Ignoring non-positive secure guest capacity %d for tdx", capacity)
+				return nil
 			}
-
-			capacity, existed := caps[capKey]
-			if existed {
-				cvmPlugin, err := deviceHandler.UpdateSecureGuestCapacityDevice(capacity)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Failed to update the secure guest capacity device plugin")
-				}
-				plugins = append(plugins, cvmPlugin)
-				break
+			tdxPlugin, err := c.updateTdxDevice(capacity)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Ignoring non-positive secure guest capacity %d for tdx", capacity)
+				return nil
 			}
+			return tdxPlugin
 		}
 	}
 
-	return plugins
+	if sevEnabled {
+		if capacity, exists := caps["sev_es"]; exists {
+			if capacity <= 0 {
+				log.Log.Warningf("Ignoring non-positive secure guest capacity %d for sev_es", capacity)
+				return nil
+			}
+			return NewDummyDevicePlugin(services.SevESidsDeviceName, capacity)
+		}
+	}
+
+	log.Log.V(4).Infof("No secure guest capacity available")
+	return nil
 }
 
 type DeviceControllerInterface interface {
@@ -226,10 +227,6 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	return err == nil
 }
 
-func (c *DeviceController) updateSNPCapacityDevice(capacity int) (Device, error) {
-	return NewGenericDevicePlugin(services.SevESidsDeviceName, "", capacity, "", false), nil
-}
-
 func (c *DeviceController) updateTdxDevice(maxTDXVMs int) (Device, error) {
 	var selinuxExecutor selinux.SELinuxExecutor
 	socketPath := c.virtConfig.GetQGSSocketPath()
@@ -271,9 +268,8 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		permittedDevices = append(permittedDevices, NewIOMMUFDDevicePlugin(c.maxDevices))
 	}
 
-	cvmPlugins := c.updateSecureGuestCapacityDevicePlugins()
-	if len(cvmPlugins) > 0 {
-		permittedDevices = append(permittedDevices, cvmPlugins...)
+	if cvmPlugin := c.updateSecureGuestCapacityDevicePlugin(); cvmPlugin != nil {
+		permittedDevices = append(permittedDevices, cvmPlugin)
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {

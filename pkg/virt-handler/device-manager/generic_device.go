@@ -99,11 +99,6 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 	return dpi
 }
 
-func (dpi *GenericDevicePlugin) isDummyDevice() bool {
-	// For some devices, e.g. secure guest capacity device, there is no actual device like /dev/kvm
-	return dpi.devicePath == ""
-}
-
 func (dpi *GenericDevicePlugin) GetDeviceName() string {
 	return dpi.deviceName
 }
@@ -123,7 +118,7 @@ func (dpi *GenericDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	// The kernel module(s) for some devices, like tun and vhost-net, auto-load when needed.
 	// That need is identified by the first access to their main device node.
 	// Opening and closing the device nodes here will trigger any necessary modprobe.
-	if dpi.preOpen && !dpi.isDummyDevice() {
+	if dpi.preOpen {
 		devnode, err := os.Open(dpi.devicePath)
 		if err == nil {
 			devnode.Close()
@@ -245,23 +240,15 @@ func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloc
 	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
+	containerResponse := new(pluginapi.ContainerAllocateResponse)
 
-	if dpi.isDummyDevice() {
-		for range r.ContainerRequests {
-			containerResponse := new(pluginapi.ContainerAllocateResponse)
-			response.ContainerResponses = append(response.ContainerResponses, containerResponse)
-		}
-	} else {
-		containerResponse := new(pluginapi.ContainerAllocateResponse)
+	dev := new(pluginapi.DeviceSpec)
+	dev.HostPath = dpi.devicePath
+	dev.ContainerPath = dpi.devicePath
+	dev.Permissions = dpi.permissions
+	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
 
-		dev := new(pluginapi.DeviceSpec)
-		dev.HostPath = dpi.devicePath
-		dev.ContainerPath = dpi.devicePath
-		dev.Permissions = dpi.permissions
-		containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
-
-		response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
-	}
+	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
 
 	return &response, nil
 }
@@ -294,29 +281,26 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 	}
 	defer watcher.Close()
 
-	var devicePath, dirName string
-	if !dpi.isDummyDevice() {
-		// This way we don't have to mount /dev from the node
-		devicePath = filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	// This way we don't have to mount /dev from the node
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 
-		// Start watching the files before we check for their existence to avoid races
-		dirName = filepath.Dir(devicePath)
-		err = watcher.Add(dirName)
+	// Start watching the files before we check for their existence to avoid races
+	dirName := filepath.Dir(devicePath)
+	err = watcher.Add(dirName)
 
-		if err != nil {
-			return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
-		}
-
-		_, err = os.Stat(devicePath)
-		if err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("could not stat the device: %v", err)
-			}
-			logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
-			dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
-		}
-		logger.Infof("device '%s' is present.", dpi.devicePath)
+	if err != nil {
+		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
+
+	_, err = os.Stat(devicePath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("could not stat the device: %v", err)
+		}
+		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
+		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+	}
+	logger.Infof("device '%s' is present.", dpi.devicePath)
 
 	dirName = filepath.Dir(dpi.socketPath)
 	err = watcher.Add(dirName)

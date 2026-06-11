@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -62,7 +63,7 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	return nvramPath
 }
 
-var miscCapacityPath = filepath.Join(HostRootMount, "/sys/fs/cgroup/misc.capacity")
+var miscCapacityPath = filepath.Join(HostRootMount, "sys/fs/cgroup/misc.capacity")
 
 // GetMiscCapacity reads /sys/fs/cgroup/misc.capacity to return a map where keys
 // are the resource type names and values are their respective capacity limits.
@@ -86,7 +87,8 @@ func GetMiscCapacity() (map[string]int, error) {
 		capacityKey := fields[0]
 		capacity, err := strconv.Atoi(fields[1])
 		if err != nil {
-			return nil, err
+			log.Log.V(4).Infof("Skipping malformed misc.capacity line: %q, err: %v", line, err)
+			continue
 		}
 		caps[capacityKey] = capacity
 	}
