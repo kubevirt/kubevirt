@@ -7,6 +7,7 @@ go_library(
         "qemu.go",
         "setsched.go",
         "setsched_common.go",
+        "setsched_unsupported.go",
         "vcpu.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/hypervisor/common",
