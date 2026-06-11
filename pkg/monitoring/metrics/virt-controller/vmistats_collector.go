@@ -64,7 +64,6 @@ var (
 			vmiMigrationEndTime,
 			vmiVnicInfo,
 			vmiLauncherMemoryOverhead,
-			vmiEphemeralHotplugVolume,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -140,14 +139,6 @@ var (
 		},
 		[]string{"namespace", "name"},
 	)
-
-	vmiEphemeralHotplugVolume = operatormetrics.NewGaugeVec(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_contains_ephemeral_hotplug_volume",
-			Help: "Reported only for VMIs that contain an ephemeral hotplug volume.",
-		},
-		[]string{"namespace", "name", "volume_name"},
-	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -175,7 +166,6 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
 		crs = append(crs, CollectVmisVnicInfo(vmi)...)
 		crs = append(crs, collectVMILauncherMemoryOverhead(vmi))
-		crs = append(crs, collectVMIEphemeralHotplug(vmi)...)
 	}
 
 	return crs
@@ -507,21 +497,6 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 				model,
 			},
 			Value: 1.0,
-		})
-	}
-
-	return results
-}
-
-func collectVMIEphemeralHotplug(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	results := []operatormetrics.CollectorResult{}
-
-	annotations := vmi.GetAnnotations()
-	if volumeName, exists := annotations[k6tv1.EphemeralHotplugAnnotation]; exists {
-		results = append(results, operatormetrics.CollectorResult{
-			Metric: vmiEphemeralHotplugVolume,
-			Labels: []string{vmi.Namespace, vmi.Name, volumeName},
-			Value:  float64(1),
 		})
 	}
 

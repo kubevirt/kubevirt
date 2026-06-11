@@ -97,9 +97,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// Verify separately after deletion
 			"kubevirt_vmi_phase_transition_time_from_deletion_seconds": true,
 
-			// This metric is being tested in storage hotplug
-			"kubevirt_vmi_contains_ephemeral_hotplug_volume": true,
-
 			// Needs a guest crash - tested in VM Monitoring, guest panic metrics
 			"kubevirt_vmi_guest_os_panic_total": true,
 
