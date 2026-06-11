@@ -75,7 +75,7 @@ func (r *Reconciler) createOrUpdateCrds() error {
 }
 
 func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) error {
-	client := r.clientset.ExtensionsClient()
+	client := r.virtClient.ExtensionsClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	var cachedCrd *extv1.CustomResourceDefinition
 
@@ -137,7 +137,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChanges() error {
 }
 
 func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefinition) error {
-	client := r.clientset.ExtensionsClient()
+	client := r.virtClient.ExtensionsClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	var cachedCrd *extv1.CustomResourceDefinition
 
