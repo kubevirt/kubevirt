@@ -1229,8 +1229,6 @@ const (
 	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
 	// This annotation stores the memory overhead calculated for the virt-launcher pod
 	MemoryOverheadAnnotationBytes string = "kubevirt.io/memory-overhead-bytes"
-	// This annotation indicates the VMI contains an ephemeral hotplug volume
-	EphemeralHotplugAnnotation string = "kubevirt.io/ephemeral-hotplug-volumes"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
