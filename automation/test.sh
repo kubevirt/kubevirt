@@ -40,6 +40,7 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
         echo "Aborting as there were only none-code related changes detected."
         exit 0
     fi
+    RPM_CHANGES=$(echo "$CI_GIT_ALL_CHANGES" | grep -E '^(rpm/|WORKSPACE)' || :)
  fi
 
 if [ -z $TARGET ]; then
@@ -355,9 +356,14 @@ fi
 cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || : >ci.bazelrc
 cat >>ci.bazelrc <<EOF
 build --jobs=4
-build --remote_download_toplevel
 build --noshow_progress
 EOF
+# Use --remote_download_toplevel for bandwidth savings, but skip it when
+# RPMs change since novel OCI image action hashes need their transitive
+# inputs downloaded to build locally.
+if [[ -z "${RPM_CHANGES:-}" ]]; then
+    echo "build --remote_download_toplevel" >>ci.bazelrc
+fi
 
 echo "=== ci.bazelrc ==="
 cat ci.bazelrc
