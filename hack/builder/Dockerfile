@@ -4,7 +4,7 @@ ARG ARCH
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
-ENV BAZEL_VERSION=6.5.0
+ENV BAZEL_VERSION=7.5.0
 ENV GIMME_GO_VERSION=1.24.9
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
@@ -16,7 +16,7 @@ ENV KUBEVIRT_CREATE_BAZELRCS=false
 RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable crb && \
     dnf install -y --setopt=install_weak_deps=False \
-        java-11-openjdk-devel \
+        java-21-openjdk-devel \
         libvirt-devel \
         cpio \
         patch \
@@ -61,7 +61,7 @@ ADD https://storage.googleapis.com/builddeps/swagger2markup-cli-1.3.3.jar /opt/s
 # https://github.com/bazelbuild/bazel/issues/11554
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
-ENV JAVA_HOME=/usr/lib/jvm/java-11
+ENV JAVA_HOME=/usr/lib/jvm/java-21
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
