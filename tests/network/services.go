@@ -36,11 +36,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
@@ -143,8 +146,20 @@ var _ = Describe(SIG("Services", func() {
 		)
 
 		BeforeEach(func() {
+			networkData := cloudinit.CreateDefaultCloudInitNetworkData()
+			var iface v1.Interface
+			if flags.NetworkBindingPlugin != "" {
+				iface = libvmi.InterfaceWithBindingPlugin(
+					v1.DefaultPodNetwork().Name,
+					v1.PluginBinding{Name: flags.NetworkBindingPlugin},
+				)
+			} else {
+				iface = libvmi.InterfaceDeviceWithMasqueradeBinding()
+			}
 			inboundVMI = libvmifact.NewFedora(
-				libnet.WithMasqueradeNetworking(),
+				libvmi.WithInterface(iface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
 				libvmi.WithSubdomain("vmi"),
 				libvmi.WithHostname("inbound"),

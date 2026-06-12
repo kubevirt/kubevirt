@@ -24,10 +24,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	libvmi "kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -394,11 +397,23 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
+	var iface v1.Interface
+	if flags.NetworkBindingPlugin != "" {
+		iface = libvmi.InterfaceWithBindingPlugin(
+			v1.DefaultPodNetwork().Name,
+			v1.PluginBinding{Name: flags.NetworkBindingPlugin},
+		)
+	} else {
+		iface = libvmi.InterfaceDeviceWithMasqueradeBinding()
+	}
 	clientVMI := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithCloudInitNoCloud(
 			libvmifact.WithDummyCloudForFastBoot(),
+			libvmici.WithNoCloudNetworkData(networkData),
 		),
-		libnet.WithMasqueradeNetworking(),
+		libvmi.WithInterface(iface),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	clientVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
@@ -410,11 +425,15 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
-	serverVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithCloudInitNoCloud(
-			libvmifact.WithDummyCloudForFastBoot(),
-		),
-		libnet.WithMasqueradeNetworking(
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
+	var iface v1.Interface
+	if flags.NetworkBindingPlugin != "" {
+		iface = libvmi.InterfaceWithBindingPlugin(
+			v1.DefaultPodNetwork().Name,
+			v1.PluginBinding{Name: flags.NetworkBindingPlugin},
+		)
+	} else {
+		iface = libvmi.InterfaceDeviceWithMasqueradeBinding(
 			v1.Port{
 				Name:     "http80",
 				Port:     80,
@@ -425,7 +444,15 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 				Port:     81,
 				Protocol: "TCP",
 			},
+		)
+	}
+	serverVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(
+			libvmifact.WithDummyCloudForFastBoot(),
+			libvmici.WithNoCloudNetworkData(networkData),
 		),
+		libvmi.WithInterface(iface),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	serverVMI.Labels = serverVMILabels
 	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), serverVMI, metav1.CreateOptions{})

@@ -59,6 +59,7 @@ var DNSServiceNamespace = ""
 
 var MigrationNetworkNIC = "eth1"
 var MigrationNetworkName string
+var NetworkBindingPlugin string
 
 func init() {
 	kubecli.Init()
@@ -93,6 +94,7 @@ func init() {
 	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
 	flag.StringVar(&MigrationNetworkNIC, "migration-network-nic", "eth1", "NIC to use on cluster nodes to access the dedicated migration network")
 	flag.StringVar(&MigrationNetworkName, "migration-network-name", "", "name of the NetworkAttachmentDefinition CR to be used for dedicated migration network tests")
+	flag.StringVar(&NetworkBindingPlugin, "network-binding-plugin", "", "Name of a pre-registered network binding plugin to use instead of masquerade in conformance tests")
 }
 
 func NormalizeFlags() {
