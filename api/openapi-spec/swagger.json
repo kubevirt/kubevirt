@@ -18525,6 +18525,10 @@
       "description": "Failed indicates that the backup failed",
       "type": "boolean"
      },
+     "fsFreezeStatus": {
+      "description": "FSFreezeStatus indicates whether filesystem freeze succeeded, failed, or was skipped.",
+      "type": "string"
+     },
      "startTimestamp": {
       "description": "StartTimestamp is the timestamp when the backup started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
@@ -20721,6 +20725,10 @@
      },
      "endpointCert": {
       "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+      "type": "string"
+     },
+     "fsFreezeStatus": {
+      "description": "FSFreezeStatus indicates whether the filesystem freeze succeeded, failed, or was skipped.",
       "type": "string"
      },
      "includedVolumes": {

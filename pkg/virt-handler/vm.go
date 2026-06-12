@@ -2440,4 +2440,7 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumes
 		}
 	}
+	if backupMetadata.FSFreezeStatus != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.FSFreezeStatus = backupv1.FSFreezeStatus(backupMetadata.FSFreezeStatus)
+	}
 }

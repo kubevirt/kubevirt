@@ -456,6 +456,7 @@ type BackupMetadata struct {
 	BackupMsg      string       `xml:"backupMsg,omitempty"`
 	CheckpointName string       `xml:"checkpointName,omitempty"`
 	Volumes        string       `xml:"volumes,omitempty"`
+	FSFreezeStatus string       `xml:"fsFreezeStatus,omitempty"`
 }
 
 type GracePeriodMetadata struct {
