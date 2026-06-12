@@ -118,7 +118,7 @@ var _ = Describe(SIG("Backup", func() {
 		Entry("2 backups to the same PVC should succeed", getDoubleTargetPVCSize(cd.AlpineVolumeSize), 2),
 	)
 
-	It("[QUARANTINE]Full and Incremental Backup with BackupTracker", decorators.Quarantine, func() {
+	It("Full and Incremental Backup with BackupTracker", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -134,6 +134,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -196,7 +197,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 	})
 
-	It("[QUARANTINE]Full and Incremental Backup with 2 disks", decorators.Quarantine, func() {
+	It("Full and Incremental Backup with 2 disks", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -222,6 +223,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
 			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
@@ -276,7 +278,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Writing data directly to second disk")
 		// Write random data directly to the raw block device (no formatting needed)
-		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/dev/vdb bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/dev/vdc bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating second incremental backup with same tracker reference")
@@ -314,6 +316,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -490,7 +493,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
 	})
 
-	It("[QUARANTINE] Checkpoint redefinition succeeds after hotplug volume removal", decorators.Quarantine, func() {
+	It("Checkpoint redefinition succeeds after hotplug volume removal", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -512,6 +515,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
 			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -581,6 +585,9 @@ var _ = Describe(SIG("Backup", func() {
 			}
 			if volStatus.Name == bootDiskName {
 				bootDiskTarget = volStatus.Target
+			}
+			if volStatus.Name == libvmi.CloudInitDiskName {
+				continue
 			}
 			allDiskTargets = append(allDiskTargets, volStatus.Target)
 		}
@@ -814,6 +821,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -908,6 +916,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		libstorage.AddDataVolume(vm, "disk1", blankDv)
@@ -923,7 +932,7 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
 
-		writeCmdA := fmt.Sprintf("printf '%%0512s' '%s' | dd of=/dev/vdb bs=1 count=%d seek=%d && sync", patternA, testLength, testOffset)
+		writeCmdA := fmt.Sprintf("printf '%%0512s' '%s' | dd of=/dev/vdc bs=1 count=%d seek=%d && sync", patternA, testLength, testOffset)
 		err = console.RunCommand(vmi, writeCmdA, 2*time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -966,7 +975,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyPullEndpointsWithDataCheck(virtClient, fullBackup, backupv1.Full, tokenValue, "disk1", testOffset, testLength, patternA)
 
 		By("Writing Pattern B to the exact same offset in the live VM")
-		writeCmdB := fmt.Sprintf("printf '%%0512s' '%s' | dd of=/dev/vdb bs=1 count=%d seek=%d && sync", patternB, testLength, testOffset)
+		writeCmdB := fmt.Sprintf("printf '%%0512s' '%s' | dd of=/dev/vdc bs=1 count=%d seek=%d && sync", patternB, testLength, testOffset)
 		err = console.RunCommand(vmi, writeCmdB, 2*time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -1787,4 +1796,23 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 
 	err = virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Delete(context.Background(), caConfigMap.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func withCloudInitNoCloudDummy() libvmi.VMOption {
+	return func(vm *v1.VirtualMachine) {
+		source := &v1.CloudInitNoCloudSource{}
+		libvmifact.WithDummyCloudForFastBoot()(source)
+
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			Name:         libvmi.CloudInitDiskName,
+			VolumeSource: v1.VolumeSource{CloudInitNoCloud: source},
+		})
+
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: libvmi.CloudInitDiskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+			},
+		})
+	}
 }
