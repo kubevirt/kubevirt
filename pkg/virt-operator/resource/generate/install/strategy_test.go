@@ -20,6 +20,7 @@
 package install
 
 import (
+	"reflect"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -29,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/randfill"
 	"sigs.k8s.io/yaml"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -61,6 +63,63 @@ var _ = Describe("Install Strategy", func() {
 	}
 
 	config := getConfig("fake-registry", "v9.9.9")
+
+	Context("deep copy", func() {
+		It("should copy every strategy field", func() {
+			strategy := &Strategy{}
+
+			strategyValue := reflect.ValueOf(strategy).Elem()
+			strategyType := reflect.TypeOf(strategy).Elem()
+			fuzzer := randfill.NewWithSeed(GinkgoRandomSeed()).
+				NilChance(0).
+				NumElements(1, 3).
+				MaxDepth(2).
+				AllowUnexportedFields(true)
+
+			fuzzer.Fill(strategy)
+
+			copiedStrategy := strategy.DeepCopy()
+			Expect(copiedStrategy).To(Equal(strategy))
+
+			copiedStrategyValue := reflect.ValueOf(copiedStrategy).Elem()
+			for i := 0; i < strategyValue.NumField(); i++ {
+				fieldName := strategyType.Field(i).Name
+
+				field := strategyValue.Field(i)
+				Expect(field.IsNil()).To(BeFalse(), "field %s should not be nil after fuzzing", fieldName)
+
+				copiedField := copiedStrategyValue.Field(i)
+				Expect(copiedField.Pointer()).ToNot(Equal(field.Pointer()), "field %s should be a distinct copy", fieldName)
+			}
+		})
+
+		It("should isolate copied objects from the original strategy", func() {
+			strategy := &Strategy{
+				daemonSets: []*appsv1.DaemonSet{{
+					ObjectMeta: metav1.ObjectMeta{Name: "virt-handler"},
+					Spec: appsv1.DaemonSetSpec{
+						Template: corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name: "virt-handler",
+									Args: []string{"--existing-arg"},
+								}},
+							},
+						},
+					},
+				}},
+			}
+
+			copiedStrategy := strategy.DeepCopy()
+			copiedStrategy.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args = append(
+				copiedStrategy.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args,
+				"--custom-arg",
+			)
+
+			Expect(strategy.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"--existing-arg"}))
+			Expect(copiedStrategy.DaemonSets()[0].Spec.Template.Spec.Containers[0].Args).To(Equal([]string{"--existing-arg", "--custom-arg"}))
+		})
+	})
 
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {

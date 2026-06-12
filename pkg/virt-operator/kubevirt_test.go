@@ -29,7 +29,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	routev1fake "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1/fake"
@@ -1868,6 +1867,73 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 
 var _ = Describe("KubeVirt Operator", func() {
 
+	Context("install strategy cache", func() {
+		It("should not be mutated when a CustomizeComponents patch is applied to a retrieved strategy", func() {
+			jp, err := patch.New(
+				patch.WithAdd("/spec/template/spec/containers/0/args/-", "--customized-arg"),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:  NAMESPACE,
+					Generation: int64(1),
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "fake-registry",
+					ImageTag:      "v9.9.9",
+					CustomizeComponents: v1.CustomizeComponents{
+						Patches: []v1.CustomizeComponentsPatch{{
+							ResourceName: components.VirtHandlerName,
+							ResourceType: "DaemonSet",
+							Type:         v1.JSONPatchType,
+							Patch:        string(jp),
+						}},
+					},
+				},
+			}
+			config := util.GetTargetConfigFromKV(kv)
+			strategy, err := install.GenerateCurrentInstallStrategy(config, "openshift-monitoring", NAMESPACE)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strategy.DaemonSets()).ToNot(BeEmpty())
+
+			findVirtHandler := func(s *install.Strategy) *appsv1.DaemonSet {
+				GinkgoHelper()
+
+				daemonSets := s.DaemonSets()
+				Expect(daemonSets).To(ContainElement(HaveField("Name", components.VirtHandlerName)))
+
+				for _, ds := range s.DaemonSets() {
+					if ds.Name == components.VirtHandlerName {
+						return ds
+					}
+				}
+				return nil
+			}
+			Expect(findVirtHandler(strategy)).ToNot(BeNil())
+
+			controller := &KubeVirtController{}
+			controller.cacheInstallStrategy(strategy, config, kv.Generation)
+
+			// Drive the mutation through the real reconciliation path: a
+			// CustomizeComponents JSON patch applied to the retrieved strategy.
+			// Without a defensive copy in the cache getter, applyPatch rewrites
+			// the DaemonSet struct in place and corrupts the cached entry.
+			cachedStrategy, ok := controller.getCachedInstallStrategy(config, kv.Generation)
+			Expect(ok).To(BeTrue())
+			customizer, err := apply.NewCustomizer(kv.Spec.CustomizeComponents)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(customizer.Apply(cachedStrategy)).To(Succeed())
+			Expect(findVirtHandler(cachedStrategy).Spec.Template.Spec.Containers[0].Args).
+				To(ContainElement("--customized-arg"))
+
+			cachedStrategy, ok = controller.getCachedInstallStrategy(config, kv.Generation)
+			Expect(ok).To(BeTrue())
+			Expect(findVirtHandler(cachedStrategy).Spec.Template.Spec.Containers[0].Args).
+				ToNot(ContainElement("--customized-arg"))
+		})
+	})
+
 	Context("On valid KubeVirt object", func() {
 
 		It("Should not patch kubevirt namespace when labels are already defined", func() {
@@ -2158,6 +2224,125 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 
 			kvTestData.controller.Execute()
+		})
+
+		It("should produce the same virt-handler DaemonSet across multiple Execute() invocations", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+					Generation: int64(1),
+				},
+				Spec: v1.KubeVirtSpec{},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeployed,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			enableTemplateFeatureGate(kv)
+			enableContainerPathVolumesFeatureGate(kv)
+			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
+			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+
+			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+			kvTestData.shouldExpectKubeVirtUpdateStatus(2) // expect to reconcile twice
+
+			patchingDaemonSetCount := 0
+			kvTestData.kubeClient.Fake.PrependReactor("patch", "daemonsets",
+				func(action testing.Action) (bool, runtime.Object, error) {
+					patchingDaemonSetCount++
+
+					patchAction, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					Expect(patchAction.GetName()).To(Equal(components.VirtHandlerName))
+					Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+					patches, err := patch.UnmarshalPatch(patchAction.GetPatch())
+					Expect(err).ToNot(HaveOccurred())
+
+					obj, exists, err := kvTestData.controller.stores.DaemonSetCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, patchAction.GetName()))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(exists).To(BeTrue())
+					patchedDaemonSet := obj.(*appsv1.DaemonSet).DeepCopy()
+
+					for _, p := range patches {
+						if p.Op != patch.PatchReplaceOp && p.Op != patch.PatchAddOp {
+							continue
+						}
+
+						patchValue, err := json.Marshal(p.Value)
+						Expect(err).ToNot(HaveOccurred())
+
+						switch p.Path {
+						case "/metadata/annotations":
+							Expect(json.Unmarshal(patchValue, &patchedDaemonSet.Annotations)).To(Succeed())
+						case "/metadata/labels":
+							Expect(json.Unmarshal(patchValue, &patchedDaemonSet.Labels)).To(Succeed())
+						case "/spec":
+							Expect(json.Unmarshal(patchValue, &patchedDaemonSet.Spec)).To(Succeed())
+						}
+					}
+
+					args := patchedDaemonSet.Spec.Template.Spec.Containers[0].Args
+
+					var flagIndexes []int
+					for i, arg := range args {
+						if strings.HasPrefix(arg, "--customized-arg") {
+							flagIndexes = append(flagIndexes, i)
+						}
+					}
+					Expect(flagIndexes).To(HaveLen(1), "patching should be idempotent")
+
+					patchedDaemonSet.Generation++
+					Expect(kvTestData.controller.stores.DaemonSetCache.Update(patchedDaemonSet)).To(Succeed())
+					return true, patchedDaemonSet, nil
+				},
+			)
+
+			reconcile := func() {
+				kv.Generation++
+				jp, err := patch.New(
+					patch.WithAdd("/spec/template/spec/containers/0/args/-", fmt.Sprintf("--customized-arg=%d", kv.Generation)),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				kv.Spec.CustomizeComponents.Patches = []v1.CustomizeComponentsPatch{
+					{
+						ResourceName: components.VirtHandlerName,
+						ResourceType: "DaemonSet",
+						Type:         v1.JSONPatchType,
+						Patch:        string(jp),
+					},
+				}
+
+				Expect(kvTestData.controller.stores.KubeVirtCache.Update(kv)).ShouldNot(HaveOccurred())
+				key, err := kubecontroller.KeyFunc(kv)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kvTestData.controller.execute(key)).To(Succeed())
+			}
+
+			reconcile()
+			reconcile()
+
+			Expect(patchingDaemonSetCount).To(Equal(2))
 		})
 
 		It("should update KubeVirt object if generation IDs do not match", func() {

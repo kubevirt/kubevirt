@@ -910,7 +910,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	if err == nil {
 		c.cacheInstallStrategy(strategy, config, kv.Generation)
 		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", config.GetKubeVirtVersion())
-		return strategy, false, nil
+		return strategy.DeepCopy(), false, nil
 	}
 
 	log.Log.Infof("Install strategy config map not loaded. reason: %v", err)
