@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -270,7 +269,7 @@ func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func GetNodesWithKVM() []*k8sv1.Node {
+func GetNodesWithHypervisor(hypervisorDevice string) []*k8sv1.Node {
 	virtClient := kubevirt.Client()
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
@@ -283,8 +282,8 @@ func GetNodesWithKVM() []*k8sv1.Node {
 		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		kvmResource := services.ConstructHypervisorResourceName(hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName))
-		_, ok := virtHandlerNode.Status.Allocatable[kvmResource]
+		hypervisorResource := k8sv1.ResourceName(services.K8sDevicePrefix + "/" + hypervisorDevice)
+		_, ok := virtHandlerNode.Status.Allocatable[hypervisorResource]
 		if ok {
 			nodeList = append(nodeList, virtHandlerNode)
 		}
