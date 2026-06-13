@@ -150,6 +150,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
 
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+			Expect(vm.Status.InstancetypeRef.Resources.CPU.Cores).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.Resources.CPU.Threads).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
+
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -208,6 +218,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(instancetype.Spec.CPU.Guest))
+			Expect(vm.Status.InstancetypeRef.Resources.CPU.Cores).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.Resources.CPU.Threads).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(instancetype.Spec.Memory.Guest))
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

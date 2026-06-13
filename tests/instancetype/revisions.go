@@ -46,6 +46,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		vmi := libvmifact.NewGuestless()
 		instancetype := builder.NewInstancetypeFromVMI(vmi)
 		originalInstancetypeCPUGuest := instancetype.Spec.CPU.Guest
+		originalInstancetypeMemoryGuest := instancetype.Spec.Memory.Guest.DeepCopy()
 		instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 			Create(context.Background(), instancetype, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -81,6 +82,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		stashedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{}
 		Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
 		Expect(stashedInstancetype.Spec).To(Equal(instancetype.Spec))
+
+		By("Checking that InstancetypeStatusResources has been populated in the VirtualMachine status")
+		Expect(vm.Status.InstancetypeRef.Resources).ToNot(BeNil())
+		Expect(vm.Status.InstancetypeRef.Resources.CPU.Sockets).To(Equal(originalInstancetypeCPUGuest))
+		Expect(vm.Status.InstancetypeRef.Resources.CPU.Cores).To(Equal(uint32(1)))
+		Expect(vm.Status.InstancetypeRef.Resources.CPU.Threads).To(Equal(uint32(1)))
+		Expect(vm.Status.InstancetypeRef.Resources.Memory).To(Equal(originalInstancetypeMemoryGuest))
 
 		preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
