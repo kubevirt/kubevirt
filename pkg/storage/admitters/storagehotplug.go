@@ -108,6 +108,14 @@ func ValidateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field 
 		}}
 	}
 
+	if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack && disk.Cache != v1.CacheUnsafe && disk.Cache != v1.CacheDirectSync {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] has invalid cache mode %q", messagePrefix, name, disk.Cache),
+			Field:   field,
+		}}
+	}
+
 	// Validate boot order
 	if disk.BootOrder != nil {
 		order := *disk.BootOrder
