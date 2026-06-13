@@ -1,8 +1,8 @@
 ---
 apiVersion: scheduling.k8s.io/v1
-description: Priority class for VMs which are allowed to be preemtited.
+description: Priority class for VMs which are allowed to be preemptited.
 kind: PriorityClass
 metadata:
-  name: preemtible
+  name: preemptible
 preemptionPolicy: PreemptLowerPriority
 value: 1000000

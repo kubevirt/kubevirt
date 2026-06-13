@@ -87,8 +87,8 @@ func main() {
 	}
 
 	var priorityClasses = map[string]*schedulingv1.PriorityClass{
-		utils.Preemtible:    utils.GetPreemtible(),
-		utils.NonPreemtible: utils.GetNonPreemtible(),
+		utils.Preemptible:    utils.GetPreemptible(),
+		utils.NonPreemptible: utils.GetNonPreemptible(),
 	}
 
 	var vms = map[string]*v1.VirtualMachine{
