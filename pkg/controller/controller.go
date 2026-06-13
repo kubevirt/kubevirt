@@ -50,6 +50,10 @@ const (
 	BurstReplicas uint = 250
 )
 
+const (
+	GracePeriodOverrideAnnotation = "kubevirt.io/grace-period-override"
+)
+
 // Reasons for vmi events
 const (
 	// FailedCreatePodReason is added in an event and in a vmi controller condition

@@ -417,6 +417,14 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 			writeError(errors.NewBadRequest(fmt.Sprintf("gracePeriod has to be greater or equal to 0")), response)
 			return
 		}
+
+		// Patch the VMI directly with the grace period annotation
+		patchData := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%d"}}}`, controller.GracePeriodOverrideAnnotation, *bodyStruct.GracePeriodSeconds))
+		_, err := app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), name, types.MergePatchType, patchData, metav1.PatchOptions{})
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
 	}
 
 	vm, statusErr := app.fetchVirtualMachine(name, namespace)
@@ -592,6 +600,15 @@ func (app *SubresourceAPIApp) patchVMITerminationGracePeriod(vmi *v1.VirtualMach
 }
 
 func (app *SubresourceAPIApp) patchVMStatusStopped(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, response *restful.Response, bodyStruct *v1.StopOptions) (error, error) {
+	if bodyStruct.GracePeriod != nil && vmi != nil {
+		patchData := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%d"}}}`, controller.GracePeriodOverrideAnnotation, *bodyStruct.GracePeriod))
+		_, err := app.virtCli.VirtualMachineInstance(vm.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			log.Log.Object(vm).Reason(err).Errorf("Failed to patch VMI with grace period override")
+			writeError(errors.NewInternalError(err), response)
+			return nil, err
+		}
+	}
 	patchBytes, err := getChangeRequestJson(vm,
 		v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
 	if err != nil {
