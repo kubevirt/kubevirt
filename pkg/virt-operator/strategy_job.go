@@ -24,7 +24,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 	if operatorImage == "" {
 		operatorImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
 	}
-	deploymentConfigJson, err := config.GetJson()
+	deploymentConfigJson, err := config.GetJSON()
 	if err != nil {
 		return nil, err
 	}
