@@ -227,21 +227,6 @@ var vmsAlerts = []promv1.Rule{
 		},
 	},
 	{
-		Alert: "VirtualMachineInstanceHasEphemeralHotplugVolume",
-		Expr:  intstr.FromString("kubevirt_vmi_contains_ephemeral_hotplug_volume == 1"),
-		Annotations: map[string]string{
-			summaryAnnotationKey: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and " +
-				"must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace " +
-				"`HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged",
-			descriptionAnnotationKey: "Virtual Machine Instance {{ $labels.name }} in namespace {{ $labels.namespace }} has ephemeral " +
-				"hotplug volume(s) {{ $labels.volume_name }}.",
-		},
-		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
-		},
-	},
-	{
 		Alert: "KubeVirtVMGuestMemoryAvailableLow",
 		Expr: intstr.FromString(
 			"((" +
