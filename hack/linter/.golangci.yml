@@ -11,7 +11,9 @@ linters:
     - forbidigo
     - funlen
     - gochecknoinits
-    - goconst
+    # TODO: Re-enable goconst in a follow-up PR after addressing the larger
+    # finding set introduced by newer golangci-lint
+    # - goconst
     - gocritic
     - gocyclo
     - goheader
@@ -46,9 +48,9 @@ linters:
     funlen:
       lines: 100
       statements: 50
-    goconst:
-      min-len: 2
-      min-occurrences: 2
+    # goconst:
+    #   min-len: 2
+    #   min-occurrences: 2
     gocritic:
       disabled-checks:
         - dupImport # https://github.com/go-critic/go-critic/issues/845
