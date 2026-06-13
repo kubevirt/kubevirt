@@ -501,6 +501,42 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				[]string{"Gate1", "Gate2", "Gate3"},
 				"Gate1", "Gate2", "Gate3"),
 		)
+
+		Context("Feature Gate Dependency Warnings", func() {
+			const (
+				requiredFG  = "UnitTestRequiredGate"
+				dependentFG = "UnitTestDependentGate"
+			)
+
+			BeforeEach(func() {
+				featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: requiredFG, State: featuregate.Alpha})
+				featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+					Name:         dependentFG,
+					State:        featuregate.Alpha,
+					Dependencies: []string{requiredFG},
+				})
+				DeferCleanup(featuregate.UnregisterFeatureGate, dependentFG)
+				DeferCleanup(featuregate.UnregisterFeatureGate, requiredFG)
+			})
+
+			It("should warn when dependency is missing", func() {
+				warnings := warnMissingFeatureGateDependencies(&v1.DeveloperConfiguration{
+					FeatureGates: []string{dependentFG},
+				})
+
+				Expect(warnings).To(ContainElement(
+					fmt.Sprintf(`feature gate "%s" depends on "%s"; enable "%s" as well`, dependentFG, requiredFG, requiredFG),
+				))
+			})
+
+			It("should not warn when dependency is enabled", func() {
+				warnings := warnMissingFeatureGateDependencies(&v1.DeveloperConfiguration{
+					FeatureGates: []string{dependentFG, requiredFG},
+				})
+
+				Expect(warnings).To(BeEmpty())
+			})
+		})
 	})
 })
 
