@@ -131,7 +131,7 @@ func createContextWithDevices(vmi *v1.VirtualMachineInstance, baseContext *conve
 	mdevPool := &stubAddressPool{addresses: make(map[string][]string)}
 	usbPool := &stubAddressPool{addresses: make(map[string][]string)}
 
-	gpuHostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+	gpuHostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, nil)
 	Expect(err).ToNot(HaveOccurred())
 	genericHostDevices, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)
 	Expect(err).ToNot(HaveOccurred())

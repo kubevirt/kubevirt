@@ -39,12 +39,12 @@ var _ = Describe("GPU HostDevice", func() {
 	})
 
 	It("creates no device given no GPU/s", func() {
-		Expect(gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)).To(BeEmpty())
+		Expect(gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs, nil)).To(BeEmpty())
 	})
 
 	It("fails to create devices given no resource", func() {
 		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{{DeviceName: gpuResource0, Name: gpuName0}}
-		_, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		_, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs, nil)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -58,7 +58,7 @@ var _ = Describe("GPU HostDevice", func() {
 		mdevPool := newAddressPoolStub()
 		mdevPool.AddResource(gpuResource1, gpuPCIAddress1)
 
-		_, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		_, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, nil)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -91,7 +91,7 @@ var _ = Describe("GPU HostDevice", func() {
 			RamFB:   "on",
 		}
 
-		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)).
+		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, nil)).
 			To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
 	})
 	It("creates MDEV with display option turned off", func() {
@@ -121,7 +121,7 @@ var _ = Describe("GPU HostDevice", func() {
 			Model:  "vfio-pci",
 		}
 
-		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)).
+		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, nil)).
 			To(Equal([]api.HostDevice{expectHostDevice1}))
 	})
 	It("creates MDEV with display ramFB option turned off", func() {
@@ -154,7 +154,7 @@ var _ = Describe("GPU HostDevice", func() {
 			Display: "on",
 		}
 
-		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)).
+		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, nil)).
 			To(Equal([]api.HostDevice{expectHostDevice1}))
 	})
 	It("creates MDEV with enabled display and ramfb by default", func() {
@@ -183,7 +183,7 @@ var _ = Describe("GPU HostDevice", func() {
 			RamFB:   "on",
 		}
 
-		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)).
+		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool, nil)).
 			To(Equal([]api.HostDevice{expectHostDevice1}))
 	})
 })

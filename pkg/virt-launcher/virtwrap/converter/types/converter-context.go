@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	iommupci "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/iommu-pci"
 )
 
 type EFIConfiguration struct {
@@ -66,6 +67,8 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	PCINUMAAwareTopologyEnabled     bool
+	GraceIOVirtualizationEnabled    bool
+	IommuPCI                        *iommupci.IommuPCI
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
 }

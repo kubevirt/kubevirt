@@ -106,6 +106,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	iommupci "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/iommu-pci"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
@@ -249,6 +250,11 @@ type LibvirtDomainManager struct {
 
 	hypervisorDeviceAvailable bool
 	hypervisorName            string
+
+	// iommuFD holds the IOMMUFD file descriptor received from the device plugin
+	// via SCM_RIGHTS. A value of -1 means no IOMMUFD FD is available.
+	// See: https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFDAssociate
+	iommuFD int
 }
 
 type pausedVMIs struct {
@@ -320,6 +326,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		hookServer:                         hookServer,
 		hypervisorName:                     hypervisorName,
 		hypervisorDeviceAvailable:          hypervisorDeviceAvailable,
+		iommuFD:                            -1,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1115,8 +1122,8 @@ func shouldExpandOffline(disk api.Disk) bool {
 	return true
 }
 
-func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance, iommuPCI *iommupci.IommuPCI) ([]api.HostDevice, error) {
+	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs, iommuPCI)
 	if err != nil {
 		return nil, err
 	}
@@ -1252,6 +1259,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 			c.PCINUMAAwareTopologyEnabled = options.GetClusterConfig().GetPCINUMAAwareTopologyEnabled()
+			c.GraceIOVirtualizationEnabled = options.GetClusterConfig().GetGraceIOVirtualizationEnabled()
 			vGPULiveMigrationEnabled = options.GetClusterConfig().GetVGPULiveMigrationEnabled()
 		}
 
@@ -1260,6 +1268,31 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	c.DisksInfo = l.disksInfo
 
 	if !isMigrationTarget {
+		// Receive IOMMUFD file descriptor from the device plugin if available.
+		// The device plugin creates a one-shot Unix socket and bind-mounts it
+		// into the container at IOMMUFDSocketPath. If present, we receive the
+		// pre-configured FD via SCM_RIGHTS for later use with libvirt.
+		if l.iommuFD == -1 {
+			if _, statErr := os.Stat(IOMMUFDSocketPath); statErr == nil {
+				fd, recvErr := ReceiveIOMMUFD(IOMMUFDSocketPath)
+				if recvErr != nil {
+					logger.Warningf("IOMMUFD socket exists but failed to receive FD: %v", recvErr)
+				} else {
+					l.iommuFD = fd
+					logger.V(3).Infof("Received IOMMUFD file descriptor: %d", fd)
+				}
+			}
+		}
+
+		// We need the pre-configured FD for iommufd usage.
+		if l.iommuFD >= 0 {
+			c.IommuPCI = iommupci.NewIommuPCI(runtime.GOARCH)
+		} else {
+			c.IommuPCI = &iommupci.IommuPCI{
+				IommufdEnabled: pointer.P(false),
+			}
+		}
+
 		sriovDevices, err := sriov.CreateHostDevices(vmi)
 		if err != nil {
 			return nil, err
@@ -1288,13 +1321,13 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
 
-		gpuDevices, err := l.getGPUDevices(vmi)
+		gpuDevices, err := l.getGPUDevices(vmi, c.IommuPCI)
 		if err != nil {
 			return nil, err
 		}
 		c.GPUHostDevices = gpuDevices
 	} else if vGPULiveMigrationEnabled {
-		gpuDevices, err := l.getGPUDevices(vmi)
+		gpuDevices, err := l.getGPUDevices(vmi, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -1378,6 +1411,15 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO blocked state
 	switch {
 	case cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal():
+		// Associate IOMMUFD FD with the domain before starting.
+		// libvirt will use this FD (named "iommu") for hostdev elements
+		// that specify fdgroup='iommu' in their driver configuration.
+		if l.iommuFD >= 0 {
+			iommuFile := os.NewFile(uintptr(l.iommuFD), "iommufd")
+			if err := dom.FDAssociate("iommu", []os.File{*iommuFile}, 0); err != nil {
+				logger.Warningf("failed to associate IOMMUFD FD with domain: %v", err)
+			}
+		}
 		if err := l.startDomain(vmi, dom); err != nil {
 			return nil, err
 		}
