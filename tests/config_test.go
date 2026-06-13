@@ -406,6 +406,59 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
+	Context("With spec.serviceAccountName defined", func() {
+
+		const serviceAccountName = "test-identity-sa"
+
+		BeforeEach(func() {
+			virtClient := kubevirt.Client()
+			sa := &k8sv1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceAccountName,
+				},
+			}
+			_, err := virtClient.CoreV1().ServiceAccounts(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), sa, metav1.CreateOptions{},
+			)
+			if !errors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		AfterEach(func() {
+			virtClient := kubevirt.Client()
+			err := virtClient.CoreV1().ServiceAccounts(testsuite.GetTestNamespace(nil)).Delete(
+				context.Background(), serviceAccountName, metav1.DeleteOptions{},
+			)
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		It("Should set the pod service account without exposing the token to the VM", func() {
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithServiceAccountName(serviceAccountName),
+			)
+
+			By("Running VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
+
+			By("Checking the pod has the correct service account")
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmiPod.Spec.ServiceAccountName).To(Equal(serviceAccountName))
+
+			By("Checking that automountServiceAccountToken is false")
+			Expect(vmiPod.Spec.AutomountServiceAccountToken).ToNot(BeNil())
+			Expect(*vmiPod.Spec.AutomountServiceAccountToken).To(BeFalse())
+
+			By("Checking that no service account volume is present in the VMI")
+			for _, volume := range vmi.Spec.Volumes {
+				Expect(volume.ServiceAccount).To(BeNil(), "No serviceAccount volume should be present")
+			}
+		})
+	})
+
 	Context("With a Secret and a ConfigMap defined", func() {
 
 		Context("With a single volume", func() {

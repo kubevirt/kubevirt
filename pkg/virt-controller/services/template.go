@@ -59,6 +59,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -726,12 +727,14 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
-	if len(serviceAccountName) > 0 {
-		pod.Spec.ServiceAccountName = serviceAccountName
-		automount := true
-		pod.Spec.AutomountServiceAccountToken = &automount
-	} else if istio.ProxyInjectionEnabled(vmi) {
+	serviceAccountVolumeName := storageutils.ServiceAccountNameFromVolumes(vmi.Spec.Volumes)
+	if vmi.Spec.ServiceAccountName != "" {
+		pod.Spec.ServiceAccountName = vmi.Spec.ServiceAccountName
+	} else if serviceAccountVolumeName != "" {
+		pod.Spec.ServiceAccountName = serviceAccountVolumeName
+	}
+
+	if serviceAccountVolumeName != "" || istio.ProxyInjectionEnabled(vmi) {
 		automount := true
 		pod.Spec.AutomountServiceAccountToken = &automount
 	} else {

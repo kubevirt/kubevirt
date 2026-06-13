@@ -238,6 +238,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
 	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
+	causes = append(causes, validateServiceAccountName(field, spec)...)
 
 	return causes
 }
@@ -2142,6 +2143,35 @@ func validateReservedOverheadMemlock(field *k8sfield.Path, spec *v1.VirtualMachi
 			Field:   field.Child("domain", "memory", "reservedOverhead").String(),
 		})
 		return causes
+	}
+
+	return causes
+}
+
+func validateServiceAccountName(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.ServiceAccountName == "" {
+		return causes
+	}
+
+	if errors := validation.IsDNS1123Subdomain(spec.ServiceAccountName); len(errors) != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s is not a valid service account name: %s", field.Child("serviceAccountName").String(), strings.Join(errors, "; ")),
+			Field:   field.Child("serviceAccountName").String(),
+		})
+	}
+
+	for _, volume := range spec.Volumes {
+		if volume.ServiceAccount != nil && volume.ServiceAccount.ServiceAccountName != spec.ServiceAccountName {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("spec.serviceAccountName %q and serviceAccount volume %q must reference the same service account", spec.ServiceAccountName, volume.ServiceAccount.ServiceAccountName),
+				Field:   field.Child("serviceAccountName").String(),
+			})
+			break
+		}
 	}
 
 	return causes
