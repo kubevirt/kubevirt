@@ -51,6 +51,10 @@ func (s SysInfoDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	domain.Spec.SysInfo.System = buildSystem(vmi.Spec.Domain.Firmware, s.smBIOS)
 	domain.Spec.SysInfo.Chassis = buildChassis(vmi.Spec.Domain.Chassis)
 
+	if vmi.Spec.Domain.Firmware != nil && len(vmi.Spec.Domain.Firmware.OEMStrings) > 0 {
+		domain.Spec.SysInfo.OEMStrings = vmi.Spec.Domain.Firmware.OEMStrings
+	}
+
 	return nil
 }
 

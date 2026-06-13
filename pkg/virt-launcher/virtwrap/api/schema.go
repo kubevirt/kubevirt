@@ -1171,11 +1171,12 @@ type BIOS struct {
 }
 
 type SysInfo struct {
-	Type      string  `xml:"type,attr"`
-	System    []Entry `xml:"system>entry"`
-	BIOS      []Entry `xml:"bios>entry"`
-	BaseBoard []Entry `xml:"baseBoard>entry"`
-	Chassis   []Entry `xml:"chassis>entry"`
+	Type       string   `xml:"type,attr"`
+	System     []Entry  `xml:"system>entry"`
+	BIOS       []Entry  `xml:"bios>entry"`
+	BaseBoard  []Entry  `xml:"baseBoard>entry"`
+	Chassis    []Entry  `xml:"chassis>entry"`
+	OEMStrings []string `xml:"oemStrings>entry"`
 }
 
 type Entry struct {
@@ -1194,6 +1195,7 @@ type LaunchSecurity struct {
 	ReducedPhysBits        string `xml:"reducedPhysBits,omitempty"`
 	Policy                 string `xml:"policy,omitempty"`
 	QuoteGenerationService *QGS   `xml:"quoteGenerationService,omitempty"`
+	MRConfigId             string `xml:"mrConfigId,omitempty"`
 }
 
 type QGS struct {

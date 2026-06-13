@@ -3767,6 +3767,11 @@ func (in *SysInfo) DeepCopyInto(out *SysInfo) {
 		*out = make([]Entry, len(*in))
 		copy(*out, *in)
 	}
+	if in.OEMStrings != nil {
+		in, out := &in.OEMStrings, &out.OEMStrings
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
