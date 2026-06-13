@@ -56,16 +56,19 @@ var _ = Describe("ContainerDisk", func() {
 	BeforeEach(func() {
 		tmpDir, err = os.MkdirTemp("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
+		podsDir := filepath.Join(tmpDir, "pods")
+		Expect(os.MkdirAll(podsDir, 0755)).To(Succeed())
 		vmi = api.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		m = &mounter{
-			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
-			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir),
-			suppressWarningTimeout: 1 * time.Minute,
-			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
-			clusterConfig:          config,
+			mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
+			checkpointManager:          checkpoint.NewSimpleCheckpointManager(tmpDir),
+			suppressWarningTimeout:     1 * time.Minute,
+			socketPathGetter:           containerdisk.NewSocketPathGetter(podsDir),
+			kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(podsDir),
+			clusterConfig:              config,
 		}
 	})
 
