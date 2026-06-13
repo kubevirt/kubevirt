@@ -166,6 +166,8 @@ fi
 if [[ $TARGET =~ sriov.* ]]; then
   if [[ $TARGET =~ kind.* ]]; then
     export KUBEVIRT_NUM_NODES=3
+    # TODO do this only for DRA SR-IOV tests
+    export KUBEVIRT_USE_DRA=true
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
@@ -552,7 +554,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
       label_filter='(sig-operator)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
-    label_filter='(SRIOV)'
+    # Enable NetworkDevicesWithDRA feature gate for DRA SR-IOV tests
+    kubectl patch kubevirt -n kubevirt kubevirt --type=merge -p='{"spec":{"configuration":{"developerConfiguration":{"featureGates":["NetworkDevicesWithDRA"]}}}}'
+    label_filter='(DRA-Network)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
   else
@@ -680,6 +684,37 @@ if [[ $TARGET =~ sig-storage ]]; then
   kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m
 fi
 
+
+
+if [[ "${KUBEVIRT_PROVIDER}" == *"kind-sriov"* ]]; then
+  if kubectl -n kubevirt get kubevirt kubevirt >/dev/null 2>&1; then
+    echo "Disabling ImageVolume feature gate for this test run"
+    kubectl -n kubevirt patch kubevirt kubevirt --type=merge -p '{
+      "spec": {
+        "configuration": {
+          "developerConfiguration": {
+            "disabledFeatureGates": ["ImageVolume"]
+          }
+        }
+      }
+    }'
+    echo "Waiting for KubeVirt config update to be observed"
+    for _ in $(seq 1 30); do
+      disabled_gates=$(kubectl -n kubevirt get kubevirt kubevirt -o jsonpath='{.spec.configuration.developerConfiguration.disabledFeatureGates[*]}')
+      if [[ " ${disabled_gates} " == *" ImageVolume "* ]]; then
+        break
+      fi
+      sleep 2
+    done
+    if [[ " ${disabled_gates} " != *" ImageVolume "* ]]; then
+      echo "ERROR: ImageVolume was not added to disabledFeatureGates"
+      exit 1
+    fi
+    kubectl -n kubevirt wait kubevirt/kubevirt --for=condition=Available --timeout=180s
+  else
+    echo "WARN: kubevirt/kubevirt CR not found, skipping ImageVolume disable patch"
+  fi
+fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
