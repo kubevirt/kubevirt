@@ -4386,6 +4386,152 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}, true),
 		)
+
+		It("should delete old running pod kept as fallback when it only has Detaching volumes", func() {
+			shouldExpectPodDeletion := func(pod *k8sv1.Pod) {
+				kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+					update, ok := action.(testing.DeleteAction)
+					Expect(ok).To(BeTrue())
+					Expect(pod.Namespace).To(Equal(update.GetNamespace()))
+					return true, nil, nil
+				})
+			}
+
+			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testnode",
+				},
+			})
+			// Volume "detaching-vol" has been removed from spec and is in Detaching phase
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				{
+					Name:  "detaching-vol",
+					Phase: virtv1.HotplugVolumeDetaching,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+			}
+			// No hotplug volumes in spec (all removed)
+			vmi.Spec.Volumes = []virtv1.Volume{}
+
+			readyVolumes := []*virtv1.Volume{{}}
+			oldPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pod",
+					Namespace: vmi.Namespace,
+				},
+				Spec: k8sv1.PodSpec{
+					Volumes: []k8sv1.Volume{
+						{Name: "detaching-vol"},
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+			shouldExpectPodDeletion(oldPod)
+
+			// currentPod is nil (new pod not running yet), but old pod has no useful volumes
+			err := controller.cleanupAttachmentPods(nil, []*k8sv1.Pod{oldPod}, vmi, len(readyVolumes))
+			Expect(err).ToNot(HaveOccurred())
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
+		})
+
+		It("should keep old running pod as fallback when it has in-spec volumes", func() {
+			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testnode",
+				},
+			})
+			// Volume "active-vol" is still in spec
+			vmi.Spec.Volumes = []virtv1.Volume{
+				{
+					Name: "active-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "active-pvc",
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				{
+					Name:  "active-vol",
+					Phase: virtv1.VolumeReady,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+			}
+
+			readyVolumes := []*virtv1.Volume{{}}
+			oldPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pod",
+					Namespace: vmi.Namespace,
+				},
+				Spec: k8sv1.PodSpec{
+					Volumes: []k8sv1.Volume{
+						{Name: "active-vol"},
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+
+			// currentPod is nil, old pod has in-spec volume → should be kept
+			err := controller.cleanupAttachmentPods(nil, []*k8sv1.Pod{oldPod}, vmi, len(readyVolumes))
+			Expect(err).ToNot(HaveOccurred())
+			// No deletion event expected — pod is kept as fallback
+		})
+
+		It("should keep old running pod as fallback when it has removed volume in deletion-blocking phase", func() {
+			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testnode",
+				},
+			})
+			// Volume removed from spec but still in VolumeReady phase (not yet unmounted)
+			vmi.Spec.Volumes = []virtv1.Volume{}
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				{
+					Name:  "blocking-vol",
+					Phase: virtv1.VolumeReady,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "old-pod",
+						AttachPodUID:  "old-uid",
+					},
+				},
+			}
+
+			readyVolumes := []*virtv1.Volume{{}}
+			oldPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pod",
+					Namespace: vmi.Namespace,
+				},
+				Spec: k8sv1.PodSpec{
+					Volumes: []k8sv1.Volume{
+						{Name: "blocking-vol"},
+					},
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+
+			// currentPod nil, old pod has VolumeReady (deletion-blocking) volume → should be kept
+			err := controller.cleanupAttachmentPods(nil, []*k8sv1.Pod{oldPod}, vmi, len(readyVolumes))
+			Expect(err).ToNot(HaveOccurred())
+			// No deletion event expected — pod has volume in deletion-blocking phase
+		})
 	})
 
 	Context("topology hints", func() {
