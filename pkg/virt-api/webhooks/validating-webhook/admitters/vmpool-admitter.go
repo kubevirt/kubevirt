@@ -184,6 +184,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 				Type:    metav1.CauseTypeUnexpectedServerResponse,
 				Message: "Could not fetch old vmpool",
 			})
+			return causes
 		}
 
 		if !equality.Semantic.DeepEqual(pool.Spec.Selector, oldPool.Spec.Selector) {

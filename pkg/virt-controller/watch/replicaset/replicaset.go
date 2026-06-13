@@ -21,6 +21,7 @@ package replicaset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -320,13 +321,15 @@ func (c *Controller) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*
 	}
 	wg.Wait()
 
-	select {
-	case err := <-errChan:
-		// Only return the first error which occurred, the others will most likely be equal errors
-		return err
-	default:
+	var errs []error
+	for {
+		select {
+		case err := <-errChan:
+			errs = append(errs, err)
+		default:
+			return errors.Join(errs...)
+		}
 	}
-	return nil
 }
 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state, not terminating and not unknown
@@ -795,11 +798,13 @@ func (c *Controller) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceReplicaS
 	}
 	wg.Wait()
 
-	select {
-	case err := <-errChan:
-		// Only return the first error which occurred, the others will most likely be equal errors
-		return err
-	default:
+	var errs []error
+	for {
+		select {
+		case err := <-errChan:
+			errs = append(errs, err)
+		default:
+			return errors.Join(errs...)
+		}
 	}
-	return nil
 }
