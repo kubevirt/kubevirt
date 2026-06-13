@@ -16,35 +16,27 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_operator
+package virt_api
 
 import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 var (
-	operatorMetrics = []operatormetrics.Metric{
-		leaderGauge,
-		readyGauge,
+	componentMetrics = []operatormetrics.Metric{
+		virtAPIReady,
 	}
 
-	leaderGauge = operatormetrics.NewGauge(
+	virtAPIReady = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_virt_operator_leading_status",
-			Help: "Indication for an operating virt-operator.",
-		},
-	)
-
-	readyGauge = operatormetrics.NewGauge(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_virt_operator_ready_status",
-			Help: "Indication for a virt-operator that is ready to take the lead.",
+			Name: "kubevirt_virt_api_ready_status",
+			Help: "Indication for a virt-api server that is ready to serve requests.",
 		},
 	)
 )
 
-func SetLeader(isLeader bool) {
-	leaderGauge.Set(boolToFloat64(isLeader))
+func SetVirtAPIReady() {
+	virtAPIReady.Set(1)
 }
 
-func SetReady(isReady bool) {
-	readyGauge.Set(boolToFloat64(isReady))
+func SetVirtAPINotReady() {
+	virtAPIReady.Set(0)
 }
