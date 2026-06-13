@@ -1038,7 +1038,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil),
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
-				libvmi.WithMemoryRequest("512Mi"),
+				libvmi.WithMemoryRequest(libvmifact.FedoraMemory),
 			)
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -1251,7 +1251,7 @@ func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storag
 	)
 	var vmiOpts []libvmi.Option
 	if containerDisk == cd.ContainerDiskFedoraTestTooling {
-		vmiOpts = append(vmiOpts, libvmi.WithMemoryRequest("512Mi"))
+		vmiOpts = append(vmiOpts, libvmi.WithMemoryRequest(libvmifact.FedoraMemory))
 	}
 	return libvmi.NewVirtualMachine(
 		libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, vmiOpts...),

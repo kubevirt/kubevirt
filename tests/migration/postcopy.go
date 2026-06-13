@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,8 +133,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 
 		DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Namespace = testsuite.NamespacePrivileged
 
 			switch settingsType {
@@ -180,7 +177,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithMemoryRequest("512Mi"),
 					libvmi.WithRng(),
 					libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),

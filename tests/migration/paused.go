@@ -107,7 +107,6 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 						By("creating a large Virtual Machine Instance")
 						vmi := libvmifact.NewFedora(
 							libnet.WithMasqueradeNetworking(),
-							libvmi.WithMemoryRequest("512Mi"),
 							libvmi.WithRng())
 
 						// update the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation.

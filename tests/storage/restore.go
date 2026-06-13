@@ -1383,7 +1383,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
-				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest("512Mi"))
+				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory))
 				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 				vm, vmi = createAndStartVM(vm)
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
@@ -1575,7 +1575,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", decorators.StorageCritical, func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest("512Mi")))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory)))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1588,7 +1588,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should restore vm spec at startup without new changes", func() {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest("512Mi")))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory)))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
