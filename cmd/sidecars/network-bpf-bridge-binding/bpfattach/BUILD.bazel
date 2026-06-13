@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["attach.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-bpf-bridge-binding/bpfattach",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/cilium/ebpf:go_default_library"],
+)

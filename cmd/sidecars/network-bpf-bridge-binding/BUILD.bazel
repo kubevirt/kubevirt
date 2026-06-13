@@ -1,0 +1,68 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-bpf-bridge-binding",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//cmd/sidecars/network-bpf-bridge-binding/server:go_default_library",
+        "//pkg/hooks:go_default_library",
+        "//pkg/hooks/info:go_default_library",
+        "//pkg/hooks/v1alpha3:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "network-bpf-bridge-binding",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "bpf-bridge-object",
+    srcs = ["bpf/bpf_bridge.c"],
+    outs = ["bpf_bridge.o"],
+    cmd = "clang -O2 -g -Wall -Werror -target bpf -c $(location bpf/bpf_bridge.c) -o $@",
+)
+
+pkg_tar(
+    name = "get-version",
+    srcs = ["//:get-version"],
+    package_dir = "/",
+)
+
+pkg_tar(
+    name = "network-bpf-bridge-binding-tar",
+    srcs = [":network-bpf-bridge-binding"],
+    package_dir = "/",
+)
+
+pkg_tar(
+    name = "network-bpf-bridge-binding-bpf-tar",
+    srcs = [":bpf-bridge-object"],
+    package_dir = "/opt/network-bpf-bridge-binding",
+)
+
+oci_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    tars = [
+        ":get-version",
+    ],
+)
+
+oci_image(
+    name = "network-bpf-bridge-binding-image",
+    base = ":version-container",
+    entrypoint = ["/network-bpf-bridge-binding"],
+    tars = [
+        ":network-bpf-bridge-binding-tar",
+        ":network-bpf-bridge-binding-bpf-tar",
+    ],
+    visibility = ["//visibility:public"],
+)
