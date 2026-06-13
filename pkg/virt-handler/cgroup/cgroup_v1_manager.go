@@ -49,6 +49,7 @@ type v1Manager struct {
 
 func newV1Manager(config *cgroups.Cgroup, controllerPaths map[string]string) (Manager, error) {
 	cgManager, err := cgroupfs.NewManager(config, controllerPaths)
+	log.Log.Warningf("cgroups v1 support is DEPRECATED and will be removed in the next release; please migrate to cgroups v2")
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize new cgroup manager. err: %v", err)
 	}
