@@ -3910,7 +3910,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with RebootPolicy", func() {
 		It("should accept rebootPolicy when feature gate is enabled", func() {
-			enableFeatureGates(featuregate.RebootPolicy)
+			// Enabled by default
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
@@ -3922,7 +3922,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject rebootPolicy when feature gate is disabled", func() {
-			disableFeatureGates()
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.RebootPolicy}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
