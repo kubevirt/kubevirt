@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "authorizer.go",
         "console.go",
+        "dialer.go",
         "dialers.go",
         "evacuate_cancel.go",
         "expand.go",
@@ -107,6 +108,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/containerizeddataimporter/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/typed/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
@@ -126,6 +128,7 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/uuid:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",

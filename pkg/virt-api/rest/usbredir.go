@@ -38,11 +38,11 @@ func (app *SubresourceAPIApp) USBRedirRequestHandler(request *restful.Request, r
 	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
 	streamer := NewRawStreamer(
-		app.FetchVirtualMachineInstance,
-		validateVMIForUSBRedir,
-		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			return conn.USBRedirURI(vmi)
-		}),
+		NewDirectDialer(app.FetchVirtualMachineInstance, validateVMIForUSBRedir,
+			app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+				return conn.ConsoleURI(vmi)
+			}),
+		),
 	)
 
 	streamer.Handle(request, response)
