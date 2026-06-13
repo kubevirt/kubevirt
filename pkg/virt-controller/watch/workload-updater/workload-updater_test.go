@@ -498,6 +498,36 @@ var _ = Describe("Workload Updater", func() {
 
 	})
 
+	Context("workload update eviction pod guard", func() {
+		It("should skip eviction without panicking when pod is not yet in cache", func() {
+			vmi := newVirtualMachineInstance("testvm-evict-no-pod", false, "madeup")
+			controller.vmiStore.Add(vmi)
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
+			addKubeVirt(kv)
+
+			sanityExecute()
+			Expect(recorder.Events).To(BeEmpty())
+		})
+
+		It("should skip eviction without panicking when pod belongs to a different namespace", func() {
+			vmi := newVirtualMachineInstance("testvm-evict-err-pod", false, "madeup")
+			pod := newLauncherPodForVMI(vmi)
+			pod.Namespace = "other-namespace"
+			controller.vmiStore.Add(vmi)
+			controller.podIndexer.Add(pod)
+
+			waitForNumberOfInstancesOnVMIInformerCache(controller, 1)
+			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
+			addKubeVirt(kv)
+
+			sanityExecute()
+			Expect(recorder.Events).To(BeEmpty())
+		})
+	})
+
 	Context("LiveUpdate features", func() {
 		It("VMI needs to be migrated when memory hotplug is requested", func() {
 			condition := v1.VirtualMachineInstanceCondition{
