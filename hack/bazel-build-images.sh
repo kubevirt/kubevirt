@@ -28,6 +28,7 @@ other_images_default="
     //cmd/sidecars:sidecar-shim-image
     //cmd/libguestfs:libguestfs-tools-image
     //cmd/test-helpers:test-helpers-image
+    //cmd/example-node-hook-plugin:example-node-hook-plugin-image
     //containerimages:alpine-container-disk-image
     //containerimages:fedora-with-test-tooling
     //images/disks-images-provider:disks-images-provider-image

@@ -69,6 +69,8 @@ type PluginSpec struct {
 	DomainHooks []DomainHook `json:"domainHooks,omitempty"`
 
 	// NodeHooks defines hooks that execute during VM lifecycle events.
+	// Hooks are applied in declaration order within each plugin.
+	// Across plugins, hooks are applied in alphabetical order by plugin name.
 	// +optional
 	// +listType=atomic
 	NodeHooks []NodeHook `json:"nodeHooks,omitempty"`
