@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -273,5 +274,51 @@ var _ = Describe("LauncherClientInfo Close", func() {
 		for range 5 {
 			<-done
 		}
+	})
+})
+
+var _ = Describe("Connection backoff", func() {
+	It("should back off repeated GetLauncherClient failures and recover after expiry", func() {
+		mgr := &launcherClientsManager{
+			launcherClients: virtcache.LauncherClientInfoByVMI{},
+			connBackoff:     make(map[types.UID]*connBackoffEntry),
+		}
+
+		vmi := api2.NewMinimalVMI("stuck-vm")
+		vmi.UID = "stuck-uid"
+
+		By("allowing the first connection attempt through (fails because no socket exists)")
+		_, err := mgr.GetLauncherClient(vmi)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).ToNot(ContainSubstring("connection backoff active"))
+
+		By("rejecting the second attempt immediately due to backoff")
+		_, err = mgr.GetLauncherClient(vmi)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("connection backoff active"))
+
+		By("allowing retry after the backoff timer expires")
+		mgr.connBackoffMu.Lock()
+		mgr.connBackoff[vmi.UID].nextRetry = time.Now().Add(-1 * time.Second)
+		mgr.connBackoffMu.Unlock()
+
+		_, err = mgr.GetLauncherClient(vmi)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).ToNot(ContainSubstring("connection backoff active"))
+
+		By("not affecting a different VMI")
+		otherVMI := api2.NewMinimalVMI("other-vm")
+		otherVMI.UID = "other-uid"
+
+		_, err = mgr.GetLauncherClient(otherVMI)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).ToNot(ContainSubstring("connection backoff active"))
+
+		By("clearing backoff when CloseLauncherClient is called")
+		mgr.CloseLauncherClient(vmi)
+
+		_, err = mgr.GetLauncherClient(vmi)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).ToNot(ContainSubstring("connection backoff active"))
 	})
 })
