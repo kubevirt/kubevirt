@@ -40,7 +40,7 @@ import (
 var _ = Describe("SetupPodNetworkPhase2", func() {
 	const podIfaceName = "eth0"
 
-	DescribeTable("should skip non-tap-based interfaces",
+	DescribeTable("should skip non-tap based or passt interfaces",
 		func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 			expectedDomain := domain.DeepCopy()
 			configurator := launcher.NewVMNetworkConfigurator(vmi, nil,
@@ -55,10 +55,6 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov")),
 			libvmi.WithNetwork(libvmi.MultusNetwork("sriov", "sriov-nad")),
 		), domainWithSRIOVHostDevice()),
-		Entry("Passt", libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		), domainWithPasstInterface()),
 		Entry("binding plugin without tap domain attachment", libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("foo", v1.PluginBinding{Name: "foo"})),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foo", "foo-nad")),
@@ -95,6 +91,34 @@ var _ = Describe("SetupPodNetworkPhase2", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), nil),
 	)
+
+	It("should enrich the domain interface with IP addresses for passt", func() {
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+		domain := domainWithPasstInterface()
+
+		configurator := launcher.NewVMNetworkConfigurator(vmi, nil,
+			launcher.WithNetworkHandler(newStubNetworkHandlerWithAddrs(podIfaceName)),
+		)
+
+		Expect(configurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)).To(Succeed())
+
+		expectedDomain := domainWithPasstInterface()
+		expectedDomain.Spec.Devices.Interfaces[0].IPs = []api.InterfaceIP{
+			{
+				Family:  "ipv4",
+				Address: "10.0.2.2",
+				Prefix:  "24",
+			},
+			{
+				Family:  "ipv6",
+				Address: "fd10:0:2::2",
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
 
 	DescribeTable("should panic when DHCP server fails to start",
 		func(vmi *v1.VirtualMachineInstance) {
@@ -181,8 +205,29 @@ func newStubNetworkHandler(podIfaceName string) stubNetworkHandler {
 	}
 }
 
+func newStubNetworkHandlerWithAddrs(podIfaceName string) stubNetworkHandler {
+	ipv4, ipv4Net, _ := net.ParseCIDR("10.0.2.2/24")
+	ipv4Net.IP = ipv4
+	ipv6 := net.ParseIP("fd10:0:2::2")
+
+	return stubNetworkHandler{
+		links: map[string]netlink.Link{
+			podIfaceName: &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{
+				Name: podIfaceName,
+			}},
+		},
+		addrs: map[string][]netlink.Addr{
+			podIfaceName: {
+				{IPNet: ipv4Net},
+				{IPNet: &net.IPNet{IP: ipv6, Mask: net.CIDRMask(128, 128)}},
+			},
+		},
+	}
+}
+
 type stubNetworkHandler struct {
 	links map[string]netlink.Link
+	addrs map[string][]netlink.Addr
 }
 
 func (s stubNetworkHandler) LinkByName(name string) (netlink.Link, error) {
@@ -190,6 +235,19 @@ func (s stubNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 		return l, nil
 	}
 	return nil, netlink.LinkNotFoundError{}
+}
+
+func (s stubNetworkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	addrs := s.addrs[link.Attrs().Name]
+	var filtered []netlink.Addr
+	for _, addr := range addrs {
+		if family == netlink.FAMILY_V4 && addr.IP.To4() != nil {
+			filtered = append(filtered, addr)
+		} else if family == netlink.FAMILY_V6 && addr.IP.To4() == nil {
+			filtered = append(filtered, addr)
+		}
+	}
+	return filtered, nil
 }
 
 func (s stubNetworkHandler) StartDHCP(_ *cache.DHCPConfig, _ string, _ *v1.DHCPOptions) error {
