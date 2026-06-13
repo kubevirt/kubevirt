@@ -118,8 +118,18 @@ var (
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
 
-	// NoFlakeCheck decorates tests that are not compatible with the check-tests-for-flakes test lane.
-	// This should only be used for legitimate purposes, like on tests that have a flake-checker-friendly clone.
+	// NoFlakeCheck decorates tests that are not compatible with the
+	// check-tests-for-flakes test lane due to infrastructure constraints
+	// (e.g. missing storage classes, special hardware requirements).
+	//
+	// This decorator must NOT be used on tests that are flaky — flaky tests
+	// must be quarantined instead (see docs/quarantine.md).
+	//
+	// When applying this decorator, authors must document the reason in the
+	// commit message or an inline comment explaining why the test cannot run
+	// on the flake-check lane.
+	//
+	// See also: https://groups.google.com/g/kubevirt-dev/c/7z5TXJwmcrs
 	NoFlakeCheck = Label("no-flake-check")
 	// FlakeCheck decorates tests that are dedicated to the check-tests-for-flakes test lane.
 	FlakeCheck = Label("flake-check")
