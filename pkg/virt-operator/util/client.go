@@ -279,3 +279,22 @@ func IsValidatingAdmissionPolicyEnabled(clientset kubecli.KubevirtClient) (bool,
 
 	return false, nil
 }
+
+func IsMutatingAdmissionPolicyEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == "admissionregistration.k8s.io/v1" {
+			for _, resource := range api.APIResources {
+				if resource.Name == "mutatingadmissionpolicies" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}

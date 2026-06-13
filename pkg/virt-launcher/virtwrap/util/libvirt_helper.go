@@ -26,10 +26,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 )
 
 const QEMUSeaBiosDebugPipe = compute.QEMUSeaBiosDebugPipe
@@ -137,19 +140,37 @@ func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wa
 	return dom, nil
 }
 
-func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, error) {
+func ApplySidecarHooks(vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (string, error) {
 	hooksManager := getHookManager()
 	domainSpec, err := hooksManager.OnDefineDomain(wantedSpec, vmi)
+	if err != nil {
+		return "", err
+	}
+
+	domainSpecObj := &api.DomainSpec{}
+	if err = xml.Unmarshal([]byte(domainSpec), domainSpecObj); err != nil {
+		return "", err
+	}
+	domainSpecObj.DeepCopyInto(wantedSpec)
+
+	return domainSpec, nil
+}
+
+func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, error) {
+	domainSpec, err := ApplySidecarHooks(vmi, wantedSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	// update wantedSpec to reflect changes made to domain spec by hooks
-	domainSpecObj := &api.DomainSpec{}
-	if err = xml.Unmarshal([]byte(domainSpec), domainSpecObj); err != nil {
-		return nil, err
+	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
+		updatedSpec, xmlStr, err := plugins.ApplyDomainHooks(pluginList, vmi, wantedSpec,
+			pluginv1alpha1.InvocationContextBoot)
+		if err != nil {
+			return nil, err
+		}
+		updatedSpec.DeepCopyInto(wantedSpec)
+		domainSpec = xmlStr
 	}
-	domainSpecObj.DeepCopyInto(wantedSpec)
 
 	return SetDomainSpecStr(virConn, vmi, domainSpec)
 }

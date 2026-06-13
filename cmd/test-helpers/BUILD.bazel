@@ -16,7 +16,6 @@ oci_image(
     # This allows multiple test helper binaries in the same image
     tars = [
         ":test-pod-mutator-tar",
-        # Future test helpers can be added here
     ],
     visibility = ["//visibility:public"],
 )

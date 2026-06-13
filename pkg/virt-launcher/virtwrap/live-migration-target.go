@@ -38,6 +38,8 @@ import (
 
 	"libvirt.org/go/libvirt"
 
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -51,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
@@ -218,6 +221,14 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	_, err = hooksManager.OnDefineDomain(&dom.Spec, vmi)
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
+	}
+	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
+		updatedSpec, _, err := plugins.ApplyDomainHooks(pluginList, vmi, &dom.Spec,
+			pluginv1alpha1.InvocationContextMigrationTarget)
+		if err != nil {
+			return fmt.Errorf("applying plugin domain hooks failed: %v", err)
+		}
+		updatedSpec.DeepCopyInto(&dom.Spec)
 	}
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
