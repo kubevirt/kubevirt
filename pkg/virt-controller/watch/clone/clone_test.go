@@ -29,6 +29,7 @@ import (
 	"go.uber.org/mock/gomock"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,9 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	clone "kubevirt.io/api/clone/v1beta1"
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -215,10 +218,16 @@ var _ = Describe("Clone", func() {
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
 		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+		crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, kvcontroller.GetControllerRevisionInformerIndexers())
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		controller, _ = NewVmCloneController(
 			virtClient,
 			cloneInformer,
@@ -227,6 +236,12 @@ var _ = Describe("Clone", func() {
 			vmInformer,
 			snapshotContentInformer,
 			pvcInformer,
+			instancetypeInformer,
+			clusterInstancetypeInformer,
+			preferenceInformer,
+			clusterPreferenceInformer,
+			crInformer,
+			config,
 			recorder)
 		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
 		controller.vmCloneQueue = mockQueue
