@@ -185,6 +185,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 				backupMetadata.BackupMsg = fmt.Sprintf(freezeFailedMsg, err)
 			})
 		} else {
+			m.metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSFrozen})
 			frozenFS = true
 		}
 	}
@@ -197,6 +198,8 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 				m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
 					backupMetadata.BackupMsg = unfreezeFailedMsg
 				})
+			} else {
+				m.metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSThawed})
 			}
 		}
 	}()
