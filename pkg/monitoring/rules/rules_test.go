@@ -19,19 +19,44 @@
 package rules_test
 
 import (
+	"regexp"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rhobs/operator-observability-toolkit/pkg/testutil"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 )
 
+// namespaceRe matches "namespace" used as a PromQL label name — in label
+// matchers, by/on/group_left/group_right clauses — but not as a substring
+// of a metric or recording-rule name.
+var namespaceRe = regexp.MustCompile(`\bnamespace\b`)
+
+// validateAlertNamespaceLabel checks that every alert has a namespace
+// label, either as a static label or derived from its PromQL expression.
+func validateAlertNamespaceLabel(alert *promv1.Rule) []testutil.Problem {
+	if _, hasNamespace := alert.Labels["namespace"]; hasNamespace {
+		return nil
+	}
+	if namespaceRe.MatchString(alert.Expr.String()) {
+		return nil
+	}
+	return []testutil.Problem{{
+		ResourceName: alert.Alert,
+		Description: "alert must have a namespace label " +
+			"(add a static namespace label or ensure " +
+			"the PromQL expression produces one)",
+	}}
+}
+
 var _ = Describe("Rules Validation", func() {
 	var linter *testutil.Linter
 
 	BeforeEach(func() {
-		Expect(rules.SetupRules("")).To(Succeed())
+		Expect(rules.SetupRules("test-ns")).To(Succeed())
 		linter = testutil.New()
 	})
 
@@ -40,7 +65,8 @@ var _ = Describe("Rules Validation", func() {
 			testutil.ValidateAlertNameLength,
 			testutil.ValidateAlertRunbookURLAnnotation,
 			testutil.ValidateAlertHealthImpactLabel,
-			testutil.ValidateAlertPartOfAndComponentLabels)
+			testutil.ValidateAlertPartOfAndComponentLabels,
+			validateAlertNamespaceLabel)
 
 		problems := linter.LintAlerts(rules.ListAlerts())
 		Expect(problems).To(BeEmpty())
