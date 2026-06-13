@@ -85,16 +85,14 @@ var _ = Describe(SIG("Memory dump", func() {
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() bool {
+		Eventually(func(g Gomega) {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return false
-			}
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return vm.Status.Ready && vmi.Status.Phase == v1.Running
-		}, 180*time.Second, time.Second).Should(BeTrue())
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vm.Status.Ready).To(BeTrue(), "expected VM %s to be ready", vm.Name)
+			g.Expect(vmi.Status.Phase).To(Equal(v1.Running))
+		}, 180*time.Second, time.Second).Should(Succeed())
 
 		return vm
 	}
@@ -168,8 +166,8 @@ var _ = Describe(SIG("Memory dump", func() {
 			if err != nil {
 				return err
 			}
-			Expect(pvc.GetAnnotations()).ToNot(BeNil())
-			Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(*updatedVM.Status.MemoryDumpRequest.FileName))
+			Expect(pvc.GetAnnotations()).ToNot(BeNil(), "expected PVC %s to have annotations", pvc.Name)
+			Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(*updatedVM.Status.MemoryDumpRequest.FileName), "expected PVC %s annotation to match memory dump file name", pvc.Name)
 
 			return nil
 		}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
@@ -222,17 +220,17 @@ var _ = Describe(SIG("Memory dump", func() {
 		log.Log.Infof("%s", wcOutput)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(strings.Contains(lsOutput, "memory.dump")).To(BeTrue())
+		Expect(lsOutput).To(ContainSubstring("memory.dump"), "expected 'memory.dump' file in PVC %s, got: %s", memoryDumpPVC.Name, lsOutput)
 		// Could be that a 'lost+found' directory is in it, check if the
 		// response is more then 1 then it is only 2 with `lost+found` directory
 		if strings.Compare("1", wcOutput) != 0 {
-			Expect(wcOutput).To(Equal("2"))
-			Expect(strings.Contains(lsOutput, "lost+found")).To(BeTrue())
+			Expect(wcOutput).To(Equal("2"), "expected at most 2 files in PVC %s, got: %s", memoryDumpPVC.Name, wcOutput)
+			Expect(lsOutput).To(ContainSubstring("lost+found"), "expected 'lost+found' file in PVC %s, got: %s", memoryDumpPVC.Name, lsOutput)
 		}
 		if previousOutput != "" && shouldEqual {
-			Expect(lsOutput).To(Equal(previousOutput))
+			Expect(lsOutput).To(Equal(previousOutput), "expected ls output to match previous output")
 		} else {
-			Expect(lsOutput).ToNot(Equal(previousOutput))
+			Expect(lsOutput).ToNot(Equal(previousOutput), "expected ls output to be different from previous output")
 		}
 
 		deletePod(executorPod)
@@ -395,9 +393,10 @@ var _ = Describe(SIG("Memory dump", func() {
 			waitAndVerifyMemoryDumpDissociation(vm, memoryDumpPVCName)
 			memoryDumpPVC2, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC2.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if memoryDumpPVC2.Annotations != nil {
-				Expect(memoryDumpPVC2.Annotations[v1.PVCMemoryDumpAnnotation]).To(BeNil())
-			}
+			Expect(memoryDumpPVC2.Annotations).To(Or(
+				BeNil(),
+				Not(HaveKey(v1.PVCMemoryDumpAnnotation)),
+			), "expected memory dump annotation on PVC %s to be removed", memoryDumpPVC2.Name)
 		})
 	})
 }))

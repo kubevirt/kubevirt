@@ -162,7 +162,7 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 			// Avoid races if there is some delay in the device creation
 			Eventually(findSCSIdisk, 20*time.Second, 1*time.Second).WithArguments(targetCliPod, backendDisk).ShouldNot(BeEmpty())
 			device = findSCSIdisk(targetCliPod, backendDisk)
-			Expect(device).ToNot(BeEmpty())
+			Expect(device).ToNot(BeEmpty(), "expected to find a SCSI device for backend disk %s on targetcli pod %s", backendDisk, targetCliPod)
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
 			pv, pvc, err = CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred())
@@ -194,13 +194,13 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 			By("Requesting SCSI persistent reservation")
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 			Expect(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
-				"there are NO registered reservation keys")).To(BeTrue())
+				"there are NO registered reservation keys")).To(BeTrue(), "expected sg_persist to report no registered reservation keys")
 			Expect(checkResultCommand(vmi, "sg_persist -o -G  --param-sark=12345678 /dev/sda",
-				"Peripheral device type: disk")).To(BeTrue())
+				"Peripheral device type: disk")).To(BeTrue(), "expected sg_persist to report Peripheral device type: disk")
 			Eventually(func(g Gomega) {
 				g.Expect(
 					checkResultCommand(vmi, "sg_persist -i -k /dev/sda", "1 registered reservation key follows:\r\n    0x12345678\r\n"),
-				).To(BeTrue())
+				).To(BeTrue(), "expected sg_persist to report 1 registered reservation key follows: 0x12345678")
 			}).
 				Within(60 * time.Second).
 				WithPolling(10 * time.Second).
@@ -216,15 +216,16 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 			Expect(err).ToNot(HaveOccurred())
 			// Wait unti new handler pod is ready
 			oldPodName := pod.Name
-			Eventually(func(g Gomega) bool {
+			Eventually(func(g Gomega) {
 				pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
 				g.Expect(err).To(Or(Succeed(), MatchError("Expected to find one Pod, found 2 Pods")))
 				if err != nil {
-					return false
+					return
 				}
 				pod, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-				return pod.Name != oldPodName
-			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(pod.Name).ToNot(Equal(oldPodName))
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 			Eventually(matcher.ThisPod(pod)).WithTimeout(30 * time.Second).
 				WithPolling(1 * time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 
@@ -232,7 +233,7 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 			Eventually(func(g Gomega) {
 				g.Expect(
 					checkResultCommand(vmi, "sg_persist -i -k /dev/sda", "1 registered reservation key follows:\r\n    0x12345678\r\n"),
-				).To(BeTrue())
+				).To(BeTrue(), "expected sg_persist to report 1 registered reservation key follows: 0x12345678")
 			}).
 				Within(60 * time.Second).
 				WithPolling(10 * time.Second).
