@@ -48,7 +48,7 @@ type VirtualMachineInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstanceSpec `json:"spec" valid:"required"`
+	Spec VirtualMachineInstanceSpec `json:"spec"`
 	// Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
 	Status VirtualMachineInstanceStatus `json:"status,omitempty"`
 }
@@ -366,9 +366,9 @@ type StorageMigratedVolumeInfo struct {
 	// VolumeName is the name of the volume that is being migrated
 	VolumeName string `json:"volumeName"`
 	// SourcePVCInfo contains the information about the source PVC
-	SourcePVCInfo *PersistentVolumeClaimInfo `json:"sourcePVCInfo,omitempty" valid:"required"`
+	SourcePVCInfo *PersistentVolumeClaimInfo `json:"sourcePVCInfo,omitempty"`
 	// DestinationPVCInfo contains the information about the destination PVC
-	DestinationPVCInfo *PersistentVolumeClaimInfo `json:"destinationPVCInfo,omitempty" valid:"required"`
+	DestinationPVCInfo *PersistentVolumeClaimInfo `json:"destinationPVCInfo,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -1561,7 +1561,7 @@ func NewVMIReferenceWithUUID(namespace string, name string, uuid types.UID) *Vir
 
 type VMISelector struct {
 	// Name of the VirtualMachineInstance to migrate
-	Name string `json:"name" valid:"required"`
+	Name string `json:"name"`
 }
 
 func NewVMReferenceFromNameWithNS(namespace string, name string) *VirtualMachine {
@@ -1630,7 +1630,7 @@ type VirtualMachineInstanceReplicaSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstanceReplicaSetSpec `json:"spec" valid:"required"`
+	Spec VirtualMachineInstanceReplicaSetSpec `json:"spec"`
 	// Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
 	// +nullable
 	Status VirtualMachineInstanceReplicaSetStatus `json:"status,omitempty"`
@@ -1653,10 +1653,10 @@ type VirtualMachineInstanceReplicaSetSpec struct {
 
 	// Label selector for pods. Existing ReplicaSets whose pods are
 	// selected by this will be the ones affected by this deployment.
-	Selector *metav1.LabelSelector `json:"selector" valid:"required"`
+	Selector *metav1.LabelSelector `json:"selector"`
 
 	// Template describes the pods that will be created.
-	Template *VirtualMachineInstanceTemplateSpec `json:"template" valid:"required"`
+	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
 
 	// Indicates that the replica set is paused.
 	// +optional
@@ -1727,7 +1727,7 @@ type VirtualMachineInstanceTemplateSpec struct {
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstanceSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineInstanceSpec `json:"spec,omitempty"`
 }
 
 // VirtualMachineInstanceMigration represents the object tracking a VMI's migration
@@ -1738,7 +1738,7 @@ type VirtualMachineInstanceTemplateSpec struct {
 type VirtualMachineInstanceMigration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              VirtualMachineInstanceMigrationSpec   `json:"spec" valid:"required"`
+	Spec              VirtualMachineInstanceMigrationSpec   `json:"spec"`
 	Status            VirtualMachineInstanceMigrationStatus `json:"status,omitempty"`
 }
 
@@ -1761,7 +1761,7 @@ const (
 
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
-	VMIName string `json:"vmiName,omitempty" valid:"required"`
+	VMIName string `json:"vmiName,omitempty"`
 
 	// AddedNodeSelector is an additional selector that can be used to
 	// complement a NodeSelector or NodeAffinity as set on the VM
@@ -1878,7 +1878,7 @@ type VirtualMachineInstancePreset struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstancePresetSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineInstancePresetSpec `json:"spec,omitempty"`
 }
 
 // VirtualMachineInstancePresetList is a list of VirtualMachinePresets
@@ -1927,7 +1927,7 @@ type VirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// Spec contains the specification of VirtualMachineInstance created
-	Spec VirtualMachineSpec `json:"spec" valid:"required"`
+	Spec VirtualMachineSpec `json:"spec"`
 	// Status holds the current state of the controller and brief information
 	// about its associated VirtualMachineInstance
 	Status VirtualMachineStatus `json:"status,omitempty"`
@@ -2433,7 +2433,7 @@ type Probe struct {
 type KubeVirt struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              KubeVirtSpec   `json:"spec" valid:"required"`
+	Spec              KubeVirtSpec   `json:"spec"`
 	Status            KubeVirtStatus `json:"status,omitempty"`
 }
 
@@ -2532,7 +2532,7 @@ type KubeVirtSpec struct {
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 
 	// The ImagePullPolicy to use.
-	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
+	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// The imagePullSecrets to pull the container images from
 	// Defaults to none

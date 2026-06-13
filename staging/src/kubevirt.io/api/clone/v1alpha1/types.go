@@ -33,7 +33,7 @@ type VirtualMachineClone struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VirtualMachineCloneSpec   `json:"spec" valid:"required"`
+	Spec   VirtualMachineCloneSpec   `json:"spec"`
 	Status VirtualMachineCloneStatus `json:"status,omitempty"`
 }
 
