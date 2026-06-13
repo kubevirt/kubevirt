@@ -88,6 +88,8 @@ const SevDeviceName = "sev"
 const TdxDeviceName = "tdx"
 const SevDevice = K8sDevicePrefix + "/" + SevDeviceName
 const TdxDevice = K8sDevicePrefix + "/" + TdxDeviceName
+const IOMMUFDDeviceName = "iommufd"
+const IOMMUFDDevice = K8sDevicePrefix + "/" + IOMMUFDDeviceName
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -1598,6 +1600,9 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
+			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
+				return t.clusterConfig.IOMMUFDEnabled()
+			}, WithIOMMUFD()),
 		},
 	}
 }

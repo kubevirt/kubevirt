@@ -120,6 +120,7 @@ func AdjustKubeVirtResource() {
 		featuregate.UtilityVolumesGate,
 		featuregate.RebootPolicy,
 		featuregate.ContainerPathVolumesGate,
+		featuregate.IOMMUFDGate,
 	)
 
 	// ImageVolume is enabled by default for k8s 1.35+ (image volume feature gate in kubelet).
