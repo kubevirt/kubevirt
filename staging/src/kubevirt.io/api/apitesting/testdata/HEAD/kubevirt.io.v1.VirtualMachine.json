@@ -416,7 +416,10 @@
             "filesystems": [
               {
                 "name": "nameValue",
-                "virtiofs": {}
+                "virtiofs": {
+                  "readOnly": true,
+                  "subPath": "subPathValue"
+                }
               }
             ],
             "hostDevices": [

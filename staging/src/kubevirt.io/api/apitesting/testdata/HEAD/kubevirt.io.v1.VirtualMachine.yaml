@@ -470,7 +470,9 @@ spec:
           downwardMetrics: {}
           filesystems:
           - name: nameValue
-            virtiofs: {}
+            virtiofs:
+              readOnly: true
+              subPath: subPathValue
           gpus:
           - claimName: claimNameValue
             deviceName: deviceNameValue
