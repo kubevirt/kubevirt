@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/pool/v1alpha1"
-	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
+	poolv1alpha1 "kubevirt.io/client-go/applyconfigurations/pool/v1alpha1"
+	typedpoolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 )
 
 // fakeVirtualMachinePools implements VirtualMachinePoolInterface
 type fakeVirtualMachinePools struct {
-	*gentype.FakeClientWithList[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList, *poolv1alpha1.VirtualMachinePoolApplyConfiguration]
 	Fake *FakePoolV1alpha1
 }
 
-func newFakeVirtualMachinePools(fake *FakePoolV1alpha1, namespace string) poolv1alpha1.VirtualMachinePoolInterface {
+func newFakeVirtualMachinePools(fake *FakePoolV1alpha1, namespace string) typedpoolv1alpha1.VirtualMachinePoolInterface {
 	return &fakeVirtualMachinePools{
-		gentype.NewFakeClientWithList[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.VirtualMachinePool, *v1alpha1.VirtualMachinePoolList, *poolv1alpha1.VirtualMachinePoolApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools"),

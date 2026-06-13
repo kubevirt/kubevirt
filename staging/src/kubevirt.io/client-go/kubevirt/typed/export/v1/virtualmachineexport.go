@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	exportv1 "kubevirt.io/api/export/v1"
+	applyconfigurationsexportv1 "kubevirt.io/client-go/applyconfigurations/export/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineExportInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*exportv1.VirtualMachineExportList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *exportv1.VirtualMachineExport, err error)
+	Apply(ctx context.Context, virtualMachineExport *applyconfigurationsexportv1.VirtualMachineExportApplyConfiguration, opts metav1.ApplyOptions) (result *exportv1.VirtualMachineExport, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineExport *applyconfigurationsexportv1.VirtualMachineExportApplyConfiguration, opts metav1.ApplyOptions) (result *exportv1.VirtualMachineExport, err error)
 	VirtualMachineExportExpansion
 }
 
 // virtualMachineExports implements VirtualMachineExportInterface
 type virtualMachineExports struct {
-	*gentype.ClientWithList[*exportv1.VirtualMachineExport, *exportv1.VirtualMachineExportList]
+	*gentype.ClientWithListAndApply[*exportv1.VirtualMachineExport, *exportv1.VirtualMachineExportList, *applyconfigurationsexportv1.VirtualMachineExportApplyConfiguration]
 }
 
 // newVirtualMachineExports returns a VirtualMachineExports
 func newVirtualMachineExports(c *ExportV1Client, namespace string) *virtualMachineExports {
 	return &virtualMachineExports{
-		gentype.NewClientWithList[*exportv1.VirtualMachineExport, *exportv1.VirtualMachineExportList](
+		gentype.NewClientWithListAndApply[*exportv1.VirtualMachineExport, *exportv1.VirtualMachineExportList, *applyconfigurationsexportv1.VirtualMachineExportApplyConfiguration](
 			"virtualmachineexports",
 			c.RESTClient(),
 			scheme.ParameterCodec,

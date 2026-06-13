@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
+	applyconfigurationsclonev1beta1 "kubevirt.io/client-go/applyconfigurations/clone/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineCloneInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*clonev1beta1.VirtualMachineCloneList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *clonev1beta1.VirtualMachineClone, err error)
+	Apply(ctx context.Context, virtualMachineClone *applyconfigurationsclonev1beta1.VirtualMachineCloneApplyConfiguration, opts v1.ApplyOptions) (result *clonev1beta1.VirtualMachineClone, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineClone *applyconfigurationsclonev1beta1.VirtualMachineCloneApplyConfiguration, opts v1.ApplyOptions) (result *clonev1beta1.VirtualMachineClone, err error)
 	VirtualMachineCloneExpansion
 }
 
 // virtualMachineClones implements VirtualMachineCloneInterface
 type virtualMachineClones struct {
-	*gentype.ClientWithList[*clonev1beta1.VirtualMachineClone, *clonev1beta1.VirtualMachineCloneList]
+	*gentype.ClientWithListAndApply[*clonev1beta1.VirtualMachineClone, *clonev1beta1.VirtualMachineCloneList, *applyconfigurationsclonev1beta1.VirtualMachineCloneApplyConfiguration]
 }
 
 // newVirtualMachineClones returns a VirtualMachineClones
 func newVirtualMachineClones(c *CloneV1beta1Client, namespace string) *virtualMachineClones {
 	return &virtualMachineClones{
-		gentype.NewClientWithList[*clonev1beta1.VirtualMachineClone, *clonev1beta1.VirtualMachineCloneList](
+		gentype.NewClientWithListAndApply[*clonev1beta1.VirtualMachineClone, *clonev1beta1.VirtualMachineCloneList, *applyconfigurationsclonev1beta1.VirtualMachineCloneApplyConfiguration](
 			"virtualmachineclones",
 			c.RESTClient(),
 			scheme.ParameterCodec,

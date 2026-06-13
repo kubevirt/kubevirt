@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypev1beta1 "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1"
+	typedinstancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 )
 
 // fakeVirtualMachineInstancetypes implements VirtualMachineInstancetypeInterface
 type fakeVirtualMachineInstancetypes struct {
-	*gentype.FakeClientWithList[*v1beta1.VirtualMachineInstancetype, *v1beta1.VirtualMachineInstancetypeList]
+	*gentype.FakeClientWithListAndApply[*v1beta1.VirtualMachineInstancetype, *v1beta1.VirtualMachineInstancetypeList, *instancetypev1beta1.VirtualMachineInstancetypeApplyConfiguration]
 	Fake *FakeInstancetypeV1beta1
 }
 
-func newFakeVirtualMachineInstancetypes(fake *FakeInstancetypeV1beta1, namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {
+func newFakeVirtualMachineInstancetypes(fake *FakeInstancetypeV1beta1, namespace string) typedinstancetypev1beta1.VirtualMachineInstancetypeInterface {
 	return &fakeVirtualMachineInstancetypes{
-		gentype.NewFakeClientWithList[*v1beta1.VirtualMachineInstancetype, *v1beta1.VirtualMachineInstancetypeList](
+		gentype.NewFakeClientWithListAndApply[*v1beta1.VirtualMachineInstancetype, *v1beta1.VirtualMachineInstancetypeList, *instancetypev1beta1.VirtualMachineInstancetypeApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1beta1.SchemeGroupVersion.WithResource("virtualmachineinstancetypes"),

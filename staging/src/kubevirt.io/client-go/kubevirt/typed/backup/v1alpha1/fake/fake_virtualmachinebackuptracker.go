@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
-	backupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
+	backupv1alpha1 "kubevirt.io/client-go/applyconfigurations/backup/v1alpha1"
+	typedbackupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
 )
 
 // fakeVirtualMachineBackupTrackers implements VirtualMachineBackupTrackerInterface
 type fakeVirtualMachineBackupTrackers struct {
-	*gentype.FakeClientWithList[*v1alpha1.VirtualMachineBackupTracker, *v1alpha1.VirtualMachineBackupTrackerList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.VirtualMachineBackupTracker, *v1alpha1.VirtualMachineBackupTrackerList, *backupv1alpha1.VirtualMachineBackupTrackerApplyConfiguration]
 	Fake *FakeBackupV1alpha1
 }
 
-func newFakeVirtualMachineBackupTrackers(fake *FakeBackupV1alpha1, namespace string) backupv1alpha1.VirtualMachineBackupTrackerInterface {
+func newFakeVirtualMachineBackupTrackers(fake *FakeBackupV1alpha1, namespace string) typedbackupv1alpha1.VirtualMachineBackupTrackerInterface {
 	return &fakeVirtualMachineBackupTrackers{
-		gentype.NewFakeClientWithList[*v1alpha1.VirtualMachineBackupTracker, *v1alpha1.VirtualMachineBackupTrackerList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.VirtualMachineBackupTracker, *v1alpha1.VirtualMachineBackupTrackerList, *backupv1alpha1.VirtualMachineBackupTrackerApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1alpha1.SchemeGroupVersion.WithResource("virtualmachinebackuptrackers"),

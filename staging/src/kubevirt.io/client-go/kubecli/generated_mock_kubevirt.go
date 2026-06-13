@@ -82,13 +82,14 @@ import (
 	rest "k8s.io/client-go/rest"
 	v1alpha18 "kubevirt.io/api/backup/v1alpha1"
 	v122 "kubevirt.io/api/core/v1"
+	v123 "kubevirt.io/client-go/applyconfigurations/core/v1"
 	containerizeddataimporter "kubevirt.io/client-go/containerizeddataimporter"
 	externalsnapshotter "kubevirt.io/client-go/externalsnapshotter"
 	kubevirt "kubevirt.io/client-go/kubevirt"
 	v1alpha19 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
 	v1beta117 "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
-	v123 "kubevirt.io/client-go/kubevirt/typed/core/v1"
-	v124 "kubevirt.io/client-go/kubevirt/typed/export/v1"
+	v124 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	v125 "kubevirt.io/client-go/kubevirt/typed/export/v1"
 	v1beta118 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	v1alpha110 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	v1beta119 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
@@ -1286,10 +1287,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineClusterPreference() *gom
 }
 
 // VirtualMachineExport mocks base method.
-func (m *MockKubevirtClient) VirtualMachineExport(namespace string) v124.VirtualMachineExportInterface {
+func (m *MockKubevirtClient) VirtualMachineExport(namespace string) v125.VirtualMachineExportInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineExport", namespace)
-	ret0, _ := ret[0].(v124.VirtualMachineExportInterface)
+	ret0, _ := ret[0].(v125.VirtualMachineExportInterface)
 	return ret0
 }
 
@@ -1461,6 +1462,21 @@ func (m *MockVirtualMachineInstanceInterface) AddVolume(ctx context.Context, nam
 func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) AddVolume(ctx, name, addVolumeOptions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVolume", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).AddVolume), ctx, name, addVolumeOptions)
+}
+
+// Apply mocks base method.
+func (m *MockVirtualMachineInstanceInterface) Apply(ctx context.Context, virtualMachineInstance *v123.VirtualMachineInstanceApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachineInstance, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", ctx, virtualMachineInstance, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachineInstance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) Apply(ctx, virtualMachineInstance, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).Apply), ctx, virtualMachineInstance, opts)
 }
 
 // Backup mocks base method.
@@ -1658,10 +1674,10 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) Pause(ctx, name, paus
 }
 
 // PortForward mocks base method.
-func (m *MockVirtualMachineInstanceInterface) PortForward(name string, port int, protocol string) (v123.StreamInterface, error) {
+func (m *MockVirtualMachineInstanceInterface) PortForward(name string, port int, protocol string) (v124.StreamInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PortForward", name, port, protocol)
-	ret0, _ := ret[0].(v123.StreamInterface)
+	ret0, _ := ret[0].(v124.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1788,10 +1804,10 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) Screenshot(ctx, name,
 }
 
 // SerialConsole mocks base method.
-func (m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *v123.SerialConsoleOptions) (v123.StreamInterface, error) {
+func (m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *v124.SerialConsoleOptions) (v124.StreamInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SerialConsole", name, options)
-	ret0, _ := ret[0].(v123.StreamInterface)
+	ret0, _ := ret[0].(v124.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1817,10 +1833,10 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) SoftReboot(ctx, name 
 }
 
 // USBRedir mocks base method.
-func (m *MockVirtualMachineInstanceInterface) USBRedir(vmiName string) (v123.StreamInterface, error) {
+func (m *MockVirtualMachineInstanceInterface) USBRedir(vmiName string) (v124.StreamInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "USBRedir", vmiName)
-	ret0, _ := ret[0].(v123.StreamInterface)
+	ret0, _ := ret[0].(v124.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1890,10 +1906,10 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) UserList(ctx, name an
 }
 
 // VNC mocks base method.
-func (m *MockVirtualMachineInstanceInterface) VNC(name string, preserveSession bool) (v123.StreamInterface, error) {
+func (m *MockVirtualMachineInstanceInterface) VNC(name string, preserveSession bool) (v124.StreamInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VNC", name, preserveSession)
-	ret0, _ := ret[0].(v123.StreamInterface)
+	ret0, _ := ret[0].(v124.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1905,10 +1921,10 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VNC(name, preserveSes
 }
 
 // VSOCK mocks base method.
-func (m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v122.VSOCKOptions) (v123.StreamInterface, error) {
+func (m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v122.VSOCKOptions) (v124.StreamInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VSOCK", name, options)
-	ret0, _ := ret[0].(v123.StreamInterface)
+	ret0, _ := ret[0].(v124.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1956,6 +1972,36 @@ func NewMockReplicaSetInterface(ctrl *gomock.Controller) *MockReplicaSetInterfac
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockReplicaSetInterface) EXPECT() *MockReplicaSetInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockReplicaSetInterface) Apply(ctx context.Context, virtualMachineInstanceReplicaSet *v123.VirtualMachineInstanceReplicaSetApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachineInstanceReplicaSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", ctx, virtualMachineInstanceReplicaSet, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachineInstanceReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockReplicaSetInterfaceMockRecorder) Apply(ctx, virtualMachineInstanceReplicaSet, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockReplicaSetInterface)(nil).Apply), ctx, virtualMachineInstanceReplicaSet, opts)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockReplicaSetInterface) ApplyStatus(ctx context.Context, virtualMachineInstanceReplicaSet *v123.VirtualMachineInstanceReplicaSetApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachineInstanceReplicaSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", ctx, virtualMachineInstanceReplicaSet, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachineInstanceReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockReplicaSetInterfaceMockRecorder) ApplyStatus(ctx, virtualMachineInstanceReplicaSet, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockReplicaSetInterface)(nil).ApplyStatus), ctx, virtualMachineInstanceReplicaSet, opts)
 }
 
 // Create mocks base method.
@@ -2165,6 +2211,21 @@ func (m *MockVirtualMachineInstancePresetInterface) EXPECT() *MockVirtualMachine
 	return m.recorder
 }
 
+// Apply mocks base method.
+func (m *MockVirtualMachineInstancePresetInterface) Apply(ctx context.Context, virtualMachineInstancePreset *v123.VirtualMachineInstancePresetApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachineInstancePreset, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", ctx, virtualMachineInstancePreset, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachineInstancePreset)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockVirtualMachineInstancePresetInterfaceMockRecorder) Apply(ctx, virtualMachineInstancePreset, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockVirtualMachineInstancePresetInterface)(nil).Apply), ctx, virtualMachineInstancePreset, opts)
+}
+
 // Create mocks base method.
 func (m *MockVirtualMachineInstancePresetInterface) Create(ctx context.Context, virtualMachineInstancePreset *v122.VirtualMachineInstancePreset, opts v12.CreateOptions) (*v122.VirtualMachineInstancePreset, error) {
 	m.ctrl.T.Helper()
@@ -2324,6 +2385,36 @@ func (m *MockVirtualMachineInterface) AddVolume(ctx context.Context, name string
 func (mr *MockVirtualMachineInterfaceMockRecorder) AddVolume(ctx, name, addVolumeOptions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVolume", reflect.TypeOf((*MockVirtualMachineInterface)(nil).AddVolume), ctx, name, addVolumeOptions)
+}
+
+// Apply mocks base method.
+func (m *MockVirtualMachineInterface) Apply(ctx context.Context, virtualMachine *v123.VirtualMachineApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", ctx, virtualMachine, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockVirtualMachineInterfaceMockRecorder) Apply(ctx, virtualMachine, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockVirtualMachineInterface)(nil).Apply), ctx, virtualMachine, opts)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockVirtualMachineInterface) ApplyStatus(ctx context.Context, virtualMachine *v123.VirtualMachineApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", ctx, virtualMachine, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockVirtualMachineInterfaceMockRecorder) ApplyStatus(ctx, virtualMachine, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockVirtualMachineInterface)(nil).ApplyStatus), ctx, virtualMachine, opts)
 }
 
 // Create mocks base method.
@@ -2507,10 +2598,10 @@ func (mr *MockVirtualMachineInterfaceMockRecorder) PatchStatus(ctx, name, pt, da
 }
 
 // PortForward mocks base method.
-func (m *MockVirtualMachineInterface) PortForward(name string, port int, protocol string) (v123.StreamInterface, error) {
+func (m *MockVirtualMachineInterface) PortForward(name string, port int, protocol string) (v124.StreamInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PortForward", name, port, protocol)
-	ret0, _ := ret[0].(v123.StreamInterface)
+	ret0, _ := ret[0].(v124.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2658,6 +2749,36 @@ func NewMockVirtualMachineInstanceMigrationInterface(ctrl *gomock.Controller) *M
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockVirtualMachineInstanceMigrationInterface) EXPECT() *MockVirtualMachineInstanceMigrationInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockVirtualMachineInstanceMigrationInterface) Apply(ctx context.Context, virtualMachineInstanceMigration *v123.VirtualMachineInstanceMigrationApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachineInstanceMigration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", ctx, virtualMachineInstanceMigration, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockVirtualMachineInstanceMigrationInterfaceMockRecorder) Apply(ctx, virtualMachineInstanceMigration, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockVirtualMachineInstanceMigrationInterface)(nil).Apply), ctx, virtualMachineInstanceMigration, opts)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockVirtualMachineInstanceMigrationInterface) ApplyStatus(ctx context.Context, virtualMachineInstanceMigration *v123.VirtualMachineInstanceMigrationApplyConfiguration, opts v12.ApplyOptions) (*v122.VirtualMachineInstanceMigration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", ctx, virtualMachineInstanceMigration, opts)
+	ret0, _ := ret[0].(*v122.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockVirtualMachineInstanceMigrationInterfaceMockRecorder) ApplyStatus(ctx, virtualMachineInstanceMigration, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockVirtualMachineInstanceMigrationInterface)(nil).ApplyStatus), ctx, virtualMachineInstanceMigration, opts)
 }
 
 // Create mocks base method.
@@ -2835,6 +2956,36 @@ func NewMockKubeVirtInterface(ctrl *gomock.Controller) *MockKubeVirtInterface {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockKubeVirtInterface) EXPECT() *MockKubeVirtInterfaceMockRecorder {
 	return m.recorder
+}
+
+// Apply mocks base method.
+func (m *MockKubeVirtInterface) Apply(ctx context.Context, kubeVirt *v123.KubeVirtApplyConfiguration, opts v12.ApplyOptions) (*v122.KubeVirt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Apply", ctx, kubeVirt, opts)
+	ret0, _ := ret[0].(*v122.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Apply indicates an expected call of Apply.
+func (mr *MockKubeVirtInterfaceMockRecorder) Apply(ctx, kubeVirt, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockKubeVirtInterface)(nil).Apply), ctx, kubeVirt, opts)
+}
+
+// ApplyStatus mocks base method.
+func (m *MockKubeVirtInterface) ApplyStatus(ctx context.Context, kubeVirt *v123.KubeVirtApplyConfiguration, opts v12.ApplyOptions) (*v122.KubeVirt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyStatus", ctx, kubeVirt, opts)
+	ret0, _ := ret[0].(*v122.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyStatus indicates an expected call of ApplyStatus.
+func (mr *MockKubeVirtInterfaceMockRecorder) ApplyStatus(ctx, kubeVirt, opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyStatus", reflect.TypeOf((*MockKubeVirtInterface)(nil).ApplyStatus), ctx, kubeVirt, opts)
 }
 
 // Create mocks base method.
