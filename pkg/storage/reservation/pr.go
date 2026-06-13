@@ -28,6 +28,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/log"
+
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
@@ -127,4 +129,23 @@ func PersistentReservationPodAntiAffinityTerms(labels map[string]string) []k8sv1
 		})
 	}
 	return terms
+}
+
+func IsPersistentReservationMigratable(vmi *v1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return true
+	}
+
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.DiskDevice.LUN != nil && disk.DiskDevice.LUN.Reservation {
+			bus := disk.DiskDevice.LUN.Bus
+			if bus == v1.DiskBusSCSI {
+				continue
+			}
+			log.Log.Object(vmi).Warningf("Disk %s has non-SCSI bus type %s with persistent reservation. Migration blocked", disk.Name, bus)
+			return false
+		}
+	}
+
+	return true
 }

@@ -1227,8 +1227,8 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses Secure Execution", v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable), isBlockMigration
 	}
 
-	if reservation.HasVMIPersistentReservation(vmi) {
-		return newNonMigratableCondition("VMI uses SCSI persistent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
+	if reservation.HasVMIPersistentReservation(vmi) && !reservation.IsPersistentReservationMigratable(vmi) {
+		return newNonMigratableCondition("VMI uses non-migratable SCSI persistent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
@@ -1346,8 +1346,8 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonTDXNotMigratable, "VMI uses TDX")
 	}
 
-	if reservation.HasVMIPersistentReservation(vmi) {
-		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonPRNotMigratable, "VMI uses SCSI persistent reservation")
+	if reservation.HasVMIPersistentReservation(vmi) && !reservation.IsPersistentReservationMigratable(vmi) {
+		multiCond.addNonMigratableCondition("VMI uses non-migratable SCSI persistent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable)
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
