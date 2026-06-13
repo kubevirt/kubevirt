@@ -200,6 +200,10 @@ type DomainJobInfo struct {
 	DataRemaining    uint64
 	MemDirtyRateSet  bool
 	MemDirtyRate     uint64
+	DowntimeSet      bool
+	Downtime         uint64
+	DowntimeNetSet   bool
+	DowntimeNet      uint64
 }
 
 type DomainStatsDirtyRate struct {

@@ -19,6 +19,8 @@
 package migrationdomainstats
 
 import (
+	"container/ring"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -65,6 +67,32 @@ var _ = Describe("Handler", func() {
 
 				Expect(h.vmiStats).To(HaveKey("default/test-vmi"))
 			})
+		})
+	})
+
+	Describe("queue results", func() {
+		It("should report finished only after the final collection was stored", func() {
+			q := &queue{results: ring.New(bufferSize)}
+			q.results.Value = result{vmi: "active"}
+
+			results, finished := q.all()
+			Expect(results).To(HaveLen(1))
+			Expect(finished).To(BeFalse())
+
+			q = &queue{results: ring.New(bufferSize), finished: true}
+			q.results.Value = result{vmi: "final"}
+
+			results, finished = q.all()
+			Expect(results).To(HaveLen(1))
+			Expect(finished).To(BeTrue())
+		})
+
+		It("should not report finished before the final collection is stored", func() {
+			q := &queue{results: ring.New(bufferSize)}
+
+			results, finished := q.all()
+			Expect(results).To(BeEmpty())
+			Expect(finished).To(BeFalse())
 		})
 	})
 })

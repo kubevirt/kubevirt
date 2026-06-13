@@ -60,6 +60,7 @@ type queue struct {
 	vmi       *v1.VirtualMachineInstance
 	collector domstatsCollector.Collector
 	results   *ring.Ring
+	finished  bool
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -97,33 +98,38 @@ func (q *queue) startPolling() {
 }
 
 func (q *queue) collect() {
-	if q.isMigrationFinished() {
-		q.Lock()
-		defer q.Unlock()
-
-		q.ctxCancel()
-		return
-	}
+	// Check whether the VMI has already transitioned out of the migrating
+	// state, but still perform one final scrape afterwards so that virt-launcher's
+	// completed-job stats (Downtime, DowntimeNet) are captured before the
+	// poller exits.
+	finished := q.isMigrationFinished()
 
 	values, err := q.scrapeDomainStats()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to scrape domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
 		return
+	} else {
+		r := result{
+			vmi:       q.vmi.Name,
+			namespace: q.vmi.Namespace,
+			node:      q.vmi.Status.NodeName,
+
+			domainJobInfo: *values.MigrateDomainJobInfo,
+			timestamp:     time.Now(),
+		}
+
+		q.Lock()
+		q.results.Value = r
+		q.results = q.results.Next()
+		q.Unlock()
 	}
 
-	r := result{
-		vmi:       q.vmi.Name,
-		namespace: q.vmi.Namespace,
-		node:      q.vmi.Status.NodeName,
-
-		domainJobInfo: *values.MigrateDomainJobInfo,
-		timestamp:     time.Now(),
+	if finished {
+		q.Lock()
+		q.finished = true
+		q.ctxCancel()
+		q.Unlock()
 	}
-
-	q.Lock()
-	defer q.Unlock()
-	q.results.Value = r
-	q.results = q.results.Next()
 }
 
 func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
@@ -152,7 +158,7 @@ func (q *queue) all() ([]result, bool) {
 	})
 	q.results = q.results.Unlink(q.results.Len())
 
-	return results, q.isMigrationFinished()
+	return results, q.finished
 }
 
 func (q *queue) isMigrationFinished() bool {
