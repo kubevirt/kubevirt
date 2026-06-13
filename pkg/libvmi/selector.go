@@ -80,6 +80,22 @@ func WithNodeAffinityForLabel(nodeLabelKey, nodeLabelValue string) Option {
 	}
 }
 
+func WithRequiredPodAffinity(term k8sv1.PodAffinityTerm) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Affinity == nil {
+			vmi.Spec.Affinity = &k8sv1.Affinity{}
+		}
+
+		if vmi.Spec.Affinity.PodAffinity == nil {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{}
+		}
+
+		vmi.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+			vmi.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term,
+		)
+	}
+}
+
 func WithPreferredPodAffinity(term k8sv1.WeightedPodAffinityTerm) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Affinity == nil {
