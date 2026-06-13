@@ -59,8 +59,8 @@ var _ = Describe("NumaPlacement", func() {
 		}
 		expectedSpec = &api.DomainSpec{
 			CPU: api.CPU{NUMA: &api.NUMA{Cells: []api.NUMACell{
-				{ID: "0", CPUs: "0,1", Memory: MiBInBytes_32, Unit: "b"},
-				{ID: "1", CPUs: "3", Memory: MiBInBytes_32, Unit: "b"},
+				{ID: "0", CPUs: "0,1", Memory: &MiBInBytes_32, Unit: "b"},
+				{ID: "1", CPUs: "3", Memory: &MiBInBytes_32, Unit: "b"},
 			}}},
 			CPUTune: &api.CPUTune{VCPUPin: []api.CPUTuneVCPUPin{
 				{VCPU: 0, CPUSet: "10"},
@@ -169,9 +169,9 @@ var _ = Describe("NumaPlacement", func() {
 				Allocation: &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
 			}
 			expectedSpec.CPU.NUMA.Cells = []api.NUMACell{
-				{ID: "0", CPUs: "0,1", Memory: MiBInBytes_22, Unit: "b"},
-				{ID: "1", CPUs: "3", Memory: MiBInBytes_22, Unit: "b"},
-				{ID: "2", CPUs: "4", Memory: MiBInBytes_20, Unit: "b"},
+				{ID: "0", CPUs: "0,1", Memory: &MiBInBytes_22, Unit: "b"},
+				{ID: "1", CPUs: "3", Memory: &MiBInBytes_22, Unit: "b"},
+				{ID: "2", CPUs: "4", Memory: &MiBInBytes_20, Unit: "b"},
 			}
 
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())

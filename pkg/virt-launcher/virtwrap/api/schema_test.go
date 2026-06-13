@@ -251,10 +251,11 @@ var _ = ginkgo.Describe("Schema", func() {
 	ginkgo.Context("With numa topology", func() {
 		ginkgo.It("should marshal and unmarshal the values", func() {
 			spec := &DomainSpec{}
+			mem3 := uint64(3)
 			expectedSpec := &DomainSpec{
 				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
-					{ID: "0", CPUs: "0-1", Memory: 3, Unit: "GiB"},
-					{ID: "1", CPUs: "2-3", Memory: 3, Unit: "GiB"},
+					{ID: "0", CPUs: "0-1", Memory: &mem3, Unit: "GiB"},
+					{ID: "1", CPUs: "2-3", Memory: &mem3, Unit: "GiB"},
 				}}},
 				CPUTune: &CPUTune{
 					VCPUPin: []CPUTuneVCPUPin{
@@ -531,6 +532,74 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			var parsed DomainSpec
 			Expect(xml.Unmarshal(xmlBytes, &parsed)).To(Succeed())
 			Expect(parsed.LaunchSecurity).To(BeNil())
+		})
+	})
+})
+
+var _ = ginkgo.Describe("IOMMU SMMUv3 device", func() {
+	ginkgo.Context("IOMMU device XML marshaling", func() {
+		ginkgo.It("should marshal and unmarshal SMMUv3 IOMMU with driver attributes", func() {
+			iommuDevice := &IOMMUDevice{
+				Model: "smmuv3",
+				Driver: &IOMMUDriver{
+					PCIBus:   "1",
+					Accel:    "on",
+					ATS:      "on",
+					RIL:      "off",
+					SSIDSize: "20",
+					OAS:      "48",
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(iommuDevice)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<iommu model="smmuv3"><driver pciBus="1" accel="on" ats="on" ril="off" ssidSize="20" oas="48"></driver></iommu>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
+			var unmarshalled IOMMUDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled).To(Equal(*iommuDevice))
+		})
+
+		ginkgo.It("should omit empty driver attributes", func() {
+			iommuDevice := &IOMMUDevice{
+				Model: "smmuv3",
+				Driver: &IOMMUDriver{
+					PCIBus: "1",
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(iommuDevice)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<iommu model="smmuv3"><driver pciBus="1"></driver></iommu>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
+			var unmarshalled IOMMUDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.Model).To(Equal("smmuv3"))
+			Expect(unmarshalled.Driver.PCIBus).To(Equal("1"))
+		})
+
+		ginkgo.It("should handle IOMMU without driver", func() {
+			iommuDevice := &IOMMUDevice{
+				Model: "smmuv3",
+			}
+
+			xmlBytes, err := xml.Marshal(iommuDevice)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<iommu model="smmuv3"></iommu>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
+			var unmarshalled IOMMUDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.Model).To(Equal("smmuv3"))
+			Expect(unmarshalled.Driver).To(BeNil())
 		})
 	})
 })
