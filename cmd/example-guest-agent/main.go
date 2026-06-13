@@ -84,14 +84,24 @@ func main() {
 			defer c.Close()
 			log.DefaultLogger().Infof("connection accepted")
 			buf := make([]byte, 12)
-			n, err := c.Read(buf)
+			_, err = c.Read(buf)
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("failed to read the message")
 				return
 			}
 
-			if _, err = c.Write(buf[0:n]); err != nil {
-				log.DefaultLogger().Reason(err).Errorf("failed to mirror the received message")
+			contextID, err := vsock.ContextID()
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("failed to get VSOCK context ID")
+				if _, err = c.Write([]byte("-1")); err != nil {
+					log.DefaultLogger().Reason(err).Errorf("failed to write error response")
+				}
+				return
+			}
+
+			contextIDStr := fmt.Sprintf("%d", contextID)
+			if _, err = c.Write([]byte(contextIDStr)); err != nil {
+				log.DefaultLogger().Reason(err).Errorf("failed to write the context ID")
 				return
 			}
 		}()
