@@ -21,10 +21,27 @@ package apimachinery
 
 import (
 	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 )
+
+const truncateHashLength = 8
+
+func TruncateWithHash(value string, maxLength int) string {
+	if len(value) <= maxLength {
+		return value
+	}
+	hasher := sha256.New()
+	hasher.Write([]byte(value))
+	hash := fmt.Sprintf("%x", hasher.Sum(nil))
+	return fmt.Sprintf("%s-%s", value[:maxLength-truncateHashLength-1], hash[:truncateHashLength])
+}
+
+func TruncateLabelValue(value string) string {
+	return TruncateWithHash(value, validation.LabelValueMaxLength)
+}
 
 // CalculateVirtualMachineInstanceID calculates a stable and unique identifier for a VMI based on its name attribute.
 // For VMI names longer than 63 characters, the name is a truncated and hashed to ensure uniqueness.
