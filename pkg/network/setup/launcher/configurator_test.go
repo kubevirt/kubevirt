@@ -192,6 +192,10 @@ func (s stubNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 	return nil, netlink.LinkNotFoundError{}
 }
 
+func (s stubNetworkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	return []netlink.Addr{}, nil
+}
+
 func (s stubNetworkHandler) HasIPv4GlobalUnicastAddress(_ string) (bool, error) {
 	return false, nil
 }
