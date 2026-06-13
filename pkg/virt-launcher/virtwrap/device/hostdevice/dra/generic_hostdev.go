@@ -107,6 +107,9 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
+			Driver: &api.HostDeviceDriver{
+				Name: api.DriverVFIOPCI,
+			},
 		}, nil
 	}
 

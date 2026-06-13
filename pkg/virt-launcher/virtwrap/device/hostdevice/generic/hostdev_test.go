@@ -80,6 +80,7 @@ var _ = Describe("Generic HostDevice", func() {
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
 			Type:    api.HostDevicePCI,
 			Managed: "no",
+			Driver:  &api.HostDeviceDriver{Name: api.DriverVFIOPCI},
 		}
 
 		hostMDEVAddress := api.Address{UUID: hostdevMDEVAddress1}
