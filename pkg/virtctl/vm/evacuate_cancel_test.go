@@ -30,6 +30,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
@@ -77,6 +78,11 @@ var _ = Describe("Evacuate cancel command", func() {
 	})
 
 	It("should cancel evacuation for VM", func() {
+		vmiInterface.EXPECT().
+			Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(api.NewMinimalVMI(vmName), nil).
+			Times(1)
+
 		vmInterface.EXPECT().
 			EvacuateCancel(gomock.Any(), vmName, &v1.EvacuateCancelOptions{}).
 			Return(nil).
@@ -87,6 +93,11 @@ var _ = Describe("Evacuate cancel command", func() {
 	})
 
 	It("should return error on VM evacuate cancel failure", func() {
+		vmiInterface.EXPECT().
+			Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(api.NewMinimalVMI(vmName), nil).
+			Times(1)
+
 		expectedErr := fmt.Errorf("failure on VM")
 		vmInterface.EXPECT().
 			EvacuateCancel(gomock.Any(), vmName, &v1.EvacuateCancelOptions{}).
@@ -99,6 +110,11 @@ var _ = Describe("Evacuate cancel command", func() {
 
 	It("should cancel evacuation for VMI", func() {
 		vmiInterface.EXPECT().
+			Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(api.NewMinimalVMI(vmiName), nil).
+			Times(1)
+
+		vmiInterface.EXPECT().
 			EvacuateCancel(gomock.Any(), vmiName, &v1.EvacuateCancelOptions{}).
 			Return(nil).
 			Times(1)
@@ -108,6 +124,11 @@ var _ = Describe("Evacuate cancel command", func() {
 	})
 
 	It("should print dry-run message", func() {
+		vmiInterface.EXPECT().
+			Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(api.NewMinimalVMI(vmiName), nil).
+			Times(1)
+
 		cmd := testing.NewRepeatableVirtctlCommandWithOut("evacuate-cancel", "vmi", vmiName, "--dry-run")
 		vmiInterface.EXPECT().
 			EvacuateCancel(gomock.Any(), vmiName, &v1.EvacuateCancelOptions{

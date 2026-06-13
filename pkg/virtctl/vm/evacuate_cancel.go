@@ -24,8 +24,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
@@ -83,14 +84,14 @@ func (c *evacuateCancelCommand) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	opts := &virtv1.EvacuateCancelOptions{
+	opts := &v1.EvacuateCancelOptions{
 		DryRun: setDryRunOption(dryRun),
 	}
 
 	return handler(name, namespace, opts)
 }
 
-func (c *evacuateCancelCommand) getHandler(kind string) (func(name, namespace string, opts *virtv1.EvacuateCancelOptions) error, error) {
+func (c *evacuateCancelCommand) getHandler(kind string) (func(name, namespace string, opts *v1.EvacuateCancelOptions) error, error) {
 	switch strings.ToLower(kind) {
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		return c.handleVM, nil
@@ -100,8 +101,14 @@ func (c *evacuateCancelCommand) getHandler(kind string) (func(name, namespace st
 	return nil, fmt.Errorf("unsupported resource type %q", kind)
 }
 
-func (c *evacuateCancelCommand) handleVM(name, namespace string, opts *virtv1.EvacuateCancelOptions) error {
-	err := c.virtClient.VirtualMachine(namespace).EvacuateCancel(c.cmd.Context(), name, opts)
+func (c *evacuateCancelCommand) handleVM(name, namespace string, opts *v1.EvacuateCancelOptions) error {
+	vmi, err := c.virtClient.VirtualMachineInstance(namespace).Get(c.cmd.Context(), name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error retrieving VMI for evacuation cancel for VM %s/%s: %w", namespace, name, err)
+	}
+
+	opts.EvacuationNodeName = vmi.Status.NodeName
+	err = c.virtClient.VirtualMachine(namespace).EvacuateCancel(c.cmd.Context(), name, opts)
 	if err != nil {
 		return fmt.Errorf("error canceling evacuation for VM %s/%s: %w", namespace, name, err)
 	}
@@ -109,8 +116,14 @@ func (c *evacuateCancelCommand) handleVM(name, namespace string, opts *virtv1.Ev
 	return nil
 }
 
-func (c *evacuateCancelCommand) handleVMI(name, namespace string, opts *virtv1.EvacuateCancelOptions) error {
-	err := c.virtClient.VirtualMachineInstance(namespace).EvacuateCancel(c.cmd.Context(), name, opts)
+func (c *evacuateCancelCommand) handleVMI(name, namespace string, opts *v1.EvacuateCancelOptions) error {
+	vmi, err := c.virtClient.VirtualMachineInstance(namespace).Get(c.cmd.Context(), name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error retrieving VMI for evacuation cancel for VMI %s/%s: %w", namespace, name, err)
+	}
+
+	opts.EvacuationNodeName = vmi.Status.NodeName
+	err = c.virtClient.VirtualMachineInstance(namespace).EvacuateCancel(c.cmd.Context(), name, opts)
 	if err != nil {
 		return fmt.Errorf("error canceling evacuation for VMI %s/%s: %w", namespace, name, err)
 	}
