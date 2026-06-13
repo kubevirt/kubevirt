@@ -71,7 +71,8 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 	mutex := &sync.Mutex{}
 	conf := &tls.Config{
 		//nolint:gosec
-		InsecureSkipVerify: true,
+		InsecureSkipVerify:     true,
+		SessionTicketsDisabled: true,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			mutex.Lock()
 			defer mutex.Unlock()
