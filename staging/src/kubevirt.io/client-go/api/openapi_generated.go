@@ -27270,7 +27270,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 					},
 					"guestAgentVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GAVersion is a version of currently installed guest agent",
+							Description: "Deprecated: please use SupportedCommands to determine compatibility",
 							Type:        []string{"string"},
 							Format:      "",
 						},
