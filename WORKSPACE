@@ -254,7 +254,7 @@ go_rules_dependencies()
 
 go_register_toolchains(
     nogo = "@//:nogo_vet",
-    version = "1.25.8",
+    version = "1.26.4",
 )
 
 load("@com_github_ash2k_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
