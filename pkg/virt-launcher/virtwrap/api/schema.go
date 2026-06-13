@@ -970,6 +970,7 @@ type Interface struct {
 	ACPI                *ACPI                  `xml:"acpi,omitempty"`
 	Backend             *InterfaceBackend      `xml:"backend,omitempty"`
 	PortForward         []InterfacePortForward `xml:"portForward,omitempty"`
+	IPs                 []InterfaceIP          `xml:"ip,omitempty"`
 }
 
 type InterfacePortForward struct {
@@ -989,6 +990,12 @@ type InterfacePortForwardRange struct {
 type InterfaceBackend struct {
 	Type    string `xml:"type,attr,omitempty"`
 	LogFile string `xml:"logFile,attr,omitempty"`
+}
+
+type InterfaceIP struct {
+	Family  string `xml:"family,attr"`
+	Address string `xml:"address,attr"`
+	Prefix  string `xml:"prefix,attr,omitempty"`
 }
 
 type ACPI struct {
