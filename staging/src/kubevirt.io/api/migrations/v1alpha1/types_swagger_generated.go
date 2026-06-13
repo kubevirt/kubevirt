@@ -14,6 +14,7 @@ func (MigrationPolicySpec) SwaggerDoc() map[string]string {
 		"allowAutoConverge":       "+optional",
 		"bandwidthPerMigration":   "+optional",
 		"completionTimeoutPerGiB": "+optional",
+		"maxDowntimeMs":           "+optional",
 		"allowPostCopy":           "+optional",
 		"allowWorkloadDisruption": "+optional",
 	}

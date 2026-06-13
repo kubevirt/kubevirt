@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
@@ -64,6 +65,12 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("negative CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
 		),
+		Entry("non-positive MaxDowntimeMs",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(0))},
+		),
+		Entry("too large MaxDowntimeMs",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(migrationutils.QEMUMaxMigrationDowntimeMS + 1)},
+		),
 	)
 
 	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -84,6 +91,15 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 
 		Entry("zero CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(0))},
+		),
+		Entry("valid MaxDowntimeMs",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(900))},
+		),
+		Entry("MaxDowntimeMs at maximum boundary",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(migrationutils.QEMUMaxMigrationDowntimeMS)},
+		),
+		Entry("MaxDowntimeMs at minimum boundary",
+			migrationsv1.MigrationPolicySpec{MaxDowntimeMs: pointer.P(uint64(1))},
 		),
 
 		Entry("zero BandwidthPerMigration",

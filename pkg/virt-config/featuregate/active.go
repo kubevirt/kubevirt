@@ -241,6 +241,12 @@ const (
 	// Plugins enables the Plugin CRD for declarative VM extension
 	// via domain hooks, node hooks, and admission references (VEP-190).
 	PluginsGate = "Plugins"
+
+	// Owner: @aseeef
+	// Alpha: v1.9.0
+	//
+	// MigrationStallDetection enables iteration-aligned stall detection and migration convergence tuning.
+	MigrationStallDetection = "MigrationStallDetection"
 )
 
 func init() {
@@ -287,4 +293,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 }

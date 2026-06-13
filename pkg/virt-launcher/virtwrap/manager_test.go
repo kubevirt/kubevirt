@@ -2145,6 +2145,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).DoAndReturn(
 				func(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 					migrationErrorChan <- fmt.Errorf("operation aborted: canceled by client")
@@ -2185,6 +2186,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).DoAndReturn(
 				func(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 					close(migrationErrorChan)
