@@ -66,6 +66,9 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	PCINUMAAwareTopologyEnabled     bool
+	GraceIOVirtualizationEnabled    bool
+	GraceHostDeviceAliases          []string
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
+	IOMMUFDEnabled                  bool
 }

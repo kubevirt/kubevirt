@@ -241,6 +241,18 @@ const (
 	// Plugins enables the Plugin CRD for declarative VM extension
 	// via domain hooks, node hooks, and admission references (VEP-190).
 	PluginsGate = "Plugins"
+
+	// Owner: sig-compute / @fossedihelm
+	// Alpha: v1.9.0
+	//
+	// IOMMUFD enables the use of IOMMUFD device plugin for passthrough devices.
+	IOMMUFDGate = "IOMMUFD"
+
+	// Owner: sig-compute / @fanzhangio
+	// Alpha: v1.9.0
+	//
+	// GraceIOVirtualization enables admission for NVIDIA Grace GPU passthrough.
+	GraceIOVirtualization = "GraceIOVirtualization"
 )
 
 func init() {
@@ -287,4 +299,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
 }
