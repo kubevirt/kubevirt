@@ -23,6 +23,7 @@ var (
 
 	GPU             = Label("GPU")
 	VGPU            = Label("VGPU")
+	DRA             = Label("DRA")
 	SEV             = Label("SEV")
 	SEVES           = Label("SEVES")
 	SEVSNP          = Label("SEVSNP")
