@@ -1450,6 +1450,40 @@ var _ = Describe("Converter", func() {
 			Entry("not be set on s390x when annotation was set not to true", s390x, "something", false),
 		)
 
+		DescribeTable("PCIHole64 size on pcie-root Controller should", func(arch string) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			if vmi.Annotations == nil {
+				vmi.Annotations = make(map[string]string)
+			}
+			vmi.Annotations[v1.PCIHole64SizeAnnotation] = "64Gi"
+			c.Architecture = archconverter.NewConverter(arch)
+			domain := vmiToDomain(vmi, c)
+
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "pci",
+				Index: "0",
+				Model: "pcie-root",
+				PCIHole64: &api.PCIHole64{
+					Value: 67108864,
+					Unit:  "KiB",
+				},
+			}))
+		},
+			Entry("be set on amd64", amd64),
+			Entry("be set on arm64", arm64),
+		)
+
+		It("should reject PCIHole64 sizing on unsupported architecture", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			if vmi.Annotations == nil {
+				vmi.Annotations = make(map[string]string)
+			}
+			vmi.Annotations[v1.PCIHole64SizeAnnotation] = "64Gi"
+			c.Architecture = archconverter.NewConverter(s390x)
+
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).To(MatchError(ContainSubstring("pcihole64 sizing is not supported")))
+		})
+
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"

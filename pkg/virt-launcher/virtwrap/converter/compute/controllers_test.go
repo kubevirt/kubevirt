@@ -35,6 +35,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 	const (
 		usbNeeded                   = true
 		pciHole64DisablingSupported = true
+		pciHole64SizingSupported    = true
 	)
 
 	DescribeTable("should configure USB and SCSI controllers", func(vmi *v1.VirtualMachineInstance, isUSBNeeded bool, autoThreads int, expectedControllers []api.Controller) {
@@ -175,7 +176,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			}),
 	)
 
-	DescribeTable("should configure PCI controller based on arch support and annotation", func(vmi *v1.VirtualMachineInstance, supportPCIHole64Disabling bool, expectedControllers []api.Controller) {
+	DescribeTable("should configure PCI controller based on arch support and annotation", func(vmi *v1.VirtualMachineInstance, supportPCIHole64Disabling, supportPCIHole64Sizing bool, expectedControllers []api.Controller) {
 		var domain api.Domain
 
 		configurator := compute.NewControllersDomainConfigurator(
@@ -184,6 +185,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			compute.ControllersWithSCSIIOThreads(0),
 			compute.ControllersWithControllerDriver(nil),
 			compute.ControllersWithSupportPCIHole64Disabling(supportPCIHole64Disabling),
+			compute.ControllersWithSupportPCIHole64Sizing(supportPCIHole64Sizing),
 			compute.ControllersWithVirtioSerialModel("virtio-test-model"),
 		)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -193,6 +195,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when arch does not support PCIHole64 disabling, annotation not set",
 			libvmi.New(),
 			!pciHole64DisablingSupported,
+			!pciHole64SizingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -201,6 +204,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when arch does not support PCIHole64 disabling, annotation set",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
 			!pciHole64DisablingSupported,
+			!pciHole64SizingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -209,6 +213,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when arch supports PCIHole64 disabling, annotation not set",
 			libvmi.New(),
 			pciHole64DisablingSupported,
+			pciHole64SizingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -217,6 +222,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when arch supports PCIHole64 disabling, annotation set to false",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "false")),
 			pciHole64DisablingSupported,
+			pciHole64SizingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -225,13 +231,59 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when arch supports PCIHole64 disabling and annotation is true",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
 			pciHole64DisablingSupported,
+			pciHole64SizingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 0, Unit: "KiB"}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
+		Entry("when arch supports PCIHole64 sizing and size is set",
+			libvmi.New(withPCIHole64Size("64Gi")),
+			pciHole64DisablingSupported,
+			pciHole64SizingSupported,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 67108864, Unit: "KiB"}},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
 	)
+
+	It("should reject PCIHole64 sizing when unsupported by the architecture", func() {
+		var domain api.Domain
+
+		configurator := compute.NewControllersDomainConfigurator(
+			compute.ControllersWithUSBNeeded(!usbNeeded),
+			compute.ControllersWithSCSIModel("test-model"),
+			compute.ControllersWithControllerDriver(nil),
+			compute.ControllersWithSupportPCIHole64Sizing(!pciHole64SizingSupported),
+			compute.ControllersWithVirtioSerialModel("virtio-test-model"),
+		)
+
+		Expect(configurator.Configure(libvmi.New(withPCIHole64Size("64Gi")), &domain)).To(MatchError(ContainSubstring("pcihole64 sizing is not supported")))
+	})
+
+	It("should reject PCIHole64 sizing when incompatible annotations are set", func() {
+		var domain api.Domain
+
+		configurator := compute.NewControllersDomainConfigurator(
+			compute.ControllersWithUSBNeeded(!usbNeeded),
+			compute.ControllersWithSCSIModel("test-model"),
+			compute.ControllersWithControllerDriver(nil),
+			compute.ControllersWithSupportPCIHole64Disabling(pciHole64DisablingSupported),
+			compute.ControllersWithSupportPCIHole64Sizing(pciHole64SizingSupported),
+			compute.ControllersWithVirtioSerialModel("virtio-test-model"),
+		)
+		vmi := libvmi.New(
+			withPCIHole64Size("64Gi"),
+			libvmi.WithAnnotation(v1.DisablePCIHole64, "true"),
+		)
+
+		err := configurator.Configure(vmi, &domain)
+		Expect(err).To(MatchError(ContainSubstring(v1.PCIHole64SizeAnnotation)))
+		Expect(err).To(MatchError(ContainSubstring(v1.DisablePCIHole64)))
+	})
 
 	DescribeTable("should configure virtio-serial controller based on serial console setting", func(vmiOpts []libvmi.Option, expectedControllers []api.Controller) {
 		var domain api.Domain
@@ -284,4 +336,8 @@ func withHotplugDisabled() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.DisableHotplug = true
 	}
+}
+
+func withPCIHole64Size(size string) libvmi.Option {
+	return libvmi.WithAnnotation(v1.PCIHole64SizeAnnotation, size)
 }
