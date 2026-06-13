@@ -400,7 +400,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
-			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been deprecated since v1.8.0"),
+			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been discontinued since v1.9.0. Please use the mediatedDevicesConfiguration.enabled field instead."),
 		)
 
 		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {

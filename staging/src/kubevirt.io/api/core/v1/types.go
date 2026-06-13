@@ -3564,7 +3564,6 @@ type MediatedDevicesConfiguration struct {
 	// +listType=atomic
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
 	// Enable the creation and removal of mediated devices by virt-handler
-	// Replaces the deprecated DisableMDEVConfiguration feature gate
 	// Defaults to true
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
