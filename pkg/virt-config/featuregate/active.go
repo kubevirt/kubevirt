@@ -183,6 +183,7 @@ const (
 	// Owner: sig-compute / @0xFelix
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	Template = "Template"
 
 	// Owner: @bmordeha
@@ -278,7 +279,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})

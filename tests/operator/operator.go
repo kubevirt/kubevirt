@@ -2356,15 +2356,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			eventuallyVirtTemplateDeploymentsNotFound()
 		},
 			Entry("when feature gate is toggled",
-				nil,
+				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
 				func() { kvconfig.EnableFeatureGate(featuregate.Template) },
 				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
 			),
 			Entry("when VirtTemplateDeployment.Enabled is toggled",
-				func() {
-					setVirtTemplateDeploymentEnabled(false)
-					kvconfig.EnableFeatureGate(featuregate.Template)
-				},
+				func() { setVirtTemplateDeploymentEnabled(false) },
 				func() { setVirtTemplateDeploymentEnabled(true) },
 				func() { setVirtTemplateDeploymentEnabled(false) },
 			),
