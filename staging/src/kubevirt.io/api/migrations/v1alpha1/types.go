@@ -20,7 +20,8 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -41,18 +42,8 @@ type MigrationPolicy struct {
 }
 
 type MigrationPolicySpec struct {
-	Selectors *Selectors `json:"selectors"`
-
-	//+optional
-	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
-	//+optional
-	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	//+optional
-	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
-	//+optional
-	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
-	//+optional
-	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	Selectors                    *Selectors `json:"selectors"`
+	k6tv1.MigrationPolicyOptions `json:",inline"`
 }
 
 type LabelSelector map[string]string
@@ -78,37 +69,19 @@ type MigrationPolicyList struct {
 	Items []MigrationPolicy `json:"items"`
 }
 
-// GetMigrationConfByPolicy returns a new migration configuration. The new configuration attributes will be overridden
-// by the migration policy if the specified attributes were defined for this policy. Otherwise they wouldn't change.
-// The boolean returned value indicates if any changes were made to the configurations.
-func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfigurations *k6tv1.MigrationConfiguration) (changed bool, err error) {
-	policySpec := m.Spec
-	changed = false
-
-	if policySpec.AllowAutoConverge != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowAutoConverge = *policySpec.AllowAutoConverge
-	}
-	if policySpec.BandwidthPerMigration != nil {
-		changed = true
-		*clusterMigrationConfigurations.BandwidthPerMigration = *policySpec.BandwidthPerMigration
-	}
-	if policySpec.CompletionTimeoutPerGiB != nil {
-		changed = true
-		*clusterMigrationConfigurations.CompletionTimeoutPerGiB = *policySpec.CompletionTimeoutPerGiB
-	}
-	if policySpec.AllowPostCopy != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowPostCopy = *policySpec.AllowPostCopy
-	}
-	if policySpec.AllowWorkloadDisruption != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowWorkloadDisruption
-	} else if policySpec.AllowWorkloadDisruption == nil && policySpec.AllowPostCopy != nil {
-		// For backward compatibility, AllowWorkloadDisruption will follow the
-		// value of AllowPostCopy, if not explicitly set
-		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowPostCopy
+// ApplyMigrationPolicy applies the destination configuration by merging all the non-nil fields
+// in the destination config to the corresponding field in the source config.
+func (m *MigrationPolicy) ApplyMigrationPolicy(dst *k6tv1.VMIMConfigurationOptions, src *k6tv1.MigrationPolicyOptions) {
+	// For backward compatibility, if the policy specifies AllowPostCopy but not AllowWorkloadDisruption,
+	// AllowWorkloadDisruption should follow AllowPostCopy.
+	if src.AllowWorkloadDisruption == nil && src.AllowPostCopy != nil {
+		v := *src.AllowPostCopy
+		dst.AllowWorkloadDisruption = &v
 	}
 
-	return changed, nil
+	srcJSON, err := json.Marshal(src)
+	if err != nil {
+		return
+	}
+	_ = json.Unmarshal(srcJSON, &dst.MigrationPolicyOptions)
 }

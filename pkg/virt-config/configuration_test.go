@@ -356,13 +356,17 @@ var _ = Describe("test configuration", func() {
 		completionTimeoutPerGiB := int64(5)
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			MigrationConfiguration: &v1.MigrationConfiguration{
-				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-				BandwidthPerMigration:             &bandwidthPerMigration,
-				ProgressTimeout:                   &progressTimeout,
-				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-				UnsafeMigrationOverride:           &trueValue,
-				AllowAutoConverge:                 &trueValue,
+				MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{
+					ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+					ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+				},
+				MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+					BandwidthPerMigration:   &bandwidthPerMigration,
+					ProgressTimeout:         &progressTimeout,
+					CompletionTimeoutPerGiB: &completionTimeoutPerGiB,
+					UnsafeMigrationOverride: &trueValue,
+					AllowAutoConverge:       &trueValue,
+				},
 			},
 		})
 
@@ -381,7 +385,9 @@ var _ = Describe("test configuration", func() {
 		parallelOutboundMigrationsPerNode := uint32(10)
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			MigrationConfiguration: &v1.MigrationConfiguration{
-				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+				MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{
+					ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+				},
 			},
 		})
 
@@ -395,7 +401,9 @@ var _ = Describe("test configuration", func() {
 		oldValue := uint32(10)
 		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			MigrationConfiguration: &v1.MigrationConfiguration{
-				ParallelOutboundMigrationsPerNode: &oldValue,
+				MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{
+					ParallelOutboundMigrationsPerNode: &oldValue,
+				},
 			},
 		})
 		result := clusterConfig.GetMigrationConfiguration()
@@ -410,7 +418,9 @@ var _ = Describe("test configuration", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						ParallelOutboundMigrationsPerNode: &newValue,
+						MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{
+							ParallelOutboundMigrationsPerNode: &newValue,
+						},
 					},
 				},
 			},

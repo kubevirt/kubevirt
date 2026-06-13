@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/api/migrations"
 
+	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,11 +59,11 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		admitter.admitAndExpect(policy, false)
 	},
 		Entry("negative BandwidthPerMigration",
-			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)},
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{BandwidthPerMigration: resource.NewScaledQuantity(-123, 1)}}},
 		),
 
 		Entry("negative CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(-1))},
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{CompletionTimeoutPerGiB: pointer.P(int64(-1))}}},
 		),
 	)
 
@@ -75,23 +76,69 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		admitter.admitAndExpect(policy, true)
 	},
 		Entry("greater than zero BandwidthPerMigration",
-			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)},
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{BandwidthPerMigration: resource.NewScaledQuantity(1, 1)}}},
 		),
 
 		Entry("greater than zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(1))},
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{CompletionTimeoutPerGiB: pointer.P(int64(1))}}},
 		),
 
 		Entry("zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.P(int64(0))},
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{CompletionTimeoutPerGiB: pointer.P(int64(0))}}},
 		),
 
 		Entry("zero BandwidthPerMigration",
-			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)}}},
 		),
 
 		Entry("empty spec",
 			migrationsv1.MigrationPolicySpec{},
+		),
+
+		Entry("allowPostCopy true and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{
+				MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+					AllowPostCopy:           pointer.P(true),
+					AllowWorkloadDisruption: pointer.P(true),
+				},
+			}},
+		),
+
+		Entry("allowPostCopy false and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{
+				MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+					AllowPostCopy:           pointer.P(false),
+					AllowWorkloadDisruption: pointer.P(true),
+				},
+			}},
+		),
+
+		Entry("allowPostCopy false and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{
+				MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+					AllowPostCopy:           pointer.P(false),
+					AllowWorkloadDisruption: pointer.P(false),
+				},
+			}},
+		),
+	)
+
+	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
+		By("Setting up a new policy")
+		policy := kubecli.NewMinimalMigrationPolicy(policyName)
+		policy.Spec = policySpec
+
+		By("Expecting admitter would not allow it")
+		admitter.admitAndExpect(policy, false)
+	},
+		Entry("allowPostCopy true and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{MigrationPolicyOptions: v1.MigrationPolicyOptions{
+				MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+					AllowPostCopy:           pointer.P(true),
+					AllowWorkloadDisruption: pointer.P(false),
+				},
+			},
+			},
 		),
 	)
 })

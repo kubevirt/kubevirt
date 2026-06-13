@@ -1023,7 +1023,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// Name of the migration policy. If string is empty, no policy is matched
 	MigrationPolicyName *string `json:"migrationPolicyName,omitempty"`
 	// Migration configurations to apply
-	MigrationConfiguration *MigrationConfiguration `json:"migrationConfiguration,omitempty"`
+	VMIMConfigurationOptions *VMIMConfigurationOptions `json:"migrationConfiguration,omitempty"`
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic
@@ -3375,19 +3375,29 @@ type TLSConfiguration struct {
 	Ciphers []string `json:"ciphers,omitempty"`
 }
 
-// MigrationConfiguration holds migration options.
-// Can be overridden for specific groups of VMs though migration policies.
-// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
-type MigrationConfiguration struct {
-	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
-	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
-	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
-	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
-	// allowed per node. Defaults to 2
-	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
-	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
-	// allowed cluster-wide. Defaults to 5
-	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+type ExperimentalMigrationOptions struct {
+	// TODO
+}
+
+// VMIMConfigurationOptions holds the resolved migration options for a single migration.
+// It is written to VirtualMachineInstanceMigrationState and represents the effective
+// configuration after merging KubeVirt defaults with any matched MigrationPolicy.
+type VMIMConfigurationOptions struct {
+	MigrationPolicyOptions              `json:",inline"`
+	MigrationPolicyNonOverridableFields `json:",inline"`
+}
+
+// MigrationPolicyOptions holds per-migration options that MigrationPolicy may override.
+// It groups the policy-overridable fields and experimental options that are only
+// exposed via MigrationPolicy today.
+type MigrationPolicyOptions struct {
+	MigrationPolicyOverridableFields `json:",inline"`
+	ExperimentalMigrationOptions     *ExperimentalMigrationOptions `json:"experimental,omitempty"`
+}
+
+// MigrationPolicyOverridableFields holds migration options configurable in the KubeVirt CR
+// and overridable by MigrationPolicy for matching VMs.
+type MigrationPolicyOverridableFields struct {
 	// AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
 	// guarantee successful VMI live migrations. Defaults to false
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
@@ -3419,17 +3429,49 @@ type MigrationConfiguration struct {
 	// permitted, migration will be switched to post-copy or the VMI will be
 	// paused to allow the migration to complete
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
+	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
+	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
+	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
+	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// MigrationPolicyNonOverridableFields holds migration options configurable in the KubeVirt CR
+// that MigrationPolicy does not currently override.
+type MigrationPolicyNonOverridableFields struct {
+	// ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations
+	// allowed per node. Defaults to 2
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	// NodeDrainTaintKey defines the taint key that indicates a node should be drained.
+	// Note: this option relies on the deprecated node taint feature. Default: kubevirt.io/drain
+	NodeDrainTaintKey *string `json:"nodeDrainTaintKey,omitempty"`
+	// ParallelMigrationsPerCluster is the total number of concurrent live migrations
+	// allowed cluster-wide. Defaults to 5
+	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
 	// When set to true, DisableTLS will disable the additional layer of live migration encryption
 	// provided by KubeVirt. This is usually a bad idea. Defaults to false
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
 	Network *string `json:"network,omitempty"`
-	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
-	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
-	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
-	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
-	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+}
+
+// MigrationConfiguration holds migration options.
+// Can be overridden for specific groups of VMs though migration policies.
+// Visit https://kubevirt.io/user-guide/operations/migration_policies/ for more information.
+type MigrationConfiguration struct {
+	MigrationPolicyOverridableFields    `json:",inline"`
+	MigrationPolicyNonOverridableFields `json:",inline"`
+}
+
+func (m *MigrationConfiguration) AsVMIMConfigurationOptions() *VMIMConfigurationOptions {
+	if m == nil {
+		return nil
+	}
+	var vmimco VMIMConfigurationOptions
+	vmimco.MigrationPolicyOverridableFields = m.MigrationPolicyOverridableFields
+	vmimco.MigrationPolicyNonOverridableFields = m.MigrationPolicyNonOverridableFields
+	return &vmimco
 }
 
 // DiskVerification holds container disks verification limits

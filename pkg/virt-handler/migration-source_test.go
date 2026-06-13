@@ -249,13 +249,18 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			// This ensures that during upgrades, the migrationConfigurations that
 			// are set by the older migration controller can be read by the updated virt-handler, without
 			// panic.
-			var migrationConfiguration = &v1.MigrationConfiguration{
-				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
-				ProgressTimeout:         pointer.P(int64(150)),
-				AllowAutoConverge:       pointer.P(false),
-				CompletionTimeoutPerGiB: pointer.P(int64(50)),
-				UnsafeMigrationOverride: pointer.P(false),
-				AllowPostCopy:           pointer.P(true),
+			var migrationConfiguration = &v1.VMIMConfigurationOptions{
+				MigrationPolicyOptions: v1.MigrationPolicyOptions{
+					MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+						BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+						ProgressTimeout:         pointer.P(int64(150)),
+						AllowAutoConverge:       pointer.P(false),
+						CompletionTimeoutPerGiB: pointer.P(int64(50)),
+						UnsafeMigrationOverride: pointer.P(false),
+						AllowPostCopy:           pointer.P(true),
+						AllowWorkloadDisruption: pointer.P(true),
+					},
+				},
 			}
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -271,7 +276,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
-				MigrationConfiguration:         migrationConfiguration,
+				VMIMConfigurationOptions:       migrationConfiguration,
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -529,16 +534,20 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			)
 
 			DescribeTable("should not configure multiple threads", func(allowPostcopy bool, vmiLimits k8sv1.ResourceList) {
-				var migrationConfiguration = &v1.MigrationConfiguration{
-					BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
-					ProgressTimeout:         pointer.P(int64(150)),
-					AllowAutoConverge:       pointer.P(false),
-					CompletionTimeoutPerGiB: pointer.P(int64(50)),
-					UnsafeMigrationOverride: pointer.P(false),
-					AllowPostCopy:           pointer.P(allowPostcopy),
-					AllowWorkloadDisruption: pointer.P(true),
+				var migrationConfiguration = &v1.VMIMConfigurationOptions{
+					MigrationPolicyOptions: v1.MigrationPolicyOptions{
+						MigrationPolicyOverridableFields: v1.MigrationPolicyOverridableFields{
+							BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
+							ProgressTimeout:         pointer.P(int64(150)),
+							AllowAutoConverge:       pointer.P(false),
+							CompletionTimeoutPerGiB: pointer.P(int64(50)),
+							UnsafeMigrationOverride: pointer.P(false),
+							AllowPostCopy:           pointer.P(allowPostcopy),
+							AllowWorkloadDisruption: pointer.P(true),
+						},
+					},
 				}
-				vmi.Status.MigrationState.MigrationConfiguration = migrationConfiguration
+				vmi.Status.MigrationState.VMIMConfigurationOptions = migrationConfiguration
 				vmi.Spec.Domain.Resources.Limits = vmiLimits
 
 				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {

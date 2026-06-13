@@ -87,6 +87,15 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 		}
 	}
 
+	if spec.AllowPostCopy != nil && *spec.AllowPostCopy &&
+		spec.AllowWorkloadDisruption != nil && !*spec.AllowWorkloadDisruption {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "AllowWorkloadDisruption must be true if AllowPostCopy is true",
+			Field:   sourceField.Child("allowWorkloadDisruption").String(),
+		})
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

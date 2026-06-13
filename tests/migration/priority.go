@@ -59,7 +59,9 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 
 		cfg := getCurrentKvConfig(virtClient)
 		cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-			ParallelMigrationsPerCluster: pointer.P(uint32(1)),
+			MigrationPolicyNonOverridableFields: v1.MigrationPolicyNonOverridableFields{
+				ParallelMigrationsPerCluster: pointer.P(uint32(1)),
+			},
 		}
 		if cfg.DeveloperConfiguration == nil {
 			cfg.DeveloperConfiguration = &v1.DeveloperConfiguration{
