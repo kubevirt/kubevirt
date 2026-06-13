@@ -85,10 +85,27 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	c.configStateMutex.RLock()
 	state, ok := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
+
+	// A different launcher PID for the same VMI means the previous target pod
+	// was replaced (e.g. it failed during migration-target preparation). The
+	// per-VMI network config-state (in-memory and on-disk) is keyed only by
+	// vmi.UID and would otherwise be reused as "finished", short-circuiting
+	// netpod.Setup and leaving the new pod without a vif cache. Invalidate it
+	// so the new pod re-discovers and reconfigures its network.
+	if ok && state.LauncherPid != launcherPid {
+		log.Log.Object(vmi).Infof(
+			"target launcher pod changed (pid %d -> %d), clearing stale network config-state",
+			state.LauncherPid, launcherPid)
+		if err := c.Teardown(vmi); err != nil {
+			return fmt.Errorf("failed to clear stale network config-state: %w", err)
+		}
+		ok = false
+	}
+
 	if !ok {
 		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
 		ns := c.nsFactory(launcherPid)
-		state = netpod.NewState(&configStateCache, ns)
+		state = netpod.NewState(&configStateCache, ns, launcherPid)
 		c.configStateMutex.Lock()
 		c.state[string(vmi.UID)] = state
 		c.configStateMutex.Unlock()
