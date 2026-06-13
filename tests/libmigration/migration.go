@@ -438,7 +438,7 @@ func ConfirmVMIPostMigrationFailed(vmi *v1.VirtualMachineInstance, migrationUID 
 	Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
 	Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 	Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
-	Expect(vmi.Status.MigrationState.Completed).To(BeFalse())
+	Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
 	Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
 	Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
@@ -463,8 +463,7 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 
 	}, timeout, 1*time.Second).Should(
 		gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Completed":   BeFalse(),
-			"AbortStatus": Equal(v1.MigrationAbortSucceeded),
+			"Completed": BeTrue(),
 		}),
 	)
 
@@ -482,6 +481,7 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 	ExpectWithOffset(1, string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 	ExpectWithOffset(1, vmi.Status.MigrationState.Failed).To(BeTrue())
 	ExpectWithOffset(1, vmi.Status.MigrationState.AbortRequested).To(BeTrue())
+	ExpectWithOffset(1, vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
 
 	By("Verifying the VMI's is in the running state")
 	ExpectWithOffset(1, vmi).To(matcher.BeInPhase(v1.Running))

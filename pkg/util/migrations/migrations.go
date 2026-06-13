@@ -13,8 +13,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
-
 const (
 	QueuePriorityRunning           int = 1000
 	QueuePrioritySystemCritical    int = 100

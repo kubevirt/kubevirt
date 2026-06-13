@@ -384,42 +384,72 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	})
 
 	Context("handleMigrationAbort", func() {
-		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance) {
+		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 			client.EXPECT().CancelVirtualMachineMigration(vmi)
-			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+			Expect(controller.handleMigrationAbort(vmi, domain, client)).To(Succeed())
 			testutils.ExpectEvent(recorder, VMIAbortingMigration)
 		},
-			Entry("when the request failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when the previous abort attempt failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 						AbortStatus:    v1.MigrationAbortFailed,
 					})))),
+				nil,
 			),
-			Entry("when the request the abort status isn't set", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when the abort status isn't set", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 					})))),
+				nil,
+			),
+			Entry("when abort status is empty in both VMI and domain metadata", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+				&api.Domain{Spec: api.DomainSpec{Metadata: api.Metadata{KubeVirt: api.KubeVirtMetadata{
+					Migration: &api.MigrationMetadata{AbortStatus: ""},
+				}}}},
 			),
 		)
-		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance) {
-
-			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+			Expect(controller.handleMigrationAbort(vmi, domain, client)).To(Succeed())
 		},
-			Entry("when the request succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when VMI abort status is InProgress", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 						AbortStatus:    v1.MigrationAbortInProgress,
 					})))),
+				nil,
 			),
-			Entry("when the request is in progress", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when VMI abort status is Succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 						AbortStatus:    v1.MigrationAbortSucceeded,
 					})))),
+				nil,
+			),
+			Entry("when domain metadata has AbortInProgress", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+				&api.Domain{Spec: api.DomainSpec{Metadata: api.Metadata{KubeVirt: api.KubeVirtMetadata{
+					Migration: &api.MigrationMetadata{AbortStatus: string(v1.MigrationAbortInProgress)},
+				}}}},
+			),
+			Entry("when domain metadata has AbortSucceeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+				&api.Domain{Spec: api.DomainSpec{Metadata: api.Metadata{KubeVirt: api.KubeVirtMetadata{
+					Migration: &api.MigrationMetadata{AbortStatus: string(v1.MigrationAbortSucceeded)},
+				}}}},
 			),
 		)
 
@@ -431,7 +461,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 						AbortRequested: true,
 					}))))
 			client.EXPECT().CancelVirtualMachineMigration(vmi).Return(fmt.Errorf(errMsg))
-			Expect(controller.handleMigrationAbort(vmi, client)).To(MatchError(errMsg))
+			Expect(controller.handleMigrationAbort(vmi, nil, client)).To(MatchError(errMsg))
 		})
 
 		It("should abort vmi migration vmi when migration object indicates deletion", func() {

@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -200,14 +199,11 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 
 	if migrationMetadata.Failed {
+		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+		vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
 		vmi.Status.MigrationState.FailureReason = migrationMetadata.FailureReason
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
-	}
-
-	vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
-	if migrationMetadata.AbortStatus == string(v1.MigrationAbortSucceeded) {
-		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
 	}
 
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
@@ -492,7 +488,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	if vmi.Status.MigrationState.AbortRequested {
-		err = c.handleMigrationAbort(vmi, client)
+		err = c.handleMigrationAbort(vmi, domain, client)
 		return err
 	}
 
@@ -620,16 +616,21 @@ func (c *MigrationSourceController) updateDomainFunc(_, new interface{}) {
 	}
 }
 
-func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress || vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
+func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient) error {
+	// Check both the VMI status and the domain metadata to avoid redundant cancel RPCs.
+	// The domain metadata reflects the launcher's abort status before the API server round-trip.
+	abortHandled := func(status v1.MigrationAbortStatus) bool {
+		return status == v1.MigrationAbortInProgress || status == v1.MigrationAbortSucceeded
+	}
+	if abortHandled(vmi.Status.MigrationState.AbortStatus) {
+		return nil
+	}
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil &&
+		abortHandled(v1.MigrationAbortStatus(domain.Spec.Metadata.KubeVirt.Migration.AbortStatus)) {
 		return nil
 	}
 
 	if err := client.CancelVirtualMachineMigration(vmi); err != nil {
-		if err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
-			// If migration did not even start there is no need to cancel it
-			c.logger.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
-		}
 		return err
 	}
 
