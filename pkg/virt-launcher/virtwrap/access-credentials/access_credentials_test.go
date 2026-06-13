@@ -43,6 +43,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -279,6 +280,47 @@ var _ = Describe("AccessCredentials", func() {
 
 		// Wait until ssh keys reload is detected
 		Eventually(keysLoaded, 5*time.Second, 50*time.Millisecond).Should(BeClosed())
+	})
+
+	Context("path traversal defense", func() {
+		It("should not access paths outside base directory when secretName contains path traversal", func() {
+			// Create a sibling directory that would be reached via traversal without safepath.
+			siblingDir := filepath.Join(filepath.Dir(tmpDir), "sensitive-secret-access-cred")
+			Expect(os.MkdirAll(siblingDir, 0o755)).To(Succeed())
+			defer os.RemoveAll(siblingDir)
+			Expect(os.WriteFile(filepath.Join(siblingDir, "password"), []byte("secret"), 0o600)).To(Succeed())
+
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{{
+				UserPassword: &v1.UserPasswordAccessCredential{
+					Source: v1.UserPasswordAccessCredentialSource{
+						Secret: &v1.AccessCredentialSecretSource{SecretName: "../sensitive-secret"},
+					},
+					PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+						QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+					},
+				},
+			}}
+
+			info := newAccessCredentialsInfo()
+			err := info.addAccessCredential(&vmi.Spec.AccessCredentials[0])
+			Expect(err).To(HaveOccurred(), "secretName path traversal must be rejected")
+		})
+
+		It("should not follow symlinks when reading SSH public keys from secret directory", func() {
+			secretDir := filepath.Join(tmpDir, "some-secret-access-cred")
+			Expect(os.Mkdir(secretDir, 0o755)).To(Succeed())
+
+			sensitiveFile := filepath.Join(tmpDir, "sensitive-data")
+			Expect(os.WriteFile(sensitiveFile, []byte("sensitive-content"), 0o600)).To(Succeed())
+			Expect(os.Symlink(sensitiveFile, filepath.Join(secretDir, "malicious-key"))).To(Succeed())
+
+			dir, err := safepath.JoinAndResolveWithRelativeRoot(secretDir)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = readKeysFromDirectory(dir)
+			Expect(err).To(HaveOccurred(), "symlink traversal outside secret directory must be rejected")
+		})
+
 	})
 
 	It("should trigger updating a credential when secret propagation change occurs.", func() {

@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config:go_default_library",
+        "//pkg/safepath:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -28,6 +29,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/safepath:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",

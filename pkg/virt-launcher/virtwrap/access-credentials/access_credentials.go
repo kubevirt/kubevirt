@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -533,8 +534,14 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 	}
 
 	for _, dir := range secretDirs {
-		err = l.watcher.Add(dir)
+		dirSafePath, err := safepath.NewPathNoFollow(dir)
 		if err != nil {
+			_ = l.watcher.Close()
+			return err
+		}
+		if err := dirSafePath.ExecuteNoFollow(func(resolvedPath string) error {
+			return l.watcher.Add(resolvedPath)
+		}); err != nil {
 			// Ignoring error returned by watcher.Close(),
 			// because another error will be returned.
 			_ = l.watcher.Close()
@@ -586,7 +593,11 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 		return nil
 	}
 
-	secretDir := getSecretDir(secretName)
+	secretDir, err := safepath.JoinAndResolveWithRelativeRoot(getSecretBaseDir(), secretName+"-access-cred")
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret directory for %q: %w", secretName, err)
+	}
+
 	if isSSHPublicKey(accessCred) {
 		for _, user := range accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.Users {
 			a.userSSHMap[user] = append(a.userSSHMap[user], secretName)
@@ -610,8 +621,12 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 	return nil
 }
 
-func readKeysFromDirectory(dir string) ([]string, error) {
-	files, err := os.ReadDir(dir)
+func readKeysFromDirectory(dir *safepath.Path) ([]string, error) {
+	var files []os.DirEntry
+	err := dir.ExecuteNoFollow(func(safePath string) (err error) {
+		files, err = os.ReadDir(safePath)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while reading the list of secrets files from the base directory %s: %w", dir, err)
 	}
@@ -622,9 +637,18 @@ func readKeysFromDirectory(dir string) ([]string, error) {
 			continue
 		}
 
-		pubKeyBytes, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		filePath, err := dir.AppendAndResolveWithRelativeRoot(file.Name())
 		if err != nil {
-			return nil, fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(dir, file.Name()), err)
+			return nil, fmt.Errorf("error occurred while reading the access credential secret file [%s/%s]: %w", dir, file.Name(), err)
+		}
+
+		var pubKeyBytes []byte
+		err = filePath.ExecuteNoFollow(func(safePath string) (err error) {
+			pubKeyBytes, err = os.ReadFile(safePath)
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while reading the access credential secret file [%s/%s]: %w", dir, file.Name(), err)
 		}
 
 		for _, pubKey := range strings.Split(string(pubKeyBytes), "\n") {
@@ -638,8 +662,12 @@ func readKeysFromDirectory(dir string) ([]string, error) {
 	return authorizedKeys, nil
 }
 
-func readAndAddPasswordsFromDirectory(dir string, passMap map[string]string) error {
-	files, err := os.ReadDir(dir)
+func readAndAddPasswordsFromDirectory(dir *safepath.Path, passMap map[string]string) error {
+	var files []os.DirEntry
+	err := dir.ExecuteNoFollow(func(safePath string) (err error) {
+		files, err = os.ReadDir(safePath)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("error occurred while reading the list of secrets files from the base directory %s: %w", dir, err)
 	}
@@ -651,9 +679,18 @@ func readAndAddPasswordsFromDirectory(dir string, passMap map[string]string) err
 			continue
 		}
 
-		passwordBytes, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		filePath, err := dir.AppendAndResolveWithRelativeRoot(file.Name())
 		if err != nil {
-			return fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(dir, file.Name()), err)
+			return fmt.Errorf("error occurred while reading the access credential secret file [%s/%s]: %w", dir, file.Name(), err)
+		}
+
+		var passwordBytes []byte
+		err = filePath.ExecuteNoFollow(func(safePath string) (err error) {
+			passwordBytes, err = os.ReadFile(safePath)
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("error occurred while reading the access credential secret file [%s/%s]: %w", dir, file.Name(), err)
 		}
 
 		password := strings.TrimSpace(string(passwordBytes))
