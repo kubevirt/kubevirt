@@ -248,12 +248,12 @@ func getSystemInfoFromAnnotations(annotations map[string]string) (os, workload, 
 		flavor = val
 	}
 
-	return
+	return os, workload, flavor
 }
 
 func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, guestOSMachineArch, name, versionID string) {
 	if vmi.Status.GuestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
-		return
+		return kernelRelease, guestOSMachineArch, name, versionID
 	}
 
 	if vmi.Status.GuestOSInfo.KernelRelease != "" {
@@ -272,7 +272,7 @@ func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, guestOSMa
 		versionID = vmi.Status.GuestOSInfo.VersionID
 	}
 
-	return
+	return kernelRelease, guestOSMachineArch, name, versionID
 }
 
 func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string) {
@@ -280,7 +280,7 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 		guestOSMachineType = vmi.Status.Machine.Type
 	}
 
-	return
+	return guestOSMachineType
 }
 
 func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {

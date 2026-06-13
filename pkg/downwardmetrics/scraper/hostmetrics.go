@@ -138,7 +138,7 @@ func (h *hostMetricsCollector) Collect() (metrics []api.Metric) {
 	metrics = append(metrics,
 		metricspkg.MustToHostMetric(time.Now().Unix(), "Time", "s"),
 	)
-	return
+	return metrics
 }
 
 func defaultHostMetricsCollector() *hostMetricsCollector {
@@ -146,7 +146,7 @@ func defaultHostMetricsCollector() *hostMetricsCollector {
 		procPath: "/proc",
 		sysPath:  "/sys",
 		// It is safe to cast, because os.Getpagesize() never returns negative value.
-		pageSize: uint(os.Getpagesize()), //nolint:gosec // disable G115
+		pageSize: uint(os.Getpagesize()),
 	}
 }
 

@@ -193,7 +193,7 @@ func (k *Handler) isKSMEligible() (shouldHandle, currentState bool) {
 		log.Log.Reason(err).Error(err.Error())
 	}
 
-	return
+	return shouldHandle, currentState
 }
 
 func (k *Handler) handleNodePressure(currentState bool) (ksmEnabledByUs bool) {
