@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -115,31 +114,6 @@ var _ = Describe("[sig-monitoring]Monitoring", decorators.SigMonitoring, func() 
 			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(
 				vmi, time.Duration(vmiDisappearTimeout)*time.Second,
 			)).To(Succeed())
-		})
-	})
-
-	Context("System Alerts", Serial, func() {
-		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when there are no available nodes to run VMs", func() {
-			By("Getting all schedulable nodes")
-			nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-			DeferCleanup(func() {
-				By("Restoring kubevirt.io/schedulable label to all nodes")
-				for _, node := range nodes.Items {
-					libnode.SetNodeSchedulable(node.Name, virtClient)
-				}
-			})
-
-			By("Setting all nodes to unschedulable")
-			for _, node := range nodes.Items {
-				libnode.SetNodeUnschedulable(node.Name, virtClient)
-			}
-
-			By("Waiting for alert to appear")
-			const alertTimeout = 10 * time.Minute
-			libmonitoring.VerifyAlertExistWithCustomTime(
-				virtClient, "KubeVirtNoAvailableNodesToRunVMs", alertTimeout,
-			)
 		})
 	})
 

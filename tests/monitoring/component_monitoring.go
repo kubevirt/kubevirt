@@ -54,6 +54,7 @@ const (
 	randNodeSelectorSuffixLength   = 8
 	lowReadySingletonWorkloadCount = 1
 	lowReadyDeploymentRunningCount = 2
+	minKVMNodesRequired            = 2
 )
 
 type alerts struct {
@@ -365,6 +366,54 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
 			checkRESTErrorsBurst(virtClient, "kubevirt-handler", virtHandler.restErrorsBurtsAlert)
+		})
+	})
+
+	Context("Virt-handler alerts", func() {
+		It("VirtHandlerDaemonSetRolloutFailing should be triggered when virt-handler pods are not ready", func() {
+			const alertName = "VirtHandlerDaemonSetRolloutFailing"
+
+			virtHandlerDS, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtHandler.deploymentName, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			originalVirtHandlerDS := virtHandlerDS.DeepCopy()
+			defer func() {
+				restoreDaemonSetImage(virtClient, virtHandler.deploymentName, originalVirtHandlerDS, alertName)
+			}()
+
+			By("Patching virt-handler DaemonSet with a non-existent image to cause ImagePullBackOff")
+			container := &virtHandlerDS.Spec.Template.Spec.Containers[0]
+			container.Image = "registry.example.com/nonexistent:v0.0.0"
+
+			Expect(mergePatchDaemonSet(
+				context.Background(), virtClient, flags.KubeVirtInstallNamespace, virtHandlerDS,
+			)).To(Succeed())
+
+			By("Verifying the alert exists")
+			libmonitoring.VerifyAlertExist(virtClient, alertName)
+		})
+
+		It("LowKVMNodesCount should be triggered when KVM nodes drop below 2", decorators.RequiresTwoSchedulableNodes, func() {
+			const alertName = "LowKVMNodesCount"
+
+			defer func() {
+				By("Waiting for LowKVMNodesCount alert to clear")
+				libmonitoring.WaitUntilAlertDoesNotExist(virtClient, alertName)
+			}()
+
+			By("Deleting the virt-handler DaemonSet to remove KVM device plugin from nodes")
+			err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(
+				context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for KVM node count metric to drop below 2")
+			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "cluster:kubevirt_nodes_with_kvm:count", nil, 1, "<", minKVMNodesRequired)
+
+			By("Verifying the alert exists")
+			libmonitoring.VerifyAlertExist(virtClient, alertName)
 		})
 	})
 })
