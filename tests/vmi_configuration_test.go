@@ -999,10 +999,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		// ordering:
 		// use a small disk for the other ones
 		testVMI := func() *v1.VirtualMachineInstance {
-			// virtio - added by NewCirros
-			return libvmifact.NewCirros(
+			// virtio - added by NewAlpine
+			return libvmifact.NewAlpine(
 				// add sata disk
-				libvmi.WithContainerSATADisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerSATADisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 			)
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		}
@@ -1022,7 +1022,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// keep the ordering!
@@ -1040,7 +1040,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusVirtio
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 		})
