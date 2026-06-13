@@ -348,6 +348,16 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 			"manifests": manifests,
 		},
 	}
+	if productComponent := config.GetProductComponent(); productComponent != "" && operatorutil.IsValidLabel(productComponent) {
+		configMap.Labels[v1.AppComponentLabel] = productComponent
+	}
+	if productVersion := config.AdditionalProperties[operatorutil.ProductVersionKey]; productVersion != "" && operatorutil.IsValidLabel(productVersion) {
+		configMap.Labels[v1.AppVersionLabel] = productVersion
+	}
+	if productName := config.GetProductName(); productName != "" && operatorutil.IsValidLabel(productName) {
+		configMap.Labels[v1.AppPartOfLabel] = productName
+	}
+
 	return configMap, nil
 }
 
