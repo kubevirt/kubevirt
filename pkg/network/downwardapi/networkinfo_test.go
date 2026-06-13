@@ -35,12 +35,12 @@ var _ = Describe("Network info", func() {
 		deviceInfoFoo := &networkv1.DeviceInfo{Type: "fooType"}
 
 		networkStatusByNetworkName := map[string]networkv1.NetworkStatus{
-			"foo": {Interface: "pod2c26b46b68f", DeviceInfo: deviceInfoFoo},
+			"foo": {Interface: "pod2c26b46b68f", DeviceInfo: deviceInfoFoo, Mtu: 1500},
 			"boo": {Interface: "pod6446d58d6df"},
 		}
 
 		expectedInterfaces := []downwardapi.Interface{
-			{Network: "foo", DeviceInfo: deviceInfoFoo},
+			{Network: "foo", DeviceInfo: deviceInfoFoo, Mtu: 1500},
 			{Network: "boo"},
 		}
 
@@ -63,15 +63,15 @@ var _ = Describe("Network info", func() {
 		deviceInfo3 := &networkv1.DeviceInfo{Type: "type3"}
 
 		networkStatusByNetworkName1 := map[string]networkv1.NetworkStatus{
-			"netA": {Interface: "pod33219a16a42", Mac: "0c:42:a1:22:a3:52", DeviceInfo: deviceInfo1},
-			"netB": {Interface: "pod034d3d19642", Mac: "0c:42:a1:22:a3:53", DeviceInfo: deviceInfo2},
+			"netA": {Interface: "pod33219a16a42", Mac: "0c:42:a1:22:a3:52", DeviceInfo: deviceInfo1, Mtu: 1500},
+			"netB": {Interface: "pod034d3d19642", Mac: "0c:42:a1:22:a3:53", DeviceInfo: deviceInfo2, Mtu: 9000},
 			"netC": {Interface: "pod01783857d47", Mac: "0c:42:a1:22:a3:54", DeviceInfo: deviceInfo3},
 		}
 
 		networkStatusByNetworkName2 := map[string]networkv1.NetworkStatus{
 			"netC": {Interface: "pod01783857d47", Mac: "0c:42:a1:22:a3:54", DeviceInfo: deviceInfo3},
-			"netB": {Interface: "pod034d3d19642", Mac: "0c:42:a1:22:a3:53", DeviceInfo: deviceInfo2},
-			"netA": {Interface: "pod33219a16a42", Mac: "0c:42:a1:22:a3:52", DeviceInfo: deviceInfo1},
+			"netB": {Interface: "pod034d3d19642", Mac: "0c:42:a1:22:a3:53", DeviceInfo: deviceInfo2, Mtu: 9000},
+			"netA": {Interface: "pod33219a16a42", Mac: "0c:42:a1:22:a3:52", DeviceInfo: deviceInfo1, Mtu: 1500},
 		}
 
 		annotationValue1 := downwardapi.CreateNetworkInfoAnnotationValue(networkStatusByNetworkName1)
@@ -84,8 +84,8 @@ var _ = Describe("Network info", func() {
 
 		expectedNetworkInfo := downwardapi.NetworkInfo{
 			Interfaces: []downwardapi.Interface{
-				{Network: "netA", Mac: "0c:42:a1:22:a3:52", DeviceInfo: &networkv1.DeviceInfo{Type: "type1"}},
-				{Network: "netB", Mac: "0c:42:a1:22:a3:53", DeviceInfo: &networkv1.DeviceInfo{Type: "type2"}},
+				{Network: "netA", Mac: "0c:42:a1:22:a3:52", DeviceInfo: &networkv1.DeviceInfo{Type: "type1"}, Mtu: 1500},
+				{Network: "netB", Mac: "0c:42:a1:22:a3:53", DeviceInfo: &networkv1.DeviceInfo{Type: "type2"}, Mtu: 9000},
 				{Network: "netC", Mac: "0c:42:a1:22:a3:54", DeviceInfo: &networkv1.DeviceInfo{Type: "type3"}},
 			},
 		}

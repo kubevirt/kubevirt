@@ -57,6 +57,7 @@ func generateNetworkInfo(networkStatusesByNetworkName map[string]networkv1.Netwo
 				Network:    networkName,
 				DeviceInfo: networkStatus.DeviceInfo,
 				Mac:        networkStatus.Mac,
+				Mtu:        networkStatus.Mtu,
 			},
 		)
 	}
