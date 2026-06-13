@@ -28,6 +28,15 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
+)
+
+const (
+	claim1    = "claim1"
+	claim2    = "claim2"
+	req1      = "req1"
+	req2      = "req2"
+	template1 = "template1"
 )
 
 type fakeConfigChecker struct {
@@ -38,7 +47,80 @@ type fakeConfigChecker struct {
 func resourceClaim(name string) v1.VirtualMachineInstanceResourceClaim {
 	return v1.VirtualMachineInstanceResourceClaim{
 		Name:              name,
-		ResourceClaimName: &name,
+		ResourceClaimName: pointer.P(name),
+	}
+}
+
+func claimRequest(claimName, requestName string) *v1.ClaimRequest {
+	return &v1.ClaimRequest{
+		ClaimName:   claimName,
+		RequestName: requestName,
+	}
+}
+
+func gpuWithClaimRequest(name, claimName, requestName string) v1.GPU {
+	return v1.GPU{
+		Name:         name,
+		ClaimRequest: claimRequest(claimName, requestName),
+	}
+}
+
+func gpuWithDeviceName(name, deviceName string) v1.GPU {
+	return v1.GPU{
+		Name:       name,
+		DeviceName: deviceName,
+	}
+}
+
+func gpuWithDeviceNameAndClaimRequest(name, deviceName string, claimRequest *v1.ClaimRequest) v1.GPU {
+	return v1.GPU{
+		Name:         name,
+		DeviceName:   deviceName,
+		ClaimRequest: claimRequest,
+	}
+}
+
+func hostDeviceWithClaimRequest(name, claimName, requestName string) v1.HostDevice {
+	return v1.HostDevice{
+		Name:         name,
+		ClaimRequest: claimRequest(claimName, requestName),
+	}
+}
+
+func hostDeviceWithDeviceName(name, deviceName string) v1.HostDevice {
+	return v1.HostDevice{
+		Name:       name,
+		DeviceName: deviceName,
+	}
+}
+
+func hostDeviceWithDeviceNameAndClaimRequest(name, deviceName string, claimRequest *v1.ClaimRequest) v1.HostDevice {
+	return v1.HostDevice{
+		Name:         name,
+		DeviceName:   deviceName,
+		ClaimRequest: claimRequest,
+	}
+}
+
+func gpuSpec(resourceClaims []v1.VirtualMachineInstanceResourceClaim, gpus ...v1.GPU) *v1.VirtualMachineInstanceSpec {
+	return &v1.VirtualMachineInstanceSpec{
+		ResourceClaims: resourceClaims,
+		Domain: v1.DomainSpec{
+			Devices: v1.Devices{
+				GPUs: gpus,
+			},
+		},
+	}
+}
+
+func hostDeviceSpec(resourceClaims []v1.VirtualMachineInstanceResourceClaim, hostDevices ...v1.HostDevice) *v1.VirtualMachineInstanceSpec {
+	return &v1.VirtualMachineInstanceSpec{
+		ResourceClaims: resourceClaims,
+		Domain: v1.DomainSpec{
+			Devices: v1.Devices{
+				HostDevices: hostDevices,
+			},
+		},
 	}
 }
 
@@ -78,7 +160,7 @@ var _ = Describe("DRA Admitter", func() {
 	Context("resource claim validation", func() {
 		It("should accept a direct resource claim reference", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 			}
 
 			causes := validateCreationDRA(field, spec, checker)
@@ -86,11 +168,10 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should accept a resource claim template reference", func() {
-			templateName := "template1"
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					Name:                      "claim1",
-					ResourceClaimTemplateName: &templateName,
+					Name:                      claim1,
+					ResourceClaimTemplateName: pointer.P(template1),
 				}},
 			}
 
@@ -99,10 +180,9 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject a resource claim without name", func() {
-			claimName := "claim1"
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					ResourceClaimName: &claimName,
+					ResourceClaimName: pointer.P(claim1),
 				}},
 			}
 
@@ -117,8 +197,8 @@ var _ = Describe("DRA Admitter", func() {
 		It("should reject a duplicate resource claim name", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-					resourceClaim("claim1"),
-					resourceClaim("claim1"),
+					resourceClaim(claim1),
+					resourceClaim(claim1),
 				},
 			}
 
@@ -131,12 +211,11 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject an invalid resource claim name", func() {
-			claimName := "claim1"
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 					{
 						Name:              "../claim1",
-						ResourceClaimName: &claimName,
+						ResourceClaimName: pointer.P(claim1),
 					},
 				},
 			}
@@ -146,11 +225,10 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject an invalid resourceClaimName", func() {
-			claimName := "../claim1"
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					Name:              "claim1",
-					ResourceClaimName: &claimName,
+					Name:              claim1,
+					ResourceClaimName: pointer.P("../claim1"),
 				}},
 			}
 
@@ -159,11 +237,10 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject an invalid resourceClaimTemplateName", func() {
-			templateName := "../claim-template"
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					Name:                      "claim1",
-					ResourceClaimTemplateName: &templateName,
+					Name:                      claim1,
+					ResourceClaimTemplateName: pointer.P("../claim-template"),
 				}},
 			}
 
@@ -172,13 +249,11 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject when both claim sources are set", func() {
-			claimName := "claim1"
-			templateName := "template1"
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					Name:                      "claim1",
-					ResourceClaimName:         &claimName,
-					ResourceClaimTemplateName: &templateName,
+					Name:                      claim1,
+					ResourceClaimName:         pointer.P(claim1),
+					ResourceClaimTemplateName: pointer.P(template1),
 				}},
 			}
 
@@ -193,7 +268,7 @@ var _ = Describe("DRA Admitter", func() {
 		It("should reject when no claim source is set", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
-					Name: "claim1",
+					Name: claim1,
 				}},
 			}
 
@@ -206,61 +281,51 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
-	Context("non-DRA (device-plugin) GPUs", func() {
-		It("should accept a GPU with deviceName", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name:       "gpu1",
-							DeviceName: "vfio.gpu.example.com",
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+	DescribeTable("non-DRA device-plugin device with deviceName",
+		func(spec func() *v1.VirtualMachineInstanceSpec) {
+			causes := validateCreationDRA(field, spec(), checker)
 			Expect(causes).To(BeEmpty())
-		})
+		},
+		Entry("GPU",
+			func() *v1.VirtualMachineInstanceSpec {
+				return gpuSpec(nil, gpuWithDeviceName("gpu1", "vfio.gpu.example.com"))
+			},
+		),
+		Entry("HostDevice",
+			func() *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec(nil, hostDeviceWithDeviceName("hd1", "vfio.device.example.com"))
+			},
+		),
+	)
 
-		It("should reject a GPU with both deviceName and claimRequest", func() {
-			checker.gpuDRAEnabled = true
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name:       "gpu1",
-							DeviceName: "vfio.gpu.example.com",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+	DescribeTable("non-DRA device-plugin device with deviceName and claimRequest",
+		func(enableGate func(), spec func() *v1.VirtualMachineInstanceSpec, fieldPath string) {
+			enableGate()
+			causes := validateCreationDRA(field, spec(), checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("both deviceName and claimRequest"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus"))
-		})
-	})
+			Expect(causes[0].Field).To(Equal(fieldPath))
+		},
+		Entry("GPU",
+			func() { checker.gpuDRAEnabled = true },
+			func() *v1.VirtualMachineInstanceSpec {
+				return gpuSpec(nil, gpuWithDeviceNameAndClaimRequest("gpu1", "vfio.gpu.example.com", claimRequest(claim1, req1)))
+			},
+			"spec.domain.devices.gpus",
+		),
+		Entry("HostDevice",
+			func() { checker.hostDeviceDRAEnabled = true },
+			func() *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec(nil, hostDeviceWithDeviceNameAndClaimRequest("hd1", "vfio.device.example.com", claimRequest(claim1, req1)))
+			},
+			"spec.domain.devices.hostDevices",
+		),
+	)
 
 	Context("DRA GPUs with feature gate disabled", func() {
 		It("should reject DRA GPUs when the feature gate is off", func() {
 			checker.gpuDRAEnabled = false
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
+			spec := gpuSpec(nil, gpuWithClaimRequest("gpu1", claim1, req1))
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
@@ -268,73 +333,100 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
-	Context("DRA GPU field validation", func() {
-		BeforeEach(func() {
-			checker.gpuDRAEnabled = true
-		})
+	DescribeTable("DRA device with empty claimName",
+		func(enableGate func(), specForClaimRequest func(*v1.ClaimRequest) *v1.VirtualMachineInstanceSpec, fieldPrefix string) {
+			enableGate()
 
-		It("should reject when claimName is empty string", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+			causes := validateCreationDRA(field, specForClaimRequest(claimRequest("", req1)), checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
 			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].claimName"))
-		})
+			Expect(causes[0].Field).To(Equal(fieldPrefix + ".claimName"))
+		},
+		Entry("GPU",
+			func() { checker.gpuDRAEnabled = true },
+			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
+				return gpuSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.GPU{
+					Name:         "gpu1",
+					ClaimRequest: claimRequest,
+				})
+			},
+			"spec.domain.devices.gpus[0]",
+		),
+		Entry("HostDevice",
+			func() { checker.hostDeviceDRAEnabled = true },
+			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.HostDevice{
+					Name:         "hd1",
+					ClaimRequest: claimRequest,
+				})
+			},
+			"spec.domain.devices.hostDevices[0]",
+		),
+	)
 
-		It("should reject when requestName is empty string", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+	DescribeTable("DRA device with empty requestName",
+		func(enableGate func(), specForClaimRequest func(*v1.ClaimRequest) *v1.VirtualMachineInstanceSpec, fieldPrefix string) {
+			enableGate()
+
+			causes := validateCreationDRA(field, specForClaimRequest(claimRequest(claim1, "")), checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
 			Expect(causes[0].Message).To(ContainSubstring("requestName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].requestName"))
-		})
+			Expect(causes[0].Field).To(Equal(fieldPrefix + ".requestName"))
+		},
+		Entry("GPU",
+			func() { checker.gpuDRAEnabled = true },
+			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
+				return gpuSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.GPU{
+					Name:         "gpu1",
+					ClaimRequest: claimRequest,
+				})
+			},
+			"spec.domain.devices.gpus[0]",
+		),
+		Entry("HostDevice",
+			func() { checker.hostDeviceDRAEnabled = true },
+			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.HostDevice{
+					Name:         "hd1",
+					ClaimRequest: claimRequest,
+				})
+			},
+			"spec.domain.devices.hostDevices[0]",
+		),
+	)
 
-		It("should report two causes when both claimName and requestName are missing", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name:         "gpu1",
-							ClaimRequest: &v1.ClaimRequest{},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+	DescribeTable("DRA device with empty claimName and requestName",
+		func(enableGate func(), specForClaimRequest func(*v1.ClaimRequest) *v1.VirtualMachineInstanceSpec, fieldPrefix string) {
+			enableGate()
+
+			causes := validateCreationDRA(field, specForClaimRequest(&v1.ClaimRequest{}), checker)
 			Expect(causes).To(HaveLen(2))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[0].claimName"))
-			Expect(causes[1].Field).To(Equal("spec.domain.devices.gpus[0].requestName"))
-		})
-	})
+			Expect(causes[0].Field).To(Equal(fieldPrefix + ".claimName"))
+			Expect(causes[1].Field).To(Equal(fieldPrefix + ".requestName"))
+		},
+		Entry("GPU",
+			func() { checker.gpuDRAEnabled = true },
+			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
+				return gpuSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.GPU{
+					Name:         "gpu1",
+					ClaimRequest: claimRequest,
+				})
+			},
+			"spec.domain.devices.gpus[0]",
+		),
+		Entry("HostDevice",
+			func() { checker.hostDeviceDRAEnabled = true },
+			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.HostDevice{
+					Name:         "hd1",
+					ClaimRequest: claimRequest,
+				})
+			},
+			"spec.domain.devices.hostDevices[0]",
+		),
+	)
 
 	Context("resourceClaims cross-validation", func() {
 		BeforeEach(func() {
@@ -342,23 +434,13 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject duplicate names in spec.resourceClaims", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-					resourceClaim("claim1"),
-					resourceClaim("claim1"),
+			spec := gpuSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{
+					resourceClaim(claim1),
+					resourceClaim(claim1),
 				},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
+				gpuWithClaimRequest("gpu1", claim1, req1),
+			)
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
@@ -367,20 +449,10 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject when GPU claimName is not listed in spec.resourceClaims", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("other-claim")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
+			spec := gpuSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim("other-claim")},
+				gpuWithClaimRequest("gpu1", claim1, req1),
+			)
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("resourceClaims must specify all claims"))
@@ -388,29 +460,11 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject when one of multiple claims is missing from spec.resourceClaims", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{
-							{
-								Name: "gpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "gpu2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim2",
-									RequestName: "req2",
-								},
-							},
-						},
-					},
-				},
-			}
+			spec := gpuSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
+				gpuWithClaimRequest("gpu1", claim1, req1),
+				gpuWithClaimRequest("gpu2", claim2, req2),
+			)
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("resourceClaims must specify all claims"))
@@ -418,126 +472,92 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
-	Context("fully valid DRA GPU specs", func() {
-		BeforeEach(func() {
-			checker.gpuDRAEnabled = true
-		})
+	DescribeTable("valid and duplicate DRA device claimName/requestName pairs",
+		func(
+			enableGate func(),
+			singleSpec func() *v1.VirtualMachineInstanceSpec,
+			pairSpec func([]v1.VirtualMachineInstanceResourceClaim, string, string, string, string) *v1.VirtualMachineInstanceSpec,
+			duplicateField string,
+		) {
+			enableGate()
 
-		It("should accept a single valid DRA GPU", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+			causes := validateCreationDRA(field, singleSpec(), checker)
 			Expect(causes).To(BeEmpty())
-		})
 
-		It("should accept multiple valid DRA GPUs with matching resourceClaims", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-					resourceClaim("claim1"),
-					resourceClaim("claim2"),
-				},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{
-							{
-								Name: "gpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "gpu2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim2",
-									RequestName: "req2",
-								},
-							},
-						},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+			causes = validateCreationDRA(field, pairSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1), resourceClaim(claim2)},
+				claim1,
+				req1,
+				claim2,
+				req2,
+			), checker)
 			Expect(causes).To(BeEmpty())
-		})
-	})
 
-	Context("duplicate claimName/requestName pairs for GPUs", func() {
-		BeforeEach(func() {
-			checker.gpuDRAEnabled = true
-		})
-
-		It("should reject two GPUs referencing the same claimName/requestName pair", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{
-							{
-								Name: "gpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "gpu2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-						},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+			causes = validateCreationDRA(field, pairSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
+				claim1,
+				req1,
+				claim1,
+				req1,
+			), checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
 			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus[1]"))
-		})
+			Expect(causes[0].Field).To(Equal(duplicateField))
 
-		It("should accept two GPUs referencing the same claim but different requests", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{
-							{
-								Name: "gpu1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "gpu2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req2",
-								},
-							},
-						},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
+			causes = validateCreationDRA(field, pairSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
+				claim1,
+				req1,
+				claim1,
+				req2,
+			), checker)
 			Expect(causes).To(BeEmpty())
-		})
-	})
+		},
+		Entry("GPU",
+			func() { checker.gpuDRAEnabled = true },
+			func() *v1.VirtualMachineInstanceSpec {
+				return gpuSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, gpuWithClaimRequest("gpu1", claim1, req1))
+			},
+			func(
+				resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+				firstClaim string,
+				firstRequest string,
+				secondClaim string,
+				secondRequest string,
+			) *v1.VirtualMachineInstanceSpec {
+				return gpuSpec(
+					resourceClaims,
+					gpuWithClaimRequest("gpu1", firstClaim, firstRequest),
+					gpuWithClaimRequest("gpu2", secondClaim, secondRequest),
+				)
+			},
+			"spec.domain.devices.gpus[1]",
+		),
+		Entry("HostDevice",
+			func() { checker.hostDeviceDRAEnabled = true },
+			func() *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec(
+					[]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
+					hostDeviceWithClaimRequest("hd1", claim1, req1),
+				)
+			},
+			func(
+				resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+				firstClaim string,
+				firstRequest string,
+				secondClaim string,
+				secondRequest string,
+			) *v1.VirtualMachineInstanceSpec {
+				return hostDeviceSpec(
+					resourceClaims,
+					hostDeviceWithClaimRequest("hd1", firstClaim, firstRequest),
+					hostDeviceWithClaimRequest("hd2", secondClaim, secondRequest),
+				)
+			},
+			"spec.domain.devices.hostDevices[1]",
+		),
+	)
 
 	Context("mixed DRA and non-DRA GPUs", func() {
 		It("should reject a VMI with both DRA and non-DRA GPUs", func() {
@@ -553,7 +573,7 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-gpu",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
+									ClaimName:   claim1,
 									RequestName: "req1",
 								},
 							},
@@ -576,7 +596,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index for duplicate when an invalid DRA GPU precedes it", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
@@ -587,14 +607,14 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "gpu-a",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
+									ClaimName:   claim1,
 									RequestName: "req1",
 								},
 							},
 							{
 								Name: "gpu-dup",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
+									ClaimName:   claim1,
 									RequestName: "req1",
 								},
 							},
@@ -606,10 +626,10 @@ var _ = Describe("DRA Admitter", func() {
 
 			var claimNameCause, dupCause *metav1.StatusCause
 			for i := range causes {
-				switch causes[i].Type {
-				case metav1.CauseTypeFieldValueRequired:
+				if causes[i].Type == metav1.CauseTypeFieldValueRequired {
 					claimNameCause = &causes[i]
-				case metav1.CauseTypeFieldValueDuplicate:
+				}
+				if causes[i].Type == metav1.CauseTypeFieldValueDuplicate {
 					dupCause = &causes[i]
 				}
 			}
@@ -622,133 +642,14 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
-	Context("non-DRA (device-plugin) HostDevices", func() {
-		It("should accept a HostDevice with deviceName", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name:       "hd1",
-							DeviceName: "vfio.device.example.com",
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(BeEmpty())
-		})
-
-		It("should reject a HostDevice with both deviceName and claimRequest", func() {
-			checker.hostDeviceDRAEnabled = true
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name:       "hd1",
-							DeviceName: "vfio.device.example.com",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("both deviceName and claimRequest"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices"))
-		})
-	})
-
 	Context("DRA HostDevices with feature gate disabled", func() {
 		It("should reject DRA HostDevices when the feature gate is off", func() {
 			checker.hostDeviceDRAEnabled = false
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
+			spec := hostDeviceSpec(nil, hostDeviceWithClaimRequest("hd1", claim1, req1))
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
 			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices"))
-		})
-	})
-
-	Context("DRA HostDevice field validation", func() {
-		BeforeEach(func() {
-			checker.hostDeviceDRAEnabled = true
-		})
-
-		It("should reject when claimName is empty string", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
-			Expect(causes[0].Message).To(ContainSubstring("claimName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0].claimName"))
-		})
-
-		It("should reject when requestName is empty string", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
-			Expect(causes[0].Message).To(ContainSubstring("requestName is required"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0].requestName"))
-		})
-
-		It("should report two causes when both claimName and requestName are missing", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name:         "hd1",
-							ClaimRequest: &v1.ClaimRequest{},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(2))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[0].claimName"))
-			Expect(causes[1].Field).To(Equal("spec.domain.devices.hostDevices[0].requestName"))
 		})
 	})
 
@@ -758,20 +659,10 @@ var _ = Describe("DRA Admitter", func() {
 		})
 
 		It("should reject when HostDevice claimName is not listed in spec.resourceClaims", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("other-claim")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
+			spec := hostDeviceSpec(
+				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim("other-claim")},
+				hostDeviceWithClaimRequest("hd1", claim1, req1),
+			)
 			causes := validateCreationDRA(field, spec, checker)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("resourceClaims must specify all claims"))
@@ -779,132 +670,11 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
-	Context("fully valid DRA HostDevice specs", func() {
-		BeforeEach(func() {
-			checker.hostDeviceDRAEnabled = true
-		})
-
-		It("should accept a single valid DRA HostDevice", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{{
-							Name: "hd1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(BeEmpty())
-		})
-
-		It("should accept multiple valid DRA HostDevices with matching resourceClaims", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-					resourceClaim("claim1"),
-					resourceClaim("claim2"),
-				},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{
-							{
-								Name: "hd1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "hd2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim2",
-									RequestName: "req2",
-								},
-							},
-						},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(BeEmpty())
-		})
-	})
-
-	Context("duplicate claimName/requestName pairs for HostDevices", func() {
-		BeforeEach(func() {
-			checker.hostDeviceDRAEnabled = true
-		})
-
-		It("should reject two HostDevices referencing the same claimName/requestName pair", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{
-							{
-								Name: "hd1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "hd2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-						},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
-			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices[1]"))
-		})
-
-		It("should accept two HostDevices referencing the same claim but different requests", func() {
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{
-							{
-								Name: "hd1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req1",
-								},
-							},
-							{
-								Name: "hd2",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
-									RequestName: "req2",
-								},
-							},
-						},
-					},
-				},
-			}
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(BeEmpty())
-		})
-	})
-
 	Context("mixed DRA and non-DRA HostDevices", func() {
 		It("should accept a VMI with both DRA and non-DRA HostDevices", func() {
 			checker.hostDeviceDRAEnabled = true
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -915,7 +685,7 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
+									ClaimName:   claim1,
 									RequestName: "req1",
 								},
 							},
@@ -935,7 +705,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index when non-DRA devices precede a DRA device with missing claimName", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -960,7 +730,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index for duplicate when non-DRA devices are interspersed", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -971,7 +741,7 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd-a",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
+									ClaimName:   claim1,
 									RequestName: "req1",
 								},
 							},
@@ -982,7 +752,7 @@ var _ = Describe("DRA Admitter", func() {
 							{
 								Name: "dra-hd-dup",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   "claim1",
+									ClaimName:   claim1,
 									RequestName: "req1",
 								},
 							},
@@ -999,7 +769,7 @@ var _ = Describe("DRA Admitter", func() {
 
 		It("should report correct index for invalid DRA HostDevice after non-DRA devices", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
@@ -1150,13 +920,13 @@ var _ = Describe("DRA Admitter", func() {
 		It("ValidateCreation should delegate to validateCreationDRA", func() {
 			checker.gpuDRAEnabled = true
 			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim("claim1")},
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
+								ClaimName:   claim1,
 								RequestName: "req1",
 							},
 						}},
@@ -1176,7 +946,7 @@ var _ = Describe("DRA Admitter", func() {
 						GPUs: []v1.GPU{{
 							Name: "gpu1",
 							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "claim1",
+								ClaimName:   claim1,
 								RequestName: "req1",
 							},
 						}},
