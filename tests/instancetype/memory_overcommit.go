@@ -1,4 +1,4 @@
-//nolint:lll,gomnd
+//nolint:lll
 package instancetype
 
 import (

@@ -9,7 +9,7 @@ import (
 )
 
 func IsNil(actual interface{}) bool {
-	return actual == nil || (reflect.ValueOf(actual).Kind() == reflect.Ptr && reflect.ValueOf(actual).IsNil())
+	return actual == nil || (reflect.ValueOf(actual).Kind() == reflect.Pointer && reflect.ValueOf(actual).IsNil())
 }
 
 func IsSlice(actual interface{}) bool {
@@ -26,7 +26,7 @@ func IsStruct(actual interface{}) bool {
 // provided value is not already a pointer. if the original value is already a pointer it gets
 // returned directly.
 func ToPointer(actual interface{}) interface{} {
-	if reflect.ValueOf(actual).Kind() != reflect.Ptr {
+	if reflect.ValueOf(actual).Kind() != reflect.Pointer {
 		p := reflect.New(reflect.TypeOf(actual))
 		p.Elem().Set(reflect.ValueOf(actual))
 		actual = p.Interface()
@@ -36,7 +36,7 @@ func ToPointer(actual interface{}) interface{} {
 
 func DeferPointer(actual interface{}) interface{} {
 	value := reflect.ValueOf(actual)
-	if value.Kind() == reflect.Ptr {
+	if value.Kind() == reflect.Pointer {
 		actual = value.Elem()
 	}
 	return actual
