@@ -156,6 +156,8 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	if err := domcfg.Unmarshal(xmlstr); err != nil {
 		return "", err
 	}
+	// TODO: Once LibvirtHooksServerAndClient feature gate is GA, remove
+	// convertDisks, replaced by DiskSourcePathHook on the target.
 	if err = convertDisks(domSpec, domcfg); err != nil {
 		return "", err
 	}
@@ -767,6 +769,8 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
+	// TODO: Once LibvirtHooksServerAndClient feature gate is GA, remove
+	// updateFilePathsToNewDomain, replaced by DiskSourcePathHook on the target.
 	updateFilePathsToNewDomain(vmi, domSpec)
 	xmlstr, err := migratableDomXML(dom, vmi, domSpec)
 	if err != nil {
