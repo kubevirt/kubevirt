@@ -241,6 +241,13 @@ const (
 	// Plugins enables the Plugin CRD for declarative VM extension
 	// via domain hooks, node hooks, and admission references (VEP-190).
 	PluginsGate = "Plugins"
+
+	// Owner: @lyarwood
+	// Alpha: v1.9.0
+	//
+	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
+	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
+	FirmwareAutoSelection = "FirmwareAutoSelection"
 )
 
 func init() {
@@ -287,4 +294,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 }
