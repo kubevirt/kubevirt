@@ -146,7 +146,7 @@ func (er *execReader) Read(p []byte) (int, error) {
 	if err == io.EOF {
 		if err2 := er.cmd.Wait(); err2 != nil {
 			errBytes, _ := io.ReadAll(er.stderr)
-			log.Log.Reason(err2).Errorf("Subprocess did not execute successfully, result is: %q\n%s", er.cmd.ProcessState.ExitCode(), string(errBytes))
+			log.Log.Reason(err2).Errorf("Subprocess did not execute successfully, result is: %d\n%s", er.cmd.ProcessState.ExitCode(), string(errBytes))
 			return n, err2
 		}
 	}
