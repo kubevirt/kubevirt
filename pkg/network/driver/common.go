@@ -38,6 +38,7 @@ const (
 
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
+	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 }
@@ -46,6 +47,10 @@ type NetworkUtilsHandler struct{}
 
 func (h *NetworkUtilsHandler) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
+}
+
+func (h *NetworkUtilsHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	return netlink.AddrList(link, family)
 }
 func (h *NetworkUtilsHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
 	link, err := h.LinkByName(interfaceName)
