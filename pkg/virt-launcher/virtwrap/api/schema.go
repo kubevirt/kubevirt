@@ -54,6 +54,10 @@ const (
 	Shutoff     LifeCycle = "Shutoff"
 	Crashed     LifeCycle = "Crashed"
 	PMSuspended LifeCycle = "PMSuspended"
+	// Unknown indicates the domain exists but its launcher is temporarily
+	// unreachable (e.g. during NFS failover). Prevents spurious deletions
+	// during informer re-lists.
+	Unknown LifeCycle = "Unknown"
 
 	// Common reasons
 	ReasonUnknown StateChangeReason = "Unknown"
