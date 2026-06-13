@@ -549,9 +549,11 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		})
 	})
 
-	Context("VM guest panic metrics", decorators.RequiresAMD64, func() {
-		It("should increment kubevirt_vmi_guest_os_panic_total when a guest OS panics", func() {
+	Context("VM guest panic metrics and alert", decorators.RequiresAMD64, func() {
+		It("should increment kubevirt_vmi_guest_os_panic_total and fire VMPVPanicReboot when a guest OS panics", func() {
 			virtClient := kubevirt.Client()
+
+			libmonitoring.ReduceAlertPendingTime(virtClient)
 
 			By("creating a Fedora VMI with ISA panic device")
 			vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(v1.Isa))
@@ -578,6 +580,9 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				"name":      vmi.Name,
 			}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_guest_os_panic_total", labels, 1, ">=", 1)
+
+			By("waiting for VMPVPanicReboot alert")
+			libmonitoring.VerifyAlertExist(virtClient, "VMPVPanicReboot")
 		})
 	})
 })

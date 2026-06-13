@@ -1885,3 +1885,28 @@ tests:
       - eval_time: 60m
         alertname: LowVirtOperatorCount
         exp_alerts: []
+
+  # VM PV panic reboot
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_guest_os_panic_total{namespace="test", name="vm-01", type="unknown", bugcheck_code="unknown"}'
+        values: '0 0 1 1 1 1 1'
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: VMPVPanicReboot
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: VMPVPanicReboot
+        exp_alerts:
+          - exp_annotations:
+              summary: "VM vm-01 in namespace test experienced a guest OS panic"
+              description: "The VM has experienced 1 guest OS panic(s) in the last 24 hours."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VMPVPanicReboot"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              namespace: "test"
+              name: "vm-01"

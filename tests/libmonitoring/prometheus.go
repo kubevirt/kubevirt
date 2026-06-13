@@ -51,7 +51,7 @@ var (
 		fmt.Sprintf(`Forwarding from 127\.0\.0\.1:(\d+) -> %d`, prometheusPortForwardTargetPort),
 	)
 
-	alertRangeVectorRe = regexp.MustCompile(`\[\d+m\]`)
+	alertRangeVectorRe = regexp.MustCompile(`\[\d+[mhd]\]`)
 )
 
 type AlertRequestResult struct {
