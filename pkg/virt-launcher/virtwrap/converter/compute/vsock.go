@@ -23,14 +23,23 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
+	"kubevirt.io/kubevirt/pkg/vsock"
 )
 
-type VSOCKDomainConfigurator struct{}
+type vsockDomainConfigurator struct {
+	isLocalMode bool
+}
 
-func (v VSOCKDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (v vsockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	vsockCID := vmi.Status.VSOCKCID
 	if vsockCID == nil {
 		return nil
+	}
+
+	cid := *vsockCID
+	if v.isLocalMode {
+		cid = vsock.LocalCID
 	}
 
 	domain.Spec.Devices.VSOCK = &api.VSOCK{
@@ -39,9 +48,13 @@ func (v VSOCKDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 		Model: "virtio-non-transitional",
 		CID: api.CID{
 			Auto:    "no",
-			Address: *vsockCID,
+			Address: cid,
 		},
 	}
 
 	return nil
+}
+
+func NewVSOCKDomainConfigurator(isLocalMode bool) types.Configurator {
+	return vsockDomainConfigurator{isLocalMode: isLocalMode}
 }
