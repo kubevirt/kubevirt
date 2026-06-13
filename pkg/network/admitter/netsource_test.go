@@ -20,9 +20,12 @@
 package admitter_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 
@@ -309,5 +312,86 @@ var _ = Describe("Validate network source", func() {
 		)
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject NAD name exceeding maximum length", func() {
+		longNADName := strings.Repeat("z", 171)
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: longNADName}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(causes[0].Field).To(Equal("fake.networks[0].multus.networkName"))
+		Expect(causes[0].Message).To(ContainSubstring("exceeds maximum length of 170 characters"))
+		Expect(causes[0].Message).To(ContainSubstring("Multus cache filename limitations"))
+	})
+
+	It("should reject NAD name with namespace/name format when name exceeds maximum length", func() {
+		longNADName := "default/" + strings.Repeat("z", 171)
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: longNADName}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(causes[0].Message).To(ContainSubstring("exceeds maximum length of 170 characters"))
+	})
+
+	It("should accept NAD name at exactly maximum length", func() {
+		nadNameAtLimit := strings.Repeat("z", 170)
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: nadNameAtLimit}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should accept NAD name with namespace/name format when name is within limit", func() {
+		nadName := "default/" + strings.Repeat("z", 170)
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: nadName}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject multiple NADs when one exceeds maximum length", func() {
+		longNADName := strings.Repeat("z", 200)
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			{Name: "net1", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		}
+		spec.Networks = []v1.Network{
+			{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "valid-nad"}}},
+			{Name: "net1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: longNADName}}},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Field).To(Equal("fake.networks[1].multus.networkName"))
+		Expect(causes[0].Message).To(ContainSubstring("exceeds maximum length"))
 	})
 })
