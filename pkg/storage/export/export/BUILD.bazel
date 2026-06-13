@@ -26,6 +26,7 @@ go_library(
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/net/dns:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",

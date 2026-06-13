@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"github.com/openshift/library-go/pkg/build/naming"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	backupapi "kubevirt.io/api/backup"
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
@@ -54,6 +56,7 @@ import (
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
 	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -859,6 +862,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		fullBackup = waitBackupExportReady(virtClient, fullBackup.Namespace, fullBackup.Name)
 		verifyPullEndpoints(virtClient, fullBackup, fullBackup.Status.Type, tokenValue)
+		verifyExportPodAffinity(virtClient, fullBackup, vm)
 
 		By("Deleting the Full Backup to finalize the libvirt job and persist the checkpoint")
 		deleteVMBackup(virtClient, vm.Namespace, fullBackup.Name)
@@ -885,6 +889,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		incBackup = waitBackupExportReady(virtClient, incBackup.Namespace, incBackup.Name)
 		verifyPullEndpoints(virtClient, incBackup, incBackup.Status.Type, tokenValue)
+		verifyExportPodAffinity(virtClient, incBackup, vm)
 	})
 
 	It("Pull mode backup data integrity and export immutability", func() {
@@ -1797,6 +1802,94 @@ func verifyPullEndpointsWithDataCheck(virtClient kubecli.KubevirtClient, vmbacku
 
 	err = virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Delete(context.Background(), caConfigMap.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
+}
+
+// verifyExportPodAffinity verifies that the VMExport pod has proper affinity
+// to co-locate with the virt-launcher pod when CBT is enabled
+func verifyExportPodAffinity(virtClient kubecli.KubevirtClient, vmbackup *backupv1.VirtualMachineBackup, vm *v1.VirtualMachine) {
+	By("Verifying VMExport pod has affinity to co-locate with virt-launcher")
+
+	// Get the VMExport (same name as backup)
+	vmExport, err := virtClient.VirtualMachineExport(vmbackup.Namespace).Get(
+		context.Background(),
+		vmbackup.Name,
+		metav1.GetOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(vmExport).ToNot(BeNil())
+
+	// Construct the export pod name using the same naming logic as the controller
+	exportPodName := naming.GetName("virt-export", vmExport.Name, validation.DNS1035LabelMaxLength)
+
+	// Get the export exportPod
+	exportPod, err := virtClient.CoreV1().Pods(vmbackup.Namespace).Get(
+		context.Background(),
+		exportPodName,
+		metav1.GetOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(exportPod).ToNot(BeNil())
+
+	// Verify affinity is set
+	Expect(exportPod.Spec.Affinity).ToNot(BeNil(), "Pod affinity should be set when CBT is enabled")
+	Expect(exportPod.Spec.Affinity.PodAffinity).ToNot(BeNil(), "Pod affinity should include PodAffinity")
+	Expect(exportPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(
+		HaveLen(1),
+		"Should have exactly one required pod affinity term",
+	)
+
+	affinityTerm := exportPod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
+
+	// Verify topology key
+	Expect(affinityTerm.TopologyKey).To(
+		Equal("kubernetes.io/hostname"),
+		"Affinity should use hostname topology key for node co-location",
+	)
+
+	// Verify label selector
+	Expect(affinityTerm.LabelSelector).ToNot(BeNil())
+	Expect(affinityTerm.LabelSelector.MatchLabels).To(
+		HaveKeyWithValue(v1.AppLabel, "virt-launcher"),
+		"Should match virt-launcher pods",
+	)
+
+	// Get the sanitized VM name (what virt-launcher pod uses)
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(
+		context.Background(),
+		vm.Name,
+		metav1.GetOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	// The virt-launcher pod label uses dns.SanitizeHostname logic
+	expectedVMName := dns.SanitizeHostname(vmi)
+
+	Expect(affinityTerm.LabelSelector.MatchLabels).To(
+		HaveKeyWithValue(v1.DeprecatedVirtualMachineNameLabel, expectedVMName),
+		"Should match the sanitized VM name",
+	)
+
+	// Verify the pods are actually on the same node
+	By("Verifying export pod is scheduled on the same node as virt-launcher")
+	// Find the virt-launcher pod using label selector
+	vmiPods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(
+		context.Background(),
+		metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=virt-launcher,%s=%s",
+				v1.AppLabel,
+				v1.CreatedByLabel,
+				string(vmi.UID),
+			),
+		},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(vmiPods.Items).To(HaveLen(1), "Should find exactly one virt-launcher pod for the VMI")
+
+	vmiPod := &vmiPods.Items[0]
+	Expect(exportPod.Spec.NodeName).To(
+		Equal(vmiPod.Spec.NodeName),
+		"Export pod should be on the same node as virt-launcher pod",
+	)
 }
 
 func withCloudInitNoCloudDummy() libvmi.VMOption {

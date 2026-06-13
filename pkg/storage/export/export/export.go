@@ -345,6 +345,7 @@ type VMExportController struct {
 	ClusterPreferenceInformer   cache.SharedIndexInformer
 	ControllerRevisionInformer  cache.SharedIndexInformer
 	VMBackupInformer            cache.SharedIndexInformer
+	VMBackupTrackerInformer     cache.SharedIndexInformer
 	BackupCAConfigMapInformer   cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
@@ -536,6 +537,7 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.ClusterPreferenceInformer.HasSynced,
 		ctrl.ControllerRevisionInformer.HasSynced,
 		ctrl.VMBackupInformer.HasSynced,
+		ctrl.VMBackupTrackerInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -706,7 +708,11 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if err != nil || !exists {
 			return 0, fmt.Errorf("could not obtain VirtualMachineBackup tunnel CA: %w", err)
 		}
-		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, caCert))
+		sanitizedVMName, err := ctrl.getBackupSourceName(vmBackup)
+		if err != nil {
+			return 0, err
+		}
+		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, caCert, sanitizedVMName))
 	}
 
 	return 0, nil
