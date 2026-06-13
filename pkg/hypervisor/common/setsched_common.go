@@ -1,5 +1,3 @@
-//go:build (linux && amd64) || (linux && arm64) || (linux && s390x)
-
 /*
  * This file is part of the KubeVirt project
  *
@@ -21,16 +19,24 @@
 
 package common
 
-import (
-	"unsafe"
-
-	"golang.org/x/sys/unix"
-)
-
-func SchedSetScheduler(pid int, policy policy, param SchedParam) error {
-	_, _, e1 := unix.Syscall(unix.SYS_SCHED_SETSCHEDULER, uintptr(pid), uintptr(policy), uintptr(unsafe.Pointer(&param)))
-	if e1 != 0 {
-		return e1
-	}
-	return nil
+// SchedParam represents the Linux sched_param struct:
+//
+//	struct sched_param {
+//	   int sched_priority;
+//	};
+//
+// Ref: https://github.com/torvalds/linux/blob/c2bf05db6c78f53ca5cd4b48f3b9b71f78d215f1/include/uapi/linux/sched/types.h#L7-L9
+type SchedParam struct {
+	Priority int
 }
+
+type policy uint32
+
+const (
+	// SchedFIFO represents the Linux SCHED_FIFO scheduling policy ID:
+	//
+	// #define SCHED_FIFO		1
+	//
+	// Ref: https://github.com/torvalds/linux/blob/c2bf05db6c78f53ca5cd4b48f3b9b71f78d215f1/include/uapi/linux/sched.h#L115
+	SchedFIFO policy = 1
+)

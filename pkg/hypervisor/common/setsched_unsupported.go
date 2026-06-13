@@ -1,4 +1,4 @@
-//go:build (linux && amd64) || (linux && arm64) || (linux && s390x)
+//go:build !((linux && amd64) || (linux && arm64) || (linux && s390x))
 
 /*
  * This file is part of the KubeVirt project
@@ -21,16 +21,11 @@
 
 package common
 
-import (
-	"unsafe"
+import "errors"
 
-	"golang.org/x/sys/unix"
-)
+// ErrUnsupportedRTScheduling indicates real-time scheduling is unavailable on the current platform.
+var ErrUnsupportedRTScheduling = errors.New("real-time scheduling not supported on this platform")
 
 func SchedSetScheduler(pid int, policy policy, param SchedParam) error {
-	_, _, e1 := unix.Syscall(unix.SYS_SCHED_SETSCHEDULER, uintptr(pid), uintptr(policy), uintptr(unsafe.Pointer(&param)))
-	if e1 != 0 {
-		return e1
-	}
-	return nil
+	return ErrUnsupportedRTScheduling
 }
