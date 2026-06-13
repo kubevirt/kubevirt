@@ -56,10 +56,15 @@ add_feature_gate() {
 }
 
 export KUBEVIRT_DEPLOY_CDI=true
-if [[ ! $TARGET =~ .*kind.* ]]; then
+if [[ ! $TARGET =~ .*kind.* && ! $TARGET =~ .*emulated-igb.* ]]; then
   add_feature_gate "NodeRestriction"
   export KUBEVIRT_PSA="true"
 fi
+
+export KUBEVIRTCI_CONTAINER_SUFFIX=numa
+export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+export KUBEVIRTCI_CONTAINER_ORG=oshoval
+export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/oshoval/gocli:numa2
 
 case "$TARGET" in
   *windows*)
@@ -74,6 +79,16 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    ;;
+  *emulated-igb*)
+    export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
+    export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -sriov-link-state-enabled=false"
+    export KUBEVIRT_WITH_SRIOV=true
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_DEPLOY_CDI=false
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+    export KUBEVIRT_E2E_PARALLEL=false
+    export KUBEVIRT_NUM_NUMA_NODES=2
     ;;
   *sig-storage*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
@@ -163,7 +178,7 @@ if [ ! -d "kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   exit 1
 fi
 
-if [[ $TARGET =~ sriov.* ]]; then
+if [[ $TARGET =~ sriov.* ]] || [[ $TARGET =~ emulated-igb ]]; then
   if [[ $TARGET =~ kind.* ]]; then
     export KUBEVIRT_NUM_NODES=3
   fi
@@ -442,7 +457,7 @@ if [[ $TARGET =~ .*kind.* ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
   fi
 else
-  if [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
+  if [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]] || [[ $TARGET =~ emulated-igb ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
   fi
 fi
@@ -507,6 +522,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ windows.* ]]; then
     # Run only Windows tests
     label_filter='(Windows)'
+  elif [[ $TARGET =~ emulated-igb ]]; then
+    label_filter='(SRIOV)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
     # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)

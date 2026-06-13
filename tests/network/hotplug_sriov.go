@@ -88,6 +88,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 		BeforeEach(func() {
 			By("Creating a VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithMemoryRequest("512M"),
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
