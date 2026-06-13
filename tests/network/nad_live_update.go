@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -147,15 +148,19 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 	})
 
 	It("should modify VM network", func() {
+		const ifaceName = "net1"
+
+		vmi, err := kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		ifaceInfoBeforeUpdate := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, ifaceName)
+		Expect(ifaceInfoBeforeUpdate).NotTo(BeNil())
+
 		vm, err := kubevirt.Client().VirtualMachine(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		err = updateNADNameAndRemoveAffinityRules(vm, targetNAD)
 		Expect(err).NotTo(HaveOccurred())
-
-		var vmi *v1.VirtualMachineInstance
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for migration condition to appear and disappear")
 		Eventually(matcher.ThisVMI(vmi)).
@@ -181,6 +186,13 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 				Not(BeEmpty()),
 				Not(Equal(sourceNodeName)),
 			))
+
+		By("Verifying guest interface properties remain unchanged after update")
+		ifaceInfoAfterUpdate := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, ifaceName)
+		Expect(ifaceInfoAfterUpdate).NotTo(BeNil())
+
+		Expect(ifaceInfoAfterUpdate.InterfaceName).To(Equal(ifaceInfoBeforeUpdate.InterfaceName))
+		Expect(ifaceInfoAfterUpdate.MAC).To(Equal(ifaceInfoBeforeUpdate.MAC))
 
 		targetNode := vmi.Status.NodeName
 
