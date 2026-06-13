@@ -345,9 +345,27 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		return err
 	}
 
+	// Build set of volumes currently in spec so we can skip mounting
+	// volumes that have been removed. Without this check, Mount() recreates
+	// block devices for removed volumes on every reconcile cycle, preventing
+	// Unmount() from cleaning them up and causing a deadlock where the
+	// volume phase never advances past VolumeReady/MountedToPod.
+	specVolumes := make(map[string]struct{})
+	for i := range vmi.Spec.Volumes {
+		specVolumes[vmi.Spec.Volumes[i].Name] = struct{}{}
+	}
+	for i := range vmi.Spec.UtilityVolumes {
+		specVolumes[vmi.Spec.UtilityVolumes[i].Name] = struct{}{}
+	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
+			continue
+		}
+
+		if _, inSpec := specVolumes[volumeStatus.Name]; !inSpec {
+			log.Log.Object(vmi).V(3).Infof("Skipping mount for volume %s: no longer in VMI spec", volumeStatus.Name)
 			continue
 		}
 
