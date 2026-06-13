@@ -24,6 +24,7 @@ package nodelabeller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -345,6 +346,54 @@ var _ = Describe("Node-labeller ", func() {
 
 		recorder := nlController.recorder.(*record.FakeRecorder)
 		Expect(recorder.Events).To(Receive(ContainSubstring("in ObsoleteCPUModels")))
+	})
+
+	It("should remove cpu model label when model is added to ObsoleteCPUModels", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.CPUModelLabel + "Penryn"))
+		fakeNodeStore.Update(node)
+
+		nlController.clusterConfig.GetConfig().ObsoleteCPUModels["Penryn"] = true
+		nlController.queue.Add(nodeName)
+
+		res = nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node = retrieveNode(kubeClient)
+		Expect(node.Labels).ToNot(HaveKey(v1.CPUModelLabel + "Penryn"))
+	})
+
+	It("should remove all cpu model and migration labels when all models are obsolete", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)))
+		Expect(node.Labels).To(HaveKey(HavePrefix(v1.SupportedHostModelMigrationCPU)))
+		fakeNodeStore.Update(node)
+
+		obsolete := nlController.clusterConfig.GetConfig().ObsoleteCPUModels
+		for key := range node.Labels {
+			if strings.HasPrefix(key, v1.CPUModelLabel) {
+				obsolete[strings.TrimPrefix(key, v1.CPUModelLabel)] = true
+			}
+			if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) {
+				obsolete[strings.TrimPrefix(key, v1.SupportedHostModelMigrationCPU)] = true
+			}
+		}
+		nlController.queue.Add(nodeName)
+
+		res = nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node = retrieveNode(kubeClient)
+		for key := range node.Labels {
+			Expect(key).ToNot(HavePrefix(v1.CPUModelLabel))
+			Expect(key).ToNot(HavePrefix(v1.SupportedHostModelMigrationCPU))
+		}
 	})
 
 	It("should keep existing label that is not owned by node labeller", func() {

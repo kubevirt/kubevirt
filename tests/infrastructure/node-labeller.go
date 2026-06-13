@@ -98,19 +98,6 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		}
 	})
 
-	expectNodeLabels := func(nodeName string, labelValidation func(map[string]string) (valid bool, errorMsg string)) {
-		var errorMsg string
-
-		EventuallyWithOffset(1, func() (isValid bool) {
-			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			isValid, errorMsg = labelValidation(node.Labels)
-
-			return isValid
-		}, 30*time.Second, 2*time.Second).Should(BeTrue(), errorMsg)
-	}
-
 	Context("basic labeling", func() {
 		type patch struct {
 			Op    string            `json:"op"`
@@ -205,30 +192,6 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 		})
 
-		It("[test_id:6249] should update node with new cpu model label set", func() {
-			obsoleteModel := ""
-			node := nodesWithHypervisor[0]
-
-			kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
-			kvConfig.ObsoleteCPUModels = make(map[string]bool)
-
-			for key := range node.Labels {
-				if strings.Contains(key, v1.CPUModelLabel) {
-					obsoleteModel = strings.TrimPrefix(key, v1.CPUModelLabel)
-					kvConfig.ObsoleteCPUModels[obsoleteModel] = true
-					break
-				}
-			}
-
-			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-
-			labelKeyExpectedToBeMissing := v1.CPUModelLabel + obsoleteModel
-			expectNodeLabels(node.Name, func(m map[string]string) (valid bool, errorMsg string) {
-				_, exists := m[labelKeyExpectedToBeMissing]
-				return !exists, fmt.Sprintf("node %s is expected to not have label key %s", node.Name, labelKeyExpectedToBeMissing)
-			})
-		})
-
 		It("[test_id:6250] should update node with new cpu model vendor label", decorators.WgS390x, func() {
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -241,42 +204,6 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			}
 
 			Fail("No node contains label " + v1.CPUModelVendorLabel)
-		})
-
-		It("[test_id:6252] should remove all cpu model labels (all cpu model are in obsolete list)", func() {
-			node := nodesWithHypervisor[0]
-
-			obsoleteModels := map[string]bool{}
-			for k, v := range nodelabellerutil.DefaultObsoleteCPUModels {
-				obsoleteModels[k] = v
-			}
-
-			for key := range node.Labels {
-				if strings.Contains(key, v1.CPUModelLabel) {
-					obsoleteModels[strings.TrimPrefix(key, v1.CPUModelLabel)] = true
-				}
-				if strings.Contains(key, v1.SupportedHostModelMigrationCPU) {
-					obsoleteModels[strings.TrimPrefix(key, v1.SupportedHostModelMigrationCPU)] = true
-				}
-			}
-
-			kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
-			kvConfig.ObsoleteCPUModels = obsoleteModels
-			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-
-			expectNodeLabels(node.Name, func(m map[string]string) (valid bool, errorMsg string) {
-				found := false
-				label := ""
-				for key := range m {
-					if strings.Contains(key, v1.CPUModelLabel) || strings.Contains(key, v1.SupportedHostModelMigrationCPU) {
-						found = true
-						label = key
-						break
-					}
-				}
-
-				return !found, fmt.Sprintf("node %s should not contain any cpu model label, but contains %s", node.Name, label)
-			})
 		})
 	})
 
