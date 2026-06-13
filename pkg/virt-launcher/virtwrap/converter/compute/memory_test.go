@@ -73,6 +73,65 @@ var _ = Describe("Memory Domain Configurator", func() {
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
+	Context("memtune hard_limit for VFIO devices", func() {
+		const oneGiB = 1024 * 1024 * 1024
+
+		It("should not set MemTune when no VFIO devices are present", func() {
+			vmi := libvmi.New(libvmi.WithMemoryRequest("1Gi"))
+
+			domain := &api.Domain{}
+			configurator := compute.MemoryConfigurator{}
+			Expect(configurator.Configure(vmi, domain)).To(Succeed())
+			Expect(domain.Spec.MemTune).To(BeNil())
+		})
+
+		It("should set hard_limit for a single GPU", func() {
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("8Gi"),
+				libvmi.WithGPU(v1.GPU{Name: "gpu0", DeviceName: "nvidia.com/GH200"}),
+			)
+
+			domain := &api.Domain{}
+			configurator := compute.MemoryConfigurator{}
+			Expect(configurator.Configure(vmi, domain)).To(Succeed())
+
+			Expect(domain.Spec.MemTune).ToNot(BeNil())
+			Expect(domain.Spec.MemTune.HardLimit).ToNot(BeNil())
+			Expect(domain.Spec.MemTune.HardLimit.Value).To(Equal(uint64(1)*uint64(8*1024*1024*1024) + oneGiB))
+			Expect(domain.Spec.MemTune.HardLimit.Unit).To(Equal("b"))
+		})
+
+		It("should scale hard_limit by number of GPUs", func() {
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("8Gi"),
+				libvmi.WithGPU(v1.GPU{Name: "gpu0", DeviceName: "nvidia.com/GH200"}),
+				libvmi.WithGPU(v1.GPU{Name: "gpu1", DeviceName: "nvidia.com/GH200"}),
+			)
+
+			domain := &api.Domain{}
+			configurator := compute.MemoryConfigurator{}
+			Expect(configurator.Configure(vmi, domain)).To(Succeed())
+
+			Expect(domain.Spec.MemTune).ToNot(BeNil())
+			Expect(domain.Spec.MemTune.HardLimit.Value).To(Equal(uint64(2)*uint64(8*1024*1024*1024) + oneGiB))
+		})
+
+		It("should count GPUs and HostDevices together", func() {
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("8Gi"),
+				libvmi.WithGPU(v1.GPU{Name: "gpu0", DeviceName: "nvidia.com/GH200"}),
+				libvmi.WithHostDevice(v1.HostDevice{Name: "dev0", DeviceName: "example.com/device"}),
+			)
+
+			domain := &api.Domain{}
+			configurator := compute.MemoryConfigurator{}
+			Expect(configurator.Configure(vmi, domain)).To(Succeed())
+
+			Expect(domain.Spec.MemTune).ToNot(BeNil())
+			Expect(domain.Spec.MemTune.HardLimit.Value).To(Equal(uint64(2)*uint64(8*1024*1024*1024) + oneGiB))
+		})
+	})
+
 	Context("configure multiple memory fields", func() {
 		var guestMemory resource.Quantity = resource.MustParse("32Mi")
 		var maxGuestMemory resource.Quantity = resource.MustParse("128Mi")

@@ -222,6 +222,7 @@ type DomainSpec struct {
 	CurrentMemory  *Memory         `xml:"currentMemory,omitempty"`
 	MaxMemory      *MaxMemory      `xml:"maxMemory,omitempty"`
 	MemoryBacking  *MemoryBacking  `xml:"memoryBacking,omitempty"`
+	MemTune        *MemTune        `xml:"memtune,omitempty"`
 	OS             OS              `xml:"os"`
 	SysInfo        *SysInfo        `xml:"sysinfo,omitempty"`
 	Devices        Devices         `xml:"devices"`
@@ -564,6 +565,15 @@ type MemoryBacking struct {
 	Access       *MemoryBackingAccess `xml:"access,omitempty"`
 	Allocation   *MemoryAllocation    `xml:"allocation,omitempty"`
 	NoSharePages *NoSharePages        `xml:"nosharepages,omitempty"`
+}
+
+type MemTune struct {
+	HardLimit *MemTuneLimit `xml:"hard_limit,omitempty"`
+}
+
+type MemTuneLimit struct {
+	Value uint64 `xml:",chardata"`
+	Unit  string `xml:"unit,attr,omitempty"`
 }
 
 type MemoryAllocationMode string
