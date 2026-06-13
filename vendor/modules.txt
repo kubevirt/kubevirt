@@ -1414,11 +1414,11 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/trace
 # kubevirt.io/api v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/api
-## explicit; go 1.24.0
+## explicit; go 1.26.0
 # kubevirt.io/api v1.7.0 => ./staging/src/kubevirt.io/api
-## explicit; go 1.24.0
+## explicit; go 1.26.4
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
-## explicit; go 1.24.0
+## explicit; go 1.26.4
 # kubevirt.io/containerized-data-importer-api v1.64.0
 ## explicit; go 1.23.0
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
