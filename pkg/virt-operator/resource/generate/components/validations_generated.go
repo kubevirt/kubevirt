@@ -10104,7 +10104,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
         launchSecurity:
-          description: Optionally defines the LaunchSecurity to be used by the instancetype.
+          description: |-
+            Optionally defines the LaunchSecurity to be used by the instancetype.
+
+            Deprecated: Will be removed with v1beta2 or v1
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
@@ -10861,6 +10864,40 @@ var CRDsValidation map[string]string = map[string]string{
           description: PreferredArchitecture defines a prefeerred architecture for
             the VirtualMachine
           type: string
+        preferredLaunchSecurity:
+          description: Optionally defines the preferred LaunchSecurity
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
+                policy:
+                  description: |-
+                    Guest policy flags as defined in AMD SEV API specification.
+                    Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
+                  properties:
+                    encryptedState:
+                      description: |-
+                        SEV-ES is required.
+                        Defaults to false.
+                      type: boolean
+                  type: object
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
+              type: object
+          type: object
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string
@@ -21572,7 +21609,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
         launchSecurity:
-          description: Optionally defines the LaunchSecurity to be used by the instancetype.
+          description: |-
+            Optionally defines the LaunchSecurity to be used by the instancetype.
+
+            Deprecated: Will be removed with v1beta2 or v1
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
@@ -27208,6 +27248,40 @@ var CRDsValidation map[string]string = map[string]string{
           description: PreferredArchitecture defines a prefeerred architecture for
             the VirtualMachine
           type: string
+        preferredLaunchSecurity:
+          description: Optionally defines the preferred LaunchSecurity
+          properties:
+            sev:
+              description: AMD Secure Encrypted Virtualization (SEV).
+              properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
+                policy:
+                  description: |-
+                    Guest policy flags as defined in AMD SEV API specification.
+                    Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
+                  properties:
+                    encryptedState:
+                      description: |-
+                        SEV-ES is required.
+                        Defaults to false.
+                      type: boolean
+                  type: object
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
+              type: object
+          type: object
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string

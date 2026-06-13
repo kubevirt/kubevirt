@@ -50,4 +50,5 @@ func (a *vmiApplier) Apply(
 	applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
 	ApplyArchitecturePreferences(preferenceSpec, vmiSpec)
 	applyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
+	applyLaunchSecurityPreferences(preferenceSpec, vmiSpec)
 }

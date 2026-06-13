@@ -22001,7 +22001,7 @@
       "type": "string"
      },
      "launchSecurity": {
-      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.",
+      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.\n\nDeprecated: Will be removed with v1beta2 or v1",
       "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "memory": {
@@ -22419,6 +22419,10 @@
      "preferredArchitecture": {
       "description": "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
       "type": "string"
+     },
+     "preferredLaunchSecurity": {
+      "description": "Optionally defines the preferred LaunchSecurity",
+      "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "preferredSubdomain": {
       "description": "Subdomain of the VirtualMachineInstance",
