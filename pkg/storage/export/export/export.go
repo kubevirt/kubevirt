@@ -187,6 +187,9 @@ type exportSource interface {
 	ConfigurePod(pod *corev1.Pod)
 	ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string)
 	UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error)
+
+	// SupportsOCI returns whether OCI export is available for this source.
+	SupportsOCI() bool
 }
 
 type sourceVolumes struct {
@@ -346,6 +349,7 @@ type VMExportController struct {
 	ControllerRevisionInformer  cache.SharedIndexInformer
 	VMBackupInformer            cache.SharedIndexInformer
 	BackupCAConfigMapInformer   cache.SharedIndexInformer
+	VMTemplateInformer          cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
@@ -476,6 +480,18 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
+	if ctrl.VMTemplateInformer != nil {
+		_, err = ctrl.VMTemplateInformer.AddEventHandler(
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    ctrl.handleVMTemplate,
+				UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMTemplate(newObj) },
+				DeleteFunc: ctrl.handleVMTemplate,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
 	_, err = ctrl.VMBackupInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMBackup,
@@ -514,8 +530,7 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 	log.Log.Info("Starting export controller.")
 	defer log.Log.Info("Shutting down export controller.")
 
-	if !cache.WaitForCacheSync(
-		stopCh,
+	cacheSyncs := []cache.InformerSynced{
 		ctrl.VMExportInformer.HasSynced,
 		ctrl.PVCInformer.HasSynced,
 		ctrl.PodInformer.HasSynced,
@@ -536,7 +551,11 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.ClusterPreferenceInformer.HasSynced,
 		ctrl.ControllerRevisionInformer.HasSynced,
 		ctrl.VMBackupInformer.HasSynced,
-	) {
+	}
+	if ctrl.VMTemplateInformer != nil {
+		cacheSyncs = append(cacheSyncs, ctrl.VMTemplateInformer.HasSynced)
+	}
+	if !cache.WaitForCacheSync(stopCh, cacheSyncs...) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -690,6 +709,16 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 			return 0, fmt.Errorf("unexpected nil sourceVolumes")
 		}
 		return ctrl.handleSource(vmExport, NewVMSource(sourceVolumes))
+	}
+	if ctrl.isSourceVMTemplate(&vmExport.Spec) {
+		tpl, sourceVolumes, err := ctrl.getPVCFromSourceVMTemplate(vmExport)
+		if err != nil {
+			return 0, err
+		}
+		if sourceVolumes == nil {
+			return 0, fmt.Errorf("unexpected nil sourceVolumes")
+		}
+		return ctrl.handleSource(vmExport, NewVMTemplateSource(tpl, sourceVolumes))
 	}
 	if ctrl.isSourceBackup(&vmExport.Spec) {
 		vmBackup, err := ctrl.getVMBackupFromExport(vmExport)
@@ -1188,29 +1217,70 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	source.ConfigurePod(podManifest)
 
-	if vm, err := ctrl.getVmFromExport(vmExport); err != nil {
+	if err := ctrl.configureSourceManifest(vmExport, podManifest, service, source); err != nil {
 		return nil, err
-	} else if vm != nil {
-		if ctrl.clusterConfig.OCIExportEnabled() {
-			podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
-				Name:  "EXPORT_OCI_URI",
-				Value: ociPath,
-			})
-		}
-		if err := ctrl.createDataManifestAndAddToPod(vmExport, vm, podManifest, service); err != nil {
-			return nil, err
-		}
+	}
+
+	if ctrl.clusterConfig.OCIExportEnabled() && source.SupportsOCI() {
+		podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "EXPORT_OCI_URI",
+			Value: ociPath,
+		})
 	}
 
 	return podManifest, nil
 }
 
-func (ctrl *VMExportController) createDataManifestAndAddToPod(vmExport *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine, podManifest *corev1.Pod, service *corev1.Service) error {
-	vmManifestConfigMap, err := ctrl.createDataManifestConfigMap(vmExport, vm, service)
+// TODO: add ManifestData to exportSource interface, refactor other sources, and remove this helper again.
+func (ctrl *VMExportController) configureSourceManifest(vmExport *exportv1.VirtualMachineExport, podManifest *corev1.Pod, service *corev1.Service, source exportSource) error {
+	var (
+		key   string
+		data  []byte
+		extra map[string]string
+	)
+
+	switch {
+	case ctrl.isSourceVMTemplate(&vmExport.Spec):
+		tplSource, ok := source.(*VMTemplateSource)
+		if !ok {
+			return fmt.Errorf("expected source to be of type VMTemplateSource")
+		}
+		var err error
+		key, data, extra, err = tplSource.ManifestData()
+		if err != nil {
+			return err
+		}
+	default:
+		vm, err := ctrl.getVmFromExport(vmExport)
+		if err != nil {
+			return err
+		}
+		if vm != nil {
+			key = vmManifest
+			data, err = ctrl.generateVMDefinitionFromVm(vm)
+			if err != nil {
+				return err
+			}
+			extra, err = ctrl.extraVMData(vm)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if key != "" {
+		return ctrl.createManifestAndAddToPod(vmExport, key, data, podManifest, service, extra)
+	}
+
+	return nil
+}
+
+func (ctrl *VMExportController) createManifestAndAddToPod(vmExport *exportv1.VirtualMachineExport, manifestKey string, manifestBytes []byte, podManifest *corev1.Pod, service *corev1.Service, extraData map[string]string) error {
+	manifestConfigMap, err := ctrl.createManifestConfigMap(vmExport, manifestKey, manifestBytes, service, extraData)
 	if err != nil {
 		return err
 	}
-	cm, err := ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), vmManifestConfigMap, metav1.CreateOptions{})
+	cm, err := ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), manifestConfigMap, metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
@@ -1228,7 +1298,7 @@ func (ctrl *VMExportController) createDataManifestAndAddToPod(vmExport *exportv1
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: vmManifestConfigMap.Name,
+					Name: manifestConfigMap.Name,
 				},
 			},
 		},
@@ -1236,7 +1306,7 @@ func (ctrl *VMExportController) createDataManifestAndAddToPod(vmExport *exportv1
 	return nil
 }
 
-func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine, service *corev1.Service) (*corev1.ConfigMap, error) {
+func (ctrl *VMExportController) createManifestConfigMap(vmExport *exportv1.VirtualMachineExport, manifestKey string, manifestBytes []byte, service *corev1.Service, extraData map[string]string) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
 	data[internalHostKey] = fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
@@ -1262,37 +1332,42 @@ func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.V
 		}
 		data[externalCaConfigMapKey] = string(caCmBytes)
 	}
-	vmBytes, err := ctrl.generateVMDefinitionFromVm(vm)
-	if err != nil {
-		return nil, err
-	}
-	data[vmManifest] = string(vmBytes)
 
-	datavolumes, err := ctrl.generateDataVolumesFromVm(vm)
-	if err != nil {
-		return nil, err
-	}
-	for _, datavolume := range datavolumes {
-		if datavolume != nil {
-			dvBytes, err := json.Marshal(datavolume)
-			if err != nil {
-				return nil, err
-			}
-			data[fmt.Sprintf("dv-%s", datavolume.Name)] = string(dvBytes)
-		}
-	}
+	data[manifestKey] = string(manifestBytes)
 	data[exportNameKey] = vmExport.Name
-	res := &corev1.ConfigMap{
+
+	for k, v := range extraData {
+		data[k] = v
+	}
+
+	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: vm.Namespace,
+			Namespace: vmExport.Namespace,
 			Name:      ctrl.getVmManifestConfigMapName(vmExport),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmExport, exportGVK),
 			},
 		},
 		Data: data,
+	}, nil
+}
+
+func (ctrl *VMExportController) extraVMData(vm *virtv1.VirtualMachine) (map[string]string, error) {
+	datavolumes, err := ctrl.generateDataVolumesFromVm(vm)
+	if err != nil {
+		return nil, err
 	}
-	return res, nil
+	extra := make(map[string]string)
+	for _, datavolume := range datavolumes {
+		if datavolume != nil {
+			dvBytes, err := json.Marshal(datavolume)
+			if err != nil {
+				return nil, err
+			}
+			extra[fmt.Sprintf("dv-%s", datavolume.Name)] = string(dvBytes)
+		}
+	}
+	return extra, nil
 }
 
 func (ctrl *VMExportController) createExportCaConfigMap(ca, vmExportName string) *corev1.ConfigMap {

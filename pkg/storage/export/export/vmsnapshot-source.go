@@ -103,6 +103,10 @@ func (s *VMSnapshotSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport,
 	return 0, nil
 }
 
+func (s *VMSnapshotSource) SupportsOCI() bool {
+	return true
+}
+
 func (s *VMSnapshotSource) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport) error {
 	// Handle no volumes case
 	if !s.HasContent() {

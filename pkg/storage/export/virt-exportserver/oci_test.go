@@ -29,9 +29,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/virt-template-api/core/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -44,6 +47,9 @@ var _ = Describe("OCI export", func() {
 		testToken         = "foo"
 		testOCIURI        = "/export.oci.tar"
 		exportTokenHeader = "x-kubevirt-export-token"
+		testNs            = "test-ns"
+		sourcePVCName     = "source-pvc"
+		dvtName           = "my-dvt"
 	)
 
 	It("should register OCI endpoint when enabled", func() {
@@ -119,7 +125,7 @@ var _ = Describe("OCI export", func() {
 
 	It("should return 200 from readiness when OCI is ready", func() {
 		es := newTestServer(testToken)
-		builder := oci.NewBuilder([]byte("{}"), "amd64", nil)
+		builder := oci.NewVMBuilder([]byte("{}"), "amd64", nil)
 		Expect(builder.Prepare(context.Background())).To(Succeed())
 		es.ociBuilder = builder
 		es.Paths = &export.ServerPaths{}
@@ -166,7 +172,7 @@ var _ = Describe("OCI export", func() {
 		BeforeEach(func() {
 			vmi := libvmi.New(
 				libvmi.WithName(vmName),
-				libvmi.WithNamespace("test-ns"),
+				libvmi.WithNamespace(testNs),
 				libvmi.WithDataVolume("rootdisk", dvName),
 				libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(userData)),
 			)
@@ -234,6 +240,483 @@ var _ = Describe("OCI export", func() {
 			cloudVol := out.Spec.Template.Spec.Volumes[len(out.Spec.Template.Spec.Volumes)-1]
 			Expect(cloudVol.CloudInitNoCloud).ToNot(BeNil())
 			Expect(cloudVol.CloudInitNoCloud.UserData).To(Equal(userData))
+		})
+	})
+
+	Context("prepareVMTemplateConfig", func() {
+		const (
+			tplName = "test-template"
+		)
+
+		createTemplate := func(arch string) *v1alpha1.VirtualMachineTemplate {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Architecture: arch,
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			return &v1alpha1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            tplName,
+					Namespace:       testNs,
+					UID:             "uid-123",
+					ResourceVersion: "99",
+					Generation:      5,
+					ManagedFields:   []metav1.ManagedFieldsEntry{{Manager: "m"}},
+					OwnerReferences: []metav1.OwnerReference{{Name: "owner"}},
+					Finalizers:      []string{"f"},
+				},
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+					Parameters: []v1alpha1.Parameter{
+						{Name: "VM_NAME", Value: "my-vm"},
+					},
+					Message: "test message",
+				},
+				Status: v1alpha1.VirtualMachineTemplateStatus{
+					Conditions: []metav1.Condition{{Type: v1alpha1.ConditionReady, Status: metav1.ConditionTrue}},
+				},
+			}
+		}
+
+		It("should strip cluster-specific fields", func() {
+			tpl := createTemplate("amd64")
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+			Expect(out.Namespace).To(BeEmpty())
+			Expect(string(out.UID)).To(BeEmpty())
+			Expect(out.ResourceVersion).To(BeEmpty())
+			Expect(out.Generation).To(BeZero())
+			Expect(out.ManagedFields).To(BeNil())
+			Expect(out.OwnerReferences).To(BeNil())
+			Expect(out.Finalizers).To(BeNil())
+			Expect(out.Status).To(Equal(v1alpha1.VirtualMachineTemplateStatus{}))
+		})
+
+		It("should set APIVersion and Kind", func() {
+			tpl := createTemplate("amd64")
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+			Expect(out.APIVersion).To(Equal(v1alpha1.GroupVersion.String()))
+			Expect(out.Kind).To(Equal("VirtualMachineTemplate"))
+		})
+
+		It("should preserve parameters and message", func() {
+			tpl := createTemplate("amd64")
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+			Expect(out.Spec.Parameters).To(HaveLen(1))
+			Expect(out.Spec.Parameters[0].Name).To(Equal("VM_NAME"))
+			Expect(out.Spec.Message).To(Equal("test message"))
+		})
+
+		It("should preserve the embedded VirtualMachine RawExtension", func() {
+			tpl := createTemplate("amd64")
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+			Expect(out.Spec.VirtualMachine).ToNot(BeNil())
+			Expect(out.Spec.VirtualMachine.Raw).ToNot(BeEmpty())
+		})
+
+		It("should rewrite DataVolume volume sources to PVC sources in embedded VM", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Volumes: []virtv1.Volume{
+								{
+									Name: "rootdisk",
+									VolumeSource: virtv1.VolumeSource{
+										DataVolume: &virtv1.DataVolumeSource{Name: "rootdisk-dv"},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outVM virtv1.VirtualMachine
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outVM)).To(Succeed())
+			Expect(outVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			vol := outVM.Spec.Template.Spec.Volumes[0]
+			Expect(vol.DataVolume).To(BeNil())
+			Expect(vol.PersistentVolumeClaim).ToNot(BeNil())
+			Expect(vol.PersistentVolumeClaim.ClaimName).To(Equal("rootdisk-dv"))
+		})
+
+		It("should not rewrite DataVolume volume that references a DVT", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: dvtName},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{
+										Name: sourcePVCName,
+									},
+								},
+							},
+						},
+					},
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Volumes: []virtv1.Volume{
+								{
+									Name: "rootdisk",
+									VolumeSource: virtv1.VolumeSource{
+										DataVolume: &virtv1.DataVolumeSource{Name: dvtName},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outVM virtv1.VirtualMachine
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outVM)).To(Succeed())
+			Expect(outVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			vol := outVM.Spec.Template.Spec.Volumes[0]
+			Expect(vol.DataVolume).ToNot(BeNil(), "DataVolume volume referencing a DVT should not be rewritten")
+			Expect(vol.DataVolume.Name).To(Equal(dvtName))
+			Expect(vol.PersistentVolumeClaim).To(BeNil())
+		})
+
+		It("should rewrite DVT with local PVC source to reference exported PVC", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: "my-dv"},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{
+										Name:      sourcePVCName,
+										Namespace: testNs,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNs},
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outVM virtv1.VirtualMachine
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outVM)).To(Succeed())
+			Expect(outVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+			dvt := outVM.Spec.DataVolumeTemplates[0]
+			Expect(dvt.Spec.Source.PVC).ToNot(BeNil())
+			Expect(dvt.Spec.Source.PVC.Name).To(Equal(sourcePVCName))
+			Expect(dvt.Spec.SourceRef).To(BeNil())
+		})
+
+		It("should not rewrite DVT with cross-namespace PVC source", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: "my-dv"},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{
+										Name:      sourcePVCName,
+										Namespace: "other-ns",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNs},
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outVM virtv1.VirtualMachine
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outVM)).To(Succeed())
+			Expect(outVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+			dvt := outVM.Spec.DataVolumeTemplates[0]
+			Expect(dvt.Spec.Source.PVC.Name).To(Equal(sourcePVCName))
+			Expect(dvt.Spec.Source.PVC.Namespace).To(Equal("other-ns"))
+		})
+
+		It("should not rewrite DVT without PVC source", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: "http-dv"},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									HTTP: &cdiv1.DataVolumeSourceHTTP{
+										URL: "https://example.com/disk.img",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outVM virtv1.VirtualMachine
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outVM)).To(Succeed())
+			Expect(outVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(outVM.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
+			Expect(outVM.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://example.com/disk.img"))
+		})
+
+		It("should keep elements with unresolvable placeholders as-is", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: "${PARAM}"},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{Name: "src"},
+								},
+							},
+						},
+					},
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Volumes: []virtv1.Volume{
+								{
+									Name: "${VOL}",
+									VolumeSource: virtv1.VolumeSource{
+										DataVolume: &virtv1.DataVolumeSource{Name: "${DV}"},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outObj map[string]any
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outObj)).To(Succeed())
+
+			dvts, found, err := unstructured.NestedSlice(outObj, "spec", "dataVolumeTemplates")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(dvts).To(HaveLen(1))
+			dvtMap := dvts[0].(map[string]any)
+			srcName, found, err := unstructured.NestedString(dvtMap, "spec", "source", "pvc", "name")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(srcName).To(Equal("src"), "DVT source PVC should be unchanged when DVT name has unresolvable placeholder")
+
+			volumes, found, err := unstructured.NestedSlice(outObj, "spec", "template", "spec", "volumes")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(volumes).To(HaveLen(1))
+			volMap := volumes[0].(map[string]any)
+			dvName, found, err := unstructured.NestedString(volMap, "dataVolume", "name")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(dvName).To(Equal("${DV}"), "DataVolume volume should be unchanged when name has unresolvable placeholder")
+			_, hasPVC, err := unstructured.NestedMap(volMap, "persistentVolumeClaim")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hasPVC).To(BeFalse(), "volume should not be rewritten to PVC")
+		})
+
+		It("should resolve parameter placeholders in DVT and volume rewriting", func() {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{Name: dvtName},
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									PVC: &cdiv1.DataVolumeSourcePVC{Name: "${SRC_PVC}"},
+								},
+							},
+						},
+					},
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Volumes: []virtv1.Volume{
+								{
+									Name: "standalone",
+									VolumeSource: virtv1.VolumeSource{
+										DataVolume: &virtv1.DataVolumeSource{Name: "${DV_NAME}"},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNs},
+				Spec: v1alpha1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+					Parameters: []v1alpha1.Parameter{
+						{Name: "SRC_PVC", Value: "resolved-src"},
+						{Name: "DV_NAME", Value: "resolved-dv"},
+					},
+				},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+
+			var outVM virtv1.VirtualMachine
+			Expect(json.Unmarshal(out.Spec.VirtualMachine.Raw, &outVM)).To(Succeed())
+
+			Expect(outVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(outVM.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal("resolved-src"))
+
+			Expect(outVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			vol := outVM.Spec.Template.Spec.Volumes[0]
+			Expect(vol.PersistentVolumeClaim).ToNot(BeNil())
+			Expect(vol.PersistentVolumeClaim.ClaimName).To(Equal("resolved-dv"))
+		})
+
+		It("should handle nil VirtualMachine in template", func() {
+			tpl := &v1alpha1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: testNs,
+					UID:       "uid-123",
+				},
+				Spec: v1alpha1.VirtualMachineTemplateSpec{},
+			}
+
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1alpha1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+			Expect(out.Spec.VirtualMachine).To(BeNil())
+			Expect(string(out.UID)).To(BeEmpty())
+		})
+
+		It("should extract architecture from embedded VM", func() {
+			tpl := createTemplate("arm64")
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(Equal("arm64"))
+		})
+
+		It("should resolve architecture from template parameter", func() {
+			tpl := createTemplate("${ARCH}")
+			tpl.Spec.Parameters = []v1alpha1.Parameter{
+				{Name: "ARCH", Value: "arm64"},
+			}
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(Equal("arm64"))
+		})
+
+		It("should return empty architecture when parameter is unresolved", func() {
+			tpl := createTemplate("${ARCH}")
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(BeEmpty())
+		})
+
+		It("should return empty architecture when embedded VM has none", func() {
+			tpl := createTemplate("")
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(BeEmpty())
 		})
 	})
 })

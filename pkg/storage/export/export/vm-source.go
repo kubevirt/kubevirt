@@ -96,6 +96,10 @@ func (s *VMSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *co
 	return requeue, nil
 }
 
+func (s *VMSource) SupportsOCI() bool {
+	return true
+}
+
 func (ctrl *VMExportController) handleVMExport(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
