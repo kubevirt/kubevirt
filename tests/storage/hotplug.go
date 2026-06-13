@@ -732,17 +732,13 @@ var _ = Describe(SIG("Hotplug", func() {
 			vm *v1.VirtualMachine
 			sc string
 		)
-		const (
-			numPVs = 3
-		)
-
+		const numPVs = 3
 		BeforeEach(func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 				Fail("fail test, no wffc storage class available")
 			}
-			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 		})
 
 		It("Should be able to boot from WFFC local storage", decorators.StorageCritical, func() {

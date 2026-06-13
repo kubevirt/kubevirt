@@ -283,19 +283,12 @@ var _ = Describe(SIG("Memory dump", func() {
 			vm             *v1.VirtualMachine
 			memoryDumpPVC  *k8sv1.PersistentVolumeClaim
 			memoryDumpPVC2 *k8sv1.PersistentVolumeClaim
-			sc             string
 		)
-		const (
-			numPVs = 2
-		)
-
 		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
+			_, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Fail("Fail no filesystem storage class available")
 			}
-			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
 
