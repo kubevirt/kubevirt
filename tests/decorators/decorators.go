@@ -44,7 +44,8 @@ var (
 
 	CPUModel                             = Label("cpumodel")
 	VSOCK                                = Label("vsock")
-	VirtioFS                             = Label("virtiofs")
+	ConfigVolumesVirtiofs                = Label("config-volumes-virtiofs")
+	StorageVolumesVirtiofs               = Label("storage-volumes-virtiofs")
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
 	Networking                           = Label("Networking")

@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
-var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, decorators.VirtioFS, func() {
+var _ = Describe("[sig-compute] virtiofs config volumes", decorators.SigCompute, decorators.ConfigVolumesVirtiofs, func() {
 	Context("With a single ConfigMap volume", func() {
 		var (
 			configMapName string
