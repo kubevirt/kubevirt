@@ -643,6 +643,10 @@ func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *
 	if cpuLimit, cpuLimitExists := vm.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; cpuLimitExists && !cpuLimit.IsZero() {
 		return
 	}
+	// Dedicated CPUs are also fully allocating each vCPU for compute.
+	if vm.IsCPUDedicated() {
+		return
+	}
 
 	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
 }
