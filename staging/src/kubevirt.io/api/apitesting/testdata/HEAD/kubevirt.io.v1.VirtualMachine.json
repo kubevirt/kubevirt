@@ -1193,6 +1193,12 @@
         "status": {}
       }
     ],
+    "resourceClaimTemplates": [
+      {
+        "name": "nameValue",
+        "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+      }
+    ],
     "updateVolumesStrategy": "updateVolumesStrategyValue"
   },
   "status": {
