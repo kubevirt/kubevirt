@@ -78,7 +78,16 @@ func WithHotplugPersistentVolumeClaim(diskName, pvcName string, diskOpts ...Disk
 func WithEphemeralPersistentVolumeClaim(diskName, pvcName string, diskOpts ...DiskOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusSATA, diskOpts...))
-		addVolume(vmi, newEphemeralPersistentVolumeClaimVolume(diskName, pvcName))
+		addVolume(vmi, newEphemeralPersistentVolumeClaimVolume(diskName, pvcName, nil))
+	}
+}
+
+// WithEphemeralPersistentVolumeClaimWithCapacity specifies an Ephemeral.PersistentVolumeClaim with a custom disk capacity.
+// The capacity sets the virtual size of the qcow2 overlay, allowing the guest to see a larger disk than the backing PVC.
+func WithEphemeralPersistentVolumeClaimWithCapacity(diskName, pvcName string, capacity resource.Quantity, diskOpts ...DiskOption) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusSATA, diskOpts...))
+		addVolume(vmi, newEphemeralPersistentVolumeClaimVolume(diskName, pvcName, &capacity))
 	}
 }
 
@@ -351,7 +360,7 @@ func newPersistentVolumeClaimVolume(name, claimName string, hotpluggable bool) v
 	}
 }
 
-func newEphemeralPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
+func newEphemeralPersistentVolumeClaimVolume(name, claimName string, capacity *resource.Quantity) v1.Volume {
 	return v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
@@ -359,6 +368,7 @@ func newEphemeralPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
 				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: claimName,
 				},
+				Capacity: capacity,
 			},
 		},
 	}

@@ -466,6 +466,34 @@ var _ = Describe(SIG("Storage", func() {
 			})
 		})
 
+		Context("With ephemeral PVC and capacity override", func() {
+			It("should present the guest with a disk of the specified capacity", func() {
+				capacity := resource.MustParse("2Gi")
+				vmi = libvmi.New(
+					libvmi.WithMemoryRequest("256Mi"),
+					libvmi.WithEphemeralPersistentVolumeClaimWithCapacity("disk0", diskAlpineHostPath, capacity),
+				)
+
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				var diskDevice string
+				Eventually(func() string {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					diskDevice = libstorage.LookupVolumeTargetPath(vmi, "disk0")
+					return diskDevice
+				}, 30*time.Second, time.Second).ShouldNot(BeEmpty())
+
+				By("Checking that the disk has a capacity of 2Gi")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("blockdev --getsize64 %s\n", diskDevice)},
+					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
+				}, 10)).To(Succeed())
+			})
+		})
+
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
