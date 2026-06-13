@@ -1066,6 +1066,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
 			isMemfdRequired = true
 		}
+	} else if vcpu.DynamicHugepagePageSizeBytes(vmi) > 0 {
+		domain.Spec.MemoryBacking = &api.MemoryBacking{
+			HugePages: &api.HugePages{},
+		}
+		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
+			isMemfdRequired = true
+		}
 	}
 	// virtiofs require shared access
 	if util.IsVMIVirtiofsEnabled(vmi) || netvmispec.HasPasstBinding(vmi) {
@@ -1094,6 +1101,21 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 						Unit:   "KiB",
 					},
 				},
+			}
+		}
+
+		// For dynamic hugepages, explicitly specify the page size per NUMA cell
+		// since there is no hugetlbfs mount for libvirt to infer it from.
+		if pageSize := vcpu.DynamicHugepagePageSizeBytes(vmi); pageSize > 0 {
+			for _, cell := range domain.Spec.CPU.NUMA.Cells {
+				domain.Spec.MemoryBacking.HugePages.HugePage = append(
+					domain.Spec.MemoryBacking.HugePages.HugePage,
+					api.HugePage{
+						Size:    strconv.FormatUint(pageSize/1024, 10),
+						Unit:    "KiB",
+						NodeSet: cell.ID,
+					},
+				)
 			}
 		}
 	}

@@ -2012,6 +2012,10 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, err
 	}
 
+	if err := c.setDynamicHugepagesCgroupLimit(vmi, cgroupManager); err != nil {
+		return false, err
+	}
+
 	if err := c.adjustResources(vmi); err != nil {
 		return false, err
 	}
@@ -2030,6 +2034,76 @@ func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstanc
 		return fmt.Errorf("failed to adjust resources: %v", err)
 	}
 	return nil
+}
+
+const dynamicHugepagesResourcePrefix = "devices.kubevirt.io/dynamic-hugepages-"
+
+// setDynamicHugepagesCgroupLimit overrides the pod's hugetlb cgroup limit when
+// dynamic hugepages are requested. Kubelet explicitly sets hugetlb limits to 0
+// for page sizes not in the pod's native hugepage resources. Since we bypass
+// native hugepage requests, we must set the cgroup limit ourselves.
+func (c *VirtualMachineController) setDynamicHugepagesCgroupLimit(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+	if cgroupManager == nil {
+		return nil
+	}
+
+	var pagesizes []string
+	for resourceName := range vmi.Spec.Domain.Resources.Limits {
+		name := string(resourceName)
+		if !strings.HasPrefix(name, dynamicHugepagesResourcePrefix) {
+			continue
+		}
+		label := strings.TrimPrefix(name, dynamicHugepagesResourcePrefix)
+		pagesize := labelToCgroupPagesize(label)
+		if pagesize == "" {
+			continue
+		}
+		pagesizes = append(pagesizes, pagesize)
+	}
+
+	if len(pagesizes) == 0 {
+		return nil
+	}
+
+	if cgroupManager.GetCgroupVersion() != cgroup.V2 {
+		log.Log.Object(vmi).Warningf("dynamic hugepages cgroup override not supported on cgroups v1, skipping")
+		return nil
+	}
+
+	containerCgroupPath, err := cgroupManager.GetBasePathToHostSubsystem("")
+	if err != nil {
+		return fmt.Errorf("failed to get cgroup path for hugetlb override: %w", err)
+	}
+	podCgroupPath := filepath.Dir(containerCgroupPath)
+
+	for _, pagesize := range pagesizes {
+		maxFile := fmt.Sprintf("hugetlb.%s.max", pagesize)
+		rsvdFile := fmt.Sprintf("hugetlb.%s.rsvd.max", pagesize)
+		log.Log.Object(vmi).Infof("setting dynamic hugepages cgroup limit: writing \"max\" to pod=%s and container=%s", podCgroupPath, containerCgroupPath)
+		for _, file := range []string{maxFile, rsvdFile} {
+			if err := cgroups.WriteFile(podCgroupPath, file, "max"); err != nil {
+				return fmt.Errorf("failed to set hugetlb cgroup limit (pod) %s: %w", file, err)
+			}
+			if err := cgroups.WriteFile(containerCgroupPath, file, "max"); err != nil {
+				return fmt.Errorf("failed to set hugetlb cgroup limit (container) %s: %w", file, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// labelToCgroupPagesize converts a label like "2mi" or "1gi" to the cgroup
+// pagesize format (e.g., "2MB", "1GB").
+func labelToCgroupPagesize(label string) string {
+	label = strings.ToLower(label)
+	if strings.HasSuffix(label, "gi") {
+		return strings.TrimSuffix(label, "gi") + "GB"
+	}
+	if strings.HasSuffix(label, "mi") {
+		return strings.TrimSuffix(label, "mi") + "MB"
+	}
+	return ""
 }
 
 func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMachineInstance) bool {
