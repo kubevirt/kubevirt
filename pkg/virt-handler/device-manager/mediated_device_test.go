@@ -198,7 +198,9 @@ var _ = Describe("Mediated Device", func() {
 				},
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{},
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							DisabledFeatureGates: []string{featuregate.WorkloadEncryptionSEV},
+						},
 					},
 				},
 				Status: v1.KubeVirtStatus{

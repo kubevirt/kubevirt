@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
@@ -117,6 +118,9 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		fakeConfigMap, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				DisabledFeatureGates: []string{featuregate.WorkloadEncryptionSEV},
+			},
 			PermittedHostDevices: &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
