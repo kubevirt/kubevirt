@@ -1098,15 +1098,18 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	// the entire sync can't always occur within a single control loop execution.
 	// when synced==true that means SyncAll() has completed and has nothing left to wait on.
 	if synced {
-		// record the version that has been completely installed
-		config.SetObservedDeploymentConfig(kv)
-
 		// update conditions
 		util.UpdateConditionsCreated(kv)
 		logger.Info("All KubeVirt resources created")
 
 		// check if components are ready
 		if c.isReady(kv) {
+			// record the version that has been completely installed only once all
+			// components are ready. This ensures isUpdating() returns true while
+			// optional feature deployments (e.g. virt-template) are still starting,
+			// keeping Available=True during the transition instead of flipping to
+			// Available=False (DeploymentInProgress).
+			config.SetObservedDeploymentConfig(kv)
 			logger.Info("All KubeVirt components ready")
 			kv.Status.Phase = v1.KubeVirtPhaseDeployed
 			util.UpdateConditionsAvailable(kv)

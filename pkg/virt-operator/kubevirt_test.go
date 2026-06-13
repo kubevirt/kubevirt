@@ -2160,6 +2160,95 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 		})
 
+		It("should advance ObservedDeploymentID only once all pods are ready when toggling an optional feature gate", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			// Start with KubeVirt deployed without any optional feature gates.
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+					Generation: int64(1),
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						// Disable to avoid instancetype create/update noise across both Execute cycles.
+						CommonInstancetypesDeployment: &v1.CommonInstancetypesDeployment{
+							Enabled: pointer.P(false),
+						},
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:              v1.KubeVirtPhaseDeployed,
+					OperatorVersion:    version.Get().String(),
+					ObservedGeneration: pointer.P(int64(1)),
+				},
+			}
+			oldConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
+			oldConfig.SetTargetDeploymentConfig(kv)
+			oldConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+
+			// Toggle the Template feature gate — changes TargetDeploymentID but not version/registry.
+			enableTemplateFeatureGate(kv)
+			initialObservedID := kv.Status.ObservedDeploymentID
+
+			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
+
+			// kvNoFG: a minimal KV without the Template FG, used to restrict
+			// makeDeploymentsReady and addPodsWithOptionalPodDisruptionBudgets to
+			// non-virt-template components only (simulating pods still starting).
+			kvNoFG := &v1.KubeVirt{}
+
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(newConfig)
+			kvTestData.addAll(newConfig, kv)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kvNoFG)
+			kvTestData.makeDeploymentsReady(kvNoFG)
+			kvTestData.makeHandlerReady()
+
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+
+			kvTestData.controller.Execute()
+			kv = kvTestData.getLatestKubeVirt(kv)
+
+			// ObservedDeploymentID must not advance: SetObservedDeploymentConfig must only
+			// be called once isReady() returns true (virt-template pods are still starting).
+			Expect(kv.Status.ObservedDeploymentID).To(Equal(initialObservedID))
+			// isUpdating() stayed true throughout, so Available remains True.
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
+
+			// Second cycle: mark all pods ready (including virt-template) and verify
+			// that ObservedDeploymentID is now advanced to the new config's ID.
+			// Drain pending queue items left over from the first cycle so the
+			// KubeVirt key can lead the queue for the second Execute().
+			for kvTestData.mockQueue.Len() > 0 {
+				key, quit := kvTestData.mockQueue.Get()
+				if quit {
+					break
+				}
+				kvTestData.mockQueue.Done(key)
+			}
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addPodsWithOptionalPodDisruptionBudgets(newConfig, true, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+
+			kvTestData.controller.Execute()
+			kv = kvTestData.getLatestKubeVirt(kv)
+			Expect(kv.Status.ObservedDeploymentID).NotTo(Equal(initialObservedID))
+			Expect(kv.Status.ObservedDeploymentID).To(Equal(kv.Status.TargetDeploymentID))
+		})
+
 		It("should update KubeVirt object if generation IDs do not match", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
