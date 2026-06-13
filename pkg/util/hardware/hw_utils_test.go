@@ -37,8 +37,9 @@ var _ = Describe("Hardware utils test", func() {
 	)
 
 	var (
-		originalPciBasePath  string
-		originalNodeBasePath string
+		originalPciBasePath     string
+		originalNodeBasePath    string
+		originalDevicesBasePath string
 
 		fakePciBasePath  string
 		fakeNodeBasePath string
@@ -85,6 +86,7 @@ var _ = Describe("Hardware utils test", func() {
 	BeforeEach(func() {
 		originalPciBasePath = PciBasePath
 		originalNodeBasePath = NodeBasePath
+		originalDevicesBasePath = DevicesBasePath
 
 		createTempSysfsStructure()
 
@@ -96,6 +98,7 @@ var _ = Describe("Hardware utils test", func() {
 	AfterEach(func() {
 		PciBasePath = originalPciBasePath
 		NodeBasePath = originalNodeBasePath
+		DevicesBasePath = originalDevicesBasePath
 
 		// Clean up temporary directories
 		if fakePciBasePath != "" {
@@ -272,6 +275,49 @@ var _ = Describe("Hardware utils test", func() {
 			// Device on NUMA node 0 has CPUs 0-3, so vCPUs 0 and 1 have CPUs on the same NUMA node
 			// vCPU 2 only has CPUs on NUMA node 1, so it's not included
 			Expect(vcpuList).To(ConsistOf(uint32(0), uint32(1)))
+		})
+	})
+
+	Context("lookup PCIe root by PCI bus ID", func() {
+		var createPCIeSymlink func(device, pcieRoot string)
+
+		BeforeEach(func() {
+			createPCIeSymlink = func(device, pcieRoot string) {
+				devicePath := filepath.Join(fakePciBasePath, device)
+				err := os.RemoveAll(devicePath)
+				Expect(err).ToNot(HaveOccurred())
+
+				target := filepath.Join(DevicesBasePath, pcieRoot, "0000:80:00.0", device)
+				err = os.Symlink(target, devicePath)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		It("should return correct PCIe root or error for various inputs", func() {
+			createPCIeSymlink("0000:81:01.0", "pci0000:80")
+			createPCIeSymlink("0000:82:01.0", "pci0000:90")
+
+			testData := []struct {
+				address      *api.Address
+				expectedRoot string
+				expectError  bool
+			}{
+				{nil, "", true},
+				{&api.Address{Domain: "invalid", Bus: "01", Slot: "00", Function: "0"}, "", true},
+				{&api.Address{Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}, "pci0000:80", false},
+				{&api.Address{Domain: "0x0000", Bus: "0x82", Slot: "0x01", Function: "0x0"}, "pci0000:90", false},
+				{&api.Address{Domain: "0x0000", Bus: "0xff", Slot: "0x01", Function: "0x0"}, "", true},
+			}
+
+			for _, t := range testData {
+				root, err := LookupPCIeRootByPCIBusID(t.address)
+				if t.expectError {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(root).To(Equal(t.expectedRoot))
+				}
+			}
 		})
 	})
 
