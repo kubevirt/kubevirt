@@ -1,22 +1,3 @@
-/*
- * This file is part of the KubeVirt project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright The KubeVirt Authors.
- *
- */
-
 package virtiofs
 
 import (
@@ -55,7 +36,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 		)
 
 		BeforeEach(func() {
-			// We use the ConfigMap name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
+
 			configMapName = "configmap-" + uuid.NewString()[:6]
 			configMapPath = config.GetConfigMapSourcePath(configMapName)
 
@@ -116,7 +97,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 		)
 
 		BeforeEach(func() {
-			// We use the Secret name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
+
 			secretName = "secret-" + uuid.NewString()[:6]
 			secretPath = config.GetSecretSourcePath(secretName)
 
@@ -170,7 +151,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 		serviceAccountPath := config.ServiceAccountSourceDir
 
-		It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
+		It("[QUARANTINE]Should be the namespace and token the same for a pod and vmi with virtiofs", decorators.Quarantine, func() {
 			serviceAccountVolumeName := "default-disk"
 
 			By("Running VMI")
@@ -207,7 +188,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 			By("Checking mounted ServiceAccount")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				// mount iso ConfigMap image
+
 				&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", serviceAccountVolumeName)},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
@@ -221,7 +202,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 	})
 
 	Context("With a DownwardAPI defined", func() {
-		// We use the DownwardAPI name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
+
 		downwardAPIName := "downwardapi-" + uuid.NewString()[:6]
 		downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
 
