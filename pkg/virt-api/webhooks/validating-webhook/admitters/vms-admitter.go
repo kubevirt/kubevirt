@@ -78,7 +78,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 		VirtClient:              client,
 		DataSourceInformer:      informers.DataSourceInformer,
 		NamespaceInformer:       informers.NamespaceInformer,
-		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(client),
+		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(client, client),
 		ClusterConfig:           clusterConfig,
 		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}
