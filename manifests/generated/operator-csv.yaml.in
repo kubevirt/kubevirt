@@ -1460,6 +1460,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - plugin.kubevirt.io
+          resources:
+          - plugins
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - instancetype.kubevirt.io
           resources:
           - virtualmachineclusterinstancetypes
