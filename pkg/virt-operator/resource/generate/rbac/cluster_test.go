@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/api/export"
 	"kubevirt.io/api/instancetype"
 	"kubevirt.io/api/migrations"
+	"kubevirt.io/api/plugin"
 	"kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot"
 
@@ -272,6 +273,8 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Entry(fmt.Sprintf("get, list, watch %s/%s", migrations.GroupName, migrations.ResourceMigrationPolicies), migrations.GroupName, migrations.ResourceMigrationPolicies, "get", "list", "watch"),
 
 				Entry(fmt.Sprintf("get, list, watch %s/%s", backup.GroupName, apiVMBackups), backup.GroupName, apiVMBackups, "get", "list", "watch"),
+
+				Entry(fmt.Sprintf("get, list, watch %s/%s", plugin.GroupName, apiPlugins), plugin.GroupName, apiPlugins, "get", "list", "watch"),
 			)
 		})
 
