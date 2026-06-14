@@ -20,7 +20,7 @@
 package tests_test
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net"
@@ -281,22 +281,22 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 	conn := stream.AsConn()
-	md5Hasher := md5.New()
-	_, err = io.Copy(conn, io.TeeReader(file, md5Hasher))
+	sha256Hasher := sha256.New()
+	_, err = io.Copy(conn, io.TeeReader(file, sha256Hasher))
 	Expect(err).ToNot(HaveOccurred())
 	err = conn.Close()
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedMD5 := fmt.Sprintf("%x", md5Hasher.Sum(nil))
-	guestAgentMD5Command := fmt.Sprintf("md5sum %s | awk '{print $1}'", guestAgentPath)
+	expectedSHA256 := fmt.Sprintf("%x", sha256Hasher.Sum(nil))
+	guestAgentSHA256Command := fmt.Sprintf("sha256sum %s | awk '{print $1}'", guestAgentPath)
 	Eventually(func() error {
-		guestMD5Output, err := console.RunCommandAndStoreOutput(vmi, guestAgentMD5Command, 30*time.Second)
+		guestSHA256Output, err := console.RunCommandAndStoreOutput(vmi, guestAgentSHA256Command, 30*time.Second)
 		if err != nil {
 			return err
 		}
-		guestMD5 := strings.TrimSpace(guestMD5Output)
-		if guestMD5 != expectedMD5 {
-			return fmt.Errorf("guest agent md5 mismatch: got %q, expected %q", guestMD5, expectedMD5)
+		guestSHA256 := strings.TrimSpace(guestSHA256Output)
+		if guestSHA256 != expectedSHA256 {
+			return fmt.Errorf("guest agent sha256 mismatch: got %q, expected %q", guestSHA256, expectedSHA256)
 		}
 		return nil
 	}, 2*time.Minute, 10*time.Second).Should(Succeed(), "should validate the guest agent file was copied correctly")
