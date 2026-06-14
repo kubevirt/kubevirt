@@ -58,18 +58,22 @@ func ServeVMs(
 	virtCli kubecli.KubevirtClient,
 	informers *webhooks.Informers,
 	kubeVirtServiceAccounts map[string]struct{},
+	specValidators ...admitters.SpecValidator,
 ) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, kubeVirtServiceAccounts))
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, kubeVirtServiceAccounts, specValidators...))
 }
 
-func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig})
+func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, specValidators ...admitters.SpecValidator) {
+	validating_webhooks.Serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig, SpecValidators: specValidators})
 }
 
-func ServeVMPool(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) {
-	validating_webhooks.Serve(resp, req, &admitters.VMPoolAdmitter{ClusterConfig: clusterConfig, KubeVirtServiceAccounts: kubeVirtServiceAccounts})
+func ServeVMPool(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}, specValidators ...admitters.SpecValidator) {
+	validating_webhooks.Serve(resp, req, &admitters.VMPoolAdmitter{
+		ClusterConfig:           clusterConfig,
+		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+		SpecValidators:          specValidators,
+	})
 }
-
 func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.VMIPresetAdmitter{})
 }
