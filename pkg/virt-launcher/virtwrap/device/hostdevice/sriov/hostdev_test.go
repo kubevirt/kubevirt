@@ -93,6 +93,20 @@ var _ = Describe("SRIOV HostDevice", func() {
 			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
+		It("creates no legacy SR-IOV host device for DRA-backed interface", func() {
+			vmi := newDRAVMI("claim-ref", "vf")
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+					Name:       netname1,
+					InfoSource: vmispec.InfoSourceMultusStatus,
+				}},
+			}
+
+			devices, err := sriov.CreateHostDevices(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(devices).To(BeEmpty())
+		})
+
 		It("fails to create device given no available host PCI", func() {
 			iface := newSRIOVInterface("test")
 			vmi := &v1.VirtualMachineInstance{}

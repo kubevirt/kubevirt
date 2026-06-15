@@ -27,24 +27,33 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -57,9 +66,6 @@ import (
 //
 // DRA SR-IOV uses BOTH NetworkAttachmentDefinition (for CNI config) AND ResourceClaimTemplate
 // (for device allocation with VfConfig parameters).
-//
-// Tests EXCLUDED from DRA (not yet supported):
-// - Migration tests: DRA network migration support is future work
 var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 	var virtClient kubecli.KubevirtClient
 
@@ -246,6 +252,149 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 
 				return nil
 			}).WithTimeout(5 * time.Minute).WithPolling(time.Second).Should(Succeed())
+		})
+
+		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
+			var vmi *v1.VirtualMachineInstance
+
+			const mac = "de:ad:00:00:be:ef"
+
+			BeforeEach(func() {
+				vmi = newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
+				var err error
+				vmi, err = createVMIAndWait(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vmi)
+
+				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+			})
+
+			It("should be successful with a running VMI on the target", func() {
+				By("starting the migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				// It may take some time for the VMI interface status to be updated with the information reported by
+				// the guest-agent.
+				var sriovIfaceName string
+				Eventually(func() error {
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, claimName)
+					if ifaceStatus == nil {
+						return fmt.Errorf("interface status for %q was not found", claimName)
+					}
+
+					if !vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) ||
+						!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceGuestAgent) {
+						return fmt.Errorf("interface status for %q does not contain all info sources %q", ifaceStatus.Name, ifaceStatus.InfoSource)
+					}
+
+					sriovIfaceName = ifaceStatus.InterfaceName
+
+					return nil
+				}).WithTimeout(5 * time.Minute).WithPolling(time.Second).Should(Succeed())
+				Expect(sriovIfaceName).NotTo(BeEmpty())
+
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(libnet.CheckMacAddress(updatedVMI, sriovIfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
+			})
+		})
+
+		Context("memory hotplug", Serial, decorators.RequiresTwoSchedulableNodes, func() {
+			BeforeEach(func() {
+				updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
+					WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
+				}
+				rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+				err := config.RegisterKubevirtConfigChange(
+					config.WithWorkloadUpdateStrategy(updateStrategy),
+					config.WithVMRolloutStrategy(rolloutStrategy),
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				currentKv := libkubevirt.GetCurrentKv(virtClient)
+				config.WaitForConfigToBePropagatedToComponent(
+					"kubevirt.io=virt-controller",
+					currentKv.ResourceVersion,
+					config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+					time.Minute)
+			})
+
+			It("Should successfully reattach host-device", func() {
+				const (
+					initialGuestMemory = "1Gi"
+					updatedGuestMemory = "3Gi"
+					mac                = "de:ad:00:00:be:af"
+				)
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithGuestMemory(initialGuestMemory),
+					libvmi.WithInterface(libvmi.InterfaceWithMac(libvmi.InterfaceDeviceWithSRIOVBinding(claimName), mac)),
+					libvmi.WithNetwork(libvmi.DRANetwork(claimName, claimName, "vf")),
+					libvmi.WithResourceClaimTemplate(claimName, templateName),
+				)
+				vmi.Spec.Domain.Resources.Requests = nil
+
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+				vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(matcher.ThisVM(vm)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Hotplugging additional memory")
+				patchData, err := patch.GenerateTestReplacePatch(
+					"/spec/template/spec/domain/memory/guest",
+					initialGuestMemory,
+					updatedGuestMemory,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Ensuring the VMI has more available guest memory")
+				initialGuestMemoryQuantity := resource.MustParse(initialGuestMemory)
+				Eventually(func() int64 {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Memory.GuestCurrent.Value()
+				}).
+					WithTimeout(5 * time.Minute).
+					WithPolling(5 * time.Second).
+					Should(BeNumerically(">", initialGuestMemoryQuantity.Value()))
+
+				By("Ensuring SR-IOV device was hotplugged to the VMI")
+				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).
+						Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Interfaces
+				}).
+					WithTimeout(1 * time.Minute).
+					WithPolling(5 * time.Second).
+					Should(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Name":       Equal(claimName),
+							"InfoSource": ContainSubstring(vmispec.InfoSourceDomain),
+							"MAC":        Equal(mac),
+						}),
+					))
+			})
 		})
 
 	})
