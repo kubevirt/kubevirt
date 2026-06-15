@@ -1729,6 +1729,9 @@ func (c *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 func (c *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstance) error {
 
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
+	// Always clear the cached client afterward so that a stale entry from a
+	// dying launcher cannot poison the cache for subsequent controllers.
+	defer c.launcherClients.CloseLauncherClient(vmi)
 	client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
 
 	// If the pod has been torn down, we know the VirtualMachineInstance is down.
