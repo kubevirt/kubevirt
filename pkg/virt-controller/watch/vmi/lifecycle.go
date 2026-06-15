@@ -643,6 +643,8 @@ func (c *Controller) addTopologyHints(vmi *virtv1.VirtualMachineInstance, vmiCop
 }
 
 // prepareVMIPatch generates a patch set for updating the VMI status.
+// Map fields (activePods, labels, annotations) use per-key operations to minimize
+// conflicts with concurrent virt-handler Update() calls during migration.
 func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.PatchSet {
 	patchSet := patch.New()
 
@@ -670,10 +672,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	}
 
 	if !equality.Semantic.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
-		patchSet.AddOption(
-			patch.WithTest("/status/activePods", oldVMI.Status.ActivePods),
-			patch.WithReplace("/status/activePods", newVMI.Status.ActivePods),
-		)
+		patchSet.AddOption(patch.GeneratePerKeyMapPatches("/status/activePods", oldVMI.Status.ActivePods, newVMI.Status.ActivePods)...)
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI activePods")
 	}
 
@@ -697,25 +696,11 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	}
 
 	if !equality.Semantic.DeepEqual(oldVMI.Labels, newVMI.Labels) {
-		if oldVMI.Labels == nil {
-			patchSet.AddOption(patch.WithAdd("/metadata/labels", newVMI.Labels))
-		} else {
-			patchSet.AddOption(
-				patch.WithTest("/metadata/labels", oldVMI.Labels),
-				patch.WithReplace("/metadata/labels", newVMI.Labels),
-			)
-		}
+		patchSet.AddOption(patch.GeneratePerKeyMapPatches("/metadata/labels", oldVMI.Labels, newVMI.Labels)...)
 	}
 
 	if !equality.Semantic.DeepEqual(oldVMI.Annotations, newVMI.Annotations) {
-		if oldVMI.Annotations == nil {
-			patchSet.AddOption(patch.WithAdd("/metadata/annotations", newVMI.Annotations))
-		} else {
-			patchSet.AddOption(
-				patch.WithTest("/metadata/annotations", oldVMI.Annotations),
-				patch.WithReplace("/metadata/annotations", newVMI.Annotations),
-			)
-		}
+		patchSet.AddOption(patch.GeneratePerKeyMapPatches("/metadata/annotations", oldVMI.Annotations, newVMI.Annotations)...)
 	}
 
 	if !equality.Semantic.DeepEqual(oldVMI.Finalizers, newVMI.Finalizers) {
