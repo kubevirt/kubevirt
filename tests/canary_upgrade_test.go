@@ -56,8 +56,8 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 	var updateTimeout time.Duration
 
 	const (
-		e2eCanaryTestAnnotation = "e2e-canary-test"
-		canaryTestNodeTimeout   = 60
+		e2eCanaryTestProductVersion = "e2e-canary-test"
+		canaryTestNodeTimeout       = 60
 	)
 
 	BeforeEach(func() {
@@ -82,7 +82,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 
 	AfterEach(func() {
 		close(stopCh)
-		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", originalKV.Spec.CustomizeComponents)).GeneratePayload()
+		patchPayload, err := patch.New(patch.WithReplace("/spec/productVersion", originalKV.Spec.ProductVersion)).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 		_, err = virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -96,21 +96,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 	})
 
 	updateVirtHandler := func() error {
-		testPatch := fmt.Sprintf(`{"spec": { "template": {"metadata": {"annotations": {"%s": "test"}}}}}`,
-			e2eCanaryTestAnnotation)
-
-		ccs := v1.CustomizeComponents{
-			Patches: []v1.CustomizeComponentsPatch{
-				{
-					ResourceName: "virt-handler",
-					ResourceType: "DaemonSet",
-					Type:         v1.StrategicMergePatchType,
-					Patch:        testPatch,
-				},
-			},
-		}
-
-		patchPayload, err := patch.New(patch.WithReplace("/spec/customizeComponents", ccs)).GeneratePayload()
+		patchPayload, err := patch.New(patch.WithAdd("/spec/productVersion", e2eCanaryTestProductVersion)).GeneratePayload()
 		if err != nil {
 			return err
 		}
@@ -188,14 +174,13 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 			ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(ds.Status.DesiredNumberScheduled).To(Equal(ds.Status.NumberReady))
-			g.Expect(ds.Spec.Template.Annotations).To(HaveKey(e2eCanaryTestAnnotation))
+			g.Expect(ds.Spec.Template.Labels).To(HaveKeyWithValue(v1.AppVersionLabel, e2eCanaryTestProductVersion))
 
 			podList, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
 			g.Expect(err).ToNot(HaveOccurred())
 
 			updatedPods := slices.DeleteFunc(podList.Items, func(pod corev1.Pod) bool {
-				_, exists := pod.Annotations[e2eCanaryTestAnnotation]
-				return !exists
+				return pod.Labels[v1.AppVersionLabel] != e2eCanaryTestProductVersion
 			})
 			g.Expect(updatedPods).To(HaveLen(int(ds.Status.DesiredNumberScheduled)))
 		}, updateTimeout*time.Second, 1*time.Second).Should(Succeed())
