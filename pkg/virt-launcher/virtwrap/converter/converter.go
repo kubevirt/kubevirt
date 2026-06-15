@@ -1085,12 +1085,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		// NUMA is required in order to use memfd
 		if domain.Spec.CPU.NUMA == nil {
+			memKiB := uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024))
 			domain.Spec.CPU.NUMA = &api.NUMA{
 				Cells: []api.NUMACell{
 					{
 						ID:     "0",
 						CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-						Memory: uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024)),
+						Memory: &memKiB,
 						Unit:   "KiB",
 					},
 				},

@@ -20,6 +20,7 @@
 package libvirtxml
 
 import (
+	"fmt"
 	"strconv"
 
 	"libvirt.org/go/libvirtxml"
@@ -56,13 +57,32 @@ func ConvertKubeVirtNUMACellToDomainDomainCell(cell []api.NUMACell) ([]libvirtxm
 			return nil, err
 		}
 		id := uint(v)
-		ret = append(ret, libvirtxml.DomainCell{
+		var mem uint
+		if c.Memory != nil {
+			mem = uint(*c.Memory)
+		}
+		domCell := libvirtxml.DomainCell{
 			ID:        &id,
 			CPUs:      c.CPUs,
-			Memory:    uint(c.Memory),
+			Memory:    mem,
 			Unit:      c.Unit,
 			MemAccess: c.MemoryAccess,
-		})
+		}
+		if c.Distances != nil {
+			distances := &libvirtxml.DomainCellDistances{}
+			for _, s := range c.Distances.Siblings {
+				sibID, err := strconv.ParseUint(s.ID, 10, 32)
+				if err != nil {
+					return nil, fmt.Errorf("invalid sibling ID %q in NUMA cell %s: %w", s.ID, c.ID, err)
+				}
+				distances.Siblings = append(distances.Siblings, libvirtxml.DomainCellSibling{
+					ID:    uint(sibID),
+					Value: uint(s.Value),
+				})
+			}
+			domCell.Distances = distances
+		}
+		ret = append(ret, domCell)
 	}
 	return ret, nil
 }
