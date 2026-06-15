@@ -57,8 +57,6 @@ import (
 
 	gomegatypes "github.com/onsi/gomega/types"
 
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 )
@@ -6103,7 +6101,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 
-				DescribeTable("should return an error", func(dvExist bool, err error) {
+				DescribeTable("should return an error", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
@@ -6136,15 +6134,8 @@ var _ = Describe("VirtualMachine", func() {
 							return true, vmi, nil
 						})
 
-					if dvExist {
-						dv := libdv.NewDataVolume(libdv.WithName(newDVName), libdv.WithNamespace(ns))
-						Expect(dataVolumeInformer.GetStore().Add(dv)).To(Succeed())
-					}
-					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
-					vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
-						libvmi.WithDataVolume(diskName, newDVName)),
-						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm,
+					vmi, vm := setup()
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm,
 						metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.TODO(),
@@ -6154,8 +6145,29 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm,
 						v1.VirtualMachineRestartRequired)).Should(BeNil())
 				},
-					Entry("when the destination DV doesn't exist", false, storagetypes.NewDVNotFoundError(newDVName)),
-					Entry("when the destination DV exist but the PVC", true, storagetypes.NewPVCNotFoundError(newDVName)),
+					Entry("when the destination DV doesn't exist", func() (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+						vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+						vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+							libvmi.WithDataVolume(diskName, newDVName)),
+							libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+						return vmi, vm
+					}),
+					Entry("when the destination DV exists but not the PVC", func() (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+						dv := libdv.NewDataVolume(libdv.WithName(newDVName), libdv.WithNamespace(ns))
+						Expect(dataVolumeInformer.GetStore().Add(dv)).To(Succeed())
+						vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+						vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+							libvmi.WithDataVolume(diskName, newDVName)),
+							libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+						return vmi, vm
+					}),
+					Entry("when the destination PVC doesn't exist", func() (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+						vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithPersistentVolumeClaim(diskName, "oldPVC"))
+						vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+							libvmi.WithPersistentVolumeClaim(diskName, "newPVC")),
+							libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+						return vmi, vm
+					}),
 				)
 			})
 

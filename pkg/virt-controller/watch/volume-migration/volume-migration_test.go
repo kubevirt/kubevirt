@@ -56,6 +56,8 @@ var _ = Describe("Volume Migration", func() {
 
 			dvCSI    *cdiv1.DataVolume
 			dvNoSCSI *cdiv1.DataVolume
+
+			existingPVCs = []string{"vol2", "vol3", "vol4"}
 		)
 		const (
 			noCSIDVName = "nocsi-dv"
@@ -91,6 +93,17 @@ var _ = Describe("Volume Migration", func() {
 			Expect(dataVolumeStore.Add(dvNoSCSI)).To(Succeed())
 			Expect(pvcStore.Add(pvcCSI)).To(Succeed())
 			Expect(pvcStore.Add(pvcNOCSI)).To(Succeed())
+			for _, pvcName := range existingPVCs {
+				Expect(pvcStore.Add(&k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pvcName,
+						Namespace: ns,
+					},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode: pointer.P(k8sv1.PersistentVolumeBlock),
+					},
+				})).To(Succeed())
+			}
 		})
 
 		DescribeTable("should validate the migrated volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, expectError error) {
@@ -103,34 +116,34 @@ var _ = Describe("Volume Migration", func() {
 		},
 			Entry("with empty VMI", nil, &v1.VirtualMachine{}, fmt.Errorf("cannot validate the migrated volumes for an empty VMI")),
 			Entry("with empty VM", &v1.VirtualMachineInstance{}, nil, fmt.Errorf("cannot validate the migrated volumes for an empty VM")),
-			Entry("without any migrated volumes", libvmi.New(
+			Entry("without any migrated volumes", libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), libvmi.WithPersistentVolumeClaim("disk1", "vol1"),
-			), libvmi.NewVirtualMachine(libvmi.New(
+			), libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), libvmi.WithPersistentVolumeClaim("disk1", "vol1"),
 			)), nil),
-			Entry("with valid volumes", libvmi.New(
+			Entry("with valid volumes", libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), libvmi.WithPersistentVolumeClaim("disk1", "vol1"),
-			), libvmi.NewVirtualMachine(libvmi.New(
+			), libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), libvmi.WithPersistentVolumeClaim("disk1", "vol3"),
 			)), nil),
-			Entry("with an invalid lun volume", libvmi.New(
+			Entry("with an invalid lun volume", libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), libvmi.WithPersistentVolumeClaimLun("disk1", "vol1", false),
-			), libvmi.NewVirtualMachine(libvmi.New(
+			), libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), libvmi.WithPersistentVolumeClaimLun("disk1", "vol4", false),
 			)), fmt.Errorf("invalid volumes to update with migration: luns: [disk1]")),
-			Entry("with an invalid shareable volume", libvmi.New(
+			Entry("with an invalid shareable volume", libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withShareableVolume("disk1", "vol1"),
-			), libvmi.NewVirtualMachine(libvmi.New(
+			), libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withShareableVolume("disk1", "vol4"),
 			)), fmt.Errorf("invalid volumes to update with migration: shareable: [disk1]")),
-			Entry("with an invalid filesystem volume", libvmi.New(
+			Entry("with an invalid filesystem volume", libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withFilesystemVolume("disk1", "vol1"),
-			), libvmi.NewVirtualMachine(libvmi.New(
+			), libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withFilesystemVolume("disk1", "vol4"),
 			)), fmt.Errorf("invalid volumes to update with migration: filesystems: [disk1]")),
-			Entry("with valid hotplugged volume", libvmi.New(
+			Entry("with valid hotplugged volume", libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withHotpluggedVolume("disk1", "vol1"),
-			), libvmi.NewVirtualMachine(libvmi.New(
+			), libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withHotpluggedVolume("disk1", "vol4"),
 			)), nil),
 			Entry("with a DV with a csi storageclass", libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0")),
