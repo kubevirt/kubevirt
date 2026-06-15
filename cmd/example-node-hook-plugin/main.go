@@ -31,6 +31,8 @@ import (
 	"syscall"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	pluginsv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/plugins/v1alpha1"
 )
@@ -43,26 +45,17 @@ func (s *server) ExecuteNodeHook(_ context.Context, req *pluginsv1alpha1.Execute
 	log.Printf("ExecuteNodeHook called: hookPoint=%s, nodeName=%s", req.HookPoint, req.GetNodeContext().GetNodeName())
 
 	if err := os.MkdirAll(markerDir, 0755); err != nil {
-		return &pluginsv1alpha1.ExecuteNodeHookResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to create marker directory: %v", err),
-		}, nil
+		return nil, status.Errorf(codes.Unavailable, "failed to create marker directory: %v", err)
 	}
 
 	markerFile := filepath.Join(markerDir, fmt.Sprintf("%s.stamp", req.HookPoint))
 
 	if err := os.WriteFile(markerFile, req.Vmi, 0644); err != nil {
-		return &pluginsv1alpha1.ExecuteNodeHookResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to write marker file: %v", err),
-		}, nil
+		return nil, status.Errorf(codes.Unavailable, "failed to write marker file: %v", err)
 	}
 
 	log.Printf("Marker file written: %s", markerFile)
-	return &pluginsv1alpha1.ExecuteNodeHookResponse{
-		Success: true,
-		Message: fmt.Sprintf("marker file created at %s", markerFile),
-	}, nil
+	return &pluginsv1alpha1.ExecuteNodeHookResponse{}, nil
 }
 
 func main() {
