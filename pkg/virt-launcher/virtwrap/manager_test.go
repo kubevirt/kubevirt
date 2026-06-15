@@ -52,6 +52,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -59,6 +60,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -68,6 +70,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -1670,6 +1673,117 @@ var _ = Describe("Manager", func() {
 
 				err = manager.UpdateGuestMemory(vmi)
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("IOMMUFD", func() {
+			var manager *LibvirtDomainManager
+			var iommuFDFile *os.File
+
+			expectedDomainWithIOMMUFD := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+				domain := &api.Domain{}
+				hotplugVolumes := make(map[string]v1.VolumeStatus)
+				permanentVolumes := make(map[string]v1.VolumeStatus)
+				for _, status := range vmi.Status.VolumeStatus {
+					if status.HotplugVolume != nil {
+						hotplugVolumes[status.Name] = status
+					} else {
+						permanentVolumes[status.Name] = status
+					}
+				}
+
+				freePageReportingDisabled := clusterConfig.IsFreePageReportingDisabled()
+				serialConsoleLogDisabled := clusterConfig.IsSerialConsoleLogDisabled()
+
+				c := &convertertypes.ConverterContext{
+					Architecture:      arch.NewConverter(runtime.GOARCH),
+					VirtualMachine:    vmi,
+					AllowEmulation:    true,
+					SMBios:            &cmdv1.SMBios{},
+					HotplugVolumes:    hotplugVolumes,
+					PermanentVolumes:  permanentVolumes,
+					FreePageReporting: isFreePageReportingEnabled(freePageReportingDisabled, vmi),
+					SerialConsoleLog:  isSerialConsoleLogEnabled(serialConsoleLogDisabled, vmi),
+					CPUSet:            []int{0, 1, 2, 3, 4, 5},
+					Topology:          topology,
+					IOMMUFDEnabled:    true,
+				}
+				Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+				return &domain.Spec
+			}
+
+			setDomainExpectationsWithIOMMUFD := func(vmi *v1.VirtualMachineInstance) {
+				domainSpec := expectedDomainWithIOMMUFD(vmi)
+				domainXML, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).ToNot(HaveOccurred())
+				mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(domainXML)).DoAndReturn(mockDomainWithFreeExpectation)
+				expectExtraControllers(vmi, domainSpec)
+				mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(domainXML), nil)
+			}
+
+			BeforeEach(func() {
+				var err error
+				iommuFDFile, err = os.CreateTemp("", "iommufd-test")
+				Expect(err).ToNot(HaveOccurred())
+
+				manager = &LibvirtDomainManager{
+					virConn:                      mockLibvirt.VirtConnection,
+					virtShareDir:                 testVirtShareDir,
+					ephemeralDiskDir:             testEphemeralDiskDir,
+					metadataCache:                metadataCache,
+					cpuSetGetter:                 fakeCpuSetGetter,
+					paused:                       pausedVMIs{paused: make(map[types.UID]bool)},
+					disksInfo:                    map[string]*osdisk.DiskInfo{},
+					domainInfoStats:              &stats.DomainJobInfo{},
+					hypervisorName:               v1.KvmHypervisorName,
+					iommuFD:                      int(iommuFDFile.Fd()),
+					efiEnvironment:               efi.DetectEFIEnvironment(runtime.GOARCH, virtconfig.DefaultARCHOVMFPath),
+					directIOChecker:              mockDirectIOChecker,
+					ephemeralDiskCreator:         ephemeralDiskCreatorMock,
+					hotplugHostDevicesInProgress: make(chan struct{}, maxConcurrentHotplugHostDevices),
+				}
+				manager.storageManager = storage.NewStorageManager(mockLibvirt.VirtConnection, metadataCache, nil)
+				manager.credManager = accesscredentials.NewManager(mockLibvirt.VirtConnection, &manager.domainModifyLock, metadataCache)
+			})
+
+			AfterEach(func() {
+				if iommuFDFile != nil {
+					os.Remove(iommuFDFile.Name())
+					iommuFDFile.Close()
+				}
+			})
+
+			It("should call FDAssociate before CreateWithFlags when iommuFD is set", func() {
+				vmi := newVMI(testNamespace, testVmName)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+				setDomainExpectationsWithIOMMUFD(vmi)
+
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+
+				gomock.InOrder(
+					mockLibvirt.DomainEXPECT().FDAssociate("iommu", gomock.Any(), libvirt.DomainFDAssociateFlags(0)).Return(nil),
+					mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil),
+				)
+
+				newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newspec).ToNot(BeNil())
+			})
+
+			It("should abort startup when FDAssociate fails", func() {
+				vmi := newVMI(testNamespace, testVmName)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+				setDomainExpectationsWithIOMMUFD(vmi)
+
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+				mockLibvirt.DomainEXPECT().FDAssociate("iommu", gomock.Any(), libvirt.DomainFDAssociateFlags(0)).Return(fmt.Errorf("FDAssociate failed"))
+
+				_, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to associate IOMMUFD FD"))
 			})
 		})
 
