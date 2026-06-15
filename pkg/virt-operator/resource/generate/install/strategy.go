@@ -531,16 +531,18 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
 		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), serviceMonitorNamespace, true))
 
-		err := rules.SetupRules(config.GetNamespace())
-		if err != nil {
-			return nil, err
-		}
+		if !config.VMStatsCollectorEnabled() {
+			err := rules.SetupRules(config.GetNamespace())
+			if err != nil {
+				return nil, err
+			}
 
-		prometheusRule, err := rules.BuildPrometheusRule(config.GetNamespace())
-		if err != nil {
-			return nil, err
+			prometheusRule, err := rules.BuildPrometheusRule(config.GetNamespace())
+			if err != nil {
+				return nil, err
+			}
+			strategy.prometheusRules = append(strategy.prometheusRules, prometheusRule)
 		}
-		strategy.prometheusRules = append(strategy.prometheusRules, prometheusRule)
 	} else {
 		log.Log.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetPotentialMonitorNamespaces(), ", "))
 	}
