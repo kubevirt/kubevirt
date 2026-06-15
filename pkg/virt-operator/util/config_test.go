@@ -141,6 +141,20 @@ var _ = Describe("Operator Config", func() {
 			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
 		})
 
+		It("should propagate VMStatsCollector feature gate into AdditionalProperties", func() {
+			kv := &v1.KubeVirt{}
+			cfgWithout := GetTargetConfigFromKV(kv)
+			Expect(cfgWithout.VMStatsCollectorEnabled()).To(BeFalse())
+
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{"VMStatsCollector"},
+			}
+			cfgWith := GetTargetConfigFromKV(kv)
+			Expect(cfgWith.VMStatsCollectorEnabled()).To(BeTrue())
+
+			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
+		})
+
 		DescribeTable("should result in different ID when component images change", func(setImage func(*KubeVirtDeploymentConfig, string)) {
 			cfgA := &KubeVirtDeploymentConfig{}
 			cfgA.AdditionalProperties = make(map[string]string)
