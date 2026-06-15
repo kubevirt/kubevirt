@@ -625,7 +625,7 @@ func (c *Controller) addTopologyHints(vmi *virtv1.VirtualMachineInstance, vmiCop
 }
 
 // prepareVMIPatch generates a patch set for updating the VMI status.
-// Map fields (activePods, labels, annotations) use per-key operations to minimize
+// Map fields (activePods, labels) use per-key operations to minimize
 // conflicts with concurrent virt-handler Update() calls during migration.
 func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.PatchSet {
 	patchSet := patch.New()
@@ -679,10 +679,6 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 
 	if !equality.Semantic.DeepEqual(oldVMI.Labels, newVMI.Labels) {
 		patchSet.AddOption(patch.GeneratePerKeyMapPatches("/metadata/labels", oldVMI.Labels, newVMI.Labels)...)
-	}
-
-	if !equality.Semantic.DeepEqual(oldVMI.Annotations, newVMI.Annotations) {
-		patchSet.AddOption(patch.GeneratePerKeyMapPatches("/metadata/annotations", oldVMI.Annotations, newVMI.Annotations)...)
 	}
 
 	if !equality.Semantic.DeepEqual(oldVMI.Finalizers, newVMI.Finalizers) {
