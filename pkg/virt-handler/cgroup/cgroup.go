@@ -178,13 +178,12 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 // detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
 // Socket is optional and makes the execution faster
 func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.IsolationResult, err error) {
-	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
 	detector := isolation.NewSocketBasedIsolationDetector(virtutil.VirtShareDir)
 
 	isolationRes, err = detector.Detect(vm)
 
 	if err != nil {
-		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
+		return nil, fmt.Errorf("cannot detect vm %q, err: %w", vm.Name, err)
 	}
 
 	return isolationRes, nil

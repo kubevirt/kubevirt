@@ -68,6 +68,7 @@ import (
 	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"syscall"
 )
 
 var (
@@ -537,8 +538,12 @@ func (c *MigrationTargetController) execute(key string) error {
 
 	if vmi.IsFinal() || vmi.DeletionTimestamp != nil {
 		log.Log.V(4).Infof("vmi for key %v is terminating or final, doing only a best-effort cleanup", key)
-		_ = c.unmountVolumes(vmi)
-		_ = c.netConf.Teardown(vmi)
+		if err := c.unmountVolumes(vmi); err != nil {
+			log.Log.Object(vmi).Reason(err).Error("target pod cleanup: unmount volumes failed")
+		}
+		if err := c.netConf.Teardown(vmi); err != nil {
+			log.Log.Object(vmi).Reason(err).Error("target pod cleanup: teardown network failed")
+		}
 		c.netStat.Teardown(vmi)
 		c.launcherClients.CloseLauncherClient(vmi)
 		return nil
@@ -754,7 +759,12 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 
 	cgroupManager, err := getCgroupManager(vmi, c.host)
 	if err != nil {
-		return err
+		if !goerror.Is(err, os.ErrNotExist) && !goerror.Is(err, syscall.ECONNREFUSED) {
+			return fmt.Errorf("failed to get cgroup manager: %v", err)
+		}
+		// The target pod may have already terminated, so the cgroup manager is no longer available.
+		// In that case, ignore the error and unmount volumes with a nil cgroupManager.
+		cgroupManager = nil
 	}
 	if err = c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return fmt.Errorf("failed to unmount hotplug volumes: %v", err)

@@ -389,19 +389,39 @@ func (m *hotplugMounter) getMountedVolumesInWorld(vmi *v1.VirtualMachineInstance
 		}
 		return nil, err
 	}
+	// Build a set of hotplug container-disk volume names from both Spec and Status.
+	// The hotplug-disks directory is shared with PVC filesystem hotplug volumes,
+	// which also produce <volumeName>.img files in the same directory.
+	// Spec covers volumes being attached; Status covers volumes being detached
+	// (removed from Spec but still having a live bind-mount).
+	knownHotplugContainerDisks := make(map[string]struct{})
+	for _, vol := range vmi.Spec.Volumes {
+		if vol.ContainerDisk != nil && vol.ContainerDisk.Hotpluggable {
+			knownHotplugContainerDisks[vol.Name] = struct{}{}
+		}
+	}
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.HotplugVolume != nil && vs.ContainerDiskVolume != nil {
+			knownHotplugContainerDisks[vs.Name] = struct{}{}
+		}
+	}
+
 	var volumes []string
 	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
-		if info.IsDir() {
+		if entry.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(entry.Name(), ".img") {
-			name := strings.TrimSuffix(entry.Name(), ".img")
-			volumes = append(volumes, name)
+		if !strings.HasSuffix(entry.Name(), ".img") {
+			continue
 		}
+		name := strings.TrimSuffix(entry.Name(), ".img")
+		// Only consider .img files that belong to this VMI's hotplug container-disk
+		// volumes. PVC filesystem hotplug also creates <volumeName>.img in the same
+		// directory — skip those to avoid stealing them.
+		if _, ok := knownHotplugContainerDisks[name]; !ok {
+			continue
+		}
+		volumes = append(volumes, name)
 	}
 	var mountedVolumes []vmiMountTargetEntry
 	for _, v := range volumes {
