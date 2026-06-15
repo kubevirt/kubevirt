@@ -31,17 +31,17 @@
 
 
 void
-secretEventLifecycleCallbackHelper(virConnectPtr conn,
-                                   virSecretPtr secret,
-                                   int event,
-                                   int detail,
-                                   void *data);
+virGoSecretEventLifecycleCallbackHelper(virConnectPtr conn,
+					virSecretPtr secret,
+					int event,
+					int detail,
+					void *data);
 
 
 void
-secretEventGenericCallbackHelper(virConnectPtr conn,
-				 virSecretPtr secret,
-				 void *data);
+virGoSecretEventGenericCallbackHelper(virConnectPtr conn,
+				      virSecretPtr secret,
+				      void *data);
 
 
 int

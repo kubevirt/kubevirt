@@ -34,22 +34,22 @@ package libvirt
 #include "network_events_helper.h"
 #include "callbacks_helper.h"
 
-extern void networkEventLifecycleCallback(virConnectPtr, virNetworkPtr, int, int, int);
-void networkEventLifecycleCallbackHelper(virConnectPtr conn, virNetworkPtr net,
-                                     int event, int detail, void *data)
+extern void virGoNetworkEventLifecycleCallback(virConnectPtr, virNetworkPtr, int, int, int);
+void virGoNetworkEventLifecycleCallbackHelper(virConnectPtr conn, virNetworkPtr net,
+                                              int event, int detail, void *data)
 {
-    networkEventLifecycleCallback(conn, net, event, detail, (int)(intptr_t)data);
+    virGoNetworkEventLifecycleCallback(conn, net, event, detail, (int)(intptr_t)data);
 }
 
 
-extern void networkEventMetadataChangeCallback(virConnectPtr, virNetworkPtr, int, const char *, int);
-void networkEventMetadataChangeCallbackHelper(virConnectPtr conn,
-                        virNetworkPtr net,
-                        int type,
-                        const char *nsuri,
-                        void *opaque)
+extern void virGoNetworkEventMetadataChangeCallback(virConnectPtr, virNetworkPtr, int, const char *, int);
+void virGoNetworkEventMetadataChangeCallbackHelper(virConnectPtr conn,
+                                                   virNetworkPtr net,
+						   int type,
+						   const char *nsuri,
+						   void *opaque)
 {
-    networkEventMetadataChangeCallback(conn, net, type, nsuri, (int)(intptr_t)opaque);
+    virGoNetworkEventMetadataChangeCallback(conn, net, type, nsuri, (int)(intptr_t)opaque);
 }
 
 
@@ -63,7 +63,7 @@ virConnectNetworkEventRegisterAnyHelper(virConnectPtr conn,
 {
     void *id = (void *)goCallbackId;
     return virConnectNetworkEventRegisterAnyWrapper(conn, net, eventID, cb, id,
-                                                    freeGoCallbackHelper, err);
+                                                    virGoFreeCallbackHelper, err);
 }
 
 

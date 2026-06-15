@@ -30,16 +30,16 @@
 #include "libvirt_generated.h"
 
 void
-storagePoolEventLifecycleCallbackHelper(virConnectPtr conn,
-                                        virStoragePoolPtr pool,
-                                        int event,
-                                        int detail,
-                                        void *data);
+virGoStoragePoolEventLifecycleCallbackHelper(virConnectPtr conn,
+					     virStoragePoolPtr pool,
+					     int event,
+					     int detail,
+					     void *data);
 
 void
-storagePoolEventGenericCallbackHelper(virConnectPtr conn,
-                                      virStoragePoolPtr pool,
-                                      void *data);
+virGoStoragePoolEventGenericCallbackHelper(virConnectPtr conn,
+					   virStoragePoolPtr pool,
+					   void *data);
 
 int
 virConnectStoragePoolEventRegisterAnyHelper(virConnectPtr conn,

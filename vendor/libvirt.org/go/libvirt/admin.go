@@ -132,7 +132,7 @@ func (c *AdmConnect) ConnectRegisterCloseCallback(callback AdmCloseCallback) err
 	var err C.virError
 	res := C.virAdmConnectRegisterCloseCallbackHelper(c.ptr, C.long(goCallbackId), &err)
 	if res != 0 {
-		freeCallbackId(goCallbackId)
+		virGoFreeCallbackId(goCallbackId)
 		return makeError(&err)
 	}
 	connData := admGetConnectionData(c)
@@ -155,8 +155,8 @@ func (c *AdmConnect) UnregisterCloseCallback() error {
 	return nil
 }
 
-//export admCloseCallback
-func admCloseCallback(conn C.virAdmConnectPtr, reason ConnectCloseReason, goCallbackId int) {
+//export virGoAdmCloseCallback
+func virGoAdmCloseCallback(conn C.virAdmConnectPtr, reason ConnectCloseReason, goCallbackId int) {
 	callbackFunc := getCallbackId(goCallbackId)
 	callback, ok := callbackFunc.(AdmCloseCallback)
 	if !ok {

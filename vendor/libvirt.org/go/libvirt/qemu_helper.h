@@ -31,13 +31,13 @@
 
 
 void
-domainQemuMonitorEventCallbackHelper(virConnectPtr conn,
-                                     virDomainPtr dom,
-                                     const char *event,
-                                     long long secs,
-                                     unsigned int micros,
-                                     const char *details,
-                                     void *data);
+virGoDomainQemuMonitorEventCallbackHelper(virConnectPtr conn,
+					  virDomainPtr dom,
+					  const char *event,
+					  long long secs,
+					  unsigned int micros,
+					  const char *details,
+					  void *data);
 
 
 int

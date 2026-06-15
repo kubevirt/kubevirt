@@ -197,6 +197,7 @@ type NetworkRoute struct {
 type NetworkDNSForwarder struct {
 	Domain string `xml:"domain,attr,omitempty"`
 	Addr   string `xml:"addr,attr,omitempty"`
+	Port   uint   `xml:"port,attr,omitempty"`
 }
 
 type NetworkDNSTXT struct {

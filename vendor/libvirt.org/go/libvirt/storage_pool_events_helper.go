@@ -35,19 +35,19 @@ package libvirt
 #include "callbacks_helper.h"
 
 
-extern void storagePoolEventLifecycleCallback(virConnectPtr, virStoragePoolPtr, int, int, int);
-void storagePoolEventLifecycleCallbackHelper(virConnectPtr conn, virStoragePoolPtr pool,
-                                           int event, int detail, void *data)
+extern void virGoStoragePoolEventLifecycleCallback(virConnectPtr, virStoragePoolPtr, int, int, int);
+void virGoStoragePoolEventLifecycleCallbackHelper(virConnectPtr conn, virStoragePoolPtr pool,
+                                                  int event, int detail, void *data)
 {
-    storagePoolEventLifecycleCallback(conn, pool, event, detail, (int)(intptr_t)data);
+    virGoStoragePoolEventLifecycleCallback(conn, pool, event, detail, (int)(intptr_t)data);
 }
 
 
-extern void storagePoolEventGenericCallback(virConnectPtr, virStoragePoolPtr, int);
-void storagePoolEventGenericCallbackHelper(virConnectPtr conn, virStoragePoolPtr pool,
-                                         void *data)
+extern void virGoStoragePoolEventGenericCallback(virConnectPtr, virStoragePoolPtr, int);
+void virGoStoragePoolEventGenericCallbackHelper(virConnectPtr conn, virStoragePoolPtr pool,
+                                                void *data)
 {
-    storagePoolEventGenericCallback(conn, pool, (int)(intptr_t)data);
+    virGoStoragePoolEventGenericCallback(conn, pool, (int)(intptr_t)data);
 }
 
 
@@ -61,7 +61,7 @@ virConnectStoragePoolEventRegisterAnyHelper(virConnectPtr conn,
 {
     void *id = (void *)goCallbackId;
     return virConnectStoragePoolEventRegisterAnyWrapper(conn, pool, eventID, cb, id,
-                                                        freeGoCallbackHelper, err);
+                                                        virGoFreeCallbackHelper, err);
 }
 
 
