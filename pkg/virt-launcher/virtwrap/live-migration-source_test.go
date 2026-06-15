@@ -757,7 +757,7 @@ var _ = Describe("migratableDomXML", func() {
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
 		domSpec := &api.DomainSpec{}
 		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newXML).To(Equal(expectedXML))
 	})
@@ -819,7 +819,7 @@ var _ = Describe("migratableDomXML", func() {
 		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
 		Expect(domSpec.VCPU).NotTo(BeNil())
 		Expect(domSpec.CPUTune).NotTo(BeNil())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
 		Expect(err).ToNot(HaveOccurred(), "failed to generate target domain XML")
 
 		By("ensuring the generated XML is accurate")
@@ -878,7 +878,7 @@ var _ = Describe("migratableDomXML", func() {
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
 		domSpec := &api.DomainSpec{}
 		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newXML).To(Equal(expectedXML))
 	},
@@ -947,7 +947,7 @@ var _ = Describe("migratableDomXML", func() {
 		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
 		domSpec := &api.DomainSpec{}
 		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
-		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec)
+		newXML, err := migratableDomXML(mockLibvirt.VirtDomain, vmi, domSpec, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(newXML).To(Equal(expectedXML))
 	})

@@ -143,7 +143,7 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 
 // This returns domain xml without the metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
-func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
+func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec, libvirtHooksEnabled bool) (string, error) {
 	var domain *api.Domain
 	var err error
 
@@ -158,13 +158,15 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	}
 	// TODO: Once LibvirtHooksServerAndClient feature gate is GA, remove
 	// convertDisks, replaced by DiskSourcePathHook on the target.
-	if err = convertDisks(domSpec, domcfg); err != nil {
-		return "", err
+	if !libvirtHooksEnabled {
+		if err = convertDisks(domSpec, domcfg); err != nil {
+			return "", err
+		}
 	}
 	// TODO: Once the LibvirtHooksServerAndClient feature gate is GA,
 	// this logic in the source can be removed, as XML modifications
 	// for dedicated CPUs will always be handled on the target side.
-	if vmi.IsCPUDedicated() {
+	if !libvirtHooksEnabled && vmi.IsCPUDedicated() {
 		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
 		// assigned in the source node with the new CPUs assigned in the target node
 		err = xml.Unmarshal([]byte(xmlstr), &domain)
@@ -763,7 +765,7 @@ func updateFilePathsToNewDomain(vmi *v1.VirtualMachineInstance, domSpec *api.Dom
 	}
 }
 
-func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec) (*libvirt.DomainMigrateParameters, error) {
+func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, virtShareDir string, domSpec *api.DomainSpec, libvirtHooksEnabled bool) (*libvirt.DomainMigrateParameters, error) {
 	bandwidth, err := vcpu.QuantityToMebiByte(options.Bandwidth)
 	if err != nil {
 		return nil, err
@@ -771,8 +773,10 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 
 	// TODO: Once LibvirtHooksServerAndClient feature gate is GA, remove
 	// updateFilePathsToNewDomain, replaced by DiskSourcePathHook on the target.
-	updateFilePathsToNewDomain(vmi, domSpec)
-	xmlstr, err := migratableDomXML(dom, vmi, domSpec)
+	if !libvirtHooksEnabled {
+		updateFilePathsToNewDomain(vmi, domSpec)
+	}
+	xmlstr, err := migratableDomXML(dom, vmi, domSpec, libvirtHooksEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -1035,7 +1039,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		if err != nil {
 			return fmt.Errorf("failed to get domain spec: %v", err)
 		}
-		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir, domSpec)
+		params, err = generateMigrationParams(dom, vmi, options, l.virtShareDir, domSpec, l.libvirtHooksServerAndClientEnabled)
 		if err != nil {
 			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
