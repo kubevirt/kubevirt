@@ -31,6 +31,8 @@ import (
 	clientset "kubevirt.io/virt-template-client-go/virttemplate"
 	templatev1alpha1 "kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1alpha1"
 	faketemplatev1alpha1 "kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1alpha1/fake"
+	templatev1beta1 "kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1beta1"
+	faketemplatev1beta1 "kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -94,4 +96,9 @@ var (
 // TemplateV1alpha1 retrieves the TemplateV1alpha1Client
 func (c *Clientset) TemplateV1alpha1() templatev1alpha1.TemplateV1alpha1Interface {
 	return &faketemplatev1alpha1.FakeTemplateV1alpha1{Fake: &c.Fake}
+}
+
+// TemplateV1beta1 retrieves the TemplateV1beta1Client
+func (c *Clientset) TemplateV1beta1() templatev1beta1.TemplateV1beta1Interface {
+	return &faketemplatev1beta1.FakeTemplateV1beta1{Fake: &c.Fake}
 }

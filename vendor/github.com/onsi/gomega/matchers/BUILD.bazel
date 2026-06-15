@@ -44,6 +44,7 @@ go_library(
         "have_suffix_matcher.go",
         "have_value.go",
         "match_error_matcher.go",
+        "match_error_strictly_matcher.go",
         "match_json_matcher.go",
         "match_regexp_matcher.go",
         "match_xml_matcher.go",

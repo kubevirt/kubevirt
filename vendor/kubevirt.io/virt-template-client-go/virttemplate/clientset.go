@@ -29,22 +29,30 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	templatev1alpha1 "kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1alpha1"
+	templatev1beta1 "kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1beta1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	TemplateV1alpha1() templatev1alpha1.TemplateV1alpha1Interface
+	TemplateV1beta1() templatev1beta1.TemplateV1beta1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	templateV1alpha1 *templatev1alpha1.TemplateV1alpha1Client
+	templateV1beta1  *templatev1beta1.TemplateV1beta1Client
 }
 
 // TemplateV1alpha1 retrieves the TemplateV1alpha1Client
 func (c *Clientset) TemplateV1alpha1() templatev1alpha1.TemplateV1alpha1Interface {
 	return c.templateV1alpha1
+}
+
+// TemplateV1beta1 retrieves the TemplateV1beta1Client
+func (c *Clientset) TemplateV1beta1() templatev1beta1.TemplateV1beta1Interface {
+	return c.templateV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -95,6 +103,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.templateV1beta1, err = templatev1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -117,6 +129,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.templateV1alpha1 = templatev1alpha1.New(c)
+	cs.templateV1beta1 = templatev1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

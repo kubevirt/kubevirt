@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 	"kubevirt.io/virt-template-engine/template/generator"
 )
 
@@ -47,11 +47,11 @@ var (
 // Returned errors relate to the template that is being processed,
 // therefore field paths start with 'spec'.
 func generateParameterValues(
-	parameters []v1alpha1.Parameter,
+	parameters []v1beta1.Parameter,
 	generators map[string]generator.Generator,
-) (map[string]v1alpha1.Parameter, *field.Error) {
+) (map[string]v1beta1.Parameter, *field.Error) {
 	visited := make(map[string]struct{})
-	params := make(map[string]v1alpha1.Parameter)
+	params := make(map[string]v1beta1.Parameter)
 	for i, param := range parameters {
 		path := field.NewPath("spec", "parameters").Index(i)
 
@@ -98,7 +98,7 @@ func generateParameterValues(
 
 // getVirtualMachineObject extracts the VirtualMachine runtime.Object from the spec of a VirtualMachineTemplate.
 // It handles both Raw JSON bytes and embedded Object representations.
-func getVirtualMachineObject(tplSpec *v1alpha1.VirtualMachineTemplateSpec) (runtime.Object, *field.Error) {
+func getVirtualMachineObject(tplSpec *v1beta1.VirtualMachineTemplateSpec) (runtime.Object, *field.Error) {
 	if tplSpec.VirtualMachine == nil || (len(tplSpec.VirtualMachine.Raw) == 0 && tplSpec.VirtualMachine.Object == nil) {
 		return nil, field.Invalid(field.NewPath("spec", "virtualMachine"),
 			tplSpec.VirtualMachine, "virtualMachine is required and cannot be empty")
@@ -143,7 +143,7 @@ func removeHardcodedNamespace(obj runtime.Object) error {
 }
 
 // substituteAllParameters recursively visits all string values of an object and substitutes parameters.
-func substituteAllParameters(obj runtime.Object, params map[string]v1alpha1.Parameter) error {
+func substituteAllParameters(obj runtime.Object, params map[string]v1beta1.Parameter) error {
 	return visitValue(reflect.ValueOf(obj), func(in string) (string, bool, error) {
 		return substituteParameters(in, params)
 	})
@@ -153,7 +153,7 @@ func substituteAllParameters(obj runtime.Object, params map[string]v1alpha1.Para
 // It returns the substituted value (if any substitution applied) and a boolean
 // indicating if the resulting value should be treated as a string(true) or a non-string
 // value(false).
-func substituteParameters(in string, params map[string]v1alpha1.Parameter) (out string, asString bool, err error) {
+func substituteParameters(in string, params map[string]v1beta1.Parameter) (out string, asString bool, err error) {
 	// First check if the value matches the "${{KEY}}" substitution syntax, which
 	// means replace and drop the quotes because the parameter value is to be used
 	// as a non-string value. If we hit a match here, we're done because the
