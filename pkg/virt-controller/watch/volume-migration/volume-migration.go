@@ -171,6 +171,17 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 			continue
 		}
 
+		// PVC volumes
+		if v.VolumeSource.PersistentVolumeClaim != nil {
+			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, v.VolumeSource.PersistentVolumeClaim.ClaimName, pvcStore)
+			if err != nil {
+				return err
+			}
+			if pvc == nil {
+				return storagetypes.NewPVCNotFoundError(v.VolumeSource.PersistentVolumeClaim.ClaimName)
+			}
+		}
+
 		// DataVolumes with a no-csi storage class
 		if v.VolumeSource.DataVolume != nil {
 			dv, err := storagetypes.GetDataVolumeFromCache(vm.Namespace, v.VolumeSource.DataVolume.Name, dvStore)
