@@ -21,6 +21,7 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -612,16 +613,20 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid types.UID) {
 	cnt := 0
 	for podUID := range vmi.Status.ActivePods {
-		_, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(podUID)
-		if err == nil {
-			uid = podUID
-			cnt++
+		// skip if no command socket (pod is not running)
+		if _, err := safepath.NewPathNoFollow(cmdclient.SocketFilePathOnHost(string(podUID))); err != nil {
+			continue
 		}
+		if _, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(podUID); err != nil {
+			continue
+		}
+		uid = podUID
+		cnt++
 	}
 	if cnt == 1 {
 		return
 	}
-	// Either no pods, or multiple pods, skip.
+	// Either no pods, or multiple live pods, skip.
 	return ""
 }
 

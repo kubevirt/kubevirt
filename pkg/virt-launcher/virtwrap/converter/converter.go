@@ -26,10 +26,10 @@ package converter
 */
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2108,14 +2108,11 @@ func GetImageInfo(imagePath string) (*disk.DiskInfo, error) {
 		"/usr/bin/qemu-img", "info", "-U", imagePath, "--output", "json",
 	)
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stderr for qemu-img command: %v", err)
-	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		errout, _ := io.ReadAll(stderr)
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v: %s", err, errout)
+		return nil, fmt.Errorf("failed to invoke qemu-img: %v: %s", err, stderr.String())
 	}
 
 	info := &disk.DiskInfo{}

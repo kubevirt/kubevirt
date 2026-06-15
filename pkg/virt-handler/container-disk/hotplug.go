@@ -23,6 +23,7 @@ import (
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -314,28 +315,36 @@ const (
 )
 
 func GetImageInfo(imagePath string, context isolation.IsolationResult, config *v1.DiskVerification) (*disk.DiskInfo, error) {
-	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
-	cmd := ExecChroot(
-		"--user", util.NonRootUserString, "--mount", context.MountNamespace(), "exec", "--",
-		QEMUIMGPath, "info", imagePath, "--output", "json",
-	)
-	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())
-	out, err := cmd.Output()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok {
-			if len(e.Stderr) > 0 {
-				return nil, fmt.Errorf("failed to invoke qemu-img: %v: '%v'", err, string(e.Stderr))
+	// An upgraded virt-handler may inspect a launcher from an older version whose image
+	// lacks the deckhouse user (its disks are owned by qemu), so fall back to qemu.
+	var lastErr error
+	for _, user := range []string{util.NonRootUserString, util.QemuUserString} {
+		// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
+		cmd := ExecChroot(
+			"--user", user, "--mount", context.MountNamespace(), "exec", "--",
+			QEMUIMGPath, "info", imagePath, "--output", "json",
+		)
+		log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())
+		out, err := cmd.Output()
+		if err != nil {
+			if e, ok := err.(*exec.ExitError); ok && len(e.Stderr) > 0 {
+				lastErr = fmt.Errorf("failed to invoke qemu-img: %v: '%v'", err, string(e.Stderr))
+				if strings.Contains(string(e.Stderr), "unknown user") {
+					continue
+				}
+			} else {
+				lastErr = fmt.Errorf("failed to invoke qemu-img: %v", err)
 			}
+			return nil, lastErr
 		}
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
-	}
 
-	info := &disk.DiskInfo{}
-	err = json.Unmarshal(out, info)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse disk info: %v", err)
+		info := &disk.DiskInfo{}
+		if err := json.Unmarshal(out, info); err != nil {
+			return nil, fmt.Errorf("failed to parse disk info: %v", err)
+		}
+		return info, nil
 	}
-	return info, err
+	return nil, lastErr
 }
 
 func ExecChroot(args ...string) *exec.Cmd {
@@ -695,16 +704,20 @@ func (m *hotplugMounter) ComputeChecksums(vmi *v1.VirtualMachineInstance, source
 func (m *hotplugMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid types.UID) {
 	cnt := 0
 	for podUID := range vmi.Status.ActivePods {
-		_, err := m.hotplugManager.GetHotplugTargetPodPathOnHost(podUID)
-		if err == nil {
-			uid = podUID
-			cnt++
+		// skip if no command socket (pod is not running)
+		if _, err := safepath.NewPathNoFollow(cmdclient.SocketFilePathOnHost(string(podUID))); err != nil {
+			continue
 		}
+		if _, err := m.hotplugManager.GetHotplugTargetPodPathOnHost(podUID); err != nil {
+			continue
+		}
+		uid = podUID
+		cnt++
 	}
 	if cnt == 1 {
 		return
 	}
-	// Either no pods, or multiple pods, skip.
+	// Either no pods, or multiple live pods, skip.
 	return types.UID("")
 }
 
