@@ -401,6 +401,9 @@ const (
 
 	// Guest agent responded with failure to a command
 	ERR_AGENT_COMMAND_FAILED = ErrorNumber(C.VIR_ERR_AGENT_COMMAND_FAILED)
+
+	// Encryption key secret error
+	ERR_INVALID_ENCR_KEY_SECRET = ErrorNumber(C.VIR_ERR_INVALID_ENCR_KEY_SECRET)
 )
 
 type ErrorDomain int

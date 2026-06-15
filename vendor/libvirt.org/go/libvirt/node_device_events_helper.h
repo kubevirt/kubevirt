@@ -31,17 +31,17 @@
 
 
 void
-nodeDeviceEventLifecycleCallbackHelper(virConnectPtr conn,
-                                       virNodeDevicePtr dev,
-                                       int event,
-                                       int detail,
-                                       void *data);
+virGoNodeDeviceEventLifecycleCallbackHelper(virConnectPtr conn,
+					    virNodeDevicePtr dev,
+					    int event,
+					    int detail,
+					    void *data);
 
 
 void
-nodeDeviceEventGenericCallbackHelper(virConnectPtr conn,
-                                     virNodeDevicePtr dev,
-                                     void *data);
+virGoNodeDeviceEventGenericCallbackHelper(virConnectPtr conn,
+					  virNodeDevicePtr dev,
+					  void *data);
 
 
 int

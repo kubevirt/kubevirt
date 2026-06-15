@@ -35,19 +35,19 @@ package libvirt
 #include "callbacks_helper.h"
 
 
-extern void secretEventLifecycleCallback(virConnectPtr, virSecretPtr, int, int, int);
-void secretEventLifecycleCallbackHelper(virConnectPtr conn, virSecretPtr secret,
-                                     int event, int detail, void *data)
+extern void virGoSecretEventLifecycleCallback(virConnectPtr, virSecretPtr, int, int, int);
+void virGoSecretEventLifecycleCallbackHelper(virConnectPtr conn, virSecretPtr secret,
+                                             int event, int detail, void *data)
 {
-    secretEventLifecycleCallback(conn, secret, event, detail, (int)(intptr_t)data);
+    virGoSecretEventLifecycleCallback(conn, secret, event, detail, (int)(intptr_t)data);
 }
 
 
-extern void secretEventGenericCallback(virConnectPtr, virSecretPtr, int);
-void secretEventGenericCallbackHelper(virConnectPtr conn, virSecretPtr secret,
-                                    void *data)
+extern void virGoSecretEventGenericCallback(virConnectPtr, virSecretPtr, int);
+void virGoSecretEventGenericCallbackHelper(virConnectPtr conn, virSecretPtr secret,
+                                           void *data)
 {
-    secretEventGenericCallback(conn, secret, (int)(intptr_t)data);
+    virGoSecretEventGenericCallback(conn, secret, (int)(intptr_t)data);
 }
 
 
@@ -61,7 +61,7 @@ virConnectSecretEventRegisterAnyHelper(virConnectPtr conn,
 {
     void *id = (void *)goCallbackId;
     return virConnectSecretEventRegisterAnyWrapper(conn, secret, eventID, cb, id,
-                                                   freeGoCallbackHelper, err);
+                                                   virGoFreeCallbackHelper, err);
 }
 
 

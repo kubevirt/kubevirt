@@ -31,9 +31,9 @@
 
 
 void
-closeCallbackHelper(virConnectPtr conn,
-                    int reason,
-                    void *opaque);
+virGoCloseCallbackHelper(virConnectPtr conn,
+                         int reason,
+                         void *opaque);
 
 
 virConnectPtr

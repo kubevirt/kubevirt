@@ -328,6 +328,7 @@ const (
 	DOMAIN_EVENT_STARTED_RESTORED      = DomainEventStartedDetailType(C.VIR_DOMAIN_EVENT_STARTED_RESTORED)
 	DOMAIN_EVENT_STARTED_FROM_SNAPSHOT = DomainEventStartedDetailType(C.VIR_DOMAIN_EVENT_STARTED_FROM_SNAPSHOT)
 	DOMAIN_EVENT_STARTED_WAKEUP        = DomainEventStartedDetailType(C.VIR_DOMAIN_EVENT_STARTED_WAKEUP)
+	DOMAIN_EVENT_STARTED_RECREATED     = DomainEventStartedDetailType(C.VIR_DOMAIN_EVENT_STARTED_RECREATED)
 )
 
 type DomainEventSuspendedDetailType int
@@ -342,6 +343,7 @@ const (
 	DOMAIN_EVENT_SUSPENDED_API_ERROR       = DomainEventSuspendedDetailType(C.VIR_DOMAIN_EVENT_SUSPENDED_API_ERROR)
 	DOMAIN_EVENT_SUSPENDED_POSTCOPY        = DomainEventSuspendedDetailType(C.VIR_DOMAIN_EVENT_SUSPENDED_POSTCOPY)
 	DOMAIN_EVENT_SUSPENDED_POSTCOPY_FAILED = DomainEventSuspendedDetailType(C.VIR_DOMAIN_EVENT_SUSPENDED_POSTCOPY_FAILED)
+	DOMAIN_EVENT_SUSPENDED_GUEST_SHUTDOWN  = DomainEventSuspendedDetailType(C.VIR_DOMAIN_EVENT_SUSPENDED_GUEST_SHUTDOWN)
 )
 
 type DomainEventResumedDetailType int
@@ -364,6 +366,7 @@ const (
 	DOMAIN_EVENT_STOPPED_SAVED         = DomainEventStoppedDetailType(C.VIR_DOMAIN_EVENT_STOPPED_SAVED)
 	DOMAIN_EVENT_STOPPED_FAILED        = DomainEventStoppedDetailType(C.VIR_DOMAIN_EVENT_STOPPED_FAILED)
 	DOMAIN_EVENT_STOPPED_FROM_SNAPSHOT = DomainEventStoppedDetailType(C.VIR_DOMAIN_EVENT_STOPPED_FROM_SNAPSHOT)
+	DOMAIN_EVENT_STOPPED_RECREATED     = DomainEventStoppedDetailType(C.VIR_DOMAIN_EVENT_STOPPED_RECREATED)
 )
 
 type DomainEventShutdownDetailType int
@@ -628,6 +631,7 @@ const (
 	DOMAIN_BLOCK_COPY_REUSE_EXT          = DomainBlockCopyFlags(C.VIR_DOMAIN_BLOCK_COPY_REUSE_EXT)
 	DOMAIN_BLOCK_COPY_TRANSIENT_JOB      = DomainBlockCopyFlags(C.VIR_DOMAIN_BLOCK_COPY_TRANSIENT_JOB)
 	DOMAIN_BLOCK_COPY_SYNCHRONOUS_WRITES = DomainBlockCopyFlags(C.VIR_DOMAIN_BLOCK_COPY_SYNCHRONOUS_WRITES)
+	DOMAIN_BLOCK_COPY_TARGET_ZEROED      = DomainBlockCopyFlags(C.VIR_DOMAIN_BLOCK_COPY_TARGET_ZEROED)
 )
 
 type DomainBlockRebaseFlags uint
@@ -672,6 +676,7 @@ type DomainBlockResizeFlags uint
 const (
 	DOMAIN_BLOCK_RESIZE_BYTES    = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_BYTES)
 	DOMAIN_BLOCK_RESIZE_CAPACITY = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_CAPACITY)
+	DOMAIN_BLOCK_RESIZE_EXTEND   = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_EXTEND)
 )
 
 type Domain struct {
@@ -885,7 +890,8 @@ const (
 type DomainBackupBeginFlags uint
 
 const (
-	DOMAIN_BACKUP_BEGIN_REUSE_EXTERNAL = DomainBackupBeginFlags(C.VIR_DOMAIN_BACKUP_BEGIN_REUSE_EXTERNAL)
+	DOMAIN_BACKUP_BEGIN_REUSE_EXTERNAL           = DomainBackupBeginFlags(C.VIR_DOMAIN_BACKUP_BEGIN_REUSE_EXTERNAL)
+	DOMAIN_BACKUP_BEGIN_PRESERVE_SHUTDOWN_DOMAIN = DomainBackupBeginFlags(C.VIR_DOMAIN_BACKUP_BEGIN_PRESERVE_SHUTDOWN_DOMAIN)
 )
 
 type DomainBlockInfo struct {
@@ -1019,6 +1025,18 @@ type DomainGraphicsReloadType uint
 const (
 	DOMAIN_GRAPHICS_RELOAD_TYPE_ANY = DomainGraphicsReloadType(C.VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_ANY)
 	DOMAIN_GRAPHICS_RELOAD_TYPE_VNC = DomainGraphicsReloadType(C.VIR_DOMAIN_GRAPHICS_RELOAD_TYPE_VNC)
+)
+
+type DomainSaveParamImageFormat string
+
+const (
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_RAW    = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_RAW)
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_GZIP   = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_GZIP)
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_BZIP2  = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_BZIP2)
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_XZ     = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_XZ)
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_ZSTD   = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_ZSTD)
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_LZOP   = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_LZOP)
+	DOMAIN_SAVE_PARAM_IMAGE_FORMAT_SPARSE = DomainSaveParamImageFormat(C.VIR_DOMAIN_SAVE_PARAM_IMAGE_FORMAT_SPARSE)
 )
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFree
@@ -2565,6 +2583,8 @@ type DomainMigrateParameters struct {
 	MigrateDisksDetectZeroesList []string
 	BandwidthAvailSwitchoverSet  bool
 	BandwidthAvailSwitchover     uint64
+	MigrateDisksTargetZeroSet    bool
+	MigrateDisksTargetZero       []string
 }
 
 func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]typedParamsFieldInfo {
@@ -2660,6 +2680,10 @@ func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]ty
 		C.VIR_MIGRATE_PARAM_MIGRATE_DISKS_DETECT_ZEROES: typedParamsFieldInfo{
 			set: &params.MigrateDisksDetectZeroesSet,
 			sl:  &params.MigrateDisksDetectZeroesList,
+		},
+		C.VIR_MIGRATE_PARAM_MIGRATE_DISKS_TARGET_ZERO: typedParamsFieldInfo{
+			set: &params.MigrateDisksTargetZeroSet,
+			sl:  &params.MigrateDisksTargetZero,
 		},
 		C.VIR_MIGRATE_PARAM_BANDWIDTH_AVAIL_SWITCHOVER: typedParamsFieldInfo{
 			set: &params.BandwidthAvailSwitchoverSet,

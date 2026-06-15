@@ -30,9 +30,9 @@
 
 
 void
-admCloseCallbackHelper(virAdmConnectPtr conn,
-                       int reason,
-                       void *opaque);
+virGoAdmCloseCallbackHelper(virAdmConnectPtr conn,
+                            int reason,
+                            void *opaque);
 
 
 int

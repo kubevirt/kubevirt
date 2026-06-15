@@ -35,27 +35,27 @@ virEventRegisterImplHelper(void);
 
 
 void
-eventHandleCallbackInvoke(int watch,
-                          int fd,
-                          int events,
-                          uintptr_t callback,
-                          uintptr_t opaque);
+virGoEventHandleCallbackInvoke(int watch,
+			       int fd,
+			       int events,
+			       uintptr_t callback,
+			       uintptr_t opaque);
 
 
 void
-eventTimeoutCallbackInvoke(int timer,
-                           uintptr_t callback,
-                           uintptr_t opaque);
+virGoEventTimeoutCallbackInvoke(int timer,
+				uintptr_t callback,
+				uintptr_t opaque);
 
 
 void
-eventHandleCallbackFree(uintptr_t callback,
-                        uintptr_t opaque);
+virGoEventHandleCallbackFree(uintptr_t callback,
+			     uintptr_t opaque);
 
 
 void
-eventTimeoutCallbackFree(uintptr_t callback,
-                         uintptr_t opaque);
+virGoEventTimeoutCallbackFree(uintptr_t callback,
+			      uintptr_t opaque);
 
 
 int
