@@ -71,6 +71,7 @@ const (
 
 	// Owner: @Barakmor1
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	//
 	// LibvirtHooksServerAndClient The LibvirtHooksServerAndClient FG enables running pre-migration
 	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
@@ -273,7 +274,7 @@ const (
 )
 
 func init() {
-	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
