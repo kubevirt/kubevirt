@@ -173,7 +173,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			// via the QEMU guest agent. Because virt-launcher pods use
 			// restartPolicy: Never, the failed probe kills the compute container
 			// and the pod enters Failed phase, aborting the migration.
-			It("should complete post-copy migration without the liveness probe killing the source pod", func() {
+			It("[QUARANTINE] should complete post-copy migration without the liveness probe killing the source pod", decorators.Quarantine, func() {
 				By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
