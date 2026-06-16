@@ -8,6 +8,7 @@ go_library(
         "mock_config.go",
         "mock_priorityqueue.go",
         "mock_queue.go",
+        "structoracle.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/testutils",
     visibility = ["//visibility:public"],
