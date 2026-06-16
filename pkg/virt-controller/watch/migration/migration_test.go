@@ -2784,6 +2784,45 @@ var _ = Describe("Migration watcher", func() {
 			Expect(shutdown).To(BeFalse())
 		})
 
+		It("should re-enqueue with migration priority when pending pod creations exist", func() {
+			vmi := newVirtualMachine("testvmipending", v1.Running)
+			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PriorityUserTriggered)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			By("Setting up pending pod creation expectations so AllPendingCreations() > 0")
+			controller.podExpectations.ExpectCreations("some-other-key", 1)
+
+			controller.Execute()
+
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(Equal(migrationsutil.QueuePriorityUserTriggered))
+			Expect(shutdown).To(BeFalse())
+		})
+
+		It("should re-enqueue with migration priority when multiple active pods exist for VMI", func() {
+			vmi := newVirtualMachine("testvmipending", v1.Running)
+			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)
+			migration.Spec.Priority = pointer.P(v1.PrioritySystemMaintenance)
+
+			pod1 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod1.Labels[v1.MigrationJobLabel] = "some-other-job"
+			addPod(pod1)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			controller.Execute()
+
+			item, priority, shutdown := controller.Queue.GetWithPriority()
+			Expect(item).To(Equal("default/testmigrationpending"))
+			Expect(priority).To(Equal(migrationsutil.QueuePrioritySystemMaintenance))
+			Expect(shutdown).To(BeFalse())
+		})
+
 		It("should get items in order based on priority", func() {
 
 			const (
