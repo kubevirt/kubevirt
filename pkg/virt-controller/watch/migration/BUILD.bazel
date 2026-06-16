@@ -48,6 +48,7 @@ go_test(
     srcs = [
         "migration_suite_test.go",
         "migration_test.go",
+        "migrationpolicy_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
