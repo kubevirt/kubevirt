@@ -19,8 +19,6 @@
 package cpuhook
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirtxml"
@@ -28,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -71,7 +70,7 @@ var _ = Describe("Premigration Hook Server", func() {
 				},
 			}
 
-			By("making up a target topology")
+			By("making up a target topology and CPU set")
 			topology := &cmdv1.Topology{NumaCells: []*cmdv1.Cell{{
 				Id: 0,
 				Cpus: []*cmdv1.CPU{
@@ -85,22 +84,18 @@ var _ = Describe("Premigration Hook Server", func() {
 					},
 				},
 			}}}
-			targetNodeTopology, err := json.Marshal(topology)
-			Expect(err).NotTo(HaveOccurred(), "failed to marshall the topology")
-
-			By("saving that topology in the migration state of the VMI")
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetCPUSet:       []int{6, 7},
-				TargetNodeTopology: string(targetNodeTopology),
+			c := &convertertypes.ConverterContext{
+				CPUSet:   []int{6, 7},
+				Topology: topology,
 			}
 
 			By("parsing the input domain XML")
 			var domain libvirtxml.Domain
-			err = domain.Unmarshal(domXML)
+			err := domain.Unmarshal(domXML)
 			Expect(err).NotTo(HaveOccurred(), "failed to parse input domain XML")
 
 			By("running the CPU dedicated hook")
-			err = CPUDedicatedHook(nil, vmi, &domain)
+			err = CPUDedicatedHook(c, vmi, &domain)
 			Expect(err).NotTo(HaveOccurred(), "failed to modify domain")
 
 			By("marshaling the modified domain back to XML")

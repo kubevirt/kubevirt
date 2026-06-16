@@ -22,19 +22,23 @@ import (
 	"encoding/xml"
 	"fmt"
 
-	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
-
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
 )
 
-// CPUDedicatedHook handles CPU pinning adjustments for dedicated CPU migrations
-func CPUDedicatedHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+// CPUDedicatedHook handles CPU pinning adjustments for dedicated CPU migrations.
+// It uses the ConverterContext's CPUSet and Topology, which are computed locally
+// on the target pod, instead of relying on VMI status fields that may not be
+// available yet during the hook execution.
+func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	if !vmi.IsCPUDedicated() {
 		return nil
 	}
@@ -51,7 +55,7 @@ func CPUDedicatedHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 		return fmt.Errorf("failed to unmarshal XML to api.DomainSpec: %w", err)
 	}
 
-	processedDomain, err := cpudedicated.GenerateDomainForTargetCPUSetAndTopology(vmi, &apiDomainSpec)
+	processedDomain, err := generateDomainForTargetCPU(vmi, &apiDomainSpec, c.Topology, c.CPUSet)
 	if err != nil {
 		return fmt.Errorf("failed to generate domain for target CPU set and topology: %w", err)
 	}
@@ -62,4 +66,27 @@ func CPUDedicatedHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 
 	log.Log.Object(vmi).Info("cpuDedicatedHook: CPU dedicated processing completed")
 	return nil
+}
+
+func generateDomainForTargetCPU(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec, topology *cmdv1.Topology, cpuSet []int) (*api.Domain, error) {
+	domain := api.NewMinimalDomain(vmi.Name)
+	domain.Spec = *domSpec
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+	}
+	domain.Spec.CPU.Topology = cpuTopology
+	domain.Spec.VCPU = &api.VCPU{
+		Placement: "static",
+		CPUs:      cpuCount,
+	}
+	if err := vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, cpuSet); err != nil {
+		return nil, err
+	}
+
+	return domain, nil
 }
