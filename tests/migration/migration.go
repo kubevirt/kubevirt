@@ -377,7 +377,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
-						libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
 						libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
 						libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 					),

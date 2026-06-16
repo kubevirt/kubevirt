@@ -394,7 +394,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			By("Writing data to extra disk")
 			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
 			// I am aware I should not use the device name since it is not guaranteed to be the same as the one in the VMI
-			// I should be using the serial number, but not sure how to access that in cirros.
+			// I should be using the serial number, but not sure how to access that in alpine.
 			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("mkfs.ext4 /dev/%s", deviceName), 30*time.Second)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, "mkdir /home/alpine/test", 30*time.Second)).To(Succeed())
 			Expect(console.RunCommand(sourceVMI, fmt.Sprintf("mount -t ext4 /dev/%s /home/alpine/test", deviceName), 30*time.Second)).To(Succeed())

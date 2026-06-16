@@ -182,3 +182,9 @@ func WithDummyCloudForFastBoot() libvmici.NoCloudOption {
 		source.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte("#!/bin/bash\necho 'hello'\n"))
 	}
 }
+
+func WithDummyConfigDriveCloudForFastBoot() libvmici.ConfigDriveOption {
+	return func(source *kvirtv1.CloudInitConfigDriveSource) {
+		source.UserData = "#!/bin/bash\necho 'hello'\n"
+	}
+}

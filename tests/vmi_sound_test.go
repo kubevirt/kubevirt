@@ -44,14 +44,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
 
 		It("should create an ich9 sound device on empty model", func() {
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpineWithTestTooling()
 			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
 				Name: "test-audio-device",
 			}
 			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 			err = checkICH9AudioDeviceInGuest(vmi)
 			Expect(err).ToNot(HaveOccurred(), "ICH9 sound device was no found")
 		})
@@ -66,7 +66,7 @@ func checkICH9AudioDeviceInGuest(vmi *v1.VirtualMachineInstance) error {
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
-		&expect.BSnd{S: fmt.Sprintf("lspci | grep %s\n", deviceId)},
+		&expect.BSnd{S: fmt.Sprintf("lspci -nn | grep %s\n", deviceId)},
 		&expect.BExp{R: ".*8086.*"},
 	}, 15)
 }
