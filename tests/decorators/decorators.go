@@ -107,6 +107,9 @@ var (
 	// RequiresSizeRoundUp requires a provisioner that rounds up the size of the volume
 	RequiresSizeRoundUp = Label("RequiresSizeRoundUp")
 
+	// RequiresDiscardSupport requires a storage backend that supports discard/TRIM.
+	RequiresDiscardSupport = Label("RequiresDiscardSupport")
+
 	/* architecture working groups */
 
 	WgS390x = Label("wg-s390x")

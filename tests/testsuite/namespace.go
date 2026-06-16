@@ -254,6 +254,13 @@ func CleanNamespaces() {
 			Expect(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
 		}
 
+		// Remove StorageClasses
+		scList, err := virtCli.StorageV1().StorageClasses().List(context.Background(), listOptions)
+		Expect(err).ToNot(HaveOccurred())
+		for _, sc := range scList.Items {
+			Expect(virtCli.StorageV1().StorageClasses().Delete(context.Background(), sc.Name, metav1.DeleteOptions{})).To(Succeed())
+		}
+
 		// Remove clones
 		Expect(virtCli.VirtualMachineClone(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
