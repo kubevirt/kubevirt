@@ -13,7 +13,6 @@ import (
 
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -717,11 +716,11 @@ func (n *Notifier) Close() {
 func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
 	switch jobCompletedEvent.Info.Operation {
 	case libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT:
-		var uid types.UID
 		if migration, exists := metadataCache.Migration.Load(); exists {
-			uid = migration.UID
+			virtwrap.LogMigrationInfo(log.Log, migration.UID, &jobCompletedEvent.Info)
+		} else {
+			log.Log.Warning("Received migration completed event, but no migration is being tracked")
 		}
-		virtwrap.LogMigrationInfo(log.Log, uid, &jobCompletedEvent.Info)
 		return false
 	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
 		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)

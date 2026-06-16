@@ -249,6 +249,8 @@ type LibvirtDomainManager struct {
 
 	hypervisorDeviceAvailable bool
 	hypervisorName            string
+
+	abortWg sync.WaitGroup
 }
 
 type pausedVMIs struct {
