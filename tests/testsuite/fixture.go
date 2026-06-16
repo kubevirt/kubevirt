@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"time"
 
@@ -44,6 +45,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -210,6 +212,16 @@ func EnsureKubevirtReadyWithTimeout(kv *v1.KubeVirt, timeout time.Duration) {
 				return kv.ObjectMeta.Generation == *kv.Status.ObservedGeneration
 			}),
 		), "One of the Kubevirt control-plane components is not ready.")
+
+	if kv.Spec.Configuration.DeveloperConfiguration != nil &&
+		slices.Contains(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.DecentralizedLiveMigration) {
+		Eventually(func() []string {
+			foundKV, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return foundKV.Status.SynchronizationAddresses
+		}, timeout, 1*time.Second).ShouldNot(BeEmpty(),
+			"SynchronizationAddresses should be populated when DecentralizedLiveMigration is enabled")
+	}
 }
 
 func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
