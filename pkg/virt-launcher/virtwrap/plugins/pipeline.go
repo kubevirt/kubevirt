@@ -108,28 +108,32 @@ func ApplyDomainHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineIns
 	for i, plugin := range sortedPlugins {
 		pluginNames[i] = plugin.Name
 	}
-	log.Log.Infof("Applying domain hooks from plugins: [%s]", strings.Join(pluginNames, ", "))
+	log.Log.Infof("Evaluating domain hooks from plugins: [%s]", strings.Join(pluginNames, ", "))
 
 	for _, plugin := range sortedPlugins {
-		for hookIdx, hook := range plugin.Spec.DomainHooks {
-			failureStrategy := hook.FailureStrategy
-			if failureStrategy == "" {
-				failureStrategy = pluginv1alpha1.FailureStrategyFail
+		if plugin.Spec.Condition != "" {
+			matched, err := evaluator.EvaluateCondition(plugin.Spec.Condition, vmi, domain)
+			if err != nil {
+				return nil, "", fmt.Errorf("plugin %s condition evaluation failed: %w", plugin.Name, err)
 			}
+			if !matched {
+				log.Log.Infof("Skipping plugin %s: condition not met", plugin.Name)
+				continue
+			}
+		}
 
+		for hookIdx, hook := range plugin.Spec.DomainHooks {
 			if hook.Condition != "" {
 				matched, err := evaluator.EvaluateCondition(hook.Condition, vmi, domain)
 				if err != nil {
-					if failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
-						log.Log.Warningf("Plugin %s hook %d condition evaluation failed (ignored): %v", plugin.Name, hookIdx, err)
-						continue
-					}
 					return nil, "", fmt.Errorf("plugin %s hook %d condition evaluation failed: %w", plugin.Name, hookIdx, err)
 				}
 				if !matched {
 					continue
 				}
 			}
+
+			failureStrategy := cmp.Or(hook.FailureStrategy, plugin.Spec.FailureStrategy, pluginv1alpha1.FailureStrategyFail)
 
 			var applier hookApplier
 			switch {
