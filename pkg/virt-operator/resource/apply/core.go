@@ -817,6 +817,7 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	lease, err := r.k8sClient.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
+			r.kv.Status.SynchronizationAddresses = nil
 			return nil
 		}
 		return err
@@ -826,14 +827,20 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		podName = *lease.Spec.HolderIdentity
 	}
 	if podName == "" {
+		r.kv.Status.SynchronizationAddresses = nil
 		return nil
 	}
 	pod, err := r.k8sClient.CoreV1().Pods(r.kv.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
+			r.kv.Status.SynchronizationAddresses = nil
 			return nil
 		}
 		return err
+	}
+	if pod.DeletionTimestamp != nil {
+		r.kv.Status.SynchronizationAddresses = nil
+		return nil
 	}
 
 	// Check for the migration network address in the pod annotations.
