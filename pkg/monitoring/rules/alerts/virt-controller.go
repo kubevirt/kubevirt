@@ -56,6 +56,18 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 			},
 		},
 		{
+			Alert: "NoLeadingVirtController",
+			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_leading:sum == 0"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "No leading virt-controller was detected for the last 10 min.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
+			},
+		},
+		{
 			Alert: "VirtControllerDown",
 			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_pods_running:count == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
