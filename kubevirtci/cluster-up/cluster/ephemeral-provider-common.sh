@@ -258,6 +258,10 @@ function _add_common_params() {
         params=" --swap-behavior=$KUBEVIRT_SWAP_BEHAVIOR $params"
     fi
 
+    if [ -n "$KUBEVIRT_VSOCK_CHILD_NS_MODE" ]; then
+        params=" --vsock-child-ns-mode=$KUBEVIRT_VSOCK_CHILD_NS_MODE $params"
+    fi
+
     if [ -n "$KUBEVIRTCI_PROXY" ]; then
         params=" --docker-proxy=$KUBEVIRTCI_PROXY $params"
     fi
