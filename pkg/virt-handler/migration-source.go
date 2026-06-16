@@ -670,16 +670,16 @@ func (c *MigrationSourceController) updateDomainFunc(_, new interface{}) {
 }
 
 func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient) error {
-	// Check both the VMI status and the domain metadata to avoid redundant cancel RPCs.
+	// Check both the domain metadata and the VMI status to avoid redundant cancel RPCs.
 	// The domain metadata reflects the launcher's abort status before the API server round-trip.
 	abortHandled := func(status v1.MigrationAbortStatus) bool {
 		return status == v1.MigrationAbortInProgress || status == v1.MigrationAbortSucceeded
 	}
-	if abortHandled(vmi.Status.MigrationState.AbortStatus) {
-		return nil
-	}
 	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil &&
 		abortHandled(v1.MigrationAbortStatus(domain.Spec.Metadata.KubeVirt.Migration.AbortStatus)) {
+		return nil
+	}
+	if abortHandled(vmi.Status.MigrationState.AbortStatus) {
 		return nil
 	}
 
