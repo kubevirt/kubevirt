@@ -164,7 +164,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi = nil
 			})
 
-			It("[QUARANTINE]should pause VMI on IO error", decorators.Quarantine, func() {
+			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi = libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, libvmops.StartupTimeoutSecondsXLarge)
