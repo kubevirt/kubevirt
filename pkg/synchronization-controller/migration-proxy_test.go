@@ -130,6 +130,56 @@ var _ = Describe("SyncProxyManager", func() {
 			By("Stopping non-existent target proxy")
 			proxyManager.StopTargetProxy("non-existent")
 		})
+
+		It("should recreate proxies when a listener dies unexpectedly", func() {
+			migrationUID := "migration-dead-listener"
+			targetPortMap := map[int]int{9999: 0}
+
+			By("Starting source proxy")
+			portMap1, err := proxyManager.StartSourceProxies(context.Background(), migrationUID, "127.0.0.1", targetPortMap)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(portMap1).To(HaveLen(1))
+
+			var proxyPort int
+			for port := range portMap1 {
+				proxyPort = port
+			}
+			proxyAddr := net.JoinHostPort(migrationIP, strconv.Itoa(proxyPort))
+
+			By("Forcing the listener to die without calling StopSourceProxy")
+			proxyManager.closeProxyListeners(migrationUID, false)
+
+			Eventually(func() map[int]int {
+				return proxyManager.GetSourceProxyPorts(migrationUID)
+			}).Should(BeNil())
+
+			By("Starting source proxy again should allocate a new healthy listener")
+			portMap2, err := proxyManager.StartSourceProxies(context.Background(), migrationUID, "127.0.0.1", targetPortMap)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(portMap2).To(HaveLen(1))
+
+			var newProxyPort int
+			for port := range portMap2 {
+				newProxyPort = port
+			}
+			newProxyAddr := net.JoinHostPort(migrationIP, strconv.Itoa(newProxyPort))
+
+			Eventually(func() error {
+				conn, err := net.DialTimeout("tcp", newProxyAddr, 100*time.Millisecond)
+				if conn != nil {
+					conn.Close()
+				}
+				return err
+			}).Should(Succeed())
+
+			Consistently(func() error {
+				conn, err := net.DialTimeout("tcp", proxyAddr, 50*time.Millisecond)
+				if conn != nil {
+					conn.Close()
+				}
+				return err
+			}).ShouldNot(Succeed())
+		})
 	})
 
 	Describe("Connection forwarding", func() {
