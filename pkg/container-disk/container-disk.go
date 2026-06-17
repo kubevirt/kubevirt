@@ -101,12 +101,16 @@ func GetDiskTargetDirFromHostView(vmi *v1.VirtualMachineInstance) (*safepath.Pat
 	return basepath, nil
 }
 
-func GetDiskTargetName(volumeIndex int) string {
+func GetDiskTargetName(volumeName string) string {
+	return fmt.Sprintf("disk_%s.img", volumeName)
+}
+
+func GetLegacyDiskTargetName(volumeIndex int) string {
 	return fmt.Sprintf("disk_%d.img", volumeIndex)
 }
 
-func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
-	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
+func GetDiskTargetPathFromLauncherView(volumeName string) string {
+	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeName))
 }
 
 func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
@@ -141,11 +145,28 @@ func setPodsDirectory(dir string) error {
 // can be provided which can for instance point to /tmp.
 func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+		volumeName := ""
+		idx := 0
+		for _, vol := range vmi.Spec.Volumes {
+			if vol.ContainerDisk != nil {
+				if idx == volumeIndex {
+					volumeName = vol.Name
+					break
+				}
+				idx++
+			}
+		}
+		if volumeName == "" {
+			return "", fmt.Errorf("no container disk volume at index %d for vmi %q", volumeIndex, vmi.Name)
+		}
 		for podUID := range vmi.Status.ActivePods {
 			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
-			socketPath := filepath.Join(basePath, fmt.Sprintf("disk_%d.sock", volumeIndex))
-			exists, _ := diskutils.FileExists(socketPath)
-			if exists {
+			socketPath := filepath.Join(basePath, fmt.Sprintf("disk_%s.sock", volumeName))
+			if exists, _ := diskutils.FileExists(socketPath); exists {
+				return socketPath, nil
+			}
+			socketPath = filepath.Join(basePath, fmt.Sprintf("disk_%d.sock", volumeIndex))
+			if exists, _ := diskutils.FileExists(socketPath); exists {
 				return socketPath, nil
 			}
 		}
@@ -334,13 +355,13 @@ func CreateEphemeralImages(
 	// to do here is only create the image where the domain expects it (GetDiskTargetPathFromLauncherView)
 	// for each disk that requires it.
 
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.ContainerDisk != nil {
 			info, _ := disksInfo[volume.Name]
 			if info == nil {
 				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
 			}
-			backingFile := GetDiskTargetPathFromLauncherView(i)
+			backingFile := GetDiskTargetPathFromLauncherView(volume.Name)
 			exists, err := diskutils.FileExists(backingFile)
 			if err != nil {
 				return err

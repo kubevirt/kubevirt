@@ -907,7 +907,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 		Source: &api.DiskSource{},
 	}
 
-	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+	source := containerdisk.GetDiskTargetPathFromLauncherView(volumeName)
 	if info := c.DisksInfo[volumeName]; info != nil {
 		disk.BackingStore.Format.Type = info.Format
 	} else {

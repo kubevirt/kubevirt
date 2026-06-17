@@ -466,6 +466,7 @@ var _ = Describe("Manager", func() {
 				// round-trip in SetDomainSpecStrWithHooks, so clear it to match
 				// the production code behavior for subsequent defines.
 				domainSpec.XmlNS = ""
+				domainSpec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
 				domainXMLWithExtra, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).ToNot(HaveOccurred())
 				mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(domainXMLWithExtra)).DoAndReturn(mockDomainWithFreeExpectation)
@@ -474,6 +475,7 @@ var _ = Describe("Manager", func() {
 
 		setDomainExpectations := func(vmi *v1.VirtualMachineInstance) {
 			domainSpec := expectedDomainFor(vmi)
+			domainSpec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
 			placeholderCount, err := calculatePlaceholderCount(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			extraControllers, err := calculateExtraControllerCount(vmi, domainSpec, placeholderCount)
@@ -500,6 +502,7 @@ var _ = Describe("Manager", func() {
 				domainSpec.XmlNS = ""
 				domainXMLWithExtra, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).ToNot(HaveOccurred())
+				fmt.Println("DEBUG domainXML:", string(domainXML))
 				mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(domainXMLWithExtra)).DoAndReturn(mockDomainWithFreeExpectation)
 			}
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(domainXML), nil)

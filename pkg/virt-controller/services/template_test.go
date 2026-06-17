@@ -4158,7 +4158,7 @@ var _ = Describe("Template", func() {
 				Expect(computeMounts).To(ContainElement(
 					k8sv1.VolumeMount{
 						Name:      vmiVolume.Name,
-						MountPath: filepath.Join(filepath.Join(util.VirtImageVolumeDir), "disk_0"),
+						MountPath: filepath.Join(filepath.Join(util.VirtImageVolumeDir), "disk_r0"),
 						ReadOnly:  true,
 					}),
 				)
