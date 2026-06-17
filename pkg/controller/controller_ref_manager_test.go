@@ -183,15 +183,19 @@ func TestClaimVirtualMachineInstance(t *testing.T) {
 	}
 }
 
-func newDataVolume(name string, owner metav1.Object) *cdiv1.DataVolume {
+func newDataVolume(name string, owner metav1.Object, dynamic bool) *cdiv1.DataVolume {
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
+			Labels:    make(map[string]string),
 		},
 	}
 	if owner != nil {
 		dataVolume.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+		if dynamic {
+			dataVolume.ObjectMeta.Labels[virtv1.CreatedByLabel] = string(owner.GetUID())
+		}
 	}
 
 	return dataVolume
@@ -219,7 +223,7 @@ func TestClaimDataVolume(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", nil), newDataVolume("datavolume2", nil)},
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", nil, true), newDataVolume("datavolume2", nil, true)},
 				claimed:     nil,
 			}
 		}(),
@@ -235,8 +239,8 @@ func TestClaimDataVolume(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", nil)},
-				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller, true), newDataVolume("datavolume2", nil, true)},
+				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller, true)},
 			}
 		}(),
 		func() test {
@@ -251,15 +255,15 @@ func TestClaimDataVolume(t *testing.T) {
 					productionLabelSelector,
 					controllerKind,
 					func() error { return nil }),
-				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", &controller2)},
-				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller, true), newDataVolume("datavolume2", &controller2, true)},
+				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller, true)},
 			}
 		}(),
 		func() test {
 			controller := v1.ReplicationController{}
 			controller.UID = types.UID(controllerUID)
-			datavolumeToDelete1 := newDataVolume("datavolume1", &controller)
-			datavolumeToDelete2 := newDataVolume("datavolume2", nil)
+			datavolumeToDelete1 := newDataVolume("datavolume1", &controller, true)
+			datavolumeToDelete2 := newDataVolume("datavolume2", nil, true)
 			now := metav1.Now()
 			datavolumeToDelete1.DeletionTimestamp = &now
 			datavolumeToDelete2.DeletionTimestamp = &now
@@ -273,6 +277,27 @@ func TestClaimDataVolume(t *testing.T) {
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{datavolumeToDelete1, datavolumeToDelete2},
 				claimed:     []*cdiv1.DataVolume{datavolumeToDelete1},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller2 := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controller2.UID = types.UID(controllerUID)
+			datavolume1 := newDataVolume("datavolume1", &controller, true)
+			datavolume2 := newDataVolume("datavolume2", &controller2, false)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			controller2.DeletionTimestamp = &now
+			return test{
+				name: "Controller does not claim orphaned datavolumes statically created",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{datavolume1, datavolume2},
+				claimed:     []*cdiv1.DataVolume{datavolume1},
 			}
 		}(),
 	}

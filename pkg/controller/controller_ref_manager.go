@@ -340,8 +340,8 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 	var errlist []error
 
 	match := func(obj metav1.Object) bool {
-		return true
-
+		_, ok := (obj.(*cdiv1.DataVolume)).ObjectMeta.Labels[virtv1.CreatedByLabel]
+		return ok
 	}
 	adopt := func(obj metav1.Object) error {
 		return m.AdoptDataVolume(obj.(*cdiv1.DataVolume))

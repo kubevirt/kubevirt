@@ -554,6 +554,16 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
 		} else {
+			value, ok := curDataVolume.ObjectMeta.Labels[virtv1.CreatedByLabel]
+			if !ok {
+				ready = false
+				return ready, fmt.Errorf("requests existing static DataVolume")
+			}
+			if value != string(vm.UID) {
+				ready = false
+				return ready, fmt.Errorf("requests DataVolume owned by another VM")
+			}
+
 			switch curDataVolume.Status.Phase {
 			case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
 				continue
