@@ -593,7 +593,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			targetVMI.Namespace = testsuite.NamespaceTestAlternative
 		})
 
-		DescribeTable("should be able to cancel a migration by deleting the migration resource", decorators.SigStorage, Serial, func(deleteSource bool) {
+		DescribeTable("should be able to cancel a migration by deleting the migration resource", Serial, func(deleteSource bool) {
 			const timeout = 180
 			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 
@@ -653,8 +653,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
 			stopStressTest(sourceVMI)
 		},
-			Entry("[QUARANTINE] delete source migration", decorators.Quarantine, true),
-			Entry("[QUARANTINE]delete target migration", decorators.Quarantine, false),
+			Entry("delete source migration", true),
+			Entry("delete target migration", false),
 		)
 
 		It("should properly propagate failure from target to source", func() {
