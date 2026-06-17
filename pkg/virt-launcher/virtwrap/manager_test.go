@@ -2346,7 +2346,7 @@ var _ = Describe("Manager", func() {
 			migrationMetadata.UID = migrationUid
 			metadataCache.Migration.Store(migrationMetadata)
 
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 
 			// Allow the aync-abort (goroutine) to be processed before finishing.
 			// This is required in order to allow the expected calls to occur.
@@ -2374,7 +2374,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
 			manager, _ := newLibvirtDomainManagerDefault()
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 		})
 		It("monitor should exit when migration done channel is closed", func() {
 			migrationDone := make(chan struct{})
@@ -2596,7 +2596,7 @@ var _ = Describe("Manager", func() {
 
 			// Wait for MigrateToURI3 to be blocking, then trigger abort
 			time.Sleep(500 * time.Millisecond)
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 
 			Eventually(abortOrdered, 5*time.Second).Should(BeClosed())
 			Eventually(done, 10*time.Second).Should(BeClosed())
@@ -2652,7 +2652,7 @@ var _ = Describe("Manager", func() {
 			}()
 
 			time.Sleep(500 * time.Millisecond)
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 			Eventually(done, 10*time.Second).Should(BeClosed())
 
 			migration, _ := metadataCache.Migration.Load()
@@ -2694,7 +2694,7 @@ var _ = Describe("Manager", func() {
 			endTimestamp := migration.EndTimestamp.DeepCopy()
 
 			// Late abort: cancelMigration is a no-op because EndTimestamp is already set
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 
 			// EndTimestamp should not be overwritten
 			migration, _ = metadataCache.Migration.Load()

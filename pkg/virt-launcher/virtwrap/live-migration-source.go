@@ -371,7 +371,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	return false, nil
 }
 
-func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) {
 	l.metadataCache.Migration.WithSafeBlock(func(migration *api.MigrationMetadata, _ bool) {
 		if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
 			log.Log.Object(vmi).Infof("cancel migration ignored: vmi is not migrating")
@@ -390,7 +390,6 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 		migration.AbortStatus = string(v1.MigrationAbortInProgress)
 		l.asyncMigrationAbort(vmi)
 	})
-	return nil
 }
 
 func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string) {
