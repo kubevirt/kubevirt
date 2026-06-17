@@ -180,7 +180,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    30,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Cannot access storage file '/var/run/kubevirt/container-disks/disk_0\.img'.*No such file or directory","pos":"virStorageSourceReportBrokenChain`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Cannot access storage file '/var/run/kubevirt/container-disks/disk_[^']+\.img'.*No such file or directory","pos":"virStorageSourceReportBrokenChain`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
@@ -210,7 +210,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    37,
-		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: (QEMU unexpectedly closed the monitor|process exited while connecting to monitor).*(The sum of offset.*has to be smaller or equal to the  actual size of the containing file|Permission denied|Could not open '/var/run/kubevirt/container-disks/disk_0\.img': No such file or directory)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: (QEMU unexpectedly closed the monitor|process exited while connecting to monitor).*(The sum of offset.*has to be smaller or equal to the  actual size of the containing file|Permission denied|Could not open '/var/run/kubevirt/container-disks/disk_[^']+\.img': No such file or directory)`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{

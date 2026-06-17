@@ -364,6 +364,38 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
+			DescribeTable("should successfully migrate a VMI with a container disk after removing the volume ahead of it",
+				decorators.StorageReq, decorators.RequiresRWXBlock, func(device v1.DiskDevice, runAndUnplug runAndUnplugFunc) {
+					const volumeName = "volume-0"
+
+					By("Creating a DataVolume for the volume placed ahead of the container disk")
+					dv := createRWXBlockAlpineDataVolume(virtClient, defaultArch)
+
+					By("Creating a VMI with the volume first (index 0), then the container disk")
+					vmi := newAlpineVMIWithVolumeAhead(volumeName, dv.Name, device)
+
+					By("Starting the VMI and waiting for the volume to be attached")
+					vmi, unplug := runAndUnplug(virtClient, vmi, volumeName, dv.Name)
+
+					By("Logging into the VMI")
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By("Removing the volume ahead of the container disk")
+					unplug()
+
+					By("Migrating the VMI after the removal")
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+					By("Confirming VMI post migration")
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				},
+				Entry("CD-ROM ejected from a VM",
+					v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: v1.DiskBusSATA}}, runVMAndEject),
+				Entry("hotplug disk unplugged from a standalone VMI",
+					v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI}}, runVMIAndUnplug),
+			)
+
 			It("should migrate vmi and use Live Migration method with read-only disks", decorators.RequiresRWXBlock, func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
@@ -3370,4 +3402,102 @@ func getSourceLauncherLogs(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		DoRaw(context.Background())
 	Expect(err).ToNot(HaveOccurred(), "should get virt-launcher source pod logs")
 	return string(logsRaw)
+}
+
+// createRWXBlockAlpineDataVolume imports an Alpine image into an RWX block DataVolume,
+// skipping the test when CDI or an RWX block storage class is unavailable.
+func createRWXBlockAlpineDataVolume(virtClient kubecli.KubevirtClient, arch string) *cdiv1.DataVolume {
+	GinkgoHelper()
+	if !libstorage.HasCDI() {
+		Fail("Fail DataVolume tests when CDI is not present")
+	}
+	sc, exists := libstorage.GetRWXBlockStorageClass()
+	if !exists {
+		Fail("Failed test when RWX Block storage is not present")
+	}
+
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistrySource(
+			libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithPullMethod(cdiv1.RegistryPullNode),
+			libdv.WithPlatformArch(arch),
+		),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+		),
+	)
+	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+		context.Background(), dv, metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+	return dv
+}
+
+// waitForVolumeDetached waits until the volume is gone from the VMI status, which reflects
+// the running domain rather than the spec change that triggered the detach.
+func waitForVolumeDetached(vmi *v1.VirtualMachineInstance, volumeName string) {
+	GinkgoHelper()
+	Eventually(matcher.ThisVMI(vmi), 120*time.Second, 2*time.Second).Should(
+		WithTransform(func(vmi *v1.VirtualMachineInstance) []v1.VolumeStatus {
+			return vmi.Status.VolumeStatus
+		}, Not(ContainElement(HaveField("Name", volumeName)))))
+}
+
+// newAlpineVMIWithVolumeAhead builds an Alpine VMI with a hotpluggable DataVolume placed
+// before the container disk. Removing that volume at runtime shifts the container disk
+// index, which a volume hotplugged after start would not, since those are appended.
+func newAlpineVMIWithVolumeAhead(volumeName, dvName string, device v1.DiskDevice) *v1.VirtualMachineInstance {
+	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+	volume := v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{Name: dvName, Hotpluggable: true},
+		},
+	}
+	vmi.Spec.Volumes = append([]v1.Volume{volume}, vmi.Spec.Volumes...)
+	vmi.Spec.Domain.Devices.Disks = append([]v1.Disk{{Name: volumeName, DiskDevice: device}}, vmi.Spec.Domain.Devices.Disks...)
+	return vmi
+}
+
+// runAndUnplugFunc starts the VMI, waits for volumeName to be attached, and returns the
+// running VMI together with a function that removes the volume and waits for the detach.
+type runAndUnplugFunc func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, volumeName, dvName string) (*v1.VirtualMachineInstance, func())
+
+func runVMAndEject(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, volumeName, dvName string) (*v1.VirtualMachineInstance, func()) {
+	GinkgoHelper()
+	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(matcher.ThisVM(vm), 360*time.Second, 5*time.Second).Should(BeReady())
+	libstorage.WaitForHotplugToComplete(virtClient, vm, volumeName, dvName, true)
+
+	vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	return vmi, func() {
+		vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, volumeName)
+		libstorage.WaitForHotplugToComplete(virtClient, vm, volumeName, dvName, false)
+	}
+}
+
+func runVMIAndUnplug(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, volumeName, _ string) (*v1.VirtualMachineInstance, func()) {
+	GinkgoHelper()
+	vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(360))
+	libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", false, volumeName)
+
+	return vmi, func() {
+		Eventually(func() error {
+			return virtClient.VirtualMachineInstance(vmi.Namespace).RemoveVolume(
+				context.Background(), vmi.Name, &v1.RemoveVolumeOptions{Name: volumeName},
+			)
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		waitForVolumeDetached(vmi, volumeName)
+	}
 }
