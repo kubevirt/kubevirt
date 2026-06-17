@@ -1922,7 +1922,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -1989,7 +1989,7 @@ var _ = Describe("Manager", func() {
 			})
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -1997,7 +1997,7 @@ var _ = Describe("Manager", func() {
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
 			monitor.startMonitor(make(chan error, 1))
-			Eventually(abortStatus, 2*time.Second, 100*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
+			Eventually(abortStatus, 500*time.Millisecond, 50*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
 		DescribeTable("migration should be canceled when GetJobStats does not report progress", func(stubGetJobStats func()) {
 			migrationDone := make(chan struct{})
@@ -2018,6 +2018,11 @@ var _ = Describe("Manager", func() {
 			migrationMetadata.StartTimestamp = &now
 			metadataCache.Migration.Store(migrationMetadata)
 
+			abortStatus := func() string {
+				m, _ := metadataCache.Migration.Load()
+				return m.AbortStatus
+			}
+
 			manager := &LibvirtDomainManager{
 				virConn:       mockLibvirt.VirtConnection,
 				virtShareDir:  testVirtShareDir,
@@ -2031,12 +2036,16 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
-				close(migrationDone)
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					close(migrationDone)
+				}()
 				return nil
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
 			monitor.startMonitor(make(chan error, 1))
+			Eventually(abortStatus, 500*time.Millisecond, 50*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		},
 			Entry("because GetJobStats keeps failing", func() {
 				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(nil, fmt.Errorf("persistent stats error"))
@@ -2087,7 +2096,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -2306,7 +2315,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
