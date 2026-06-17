@@ -54,11 +54,9 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		_, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 	}
 
-	volumeIndices := map[string]int{}
 	volumes := map[string]*v1.Volume{}
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
-		volumeIndices[volume.Name] = i
 	}
 
 	var numBlkQueues *uint
@@ -106,7 +104,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		case hpOk:
 			err = convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, d.c)
 		default:
-			err = convert_v1_Volume_To_api_Disk(volume, &newDisk, d.c, volumeIndices[disk.Name])
+			err = convert_v1_Volume_To_api_Disk(volume, &newDisk, d.c)
 		}
 
 		if err != nil {
