@@ -21,6 +21,7 @@ package cbt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -81,7 +82,8 @@ const (
 )
 
 var (
-	errSourceNameEmpty = fmt.Errorf("source name is empty")
+	errSourceNameEmpty = errors.New("source name is empty")
+	errCleanupPending  = errors.New("cleanup pending")
 )
 
 type VMBackupController struct {
@@ -371,7 +373,11 @@ func (ctrl *VMBackupController) Execute() bool {
 
 	err := ctrl.execute(key)
 	if err != nil {
-		log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackup %v", key)
+		if errors.Is(err, errCleanupPending) {
+			log.Log.V(4).Infof("reenqueuing VirtualMachineBackup %v: %v", key, err)
+		} else {
+			log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackup %v", key)
+		}
 		ctrl.backupQueue.AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed VirtualMachineBackup %v", key)
@@ -484,7 +490,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 			return err
 		}
 		if !done {
-			return fmt.Errorf("ongoing cleanup for backup deletion")
+			return fmt.Errorf("ongoing cleanup for backup deletion: %w", errCleanupPending)
 		}
 		ctrl.setFailed(backup, backupv1.ReasonDeletedDuringInit, "backup was deleted during initialization")
 		return nil
@@ -501,7 +507,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 			return err
 		}
 		if !done {
-			return fmt.Errorf("ongoing cleanup for lost backup status")
+			return fmt.Errorf("ongoing cleanup for lost backup status: %w", errCleanupPending)
 		}
 		ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI backup status was lost")
 		return nil
@@ -547,7 +553,7 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 			return err
 		}
 		if !done {
-			return fmt.Errorf("not done cleaning backup for failed VMI: %s", vmi.Name)
+			return fmt.Errorf("not done cleaning backup for failed VMI %s: %w", vmi.Name, errCleanupPending)
 		}
 		ctrl.setFailed(backup, backupv1.ReasonSourceUnhealthy, fmt.Sprintf("VMI is not in a running state: %s", vmi.Status.Phase))
 		return nil
@@ -586,7 +592,7 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 		return err
 	}
 	if !done {
-		return fmt.Errorf("cleanup not complete for finished backup")
+		return fmt.Errorf("cleanup not complete for finished backup: %w", errCleanupPending)
 	}
 
 	ctrl.resolveCompletion(backup, backupStatus)

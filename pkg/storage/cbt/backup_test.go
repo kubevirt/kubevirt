@@ -1126,8 +1126,7 @@ var _ = Describe("Backup Controller", func() {
 				Return(vmi, nil)
 
 			_, err := syncBackup(backup)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("not done cleaning"))
+			Expect(err).To(MatchError(errCleanupPending))
 		})
 
 		It("should fail backup when cleanup completes for a stopped VMI", func() {
@@ -1492,8 +1491,7 @@ var _ = Describe("Backup Controller", func() {
 			})
 
 		_, err := syncBackup(backup)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("cleanup not complete"))
+		Expect(err).To(MatchError(errCleanupPending))
 	})
 
 	It("should remove backup status from VMI and return completed event when already detached", func() {
@@ -1672,8 +1670,7 @@ var _ = Describe("Backup Controller", func() {
 			Return(vmi, nil)
 
 		_, err := syncBackup(backup)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("cleanup not complete"))
+		Expect(err).To(MatchError(errCleanupPending))
 		Expect(trackerPatched).To(BeTrue())
 	})
 
@@ -2044,8 +2041,7 @@ var _ = Describe("Backup Controller", func() {
 				Return(vmi, nil)
 
 			_, err := syncBackup(backup)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cleanup not complete"))
+			Expect(err).To(MatchError(errCleanupPending))
 			Expect(deleteCalled).To(BeTrue())
 		})
 	})
