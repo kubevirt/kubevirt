@@ -27,8 +27,11 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -65,8 +68,12 @@ func buildContainerDiskPathMap(vmi *v1.VirtualMachineInstance, domain *api.Domai
 			continue
 		}
 		filePath := disk.Source.File
-		// Only record index-based filenames (e.g. disk_2.img), not already-v2 names
+		// Only record index-based filenames (e.g. disk_2.img).
+		// v2 names (disk_volumeName.img) contain non-numeric characters and are skipped.
 		base := filepath.Base(filePath)
+		if isLegacyDiskFilename(base) {
+			pathMap[volumeName] = filePath
+		}
 		if strings.HasPrefix(base, "disk_") && strings.HasSuffix(base, ".img") {
 			pathMap[volumeName] = filePath
 		}
@@ -124,11 +131,32 @@ func (c *VirtualMachineController) syncContainerDiskPathAnnotation(
 	}
 	vmi.Annotations[v1.ContainerDiskPathsAnnotation] = string(encoded)
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Update(
-		context.Background(), vmi, metav1.UpdateOptions{},
+	patchData, err := patch.New(
+		patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s",
+			patch.EscapeJSONPointer(v1.ContainerDiskPathsAnnotation)),
+			string(encoded)),
+	).GeneratePayload()
+	if err != nil {
+		return fmt.Errorf("failed to generate patch for containerdisk paths annotation: %v", err)
+	}
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(
+		context.Background(), vmi.Name, types.JSONPatchType, patchData, metav1.PatchOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update VMI with containerdisk paths annotation: %v", err)
+		return fmt.Errorf("failed to patch VMI with containerdisk paths annotation: %v", err)
 	}
 	return nil
+}
+
+func isLegacyDiskFilename(base string) bool {
+	if !strings.HasPrefix(base, "disk_") || !strings.HasSuffix(base, ".img") {
+		return false
+	}
+	middle := strings.TrimPrefix(strings.TrimSuffix(base, ".img"), "disk_")
+	for _, c := range middle {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return len(middle) > 0
 }

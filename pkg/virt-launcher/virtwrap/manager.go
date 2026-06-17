@@ -1410,10 +1410,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	// Mark this domain as using v2 (volume-name-based) container disk paths.
-	// virt-handler reads this to skip writing the legacy path annotation.
-	domain.Spec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
-
 	// Set defaults which are not coming from the cluster
 	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
 
@@ -2818,12 +2814,12 @@ func (l *LibvirtDomainManager) parseFSDisks(fsDisks []api.FSDisk) []v1.VirtualMa
 // linkImageVolumeFilePaths creates symbolic links for container disk files and kernel boot artifacts
 // from the image volume view to the appropriate known paths in the launcher view.
 func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineInstance) error {
-	for volumeIndex, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk == nil {
 			continue
 		}
 		backingFile := containerdisk.GetDiskTargetPathFromLauncherView(volume.Name)
-		fileToSoftLink, err := getDiskTargetPathFromImageVolumeView(volumeIndex, volume.ContainerDisk.Path)
+		fileToSoftLink, err := getDiskTargetPathFromImageVolumeView(volume.Name, volume.ContainerDisk.Path)
 		if err != nil {
 			return fmt.Errorf("failed to find disk file from ImageVolume: %v", err)
 		}
@@ -2887,11 +2883,11 @@ func (l *LibvirtDomainManager) syncGuestAgentProbePaused(vmi *v1.VirtualMachineI
 	}
 }
 
-func getDiskTargetPathFromImageVolumeView(volumeIndex int, volumePath string) (*safepath.Path, error) {
+func getDiskTargetPathFromImageVolumeView(volumeName string, volumePath string) (*safepath.Path, error) {
 	if volumePath != "" {
-		return safepath.JoinAndResolveWithRelativeRoot(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), volumePath)
+		return safepath.JoinAndResolveWithRelativeRoot(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%s", volumeName), volumePath)
 	}
-	imageVolumeDir := filepath.Join(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), osdisk.DiskSourceFallbackPath)
+	imageVolumeDir := filepath.Join(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%s", volumeName), osdisk.DiskSourceFallbackPath)
 	files, err := os.ReadDir(imageVolumeDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check ImageVolume path %s: %v", imageVolumeDir, err)

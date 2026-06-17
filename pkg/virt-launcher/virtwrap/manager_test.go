@@ -405,6 +405,10 @@ var _ = Describe("Manager", func() {
 	})
 
 	expectedDomainFor := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+		if vmi.UID == "" {
+			vmi.UID = "11111111-2222-3333-4444-555555555555"
+		}
+
 		domain := &api.Domain{}
 		hotplugVolumes := make(map[string]v1.VolumeStatus)
 		permanentVolumes := make(map[string]v1.VolumeStatus)
@@ -434,6 +438,7 @@ var _ = Describe("Manager", func() {
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
+		domain.Spec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
 		return &domain.Spec
 	}
 
@@ -502,7 +507,6 @@ var _ = Describe("Manager", func() {
 				domainSpec.XmlNS = ""
 				domainXMLWithExtra, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).ToNot(HaveOccurred())
-				fmt.Println("DEBUG domainXML:", string(domainXML))
 				mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(domainXMLWithExtra)).DoAndReturn(mockDomainWithFreeExpectation)
 			}
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(domainXML), nil)
