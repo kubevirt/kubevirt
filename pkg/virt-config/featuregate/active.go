@@ -120,6 +120,12 @@ const (
 	// resources to be attached to VMs using the natural networks API.
 	NetworkDevicesWithDRAGate = "NetworkDevicesWithDRA"
 
+	// Owner: sig-compute / @awels
+	// Alpha: v1.6.0
+	// Beta: v1.10.0
+	//
+	// DecentralizedLiveMigration enables live migration across namespaces
+	// with separate source and target VirtualMachineInstanceMigration resources.
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
 	// Owner: sig-storage / @alromeros
@@ -312,7 +318,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})

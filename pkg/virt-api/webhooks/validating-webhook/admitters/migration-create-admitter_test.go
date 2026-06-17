@@ -65,12 +65,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	}
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
-	enableFeatureGate := func(featureGate string) {
-		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-	}
-
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -229,8 +223,10 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			modifyMigration(migration)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
-			if featureGateEnabled {
-				enableFeatureGate(featuregate.DecentralizedLiveMigration)
+			if !featureGateEnabled {
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.DecentralizedLiveMigration}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			}
 			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			resp := admitter.Admit(context.Background(), ar)

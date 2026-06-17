@@ -79,10 +79,22 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
+	disableFeatureGate := func(featureGate string) {
+		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+		if kv.Spec.Configuration.DeveloperConfiguration == nil {
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+		}
+		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
+			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
+			featureGate,
+		)
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+	}
 	disableFeatureGates := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 		if kv.Spec.Configuration.DeveloperConfiguration != nil {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = make([]string, 0)
+			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = make([]string, 0)
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -1604,7 +1616,9 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			}
-			enableFeatureGate(featureGate)
+			if featureGate != "" {
+				disableFeatureGate(featureGate)
+			}
 			resp := admitVm(vmsAdmitter, vm)
 			Expect(resp.Allowed).To(Equal(accepted))
 		},
@@ -1613,8 +1627,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("allow runstrategy always", v1.RunStrategyAlways, "", true),
 			Entry("allow runstrategy rerun on failure", v1.RunStrategyRerunOnFailure, "", true),
 			Entry("allow runstrategy once", v1.RunStrategyOnce, "", true),
-			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, true),
-			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, "", false),
+			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, "", true),
+			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, false),
 			Entry("reject invalid runstrategy", v1.VirtualMachineRunStrategy("invalid"), "", false),
 		)
 	})
