@@ -318,30 +318,27 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					const labelKey = "testkey"
 
 					// give an affinity rule to ensure the vmi's get placed on the same node.
-					podAffinityTerm := k8sv1.WeightedPodAffinityTerm{
-						Weight: int32(1),
-						PodAffinityTerm: k8sv1.PodAffinityTerm{
-							LabelSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{
-										Key:      labelKey,
-										Operator: metav1.LabelSelectorOpIn,
-										Values:   []string{""}},
-								},
+					podAffinityTerm := k8sv1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      labelKey,
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{""}},
 							},
-							TopologyKey: k8sv1.LabelHostname,
 						},
+						TopologyKey: k8sv1.LabelHostname,
 					}
 					vmi_evict1 := alpineVMIWithEvictionStrategy(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
-						libvmi.WithPreferredPodAffinity(podAffinityTerm),
+						libvmi.WithRequiredPodAffinity(podAffinityTerm),
 						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
 					)
 					vmi_evict2 := alpineVMIWithEvictionStrategy(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
-						libvmi.WithPreferredPodAffinity(podAffinityTerm),
+						libvmi.WithRequiredPodAffinity(podAffinityTerm),
 						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
 					)
 					vmi_noevict := libvmifact.NewAlpine(
@@ -350,14 +347,14 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 						libvmi.WithLabel(labelKey, ""),
-						libvmi.WithPreferredPodAffinity(podAffinityTerm),
+						libvmi.WithRequiredPodAffinity(podAffinityTerm),
 						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
 					)
 
 					By("Starting the VirtualMachineInstance with eviction set to live migration")
-					vm_evict1 := libvmi.NewVirtualMachine(vmi_evict1)
-					vm_evict2 := libvmi.NewVirtualMachine(vmi_evict2)
-					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict)
+					vm_evict1 := libvmi.NewVirtualMachine(vmi_evict1, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm_evict2 := libvmi.NewVirtualMachine(vmi_evict2, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 					// post VMs
 					vm_evict1, err := virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1, metav1.CreateOptions{})
@@ -367,10 +364,10 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vm_noevict, err = virtClient.VirtualMachine(vm_noevict.Namespace).Create(context.Background(), vm_noevict, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					// Start VMs
-					vm_evict1 = libvmops.StartVirtualMachine(vm_evict1)
-					vm_evict2 = libvmops.StartVirtualMachine(vm_evict2)
-					vm_noevict = libvmops.StartVirtualMachine(vm_noevict)
+					// Wait for all three VMs to be ready before proceeding
+					Eventually(matcher.ThisVM(vm_evict1), libvmops.StartupTimeoutSecondsXHuge*time.Second, time.Second).Should(matcher.BeReady())
+					Eventually(matcher.ThisVM(vm_evict2), libvmops.StartupTimeoutSecondsXHuge*time.Second, time.Second).Should(matcher.BeReady())
+					Eventually(matcher.ThisVM(vm_noevict), libvmops.StartupTimeoutSecondsXHuge*time.Second, time.Second).Should(matcher.BeReady())
 
 					// Get VMIs
 					vmi_evict1, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_evict1.Name, metav1.GetOptions{})
