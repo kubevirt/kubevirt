@@ -72,6 +72,8 @@ type migrationProxy struct {
 	protocolPort  int    // protocol port value (0, 49152, 49153) - preserved for map values
 	targetAddress string // where to forward connections (IP:port)
 	stopChan      chan struct{}
+	runExited     chan struct{}
+	manager       *SyncProxyManager
 	logger        *log.FilteredLogger
 	isTarget      bool // true if target proxy, false if source proxy
 }
@@ -134,6 +136,84 @@ func portMapsMatch(requestedPortMap map[int]int, existingProxies map[int]*migrat
 	return true
 }
 
+// proxiesAreRunning reports whether every proxy in the map still has an active run loop.
+func proxiesAreRunning(proxyMap map[int]*migrationProxy) bool {
+	if len(proxyMap) == 0 {
+		return false
+	}
+	for _, proxy := range proxyMap {
+		select {
+		case <-proxy.runExited:
+			return false
+		default:
+		}
+	}
+	return true
+}
+
+// onProxyRunExit removes a proxy from the manager after its run loop exits.
+func (m *SyncProxyManager) onProxyRunExit(migrationUID string, proxyPort int, isTarget bool) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	var proxyMap map[int]*migrationProxy
+	if isTarget {
+		proxyMap = m.targetProxies[migrationUID]
+	} else {
+		proxyMap = m.sourceProxies[migrationUID]
+	}
+	if proxyMap == nil {
+		return
+	}
+
+	proxy, ok := proxyMap[proxyPort]
+	if !ok {
+		return
+	}
+
+	select {
+	case <-proxy.runExited:
+	default:
+		return
+	}
+
+	delete(proxyMap, proxyPort)
+	if len(proxyMap) == 0 {
+		if isTarget {
+			delete(m.targetProxies, migrationUID)
+		} else {
+			delete(m.sourceProxies, migrationUID)
+		}
+	}
+
+	proxyType := "source"
+	if isTarget {
+		proxyType = "target"
+	}
+	m.logger.Warningf("Removed dead %s migration proxy for %s on port %d", proxyType, migrationUID, proxyPort)
+}
+
+// closeProxyListeners closes listeners for the given migration without removing map
+// entries. The run loop is expected to clean up the map via onProxyRunExit.
+func (m *SyncProxyManager) closeProxyListeners(migrationUID string, isTarget bool) {
+	m.lock.Lock()
+	var proxies []*migrationProxy
+	if isTarget {
+		for _, proxy := range m.targetProxies[migrationUID] {
+			proxies = append(proxies, proxy)
+		}
+	} else {
+		for _, proxy := range m.sourceProxies[migrationUID] {
+			proxies = append(proxies, proxy)
+		}
+	}
+	m.lock.Unlock()
+
+	for _, proxy := range proxies {
+		proxy.listener.Close()
+	}
+}
+
 // cleanupProxyMap closes and cleans up all proxies in the map
 func cleanupProxyMap(proxyMap map[int]*migrationProxy) {
 	for _, proxy := range proxyMap {
@@ -163,6 +243,7 @@ type proxyListenerConfig struct {
 	targetAddress string
 	migrationUID  string
 	isTarget      bool
+	manager       *SyncProxyManager
 	logger        *log.FilteredLogger
 }
 
@@ -198,6 +279,8 @@ func createProxyListener(ctx context.Context, config proxyListenerConfig) (*migr
 		protocolPort:  config.protocolPort,
 		targetAddress: config.targetAddress,
 		stopChan:      make(chan struct{}),
+		runExited:     make(chan struct{}),
+		manager:       config.manager,
 		logger:        config.logger,
 		isTarget:      config.isTarget,
 	}
@@ -232,13 +315,13 @@ func (m *SyncProxyManager) StartTargetProxies(ctx context.Context, migrationUID 
 
 	// Check if already exists
 	if existing, exists := m.targetProxies[migrationUID]; exists {
-		result := getExistingProxyPorts(existing)
-		if portMapsMatch(targetPortMap, existing) {
+		if proxiesAreRunning(existing) && portMapsMatch(targetPortMap, existing) {
+			result := getExistingProxyPorts(existing)
 			m.logger.Infof("StartTargetProxies returning existing proxies: %v", result)
 			return result, nil
 		}
-		// Port map changed - recreate proxies
-		m.logger.Infof("StartTargetProxies port map mismatch - recreating proxies")
+		// Proxies stopped or port map changed - recreate
+		m.logger.Infof("StartTargetProxies recreating proxies")
 		cleanupProxyMap(existing)
 		delete(m.targetProxies, migrationUID)
 	}
@@ -265,6 +348,7 @@ func (m *SyncProxyManager) StartTargetProxies(ctx context.Context, migrationUID 
 			targetAddress: targetAddress,
 			migrationUID:  migrationUID,
 			isTarget:      true,
+			manager:       m,
 			logger:        m.logger,
 		})
 		if err != nil {
@@ -309,13 +393,13 @@ func (m *SyncProxyManager) StartSourceProxies(ctx context.Context, migrationUID 
 
 	// Check if already exists
 	if existing, exists := m.sourceProxies[migrationUID]; exists {
-		result := getExistingProxyPorts(existing)
-		if portMapsMatch(targetProxyPortMap, existing) {
+		if proxiesAreRunning(existing) && portMapsMatch(targetProxyPortMap, existing) {
+			result := getExistingProxyPorts(existing)
 			m.logger.Infof("StartSourceProxies returning existing proxies: %v", result)
 			return result, nil
 		}
-		// Port map changed - recreate proxies
-		m.logger.Infof("StartSourceProxies port map mismatch - recreating proxies")
+		// Proxies stopped or port map changed - recreate
+		m.logger.Infof("StartSourceProxies recreating proxies")
 		cleanupProxyMap(existing)
 		delete(m.sourceProxies, migrationUID)
 	}
@@ -342,6 +426,7 @@ func (m *SyncProxyManager) StartSourceProxies(ctx context.Context, migrationUID 
 			targetAddress: targetProxyAddress,
 			migrationUID:  migrationUID,
 			isTarget:      false,
+			manager:       m,
 			logger:        m.logger,
 		})
 		if err != nil {
@@ -363,7 +448,11 @@ func (m *SyncProxyManager) StartSourceProxies(ctx context.Context, migrationUID 
 
 // Proxy run loop - accepts connections and forwards to target
 func (p *migrationProxy) run() {
-	defer p.listener.Close()
+	defer func() {
+		close(p.runExited)
+		p.manager.onProxyRunExit(p.migrationUID, p.port, p.isTarget)
+		p.listener.Close()
+	}()
 
 	// Set deadline on listener to allow periodic check of stopChan
 	// This prevents the run loop from blocking forever on Accept() if shutdown is requested
