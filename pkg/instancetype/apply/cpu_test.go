@@ -448,6 +448,98 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				},
 				virtv1.CPU{Sockets: 1, Cores: 4, Threads: 2},
 			),
+			Entry("to SocketsCores with 6 vCPUs and max of 2",
+				uint32(6),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Max: pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 2, Cores: 3, Threads: 1},
+			),
+			Entry("to SocketsCores with 8 vCPUs and max of 2",
+				uint32(8),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Max: pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 2, Cores: 4, Threads: 1},
+			),
+			Entry("to SocketsCores with 4 vCPUs and max of 2",
+				uint32(4),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Max: pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 2, Cores: 2, Threads: 1},
+			),
+			Entry("to SocketsCores with 2 vCPUs and max of 4 (clamped)",
+				uint32(2),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Max: pointer.P(uint32(4)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 2, Cores: 1, Threads: 1},
+			),
+			Entry("to CoresThreads with 4 vCPUs and max of 2",
+				uint32(4),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Max:    pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 1, Cores: 2, Threads: 2},
+			),
+			Entry("to CoresThreads with 8 vCPUs and max of 2",
+				uint32(8),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Max:    pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 1, Cores: 2, Threads: 4},
+			),
+			Entry("to SocketsCoresThreads with 8 vCPUs and max of 2",
+				uint32(8),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Max:    pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 2, Cores: 2, Threads: 2},
+			),
+			Entry("to SocketsCoresThreads with 12 vCPUs and max of 2",
+				uint32(12),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Max:    pointer.P(uint32(2)),
+						},
+					},
+				},
+				virtv1.CPU{Sockets: 2, Cores: 3, Threads: 2},
+			),
 		)
 	})
 

@@ -91,20 +91,43 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachineP
 	case v1beta1.DeprecatedPreferThreads, v1beta1.Threads:
 		vmiSpec.Domain.CPU.Threads = vCPUs
 	case v1beta1.DeprecatedPreferSpread, v1beta1.Spread:
-		ratio, across := preferenceApply.GetSpreadOptions(preferenceSpec)
-		switch across {
-		case v1beta1.SpreadAcrossSocketsCores:
-			vmiSpec.Domain.CPU.Cores = ratio
-			vmiSpec.Domain.CPU.Sockets = vCPUs / ratio
-		case v1beta1.SpreadAcrossCoresThreads:
-			vmiSpec.Domain.CPU.Threads = ratio
-			vmiSpec.Domain.CPU.Cores = vCPUs / ratio
-		case v1beta1.SpreadAcrossSocketsCoresThreads:
-			const threadsPerCore = 2
-			vmiSpec.Domain.CPU.Threads = threadsPerCore
-			vmiSpec.Domain.CPU.Cores = ratio
-			vmiSpec.Domain.CPU.Sockets = vCPUs / threadsPerCore / ratio
+		ratio, max, across := preferenceApply.GetSpreadOptions(preferenceSpec)
+		if max != nil {
+			applySpreadMax(vCPUs, *max, across, vmiSpec)
+		} else {
+			switch across {
+			case v1beta1.SpreadAcrossSocketsCores:
+				vmiSpec.Domain.CPU.Cores = ratio
+				vmiSpec.Domain.CPU.Sockets = vCPUs / ratio
+			case v1beta1.SpreadAcrossCoresThreads:
+				vmiSpec.Domain.CPU.Threads = ratio
+				vmiSpec.Domain.CPU.Cores = vCPUs / ratio
+			case v1beta1.SpreadAcrossSocketsCoresThreads:
+				const threadsPerCore = 2
+				vmiSpec.Domain.CPU.Threads = threadsPerCore
+				vmiSpec.Domain.CPU.Cores = ratio
+				vmiSpec.Domain.CPU.Sockets = vCPUs / threadsPerCore / ratio
+			}
 		}
+	}
+}
+
+func applySpreadMax(vCPUs, max uint32, across v1beta1.SpreadAcross, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	switch across {
+	case v1beta1.SpreadAcrossSocketsCores:
+		sockets := min(max, vCPUs)
+		vmiSpec.Domain.CPU.Sockets = sockets
+		vmiSpec.Domain.CPU.Cores = vCPUs / sockets
+	case v1beta1.SpreadAcrossCoresThreads:
+		cores := min(max, vCPUs)
+		vmiSpec.Domain.CPU.Cores = cores
+		vmiSpec.Domain.CPU.Threads = vCPUs / cores
+	case v1beta1.SpreadAcrossSocketsCoresThreads:
+		const threadsPerCore = 2
+		vmiSpec.Domain.CPU.Threads = threadsPerCore
+		sockets := min(max, vCPUs/threadsPerCore)
+		vmiSpec.Domain.CPU.Sockets = sockets
+		vmiSpec.Domain.CPU.Cores = vCPUs / threadsPerCore / sockets
 	}
 }
 

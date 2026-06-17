@@ -51,6 +51,9 @@ const (
 	spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
 	spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core " +
 		"%d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
+	spreadAcrossMaxErrFmt                    = "%d vCPUs provided by the instance type are not evenly divisible with a max of %d"
+	spreadAcrossSocketsCoresThreadsMaxErrFmt = "%d vCPUs provided by the instance type are not evenly divisible by the number of threads " +
+		"per core %d with a max of %d"
 )
 
 func CheckSpreadCPUTopology(
@@ -62,7 +65,10 @@ func CheckSpreadCPUTopology(
 		return nil
 	}
 
-	ratio, across := apply.GetSpreadOptions(preferenceSpec)
+	ratio, max, across := apply.GetSpreadOptions(preferenceSpec)
+	if max != nil {
+		return checkSpreadMax(instancetypeSpec.CPU.Guest, *max, across)
+	}
 	switch across {
 	case v1beta1.SpreadAcrossSocketsCores:
 		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
@@ -83,6 +89,36 @@ func CheckSpreadCPUTopology(
 		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
 			return conflict.NewWithMessage(
 				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, threadsPerCore, ratio),
+				instancetypeCPUGuestPath,
+			)
+		}
+	}
+	return nil
+}
+
+func checkSpreadMax(vCPUs, max uint32, across v1beta1.SpreadAcross) *conflict.Conflict {
+	switch across {
+	case v1beta1.SpreadAcrossSocketsCores, v1beta1.SpreadAcrossCoresThreads:
+		effective := min(max, vCPUs)
+		if (vCPUs % effective) > 0 {
+			return conflict.NewWithMessage(
+				fmt.Sprintf(spreadAcrossMaxErrFmt, vCPUs, max),
+				instancetypeCPUGuestPath,
+			)
+		}
+	case v1beta1.SpreadAcrossSocketsCoresThreads:
+		const threadsPerCore = 2
+		if (vCPUs % threadsPerCore) > 0 {
+			return conflict.NewWithMessage(
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsMaxErrFmt, vCPUs, threadsPerCore, max),
+				instancetypeCPUGuestPath,
+			)
+		}
+		adjusted := vCPUs / threadsPerCore
+		effective := min(max, adjusted)
+		if (adjusted % effective) > 0 {
+			return conflict.NewWithMessage(
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsMaxErrFmt, vCPUs, threadsPerCore, max),
 				instancetypeCPUGuestPath,
 			)
 		}

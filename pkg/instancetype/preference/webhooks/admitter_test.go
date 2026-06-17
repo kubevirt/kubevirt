@@ -175,6 +175,51 @@ var _ = Describe("Validating Preference Admitter", func() {
 		),
 	)
 
+	DescribeTable("should reject when ratio and max are both set", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {
+		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1beta1.CPUPreferences{
+					PreferredCPUTopology: &preferredCPUTopology,
+					SpreadOptions: &instancetypev1beta1.SpreadOptions{
+						Ratio: pointer.P(uint32(2)),
+						Max:   pointer.P(uint32(2)),
+					},
+				},
+			},
+		}
+		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(context.Background(), ar)
+
+		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("ratio and max are mutually exclusive"))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions").String()))
+	},
+		Entry("with spread", instancetypev1beta1.Spread),
+		Entry("with preferSpread", instancetypev1beta1.DeprecatedPreferSpread),
+	)
+
+	DescribeTable("should allow CoresThreads with max", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {
+		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1beta1.CPUPreferences{
+					PreferredCPUTopology: &preferredCPUTopology,
+					SpreadOptions: &instancetypev1beta1.SpreadOptions{
+						Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						Max:    pointer.P(uint32(4)),
+					},
+				},
+			},
+		}
+		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(context.Background(), ar)
+		Expect(response.Allowed).To(BeTrue(), "Expected preference with CoresThreads and max to be allowed")
+	},
+		Entry("with spread", instancetypev1beta1.Spread),
+		Entry("with preferSpread", instancetypev1beta1.DeprecatedPreferSpread),
+	)
+
 	DescribeTable("should raise warning for", func(deprecatedTopology, expectedAlternativeTopology instancetypev1beta1.PreferredCPUTopology) {
 		preferenceObj := &instancetypev1beta1.VirtualMachinePreference{
 			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{

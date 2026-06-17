@@ -76,6 +76,7 @@ func validatePreferredCPUTopology(field *k8sfield.Path, spec *instancetypeapiv1b
 const (
 	spreadAcrossCoresThreadsRatioErr = "only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"
 	spreadAcrossUnsupportedErrFmt    = "across %s is not supported"
+	spreadRatioMaxMutuallyExclusive  = "ratio and max are mutually exclusive"
 )
 
 func hasSpreadTopology(spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) bool {
@@ -90,7 +91,7 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.Vi
 	if !hasSpreadTopology(spec) {
 		return nil
 	}
-	ratio, across := apply.GetSpreadOptions(spec)
+	ratio, max, across := apply.GetSpreadOptions(spec)
 
 	supportedSpreadAcross := []instancetypeapiv1beta1.SpreadAcross{
 		instancetypeapiv1beta1.SpreadAcrossCoresThreads,
@@ -105,7 +106,16 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.Vi
 		}}
 	}
 
-	if across == instancetypeapiv1beta1.SpreadAcrossCoresThreads && ratio != 2 {
+	if spec.CPU != nil && spec.CPU.SpreadOptions != nil &&
+		spec.CPU.SpreadOptions.Ratio != nil && spec.CPU.SpreadOptions.Max != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: spreadRatioMaxMutuallyExclusive,
+			Field:   field.Child("cpu", "spreadOptions").String(),
+		}}
+	}
+
+	if max == nil && across == instancetypeapiv1beta1.SpreadAcrossCoresThreads && ratio != 2 {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: spreadAcrossCoresThreadsRatioErr,
