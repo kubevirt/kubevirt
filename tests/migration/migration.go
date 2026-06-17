@@ -364,6 +364,136 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
+			It("should successfully migrate a VM with a container disk after ejecting a CD-ROM volume",
+				decorators.StorageReq, decorators.RequiresRWXBlock, func() {
+
+					By("Creating a DataVolume to back the CD-ROM")
+					cdromDV := createRWXBlockAlpineDataVolume(virtClient, defaultArch)
+
+					By("Creating a VM with the CD-ROM first (index 0), then the container disk")
+					vmi := libvmifact.NewAlpineWithTestTooling(
+						libnet.WithMasqueradeNetworking(),
+					)
+					const cdromVolumeName = "cdrom-0"
+					cdromVolume := v1.Volume{
+						Name: cdromVolumeName,
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name:         cdromDV.Name,
+								Hotpluggable: true,
+							},
+						},
+					}
+					cdromDisk := v1.Disk{
+						Name: cdromVolumeName,
+						DiskDevice: v1.DiskDevice{
+							CDRom: &v1.CDRomTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
+					}
+					// Prepend so CD-ROM is at index 0, container disk shifts to index 1+
+					vmi.Spec.Volumes = append([]v1.Volume{cdromVolume}, vmi.Spec.Volumes...)
+					vmi.Spec.Domain.Devices.Disks = append([]v1.Disk{cdromDisk}, vmi.Spec.Domain.Devices.Disks...)
+
+					vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+						context.Background(), vm, metav1.CreateOptions{},
+					)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Waiting for the VM to be ready")
+					Eventually(matcher.ThisVM(vm), 360*time.Second, 5*time.Second).Should(BeReady())
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(
+						context.Background(), vm.Name, metav1.GetOptions{},
+					)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Logging into the VM")
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By("Ejecting the CD-ROM by removing it from the VM spec")
+					// Remove both the volume and its disk entry
+					patchData, err := patch.New(
+						patch.WithRemove("/spec/template/spec/volumes/0"),
+						patch.WithRemove("/spec/template/spec/domain/devices/disks/0"),
+					).GeneratePayload()
+					Expect(err).ToNot(HaveOccurred())
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(
+						context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{},
+					)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Waiting for the CD-ROM to be detached from the running domain")
+					waitForVolumeDetached(vmi, cdromVolumeName)
+
+					By("Migrating the VM after ejection")
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+					By("Confirming VMI post migration")
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				})
+
+			It("should successfully migrate a VMI with a container disk after unplugging a hotplug volume",
+				decorators.StorageReq, decorators.RequiresRWXBlock, func() {
+
+					By("Creating a DataVolume to hotplug")
+					hotplugDV := createRWXBlockAlpineDataVolume(virtClient, defaultArch)
+
+					By("Creating a VMI with the hotplug volume first (index 0), then the container disk")
+					vmi := libvmifact.NewAlpineWithTestTooling(
+						libnet.WithMasqueradeNetworking(),
+					)
+					const hotplugVolumeName = "hotplug-0"
+					hotplugVolume := v1.Volume{
+						Name: hotplugVolumeName,
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name:         hotplugDV.Name,
+								Hotpluggable: true,
+							},
+						},
+					}
+					hotplugDisk := v1.Disk{
+						Name: hotplugVolumeName,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						},
+					}
+					// Prepend so the hotplug volume is at index 0 and the container disk
+					// shifts down when it is unplugged. A volume hotplugged at runtime is
+					// appended instead, which would leave the container disk index unchanged.
+					vmi.Spec.Volumes = append([]v1.Volume{hotplugVolume}, vmi.Spec.Volumes...)
+					vmi.Spec.Domain.Devices.Disks = append([]v1.Disk{hotplugDisk}, vmi.Spec.Domain.Devices.Disks...)
+
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+						context.Background(), vmi, metav1.CreateOptions{},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(360))
+
+					By("Logging into the VMI")
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By("Unplugging the hotplug volume")
+					Eventually(func() error {
+						return virtClient.VirtualMachineInstance(vmi.Namespace).RemoveVolume(
+							context.Background(), vmi.Name, &v1.RemoveVolumeOptions{Name: hotplugVolumeName},
+						)
+					}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+					By("Waiting for the volume to be detached from the running domain")
+					waitForVolumeDetached(vmi, hotplugVolumeName)
+
+					By("Migrating the VMI after unplugging")
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+					By("Confirming VMI post migration")
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				})
+
 			It("should migrate vmi and use Live Migration method with read-only disks", decorators.RequiresRWXBlock, func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
@@ -3370,4 +3500,48 @@ func getSourceLauncherLogs(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		DoRaw(context.Background())
 	Expect(err).ToNot(HaveOccurred(), "should get virt-launcher source pod logs")
 	return string(logsRaw)
+}
+
+// createRWXBlockAlpineDataVolume imports an Alpine image into an RWX block DataVolume,
+// skipping the test when CDI or an RWX block storage class is unavailable.
+func createRWXBlockAlpineDataVolume(virtClient kubecli.KubevirtClient, arch string) *cdiv1.DataVolume {
+	GinkgoHelper()
+	if !libstorage.HasCDI() {
+		Fail("Fail DataVolume tests when CDI is not present")
+	}
+	sc, exists := libstorage.GetRWXBlockStorageClass()
+	if !exists {
+		Fail("Failed test when RWX Block storage is not present")
+	}
+
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistrySource(
+			libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithPullMethod(cdiv1.RegistryPullNode),
+			libdv.WithPlatformArch(arch),
+		),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+		),
+	)
+	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+		context.Background(), dv, metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+	return dv
+}
+
+// waitForVolumeDetached waits until the volume is gone from the VMI status, which reflects
+// the running domain rather than the spec change that triggered the detach.
+func waitForVolumeDetached(vmi *v1.VirtualMachineInstance, volumeName string) {
+	GinkgoHelper()
+	Eventually(matcher.ThisVMI(vmi), 120*time.Second, 2*time.Second).Should(
+		WithTransform(func(vmi *v1.VirtualMachineInstance) []v1.VolumeStatus {
+			return vmi.Status.VolumeStatus
+		}, Not(ContainElement(HaveField("Name", volumeName)))))
 }
