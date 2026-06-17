@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -114,5 +114,29 @@ go_library(
         "//vendor/kubevirt.io/virt-template-api/core/v1beta1:go_default_library",
         "//vendor/kubevirt.io/virt-template-client-go/virttemplate:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["objectgraph_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/libdv:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//tests/containerdisk:go_default_library",
+        "//tests/decorators:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
+        "//tests/framework/matcher:go_default_library",
+        "//tests/libsecret:go_default_library",
+        "//tests/libstorage:go_default_library",
+        "//tests/libvmops:go_default_library",
+        "//tests/testsuite:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )

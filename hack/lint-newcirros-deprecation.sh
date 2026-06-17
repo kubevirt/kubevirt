@@ -43,7 +43,7 @@ tests/vmi_sound_test.go
 
 CONTAINERDISK_BASELINE="
 tests/container_disk_test.go
-tests/objectgraph_test.go
+tests/storage/objectgraph_test.go
 tests/vmi_configuration_test.go
 tests/vmi_lifecycle_test.go
 "
