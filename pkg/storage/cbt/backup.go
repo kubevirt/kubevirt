@@ -425,12 +425,11 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 	if backup.Status == nil {
 		backup.Status = &backupv1.VirtualMachineBackupStatus{}
 	}
-	logger := log.Log.With("VirtualMachineBackup", backup.Name)
 	backupDeleting := isBackupDeleting(backup)
 
 	if IsBackupTerminal(backup) {
 		if !backupDeleting {
-			logger.V(4).Info("Backup is already done, skipping reconciliation")
+			log.Log.Object(backup).V(4).Info("Backup is already done, skipping reconciliation")
 			return nil
 		}
 		return ctrl.removeBackupFinalizer(backup)
@@ -447,7 +446,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 
 	sourceName := getSourceName(backup, backupTracker)
 	if sourceName == "" {
-		logger.Errorf("source name is empty")
+		log.Log.Object(backup).Errorf("source name is empty")
 		return errSourceNameEmpty
 	}
 
@@ -463,7 +462,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 	case backupStatus != nil:
 		return ctrl.reconcileActive(backup, vmi, backupStatus, backupDeleting)
 	default:
-		return ctrl.reconcileStart(backup, vmi, vmiExists, backupTracker, backupDeleting, sourceName, logger)
+		return ctrl.reconcileStart(backup, vmi, vmiExists, backupTracker, backupDeleting, sourceName)
 	}
 }
 
@@ -474,9 +473,9 @@ func getBackupStatus(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceB
 	return vmi.Status.ChangedBlockTracking.BackupStatus
 }
 
-func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmiExists bool, backupTracker *backupv1.VirtualMachineBackupTracker, backupDeleting bool, sourceName string, logger *log.FilteredLogger) error {
+func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmiExists bool, backupTracker *backupv1.VirtualMachineBackupTracker, backupDeleting bool, sourceName string) error {
 	if backupDeleting {
-		logger.V(3).Infof("Backup deleting during initialization")
+		log.Log.Object(backup).V(3).Infof("Backup deleting during initialization")
 		if !vmiExists {
 			return ctrl.removeBackupFinalizer(backup)
 		}
@@ -496,7 +495,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI was deleted during backup")
 			return nil
 		}
-		logger.V(3).Infof("VMI backup status was lost while progressing")
+		log.Log.Object(backup).V(3).Infof("VMI backup status was lost while progressing")
 		done, err := ctrl.cleanupVMIState(backup, vmi)
 		if err != nil {
 			return err
@@ -515,7 +514,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 		return nil
 	}
 
-	return ctrl.startBackup(backup, vmi, backupTracker, logger)
+	return ctrl.startBackup(backup, vmi, backupTracker)
 }
 
 func (ctrl *VMBackupController) checkPrerequisites(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmiExists bool, backupTracker *backupv1.VirtualMachineBackupTracker, sourceName string) (string, error) {
@@ -600,7 +599,7 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 	return nil
 }
 
-func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker, logger *log.FilteredLogger) error {
+func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker) error {
 	if err := ctrl.addBackupFinalizer(backup); err != nil {
 		return err
 	}
@@ -633,22 +632,22 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 		backupOptions.Mode = *backup.Spec.Mode
 		backupOptions.TargetPath = pointer.P(hotplugdisk.GetVolumeMountDir(volumeName))
 	default:
-		logger.Errorf(invalidBackupModeMsg, *backup.Spec.Mode)
+		log.Log.Object(backup).Errorf(invalidBackupModeMsg, *backup.Spec.Mode)
 		return fmt.Errorf(invalidBackupModeMsg, *backup.Spec.Mode)
 	}
 
-	logger.Infof("Starting backup for VMI %s with mode %s", vmi.Name, backupOptions.Mode)
+	log.Log.Object(backup).Infof("Starting backup for VMI %s with mode %s", vmi.Name, backupOptions.Mode)
 	backupType := backupv1.Full
 	if isIncrementalBackup(backup, backupTracker) {
 		backupOptions.Incremental = pointer.P(backupTracker.Status.LatestCheckpoint.Name)
 		backupType = backupv1.Incremental
-		logger.Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
+		log.Log.Object(backup).Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
 	}
 
 	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, &backupOptions); err != nil {
 		return fmt.Errorf("failed to send Start backup command: %w", err)
 	}
-	logger.Infof("Started backup for VMI %s successfully", vmi.Name)
+	log.Log.Object(backup).Infof("Started backup for VMI %s successfully", vmi.Name)
 
 	if err := ctrl.updateSourceBackupInProgress(vmi, backup.Name, backup.CreationTimestamp); err != nil {
 		return fmt.Errorf("failed to update source backup in progress: %w", err)
