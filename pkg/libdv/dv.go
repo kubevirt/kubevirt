@@ -138,23 +138,43 @@ func withSource(s v1beta1.DataVolumeSource) dvOption {
 	}
 }
 
-// WithRegistryURLSource is a dvOption to add a DataVolumeSource to the DataVolume, with a registry and a URL
-func WithRegistryURLSource(imageURL string) dvOption {
-	return withSource(v1beta1.DataVolumeSource{
-		Registry: &v1beta1.DataVolumeSourceRegistry{
-			URL: &imageURL,
-		},
-	})
+type RegistryOption func(*v1beta1.DataVolumeSourceRegistry)
+
+func WithURL(imageURL string) RegistryOption {
+	return func(r *v1beta1.DataVolumeSourceRegistry) {
+		r.URL = &imageURL
+	}
+}
+
+func WithPullMethod(pullMethod v1beta1.RegistryPullMethod) RegistryOption {
+	return func(r *v1beta1.DataVolumeSourceRegistry) {
+		r.PullMethod = &pullMethod
+	}
+}
+
+func WithPlatformArch(arch string) RegistryOption {
+	return func(r *v1beta1.DataVolumeSourceRegistry) {
+		r.Platform = &v1beta1.PlatformOptions{Architecture: arch}
+	}
+}
+
+// WithRegistrySource is a dvOption to add a registry DataVolumeSource to the DataVolume
+func WithRegistrySource(opts ...RegistryOption) dvOption {
+	registry := &v1beta1.DataVolumeSourceRegistry{}
+	for _, opt := range opts {
+		opt(registry)
+	}
+	return withSource(v1beta1.DataVolumeSource{Registry: registry})
+}
+
+// WithRegistryURLSource is a dvOption to add a registry DataVolumeSource to the DataVolume
+func WithRegistryURLSource(imageURL string, opts ...RegistryOption) dvOption {
+	return WithRegistrySource(append([]RegistryOption{WithURL(imageURL)}, opts...)...)
 }
 
 // WithRegistryURLSourceAndPullMethod is a dvOption to add a DataVolumeSource to the DataVolume, with a registry and URL + pull method
 func WithRegistryURLSourceAndPullMethod(imageURL string, pullMethod v1beta1.RegistryPullMethod) dvOption {
-	return withSource(v1beta1.DataVolumeSource{
-		Registry: &v1beta1.DataVolumeSourceRegistry{
-			URL:        &imageURL,
-			PullMethod: &pullMethod,
-		},
-	})
+	return WithRegistrySource(WithURL(imageURL), WithPullMethod(pullMethod))
 }
 
 // WithBlankImageSource is a dvOption to add a blank DataVolumeSource to the DataVolume
