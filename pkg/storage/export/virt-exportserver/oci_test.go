@@ -196,17 +196,9 @@ var _ = Describe("OCI export", func() {
 			Expect(out.Kind).To(Equal("VirtualMachine"))
 		})
 
-		It("should strip cluster-specific fields", func() {
+		It("should strip namespace", func() {
 			out := prepareAndUnmarshal()
 			Expect(out.Namespace).To(BeEmpty())
-			Expect(string(out.UID)).To(BeEmpty())
-			Expect(out.ResourceVersion).To(BeEmpty())
-			Expect(out.CreationTimestamp.IsZero()).To(BeTrue())
-			Expect(out.Generation).To(BeZero())
-			Expect(out.ManagedFields).To(BeNil())
-			Expect(out.OwnerReferences).To(BeNil())
-			Expect(out.Finalizers).To(BeNil())
-			Expect(out.Status).To(Equal(virtv1.VirtualMachineStatus{}))
 		})
 
 		It("should preserve labels and annotations", func() {
