@@ -261,7 +261,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 			if err != nil {
 				return err
 			}
-			diskName := containerdisk.GetDiskTargetName(i)
+			diskName := containerdisk.GetDiskTargetName(volume.Name)
 			// If diskName is a symlink it will fail if the target exists.
 			if err := safepath.TouchAtNoFollow(diskTargetDir, diskName, os.ModePerm); err != nil {
 				if !os.IsExist(err) {
@@ -298,7 +298,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 			if err != nil {
 				return err
 			}
-			diskName := containerdisk.GetDiskTargetName(i)
+			diskName := containerdisk.GetDiskTargetName(volume.Name)
 			targetFile, err := safepath.JoinNoFollow(diskTargetDir, diskName)
 			if err != nil {
 				return err
