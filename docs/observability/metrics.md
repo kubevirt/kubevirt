@@ -36,6 +36,7 @@
 | kubevirt_vmi_dirty_rate_bytes_per_second | Metric | Gauge | Guest dirty-rate in bytes per second. |
 | kubevirt_vmi_filesystem_capacity_bytes | Metric | Gauge | Total VM filesystem capacity in bytes. |
 | kubevirt_vmi_filesystem_used_bytes | Metric | Gauge | Used VM filesystem capacity in bytes. |
+| kubevirt_vmi_gpu_info | Metric | Gauge | Info metric mapping GPU/vGPU UUIDs to VMIs. |
 | kubevirt_vmi_guest_load_15m | Metric | Gauge | Guest system load average over 15 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
 | kubevirt_vmi_guest_load_1m | Metric | Gauge | Guest system load average over 1 minute as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
 | kubevirt_vmi_guest_load_5m | Metric | Gauge | Guest system load average over 5 minutes as reported by the guest agent. Load is defined as the number of processes in the runqueue or waiting for disk I/O. Requires qemu-guest-agent version 10.0.0 or above. |
