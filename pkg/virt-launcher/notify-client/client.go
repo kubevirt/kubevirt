@@ -719,6 +719,7 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		}
 		completedStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(&jobCompletedEvent.Info)
 		metadataCache.CompletedMigrationStats.Store(*completedStats)
+		domain.Status.MigrationStats = completedStats
 		return false
 	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
 		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
