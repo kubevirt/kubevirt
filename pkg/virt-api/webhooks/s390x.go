@@ -29,7 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 // ValidateVirtualMachineInstanceS390xSetting is a validation function for validating-webhook on s390x
@@ -86,7 +86,7 @@ func ValidateLaunchSecurityS390x(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	if !config.SecureExecutionEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.SecureExecution),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", compute.SecureExecution),
 			Field:   field.Child("launchSecurity").String(),
 		})
 	}

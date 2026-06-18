@@ -33,7 +33,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 const (
@@ -504,7 +505,7 @@ func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 	if mdevConfig != nil && mdevConfig.Enabled != nil {
 		return !*mdevConfig.Enabled
 	}
-	return c.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
+	return c.isFeatureGateEnabled(compute.DisableMediatedDevicesHandling)
 }
 
 func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
@@ -534,5 +535,5 @@ func (c *ClusterConfig) PersistentReservationEnabled() bool {
 		return *config.Enabled
 	}
 
-	return slices.Contains(c.GetConfig().DeveloperConfiguration.FeatureGates, featuregate.PersistentReservation)
+	return slices.Contains(c.GetConfig().DeveloperConfiguration.FeatureGates, storage.PersistentReservation)
 }

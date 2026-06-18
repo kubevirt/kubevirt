@@ -63,7 +63,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -235,7 +237,7 @@ var _ = Describe("Template", func() {
 
 			It("should add network DRA claim to compute container resources when feature gate is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
+				enableFeatureGate(network.NetworkDevicesWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
 				Expect(err).ToNot(HaveOccurred())
@@ -481,7 +483,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should work", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
+				disableFeatureGate(legacy.ImageVolume, network.PodSecondaryInterfaceNamingUpgrade)
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -638,7 +640,7 @@ var _ = Describe("Template", func() {
 				if enableWorkaround {
 					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates =
 						append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-							featuregate.DockerSELinuxMCSWorkaround)
+							legacy.DockerSELinuxMCSWorkaround)
 				}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
@@ -1012,7 +1014,7 @@ var _ = Describe("Template", func() {
 
 			It("should add init containers to inject binary and pre-pull container disks", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk1",
@@ -1104,7 +1106,7 @@ var _ = Describe("Template", func() {
 		Context("with node selectors", func() {
 			DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
+				disableFeatureGate(legacy.ImageVolume, network.PodSecondaryInterfaceNamingUpgrade)
 
 				nodeSelector := map[string]string{
 					k8sv1.LabelHostname: "master",
@@ -1433,7 +1435,7 @@ var _ = Describe("Template", func() {
 
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.HypervStrictCheckGate)
+				enableFeatureGate(legacy.HypervStrictCheckGate)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1500,7 +1502,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func(EVMCSEnabled bool) {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.HypervStrictCheckGate)
+				enableFeatureGate(legacy.HypervStrictCheckGate)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1555,7 +1557,7 @@ var _ = Describe("Template", func() {
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.HypervStrictCheckGate)
+				enableFeatureGate(legacy.HypervStrictCheckGate)
 
 				var retries uint32 = 4095
 				enabled := true
@@ -2533,7 +2535,7 @@ var _ = Describe("Template", func() {
 		Context("with hugepages constraints", func() {
 			DescribeTable("should add to the template constraints ", func(arch, pagesize string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2609,7 +2611,7 @@ var _ = Describe("Template", func() {
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				guestMem := resource.MustParse("64M")
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2690,7 +2692,7 @@ var _ = Describe("Template", func() {
 		Context("with file mode pvc source", func() {
 			It("should add volume to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				namespace := "testns"
 				pvcName := "pvcFile"
 				pvc := k8sv1.PersistentVolumeClaim{
@@ -2746,7 +2748,7 @@ var _ = Describe("Template", func() {
 		Context("with blockdevice mode pvc source", func() {
 			It("should add device to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				namespace := "testns"
 				pvcName := "pvcDevice"
 				mode := k8sv1.PersistentVolumeBlock
@@ -2988,7 +2990,7 @@ var _ = Describe("Template", func() {
 
 			It("should have compute as first container in the pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -3298,7 +3300,7 @@ var _ = Describe("Template", func() {
 
 			It("Should add an empytDir backed by Memory", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				vmi.Spec.Volumes = []v1.Volume{
 					{
 						Name: "downardMetrics",
@@ -3352,7 +3354,7 @@ var _ = Describe("Template", func() {
 		Context("with a configMap volume source", func() {
 			It("Should add the ConfigMap to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "configmap-volume",
@@ -3396,7 +3398,7 @@ var _ = Describe("Template", func() {
 			Context("with a ConfigMap", func() {
 				It("Should add the Sysprep ConfigMap to template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
-					disableFeatureGate(featuregate.ImageVolume)
+					disableFeatureGate(legacy.ImageVolume)
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
@@ -3434,7 +3436,7 @@ var _ = Describe("Template", func() {
 			Context("with a Secret", func() {
 				It("Should add the Sysprep SecretRef to template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
-					disableFeatureGate(featuregate.ImageVolume)
+					disableFeatureGate(legacy.ImageVolume)
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
@@ -3475,7 +3477,7 @@ var _ = Describe("Template", func() {
 		Context("with a secret volume source", func() {
 			It("should add the Secret to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "secret-volume",
@@ -3718,7 +3720,7 @@ var _ = Describe("Template", func() {
 		Context("with IOMMUFD feature gate", func() {
 			It("should add IOMMUFD device resource when feature gate is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.IOMMUFDGate)
+				enableFeatureGate(compute.IOMMUFDGate)
 				vmi := api.NewMinimalVMI("testvmi")
 
 				pod, err := svc.RenderLaunchManifest(vmi)
@@ -3990,7 +3992,7 @@ var _ = Describe("Template", func() {
 
 			It("should define containers and volumes properly", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				disableFeatureGate(featuregate.ImageVolume)
+				disableFeatureGate(legacy.ImageVolume)
 				vmi := utils.GetVMIKernelBootWithRandName()
 				vmi.ObjectMeta = metav1.ObjectMeta{
 					Name: "testvmi-kernel-boot", Namespace: "default", UID: "1234",
@@ -4012,7 +4014,7 @@ var _ = Describe("Template", func() {
 		Context("with ImageVolume", func() {
 			BeforeEach(func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.ImageVolume)
+				enableFeatureGate(legacy.ImageVolume)
 			})
 
 			DescribeTable("should not define additional containers expect the noop init containers for digest", func(vmi *v1.VirtualMachineInstance) {
@@ -4483,7 +4485,7 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should pass --vm-stats-collector flag when VMStatsCollector is enabled", func() {
-				enableFeatureGate(featuregate.VMStatsCollector)
+				enableFeatureGate(compute.VMStatsCollector)
 				vmi := libvmi.New(libvmi.WithNamespace("default"))
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -6184,7 +6186,7 @@ var _ = Describe("Template", func() {
 	Context("NAD query disablement", func() {
 		It("Should not query NAD when ExternalNetResourceInjection is enabled", func() {
 			config, kvStore, svc = configFactory(defaultArch)
-			enableFeatureGate(featuregate.ExternalNetResourceInjection)
+			enableFeatureGate(network.ExternalNetResourceInjection)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,

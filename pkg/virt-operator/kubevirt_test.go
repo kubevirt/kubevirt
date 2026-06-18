@@ -75,6 +75,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
@@ -1222,7 +1224,7 @@ func (k *KubeVirtTestData) generateRandomResources() int {
 }
 
 func enableTemplateFeatureGate(kv *v1.KubeVirt) {
-	enableFeatureGate(kv, featuregate.Template)
+	enableFeatureGate(kv, compute.Template)
 }
 
 func enableFeatureGate(kv *v1.KubeVirt, fg string) {
@@ -1236,19 +1238,19 @@ func enableFeatureGate(kv *v1.KubeVirt, fg string) {
 }
 
 func enableContainerPathVolumesFeatureGate(kv *v1.KubeVirt) {
-	enableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+	enableFeatureGate(kv, storage.ContainerPathVolumesGate)
 }
 
 func containerPathVolumesEnabled(kv *v1.KubeVirt) bool {
-	return featuregate.IsEnabled(featuregate.ContainerPathVolumesGate, kv.Spec.Configuration.DeveloperConfiguration)
+	return featuregate.IsEnabled(storage.ContainerPathVolumesGate, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func synchronizationControllerEnabled(kv *v1.KubeVirt) bool {
-	return featuregate.IsEnabled(featuregate.DecentralizedLiveMigration, kv.Spec.Configuration.DeveloperConfiguration)
+	return featuregate.IsEnabled(compute.DecentralizedLiveMigration, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func virtTemplateDeploymentEnabled(kv *v1.KubeVirt) bool {
-	if !featuregate.IsEnabled(featuregate.Template, kv.Spec.Configuration.DeveloperConfiguration) {
+	if !featuregate.IsEnabled(compute.Template, kv.Spec.Configuration.DeveloperConfiguration) {
 		return false
 	}
 	virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
@@ -3875,7 +3877,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.ContainerPathVolumesGate},
+							FeatureGates: []string{storage.ContainerPathVolumesGate},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 							Enabled: pointer.P(true),
@@ -3891,7 +3893,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.Template, featuregate.ContainerPathVolumesGate},
+							FeatureGates: []string{compute.Template, storage.ContainerPathVolumesGate},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 							Enabled: pointer.P(false),
@@ -4080,7 +4082,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
 			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.Template},
+				FeatureGates: []string{compute.Template},
 			}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 

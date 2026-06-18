@@ -28,7 +28,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var _ = Describe("Evacuation", func() {
@@ -113,7 +113,7 @@ var _ = Describe("Evacuation", func() {
 			Expect(migration.Spec.Priority).To(matcher)
 		},
 			Entry("with MigrationPriorityQueue feature gate disabled",
-				&v1.DeveloperConfiguration{DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue}},
+				&v1.DeveloperConfiguration{DisabledFeatureGates: []string{compute.MigrationPriorityQueue}},
 				nil, BeNil()),
 			Entry("with MigrationPriorityQueue feature gate enabled",
 				nil, nil,
@@ -173,7 +173,7 @@ var _ = Describe("Evacuation", func() {
 		It("should ignore VMIs which are not migratable", func() {
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+					DisabledFeatureGates: []string{compute.MigrationPriorityQueue},
 				}
 			})
 			node := newNode("testnode")
@@ -202,7 +202,7 @@ var _ = Describe("Evacuation", func() {
 		It("should not evict VMIs if 5 migrations are in progress", func() {
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+					DisabledFeatureGates: []string{compute.MigrationPriorityQueue},
 				}
 			})
 			node := newNode("testnode")
@@ -230,7 +230,7 @@ var _ = Describe("Evacuation", func() {
 		It("should start another migration if one completes and we have a free spot", func() {
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+					DisabledFeatureGates: []string{compute.MigrationPriorityQueue},
 				}
 			})
 			node := newNode("testnode")
@@ -283,7 +283,7 @@ var _ = Describe("Evacuation", func() {
 		It("Should record a warning on a not migratable VMI", func() {
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+					DisabledFeatureGates: []string{compute.MigrationPriorityQueue},
 				}
 			})
 			node := newNode("foo")
@@ -460,7 +460,7 @@ var _ = Describe("Evacuation", func() {
 		It("Should create new evictions up to the configured maximum migrations per outbound node", func() {
 			updateKV(func(kv *v1.KubeVirt) {
 				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+					DisabledFeatureGates: []string{compute.MigrationPriorityQueue},
 				}
 			})
 			var maxParallelMigrationsPerCluster uint32 = 10

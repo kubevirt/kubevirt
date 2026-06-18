@@ -29,7 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 // ValidateVirtualMachineInstanceAmd64Setting is a validation function for validating-webhook on Amd64
@@ -84,15 +84,15 @@ func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	var selectedTypes []string
 	if launchSecurity.SEV != nil {
 		selectedTypes = append(selectedTypes, "SEV")
-		fg = featuregate.WorkloadEncryptionSEV
+		fg = legacy.WorkloadEncryptionSEV
 	}
 	if launchSecurity.SNP != nil {
 		selectedTypes = append(selectedTypes, "SNP")
-		fg = featuregate.WorkloadEncryptionSEV
+		fg = legacy.WorkloadEncryptionSEV
 	}
 	if launchSecurity.TDX != nil {
 		selectedTypes = append(selectedTypes, "TDX")
-		fg = featuregate.WorkloadEncryptionTDX
+		fg = legacy.WorkloadEncryptionTDX
 	}
 
 	// We always get a valid launchSecurity type after this check

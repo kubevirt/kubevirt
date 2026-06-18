@@ -41,7 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 const (
@@ -132,7 +132,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			Expect(fakeNodeStore.Add(node)).To(Succeed())
-			clusterConfig := generateClusterConfig(featuregate.CPUManager)
+			clusterConfig := generateClusterConfig(legacy.CPUManager)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 

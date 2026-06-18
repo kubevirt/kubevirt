@@ -54,6 +54,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
@@ -953,7 +955,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
-			enableFeatureGate(featuregate.HostDiskGate)
+			enableFeatureGate(legacy.HostDiskGate)
 		})
 
 		AfterEach(func() {
@@ -1445,7 +1447,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(featuregate.WorkloadEncryptionSEV)
+					enableFeatureGate(legacy.WorkloadEncryptionSEV)
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1613,7 +1615,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("allow runstrategy always", v1.RunStrategyAlways, "", true),
 			Entry("allow runstrategy rerun on failure", v1.RunStrategyRerunOnFailure, "", true),
 			Entry("allow runstrategy once", v1.RunStrategyOnce, "", true),
-			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, true),
+			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, compute.DecentralizedLiveMigration, true),
 			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, "", false),
 			Entry("reject invalid runstrategy", v1.VirtualMachineRunStrategy("invalid"), "", false),
 		)

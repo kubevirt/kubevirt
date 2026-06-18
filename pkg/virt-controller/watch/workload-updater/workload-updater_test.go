@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var _ = Describe("Workload Updater", func() {
@@ -696,7 +696,7 @@ var _ = Describe("Workload Updater", func() {
 		BeforeEach(func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.MigrationPriorityQueue},
+					FeatureGates: []string{compute.MigrationPriorityQueue},
 				},
 			})
 			controller.clusterConfig = config

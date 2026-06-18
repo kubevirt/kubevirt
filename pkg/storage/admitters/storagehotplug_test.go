@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var _ = Describe("Storage Hotplug Admitter", func() {
@@ -69,7 +69,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+						DisabledFeatureGates: []string{storage.DeclarativeHotplugVolumesGate},
 					},
 				},
 			},
@@ -495,7 +495,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 			makeFilesystems(),
 			makeStatus(1, 0),
 			nil,
-			featuregate.DeclarativeHotplugVolumesGate),
+			storage.DeclarativeHotplugVolumesGate),
 		Entry("Should reject cd-rom eject",
 			makeVolumes(0),
 			makeVolumes(0, 1),
@@ -532,7 +532,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 
 	Context("with filesystem devices", func() {
 		BeforeEach(func() {
-			enableFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
+			enableFeatureGate(storage.VirtIOFSStorageVolumeGate)
 		})
 
 		DescribeTable("Should return proper admission response", testHotplugResponse,
@@ -632,7 +632,7 @@ var _ = Describe("Utility Volumes Admitter", func() {
 		BeforeEach(func() {
 			kv := &v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.UtilityVolumesGate},
+					FeatureGates: []string{storage.UtilityVolumesGate},
 				},
 			}
 			config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)

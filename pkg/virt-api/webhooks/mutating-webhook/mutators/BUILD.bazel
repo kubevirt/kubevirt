@@ -62,7 +62,7 @@ go_test(
         "//pkg/testutils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
-        "//pkg/virt-config/featuregate:go_default_library",
+        "//pkg/virt-config/featuregate/legacy:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virtiofs:go_default_library",

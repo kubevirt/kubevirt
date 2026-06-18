@@ -14,7 +14,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -70,7 +70,7 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 
 				By("Adding the emulated USB device to the permitted host devices")
 				config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.HostDevicesGate},
+					FeatureGates: []string{legacy.HostDevicesGate},
 				}
 				config.PermittedHostDevices = &v1.PermittedHostDevices{
 					USB: []v1.USBHostDevice{
