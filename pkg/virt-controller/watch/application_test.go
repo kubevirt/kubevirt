@@ -45,7 +45,6 @@ import (
 	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -56,7 +55,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/rest"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -119,18 +117,10 @@ var _ = Describe("Application", func() {
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		vmExportInformer, _ := testutils.NewFakeInformerFor(&exportv1.VirtualMachineExport{})
 		configMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
-		routeConfigMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
-		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
 		backupInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
 		backupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
-		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
-		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
-		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
-		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
-		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 
 		var qemuGid int64 = 107
 
@@ -229,32 +219,6 @@ var _ = Describe("Application", func() {
 			Recorder:                  recorder,
 		}
 		_ = app.restoreController.Init()
-		app.exportController = &export.VMExportController{
-			Client:                      virtClient,
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
-			VMExportInformer:            vmExportInformer,
-			PVCInformer:                 pvcInformer,
-			PodInformer:                 podInformer,
-			DataVolumeInformer:          dataVolumeInformer,
-			ServiceInformer:             exportServiceInformer,
-			ConfigMapInformer:           configMapInformer,
-			RouteConfigMapInformer:      routeConfigMapInformer,
-			Recorder:                    recorder,
-			SecretInformer:              secretInformer,
-			VMSnapshotInformer:          vmSnapshotInformer,
-			VMSnapshotContentInformer:   vmSnapshotContentInformer,
-			VMInformer:                  vmInformer,
-			VMIInformer:                 vmiInformer,
-			CRDInformer:                 crdInformer,
-			KubeVirtInformer:            kvInformer,
-			InstancetypeInformer:        instancetypeInformer,
-			ClusterInstancetypeInformer: clusterInstancetypeInformer,
-			PreferenceInformer:          preferenceInformer,
-			ClusterPreferenceInformer:   clusterPreferenceInformer,
-			ControllerRevisionInformer:  controllerRevisionInformer,
-			VMBackupInformer:            backupInformer,
-		}
-		_ = app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer
 		app.nodeInformer = nodeInformer
 		app.resourceQuotaInformer = resourceQuotaInformer
