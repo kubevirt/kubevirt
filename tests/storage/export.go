@@ -65,7 +65,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -2377,15 +2377,15 @@ var _ = Describe(SIG("Export", func() {
 				Fail("Fail test when RWO Block storage is not present")
 			}
 
-			fgDisabled = !checks.HasFeature(featuregate.OCIExport)
+			fgDisabled = !checks.HasFeature(compute.OCIExport)
 			if fgDisabled {
-				kvconfig.EnableFeatureGate(featuregate.OCIExport)
+				kvconfig.EnableFeatureGate(compute.OCIExport)
 			}
 		})
 
 		AfterAll(func() {
 			if fgDisabled {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
+				kvconfig.DisableFeatureGate(compute.OCIExport)
 			}
 		})
 
@@ -2473,9 +2473,9 @@ var _ = Describe(SIG("Export", func() {
 		})
 
 		It("should not include OCI manifest link when feature gate is disabled", func() {
-			if checks.HasFeature(featuregate.OCIExport) {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
-				defer kvconfig.EnableFeatureGate(featuregate.OCIExport)
+			if checks.HasFeature(compute.OCIExport) {
+				kvconfig.DisableFeatureGate(compute.OCIExport)
+				defer kvconfig.EnableFeatureGate(compute.OCIExport)
 			}
 
 			vm := createStoppedVM()
@@ -2486,9 +2486,9 @@ var _ = Describe(SIG("Export", func() {
 		})
 
 		It("should export VirtualMachineTemplate as OCI artifact", func() {
-			if !checks.HasFeature(featuregate.Template) {
-				kvconfig.EnableFeatureGate(featuregate.Template)
-				defer kvconfig.DisableFeatureGate(featuregate.Template)
+			if !checks.HasFeature(compute.Template) {
+				kvconfig.EnableFeatureGate(compute.Template)
+				defer kvconfig.DisableFeatureGate(compute.Template)
 			}
 
 			By("Creating a stopped VM with DataVolume")

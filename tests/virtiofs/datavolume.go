@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -73,7 +73,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, decorators.Sto
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		vmi = nil
-		checks.FailTestIfNoFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
+		checks.FailTestIfNoFeatureGate(storage.VirtIOFSStorageVolumeGate)
 	})
 
 	Context("VirtIO-FS with multiple PVCs", func() {

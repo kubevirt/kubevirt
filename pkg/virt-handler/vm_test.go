@@ -68,7 +68,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -1425,7 +1426,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			It("should compute checksums for the specified containerDisks and kernelboot containers", func() {
 				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.ImageVolume},
+						DisabledFeatureGates: []string{legacy.ImageVolume},
 					},
 				})
 				controller.clusterConfig = config
@@ -2543,11 +2544,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.VGPULiveMigration + " is not enabled"))
+					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + legacy.VGPULiveMigration + " is not enabled"))
 
 					config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{legacy.VGPULiveMigration},
 						},
 						PermittedHostDevices: permittedHostDevs,
 					})
@@ -2570,7 +2571,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{legacy.VGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2603,7 +2604,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{legacy.VGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2640,7 +2641,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{legacy.VGPULiveMigration},
 						},
 					})
 					controller.clusterConfig = config
@@ -3524,7 +3525,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should not set the condition when the guest architecture matches the host", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					FeatureGates: []string{compute.CrossArchitectureVirtualization},
 				},
 			})
 			controller.clusterConfig = config
@@ -3542,7 +3543,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should set the condition for cross-architecture emulation", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					FeatureGates: []string{compute.CrossArchitectureVirtualization},
 				},
 			})
 			controller.clusterConfig = config
@@ -3563,7 +3564,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should not duplicate the condition if already present", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					FeatureGates: []string{compute.CrossArchitectureVirtualization},
 				},
 			})
 			controller.clusterConfig = config
@@ -3592,7 +3593,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should remove the condition when no longer cross-arch", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					FeatureGates: []string{compute.CrossArchitectureVirtualization},
 				},
 			})
 			controller.clusterConfig = config

@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -3469,7 +3469,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				if enableFeatureGate {
 					kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.IncrementalBackupGate},
+						FeatureGates: []string{storage.IncrementalBackupGate},
 					}
 				}
 

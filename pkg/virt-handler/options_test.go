@@ -28,7 +28,7 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var _ = Describe("Parsing VMI Options", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Parsing VMI Options", func() {
 		It("should pass Grace feature gates and admitted host device aliases", func() {
 			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.GraceIOVirtualization},
+					FeatureGates: []string{compute.GraceIOVirtualization},
 				},
 				PermittedHostDevices: &v1.PermittedHostDevices{
 					PciHostDevices: []v1.PciHostDevice{

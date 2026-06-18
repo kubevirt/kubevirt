@@ -54,7 +54,7 @@ import (
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var _ = Describe("Memory dump Subresource api", func() {
@@ -106,7 +106,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+						DisabledFeatureGates: []string{storage.DeclarativeHotplugVolumesGate},
 					},
 				},
 			},
@@ -200,7 +200,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 	DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, enableGate bool, vmiRunning bool, pvc *k8sv1.PersistentVolumeClaim) {
 		if enableGate {
-			enableFeatureGate(featuregate.HotplugVolumesGate)
+			enableFeatureGate(storage.HotplugVolumesGate)
 		} else {
 			disableDeclarativeHotplugFeatureGate()
 		}
@@ -269,7 +269,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 	)
 
 	DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
-		enableFeatureGate(featuregate.HotplugVolumesGate)
+		enableFeatureGate(storage.HotplugVolumesGate)
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),

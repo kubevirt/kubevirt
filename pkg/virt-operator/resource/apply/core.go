@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -809,7 +809,7 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 }
 
 func (r *Reconciler) updateSynchronizationAddress() (err error) {
-	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+	if !r.isFeatureGateEnabled(compute.DecentralizedLiveMigration) {
 		r.kv.Status.SynchronizationAddresses = nil
 		return nil
 	}

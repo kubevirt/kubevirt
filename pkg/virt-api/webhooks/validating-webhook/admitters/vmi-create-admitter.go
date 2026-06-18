@@ -51,6 +51,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -636,7 +639,7 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 			} else if !config.DeclarativeHotplugVolumesEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", featuregate.DeclarativeHotplugVolumesGate),
+					Message: fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", storage.DeclarativeHotplugVolumesGate),
 					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
 				})
 			}
@@ -2013,7 +2016,7 @@ func validateVSOCK(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, co
 	if !config.VSOCKEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VSOCKGate),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", legacy.VSOCKGate),
 			Field:   field.Child("domain", "devices", "autoattachVSOCK").String(),
 		})
 	}
@@ -2122,7 +2125,7 @@ func validateRebootPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	if !config.RebootPolicyEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy),
+			Message: fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", compute.RebootPolicy),
 			Field:   field.Child("domain", "rebootPolicy").String(),
 		})
 		return causes

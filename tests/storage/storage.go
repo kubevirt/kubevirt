@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -509,7 +509,7 @@ var _ = Describe(SIG("Storage", func() {
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			BeforeEach(func() {
-				if !checks.HasFeature(featuregate.HostDiskGate) {
+				if !checks.HasFeature(legacy.HostDiskGate) {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests") //nolint:forbidigo
 				}
 			})

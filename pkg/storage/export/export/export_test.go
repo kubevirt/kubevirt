@@ -75,7 +75,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -2172,7 +2172,7 @@ func enableOCIExportFeatureGate(kvStore cache.Store) {
 		Spec: virtv1.KubeVirtSpec{
 			Configuration: virtv1.KubeVirtConfiguration{
 				DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.OCIExport},
+					FeatureGates: []string{compute.OCIExport},
 				},
 			},
 		},

@@ -37,6 +37,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
@@ -57,7 +61,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.Template},
+						DisabledFeatureGates: []string{compute.Template},
 					},
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 						Enabled: pointer.P(true),
@@ -70,7 +74,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.Template},
+						FeatureGates: []string{compute.Template},
 					},
 					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 						Enabled: pointer.P(true),
@@ -121,7 +125,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
+						DisabledFeatureGates: []string{legacy.OptOutRoleAggregation},
 					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				},
@@ -131,6 +135,9 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation enabled by default (Beta)",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{legacy.OptOutRoleAggregation},
+					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				},
 			},
@@ -154,7 +161,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
+						DisabledFeatureGates: []string{legacy.OptOutRoleAggregation},
 					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
 				},
@@ -185,7 +192,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.MigrationStallDetection},
+					FeatureGates: []string{compute.MigrationStallDetection},
 				},
 			},
 			false,
@@ -452,16 +459,16 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}))
 		},
-			Entry("with LiveMigration", featuregate.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
-			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
-			Entry("with NonRoot", featuregate.NonRoot, fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
-			Entry("with PSA", featuregate.PSA, fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
-			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
-			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
-			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
-			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
-			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
-			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been deprecated since v1.8.0"),
+			Entry("with LiveMigration", compute.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, compute.LiveMigrationGate, featuregate.GA)),
+			Entry("with SRIOVLiveMigration", compute.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, compute.SRIOVLiveMigrationGate, featuregate.GA)),
+			Entry("with NonRoot", legacy.NonRoot, fmt.Sprintf(featuregate.WarningPattern, legacy.NonRoot, featuregate.GA)),
+			Entry("with PSA", legacy.PSA, fmt.Sprintf(featuregate.WarningPattern, legacy.PSA, featuregate.GA)),
+			Entry("with CPUNodeDiscoveryGate", legacy.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPattern, legacy.CPUNodeDiscoveryGate, featuregate.GA)),
+			Entry("with HotplugNICs", network.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPattern, network.HotplugNetworkIfacesGate, featuregate.GA)),
+			Entry("with Passt", network.PasstGate, network.PasstDiscontinueMessage),
+			Entry("with MacvtapGate", network.MacvtapGate, network.MacvtapDiscontinueMessage),
+			Entry("with ExperimentalVirtiofsSupport", storage.VirtIOFSGate, storage.VirtioFsFeatureGateDiscontinueMessage),
+			Entry("with DisableMediatedDevicesHandling", compute.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been deprecated since v1.8.0"),
 		)
 
 		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {

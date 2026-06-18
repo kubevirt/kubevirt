@@ -40,7 +40,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 type fuzzOption int
@@ -190,27 +193,27 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 		func(dc *v1.DeveloperConfiguration, c randfill.Continue) {
 			c.FillNoCustom(dc)
 			featureGates := []string{
-				featuregate.CPUManager,
-				featuregate.NUMAFeatureGate,
-				featuregate.IgnitionGate,
-				featuregate.LiveMigrationGate,
-				featuregate.SRIOVLiveMigrationGate,
-				featuregate.CPUNodeDiscoveryGate,
-				featuregate.HypervStrictCheckGate,
-				featuregate.SidecarGate,
-				featuregate.HostDevicesGate,
-				featuregate.SnapshotGate,
-				featuregate.HotplugVolumesGate,
-				featuregate.HostDiskGate,
-				featuregate.MacvtapGate,
-				featuregate.PasstGate,
-				featuregate.DownwardMetricsFeatureGate,
-				featuregate.NonRoot,
-				featuregate.Root,
-				featuregate.WorkloadEncryptionSEV,
-				featuregate.DockerSELinuxMCSWorkaround,
-				featuregate.PSA,
-				featuregate.VSOCKGate,
+				legacy.CPUManager,
+				compute.NUMAFeatureGate,
+				legacy.IgnitionGate,
+				compute.LiveMigrationGate,
+				compute.SRIOVLiveMigrationGate,
+				legacy.CPUNodeDiscoveryGate,
+				legacy.HypervStrictCheckGate,
+				legacy.SidecarGate,
+				legacy.HostDevicesGate,
+				storage.SnapshotGate,
+				storage.HotplugVolumesGate,
+				legacy.HostDiskGate,
+				network.MacvtapGate,
+				network.PasstGate,
+				legacy.DownwardMetricsFeatureGate,
+				legacy.NonRoot,
+				legacy.Root,
+				legacy.WorkloadEncryptionSEV,
+				legacy.DockerSELinuxMCSWorkaround,
+				legacy.PSA,
+				legacy.VSOCKGate,
 			}
 
 			idxs := c.Perm(c.Int() % len(featureGates))

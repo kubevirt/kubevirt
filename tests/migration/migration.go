@@ -61,7 +61,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -1120,16 +1120,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var clusterIsRoot bool
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(featuregate.Root)
+				clusterIsRoot = checks.HasFeature(legacy.Root)
 				if !clusterIsRoot {
-					kvconfig.EnableFeatureGate(featuregate.Root)
+					kvconfig.EnableFeatureGate(legacy.Root)
 				}
 			})
 			AfterEach(func() {
 				if !clusterIsRoot {
-					kvconfig.DisableFeatureGate(featuregate.Root)
+					kvconfig.DisableFeatureGate(legacy.Root)
 				} else {
-					kvconfig.EnableFeatureGate(featuregate.Root)
+					kvconfig.EnableFeatureGate(legacy.Root)
 				}
 			})
 
@@ -1147,7 +1147,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("0"))
 
-				kvconfig.DisableFeatureGate(featuregate.Root)
+				kvconfig.DisableFeatureGate(legacy.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1204,16 +1204,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			size := "256Mi"
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(featuregate.Root)
+				clusterIsRoot = checks.HasFeature(legacy.Root)
 				if clusterIsRoot {
-					kvconfig.DisableFeatureGate(featuregate.Root)
+					kvconfig.DisableFeatureGate(legacy.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					kvconfig.EnableFeatureGate(featuregate.Root)
+					kvconfig.EnableFeatureGate(legacy.Root)
 				} else {
-					kvconfig.DisableFeatureGate(featuregate.Root)
+					kvconfig.DisableFeatureGate(legacy.Root)
 				}
 			})
 
@@ -1233,7 +1233,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("107"))
 
-				kvconfig.EnableFeatureGate(featuregate.Root)
+				kvconfig.EnableFeatureGate(legacy.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)

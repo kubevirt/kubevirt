@@ -40,7 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -117,7 +117,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 
 		Context("with Node Restriction feature gate enabled", func() {
-			BeforeEach(func() { enableFeatureGate(featuregate.NodeRestrictionGate) })
+			BeforeEach(func() { enableFeatureGate(compute.NodeRestrictionGate) })
 
 			shouldNotAllowCrossNodeRequest := And(
 				WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
@@ -220,7 +220,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 		DescribeTable("with Node Restriction feature gate disabled should allow different handler", func(migrationState *v1.VirtualMachineInstanceMigrationState) {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.NodeRestrictionGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{compute.NodeRestrictionGate}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "got"
@@ -341,7 +341,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		"Should allow VMI upon modification of kubevirt.io/ labels by kubevirt internal service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string, serviceAccount string) {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.NodeRestrictionGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{compute.NodeRestrictionGate}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels

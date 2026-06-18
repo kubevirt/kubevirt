@@ -17,7 +17,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -266,7 +266,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfigurations(caBundle []byte
 func (r *Reconciler) createOrDeleteContainerPathVolumesWebhook(caBundle []byte) error {
 	webhook := components.NewVirtLauncherPodMutatingWebhookConfiguration(r.kv.Namespace)
 
-	if r.isFeatureGateEnabled(featuregate.ContainerPathVolumesGate) {
+	if r.isFeatureGateEnabled(storage.ContainerPathVolumesGate) {
 		return r.createOrUpdateMutatingWebhookConfiguration(webhook, caBundle)
 	}
 
