@@ -1436,8 +1436,9 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 	if migration.Status.MigrationState == nil {
 		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	// Set source PVC when: not decentralized, or VMI is source for this migration, or a previous decentralized migration completed (so next migration can run MigrationHandoff).
-	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() || vmi.IsMigrationCompleted() {
+	// Set source PVC when: local migration, or a previous decentralized source migration completed (for MigrationHandoff).
+	// Decentralized target VMIs do not have the source backend PVC locally; it is created in the target namespace instead.
+	if !migration.IsDecentralizedTarget() || vmi.IsMigrationCompleted() {
 		migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
 		if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
 			return fmt.Errorf("no backend-storage PVC found in VMI volume status")
