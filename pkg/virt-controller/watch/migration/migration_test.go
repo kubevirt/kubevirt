@@ -61,6 +61,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -3043,6 +3044,103 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 
+	Context("handleBackendStorage decentralized migrations", func() {
+		setupVMStateStorageClass := func() {
+			sc := &storagev1.StorageClass{
+				ObjectMeta: metav1.ObjectMeta{Name: "testsc123"},
+			}
+			sp := &cdiv1.StorageProfile{
+				ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
+				Spec: cdiv1.StorageProfileSpec{
+					ClaimPropertySets: []cdiv1.ClaimPropertySet{
+						{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+					},
+				},
+				Status: cdiv1.StorageProfileStatus{
+					StorageClass: pointer.P(sc.Name),
+					ClaimPropertySets: []cdiv1.ClaimPropertySet{
+						{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+					},
+				},
+			}
+			Expect(controller.storageClassStore.Add(sc)).To(Succeed())
+			Expect(controller.storageProfileStore.Add(sp)).To(Succeed())
+			setConfig(&v1.KubeVirtConfiguration{
+				VMStateStorageClass: "testsc123",
+			})
+		}
+
+		It("should not require source backend PVC on decentralized target VMI waiting for sync", func() {
+			setupVMStateStorageClass()
+			vmi := newReceiverVirtualMachine("testvmi", v1.WaitingForSync, "testmigration")
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{Persistent: pointer.P(true)},
+				},
+			}
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(BeEmpty())
+
+			pvcs, listErr := kubeClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(listErr).ToNot(HaveOccurred())
+			Expect(pvcs.Items).ToNot(BeEmpty())
+		})
+
+		It("should require source backend PVC for local migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).To(MatchError(ContainSubstring("no backend-storage PVC found")))
+		})
+
+		It("should require source backend PVC for decentralized source migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).To(MatchError(ContainSubstring("no backend-storage PVC found")))
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(BeEmpty())
+		})
+
+		It("should set SourcePersistentStatePVCName for decentralized source migration when source PVC exists", func() {
+			const sourcePVCName = "source-backend-pvc"
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			setBackendStorageVolumeStatus(vmi, sourcePVCName)
+			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetPersistentStatePVCName: "existing-target-pvc",
+			}
+
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(Equal(sourcePVCName))
+		})
+
+		It("should set SourcePersistentStatePVCName on decentralized target when previous migration completed", func() {
+			const sourcePVCName = "handoff-backend-pvc"
+			vmi := newReceiverVirtualMachine("testvmi", v1.Running, "testmigration")
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			setBackendStorageVolumeStatus(vmi, sourcePVCName)
+			vmi.Status.MigrationState.Completed = true
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetPersistentStatePVCName: "existing-target-pvc",
+			}
+
+			err := controller.handleBackendStorage(migration, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migration.Status.MigrationState.SourcePersistentStatePVCName).To(Equal(sourcePVCName))
+		})
+	})
+
 	Context("Decentralized migration condition", func() {
 		var (
 			conditionManager *virtcontroller.VirtualMachineInstanceMigrationConditionManager
@@ -3146,6 +3244,24 @@ func newDecentralizedReceiverMigration(name string, vmiName string, phase v1.Vir
 		MigrationID: vmiName,
 	}
 	return migration
+}
+
+func newDecentralizedSenderMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+	migration := newMigration(name, vmiName, phase)
+	migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+		MigrationID: "remote-migration-id",
+		ConnectURL:  "10.0.0.1:9185",
+	}
+	return migration
+}
+
+func setBackendStorageVolumeStatus(vmi *v1.VirtualMachineInstance, claimName string) {
+	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+		Name: backendstorage.VolumeName,
+		PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+			ClaimName: claimName,
+		},
+	})
 }
 
 func newMigrationWithAddedNodeSelector(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase, addedNodeSelector map[string]string) *v1.VirtualMachineInstanceMigration {
