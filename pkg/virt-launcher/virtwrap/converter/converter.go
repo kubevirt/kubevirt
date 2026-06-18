@@ -180,7 +180,8 @@ func Convert_v1_Disk_To_api_Disk(c *convertertypes.ConverterContext, diskDevice 
 
 func setReservation(disk *api.Disk) {
 	disk.Source.Reservations = &api.Reservations{
-		Managed: "no",
+		Managed:   "no",
+		Migration: "yes",
 		SourceReservations: &api.SourceReservations{
 			Type: "unix",
 			Path: reservation.GetPrHelperSocketPath(),

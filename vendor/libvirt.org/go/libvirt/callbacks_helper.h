@@ -27,6 +27,6 @@
 #ifndef LIBVIRT_GO_CALLBACKS_HELPER_H__
 #define LIBVIRT_GO_CALLBACKS_HELPER_H__
 
-void freeGoCallbackHelper(void *goCallbackId);
+void virGoFreeCallbackHelper(void *goCallbackId);
 
 #endif /* LIBVIRT_GO_CALLBACKS_HELPER_H__ */

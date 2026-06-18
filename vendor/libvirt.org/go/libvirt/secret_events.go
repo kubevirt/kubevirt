@@ -49,8 +49,8 @@ type SecretEventLifecycleCallback func(c *Connect, n *Secret, event *SecretEvent
 
 type SecretEventGenericCallback func(c *Connect, n *Secret)
 
-//export secretEventLifecycleCallback
-func secretEventLifecycleCallback(c C.virConnectPtr, n C.virSecretPtr,
+//export virGoSecretEventLifecycleCallback
+func virGoSecretEventLifecycleCallback(c C.virConnectPtr, n C.virSecretPtr,
 	event int, detail int,
 	goCallbackId int) {
 
@@ -70,8 +70,8 @@ func secretEventLifecycleCallback(c C.virConnectPtr, n C.virSecretPtr,
 	callback(connection, secret, eventDetails)
 }
 
-//export secretEventGenericCallback
-func secretEventGenericCallback(c C.virConnectPtr, n C.virSecretPtr,
+//export virGoSecretEventGenericCallback
+func virGoSecretEventGenericCallback(c C.virConnectPtr, n C.virSecretPtr,
 	goCallbackId int) {
 
 	secret := &Secret{ptr: n}
@@ -87,7 +87,7 @@ func secretEventGenericCallback(c C.virConnectPtr, n C.virSecretPtr,
 
 func (c *Connect) SecretEventLifecycleRegister(secret *Secret, callback SecretEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
-	callbackPtr := unsafe.Pointer(C.secretEventLifecycleCallbackHelper)
+	callbackPtr := unsafe.Pointer(C.virGoSecretEventLifecycleCallbackHelper)
 	var csecret C.virSecretPtr
 	if secret != nil {
 		csecret = secret.ptr
@@ -98,7 +98,7 @@ func (c *Connect) SecretEventLifecycleRegister(secret *Secret, callback SecretEv
 		C.virConnectSecretEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil
@@ -106,7 +106,7 @@ func (c *Connect) SecretEventLifecycleRegister(secret *Secret, callback SecretEv
 
 func (c *Connect) SecretEventValueChangedRegister(secret *Secret, callback SecretEventGenericCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
-	callbackPtr := unsafe.Pointer(C.secretEventGenericCallbackHelper)
+	callbackPtr := unsafe.Pointer(C.virGoSecretEventGenericCallbackHelper)
 	var csecret C.virSecretPtr
 	if secret != nil {
 		csecret = secret.ptr
@@ -117,7 +117,7 @@ func (c *Connect) SecretEventValueChangedRegister(secret *Secret, callback Secre
 		C.virConnectSecretEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil

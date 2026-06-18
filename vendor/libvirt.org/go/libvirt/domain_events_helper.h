@@ -31,211 +31,211 @@
 
 
 void
-domainEventLifecycleCallbackHelper(virConnectPtr conn,
-                                   virDomainPtr dom,
-                                   int event,
-                                   int detail,
-                                   void *data);
-
-
-void
-domainEventGenericCallbackHelper(virConnectPtr conn,
-                                 virDomainPtr dom,
-                                 void *data);
-
-
-void
-domainEventRTCChangeCallbackHelper(virConnectPtr conn,
-                                   virDomainPtr dom,
-                                   long long utcoffset,
-                                   void *data);
-
-
-void
-domainEventWatchdogCallbackHelper(virConnectPtr conn,
-                                  virDomainPtr dom,
-                                  int action,
-                                  void *data);
-
-
-void
-domainEventIOErrorCallbackHelper(virConnectPtr conn,
-                                 virDomainPtr dom,
-                                 const char *srcPath,
-                                 const char *devAlias,
-                                 int action,
-                                 void *data);
-
-
-void
-domainEventGraphicsCallbackHelper(virConnectPtr conn,
-                                  virDomainPtr dom,
-                                  int phase,
-                                  const virDomainEventGraphicsAddress *local,
-                                  const virDomainEventGraphicsAddress *remote,
-                                  const char *authScheme,
-                                  const virDomainEventGraphicsSubject *subject,
-                                  void *data);
-
-
-void
-domainEventIOErrorReasonCallbackHelper(virConnectPtr conn,
-                                       virDomainPtr dom,
-                                       const char *srcPath,
-                                       const char *devAlias,
-                                       int action,
-                                       const char *reason,
-                                       void *data);
-
-
-void
-domainEventBlockJobCallbackHelper(virConnectPtr conn,
-                                  virDomainPtr dom,
-                                  const char *disk,
-                                  int type,
-                                  int status,
-                                  void *data);
-
-
-void
-domainEventDiskChangeCallbackHelper(virConnectPtr conn,
-                                    virDomainPtr dom,
-                                    const char *oldSrcPath,
-                                    const char *newSrcPath,
-                                    const char *devAlias,
-                                    int reason,
-                                    void *data);
-
-
-void
-domainEventTrayChangeCallbackHelper(virConnectPtr conn,
-                                    virDomainPtr dom,
-                                    const char *devAlias,
-                                    int reason,
-                                    void *data);
-
-
-void
-domainEventPMSuspendCallbackHelper(virConnectPtr conn,
-                                   virDomainPtr dom,
-                                   int reason,
-                                   void *data);
-
-
-void
-domainEventPMWakeupCallbackHelper(virConnectPtr conn,
-                                  virDomainPtr dom,
-                                  int reason,
-                                  void *data);
-
-
-void
-domainEventPMSuspendDiskCallbackHelper(virConnectPtr conn,
-                                       virDomainPtr dom,
-                                       int reason,
-                                       void *data);
-
-
-void
-domainEventBalloonChangeCallbackHelper(virConnectPtr conn,
-                                       virDomainPtr dom,
-                                       unsigned long long actual,
-                                       void *data);
-
-
-void
-domainEventDeviceRemovedCallbackHelper(virConnectPtr conn,
-                                       virDomainPtr dom,
-                                       const char *devAlias,
-                                       void *data);
-
-
-void
-domainEventTunableCallbackHelper(virConnectPtr conn,
-                                 virDomainPtr dom,
-                                 virTypedParameterPtr params,
-                                 int nparams,
-                                 void *opaque);
-
-
-void
-domainEventAgentLifecycleCallbackHelper(virConnectPtr conn,
+virGoDomainEventLifecycleCallbackHelper(virConnectPtr conn,
                                         virDomainPtr dom,
-                                        int state,
-                                        int reason,
-                                        void *opaque);
+                                        int event,
+                                        int detail,
+                                        void *data);
 
 
 void
-domainEventDeviceAddedCallbackHelper(virConnectPtr conn,
-                                     virDomainPtr dom,
-                                     const char *devAlias,
-                                     void *opaque);
+virGoDomainEventGenericCallbackHelper(virConnectPtr conn,
+				      virDomainPtr dom,
+				      void *data);
 
 
 void
-domainEventMigrationIterationCallbackHelper(virConnectPtr conn,
-                                            virDomainPtr dom,
-                                            int iteration,
-                                            void *opaque);
+virGoDomainEventRTCChangeCallbackHelper(virConnectPtr conn,
+					virDomainPtr dom,
+					long long utcoffset,
+					void *data);
 
 
 void
-domainEventJobCompletedCallbackHelper(virConnectPtr conn,
-                                      virDomainPtr dom,
-                                      virTypedParameterPtr params,
-                                      int nparams,
-                                      void *opaque);
-
-
-void
-domainEventDeviceRemovalFailedCallbackHelper(virConnectPtr conn,
-                                             virDomainPtr dom,
-                                             const char *devAlias,
-                                             void *opaque);
-
-
-void
-domainEventMetadataChangeCallbackHelper(virConnectPtr conn,
-                                        virDomainPtr dom,
-                                        int type,
-                                        const char *nsuri,
-                                        void *opaque);
-
-
-void
-domainEventBlockThresholdCallbackHelper(virConnectPtr conn,
-                                        virDomainPtr dom,
-                                        const char *dev,
-                                        const char *path,
-                                        unsigned long long threshold,
-                                        unsigned long long excess,
-                                        void *opaque);
-
-
-void
-domainEventMemoryFailureCallbackHelper(virConnectPtr conn,
+virGoDomainEventWatchdogCallbackHelper(virConnectPtr conn,
 				       virDomainPtr dom,
-				       int recipient,
 				       int action,
-				       unsigned int flags,
-				       void *opaque);
+				       void *data);
 
 
 void
-domainEventMemoryDeviceSizeChangeCallbackHelper(virConnectPtr conn,
-						virDomainPtr dom,
-						const char *alias,
-						unsigned long long size,
-						void *opaque);
+virGoDomainEventIOErrorCallbackHelper(virConnectPtr conn,
+				      virDomainPtr dom,
+				      const char *srcPath,
+				      const char *devAlias,
+				      int action,
+				      void *data);
+
 
 void
-domainEventNICMACChangeCallbackHelper(virConnectPtr conn,
-                                      virDomainPtr dom,
-                                      const char *alias,
-                                      const char *oldMAC,
-                                      const char *newMAC,
-                                      void *opaque);
+virGoDomainEventGraphicsCallbackHelper(virConnectPtr conn,
+				       virDomainPtr dom,
+				       int phase,
+				       const virDomainEventGraphicsAddress *local,
+				       const virDomainEventGraphicsAddress *remote,
+				       const char *authScheme,
+				       const virDomainEventGraphicsSubject *subject,
+				       void *data);
+
+
+void
+virGoDomainEventIOErrorReasonCallbackHelper(virConnectPtr conn,
+					    virDomainPtr dom,
+					    const char *srcPath,
+					    const char *devAlias,
+					    int action,
+					    const char *reason,
+					    void *data);
+
+
+void
+virGoDomainEventBlockJobCallbackHelper(virConnectPtr conn,
+				       virDomainPtr dom,
+				       const char *disk,
+				       int type,
+				       int status,
+				       void *data);
+
+
+void
+virGoDomainEventDiskChangeCallbackHelper(virConnectPtr conn,
+					 virDomainPtr dom,
+					 const char *oldSrcPath,
+					 const char *newSrcPath,
+					 const char *devAlias,
+					 int reason,
+					 void *data);
+
+
+void
+virGoDomainEventTrayChangeCallbackHelper(virConnectPtr conn,
+					 virDomainPtr dom,
+					 const char *devAlias,
+					 int reason,
+					 void *data);
+
+
+void
+virGoDomainEventPMSuspendCallbackHelper(virConnectPtr conn,
+					virDomainPtr dom,
+					int reason,
+					void *data);
+
+
+void
+virGoDomainEventPMWakeupCallbackHelper(virConnectPtr conn,
+				       virDomainPtr dom,
+				       int reason,
+				       void *data);
+
+
+void
+virGoDomainEventPMSuspendDiskCallbackHelper(virConnectPtr conn,
+					    virDomainPtr dom,
+					    int reason,
+					    void *data);
+
+
+void
+virGoDomainEventBalloonChangeCallbackHelper(virConnectPtr conn,
+					    virDomainPtr dom,
+					    unsigned long long actual,
+					    void *data);
+
+
+void
+virGoDomainEventDeviceRemovedCallbackHelper(virConnectPtr conn,
+					    virDomainPtr dom,
+					    const char *devAlias,
+					    void *data);
+
+
+void
+virGoDomainEventTunableCallbackHelper(virConnectPtr conn,
+				      virDomainPtr dom,
+				      virTypedParameterPtr params,
+				      int nparams,
+				      void *opaque);
+
+
+void
+virGoDomainEventAgentLifecycleCallbackHelper(virConnectPtr conn,
+					     virDomainPtr dom,
+					     int state,
+					     int reason,
+					     void *opaque);
+
+
+void
+virGoDomainEventDeviceAddedCallbackHelper(virConnectPtr conn,
+					  virDomainPtr dom,
+					  const char *devAlias,
+					  void *opaque);
+
+
+void
+virGoDomainEventMigrationIterationCallbackHelper(virConnectPtr conn,
+						 virDomainPtr dom,
+						 int iteration,
+						 void *opaque);
+
+
+void
+virGoDomainEventJobCompletedCallbackHelper(virConnectPtr conn,
+					   virDomainPtr dom,
+					   virTypedParameterPtr params,
+					   int nparams,
+					   void *opaque);
+
+
+void
+virGoDomainEventDeviceRemovalFailedCallbackHelper(virConnectPtr conn,
+						  virDomainPtr dom,
+						  const char *devAlias,
+						  void *opaque);
+
+
+void
+virGoDomainEventMetadataChangeCallbackHelper(virConnectPtr conn,
+					     virDomainPtr dom,
+					     int type,
+					     const char *nsuri,
+					     void *opaque);
+
+
+void
+virGoDomainEventBlockThresholdCallbackHelper(virConnectPtr conn,
+					     virDomainPtr dom,
+					     const char *dev,
+					     const char *path,
+					     unsigned long long threshold,
+					     unsigned long long excess,
+					     void *opaque);
+
+
+void
+virGoDomainEventMemoryFailureCallbackHelper(virConnectPtr conn,
+					    virDomainPtr dom,
+					    int recipient,
+					    int action,
+					    unsigned int flags,
+					    void *opaque);
+
+
+void
+virGoDomainEventMemoryDeviceSizeChangeCallbackHelper(virConnectPtr conn,
+						     virDomainPtr dom,
+						     const char *alias,
+						     unsigned long long size,
+						     void *opaque);
+
+void
+virGoDomainEventNICMACChangeCallbackHelper(virConnectPtr conn,
+                                           virDomainPtr dom,
+                                           const char *alias,
+                                           const char *oldMAC,
+                                           const char *newMAC,
+                                           void *opaque);
 
 int
 virConnectDomainEventRegisterAnyHelper(virConnectPtr conn,

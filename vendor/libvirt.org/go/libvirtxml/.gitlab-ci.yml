@@ -30,13 +30,14 @@ go-fmt:
 .go_build: &go_build
   stage: build
   script:
+    - apk add git
     - go test -timeout 10m -tags xmlroundtrip -v
 
 
 go_1_11:
   <<: *go_build
-  image: golang:1.11
+  image: golang:1.11-alpine
 
-go_1_16:
+go_1_24:
   <<: *go_build
-  image: golang:1.16
+  image: golang:1.16-alpine

@@ -31,17 +31,17 @@
 
 
 void
-networkEventLifecycleCallbackHelper(virConnectPtr conn,
-                                    virNetworkPtr net,
-                                    int event,
-                                    int detail,
-                                    void *data);
+virGoNetworkEventLifecycleCallbackHelper(virConnectPtr conn,
+					 virNetworkPtr net,
+					 int event,
+					 int detail,
+					 void *data);
 
-void networkEventMetadataChangeCallbackHelper(virConnectPtr conn,
-                                              virNetworkPtr net,
-                                              int type,
-                                              const char *nsuri,
-                                              void *opaque);
+void virGoNetworkEventMetadataChangeCallbackHelper(virConnectPtr conn,
+						   virNetworkPtr net,
+						   int type,
+						   const char *nsuri,
+						   void *opaque);
 
 int
 virConnectNetworkEventRegisterAnyHelper(virConnectPtr conn,

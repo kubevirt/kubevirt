@@ -32,9 +32,9 @@ package libvirt
 #cgo libvirt_dlopen CFLAGS: -DLIBVIRT_DLOPEN
 #include "callbacks_helper.h"
 
-extern void freeCallbackId(long);
-void freeGoCallbackHelper(void *goCallbackId) {
-   freeCallbackId((long)goCallbackId);
+extern void virGoFreeCallbackId(long);
+void virGoFreeCallbackHelper(void *goCallbackId) {
+   virGoFreeCallbackId((long)goCallbackId);
 }
 
 */

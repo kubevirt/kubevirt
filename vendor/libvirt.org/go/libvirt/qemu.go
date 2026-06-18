@@ -172,8 +172,8 @@ type DomainQemuMonitorEvent struct {
 
 type DomainQemuMonitorEventCallback func(c *Connect, d *Domain, event *DomainQemuMonitorEvent)
 
-//export domainQemuMonitorEventCallback
-func domainQemuMonitorEventCallback(c C.virConnectPtr, d C.virDomainPtr,
+//export virGoDomainQemuMonitorEventCallback
+func virGoDomainQemuMonitorEventCallback(c C.virConnectPtr, d C.virDomainPtr,
 	event *C.char, seconds C.longlong, micros C.uint, details *C.char, goCallbackId int) {
 
 	domain := &Domain{ptr: d}
@@ -211,7 +211,7 @@ func (c *Connect) DomainQemuMonitorEventRegister(dom *Domain, event string, call
 		C.long(goCallBackId),
 		C.uint(flags), &err)
 	if ret < 0 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil

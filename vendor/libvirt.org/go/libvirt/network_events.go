@@ -54,8 +54,8 @@ type NetworkEventMetadataChange struct {
 
 type NetworkEventMetadataChangeCallback func(c *Connect, n *Network, event *NetworkEventMetadataChange)
 
-//export networkEventLifecycleCallback
-func networkEventLifecycleCallback(c C.virConnectPtr, n C.virNetworkPtr,
+//export virGoNetworkEventLifecycleCallback
+func virGoNetworkEventLifecycleCallback(c C.virConnectPtr, n C.virNetworkPtr,
 	event int, detail int,
 	goCallbackId int) {
 
@@ -75,8 +75,8 @@ func networkEventLifecycleCallback(c C.virConnectPtr, n C.virNetworkPtr,
 	callback(connection, network, eventDetails)
 }
 
-//export networkEventMetadataChangeCallback
-func networkEventMetadataChangeCallback(c C.virConnectPtr, d C.virNetworkPtr,
+//export virGoNetworkEventMetadataChangeCallback
+func virGoNetworkEventMetadataChangeCallback(c C.virConnectPtr, d C.virNetworkPtr,
 	mtype int, nsuri *C.char, goCallbackId int) {
 
 	network := &Network{ptr: d}
@@ -96,7 +96,7 @@ func networkEventMetadataChangeCallback(c C.virConnectPtr, d C.virNetworkPtr,
 
 func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
-	callbackPtr := unsafe.Pointer(C.networkEventLifecycleCallbackHelper)
+	callbackPtr := unsafe.Pointer(C.virGoNetworkEventLifecycleCallbackHelper)
 	var cnet C.virNetworkPtr
 	if net != nil {
 		cnet = net.ptr
@@ -107,7 +107,7 @@ func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEv
 		C.virConnectNetworkEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil
@@ -115,7 +115,7 @@ func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEv
 
 func (c *Connect) NetworkEventMetadataChangeRegister(net *Network, callback NetworkEventMetadataChangeCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
-	callbackPtr := unsafe.Pointer(C.networkEventMetadataChangeCallbackHelper)
+	callbackPtr := unsafe.Pointer(C.virGoNetworkEventMetadataChangeCallbackHelper)
 	var cnet C.virNetworkPtr
 	if net != nil {
 		cnet = net.ptr
@@ -126,7 +126,7 @@ func (c *Connect) NetworkEventMetadataChangeRegister(net *Network, callback Netw
 		C.virConnectNetworkEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil

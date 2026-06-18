@@ -53,20 +53,20 @@ api_coverage_job:
     - go test -tags api
   allow_failure: true
   needs:
-    - job: x86_64-almalinux-9-git
+    - job: x86_64-almalinux-10-git
       artifacts: true
   variables:
-    NAME: almalinux-9
-    TARGET_BASE_IMAGE: docker.io/library/almalinux:9
+    NAME: almalinux-10
+    TARGET_BASE_IMAGE: docker.io/library/almalinux:10
 
 .go_build: &go_build
   stage: builds
   script:
+    - apk add libc-dev gcc
     - go build -v -tags libvirt_dlopen
     - go build -v -tags "libvirt_dlopen libvirt_without_qemu"
     - go build -v -tags "libvirt_dlopen libvirt_without_lxc"
-    - apt-get update
-    - apt-get install -y libvirt0
+    - apk add libvirt
     - go test -timeout 10m -v -tags libvirt_dlopen
     - go test -timeout 10m -v -tags "libvirt_dlopen libvirt_without_qemu"
     - go test -timeout 10m -v -tags "libvirt_dlopen libvirt_without_lxc"
@@ -89,14 +89,14 @@ api_coverage_job:
 # first version declared in go.mod
 go_1_11:
   <<: *go_build
-  image: golang:1.11
+  image: golang:1.11-alpine
 
 # very fussy about +go:build tags having a blank line
 go_1_16:
   <<: *go_build
-  image: golang:1.16
+  image: golang:1.16-alpine
 
 # a quite new version
 go_1_24:
   <<: *go_build
-  image: golang:1.24
+  image: golang:1.24-alpine
