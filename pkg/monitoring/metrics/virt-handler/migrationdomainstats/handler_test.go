@@ -19,12 +19,25 @@
 package migrationdomainstats
 
 import (
+	"container/ring"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 type possiblyFinishedQueue struct {
-	isFinished bool
+	isFinished     bool
+	completedStats *stats.DomainJobInfo
+}
+
+func (q *possiblyFinishedQueue) addCompletedStats(domainJobInfo stats.DomainJobInfo) {
+	q.isFinished = true
+	q.completedStats = &domainJobInfo
 }
 
 func (q *possiblyFinishedQueue) all() ([]result, bool) {
@@ -65,6 +78,69 @@ var _ = Describe("Handler", func() {
 
 				Expect(h.vmiStats).To(HaveKey("default/test-vmi"))
 			})
+		})
+	})
+
+	Describe("queue results", func() {
+		It("should store completed migration stats from domain updates", func() {
+			q := &possiblyFinishedQueue{}
+			h.vmiStats["default/test-vmi"] = q
+
+			h.handleDomainAdd(&api.Domain{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-vmi", Namespace: "default"},
+				Status: api.DomainStatus{
+					MigrationStats: &stats.DomainJobInfo{DowntimeSet: true, Downtime: 70},
+				},
+			})
+
+			Expect(q.isFinished).To(BeTrue())
+			Expect(q.completedStats).ToNot(BeNil())
+			Expect(q.completedStats.Downtime).To(Equal(uint64(70)))
+		})
+
+		It("should identify completed downtime stats", func() {
+			Expect(hasCompletedDowntimeStats(stats.DomainJobInfo{})).To(BeFalse())
+			Expect(hasCompletedDowntimeStats(stats.DomainJobInfo{DowntimeSet: true})).To(BeTrue())
+			Expect(hasCompletedDowntimeStats(stats.DomainJobInfo{DowntimeNetSet: true})).To(BeTrue())
+		})
+
+		It("should stop polling after completed downtime stats are observed", func() {
+			q := &queue{}
+
+			Expect(q.shouldStopPolling(false, stats.DomainJobInfo{})).To(BeFalse())
+			Expect(q.shouldStopPolling(true, stats.DomainJobInfo{})).To(BeFalse())
+			Expect(q.shouldStopPolling(true, stats.DomainJobInfo{DowntimeSet: true})).To(BeTrue())
+		})
+
+		It("should stop polling after completed downtime stats timeout", func() {
+			completedAt := time.Now().Add(-completedStatsTimeout)
+			q := &queue{completedAt: &completedAt}
+
+			Expect(q.shouldStopPolling(true, stats.DomainJobInfo{})).To(BeTrue())
+		})
+
+		It("should report finished only after the final collection was stored", func() {
+			q := &queue{results: ring.New(bufferSize)}
+			q.results.Value = result{vmi: "active"}
+
+			results, finished := q.all()
+			Expect(results).To(HaveLen(1))
+			Expect(finished).To(BeFalse())
+
+			q = &queue{results: ring.New(bufferSize), finished: true}
+			q.results.Value = result{vmi: "final"}
+
+			results, finished = q.all()
+			Expect(results).To(HaveLen(1))
+			Expect(finished).To(BeTrue())
+		})
+
+		It("should not report finished before the final collection is stored", func() {
+			q := &queue{results: ring.New(bufferSize)}
+
+			results, finished := q.all()
+			Expect(results).To(BeEmpty())
+			Expect(finished).To(BeFalse())
 		})
 	})
 })

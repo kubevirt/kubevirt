@@ -92,13 +92,13 @@ var (
 
 const millisecondsPerSecond = 1000
 
-func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer) error {
+func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer, domainInformer cache.SharedInformer) error {
 	if vmiInformer == nil {
 		return nil
 	}
 
 	var err error
-	migrationdomainstatsHandler, err = newHandler(vmiInformer)
+	migrationdomainstatsHandler, err = newHandler(vmiInformer, domainInformer)
 	return err
 }
 
