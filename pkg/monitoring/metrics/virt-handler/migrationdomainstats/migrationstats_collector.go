@@ -34,6 +34,8 @@ var (
 			migrateVMIDataProcessed,
 			migrateVmiDirtyMemoryRate,
 			migrateVmiMemoryTransferRate,
+			migrateVmiDowntime,
+			migrateVmiDowntimeNet,
 		},
 		CollectCallback: migrationStatsCollectorCallback,
 	}
@@ -72,7 +74,23 @@ var (
 			Help: "The rate at which the memory is being transferred.",
 		},
 	)
+
+	migrateVmiDowntime = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_downtime_seconds",
+			Help: "Total time, in seconds, the guest was paused during the cut-over of its last completed live migration.",
+		},
+	)
+
+	migrateVmiDowntimeNet = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_downtime_net_seconds",
+			Help: "Time, in seconds, during which guest network traffic was interrupted during live migration cut-over.",
+		},
+	)
 )
+
+const millisecondsPerSecond = 1000
 
 func SetupMigrationStatsCollector(vmiInformer cache.SharedIndexInformer) error {
 	if vmiInformer == nil {
@@ -120,7 +138,19 @@ func parse(r *result) []operatormetrics.CollectorResult {
 		crs = append(crs, newCR(r, migrateVmiMemoryTransferRate, float64(jobInfo.MemoryBps)))
 	}
 
+	if jobInfo.DowntimeSet {
+		crs = append(crs, newCR(r, migrateVmiDowntime, millisecondsToSeconds(jobInfo.Downtime)))
+	}
+
+	if jobInfo.DowntimeNetSet {
+		crs = append(crs, newCR(r, migrateVmiDowntimeNet, millisecondsToSeconds(jobInfo.DowntimeNet)))
+	}
+
 	return crs
+}
+
+func millisecondsToSeconds(milliseconds uint64) float64 {
+	return float64(milliseconds) / millisecondsPerSecond
 }
 
 func newCR(r *result, metric operatormetrics.Metric, value float64) operatormetrics.CollectorResult {
