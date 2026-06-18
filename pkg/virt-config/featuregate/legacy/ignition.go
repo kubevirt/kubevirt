@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: IgnitionGate, State: featuregate.Alpha})
 }
 
-// IgnitionEnabled returns true when the ExperimentalIgnitionSupport feature gate is enabled.
 func (g LegacyFeatureGates) IgnitionEnabled() bool {
 	return featuregate.GateEnabled(IgnitionGate, g.ConfigReader)
 }

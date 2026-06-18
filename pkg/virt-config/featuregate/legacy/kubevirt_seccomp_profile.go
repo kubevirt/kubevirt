@@ -23,15 +23,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// KubevirtSeccompProfile indicates that Kubevirt will install its custom profile and
-// user can tell Kubevirt to use it.
+// Owner: sig-compute
+// Alpha: v0.58.0
+// Beta: v1.8.0
+// GA: v1.10.0
+//
+// KubevirtSeccompProfile installs a custom seccomp profile on each node and
+// allows virt-launcher pods to reference it, enabling post-copy migration under PSA.
 const KubevirtSeccompProfile = "KubevirtSeccompProfile"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: KubevirtSeccompProfile, State: featuregate.Beta})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: KubevirtSeccompProfile, State: featuregate.GA})
 }
-
-// KubevirtSeccompProfileEnabled returns true when the KubevirtSeccompProfile feature gate is enabled.
 func (g LegacyFeatureGates) KubevirtSeccompProfileEnabled() bool {
 	return featuregate.GateEnabled(KubevirtSeccompProfile, g.ConfigReader)
 }

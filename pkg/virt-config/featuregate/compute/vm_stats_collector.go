@@ -35,7 +35,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VMStatsCollector, State: featuregate.Alpha})
 }
 
-// VMStatsCollectorEnabled returns true when the VMStatsCollector feature gate is enabled.
 func (g ComputeFeatureGates) VMStatsCollectorEnabled() bool {
 	return featuregate.GateEnabled(VMStatsCollector, g.ConfigReader)
 }

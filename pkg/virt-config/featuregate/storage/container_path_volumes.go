@@ -25,17 +25,17 @@ import (
 
 // Owner: sig-storage / @mhenriks
 // Alpha: v1.8.0
+// Beta: v1.10.0
 //
 // ContainerPathVolumes enables exposing virt-launcher volumeMount paths to the VM
 // via virtiofs. This allows VMs to access credentials and tokens injected into pods
-// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
+// by external systems such as AWS IRSA, Azure Workload Identity, or TEE attestation.
 const ContainerPathVolumesGate = "ContainerPathVolumes"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ContainerPathVolumesGate, State: featuregate.Alpha})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ContainerPathVolumesGate, State: featuregate.Beta})
 }
 
-// ContainerPathVolumesEnabled returns true when the ContainerPathVolumes feature gate is enabled.
 func (g StorageFeatureGates) ContainerPathVolumesEnabled() bool {
 	return featuregate.GateEnabled(ContainerPathVolumesGate, g.ConfigReader)
 }

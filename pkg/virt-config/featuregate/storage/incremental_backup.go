@@ -23,8 +23,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// Owner: sig-storage / @shellyka13
+// Owner: sig-storage / @ShellyKa13
 // Alpha: v1.6.0
+// Beta: v1.10.0
 //
 // IncrementalBackup feature gate enables creating full and incremental backups for virtual machines.
 // These backups leverage libvirt's native backup capabilities, providing a storage-agnostic solution.
@@ -32,10 +33,9 @@ import (
 const IncrementalBackupGate = "IncrementalBackup"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: IncrementalBackupGate, State: featuregate.Alpha})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: IncrementalBackupGate, State: featuregate.Beta})
 }
 
-// IncrementalBackupEnabled returns true when the IncrementalBackup feature gate is enabled.
 func (g StorageFeatureGates) IncrementalBackupEnabled() bool {
 	return featuregate.GateEnabled(IncrementalBackupGate, g.ConfigReader)
 }

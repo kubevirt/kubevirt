@@ -27,13 +27,12 @@ import (
 // the deployment of related RBAC rules by virt-operator.
 // Owner: SIG network
 // Beta: v1.8.0
+// GA: v1.10.0
 const ExternalNetResourceInjection = "ExternalNetResourceInjection"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ExternalNetResourceInjection, State: featuregate.Beta})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ExternalNetResourceInjection, State: featuregate.GA})
 }
-
-// ExternalNetResourceInjectionEnabled returns true when the ExternalNetResourceInjection feature gate is enabled.
 func (g NetworkFeatureGates) ExternalNetResourceInjectionEnabled() bool {
 	return featuregate.GateEnabled(ExternalNetResourceInjection, g.ConfigReader)
 }

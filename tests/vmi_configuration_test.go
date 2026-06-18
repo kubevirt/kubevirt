@@ -326,8 +326,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
-				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+				kvconfig.EnableFeatureGate(compute.ARM64SecureBoot)
+				kvconfig.EnableFeatureGate(compute.FirmwareAutoSelection)
 
 				vmi = libvmi.New(
 					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskUbuntu)),

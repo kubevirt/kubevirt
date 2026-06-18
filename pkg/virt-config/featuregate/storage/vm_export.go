@@ -27,16 +27,12 @@ import (
 // Alpha: v0.55.0
 // Beta: v1.3.0
 // GA: v1.9.0
-//
-// VMExport enables the creation of VMExport resources, that allows setting up
-// the export server to export VM volumes.
+// VMExportGate enables the creation of VMExport resources, that allows setting up the export server to export VM volumes.
 const VMExportGate = "VMExport"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VMExportGate, State: featuregate.GA})
 }
-
-// VMExportEnabled returns true when the VMExport feature gate is enabled.
 func (g StorageFeatureGates) VMExportEnabled() bool {
 	return featuregate.GateEnabled(VMExportGate, g.ConfigReader)
 }

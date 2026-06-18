@@ -33,8 +33,6 @@ const LiveUpdateNADRef = "LiveUpdateNADRef"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: LiveUpdateNADRef, State: featuregate.GA})
 }
-
-// LiveUpdateNADRefEnabled returns true when the LiveUpdateNADRef feature gate is enabled.
 func (g NetworkFeatureGates) LiveUpdateNADRefEnabled() bool {
 	return featuregate.GateEnabled(LiveUpdateNADRef, g.ConfigReader)
 }

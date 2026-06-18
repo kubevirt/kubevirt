@@ -23,17 +23,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// DynamicPodInterfaceNamingGate enables a mechanism to dynamically determine
-// the primary pod interface for KubeVirt virtual machines.
-// Beta: v1.4.0
-// GA: v1.5.0
+// DynamicPodInterfaceNamingGate enables a mechanism to dynamically determine the primary pod interface for KubeVirt virtual machines.
+// Beta:  v1.4.0
+// GA:    v1.5.0
 const DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DynamicPodInterfaceNamingGate, State: featuregate.GA})
 }
-
-// DynamicPodInterfaceNamingEnabled returns true when the DynamicPodInterfaceNaming feature gate is enabled.
 func (g NetworkFeatureGates) DynamicPodInterfaceNamingEnabled() bool {
 	return featuregate.GateEnabled(DynamicPodInterfaceNamingGate, g.ConfigReader)
 }

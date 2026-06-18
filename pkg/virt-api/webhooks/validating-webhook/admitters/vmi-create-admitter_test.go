@@ -23,12 +23,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
+	"strings"
+
 	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	fgnetwork "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
 	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
-	"runtime"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -189,7 +190,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		Context("with the feature gate enabled", func() {
 			BeforeEach(func() {
-				enableFeatureGates(featuregate.DeclarativeVMState)
+				enableFeatureGates(fgstorage.DeclarativeVMState)
 			})
 
 			It("should reject when neither volumeClaimTemplate nor source is set", func() {
@@ -1969,7 +1970,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject NUMA passthrough when CPUsWithDRA feature gate is enabled", func() {
-			enableFeatureGates(featuregate.CPUsWithDRAGate)
+			enableFeatureGates(fgcompute.CPUsWithDRAGate)
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
 			vmi.Spec.Domain.CPU.Cores = 4
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
@@ -2809,7 +2810,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should accept ARM64 EFI with SecureBoot and without SMM when feature gate is enabled", func() {
-				enableFeatureGates(fgcompute.MultiArchitecture, featuregate.ARM64SecureBoot, fgcompute.FirmwareAutoSelection)
+				enableFeatureGates(fgcompute.MultiArchitecture, fgcompute.ARM64SecureBoot, fgcompute.FirmwareAutoSelection)
 
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
@@ -2819,11 +2820,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				enableFeatureGates(fgcompute.MultiArchitecture, fgcompute.FirmwareAutoSelection)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fgcompute.ARM64SecureBoot)))
 			})
 
 			It("should reject ARM64 EFI with SecureBoot when FirmwareAutoSelection feature gate is disabled", func() {
-				enableFeatureGates(fgcompute.MultiArchitecture, featuregate.ARM64SecureBoot)
+				enableFeatureGates(fgcompute.MultiArchitecture, fgcompute.ARM64SecureBoot)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", fgcompute.FirmwareAutoSelection)))
@@ -2833,7 +2834,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				enableFeatureGates(fgcompute.MultiArchitecture)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(2))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fgcompute.ARM64SecureBoot)))
 				Expect(causes[1].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", fgcompute.FirmwareAutoSelection)))
 			})
 

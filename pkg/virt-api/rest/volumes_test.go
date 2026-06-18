@@ -412,7 +412,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	)
 	DescribeTable("should ignore an overlay annotation without controller-managed overlay state", func(externalEnabled bool) {
 		if externalEnabled {
-			enableFeatureGates(featuregate.ExternalVMSnapshotGate)
+			enableFeatureGates(storage.ExternalVMSnapshotGate)
 		}
 		vmi := libvmi.New(libvmi.WithName(testVMName), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
 		vmi.Status.Phase = v1.Running

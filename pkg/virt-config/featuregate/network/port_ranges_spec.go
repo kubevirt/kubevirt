@@ -34,7 +34,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PortRangesSpec, State: featuregate.Alpha})
 }
 
-// PortRangesSpecGateEnabled returns true when the PortRangesSpec feature gate is enabled.
 func (g NetworkFeatureGates) PortRangesSpecGateEnabled() bool {
 	return featuregate.GateEnabled(PortRangesSpec, g.ConfigReader)
 }

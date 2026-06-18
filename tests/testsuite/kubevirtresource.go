@@ -23,13 +23,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
-	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
-	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	"github.com/coreos/go-semver/semver"
 	. "github.com/onsi/ginkgo/v2"
@@ -44,7 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -114,14 +115,14 @@ func AdjustKubeVirtResource() {
 		fglegacy.CPUManager,
 		fglegacy.IgnitionGate,
 		fglegacy.SidecarGate,
-		featuregate.ExternalVMSnapshotGate,
-		featuregate.OfflineIncrementalBackupGate,
+		fgstorage.ExternalVMSnapshotGate,
+		fgstorage.OfflineIncrementalBackupGate,
 		fglegacy.HostDiskGate,
 		fgstorage.VirtIOFSStorageVolumeGate,
 		fglegacy.DownwardMetricsFeatureGate,
 		fglegacy.WorkloadEncryptionSEV,
 		fgstorage.ObjectGraph,
-		featuregate.DeclarativeVMState,
+		fgstorage.DeclarativeVMState,
 		fgstorage.DeclarativeHotplugVolumesGate,
 		fgcompute.DecentralizedLiveMigration,
 		fgstorage.UtilityVolumesGate,

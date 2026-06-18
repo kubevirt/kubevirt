@@ -28,14 +28,12 @@ import (
 // Beta: v1.7.0
 // GA: v1.9.0
 //
-// SecureExecution introduces secure execution of VMs on IBM Z architecture.
+// SecureExecution introduces secure execution of VMs on IBM Z architecture
 const SecureExecution = "SecureExecution"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: SecureExecution, State: featuregate.GA})
 }
-
-// SecureExecutionEnabled returns true when the SecureExecution feature gate is enabled.
 func (g ComputeFeatureGates) SecureExecutionEnabled() bool {
 	return featuregate.GateEnabled(SecureExecution, g.ConfigReader)
 }

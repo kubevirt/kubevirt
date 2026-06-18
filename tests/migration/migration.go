@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -2155,10 +2157,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		Context("with downtime tuning", Serial, func() {
 			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+				kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 			})
 			AfterEach(func() {
-				kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+				kvconfig.DisableFeatureGate(fgcompute.MigrationDowntimeTuning)
 			})
 
 			It("should migrate with downtime tuning and confirm via API and logs", func() {
@@ -2256,15 +2258,15 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
-				hadMigrationDowntimeTuning := checks.HasFeature(featuregate.MigrationDowntimeTuning)
+				hadMigrationDowntimeTuning := checks.HasFeature(fgcompute.MigrationDowntimeTuning)
 				if !hadMigrationDowntimeTuning {
-					kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+					kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 				}
 				DeferCleanup(func() {
 					if hadMigrationDowntimeTuning {
-						kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+						kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 					} else {
-						kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+						kvconfig.DisableFeatureGate(fgcompute.MigrationDowntimeTuning)
 					}
 				})
 

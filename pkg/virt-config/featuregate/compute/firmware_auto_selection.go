@@ -34,7 +34,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: FirmwareAutoSelection, State: featuregate.Alpha})
 }
 
-// FirmwareAutoSelectionEnabled returns true when the FirmwareAutoSelection feature gate is enabled.
 func (g ComputeFeatureGates) FirmwareAutoSelectionEnabled() bool {
 	return featuregate.GateEnabled(FirmwareAutoSelection, g.ConfigReader)
 }

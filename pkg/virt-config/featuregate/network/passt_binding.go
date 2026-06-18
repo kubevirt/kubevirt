@@ -23,15 +23,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// PasstBinding enables the use of passt core network binding.
 // Beta: v1.8.0
+//
+// PasstBinding enables the use of passt core network binding
 const PasstBinding = "PasstBinding"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PasstBinding, State: featuregate.Beta})
 }
 
-// PasstBindingEnabled returns true when the PasstBinding feature gate is enabled.
 func (g NetworkFeatureGates) PasstBindingEnabled() bool {
 	return featuregate.GateEnabled(PasstBinding, g.ConfigReader)
 }

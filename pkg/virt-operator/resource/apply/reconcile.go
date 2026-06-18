@@ -22,10 +22,11 @@ package apply
 import (
 	"context"
 	"fmt"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"strconv"
 	"strings"
 	"time"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 
 	"github.com/coreos/go-semver/semver"
 	secv1 "github.com/openshift/api/security/v1"

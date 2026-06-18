@@ -28,15 +28,13 @@ import (
 // Beta: v1.5.0
 // GA: v1.6.0
 //
-// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references
-// instance types and preferences through the kv.spec.configuration.instancetype.referencePolicy configurable.
+// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
+// through the kv.spec.configuration.instancetype.referencePolicy configurable.
 const InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: InstancetypeReferencePolicy, State: featuregate.GA})
 }
-
-// InstancetypeReferencePolicyEnabled returns true when the InstancetypeReferencePolicy feature gate is enabled.
 func (g LegacyFeatureGates) InstancetypeReferencePolicyEnabled() bool {
 	return featuregate.GateEnabled(InstancetypeReferencePolicy, g.ConfigReader)
 }

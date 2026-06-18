@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HypervStrictCheckGate, State: featuregate.Alpha})
 }
 
-// HypervStrictCheckEnabled returns true when the HypervStrictCheck feature gate is enabled.
 func (g LegacyFeatureGates) HypervStrictCheckEnabled() bool {
 	return featuregate.GateEnabled(HypervStrictCheckGate, g.ConfigReader)
 }

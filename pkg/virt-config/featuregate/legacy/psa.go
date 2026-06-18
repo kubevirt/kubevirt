@@ -28,8 +28,6 @@ const PSA = "PSA"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PSA, State: featuregate.GA})
 }
-
-// PSAEnabled returns true when the PSA feature gate is enabled.
 func (g LegacyFeatureGates) PSAEnabled() bool {
 	return featuregate.GateEnabled(PSA, g.ConfigReader)
 }

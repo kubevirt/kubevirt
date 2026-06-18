@@ -22,13 +22,14 @@ package services
 import (
 	"errors"
 	"fmt"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
-	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
-	fgnetwork "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgnetwork "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -65,7 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -250,7 +251,7 @@ var _ = Describe("Template", func() {
 
 			It("should add CPU DRA claim to compute container resources when feature gate is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.CPUsWithDRAGate)
+				enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
 				Expect(err).ToNot(HaveOccurred())
@@ -269,7 +270,7 @@ var _ = Describe("Template", func() {
 
 			It("should reference the CPU DRA claim once for a multi socket guest", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.CPUsWithDRAGate)
+				enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 2))
 				Expect(err).ToNot(HaveOccurred())
@@ -298,7 +299,7 @@ var _ = Describe("Template", func() {
 
 			It("should not restrict the pod to CPU manager nodes when the CPUs come from DRA", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.CPUsWithDRAGate)
+				enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
 				Expect(err).ToNot(HaveOccurred())
@@ -307,7 +308,7 @@ var _ = Describe("Template", func() {
 
 			It("should keep restricting the pod to CPU manager nodes when the VMI needs NUMA passthrough", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.CPUsWithDRAGate)
+				enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 				vmi := newVMIWithDedicatedCPU(vmiName, 1)
 				vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
@@ -320,7 +321,7 @@ var _ = Describe("Template", func() {
 
 			It("should reference the CPU DRA claim from a temporary pod on both sides", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.CPUsWithDRAGate)
+				enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
 				Expect(err).ToNot(HaveOccurred())
@@ -339,7 +340,7 @@ var _ = Describe("Template", func() {
 
 			It("should not restrict a temporary pod to CPU manager nodes when the CPUs come from DRA", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.CPUsWithDRAGate)
+				enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
 				Expect(err).ToNot(HaveOccurred())
@@ -367,7 +368,7 @@ var _ = Describe("Template", func() {
 
 				It("should refuse to render a target for a source pod holding the CPU DRA claim", func() {
 					config, kvStore, svc = configFactory(defaultArch)
-					enableFeatureGate(featuregate.CPUsWithDRAGate)
+					enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 					vmi := newVMIWithDedicatedCPU(vmiName, 1)
 					sourcePod, err := svc.RenderLaunchManifest(vmi)
@@ -383,7 +384,7 @@ var _ = Describe("Template", func() {
 
 				It("should refuse the target even once the CPU DRA gate is turned back off", func() {
 					config, kvStore, svc = configFactory(defaultArch)
-					enableFeatureGate(featuregate.CPUsWithDRAGate)
+					enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 					vmi := newVMIWithDedicatedCPU(vmiName, 1)
 					sourcePod, err := svc.RenderLaunchManifest(vmi)
@@ -418,7 +419,7 @@ var _ = Describe("Template", func() {
 
 					// The gate goes on only after the VMI already booted on the CPU manager path.
 					config, kvStore, svc = configFactory(defaultArch)
-					enableFeatureGate(featuregate.CPUsWithDRAGate)
+					enableFeatureGate(fgcompute.CPUsWithDRAGate)
 
 					targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
 					Expect(err).ToNot(HaveOccurred())
@@ -6538,7 +6539,7 @@ var _ = Describe("Template", func() {
 		DescribeTable("should pass --arm64-secure-boot only when the feature gate is enabled", func(enabled bool) {
 			config, kvStore, svc = configFactory(defaultArch)
 			if enabled {
-				enableFeatureGate(featuregate.ARM64SecureBoot)
+				enableFeatureGate(fgcompute.ARM64SecureBoot)
 			}
 
 			vmi := libvmi.New(libvmi.WithNamespace("default"))

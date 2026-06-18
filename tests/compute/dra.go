@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -41,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -443,8 +444,8 @@ var _ = Describe("[sig-compute]CPU DRA", Serial, decorators.SigCompute, decorato
 
 	Context("with the CPUsWithDRA feature gate disabled", func() {
 		BeforeEach(func() {
-			kvconfig.DisableFeatureGate(featuregate.CPUsWithDRAGate)
-			DeferCleanup(kvconfig.EnableFeatureGate, featuregate.CPUsWithDRAGate)
+			kvconfig.DisableFeatureGate(fgcompute.CPUsWithDRAGate)
+			DeferCleanup(kvconfig.EnableFeatureGate, fgcompute.CPUsWithDRAGate)
 		})
 
 		It("should keep pinning dedicated CPUs through kubelet's CPU manager", func(ctx SpecContext) {

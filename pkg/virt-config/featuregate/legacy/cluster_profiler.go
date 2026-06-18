@@ -28,8 +28,6 @@ const ClusterProfiler = "ClusterProfiler"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ClusterProfiler, State: featuregate.GA})
 }
-
-// ClusterProfilerEnabled returns true when the ClusterProfiler feature gate is enabled.
 func (g LegacyFeatureGates) ClusterProfilerEnabled() bool {
 	return featuregate.GateEnabled(ClusterProfiler, g.ConfigReader)
 }

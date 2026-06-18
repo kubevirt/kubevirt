@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VirtIOFSStorageVolumeGate, State: featuregate.Alpha})
 }
 
-// VirtiofsStorageEnabled returns true when the EnableVirtioFsStorageVolumes feature gate is enabled.
 func (g StorageFeatureGates) VirtiofsStorageEnabled() bool {
 	return featuregate.GateEnabled(VirtIOFSStorageVolumeGate, g.ConfigReader)
 }

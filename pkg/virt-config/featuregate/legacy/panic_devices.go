@@ -34,8 +34,6 @@ const PanicDevicesGate = "PanicDevices"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PanicDevicesGate, State: featuregate.GA})
 }
-
-// PanicDevicesEnabled returns true when the PanicDevices feature gate is enabled.
 func (g LegacyFeatureGates) PanicDevicesEnabled() bool {
 	return featuregate.GateEnabled(PanicDevicesGate, g.ConfigReader)
 }

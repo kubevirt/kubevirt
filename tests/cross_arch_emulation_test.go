@@ -20,8 +20,9 @@
 package tests_test
 
 import (
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"time"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

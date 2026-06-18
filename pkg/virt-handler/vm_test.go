@@ -24,11 +24,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
 
@@ -69,7 +71,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -2865,11 +2867,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.MDevVGPULiveMigration + " is not enabled"))
+					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + fglegacy.MDevVGPULiveMigration + " is not enabled"))
 
 					config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
+							FeatureGates: []string{fglegacy.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: permittedHostDevs,
 					})
@@ -2892,7 +2894,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
+							FeatureGates: []string{fglegacy.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2925,7 +2927,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
+							FeatureGates: []string{fglegacy.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2962,7 +2964,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
+							FeatureGates: []string{fglegacy.MDevVGPULiveMigration},
 						},
 					})
 					controller.clusterConfig = config
@@ -3005,7 +3007,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		enableCPUDRAGate := func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CPUsWithDRAGate},
+					FeatureGates: []string{fgcompute.CPUsWithDRAGate},
 				},
 			})
 			controller.clusterConfig = config

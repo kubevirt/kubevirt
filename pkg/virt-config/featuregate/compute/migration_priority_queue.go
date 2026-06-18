@@ -35,8 +35,6 @@ const MigrationPriorityQueue = "MigrationPriorityQueue"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: MigrationPriorityQueue, State: featuregate.GA})
 }
-
-// MigrationPriorityQueueEnabled returns true when the MigrationPriorityQueue feature gate is enabled.
 func (g ComputeFeatureGates) MigrationPriorityQueueEnabled() bool {
 	return featuregate.GateEnabled(MigrationPriorityQueue, g.ConfigReader)
 }

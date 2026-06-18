@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -19,13 +21,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 func (r *Reconciler) updateSynchronizationAddress() (err error) {
-	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+	if !r.isFeatureGateEnabled(fgcompute.DecentralizedLiveMigration) {
 		r.kv.Status.SynchronizationAddresses = nil
 		return nil
 	}
@@ -145,7 +147,7 @@ func (r *Reconciler) isCrossClusterMigrationNetworkConfigured() bool {
 // isDecentralizedLiveMigrationProxyEnabled mirrors virtconfig.DecentralizedLiveMigrationProxyEnabled:
 // CrossClusterMigrationProxy feature gate + decentralizedLiveMigrationDatapath=Proxy.
 func (r *Reconciler) isDecentralizedLiveMigrationProxyEnabled() bool {
-	if !r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
+	if !r.isFeatureGateEnabled(fgcompute.CrossClusterMigrationProxy) {
 		return false
 	}
 	mig := r.kv.Spec.Configuration.MigrationConfiguration

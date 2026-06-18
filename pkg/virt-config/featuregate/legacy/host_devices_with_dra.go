@@ -27,14 +27,13 @@ import (
 // Alpha: v1.6.0
 // Beta: v1.9.0
 //
-// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices.
+// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 const HostDevicesWithDRAGate = "HostDevicesWithDRA"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HostDevicesWithDRAGate, State: featuregate.Beta})
 }
 
-// HostDevicesWithDRAEnabled returns true when the HostDevicesWithDRA feature gate is enabled.
 func (g LegacyFeatureGates) HostDevicesWithDRAEnabled() bool {
 	return featuregate.GateEnabled(HostDevicesWithDRAGate, g.ConfigReader)
 }

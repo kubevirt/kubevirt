@@ -19,25 +19,21 @@
 
 package compute
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 // Owner: sig-compute
 // Alpha: v1.0.0
 // Deprecated: v1.8.0
 //
 // DisableMediatedDevicesHandling disables the handling of mediated
-// devices, its creation and deletion.
+// devices, its creation and deletion
 const DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{
-		Name:    DisableMediatedDevicesHandling,
-		State:   featuregate.Deprecated,
-		Message: "DisableMDEVConfiguration has been deprecated since v1.8.0",
-	})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DisableMediatedDevicesHandling, State: featuregate.Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 }
-
-// DisableMediatedDevicesHandlingEnabled returns true when the DisableMDEVConfiguration feature gate is enabled.
 func (g ComputeFeatureGates) DisableMediatedDevicesHandlingEnabled() bool {
 	return featuregate.GateEnabled(DisableMediatedDevicesHandling, g.ConfigReader)
 }

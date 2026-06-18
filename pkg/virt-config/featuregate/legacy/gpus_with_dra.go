@@ -27,14 +27,13 @@ import (
 // Alpha: v1.6.0
 // Beta: v1.9.0
 //
-// GPUsWithDRAGate allows users to create VMIs with DRA provisioned GPU devices.
+// GPUsWithDRAGate allows users to create VMIs with DRA provisioned GPU devices
 const GPUsWithDRAGate = "GPUsWithDRA"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: GPUsWithDRAGate, State: featuregate.Beta})
 }
 
-// GPUsWithDRAGateEnabled returns true when the GPUsWithDRA feature gate is enabled.
 func (g LegacyFeatureGates) GPUsWithDRAGateEnabled() bool {
 	return featuregate.GateEnabled(GPUsWithDRAGate, g.ConfigReader)
 }

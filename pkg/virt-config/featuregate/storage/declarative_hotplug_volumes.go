@@ -27,15 +27,14 @@ import (
 // Alpha: v1.6.0
 // Beta: v1.9.0
 //
-// DeclarativeHotplugVolumes enables adding/removing volumes declaratively,
-// also implicitly handles inject/eject CDROM.
+// DeclarativeHotplugVolumes enables adding/removing volumes declaratively
+// also implicitly handles inject/eject CDROM
 const DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DeclarativeHotplugVolumesGate, State: featuregate.Beta})
 }
 
-// DeclarativeHotplugVolumesEnabled returns true when the DeclarativeHotplugVolumes feature gate is enabled.
 func (g StorageFeatureGates) DeclarativeHotplugVolumesEnabled() bool {
 	return featuregate.GateEnabled(DeclarativeHotplugVolumesGate, g.ConfigReader)
 }

@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			if v < "1.35" {
 				Fail("this test requires Kubernetes version >= 1.35")
 			}
-			if !checks.HasFeature(featuregate.ImageVolume) {
+			if !checks.HasFeature(legacy.ImageVolume) {
 				Fail("ImageVolume feature gate is not enabled")
 			}
 		})

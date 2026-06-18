@@ -25,6 +25,7 @@ import (
 
 // Owner: SIG network
 // Alpha: v1.9.0
+// Beta: v1.10.0
 //
 // NetworkDevicesWithDRAGate allows users to create VMIs with DRA provisioned Network devices
 // specified in spec.networks with resourceClaim type. This enables DRA-managed network
@@ -32,10 +33,9 @@ import (
 const NetworkDevicesWithDRAGate = "NetworkDevicesWithDRA"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: NetworkDevicesWithDRAGate, State: featuregate.Alpha})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: NetworkDevicesWithDRAGate, State: featuregate.Beta})
 }
 
-// NetworkDevicesWithDRAGateEnabled returns true when the NetworkDevicesWithDRA feature gate is enabled.
 func (g NetworkFeatureGates) NetworkDevicesWithDRAGateEnabled() bool {
 	return featuregate.GateEnabled(NetworkDevicesWithDRAGate, g.ConfigReader)
 }

@@ -1333,7 +1333,7 @@ func disableFeatureGate(kv *v1.KubeVirt, fg string) {
 }
 
 func disableTemplateFeatureGate(kv *v1.KubeVirt) {
-	disableFeatureGate(kv, featuregate.Template)
+	disableFeatureGate(kv, compute.Template)
 }
 
 func enableContainerPathVolumesFeatureGate(kv *v1.KubeVirt) {
@@ -4265,7 +4265,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			disableTemplateFeatureGate(kv)
 			if disabled {
-				disableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+				disableFeatureGate(kv, storage.ContainerPathVolumesGate)
 			}
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -4321,7 +4321,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
 			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				DisabledFeatureGates: []string{featuregate.ContainerPathVolumesGate},
+				DisabledFeatureGates: []string{storage.ContainerPathVolumesGate},
 			}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 
@@ -4363,7 +4363,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			disableTemplateFeatureGate(kv)
-			disableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+			disableFeatureGate(kv, storage.ContainerPathVolumesGate)
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
 			// Create new KV with ContainerPathVolumes enabled

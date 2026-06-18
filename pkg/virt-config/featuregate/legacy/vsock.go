@@ -23,13 +23,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+// Owner: sig-compute / @0xFelix
+// Alpha: v0.59.0
+// Beta: v1.10.0
+//
+// VSOCK enables the AF_VSOCK host-guest communication channel for VMs.
 const VSOCKGate = "VSOCK"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VSOCKGate, State: featuregate.Alpha})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VSOCKGate, State: featuregate.Beta})
 }
 
-// VSOCKEnabled returns true when the VSOCK feature gate is enabled.
 func (g LegacyFeatureGates) VSOCKEnabled() bool {
 	return featuregate.GateEnabled(VSOCKGate, g.ConfigReader)
 }

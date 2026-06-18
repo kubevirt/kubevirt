@@ -36,7 +36,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: RebootPolicy, State: featuregate.Beta})
 }
 
-// RebootPolicyEnabled returns true when the RebootPolicy feature gate is enabled.
 func (g ComputeFeatureGates) RebootPolicyEnabled() bool {
 	return featuregate.GateEnabled(RebootPolicy, g.ConfigReader)
 }

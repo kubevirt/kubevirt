@@ -25,15 +25,13 @@ import (
 
 // HotplugNetworkIfacesGate controls the network interface hotplug feature lifecycle.
 // Alpha: v1.1.0
-// Beta: v1.3.0
-// GA: v1.4.0
+// Beta:  v1.3.0
+// GA:    v1.4.0
 const HotplugNetworkIfacesGate = "HotplugNICs"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HotplugNetworkIfacesGate, State: featuregate.GA})
 }
-
-// HotplugNetworkIfacesEnabled returns true when the HotplugNICs feature gate is enabled.
 func (g NetworkFeatureGates) HotplugNetworkIfacesEnabled() bool {
 	return featuregate.GateEnabled(HotplugNetworkIfacesGate, g.ConfigReader)
 }

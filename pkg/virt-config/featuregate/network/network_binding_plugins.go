@@ -23,17 +23,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// NetworkBindingPluginsGate enables using a plugin to bind the pod and the VM network.
+// NetworkBindingPluginsGate enables using a plugin to bind the pod and the VM network
 // Alpha: v1.1.0
-// Beta: v1.4.0
-// GA: v1.5.0
+// Beta:  v1.4.0
+// GA:    v1.5.0
 const NetworkBindingPluginsGate = "NetworkBindingPlugins"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: NetworkBindingPluginsGate, State: featuregate.GA})
 }
-
-// NetworkBindingPluginsEnabled returns true when the NetworkBindingPlugins feature gate is enabled.
 func (g NetworkFeatureGates) NetworkBindingPluginsEnabled() bool {
 	return featuregate.GateEnabled(NetworkBindingPluginsGate, g.ConfigReader)
 }

@@ -22,11 +22,12 @@ package storage
 import (
 	"context"
 	"fmt"
-	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"

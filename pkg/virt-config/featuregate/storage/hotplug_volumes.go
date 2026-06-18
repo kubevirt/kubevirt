@@ -19,7 +19,9 @@
 
 package storage
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 // Owner: sig-storage
 // Alpha: v0.36.0
@@ -27,14 +29,9 @@ import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 const HotplugVolumesGate = "HotplugVolumes"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{
-		Name:    HotplugVolumesGate,
-		State:   featuregate.Deprecated,
-		Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes",
-	})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HotplugVolumesGate, State: featuregate.Deprecated, Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes"})
 }
 
-// HotplugVolumesEnabled returns true when the HotplugVolumes feature gate is enabled.
 func (g StorageFeatureGates) HotplugVolumesEnabled() bool {
 	return featuregate.GateEnabled(HotplugVolumesGate, g.ConfigReader)
 }

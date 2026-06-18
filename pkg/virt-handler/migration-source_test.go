@@ -775,7 +775,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			DeveloperConfiguration: &v1.DeveloperConfiguration{},
 		}
 		if enableGate {
-			kv.DeveloperConfiguration.FeatureGates = []string{featuregate.MigrationDowntimeTuning}
+			kv.DeveloperConfiguration.FeatureGates = []string{compute.MigrationDowntimeTuning}
 		}
 		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
 

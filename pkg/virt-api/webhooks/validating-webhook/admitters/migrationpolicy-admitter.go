@@ -23,9 +23,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"math"
 	"strconv"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,7 +39,6 @@ import (
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 // MigrationPolicyAdmitter validates MigrationPolicy resources
@@ -91,7 +91,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, fgcompute.MigrationDowntimeTuning),
 				Field:   sourceField.Child("maxDowntimeMs").String(),
 			})
 		}
@@ -111,7 +111,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("experimental.downtimeTuning cannot be modified without enabling the %s feature gate", featuregate.MigrationDowntimeTuning),
+				Message: fmt.Sprintf("experimental.downtimeTuning cannot be modified without enabling the %s feature gate", fgcompute.MigrationDowntimeTuning),
 				Field:   sourceField.Child("experimental", "downtimeTuning").String(),
 			})
 		}

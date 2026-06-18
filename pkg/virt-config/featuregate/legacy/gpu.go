@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: GPUGate, State: featuregate.GA})
 }
 
-// GPUPassthroughEnabled returns true when the GPU feature gate is enabled.
 func (g LegacyFeatureGates) GPUPassthroughEnabled() bool {
 	return featuregate.GateEnabled(GPUGate, g.ConfigReader)
 }

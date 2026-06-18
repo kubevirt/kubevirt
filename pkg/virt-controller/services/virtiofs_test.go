@@ -120,7 +120,7 @@ var _ = Describe("virtiofs container", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.VirtIOFSStorageVolumeGate},
+						FeatureGates: []string{storage.VirtIOFSStorageVolumeGate},
 					},
 					ImagePullPolicy: k8sv1.PullAlways,
 				},

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +42,6 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 // clusterConfigProvider is the cluster configuration the VMI mutation
@@ -77,7 +78,7 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, config clusterConfi
 	}
 
 	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
-		if config.EmulatorThreadCompleteToEvenParity() && config.IsFeatureGateEnabled(featuregate.AlignCPUsGate) {
+		if config.EmulatorThreadCompleteToEvenParity() && config.IsFeatureGateEnabled(fglegacy.AlignCPUsGate) {
 			log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
 			if newVMI.Annotations == nil {
 				newVMI.Annotations = map[string]string{}
@@ -96,7 +97,7 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, config clusterConfi
 		}
 	}
 
-	if !config.IsFeatureGateEnabled(featuregate.Root) {
+	if !config.IsFeatureGateEnabled(fglegacy.Root) {
 		markAsNonroot(newVMI)
 	}
 

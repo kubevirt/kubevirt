@@ -23,20 +23,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb) via the `Video` field, overriding default settings.
+// Requires `autoattachGraphicsDevice` to be true or unset.
 // Owner: @dasionov
 // Alpha: v1.6.0
 // Beta: v1.7.0
 // GA: v1.9.0
-//
-// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb)
-// via the Video field, overriding default settings.
 const VideoConfig = "VideoConfig"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VideoConfig, State: featuregate.GA})
 }
-
-// VideoConfigEnabled returns true when the VideoConfig feature gate is enabled.
 func (g LegacyFeatureGates) VideoConfigEnabled() bool {
 	return featuregate.GateEnabled(VideoConfig, g.ConfigReader)
 }

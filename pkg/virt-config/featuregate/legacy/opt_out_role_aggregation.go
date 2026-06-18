@@ -35,7 +35,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: OptOutRoleAggregation, State: featuregate.Beta})
 }
 
-// OptOutRoleAggregationEnabled returns true when the OptOutRoleAggregation feature gate is enabled.
 func (g LegacyFeatureGates) OptOutRoleAggregationEnabled() bool {
 	return featuregate.GateEnabled(OptOutRoleAggregation, g.ConfigReader)
 }

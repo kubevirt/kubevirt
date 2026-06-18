@@ -25,11 +25,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"io"
-	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"

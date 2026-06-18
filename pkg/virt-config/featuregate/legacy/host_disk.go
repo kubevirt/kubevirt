@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HostDiskGate, State: featuregate.Alpha})
 }
 
-// HostDiskEnabled returns true when the HostDisk feature gate is enabled.
 func (g LegacyFeatureGates) HostDiskEnabled() bool {
 	return featuregate.GateEnabled(HostDiskGate, g.ConfigReader)
 }

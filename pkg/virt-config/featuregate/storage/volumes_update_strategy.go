@@ -30,8 +30,6 @@ const VolumesUpdateStrategy = "VolumesUpdateStrategy"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VolumesUpdateStrategy, State: featuregate.GA})
 }
-
-// VolumesUpdateStrategyEnabled returns true when the VolumesUpdateStrategy feature gate is enabled.
 func (g StorageFeatureGates) VolumesUpdateStrategyEnabled() bool {
 	return featuregate.GateEnabled(VolumesUpdateStrategy, g.ConfigReader)
 }

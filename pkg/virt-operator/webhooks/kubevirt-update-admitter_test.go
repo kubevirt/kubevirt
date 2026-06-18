@@ -203,7 +203,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.MigrationDowntimeTuning},
+					FeatureGates: []string{compute.MigrationDowntimeTuning},
 				},
 			},
 			false,
@@ -253,7 +253,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+						FeatureGates: []string{compute.CrossClusterMigrationProxy},
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathDirect),
@@ -267,7 +267,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+						FeatureGates: []string{compute.CrossClusterMigrationProxy},
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						CrossClusterNetwork: pointer.P("cross-cluster-nad"),
@@ -280,7 +280,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+						FeatureGates: []string{compute.CrossClusterMigrationProxy},
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
@@ -343,7 +343,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+						FeatureGates: []string{compute.CrossClusterMigrationProxy},
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
@@ -391,7 +391,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+						FeatureGates: []string{compute.CrossArchitectureVirtualization},
 					},
 					EmulationPolicy: pointer.P(v1.EmulationPolicy("foo")),
 				},
@@ -402,7 +402,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+						FeatureGates: []string{compute.CrossArchitectureVirtualization},
 					},
 					EmulationPolicy: pointer.P(v1.EmulationPolicyNone),
 				},
@@ -413,7 +413,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+						FeatureGates: []string{compute.CrossArchitectureVirtualization},
 					},
 					EmulationPolicy: pointer.P(v1.EmulationPolicySoftware),
 				},
@@ -424,7 +424,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+						FeatureGates: []string{compute.CrossArchitectureVirtualization},
 					},
 					EmulationPolicy: pointer.P(v1.EmulationPolicyHardware),
 				},
@@ -446,7 +446,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+						FeatureGates: []string{compute.CrossClusterMigrationProxy},
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
@@ -469,7 +469,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+						FeatureGates: []string{compute.CrossClusterMigrationProxy},
 					},
 					MigrationConfiguration: &v1.MigrationConfiguration{
 						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),

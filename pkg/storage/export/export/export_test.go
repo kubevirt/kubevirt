@@ -1244,7 +1244,7 @@ var _ = Describe("Export controller", func() {
 			Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(matcher))
 		}
 	},
-		Entry("should set when TLSGroupPreferences gate is enabled", []string{featuregate.TLSGroupPreferences}, true),
+		Entry("should set when TLSGroupPreferences gate is enabled", []string{compute.TLSGroupPreferences}, true),
 		Entry("should not set when TLSGroupPreferences gate is disabled", nil, false),
 	)
 

@@ -23,13 +23,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+// Owner: sig-compute / @alancaldelas
+// Alpha: v0.49.0
+// Beta: v1.9.0
 const WorkloadEncryptionSEV = "WorkloadEncryptionSEV"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: WorkloadEncryptionSEV, State: featuregate.Beta})
 }
 
-// WorkloadEncryptionSEVEnabled returns true when the WorkloadEncryptionSEV feature gate is enabled.
 func (g LegacyFeatureGates) WorkloadEncryptionSEVEnabled() bool {
 	return featuregate.GateEnabled(WorkloadEncryptionSEV, g.ConfigReader)
 }

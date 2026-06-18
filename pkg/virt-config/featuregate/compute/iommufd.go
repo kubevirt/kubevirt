@@ -30,16 +30,17 @@ import (
 // When enabled, virt-controller requests devices.kubevirt.io/iommufd for
 // every launcher pod. Nodes without /dev/iommu (kernel <6.2) will report
 // unhealthy devices, making pods unschedulable there.
-// This feature also emits domain-level <iommufd/> and uses virDomainFDAssociate,
-// which require a libvirt/QEMU stack that supports fdgroup-based IOMMUFD,
-// currently libvirt >= 12.2.
+// This feature also emits domain-level <iommufd enabled='yes' fdgroup='iommu'/>
+// and uses virDomainFDAssociate, which require a libvirt/QEMU stack that supports
+// fdgroup-based IOMMUFD, currently libvirt >= 12.2. Enable this gate only on
+// clusters where target nodes and virt-launcher images provide compatible
+// kernel, libvirt, and QEMU support.
 const IOMMUFDGate = "IOMMUFD"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: IOMMUFDGate, State: featuregate.Alpha})
 }
 
-// IOMMUFDEnabled returns true when the IOMMUFD feature gate is enabled.
 func (g ComputeFeatureGates) IOMMUFDEnabled() bool {
 	return featuregate.GateEnabled(IOMMUFDGate, g.ConfigReader)
 }

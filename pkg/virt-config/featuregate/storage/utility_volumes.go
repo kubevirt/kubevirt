@@ -25,16 +25,16 @@ import (
 
 // Owner: sig-storage
 // Alpha: v1.7.0
+// Beta: v1.10.0
 //
 // UtilityVolumes enables utility volumes feature which provides a general capability
-// of hot-plugging volumes directly into the virt-launcher Pod for operational workflows.
+// of hot-plugging volumes directly into the virt-launcher Pod for operational workflows
 const UtilityVolumesGate = "UtilityVolumes"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: UtilityVolumesGate, State: featuregate.Alpha})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: UtilityVolumesGate, State: featuregate.Beta})
 }
 
-// UtilityVolumesEnabled returns true when the UtilityVolumes feature gate is enabled.
 func (g StorageFeatureGates) UtilityVolumesEnabled() bool {
 	return featuregate.GateEnabled(UtilityVolumesGate, g.ConfigReader)
 }

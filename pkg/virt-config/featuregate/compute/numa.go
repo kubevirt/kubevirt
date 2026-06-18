@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: NUMAFeatureGate, State: featuregate.GA})
 }
 
-// NUMAEnabled returns true when the NUMA feature gate is enabled.
 func (g ComputeFeatureGates) NUMAEnabled() bool {
 	return featuregate.GateEnabled(NUMAFeatureGate, g.ConfigReader)
 }

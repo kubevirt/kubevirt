@@ -24,17 +24,15 @@ import (
 )
 
 // Owner: sig-compute / @0xFelix
+// Template enables the deployment of virt-template components by virt-operator.
 // Alpha: v1.8.0
 // Beta: v1.9.0
-//
-// Template enables the deployment of virt-template components by virt-operator.
 const Template = "Template"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: Template, State: featuregate.Beta})
 }
 
-// TemplateEnabled returns true when the Template feature gate is enabled.
 func (g ComputeFeatureGates) TemplateEnabled() bool {
 	return featuregate.GateEnabled(Template, g.ConfigReader)
 }

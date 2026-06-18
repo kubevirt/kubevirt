@@ -23,9 +23,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// ReservedOverheadMemlock enables using the spec.domain.memory.ReservedOverhead field which
+// Enables using the spec.domain.memory.ReservedOverhead field which
 // can specify some required memory overhead as well as whether VM
-// memory (and overhead) needs to be locked or not.
+// memory (and overhead) needs to be locked or not
 // Owner: sig-compute / @bgartzi
 // Alpha: v1.8.0
 const ReservedOverheadMemlock = "ReservedOverheadMemlock"
@@ -34,7 +34,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ReservedOverheadMemlock, State: featuregate.Alpha})
 }
 
-// ReservedOverheadMemlockEnabled returns true when the ReservedOverheadMemlock feature gate is enabled.
 func (g ComputeFeatureGates) ReservedOverheadMemlockEnabled() bool {
 	return featuregate.GateEnabled(ReservedOverheadMemlock, g.ConfigReader)
 }

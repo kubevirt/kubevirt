@@ -25,7 +25,6 @@ import (
 
 // Owner: sig-compute / @fanzhangio
 // Alpha: v1.9.0
-//
 // GraceIOVirtualization enables GPU passthrough optimized for NVIDIA Grace
 // platforms (i.e ARM64 architectures by utilizing SMMUv3 IOMMU).
 // It utilizes SMMUv3 IOMMU, IOMMUFD device binding on ARM64, and ACPI Generic Initiator NUMA topology.
@@ -35,7 +34,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: GraceIOVirtualization, State: featuregate.Alpha})
 }
 
-// GraceIOVirtualizationEnabled returns true when the GraceIOVirtualization feature gate is enabled.
 func (g ComputeFeatureGates) GraceIOVirtualizationEnabled() bool {
 	return featuregate.GateEnabled(GraceIOVirtualization, g.ConfigReader)
 }

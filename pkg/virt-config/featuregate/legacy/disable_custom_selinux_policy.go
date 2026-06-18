@@ -23,14 +23,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher.
+// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 const DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DisableCustomSELinuxPolicy, State: featuregate.GA})
 }
-
-// DisableCustomSELinuxPolicyEnabled returns true when the DisableCustomSELinuxPolicy feature gate is enabled.
 func (g LegacyFeatureGates) DisableCustomSELinuxPolicyEnabled() bool {
 	return featuregate.GateEnabled(DisableCustomSELinuxPolicy, g.ConfigReader)
 }

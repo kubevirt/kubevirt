@@ -28,8 +28,6 @@ const NonRoot = "NonRoot"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: NonRoot, State: featuregate.GA})
 }
-
-// NonRootEnabled returns true when the NonRoot feature gate is enabled.
 func (g LegacyFeatureGates) NonRootEnabled() bool {
 	return featuregate.GateEnabled(NonRoot, g.ConfigReader)
 }

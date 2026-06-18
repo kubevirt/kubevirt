@@ -610,14 +610,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.AlignCPUsGate},
+						FeatureGates: []string{legacy.AlignCPUsGate},
 					},
 				},
 			},
 		})
-		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(legacy.AlignCPUsGate)).To(BeTrue())
 		Expect(kvStore.Replace(nil, "")).To(Succeed())
-		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(legacy.AlignCPUsGate)).To(BeTrue())
 		Expect(mutator.ClusterConfig.EmulatorThreadCompleteToEvenParity()).To(BeFalse())
 
 		vmi.Spec.Domain.CPU = &v1.CPU{IsolateEmulatorThread: true}

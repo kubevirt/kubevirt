@@ -26,14 +26,13 @@ import (
 // Owner: @mresvanis
 // Alpha: v1.6.0
 //
-// PCINUMAAwareTopologyEnabled enables NUMA-aware PCIe topology mapping for passthrough devices.
+// PCINUMAAwareTopologyEnabled enables NUMA-aware PCIe topology mapping for passthrough devices
 const PCINUMAAwareTopologyEnabled = "PCINUMAAwareTopology"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: featuregate.Alpha})
 }
 
-// PCINUMAAwareTopologyEnabled returns true when the PCINUMAAwareTopology feature gate is enabled.
 func (g LegacyFeatureGates) PCINUMAAwareTopologyEnabled() bool {
 	return featuregate.GateEnabled(PCINUMAAwareTopologyEnabled, g.ConfigReader)
 }

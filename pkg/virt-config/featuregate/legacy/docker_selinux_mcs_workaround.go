@@ -19,21 +19,21 @@
 
 package legacy
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 // DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 // Deprecated: v1.4.0
 const DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{
-		Name:    DockerSELinuxMCSWorkaround,
-		State:   featuregate.Deprecated,
-		Message: "DockerSELinuxMCSWorkaround has been deprecated since v1.4.",
-	})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DockerSELinuxMCSWorkaround, State: featuregate.Deprecated, Message: fmt.Sprintf(
+		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
 }
 
-// DockerSELinuxMCSWorkaroundEnabled returns true when the DockerSELinuxMCSWorkaround feature gate is enabled.
 func (g LegacyFeatureGates) DockerSELinuxMCSWorkaroundEnabled() bool {
 	return featuregate.GateEnabled(DockerSELinuxMCSWorkaround, g.ConfigReader)
 }

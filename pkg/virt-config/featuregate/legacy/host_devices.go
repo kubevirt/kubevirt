@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HostDevicesGate, State: featuregate.Alpha})
 }
 
-// HostDevicesPassthroughEnabled returns true when the HostDevices feature gate is enabled.
 func (g LegacyFeatureGates) HostDevicesPassthroughEnabled() bool {
 	return featuregate.GateEnabled(HostDevicesGate, g.ConfigReader)
 }

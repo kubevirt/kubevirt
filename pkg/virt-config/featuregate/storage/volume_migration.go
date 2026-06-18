@@ -30,8 +30,6 @@ const VolumeMigration = "VolumeMigration"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VolumeMigration, State: featuregate.GA})
 }
-
-// VolumeMigrationEnabled returns true when the VolumeMigration feature gate is enabled.
 func (g StorageFeatureGates) VolumeMigrationEnabled() bool {
 	return featuregate.GateEnabled(VolumeMigration, g.ConfigReader)
 }

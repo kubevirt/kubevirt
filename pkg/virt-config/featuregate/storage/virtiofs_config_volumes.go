@@ -23,8 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// VirtIOFSConfigVolumesGate enables the use of virtiofs for config volumes,
-// i.e., config-maps, secrets, downwardAPI, etc.
+// VirtIOFSConfigVolumesGate enables the use of virtiofs for config volumes, i.e., config-maps, secrets, downwardAPI, etc.
 // Owners: @germag @jcanocan
 // Alpha: v1.5.0
 // Beta: v1.6.0
@@ -34,8 +33,6 @@ const VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VirtIOFSConfigVolumesGate, State: featuregate.GA})
 }
-
-// VirtIOFSConfigVolumesEnabled returns true when the EnableVirtioFsConfigVolumes feature gate is enabled.
 func (g StorageFeatureGates) VirtIOFSConfigVolumesEnabled() bool {
 	return featuregate.GateEnabled(VirtIOFSConfigVolumesGate, g.ConfigReader)
 }

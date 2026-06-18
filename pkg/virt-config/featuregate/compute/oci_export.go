@@ -33,7 +33,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: OCIExport, State: featuregate.Alpha})
 }
 
-// OCIExportEnabled returns true when the OCIExport feature gate is enabled.
 func (g ComputeFeatureGates) OCIExportEnabled() bool {
 	return featuregate.GateEnabled(OCIExport, g.ConfigReader)
 }

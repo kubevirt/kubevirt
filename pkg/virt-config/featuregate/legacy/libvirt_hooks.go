@@ -23,20 +23,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// Owner: @Barakmor1
+// Owner: sig-compute
 // Alpha: v1.8.0
 // Beta: v1.9.0
+// GA: v1.10.0
 //
-// LibvirtHooksServerAndClient enables running pre-migration
+// LibvirtHooksServerAndClient The LibvirtHooksServerAndClient FG enables running pre-migration
 // hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
 // on the target before migration starts.
 const LibvirtHooksServerAndClient = "LibvirtHooksServerAndClient"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: LibvirtHooksServerAndClient, State: featuregate.Beta})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: LibvirtHooksServerAndClient, State: featuregate.GA})
 }
-
-// LibvirtHooksServerAndClientEnabled returns true when the LibvirtHooksServerAndClient feature gate is enabled.
 func (g LegacyFeatureGates) LibvirtHooksServerAndClientEnabled() bool {
 	return featuregate.GateEnabled(LibvirtHooksServerAndClient, g.ConfigReader)
 }

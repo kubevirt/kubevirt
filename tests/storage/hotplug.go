@@ -1971,11 +1971,11 @@ var _ = Describe(SIG("Hotplug", func() {
 		Context("virtqueue mapping for virtio-scsi", Serial, func() {
 
 			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.SCSIMultiIOThread)
+				kvconfig.EnableFeatureGate(storage.SCSIMultiIOThread)
 			})
 
 			AfterEach(func() {
-				kvconfig.DisableFeatureGate(featuregate.SCSIMultiIOThread)
+				kvconfig.DisableFeatureGate(storage.SCSIMultiIOThread)
 				kv := libkubevirt.GetCurrentKv(virtClient)
 				config := kv.Spec.Configuration
 				config.MultiIOThreadAutoPolicy = &v1.MultiIOThreadAutoPolicy{}

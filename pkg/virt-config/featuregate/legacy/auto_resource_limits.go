@@ -23,16 +23,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a
-// ResourceQuota with limits associated with the vmi namespace.
-// GA: v1.5.0
+// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
+// GA:    v1.5.0
 const AutoResourceLimitsGate = "AutoResourceLimitsGate"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: AutoResourceLimitsGate, State: featuregate.GA})
 }
-
-// AutoResourceLimitsEnabled returns true when the AutoResourceLimitsGate feature gate is enabled.
 func (g LegacyFeatureGates) AutoResourceLimitsEnabled() bool {
 	return featuregate.GateEnabled(AutoResourceLimitsGate, g.ConfigReader)
 }

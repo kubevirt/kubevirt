@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: CPUManager, State: featuregate.Alpha})
 }
 
-// CPUManagerEnabled returns true when the CPUManager feature gate is enabled.
 func (g LegacyFeatureGates) CPUManagerEnabled() bool {
 	return featuregate.GateEnabled(CPUManager, g.ConfigReader)
 }

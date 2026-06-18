@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: Root, State: featuregate.Alpha})
 }
 
-// RootEnabled returns true when the Root feature gate is enabled.
 func (g LegacyFeatureGates) RootEnabled() bool {
 	return featuregate.GateEnabled(Root, g.ConfigReader)
 }

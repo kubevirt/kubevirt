@@ -23,10 +23,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
-	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"slices"
 	"strconv"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -589,11 +590,11 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
 			!hasFeatureGateEnabled(newConfig, fgcompute.MigrationStallDetection) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationDowntimeTuning) {
+			!hasFeatureGateEnabled(newConfig, fgcompute.MigrationDowntimeTuning) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, fgcompute.MigrationDowntimeTuning),
 			})
 		}
 	}
@@ -619,14 +620,14 @@ func validateCrossClusterMigrationNetwork(config *v1.KubeVirtConfiguration) []me
 		}}
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+	if hasFeatureGateEnabled(config, fgcompute.CrossClusterMigrationProxy) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.migrations.crossClusterNetwork",
-		Message: fmt.Sprintf("CrossClusterNetwork cannot be set without enabling the %s feature gate", featuregate.CrossClusterMigrationProxy),
+		Message: fmt.Sprintf("CrossClusterNetwork cannot be set without enabling the %s feature gate", fgcompute.CrossClusterMigrationProxy),
 	}}
 }
 
@@ -652,14 +653,14 @@ func validateDecentralizedLiveMigrationDatapath(config *v1.KubeVirtConfiguration
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+	if hasFeatureGateEnabled(config, fgcompute.CrossClusterMigrationProxy) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.migrations.decentralizedLiveMigrationDatapath",
-		Message: fmt.Sprintf("decentralizedLiveMigrationDatapath=Proxy requires the %s feature gate", featuregate.CrossClusterMigrationProxy),
+		Message: fmt.Sprintf("decentralizedLiveMigrationDatapath=Proxy requires the %s feature gate", fgcompute.CrossClusterMigrationProxy),
 	}}
 }
 

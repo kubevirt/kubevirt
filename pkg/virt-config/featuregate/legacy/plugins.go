@@ -34,7 +34,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PluginsGate, State: featuregate.Alpha})
 }
 
-// PluginsEnabled returns true when the Plugins feature gate is enabled.
 func (g LegacyFeatureGates) PluginsEnabled() bool {
 	return featuregate.GateEnabled(PluginsGate, g.ConfigReader)
 }

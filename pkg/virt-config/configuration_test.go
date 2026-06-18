@@ -770,7 +770,7 @@ var _ = Describe("test configuration", func() {
 			&v1.DeveloperConfiguration{}, false),
 		Entry("is set it should result in CPU DRA being enabled",
 			&v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.CPUsWithDRAGate},
+				FeatureGates: []string{compute.CPUsWithDRAGate},
 			}, true),
 	)
 

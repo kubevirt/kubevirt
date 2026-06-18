@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -81,7 +83,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	DescribeTable("ContainerPath feature gate on VMI update", func(previouslyUsed, allowed bool) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.ContainerPathVolumesGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{fgstorage.ContainerPathVolumesGate}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 		oldVMI := newBaseVmi()
 		volume := v1.Volume{Name: "containerpath", VolumeSource: v1.VolumeSource{
@@ -117,9 +119,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	DescribeTable("should protect actual disks during an external snapshot", func(state string, detach, changeStorage, allowed bool) {
 		for _, externalEnabled := range []bool{false, true} {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.UtilityVolumesGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fgstorage.UtilityVolumesGate}
 			if externalEnabled {
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.ExternalVMSnapshotGate)
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates, fgstorage.ExternalVMSnapshotGate)
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("data", "data-pvc"))

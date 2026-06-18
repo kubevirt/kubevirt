@@ -6,11 +6,11 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/feature-gate-report",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-config/featuregate/compute:go_default_library",
         "//pkg/virt-config/featuregate/legacy:go_default_library",
         "//pkg/virt-config/featuregate/network:go_default_library",
         "//pkg/virt-config/featuregate/storage:go_default_library",
+        "//pkg/virt-config/featuregate:go_default_library",
     ],
 )
 
@@ -24,5 +24,7 @@ go_test(
     name = "go_default_test",
     srcs = ["feature-gate-report_test.go"],
     embed = [":go_default_library"],
-    deps = ["//pkg/virt-config/featuregate:go_default_library"],
+    deps = [
+        "//pkg/virt-config/featuregate:go_default_library",
+    ],
 )

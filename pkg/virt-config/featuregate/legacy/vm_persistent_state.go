@@ -23,14 +23,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM.
+// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 const VMPersistentState = "VMPersistentState"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VMPersistentState, State: featuregate.GA})
 }
-
-// VMPersistentStateEnabled returns true when the VMPersistentState feature gate is enabled.
 func (g LegacyFeatureGates) VMPersistentStateEnabled() bool {
 	return featuregate.GateEnabled(VMPersistentState, g.ConfigReader)
 }

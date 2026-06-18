@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: LiveMigrationGate, State: featuregate.GA})
 }
 
-// LiveMigrationEnabled returns true when the LiveMigration feature gate is enabled.
 func (g ComputeFeatureGates) LiveMigrationEnabled() bool {
 	return featuregate.GateEnabled(LiveMigrationGate, g.ConfigReader)
 }

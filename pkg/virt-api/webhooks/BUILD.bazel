@@ -13,9 +13,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/webhooks",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/featuregate/compute:go_default_library",
         "//pkg/virt-config/featuregate/legacy:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -30,5 +30,7 @@ go_test(
     name = "go_default_test",
     srcs = ["webhooks_suite_test.go"],
     race = "on",
-    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
+    deps = [
+"//staging/src/kubevirt.io/client-go/testutils:go_default_library"
+    ],
 )

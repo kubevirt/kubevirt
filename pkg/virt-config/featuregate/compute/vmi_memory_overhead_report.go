@@ -26,16 +26,15 @@ import (
 // Owner: @bmordeha
 // Alpha: v1.8.0
 // Beta: v1.9.0
+// GA: v1.10.0
 //
 // VmiMemoryOverheadReport enables reporting the memory overhead in the VMI status.
-// When enabled, the memory overhead is calculated and set in the VMI status.Memory.MemoryOverhead field.
 const VmiMemoryOverheadReport = "VmiMemoryOverheadReport"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VmiMemoryOverheadReport, State: featuregate.Beta})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VmiMemoryOverheadReport, State: featuregate.GA})
 }
 
-// VmiMemoryOverheadReportEnabled returns true when the VmiMemoryOverheadReport feature gate is enabled.
 func (g ComputeFeatureGates) VmiMemoryOverheadReportEnabled() bool {
 	return featuregate.GateEnabled(VmiMemoryOverheadReport, g.ConfigReader)
 }

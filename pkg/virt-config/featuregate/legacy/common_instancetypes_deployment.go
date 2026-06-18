@@ -23,18 +23,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator.
+// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 // Owner: @lyarwood
 // Alpha: v1.1.0
-// Beta: v1.2.0
-// GA: v1.4.0
+// Beta:  v1.2.0
+// GA:	  v1.4.0
 const CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: CommonInstancetypesDeploymentGate, State: featuregate.GA})
 }
-
-// CommonInstancetypesDeploymentEnabled returns true when the CommonInstancetypesDeploymentGate feature gate is enabled.
 func (g LegacyFeatureGates) CommonInstancetypesDeploymentEnabled() bool {
 	return featuregate.GateEnabled(CommonInstancetypesDeploymentGate, g.ConfigReader)
 }

@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: SidecarGate, State: featuregate.Alpha})
 }
 
-// SidecarEnabled returns true when the Sidecar feature gate is enabled.
 func (g LegacyFeatureGates) SidecarEnabled() bool {
 	return featuregate.GateEnabled(SidecarGate, g.ConfigReader)
 }

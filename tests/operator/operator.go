@@ -30,9 +30,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
-	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
-	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -42,6 +39,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

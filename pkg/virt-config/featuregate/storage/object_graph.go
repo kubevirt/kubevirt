@@ -35,7 +35,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ObjectGraph, State: featuregate.Alpha})
 }
 
-// ObjectGraphEnabled returns true when the ObjectGraph feature gate is enabled.
 func (g StorageFeatureGates) ObjectGraphEnabled() bool {
 	return featuregate.GateEnabled(ObjectGraph, g.ConfigReader)
 }

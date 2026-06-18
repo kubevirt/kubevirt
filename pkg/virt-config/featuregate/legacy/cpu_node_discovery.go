@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: CPUNodeDiscoveryGate, State: featuregate.GA})
 }
 
-// CPUNodeDiscoveryEnabled returns true when the CPUNodeDiscovery feature gate is enabled.
 func (g LegacyFeatureGates) CPUNodeDiscoveryEnabled() bool {
 	return featuregate.GateEnabled(CPUNodeDiscoveryGate, g.ConfigReader)
 }

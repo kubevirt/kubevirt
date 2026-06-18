@@ -25,8 +25,8 @@ import (
 
 // Owner: @harshitgupta1337
 // Alpha: v1.8.0
-//
-// ConfigurableHypervisor allows using hypervisors other than KVM for running VMs.
+// This feature is disabled by default. When enabled, it allows using
+// hypervisors other than KVM for running VMs.
 // Details of the new hypervisors should be specified via the
 // HypervisorConfigurations field in KubeVirtConfiguration.
 const ConfigurableHypervisor = "ConfigurableHypervisor"
@@ -35,7 +35,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ConfigurableHypervisor, State: featuregate.Alpha})
 }
 
-// ConfigurableHypervisorEnabled returns true when the ConfigurableHypervisor feature gate is enabled.
 func (g LegacyFeatureGates) ConfigurableHypervisorEnabled() bool {
 	return featuregate.GateEnabled(ConfigurableHypervisor, g.ConfigReader)
 }

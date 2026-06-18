@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
@@ -17,7 +19,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/dra"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
@@ -463,8 +465,8 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config cl
 		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
-		errors = append(errors, validateGPUs(spec.Domain.Devices.GPUs, config.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate), supportedHostDevicesMap)...)
-		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, config.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate), supportedHostDevicesMap)...)
+		errors = append(errors, validateGPUs(spec.Domain.Devices.GPUs, config.IsFeatureGateEnabled(fglegacy.GPUsWithDRAGate), supportedHostDevicesMap)...)
+		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, config.IsFeatureGateEnabled(fglegacy.HostDevicesWithDRAGate), supportedHostDevicesMap)...)
 	}
 
 	if len(errors) != 0 {

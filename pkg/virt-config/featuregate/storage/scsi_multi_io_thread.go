@@ -17,22 +17,23 @@
  *
  */
 
-package featuregate
+package storage
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-const (
-	PasstDiscontinueMessage      = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
-	PasstIPStackMigrationMessage = "Seamless migration with passt network binding plugin is no longer supported since KubeVirt v1.8. Please use the passt core binding instead."
-)
+// Owner: sig-storage / @dsanatar
+// Alpha: v1.10.0
+//
+// SCSIMultiIOThread enables iothread virtqueue mapping for virtio-scsi devices
+// by leveraging IOThreadsPolicy to allocate thread pools to the SCSI Controller Driver.
+const SCSIMultiIOThread = "SCSIMultiIOThread"
 
-func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedPasst != nil {
-			return true
-		}
-	}
-	return false
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: SCSIMultiIOThread, State: featuregate.Alpha})
+}
+
+func (g StorageFeatureGates) SCSIMultiIOThreadEnabled() bool {
+	return featuregate.GateEnabled(SCSIMultiIOThread, g.ConfigReader)
 }

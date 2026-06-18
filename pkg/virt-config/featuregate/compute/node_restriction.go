@@ -36,7 +36,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: NodeRestrictionGate, State: featuregate.Beta})
 }
 
-// NodeRestrictionEnabled returns true when the NodeRestriction feature gate is enabled.
 func (g ComputeFeatureGates) NodeRestrictionEnabled() bool {
 	return featuregate.GateEnabled(NodeRestrictionGate, g.ConfigReader)
 }

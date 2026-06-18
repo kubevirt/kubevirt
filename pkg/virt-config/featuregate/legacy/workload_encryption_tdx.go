@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: WorkloadEncryptionTDX, State: featuregate.Alpha})
 }
 
-// WorkloadEncryptionTDXEnabled returns true when the WorkloadEncryptionTDX feature gate is enabled.
 func (g LegacyFeatureGates) WorkloadEncryptionTDXEnabled() bool {
 	return featuregate.GateEnabled(WorkloadEncryptionTDX, g.ConfigReader)
 }

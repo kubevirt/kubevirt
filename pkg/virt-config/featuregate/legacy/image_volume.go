@@ -27,7 +27,7 @@ import (
 // Alpha: v1.6.0
 // Beta: v1.7.0
 //
-// ImageVolume uses Kubernetes ImageVolume FG to eliminate
+// ImageVolume The ImageVolume FG in KubeVirt uses Kubernetes ImageVolume FG to eliminate
 // the need for an extra container for containerDisk, improving security by avoiding
 // bind mounts in virt-handler.
 const ImageVolume = "ImageVolume"
@@ -36,7 +36,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ImageVolume, State: featuregate.Beta})
 }
 
-// ImageVolumeEnabled returns true when the ImageVolume feature gate is enabled.
 func (g LegacyFeatureGates) ImageVolumeEnabled() bool {
 	return featuregate.GateEnabled(ImageVolume, g.ConfigReader)
 }

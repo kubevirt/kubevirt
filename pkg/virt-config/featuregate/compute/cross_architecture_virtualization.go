@@ -37,7 +37,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: CrossArchitectureVirtualization, State: featuregate.Alpha})
 }
 
-// CrossArchitectureVirtualizationEnabled returns true when the CrossArchitectureVirtualization feature gate is enabled.
 func (g ComputeFeatureGates) CrossArchitectureVirtualizationEnabled() bool {
 	return featuregate.GateEnabled(CrossArchitectureVirtualization, g.ConfigReader)
 }

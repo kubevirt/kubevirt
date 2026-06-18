@@ -32,7 +32,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: SnapshotGate, State: featuregate.Beta})
 }
 
-// SnapshotEnabled returns true when the Snapshot feature gate is enabled.
 func (g StorageFeatureGates) SnapshotEnabled() bool {
 	return featuregate.GateEnabled(SnapshotGate, g.ConfigReader)
 }

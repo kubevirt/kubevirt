@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -85,9 +87,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", Serial, decorators.RequiresT
 		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 
-		hadMigrationDowntimeTuning = checks.HasFeature(featuregate.MigrationDowntimeTuning)
+		hadMigrationDowntimeTuning = checks.HasFeature(fgcompute.MigrationDowntimeTuning)
 		if !hadMigrationDowntimeTuning {
-			kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+			kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 		}
 
 		By("Allowing post-copy with 1ms downtime to prevent precopy convergence")
@@ -106,9 +108,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", Serial, decorators.RequiresT
 
 	AfterEach(func() {
 		if hadMigrationDowntimeTuning {
-			kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+			kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 		} else {
-			kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+			kvconfig.DisableFeatureGate(fgcompute.MigrationDowntimeTuning)
 		}
 	})
 

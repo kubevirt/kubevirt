@@ -33,7 +33,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: MigrationStallDetection, State: featuregate.Alpha})
 }
 
-// MigrationStallDetectionEnabled returns true when the MigrationStallDetection feature gate is enabled.
 func (g ComputeFeatureGates) MigrationStallDetectionEnabled() bool {
 	return featuregate.GateEnabled(MigrationStallDetection, g.ConfigReader)
 }

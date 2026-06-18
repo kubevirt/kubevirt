@@ -24,16 +24,15 @@ import (
 )
 
 // PodSecondaryInterfaceNamingUpgrade enables the upgrade mechanism for VMs
-// stuck with the obsolete ordinal naming scheme for their pod secondary networks.
+// stuck with the obsolete ordinal naming scheme for their pod secondary networks
 // Owner: SIG network
-// Beta: v1.8
+// Beta: v1.8.0
+// GA: v1.10.0
 const PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: featuregate.Beta})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: featuregate.GA})
 }
-
-// PodSecondaryInterfaceNamingUpgradeEnabled returns true when the PodSecondaryInterfaceNamingUpgrade feature gate is enabled.
 func (g NetworkFeatureGates) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
 	return featuregate.GateEnabled(PodSecondaryInterfaceNamingUpgrade, g.ConfigReader)
 }

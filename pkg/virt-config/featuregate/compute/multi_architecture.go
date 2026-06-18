@@ -19,24 +19,21 @@
 
 package compute
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 // Owner: sig-compute / @lyarwood
 // Alpha: v1.0.0
 // Deprecated: v1.8.0
 //
-// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane.
+// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 const MultiArchitecture = "MultiArchitecture"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{
-		Name:    MultiArchitecture,
-		State:   featuregate.Deprecated,
-		Message: "MultiArchitecture has been deprecated since v1.8.0",
-	})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: MultiArchitecture, State: featuregate.Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
 }
 
-// MultiArchitectureEnabled returns true when the MultiArchitecture feature gate is enabled.
 func (g ComputeFeatureGates) MultiArchitectureEnabled() bool {
 	return featuregate.GateEnabled(MultiArchitecture, g.ConfigReader)
 }

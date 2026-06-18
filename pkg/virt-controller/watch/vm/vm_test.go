@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"maps"
 	"strings"
 	"time"
+
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"

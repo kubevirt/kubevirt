@@ -24,9 +24,10 @@ package virtconfig
 */
 
 import (
+	"slices"
+
 	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
-	"slices"
 
 	"kubevirt.io/client-go/log"
 

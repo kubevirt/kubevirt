@@ -28,8 +28,6 @@ const SRIOVLiveMigrationGate = "SRIOVLiveMigration"
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: SRIOVLiveMigrationGate, State: featuregate.GA})
 }
-
-// SRIOVLiveMigrationEnabled returns true when the SRIOVLiveMigration feature gate is enabled.
 func (g ComputeFeatureGates) SRIOVLiveMigrationEnabled() bool {
 	return featuregate.GateEnabled(SRIOVLiveMigrationGate, g.ConfigReader)
 }

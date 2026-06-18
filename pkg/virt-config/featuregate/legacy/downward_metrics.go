@@ -29,7 +29,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DownwardMetricsFeatureGate, State: featuregate.Alpha})
 }
 
-// DownwardMetricsEnabled returns true when the DownwardMetrics feature gate is enabled.
 func (g LegacyFeatureGates) DownwardMetricsEnabled() bool {
 	return featuregate.GateEnabled(DownwardMetricsFeatureGate, g.ConfigReader)
 }

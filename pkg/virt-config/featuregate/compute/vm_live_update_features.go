@@ -24,14 +24,12 @@ import (
 )
 
 // VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
-// GA: v1.5.0
+// GA:    v1.5.0
 const VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VMLiveUpdateFeaturesGate, State: featuregate.GA})
 }
-
-// VMLiveUpdateFeaturesEnabled returns true when the VMLiveUpdateFeatures feature gate is enabled.
 func (g ComputeFeatureGates) VMLiveUpdateFeaturesEnabled() bool {
 	return featuregate.GateEnabled(VMLiveUpdateFeaturesGate, g.ConfigReader)
 }

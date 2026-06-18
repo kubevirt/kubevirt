@@ -27,14 +27,12 @@ import (
 // Alpha: v1.0.0
 // GA: v1.9.0
 //
-// PersistentReservation enables the use of the SCSI persistent reservation in VMs using the pr-helper daemon.
+// PersistentReservation enables the use of the SCSI persistent reservation in VMs using the pr-helper daemon
 const PersistentReservation = "PersistentReservation"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PersistentReservation, State: featuregate.GA})
 }
-
-// PersistentReservationEnabled returns true when the PersistentReservation feature gate is enabled.
 func (g StorageFeatureGates) PersistentReservationEnabled() bool {
 	return featuregate.GateEnabled(PersistentReservation, g.ConfigReader)
 }

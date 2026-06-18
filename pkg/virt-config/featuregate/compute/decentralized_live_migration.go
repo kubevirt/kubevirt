@@ -23,13 +23,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+// Owner: sig-compute / @awels
+// Alpha: v1.6.0
+//
+// DecentralizedLiveMigration enables live migration across namespaces
+// with separate source and target VirtualMachineInstanceMigration resources.
 const DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: DecentralizedLiveMigration, State: featuregate.Alpha})
 }
 
-// DecentralizedLiveMigrationEnabled returns true when the DecentralizedLiveMigration feature gate is enabled.
 func (g ComputeFeatureGates) DecentralizedLiveMigrationEnabled() bool {
 	return featuregate.GateEnabled(DecentralizedLiveMigration, g.ConfigReader)
 }

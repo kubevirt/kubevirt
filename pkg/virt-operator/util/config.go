@@ -23,6 +23,7 @@ import (
 	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	// #nosec sha1 used to calculate hash to identify the deployment and not as cryptographic info
 	"crypto/sha1"
 	"encoding/hex"
@@ -227,7 +228,7 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	// Record Proxy mode itself in AdditionalProperties so Direct↔Proxy flips
 	// change the install-strategy ID and roll out synchronization controllers
 	// even when crossClusterNetwork is unset.
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.CrossClusterMigrationProxy) {
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, fgcompute.CrossClusterMigrationProxy) {
 		if kv.Spec.Configuration.MigrationConfiguration != nil &&
 			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath != nil &&
 			*kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy {

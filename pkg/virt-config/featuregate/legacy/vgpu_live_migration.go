@@ -26,15 +26,14 @@ import (
 // Owner: @csomani1
 // Alpha: v1.8.0
 //
-// VGPULiveMigration enables the vGPU hook to run for vGPU live migrations, allowing the
+// The MDevVGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 // target XML's mdev UUID to be mutated.
-const VGPULiveMigration = "VGPULiveMigration"
+const MDevVGPULiveMigration = "MDevVGPULiveMigration"
 
 func init() {
-	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: VGPULiveMigration, State: featuregate.Alpha})
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: MDevVGPULiveMigration, State: featuregate.Alpha})
 }
 
-// VGPULiveMigrationEnabled returns true when the VGPULiveMigration feature gate is enabled.
-func (g LegacyFeatureGates) VGPULiveMigrationEnabled() bool {
-	return featuregate.GateEnabled(VGPULiveMigration, g.ConfigReader)
+func (g LegacyFeatureGates) MDevVGPULiveMigrationEnabled() bool {
+	return featuregate.GateEnabled(MDevVGPULiveMigration, g.ConfigReader)
 }

@@ -27,14 +27,12 @@ import (
 // Alpha: v0.48.0
 // GA: v1.8.0
 //
-// ExpandDisks allows for expanding the storage available for in-use virtual machines.
+// ExpandDisksGate allows for expanding the storage available for in-use virtual machines.
 const ExpandDisksGate = "ExpandDisks"
 
 func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: ExpandDisksGate, State: featuregate.GA})
 }
-
-// ExpandDisksEnabled returns true when the ExpandDisks feature gate is enabled.
 func (g StorageFeatureGates) ExpandDisksEnabled() bool {
 	return featuregate.GateEnabled(ExpandDisksGate, g.ConfigReader)
 }

@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"strings"
 
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -145,9 +147,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		disableFeatureGates()
 		DeferCleanup(disableFeatureGates)
 		if enabled {
-			enableFeatureGate(featuregate.ContainerPathVolumesGate)
+			enableFeatureGate(fgstorage.ContainerPathVolumesGate)
 		} else {
-			disableFeatureGate(featuregate.ContainerPathVolumesGate)
+			disableFeatureGate(fgstorage.ContainerPathVolumesGate)
 		}
 		vm := &v1.VirtualMachine{Spec: v1.VirtualMachineSpec{
 			RunStrategy: pointer.P(v1.RunStrategyHalted),

@@ -21,9 +21,10 @@ package heartbeat
 
 import (
 	"context"
-	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"sync"
 	"time"
+
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

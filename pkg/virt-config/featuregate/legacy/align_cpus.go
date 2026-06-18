@@ -30,7 +30,6 @@ func init() {
 	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: AlignCPUsGate, State: featuregate.Alpha})
 }
 
-// AlignCPUsEnabled returns true when the AlignCPUs feature gate is enabled.
 func (g LegacyFeatureGates) AlignCPUsEnabled() bool {
 	return featuregate.GateEnabled(AlignCPUsGate, g.ConfigReader)
 }
