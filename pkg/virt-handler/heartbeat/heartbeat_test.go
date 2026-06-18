@@ -21,6 +21,7 @@ package heartbeat
 
 import (
 	"context"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"sync"
 	"time"
 
@@ -35,7 +36,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
@@ -83,7 +83,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(featuregate.CPUManager), "mynode", "/var/lib/kubelet")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(fglegacy.CPUManager), "mynode", "/var/lib/kubelet")
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})

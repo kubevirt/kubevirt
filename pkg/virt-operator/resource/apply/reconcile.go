@@ -22,6 +22,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"strconv"
 	"strings"
 	"time"
@@ -408,7 +409,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	exportProxyDeploymentsRolledOver := haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
-	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	synchronizationControllerEnabled := r.isFeatureGateEnabled(fgcompute.DecentralizedLiveMigration)
 	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	virtTemplateDeploymentEnabled := r.virtTemplateDeploymentEnabled()
 	virtTemplateDeploymentsRolledOver := !virtTemplateDeploymentEnabled || haveVirtTemplateDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
@@ -636,7 +637,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
-		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		if r.isFeatureGateEnabled(fgcompute.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
@@ -1273,7 +1274,7 @@ func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
 }
 
 func (r *Reconciler) virtTemplateDeploymentEnabled() bool {
-	if !r.isFeatureGateEnabled(featuregate.Template) {
+	if !r.isFeatureGateEnabled(fgcompute.Template) {
 		return false
 	}
 	virtTemplateDeployment := r.kv.Spec.Configuration.VirtTemplateDeployment

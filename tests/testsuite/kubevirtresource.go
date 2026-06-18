@@ -23,6 +23,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"os"
 	"strconv"
 	"strings"
@@ -108,21 +111,21 @@ func AdjustKubeVirtResource() {
 	unsupportedGates := unsupportedFeatureGatesForArch(arch)
 
 	for _, gate := range []string{
-		featuregate.CPUManager,
-		featuregate.IgnitionGate,
-		featuregate.SidecarGate,
+		fglegacy.CPUManager,
+		fglegacy.IgnitionGate,
+		fglegacy.SidecarGate,
 		featuregate.ExternalVMSnapshotGate,
 		featuregate.OfflineIncrementalBackupGate,
-		featuregate.HostDiskGate,
-		featuregate.VirtIOFSStorageVolumeGate,
-		featuregate.DownwardMetricsFeatureGate,
-		featuregate.WorkloadEncryptionSEV,
-		featuregate.ObjectGraph,
+		fglegacy.HostDiskGate,
+		fgstorage.VirtIOFSStorageVolumeGate,
+		fglegacy.DownwardMetricsFeatureGate,
+		fglegacy.WorkloadEncryptionSEV,
+		fgstorage.ObjectGraph,
 		featuregate.DeclarativeVMState,
-		featuregate.DeclarativeHotplugVolumesGate,
-		featuregate.DecentralizedLiveMigration,
-		featuregate.UtilityVolumesGate,
-		featuregate.RebootPolicy,
+		fgstorage.DeclarativeHotplugVolumesGate,
+		fgcompute.DecentralizedLiveMigration,
+		fgstorage.UtilityVolumesGate,
+		fgcompute.RebootPolicy,
 	} {
 		if !unsupportedGates[gate] {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
@@ -137,7 +140,7 @@ func AdjustKubeVirtResource() {
 	if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
 		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
 			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-			featuregate.ImageVolume,
+			fglegacy.ImageVolume,
 		)
 	}
 	kv.Spec.Configuration.ChangedBlockTrackingLabelSelectors = &v1.ChangedBlockTrackingSelectors{
@@ -263,8 +266,8 @@ func unsupportedFeatureGatesForArch(arch string) map[string]bool {
 	switch arch {
 	case "s390x":
 		return map[string]bool{
-			featuregate.CPUManager:            true,
-			featuregate.WorkloadEncryptionSEV: true,
+			fglegacy.CPUManager:            true,
+			fglegacy.WorkloadEncryptionSEV: true,
 		}
 	default:
 		return nil

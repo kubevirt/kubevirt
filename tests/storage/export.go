@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -66,7 +67,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -2373,7 +2373,7 @@ var _ = Describe(SIG("Export", func() {
 		var sc string
 
 		BeforeEach(func() {
-			checks.FailTestIfNoFeatureGate(featuregate.OCIExport)
+			checks.FailTestIfNoFeatureGate(fgcompute.OCIExport)
 
 			var exists bool
 			sc, exists = libstorage.GetRWOBlockStorageClass()

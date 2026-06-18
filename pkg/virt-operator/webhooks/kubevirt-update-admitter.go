@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"slices"
 	"strconv"
 
@@ -545,14 +547,14 @@ func validateVirtTemplateDeployment(config *v1.KubeVirtConfiguration) []metav1.S
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.Template) {
+	if hasFeatureGateEnabled(config, fgcompute.Template) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.virtTemplateDeployment.enabled",
-		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", featuregate.Template),
+		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", fgcompute.Template),
 	}}
 }
 
@@ -561,14 +563,14 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.OptOutRoleAggregation) {
+	if hasFeatureGateEnabled(config, fglegacy.OptOutRoleAggregation) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.roleAggregationStrategy",
-		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
+		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", fglegacy.OptOutRoleAggregation),
 	}}
 }
 
@@ -586,12 +588,12 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 			oldMaxDowntimeMs = oldConfig.MigrationConfiguration.MaxDowntimeMs
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) &&
+			!hasFeatureGateEnabled(newConfig, fgcompute.MigrationStallDetection) &&
 			!hasFeatureGateEnabled(newConfig, featuregate.MigrationDowntimeTuning) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", featuregate.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
 			})
 		}
 	}
@@ -668,11 +670,11 @@ func validateEmulationPolicy(config *v1.KubeVirtConfiguration) []metav1.StatusCa
 		return causes
 	}
 
-	if !hasFeatureGateEnabled(config, featuregate.CrossArchitectureVirtualization) {
+	if !hasFeatureGateEnabled(config, fgcompute.CrossArchitectureVirtualization) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Field:   "spec.configuration.emulationPolicy",
-			Message: fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization),
+			Message: fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", fgcompute.CrossArchitectureVirtualization),
 		})
 		return causes
 	}

@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"math"
 	"strconv"
 
@@ -90,7 +91,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", featuregate.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
 				Field:   sourceField.Child("maxDowntimeMs").String(),
 			})
 		}
@@ -140,7 +141,7 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("experimental.stallDetector cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("experimental.stallDetector cannot be modified without enabling the %s feature gate", fgcompute.MigrationStallDetection),
 				Field:   sourceField.Child("experimental", "stallDetector").String(),
 			})
 		}

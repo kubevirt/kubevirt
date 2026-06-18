@@ -20,6 +20,9 @@
 package util
 
 import (
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	// #nosec sha1 used to calculate hash to identify the deployment and not as cryptographic info
 	"crypto/sha1"
 	"encoding/hex"
@@ -215,7 +218,7 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		}
 	} else {
 		if devcfg := kv.Spec.Configuration.DeveloperConfiguration; devcfg != nil &&
-			slices.Contains(devcfg.FeatureGates, featuregate.PersistentReservation) {
+			slices.Contains(devcfg.FeatureGates, fgstorage.PersistentReservation) {
 			additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
 		}
 	}
@@ -235,25 +238,25 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		}
 	}
 
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.Template) {
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, fgcompute.Template) {
 		virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
 		if virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || *virtTemplateDeployment.Enabled {
 			additionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled] = ""
 		}
 	}
 
-	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
+	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, fglegacy.ConfigurableHypervisor))
 	additionalProperties[AdditionalPropertiesHypervisorName] = hypervisor.Name
 
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.VMStatsCollector) {
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, fgcompute.VMStatsCollector) {
 		additionalProperties[AdditionalPropertiesVMStatsCollectorEnabled] = ""
 	}
 
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PluginsGate) {
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, fglegacy.PluginsGate) {
 		additionalProperties[AdditionalPropertiesPluginsEnabled] = ""
 	}
 
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.OptOutRoleAggregation) {
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, fglegacy.OptOutRoleAggregation) {
 		if kv.Spec.Configuration.RoleAggregationStrategy != nil &&
 			*kv.Spec.Configuration.RoleAggregationStrategy == v1.RoleAggregationStrategyManual {
 			additionalProperties[AdditionalPropertiesOptOutRoleAggregation] = ""

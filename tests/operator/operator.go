@@ -30,6 +30,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -75,7 +78,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -749,14 +751,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			updatedFeatureGates := make([]string, 0)
 			featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 			for _, fg := range featureGates {
-				if fg != featuregate.DecentralizedLiveMigration {
+				if fg != fgcompute.DecentralizedLiveMigration {
 					updatedFeatureGates = append(updatedFeatureGates, fg)
 				}
 			}
 			// Old releases don't support Beta-on-by-default, so Snapshot must be
 			// explicitly listed for the previous release's webhook to accept
 			// snapshot creation.
-			updatedFeatureGates = append(updatedFeatureGates, featuregate.SnapshotGate)
+			updatedFeatureGates = append(updatedFeatureGates, fgstorage.SnapshotGate)
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = updatedFeatureGates
 
 			// ImageVolume requires k8s 1.35+ (kubelet image volume support).
@@ -767,7 +769,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
 				kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
 					kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-					featuregate.ImageVolume,
+					fglegacy.ImageVolume,
 				)
 			}
 
@@ -1842,12 +1844,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	Context("with ContainerPathVolumes feature gate toggled", func() {
 
 		AfterEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
+			kvconfig.EnableFeatureGate(fgstorage.ContainerPathVolumesGate)
 		})
 
 		It("should delete and recreate virt-launcher-pod-mutator webhook", func() {
 			By("Ensuring ContainerPathVolumes feature gate is enabled")
-			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
+			kvconfig.EnableFeatureGate(fgstorage.ContainerPathVolumesGate)
 
 			By("Verifying virt-launcher-pod-mutator webhook exists")
 			Eventually(func() error {
@@ -1856,7 +1858,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}, time.Minute, time.Second*2).Should(Succeed(), "webhook should exist when feature gate is enabled")
 
 			By("Disabling ContainerPathVolumes feature gate")
-			kvconfig.DisableFeatureGate(featuregate.ContainerPathVolumesGate)
+			kvconfig.DisableFeatureGate(fgstorage.ContainerPathVolumesGate)
 
 			By("Verifying virt-launcher-pod-mutator webhook is deleted")
 			Eventually(func() error {
@@ -1865,7 +1867,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "webhook should be deleted when feature gate is disabled")
 
 			By("Re-enabling ContainerPathVolumes feature gate")
-			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
+			kvconfig.EnableFeatureGate(fgstorage.ContainerPathVolumesGate)
 
 			By("Verifying virt-launcher-pod-mutator webhook is recreated")
 			Eventually(func() error {
@@ -2160,17 +2162,17 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		var fgDisabled bool
 
 		BeforeEach(func() {
-			fgDisabled = !checks.HasFeature(featuregate.Template)
+			fgDisabled = !checks.HasFeature(fgcompute.Template)
 			if fgDisabled {
-				kvconfig.EnableFeatureGate(featuregate.Template)
+				kvconfig.EnableFeatureGate(fgcompute.Template)
 			}
 		})
 
 		AfterEach(func() {
 			if fgDisabled {
-				kvconfig.DisableFeatureGate(featuregate.Template)
+				kvconfig.DisableFeatureGate(fgcompute.Template)
 			} else {
-				kvconfig.EnableFeatureGate(featuregate.Template)
+				kvconfig.EnableFeatureGate(fgcompute.Template)
 			}
 		})
 
@@ -2203,9 +2205,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			eventuallyVirtTemplateDeploymentsNotFound()
 		},
 			Entry("when feature gate is toggled",
-				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
-				func() { kvconfig.EnableFeatureGate(featuregate.Template) },
-				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
+				func() { kvconfig.DisableFeatureGate(fgcompute.Template) },
+				func() { kvconfig.EnableFeatureGate(fgcompute.Template) },
+				func() { kvconfig.DisableFeatureGate(fgcompute.Template) },
 			),
 			Entry("when VirtTemplateDeployment.Enabled is toggled",
 				func() { setVirtTemplateDeploymentEnabled(false) },

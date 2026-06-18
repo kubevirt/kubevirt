@@ -16,8 +16,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -44,9 +43,9 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		fgWasOff = !checks.HasFeature(featuregate.HostDevicesGate)
+		fgWasOff = !checks.HasFeature(legacy.HostDevicesGate)
 		if fgWasOff {
-			kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
+			kvconfig.EnableFeatureGate(legacy.HostDevicesGate)
 		}
 
 		kv := libkubevirt.GetCurrentKv(virtClient)
@@ -55,7 +54,7 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 
 	AfterEach(func() {
 		if fgWasOff {
-			kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
+			kvconfig.DisableFeatureGate(legacy.HostDevicesGate)
 		}
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration

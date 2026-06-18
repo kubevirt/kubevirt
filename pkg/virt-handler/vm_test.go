@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -4113,7 +4114,7 @@ var _ = Describe("updateSoftwareEmulationCondition", func() {
 	BeforeEach(func() {
 		configWithCrossPlatformFG, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+				FeatureGates: []string{fgcompute.CrossArchitectureVirtualization},
 			},
 		})
 	})

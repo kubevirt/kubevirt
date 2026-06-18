@@ -56,7 +56,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -157,7 +158,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient.EXPECT().GeneratedKubeVirtClient().Return(virtfakeClient).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstBinding},
+				FeatureGates: []string{network.PasstBinding},
 			},
 		}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
@@ -716,7 +717,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	It("should put StallDetectorOptions on the wire when MigrationStallDetection feature gate is enabled", func() {
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstBinding, featuregate.MigrationStallDetection},
+				FeatureGates: []string{network.PasstBinding, compute.MigrationStallDetection},
 			},
 		}
 		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)

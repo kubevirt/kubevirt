@@ -42,7 +42,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
@@ -239,7 +239,7 @@ var _ = Describe("Node-labeller ", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{string(featuregate.CrossArchitectureVirtualization)},
+						FeatureGates: []string{string(compute.CrossArchitectureVirtualization)},
 					},
 				},
 			},
@@ -278,7 +278,7 @@ var _ = Describe("Node-labeller ", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{string(featuregate.CrossArchitectureVirtualization)},
+						FeatureGates: []string{string(compute.CrossArchitectureVirtualization)},
 					},
 				},
 			},
