@@ -92,6 +92,14 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 		Expect(graceCauses(newGraceSpec(), config)).To(BeEmpty())
 	})
 
+	It("accepts a versioned virt machine type", func() {
+		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+		spec := newGraceSpec()
+		spec.Domain.Machine.Type = "virt-6.2"
+
+		Expect(graceCauses(spec, config)).To(BeEmpty())
+	})
+
 	It("accepts a Grace host device request that satisfies the static baseline", func() {
 		config := newGraceConfig("10DE:2941", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
 		spec := newGraceSpec()
@@ -167,6 +175,24 @@ var _ = Describe("GraceIOVirtualization admission", func() {
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(Equal("spec.domain.devices"))
 		Expect(causes[0].Message).To(ContainSubstring(featuregate.IOMMUFDGate))
+	})
+
+	It("rejects placing Grace PCI devices on the root complex", func() {
+		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+
+		causes := validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), newGraceSpec(), map[string]string{v1.PlacePCIDevicesOnRootComplex: "true"}, config)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Field).To(Equal("metadata.annotations[kubevirt.io/placePCIDevicesOnRootComplex]"))
+		Expect(causes[0].Message).To(ContainSubstring("root complex"))
+	})
+
+	It("rejects disabling PCI hole64 for Grace PCI devices", func() {
+		config := newGraceConfig("10DE:2342", featuregate.GraceIOVirtualization, featuregate.PCINUMAAwareTopologyEnabled, featuregate.IOMMUFDGate)
+
+		causes := validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), newGraceSpec(), map[string]string{v1.DisablePCIHole64: "true"}, config)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Field).To(Equal("metadata.annotations[kubevirt.io/disablePCIHole64]"))
+		Expect(causes[0].Message).To(ContainSubstring("64-bit PCI hole"))
 	})
 
 	It("does not classify DRA claim requests as Grace PCI host devices", func() {

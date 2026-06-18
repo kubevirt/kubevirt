@@ -85,7 +85,7 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 		})
 	}
 
-	if effectiveGraceMachineType(spec, config) != graceVirtMachineType {
+	if !strings.HasPrefix(effectiveGraceMachineType(spec, config), graceVirtMachineType) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("GraceIOVirtualization requires %q machine type", graceVirtMachineType),
@@ -119,6 +119,30 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 		})
 	}
 
+	return causes
+}
+
+func validateGraceIOVirtualizationAnnotations(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, annotations map[string]string, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	graceRequests, _ := gracePCIDeviceRequests(k8sfield.NewPath("spec"), spec, config.GetPermittedHostDevices())
+	if len(graceRequests) == 0 {
+		return nil
+	}
+
+	var causes []metav1.StatusCause
+	if annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "GraceIOVirtualization is not compatible with placing PCI devices on the root complex",
+			Field:   field.Child("annotations").Key(v1.PlacePCIDevicesOnRootComplex).String(),
+		})
+	}
+	if annotations[v1.DisablePCIHole64] == "true" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "GraceIOVirtualization requires the 64-bit PCI hole",
+			Field:   field.Child("annotations").Key(v1.DisablePCIHole64).String(),
+		})
+	}
 	return causes
 }
 
