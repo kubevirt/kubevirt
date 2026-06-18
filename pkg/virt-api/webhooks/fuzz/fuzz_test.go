@@ -22,7 +22,6 @@ package fuzz
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -151,41 +150,30 @@ func FuzzAdmitter(f *testing.F) {
 				randfill.NewWithSeed(seed).NilChance(0.1).NumElements(0, 15).Funcs(
 					tc.fuzzFuncs...,
 				).Fill(obj)
-				request := toAdmissionReview(obj, tc.gvk)
+				raw, err := json.Marshal(obj)
+				if err != nil {
+					t.Fatalf("seed %d: json.Marshal failed: %v", seed, err)
+				}
+				request := toAdmissionReviewRaw(raw, tc.gvk)
 				config := fuzzKubeVirtConfig(seed)
 				startTime := time.Now()
 				response := tc.admit(config, request)
-				endTime := time.Now()
-				if startTime.Add(timeoutDuration).Before(endTime) {
-					fmt.Printf("Execution time %v is more than %v\n", endTime.Sub(startTime), timeoutDuration)
-					fmt.Println(response.Result.Message)
-					j, err := json.MarshalIndent(obj, "", "  ")
-					if err != nil {
-						panic(err)
-					}
-					fmt.Println(string(j))
-					t.Fail()
+				elapsed := time.Since(startTime)
+				if elapsed > timeoutDuration {
+					t.Errorf("SLOW seed=%d case=%s elapsed=%v threshold=%v objBytes=%d response=%q",
+						seed, tc.name, elapsed, timeoutDuration, len(raw), truncateMessage(response))
 				}
 
 				if tc.debug && !response.Allowed {
-					fmt.Println(response.Result.Message)
-					j, err := json.MarshalIndent(obj, "", "  ")
-					if err != nil {
-						panic(err)
-					}
-					fmt.Println(string(j))
+					t.Logf("REJECTED seed=%d case=%s objBytes=%d response=%q",
+						seed, tc.name, len(raw), truncateMessage(response))
 				}
 			})
 		}
 	})
 }
 
-func toAdmissionReview(obj interface{}, gvr metav1.GroupVersionResource) *admissionv1.AdmissionReview {
-	raw, err := json.Marshal(obj)
-	if err != nil {
-		panic(err)
-	}
-
+func toAdmissionReviewRaw(raw []byte, gvr metav1.GroupVersionResource) *admissionv1.AdmissionReview {
 	return &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
 			Resource: gvr,
@@ -233,6 +221,19 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 	).Fill(kv)
 	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 	return config
+}
+
+const maxMessageLen = 1000
+
+func truncateMessage(resp *admissionv1.AdmissionResponse) string {
+	if resp == nil || resp.Result == nil {
+		return "<nil>"
+	}
+	msg := resp.Result.Message
+	if len(msg) > maxMessageLen {
+		return msg[:maxMessageLen] + "..."
+	}
+	return msg
 }
 
 func fuzzFuncs(options ...fuzzOption) []interface{} {
