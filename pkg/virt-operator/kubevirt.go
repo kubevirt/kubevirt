@@ -31,6 +31,7 @@ import (
 
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -972,6 +973,13 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	// 4. execute a job to generate the install strategy for the target version of KubeVirt that's being installed/updated
 	job, err := c.generateInstallStrategyJob(kv.Spec.Infra, config)
 	if err != nil {
+		return nil, true, err
+	}
+	customizer, err := apply.NewCustomizer(kv.Spec.CustomizeComponents)
+	if err != nil {
+		return nil, true, err
+	}
+	if err := customizer.GenericApplyPatches([]*batchv1.Job{job}); err != nil {
 		return nil, true, err
 	}
 	c.kubeVirtExpectations.InstallStrategyJob.RaiseExpectations(kvkey, 1, 0)
