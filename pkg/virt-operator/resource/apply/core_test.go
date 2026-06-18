@@ -971,6 +971,20 @@ var _ = Describe("Apply", func() {
 			}
 		},
 			Entry("should not populate synchronization address, if no pod found", nil, "", ""),
+			Entry("should not populate synchronization address, if pod is terminating", &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              synchronizationControllerPodName,
+					Namespace:         kubevirtNamespace,
+					DeletionTimestamp: pointer.P(metav1.Now()),
+				},
+				Status: corev1.PodStatus{
+					PodIPs: []corev1.PodIP{
+						{
+							IP: "1.1.1.1",
+						},
+					},
+				},
+			}, "", ""),
 			Entry("if pod found without migration network, without ip address", &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      synchronizationControllerPodName,
