@@ -55,6 +55,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.RealtimeLabel,
 	kubevirtv1.SEVLabel,
 	kubevirtv1.SEVESLabel,
+	kubevirtv1.CCALabel,
 	kubevirtv1.SEVSNPLabel,
 	kubevirtv1.TDXLabel,
 	kubevirtv1.HostModelCPULabel,
@@ -82,6 +83,7 @@ type NodeLabeller struct {
 	supportedMachines       []libvirtxml.CapsGuestMachine
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
+	CCA                     CCAConfiguration
 	SecureExecution         SecureExecutionConfiguration
 	TDX                     TDXConfiguration
 	arch                    archLabeller
@@ -295,6 +297,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 	if n.SEV.SupportedES == "yes" {
 		newLabels[kubevirtv1.SEVESLabel] = "true"
+	}
+
+	if n.CCA.Supported == "yes" {
+		newLabels[kubevirtv1.CCALabel] = "true"
 	}
 
 	if n.SEV.SupportedSNP == "yes" {
