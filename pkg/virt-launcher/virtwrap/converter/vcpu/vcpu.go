@@ -653,6 +653,8 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 		return fmt.Errorf("passing through a numa topology is restricted to VMIs with hugepages enabled")
 	}
 	domain.MemoryBacking.Allocation = &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate}
+	// Reset any pre-populated page entries; NUMA passthrough sets per-node entries below.
+	domain.MemoryBacking.HugePages.HugePage = nil
 
 	memory, err := QuantityToByte(*GetVirtualMemory(vmi))
 	if err != nil {
@@ -713,9 +715,11 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 	return nil
 }
 
+const DynamicHugepagesPrefix = "devices.kubevirt.io/dynamic-hugepages-"
+
 func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (size uint64, unit string, enabled bool, err error) {
 	if domain.MemoryBacking != nil && domain.MemoryBacking.HugePages != nil {
-		if vmi.Spec.Domain.Memory.Hugepages != nil {
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 			quantity, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize)
 			if err != nil {
 				return 0, "", false, fmt.Errorf("could not parse hugepage value %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
@@ -726,8 +730,47 @@ func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (siz
 			}
 			return size.Value, "b", true, nil
 		}
+		if pageSize := DynamicHugepagePageSizeBytes(vmi); pageSize > 0 {
+			return pageSize, "b", true, nil
+		}
 	}
 	return 0, "b", false, nil
+}
+
+// DynamicHugepagePageSizeBytes inspects the VMI resource limits/requests for a
+// dynamic-hugepages-* device and returns the page size in bytes.
+func DynamicHugepagePageSizeBytes(vmi *v12.VirtualMachineInstance) uint64 {
+	for resourceName := range vmi.Spec.Domain.Resources.Limits {
+		if strings.HasPrefix(string(resourceName), DynamicHugepagesPrefix) {
+			return LabelToBytes(strings.TrimPrefix(string(resourceName), DynamicHugepagesPrefix))
+		}
+	}
+	for resourceName := range vmi.Spec.Domain.Resources.Requests {
+		if strings.HasPrefix(string(resourceName), DynamicHugepagesPrefix) {
+			return LabelToBytes(strings.TrimPrefix(string(resourceName), DynamicHugepagesPrefix))
+		}
+	}
+	return 0
+}
+
+// LabelToBytes converts a resource label suffix like "2mi" or "1gi" to bytes.
+func LabelToBytes(label string) uint64 {
+	label = strings.ToLower(label)
+	if strings.HasSuffix(label, "gi") {
+		val, err := strconv.ParseUint(strings.TrimSuffix(label, "gi"), 10, 64)
+		if err != nil {
+			return 0
+		}
+		return val * 1024 * 1024 * 1024
+	}
+	if strings.HasSuffix(label, "mi") {
+		val, err := strconv.ParseUint(strings.TrimSuffix(label, "mi"), 10, 64)
+		if err != nil {
+			return 0
+		}
+		return val * 1024 * 1024
+	}
+	return 0
 }
 
 func isAMD64VMI(vmi *v12.VirtualMachineInstance) bool {
