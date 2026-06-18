@@ -405,6 +405,28 @@ var _ = Describe("Notify", func() {
 			Expect(ok).To(BeTrue())
 			Expect(backupMeta.Completed).To(BeTrue())
 		})
+
+		It("should persist completed migration stats from job completion events", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation:      libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				DowntimeSet:    true,
+				Downtime:       150,
+				DowntimeNetSet: true,
+				DowntimeNet:    120,
+			}
+			metadataCache := metadata.NewCache()
+			libvirtEvent := &libvirt.DomainEventJobCompleted{Info: domainJobInfo}
+
+			shouldAdd := processJobCompletedEvent(api.NewMinimalDomain("test"), nil, libvirtEvent, metadataCache)
+
+			completedStats, exists := metadataCache.CompletedMigrationStats.Load()
+			Expect(shouldAdd).To(BeFalse())
+			Expect(exists).To(BeTrue())
+			Expect(completedStats.DowntimeSet).To(BeTrue())
+			Expect(completedStats.Downtime).To(Equal(uint64(150)))
+			Expect(completedStats.DowntimeNetSet).To(BeTrue())
+			Expect(completedStats.DowntimeNet).To(Equal(uint64(120)))
+		})
 	})
 
 	Describe("K8s Events", func() {
