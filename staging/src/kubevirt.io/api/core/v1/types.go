@@ -21,6 +21,11 @@ package v1
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
+
+ NOTE: Place marker directives (+kubebuilder, +optional, etc.) after a "// ---"
+ separator to keep them out of the generated swagger docs. The swagger-doc tool
+ stops parsing at "---", while controller-gen still processes markers in the
+ same comment group.
 */
 
 import (
@@ -2626,9 +2631,11 @@ type Flags struct {
 }
 
 type CustomizeComponentsPatch struct {
+	// ResourceName is the name of the component resource to customize.
 	// ---
 	// +kubebuilder:validation:MinLength=1
 	ResourceName string `json:"resourceName"`
+	// ResourceType is the type of the component resource to customize (e.g. Deployment, Service).
 	// ---
 	// +kubebuilder:validation:MinLength=1
 	ResourceType string    `json:"resourceType"`

@@ -660,7 +660,10 @@ func (Flags) SwaggerDoc() map[string]string {
 }
 
 func (CustomizeComponentsPatch) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"resourceName": "ResourceName is the name of the component resource to customize.",
+		"resourceType": "ResourceType is the type of the component resource to customize (e.g. Deployment, Service).",
+	}
 }
 
 func (GenerationStatus) SwaggerDoc() map[string]string {
