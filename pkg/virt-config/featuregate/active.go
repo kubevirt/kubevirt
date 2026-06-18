@@ -242,12 +242,27 @@ const (
 	// Plugins enables the Plugin CRD for declarative VM extension
 	// via domain hooks, node hooks, and admission references (VEP-190).
 	PluginsGate = "Plugins"
+
 	// Owner: sig-compute / @fanzhangio
 	// Alpha: v1.9.0
 	// GraceIOVirtualization enables GPU passthrough optimized for NVIDIA Grace
 	// platforms (i.e ARM64 architectures by utilizing SMMUv3 IOMMU).
 	// It utilizes SMMUv3 IOMMU, IOMMUFD device binding on ARM64, and ACPI Generic Initiator NUMA topology.
 	GraceIOVirtualization = "GraceIOVirtualization"
+
+	// Owner: sig-compute / @fossedihelm
+	// Alpha: v1.9.0
+	//
+	// IOMMUFD enables the IOMMUFD device plugin for passthrough devices.
+	// When enabled, virt-controller requests devices.kubevirt.io/iommufd for
+	// every launcher pod. Nodes without /dev/iommu (kernel <6.2) will report
+	// unhealthy devices, making pods unschedulable there.
+	// This feature also emits domain-level <iommufd enabled='yes' fdgroup='iommu'/>
+	// and uses virDomainFDAssociate, which require a libvirt/QEMU stack that supports
+	// fdgroup-based IOMMUFD, currently libvirt >= 12.2. Enable this gate only on
+	// clusters where target nodes and virt-launcher images provide compatible
+	// kernel, libvirt, and QEMU support.
+	IOMMUFDGate = "IOMMUFD"
 )
 
 func init() {
@@ -295,4 +310,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 }
