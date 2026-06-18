@@ -40,6 +40,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -250,7 +251,8 @@ type LibvirtDomainManager struct {
 	hypervisorDeviceAvailable bool
 	hypervisorName            string
 
-	abortWg sync.WaitGroup
+	guestAgentProbePaused atomic.Bool
+	abortWg               sync.WaitGroup
 
 	// iommuFD holds the IOMMUFD file descriptor received from the device plugin
 	// via SCM_RIGHTS. A value of -1 means no IOMMUFD FD is available.
@@ -689,13 +691,17 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 }
 
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
+	if l.guestAgentProbePaused.Load() {
+		log.Log.V(4).Infof("GuestPing for %s skipped: guest agent probe is paused via annotation", domainName)
+		return nil
+	}
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
 	if err == nil {
 		return nil
 	}
 	if isGuestAgentUnavailableError(err) && (l.isLiveMigrationInProgress() || l.isPausedButHealthy(domainName)) {
-		log.Log.V(4).Infof("GuestPing for %s failed with %v but the VM is healthy although paused on this pod; suppressing probe error", domainName, err)
+		log.Log.V(4).Infof("GuestPing for %s failed with %v but the VM is healthy; suppressing probe error", domainName, err)
 		return nil
 	}
 	return err
@@ -1450,6 +1456,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	l.refreshDeviceAliasMap(dom)
 	l.syncGracePeriod(vmi)
+	l.syncGuestAgentProbePaused(vmi)
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
@@ -2847,6 +2854,14 @@ func (l *LibvirtDomainManager) syncGracePeriod(vmi *v1.VirtualMachineInstance) {
 			log.Log.Object(vmi).Infof("Set new termination grace period: %d", gracePeriod)
 		}
 	})
+}
+
+func (l *LibvirtDomainManager) syncGuestAgentProbePaused(vmi *v1.VirtualMachineInstance) {
+	paused, _ := strconv.ParseBool(vmi.Annotations[v1.PauseGuestAgentProbesAnnotation])
+	wasPaused := l.guestAgentProbePaused.Swap(paused)
+	if paused != wasPaused {
+		log.Log.Object(vmi).Infof("Guest agent probe pause state changed: paused=%t", paused)
+	}
 }
 
 func getDiskTargetPathFromImageVolumeView(volumeIndex int, volumePath string) (*safepath.Path, error) {
