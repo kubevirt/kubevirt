@@ -20,6 +20,7 @@
 package converter
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -106,6 +107,44 @@ var _ = Describe("Grace host device verification", func() {
 })
 
 var _ = Describe("Grace sysfs runtime info", func() {
+	It("discovers Generic Initiator NUMA nodes from has_generic_initiator", func() {
+		nodePath := filepath.Join(GinkgoT().TempDir(), "sys", "devices", "system", "node")
+		Expect(os.MkdirAll(nodePath, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(nodePath, "has_generic_initiator"), []byte("8-10,12\n"), 0644)).To(Succeed())
+		provider := sysfsGraceRuntimeInfoProvider{nodePath: nodePath}
+
+		nodes, err := provider.GuestInitiatorHostNodes()
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(nodes).To(Equal([]uint32{8, 9, 10, 12}))
+	})
+
+	It("correlates Generic Initiator NUMA nodes with PCI BDF symlinks", func() {
+		basePath := GinkgoT().TempDir()
+		nodePath := filepath.Join(basePath, "sys", "devices", "system", "node")
+		pciDevicesPath := filepath.Join(basePath, "sys", "bus", "pci", "devices")
+		devicePath := filepath.Join(pciDevicesPath, "0000:81:00.0")
+		otherDevicePath := filepath.Join(pciDevicesPath, "0000:82:00.0")
+		Expect(os.MkdirAll(devicePath, 0755)).To(Succeed())
+		Expect(os.MkdirAll(otherDevicePath, 0755)).To(Succeed())
+		Expect(os.MkdirAll(nodePath, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(nodePath, "has_generic_initiator"), []byte("2-4,9\n"), 0644)).To(Succeed())
+		for _, node := range []uint32{2, 3, 9} {
+			nodeDir := filepath.Join(nodePath, fmt.Sprintf("node%d", node))
+			Expect(os.MkdirAll(nodeDir, 0755)).To(Succeed())
+			Expect(os.Symlink(devicePath, filepath.Join(nodeDir, "0000:81:00.0"))).To(Succeed())
+		}
+		nodeDir := filepath.Join(nodePath, "node4")
+		Expect(os.MkdirAll(nodeDir, 0755)).To(Succeed())
+		Expect(os.Symlink(otherDevicePath, filepath.Join(nodeDir, "0000:82:00.0"))).To(Succeed())
+		provider := sysfsGraceRuntimeInfoProvider{pciDevicesPath: pciDevicesPath, nodePath: nodePath}
+
+		nodes, err := provider.GuestInitiatorHostNodesForDevice("0000:81:00.0")
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(nodes).To(Equal([]uint32{2, 3, 9}))
+	})
+
 	It("calculates pcihole64 size from 64-bit prefetchable BAR resources", func() {
 		pciDevicesPath := filepath.Join(GinkgoT().TempDir(), "sys", "bus", "pci", "devices")
 		devicePath := filepath.Join(pciDevicesPath, "0000:81:00.0")
@@ -308,6 +347,46 @@ var _ = Describe("Grace domain conversion", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(domainSpec.Devices.IOMMU).To(HaveLen(4))
 		Expect(rootPCIController(domainSpec).PCIHole64).To(Equal(&api.PCIHole64{Value: 4294967296, Unit: "KiB"}))
+	})
+
+	It("uses per-device correlated host Generic Initiator NUMA nodes", func() {
+		fakeRuntime.addGraceGPU("0000:81:00.0", 0, 16*1024*1024*1024)
+		fakeRuntime.addGraceGPU("0000:82:00.0", 0, 16*1024*1024*1024)
+		fakeRuntime.giNodesByBDF["0000:81:00.0"] = uint32Range(10, 17)
+		fakeRuntime.giNodesByBDF["0000:82:00.0"] = uint32Range(2, 9)
+		fakeRuntime.addDistances(append([]uint32{0}, uint32Range(2, 17)...))
+		for _, node := range uint32Range(10, 17) {
+			fakeRuntime.distances[0][node] = 40
+		}
+		for _, node := range uint32Range(2, 9) {
+			fakeRuntime.distances[0][node] = 80
+		}
+		domainSpec := newGraceConversionDomain(
+			newGraceTestHostDevice("gpu-gpu0", api.HostDevicePCI, "0x0000", "0x81", "0x00", "0x0"),
+			newGraceTestHostDevice("gpu-gpu1", api.HostDevicePCI, "0x0000", "0x82", "0x00", "0x0"),
+		)
+
+		err := configureGraceIOVirtualization(domainSpec, []string{"gpu-gpu0", "gpu-gpu1"}, true)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(domainSpec.Devices.HostDevices[0].ACPI.NodeSet).To(Equal("1-8"))
+		Expect(domainSpec.Devices.HostDevices[1].ACPI.NodeSet).To(Equal("9-16"))
+		Expect(findGraceSibling(domainSpec.CPU.NUMA.Cells[0].Distances.Siblings, "1").Value).To(Equal(uint64(40)))
+		Expect(findGraceSibling(domainSpec.CPU.NUMA.Cells[0].Distances.Siblings, "9").Value).To(Equal(uint64(80)))
+	})
+
+	It("fails when Generic Initiator NUMA correlation is partial", func() {
+		fakeRuntime.addGraceGPU("0000:81:00.0", 0, 16*1024*1024*1024)
+		fakeRuntime.addGraceGPU("0000:82:00.0", 0, 16*1024*1024*1024)
+		fakeRuntime.giNodesByBDF["0000:81:00.0"] = uint32Range(2, 9)
+		domainSpec := newGraceConversionDomain(
+			newGraceTestHostDevice("gpu-gpu0", api.HostDevicePCI, "0x0000", "0x81", "0x00", "0x0"),
+			newGraceTestHostDevice("gpu-gpu1", api.HostDevicePCI, "0x0000", "0x82", "0x00", "0x0"),
+		)
+
+		err := configureGraceIOVirtualization(domainSpec, []string{"gpu-gpu0", "gpu-gpu1"}, true)
+
+		Expect(err).To(MatchError(ContainSubstring("correlated for some but not all Grace hostdevs")))
 	})
 
 	It("fails when the IOMMUFD file descriptor is not available", func() {
@@ -517,6 +596,7 @@ type fakeGraceRuntimeInfoProvider struct {
 	pciHoleBytes map[string]uint64
 	capabilities map[string]gracePCICapabilities
 	giNodes      []uint32
+	giNodesByBDF map[string][]uint32
 	distances    map[uint32]map[uint32]uint64
 	smmuv3       bool
 }
@@ -527,6 +607,7 @@ func newFakeGraceRuntimeInfoProvider() *fakeGraceRuntimeInfoProvider {
 		numaNodes:    map[string]uint32{},
 		pciHoleBytes: map[string]uint64{},
 		capabilities: map[string]gracePCICapabilities{},
+		giNodesByBDF: map[string][]uint32{},
 		distances:    map[uint32]map[uint32]uint64{},
 		smmuv3:       true,
 	}
@@ -583,6 +664,10 @@ func (p *fakeGraceRuntimeInfoProvider) PCICapabilities(bdf string) (gracePCICapa
 
 func (p *fakeGraceRuntimeInfoProvider) GuestInitiatorHostNodes() ([]uint32, error) {
 	return p.giNodes, nil
+}
+
+func (p *fakeGraceRuntimeInfoProvider) GuestInitiatorHostNodesForDevice(bdf string) ([]uint32, error) {
+	return p.giNodesByBDF[bdf], nil
 }
 
 func (p *fakeGraceRuntimeInfoProvider) NUMADistances(node uint32) (map[uint32]uint64, error) {
