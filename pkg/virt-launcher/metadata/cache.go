@@ -23,16 +23,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 type Cache struct {
-	UID               SafeData[types.UID]
-	Migration         SafeData[api.MigrationMetadata]
-	GracePeriod       SafeData[api.GracePeriodMetadata]
-	AccessCredential  SafeData[api.AccessCredentialMetadata]
-	MemoryDump        SafeData[api.MemoryDumpMetadata]
-	Backup            SafeData[api.BackupMetadata]
-	GuestPanicHandled SafeData[bool]
+	UID                     SafeData[types.UID]
+	Migration               SafeData[api.MigrationMetadata]
+	GracePeriod             SafeData[api.GracePeriodMetadata]
+	AccessCredential        SafeData[api.AccessCredentialMetadata]
+	MemoryDump              SafeData[api.MemoryDumpMetadata]
+	Backup                  SafeData[api.BackupMetadata]
+	GuestPanicHandled       SafeData[bool]
+	CompletedMigrationStats SafeData[stats.DomainJobInfo]
 
 	notificationSignal chan struct{}
 }

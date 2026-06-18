@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -709,6 +710,9 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		} else {
 			log.Log.Warning("Received migration completed event, but no migration is being tracked")
 		}
+		completedStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(&jobCompletedEvent.Info)
+		metadataCache.CompletedMigrationStats.Store(*completedStats)
+		domain.Status.MigrationStats = completedStats
 		return false
 	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
 		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
