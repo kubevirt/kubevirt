@@ -3440,6 +3440,53 @@ var _ = Describe("Manager", func() {
 				Expect(manager.GuestPing(testDomainName)).To(Succeed())
 			})
 		})
+
+		Context("when guest agent probes are paused by annotation", func() {
+			It("should skip probe entirely when paused", func() {
+				manager, _ := newLibvirtDomainManagerDefault()
+				manager.(*LibvirtDomainManager).guestAgentProbePaused.Store(true)
+				// QemuAgentCommand must not be called when the probe is paused.
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+			})
+
+			It("should resume normal probe behavior when unpaused", func() {
+				agentErr := libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}
+				manager, _ := newLibvirtDomainManagerDefault()
+				manager.(*LibvirtDomainManager).guestAgentProbePaused.Store(true)
+				// Paused: no QemuAgentCommand call expected.
+				Expect(manager.GuestPing(testDomainName)).To(Succeed())
+
+				manager.(*LibvirtDomainManager).guestAgentProbePaused.Store(false)
+				mockLibvirt.ConnectionEXPECT().QemuAgentCommand(pingCmd, testDomainName).Return("", agentErr)
+				mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+				Expect(manager.GuestPing(testDomainName)).To(MatchError(agentErr))
+			})
+		})
+	})
+
+	Context("syncGuestAgentProbePaused", func() {
+		DescribeTable("should parse annotation value correctly",
+			func(annotations map[string]string, expected bool) {
+				manager, _ := newLibvirtDomainManagerDefault()
+				ldm := manager.(*LibvirtDomainManager)
+				ldm.guestAgentProbePaused.Store(!expected)
+				vmi := &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: annotations,
+					},
+				}
+				ldm.syncGuestAgentProbePaused(vmi)
+				Expect(ldm.guestAgentProbePaused.Load()).To(Equal(expected))
+			},
+			Entry("annotation 'true'", map[string]string{v1.PauseGuestAgentProbesAnnotation: "true"}, true),
+			Entry("annotation '1'", map[string]string{v1.PauseGuestAgentProbesAnnotation: "1"}, true),
+			Entry("annotation 'TRUE'", map[string]string{v1.PauseGuestAgentProbesAnnotation: "TRUE"}, true),
+			Entry("annotation 'false'", map[string]string{v1.PauseGuestAgentProbesAnnotation: "false"}, false),
+			Entry("annotation '0'", map[string]string{v1.PauseGuestAgentProbesAnnotation: "0"}, false),
+			Entry("annotation non-bool value", map[string]string{v1.PauseGuestAgentProbesAnnotation: "foo"}, false),
+			Entry("nil annotations map", nil, false),
+		)
 	})
 
 	Context("FirmwareAutoSelection feature gate integration", func() {
