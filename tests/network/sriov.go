@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -99,7 +99,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
 			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 
-		checks.FailTestIfNoFeatureGate(featuregate.ExternalNetResourceInjection)
+		checks.FailTestIfNoFeatureGate(network.ExternalNetResourceInjection)
 	})
 
 	Context("VMI connected to single SRIOV network", func() {

@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
@@ -231,7 +231,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
 			if featureGateEnabled {
-				enableFeatureGate(featuregate.DecentralizedLiveMigration)
+				enableFeatureGate(compute.DecentralizedLiveMigration)
 			}
 			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config, nil)
 			resp := admitter.Admit(context.Background(), ar)
@@ -293,7 +293,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		When("MigrationPriorityQueue feature gate is disabled", func() {
 			BeforeEach(func() {
 				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.MigrationPriorityQueue}
+				kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{compute.MigrationPriorityQueue}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			})
 
@@ -317,7 +317,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		})
 		When("MigrationPriorityQueue feature gate is enabled", func() {
 			BeforeEach(func() {
-				enableFeatureGate(featuregate.MigrationPriorityQueue)
+				enableFeatureGate(compute.MigrationPriorityQueue)
 			})
 
 			DescribeTable("should", func(user string, matcher types.GomegaMatcher) {

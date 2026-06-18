@@ -15,7 +15,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -171,7 +171,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 		})
 
 		DescribeTable(" the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
-			config.EnableFeatureGate(featuregate.HypervStrictCheckGate)
+			config.EnableFeatureGate(legacy.HypervStrictCheckGate)
 			vmi := libvmifact.NewAlpine()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{

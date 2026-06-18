@@ -11,7 +11,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
@@ -56,7 +56,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		Expect(checks.HasFeature(featuregate.SnapshotGate)).To(BeTrue(),
+		Expect(checks.HasFeature(storage.SnapshotGate)).To(BeTrue(),
 			"SnapshotGate must be enabled by suite setup")
 
 		format.MaxLength = 0

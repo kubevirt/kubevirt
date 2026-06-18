@@ -17,19 +17,19 @@
  *
  */
 
-package featuregate
+package legacy
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+const PSA = "PSA"
 
-func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedMacvtap != nil {
-			return true
-		}
-	}
-	return false
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: PSA, State: featuregate.GA})
+}
+
+// PSAEnabled returns true when the PSA feature gate is enabled.
+func (g LegacyFeatureGates) PSAEnabled() bool {
+	return featuregate.GateEnabled(PSA, g.ConfigReader)
 }

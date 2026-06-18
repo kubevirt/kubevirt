@@ -32,7 +32,7 @@ import (
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -49,7 +49,7 @@ import (
 var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, func() {
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.PluginsGate)
+		config.EnableFeatureGate(legacy.PluginsGate)
 	})
 
 	createPlugin := func(plugin *pluginv1alpha1.Plugin) {

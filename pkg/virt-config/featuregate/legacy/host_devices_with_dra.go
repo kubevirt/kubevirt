@@ -17,22 +17,23 @@
  *
  */
 
-package featuregate
+package legacy
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-const (
-	PasstDiscontinueMessage      = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
-	PasstIPStackMigrationMessage = "Seamless migration with passt network binding plugin is no longer supported since KubeVirt v1.8. Please use the passt core binding instead."
-)
+// Owner: @alaypatel07
+// Alpha: v1.6.0
+//
+// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices.
+const HostDevicesWithDRAGate = "HostDevicesWithDRA"
 
-func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedPasst != nil {
-			return true
-		}
-	}
-	return false
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: HostDevicesWithDRAGate, State: featuregate.Alpha})
+}
+
+// HostDevicesWithDRAEnabled returns true when the HostDevicesWithDRA feature gate is enabled.
+func (g LegacyFeatureGates) HostDevicesWithDRAEnabled() bool {
+	return featuregate.GateEnabled(HostDevicesWithDRAGate, g.ConfigReader)
 }

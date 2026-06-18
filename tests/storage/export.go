@@ -61,7 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -2347,15 +2347,15 @@ var _ = Describe(SIG("Export", func() {
 				Fail("Fail test when Filesystem storage is not present")
 			}
 
-			fgDisabled = !checks.HasFeature(featuregate.OCIExport)
+			fgDisabled = !checks.HasFeature(compute.OCIExport)
 			if fgDisabled {
-				kvconfig.EnableFeatureGate(featuregate.OCIExport)
+				kvconfig.EnableFeatureGate(compute.OCIExport)
 			}
 		})
 
 		AfterEach(func() {
 			if fgDisabled {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
+				kvconfig.DisableFeatureGate(compute.OCIExport)
 			}
 		})
 
@@ -2430,7 +2430,7 @@ var _ = Describe(SIG("Export", func() {
 		})
 
 		It("should not include OCI manifest link when feature gate is disabled", func() {
-			kvconfig.DisableFeatureGate(featuregate.OCIExport)
+			kvconfig.DisableFeatureGate(compute.OCIExport)
 			fgDisabled = true
 
 			vm := createStoppedVM()

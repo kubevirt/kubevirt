@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var (
@@ -90,7 +90,7 @@ var _ = Describe("CBT", func() {
 		}
 		if enableFeatureGate {
 			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.IncrementalBackupGate},
+				FeatureGates: []string{storage.IncrementalBackupGate},
 			}
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)

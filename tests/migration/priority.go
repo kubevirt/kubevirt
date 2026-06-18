@@ -38,7 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -66,7 +66,7 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 				FeatureGates: []string{},
 			}
 		}
-		cfg.DeveloperConfiguration.FeatureGates = append(cfg.DeveloperConfiguration.FeatureGates, featuregate.MigrationPriorityQueue)
+		cfg.DeveloperConfiguration.FeatureGates = append(cfg.DeveloperConfiguration.FeatureGates, compute.MigrationPriorityQueue)
 		cfg.DeveloperConfiguration.LogVerbosity = &v1.LogVerbosity{
 			VirtController: 9,
 		}

@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -598,8 +598,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(exist).To(BeFalse())
 		},
 		Entry("when the AlignCPUs featureGate is disabled", "", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true),
-		Entry("when the EmulatorThreadCompleteToEvenParity annotation is not set on the kubevirt CR", featuregate.AlignCPUsGate, nil, true),
-		Entry("when isolateEmulatorThread is disabled on the VMI spec", featuregate.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
+		Entry("when the EmulatorThreadCompleteToEvenParity annotation is not set on the kubevirt CR", legacy.AlignCPUsGate, nil, true),
+		Entry("when isolateEmulatorThread is disabled on the VMI spec", legacy.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
 	)
 
 	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
@@ -610,7 +610,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.AlignCPUsGate},
+						FeatureGates: []string{legacy.AlignCPUsGate},
 					},
 				},
 			},
@@ -1147,7 +1147,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.Root},
+							FeatureGates: []string{legacy.Root},
 						},
 					},
 				},

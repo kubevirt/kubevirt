@@ -64,7 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -2735,7 +2735,7 @@ var _ = Describe("Migration watcher", func() {
 		It("should properly re-enqueue pending migrations as low priority when no new migration can start", func() {
 			setConfig(&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+					DisabledFeatureGates: []string{compute.MigrationPriorityQueue},
 				},
 			})
 			By("Creating 1 pending migration. It will be picked up by the call to Execute()")
@@ -2860,7 +2860,7 @@ var _ = Describe("Migration watcher", func() {
 			BeforeEach(func() {
 				setConfig(&v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.MigrationPriorityQueue},
+						FeatureGates: []string{compute.MigrationPriorityQueue},
 					},
 				})
 			})

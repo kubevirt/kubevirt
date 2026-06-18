@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 var _ = Describe("SEV Subresources", func() {
@@ -67,7 +67,7 @@ var _ = Describe("SEV Subresources", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.WorkloadEncryptionSEV},
+						FeatureGates: []string{legacy.WorkloadEncryptionSEV},
 					},
 				},
 			},

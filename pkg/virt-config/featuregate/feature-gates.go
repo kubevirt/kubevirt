@@ -30,25 +30,20 @@ import (
 type State string
 
 const (
-	// Alpha represents features that are under experimentation.
-	// The feature is disabled by default and can be enabled explicitly through the FG.
-	Alpha State = "Alpha"
-	// Beta represents features that are under evaluation.
-	// The feature is enabled by default and can be disabled explicitly through DisabledFeatureGates.
-	Beta State = "Beta"
-	// GA represents features that reached General Availability.
-	// GA features are considered feature-gate enabled, with no option to disable them by an FG.
-	GA State = "General Availability"
-	// Deprecated represents features that are going to be discontinued in the following release.
-	// Warn users about the eminent removal of the feature & FG.
-	// The feature is disabled by default and can be enabled explicitly through the FG.
-	Deprecated State = "Deprecated"
-	// Discontinued represents features that have been removed, with no option to enable them.
+	Alpha        State = "Alpha"
+	Beta         State = "Beta"
+	GA           State = "General Availability"
+	Deprecated   State = "Deprecated"
 	Discontinued State = "Discontinued"
 
 	WarningPattern = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
+
+// ConfigReader provides read access to cluster-level feature gate configuration.
+type ConfigReader interface {
+	GetDeveloperConfiguration() *v1.DeveloperConfiguration
+}
 
 type FeatureGate struct {
 	Name        string
@@ -59,10 +54,6 @@ type FeatureGate struct {
 
 var featureGates = map[string]FeatureGate{}
 
-// RegisterFeatureGate adds a given feature-gate to the FG list
-// In case the FG already exists (based on its name), it overrides the
-// existing FG.
-// If an inactive feature-gate is missing a message, a default one is set.
 func RegisterFeatureGate(fg FeatureGate) {
 	if fg.State != Alpha && fg.State != Beta && fg.Message == "" {
 		fg.Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
@@ -81,13 +72,10 @@ func FeatureGateInfo(featureGate string) *FeatureGate {
 	return nil
 }
 
-// GetRegisteredFeatureGates returns a copy of all registered feature gates.
 func GetRegisteredFeatureGates() map[string]FeatureGate {
 	return maps.Clone(featureGates)
 }
 
-// IsEnabled evaluates whether a feature gate is active.
-// Precedence: GA (always on) > explicit enable > explicit disable > Beta (on by default) > off.
 func IsEnabled(gate string, devConfig *v1.DeveloperConfiguration) bool {
 	fg := FeatureGateInfo(gate)
 	if fg == nil {
@@ -109,4 +97,8 @@ func IsEnabled(gate string, devConfig *v1.DeveloperConfiguration) bool {
 	}
 
 	return fg.State == Beta
+}
+
+func GateEnabled(gate string, reader ConfigReader) bool {
+	return IsEnabled(gate, reader.GetDeveloperConfiguration())
 }
