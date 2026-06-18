@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "container_path_volumes.go",
+        "declarative_hotplug_volumes.go",
+        "expand_disks.go",
+        "feature_gates.go",
+        "hotplug_volumes.go",
+        "incremental_backup.go",
+        "object_graph.go",
+        "persistent_reservation.go",
+        "snapshot.go",
+        "utility_volumes.go",
+        "virtiofs.go",
+        "virtiofs_config_volumes.go",
+        "virtiofs_storage_volume.go",
+        "vm_export.go",
+        "volume_migration.go",
+        "volumes_update_strategy.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-config/featuregate:go_default_library",
+    ],
+)

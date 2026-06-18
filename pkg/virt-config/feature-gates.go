@@ -20,6 +20,8 @@
 package virtconfig
 
 import (
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -275,4 +277,10 @@ func (config *ClusterConfig) SCSIMultiIOThreadEnabled() bool {
 
 func (config *ClusterConfig) DeclarativeVMStateEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.DeclarativeVMState)
+}
+
+// GetDeveloperConfiguration implements featuregate.ConfigReader, allowing
+// ClusterConfig to be passed directly to featuregate.GateEnabled.
+func (config *ClusterConfig) GetDeveloperConfiguration() *v1.DeveloperConfiguration {
+	return config.GetConfig().DeveloperConfiguration
 }

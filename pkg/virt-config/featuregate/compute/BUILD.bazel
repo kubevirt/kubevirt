@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bochs_display_for_efi_guests.go",
+        "cross_architecture_virtualization.go",
+        "decentralized_live_migration.go",
+        "disable_mediated_devices_handling.go",
+        "feature_gates.go",
+        "firmware_auto_selection.go",
+        "grace_io_virtualization.go",
+        "iommufd.go",
+        "live_migration.go",
+        "migration_priority_queue.go",
+        "migration_stall_detection.go",
+        "multi_architecture.go",
+        "node_restriction.go",
+        "numa.go",
+        "oci_export.go",
+        "reboot_policy.go",
+        "reserved_overhead_memlock.go",
+        "secure_execution.go",
+        "sriov_live_migration.go",
+        "template.go",
+        "vm_live_update_features.go",
+        "vm_stats_collector.go",
+        "vmi_memory_overhead_report.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-config/featuregate:go_default_library",
+    ],
+)
