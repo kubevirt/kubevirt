@@ -21,6 +21,7 @@ package converter
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -89,6 +90,7 @@ type graceRuntimeInfoProvider interface {
 	PCIHole64SizeBytes(bdf string) (uint64, error)
 	PCICapabilities(bdf string) (gracePCICapabilities, error)
 	GuestInitiatorHostNodes() ([]uint32, error)
+	GuestInitiatorHostNodesForDevice(bdf string) ([]uint32, error)
 	NUMADistances(node uint32) (map[uint32]uint64, error)
 }
 
@@ -236,13 +238,21 @@ func prepareGraceHostDevices(domainSpec *api.DomainSpec, verifiedDevices []verif
 		return nil, nil, 0, err
 	}
 
-	giHostNodes, err := graceRuntimeInfo.GuestInitiatorHostNodes()
+	giHostNodesByDevice, giNodesCorrelated, err := graceHostGINodesByDevice(verifiedDevices)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("failed to discover Grace Generic Initiator NUMA nodes: %w", err)
+		return nil, nil, 0, err
 	}
-	requiredGINodes := len(verifiedDevices) * graceGINodesPerGPU
-	if len(giHostNodes) < requiredGINodes {
-		return nil, nil, 0, fmt.Errorf("GraceIOVirtualization requires %d host Generic Initiator NUMA nodes for %d Grace GPU(s), found %d", requiredGINodes, len(verifiedDevices), len(giHostNodes))
+
+	var giHostNodes []uint32
+	if !giNodesCorrelated {
+		giHostNodes, err = graceRuntimeInfo.GuestInitiatorHostNodes()
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("failed to discover Grace Generic Initiator NUMA nodes: %w", err)
+		}
+		requiredGINodes := len(verifiedDevices) * graceGINodesPerGPU
+		if len(giHostNodes) < requiredGINodes {
+			return nil, nil, 0, fmt.Errorf("GraceIOVirtualization requires %d host Generic Initiator NUMA nodes for %d Grace GPU(s), found %d", requiredGINodes, len(verifiedDevices), len(giHostNodes))
+		}
 	}
 
 	nextGuestCellID, err := nextNUMACellID(domainSpec)
@@ -286,7 +296,12 @@ func prepareGraceHostDevices(domainSpec *api.DomainSpec, verifiedDevices []verif
 
 		guestGINodes := allocateGuestGINodes(nextGuestCellID, graceGINodesPerGPU)
 		nextGuestCellID += uint32(graceGINodesPerGPU)
-		hostGINodes := giHostNodes[index*graceGINodesPerGPU : (index+1)*graceGINodesPerGPU]
+		var hostGINodes []uint32
+		if giNodesCorrelated {
+			hostGINodes = giHostNodesByDevice[verifiedDevice.SourceAddress]
+		} else {
+			hostGINodes = giHostNodes[index*graceGINodesPerGPU : (index+1)*graceGINodesPerGPU]
+		}
 		for giIndex, guestNode := range guestGINodes {
 			guestToHostNUMA[guestNode] = hostGINodes[giIndex]
 		}
@@ -325,6 +340,51 @@ func gracePCIHole64DeviceFloorBytes(vendorID, deviceID string) uint64 {
 	// 2, and 4 TiB root pcihole64 values. If GB300 PCI IDs are added, they need
 	// their own larger floor because the guide requires 8 TiB for four GB300 GPUs.
 	return gracePCIHole64FloorBytes
+}
+
+func graceHostGINodesByDevice(verifiedDevices []verifiedGraceHostDevice) (map[string][]uint32, bool, error) {
+	hostGINodesByDevice := map[string][]uint32{}
+	hostGINodeOwners := map[uint32]string{}
+	anyCorrelated := false
+
+	for _, verifiedDevice := range verifiedDevices {
+		hostGINodes, err := graceRuntimeInfo.GuestInitiatorHostNodesForDevice(verifiedDevice.SourceAddress)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to discover Grace Generic Initiator NUMA nodes for hostdev %q at %s: %w", verifiedDevice.Alias, verifiedDevice.SourceAddress, err)
+		}
+		if len(hostGINodes) == 0 {
+			continue
+		}
+
+		anyCorrelated = true
+		sort.Slice(hostGINodes, func(i, j int) bool { return hostGINodes[i] < hostGINodes[j] })
+		if len(hostGINodes) != graceGINodesPerGPU {
+			return nil, true, fmt.Errorf("GraceIOVirtualization requires exactly %d host Generic Initiator NUMA nodes for hostdev %q at %s, found %d", graceGINodesPerGPU, verifiedDevice.Alias, verifiedDevice.SourceAddress, len(hostGINodes))
+		}
+
+		for _, hostGINode := range hostGINodes {
+			if owner, exists := hostGINodeOwners[hostGINode]; exists {
+				return nil, true, fmt.Errorf("Grace Generic Initiator NUMA node %d is associated with multiple Grace hostdevs (%s and %s)", hostGINode, owner, verifiedDevice.Alias)
+			}
+			hostGINodeOwners[hostGINode] = verifiedDevice.Alias
+		}
+		hostGINodesByDevice[verifiedDevice.SourceAddress] = append([]uint32(nil), hostGINodes...)
+	}
+
+	if !anyCorrelated {
+		return nil, false, nil
+	}
+	if len(hostGINodesByDevice) != len(verifiedDevices) {
+		var missingDevices []string
+		for _, verifiedDevice := range verifiedDevices {
+			if _, exists := hostGINodesByDevice[verifiedDevice.SourceAddress]; exists {
+				continue
+			}
+			missingDevices = append(missingDevices, fmt.Sprintf("%s at %s", verifiedDevice.Alias, verifiedDevice.SourceAddress))
+		}
+		return nil, true, fmt.Errorf("Grace Generic Initiator NUMA nodes were correlated for some but not all Grace hostdevs; missing correlations for %s", strings.Join(missingDevices, ", "))
+	}
+	return hostGINodesByDevice, true, nil
 }
 
 func placePCIDevicesWithGraceIOVirtualization(domainSpec *api.DomainSpec, graceDevices []graceHostDeviceConversion) error {
@@ -685,6 +745,47 @@ func (p sysfsGraceRuntimeInfoProvider) PCICapabilities(_ string) (gracePCICapabi
 }
 
 func (p sysfsGraceRuntimeInfoProvider) GuestInitiatorHostNodes() ([]uint32, error) {
+	giNodes, err := p.genericInitiatorNUMANodes()
+	if err == nil {
+		return giNodes, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return p.memorylessNoCPUNodes()
+}
+
+func (p sysfsGraceRuntimeInfoProvider) GuestInitiatorHostNodesForDevice(bdf string) ([]uint32, error) {
+	giNodes, err := p.GuestInitiatorHostNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	var matchedNodes []uint32
+	for _, node := range giNodes {
+		referencesDevice, err := p.nodeReferencesPCIAddress(node, bdf)
+		if err != nil {
+			return nil, err
+		}
+		if referencesDevice {
+			matchedNodes = append(matchedNodes, node)
+		}
+	}
+	return matchedNodes, nil
+}
+
+func (p sysfsGraceRuntimeInfoProvider) genericInitiatorNUMANodes() ([]uint32, error) {
+	giNodesValue, err := readSysfsValue(filepath.Join(p.nodePath, "has_generic_initiator"))
+	if err != nil {
+		return nil, err
+	}
+	if giNodesValue == "" {
+		return nil, nil
+	}
+	return parseHostNUMANodeSet(giNodesValue)
+}
+
+func (p sysfsGraceRuntimeInfoProvider) memorylessNoCPUNodes() ([]uint32, error) {
 	onlineNodes, err := p.onlineNUMANodes()
 	if err != nil {
 		return nil, err
@@ -734,7 +835,84 @@ func (p sysfsGraceRuntimeInfoProvider) onlineNUMANodes() ([]uint32, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodes, err := hardware.ParseCPUSetLine(onlineValue, math.MaxInt)
+	return parseHostNUMANodeSet(onlineValue)
+}
+
+func (p sysfsGraceRuntimeInfoProvider) nodeReferencesPCIAddress(node uint32, bdf string) (bool, error) {
+	devicePath, err := filepath.EvalSymlinks(filepath.Join(p.pciDevicesPath, bdf))
+	if err != nil {
+		return false, err
+	}
+	nodeDir := filepath.Join(p.nodePath, fmt.Sprintf("node%d", node))
+	return directoryReferencesPCIAddress(nodeDir, devicePath, bdf, 2)
+}
+
+func directoryReferencesPCIAddress(dir, devicePath, bdf string, remainingDepth int) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false, err
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(dir, entry.Name())
+		if entry.Name() == bdf {
+			return true, nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			referencesDevice, err := symlinkReferencesPCIAddress(entryPath, devicePath, bdf)
+			if err != nil {
+				return false, err
+			}
+			if referencesDevice {
+				return true, nil
+			}
+		}
+		if remainingDepth == 0 || !entry.IsDir() || !shouldSearchNodeSubdirectory(entry.Name()) {
+			continue
+		}
+		referencesDevice, err := directoryReferencesPCIAddress(entryPath, devicePath, bdf, remainingDepth-1)
+		if err != nil {
+			return false, err
+		}
+		if referencesDevice {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func symlinkReferencesPCIAddress(path, devicePath, bdf string) (bool, error) {
+	linkTarget, err := os.Readlink(path)
+	if err != nil {
+		return false, err
+	}
+	if sysfsPathReferencesPCIAddress(linkTarget, bdf) {
+		return true, nil
+	}
+
+	resolvedPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false, nil
+	}
+	return resolvedPath == devicePath || sysfsPathReferencesPCIAddress(resolvedPath, bdf), nil
+}
+
+func sysfsPathReferencesPCIAddress(path, bdf string) bool {
+	path = filepath.Clean(path)
+	return filepath.Base(path) == bdf || strings.Contains(path, string(os.PathSeparator)+bdf+string(os.PathSeparator))
+}
+
+func shouldSearchNodeSubdirectory(name string) bool {
+	switch name {
+	case "hugepages", "memory_failure", "power", "x86":
+		return false
+	default:
+		return true
+	}
+}
+
+func parseHostNUMANodeSet(nodeSet string) ([]uint32, error) {
+	nodes, err := hardware.ParseCPUSetLine(nodeSet, math.MaxInt)
 	if err != nil {
 		return nil, err
 	}
