@@ -529,21 +529,15 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			vm := createVMWithDV(srcDV, volName)
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
-			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {
-				ls := labels.Set{
-					virtv1.VolumesUpdateMigration: vm.Name,
-				}
-				migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
-					metav1.ListOptions{
-						LabelSelector: ls.String(),
-					})
+			Eventually(func() []virtv1.VirtualMachineInstanceCondition {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				if migList == nil || len(migList.Items) == 0 {
-					return virtv1.MigrationPhaseUnset
-				}
-				Expect(migList.Items).To(HaveLen(1))
-				return migList.Items[0].Status.Phase
-			}, 120*time.Second, time.Second).Should(Equal(virtv1.MigrationPending))
+				return vmi.Status.Conditions
+			}, 30*time.Second, time.Second).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":    Equal(virtv1.VirtualMachineInstanceVolumesChange),
+				"Status":  Equal(k8sv1.ConditionFalse),
+				"Message": ContainSubstring("One of the destination volumes doesn't exist"),
+			})))
 
 			By("Create the destination PVC")
 			libstorage.CreateBlankFSDataVolume(destPVC, ns, "2Gi", nil)
