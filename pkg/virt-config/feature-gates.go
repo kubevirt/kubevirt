@@ -20,6 +20,8 @@
 package virtconfig
 
 import (
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -251,4 +253,10 @@ func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 
 func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationStallDetection)
+}
+
+// GetDeveloperConfiguration implements featuregate.ConfigReader, allowing
+// ClusterConfig to be passed directly to featuregate.GateEnabled.
+func (config *ClusterConfig) GetDeveloperConfiguration() *v1.DeveloperConfiguration {
+	return config.GetConfig().DeveloperConfiguration
 }
