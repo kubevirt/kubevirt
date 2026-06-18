@@ -1203,8 +1203,10 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: atomic
             imagePullPolicy:
-              description: PullPolicy describes a policy for if/when to pull a container
-                image
+              description: |-
+                The ImagePullPolicy to use for user workload pods and their containers
+                (launcher pods, exporter pods, etc.).
+                For KubeVirt infrastructure images, use spec.imagePullPolicy instead.
               type: string
             instancetype:
               description: Instancetype configuration
@@ -1897,7 +1899,11 @@ var CRDsValidation map[string]string = map[string]string{
               x-kubernetes-list-type: atomic
           type: object
         imagePullPolicy:
-          description: The ImagePullPolicy to use.
+          description: |-
+            The ImagePullPolicy to use for KubeVirt operator-managed infrastructure
+            images (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).
+            For pull policy of user workload pods, see
+            spec.configuration.imagePullPolicy.
           type: string
         imagePullSecrets:
           description: |-
