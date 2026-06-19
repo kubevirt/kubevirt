@@ -25,9 +25,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/network/vmliveupdate"
 )
 
@@ -184,17 +188,40 @@ var _ = Describe("IsRestartRequired", func() {
 			*v1.DefaultPodNetwork()),
 	)
 
-	It("should not require restart when NAD name changes", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
-		)
+	DescribeTable("should set restart requirement for NAD name changes based on migratability",
+		func(migratableStatus *k8sv1.ConditionStatus, expectedRestart bool) {
+			var statusOpts []libvmi.Option
+			if migratableStatus != nil {
+				statusOpts = append(statusOpts, libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+							Type:   v1.VirtualMachineInstanceIsMigratable,
+							Status: *migratableStatus,
+						}),
+					),
+				))
+			}
 
-		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
-		vm.Spec.Template.Spec.Networks[0] = *libvmi.MultusNetwork(secondaryNetName1, secondaryNADName2)
+			vmi := libvmi.New(
+				append([]libvmi.Option{
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
+				}, statusOpts...)...,
+			)
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
-	})
+			vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
+			vm.Spec.Template.Spec.Networks[0] = *libvmi.MultusNetwork(secondaryNetName1, secondaryNADName2)
+
+			if expectedRestart {
+				Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+			} else {
+				Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
+			}
+		},
+		Entry("when VM is migratable", ptr.To(k8sv1.ConditionTrue), false),
+		Entry("when VM is non-migratable", ptr.To(k8sv1.ConditionFalse), true),
+		Entry("when IsMigratable condition is absent", nil, true),
+	)
 
 	It("Should require restart when interfaces and networks are removed", func() {
 		vmi := libvmi.New(
