@@ -384,6 +384,12 @@ type CPU struct {
 	// the emulator thread on it.
 	// +optional
 	IsolateEmulatorThread bool `json:"isolateEmulatorThread,omitempty"`
+	// IsolateVhostThread requests one more dedicated pCPU to be allocated for the VMI to place
+	// the vhost-net kernel threads on it. This prevents vhost threads from competing with the
+	// QEMU emulator thread for CPU cycles, which is critical for high-performance networking
+	// workloads. Requires IsolateEmulatorThread to be enabled.
+	// +optional
+	IsolateVhostThread bool `json:"isolateVhostThread,omitempty"`
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *Realtime `json:"realtime,omitempty"`

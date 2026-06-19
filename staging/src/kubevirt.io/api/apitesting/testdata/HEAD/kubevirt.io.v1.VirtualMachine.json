@@ -132,6 +132,7 @@
               "guestMappingPassthrough": {}
             },
             "isolateEmulatorThread": true,
+            "isolateVhostThread": true,
             "realtime": {
               "mask": "maskValue"
             }
