@@ -21,6 +21,7 @@ package vsock_test
 
 import (
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 
@@ -57,6 +58,7 @@ var _ = Describe("Dialer", func() {
 		dialFnCalled    bool
 		netnsDoFn       func(pid int, fn func() error) error
 		netnsDoFnCalled bool
+		tlsWrapperFn    func(conn net.Conn) *fakeTLSConn
 	)
 
 	BeforeEach(func() {
@@ -80,6 +82,11 @@ var _ = Describe("Dialer", func() {
 			return fn()
 		}
 
+		tlsWrapperFn = func(conn net.Conn) *fakeTLSConn {
+			Fail("tlsWrapperFn called unexpectedly - tests that use TLS should override this function")
+			return nil
+		}
+
 		dialer = virthandlervsock.NewDialer(fakeIsolation, procPath,
 			func(pid int, fn func() error) error {
 				netnsDoFnCalled = true
@@ -88,12 +95,15 @@ var _ = Describe("Dialer", func() {
 			func(contextID, port uint32, cfg *vsock.Config) (*vsock.Conn, error) {
 				dialFnCalled = true
 				return dialFn(contextID, port, cfg)
+			},
+			func(conn net.Conn) virthandlervsock.TLSConn {
+				return tlsWrapperFn(conn)
 			})
 	})
 
 	Context("with valid configuration", func() {
-		It("should dial successfully", func() {
-			conn, err := dialer.Dial(vmi, testPort)
+		It("should dial successfully without TLS", func() {
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -109,7 +119,7 @@ var _ = Describe("Dialer", func() {
 				return &vsock.Conn{}, nil
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -124,7 +134,7 @@ var _ = Describe("Dialer", func() {
 				return &vsock.Conn{}, nil
 			}
 
-			conn, err := dialer.Dial(vmi, customPort)
+			conn, err := dialer.Dial(vmi, customPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -149,7 +159,7 @@ var _ = Describe("Dialer", func() {
 				return &vsock.Conn{}, nil
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -165,7 +175,7 @@ var _ = Describe("Dialer", func() {
 				return &vsock.Conn{}, nil
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -179,7 +189,7 @@ var _ = Describe("Dialer", func() {
 				return &vsock.Conn{}, nil
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -194,7 +204,7 @@ var _ = Describe("Dialer", func() {
 				return fn()
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(conn).ToNot(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -207,7 +217,7 @@ var _ = Describe("Dialer", func() {
 			expectedErr := errors.New("isolation detection failed")
 			fakeIsolation.err = expectedErr
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).To(MatchError(expectedErr))
 			Expect(conn).To(BeNil())
 			Expect(netnsDoFnCalled).To(BeFalse())
@@ -217,7 +227,7 @@ var _ = Describe("Dialer", func() {
 		It("should return error when VSOCK is not enabled", func() {
 			vmi.Status.VSOCKCID = nil
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).To(MatchError("VSOCK is not enabled for the VM"))
 			Expect(conn).To(BeNil())
 			Expect(netnsDoFnCalled).To(BeFalse())
@@ -232,7 +242,7 @@ var _ = Describe("Dialer", func() {
 				return nil, expectedErr
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).To(MatchError(expectedErr))
 			Expect(conn).To(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
@@ -246,11 +256,68 @@ var _ = Describe("Dialer", func() {
 				return expectedErr
 			}
 
-			conn, err := dialer.Dial(vmi, testPort)
+			conn, err := dialer.Dial(vmi, testPort, false)
 			Expect(err).To(MatchError(expectedErr))
 			Expect(conn).To(BeNil())
 			Expect(netnsDoFnCalled).To(BeTrue())
 			Expect(dialFnCalled).To(BeFalse())
+		})
+	})
+
+	Context("TLS parameter", func() {
+		It("should wrap connection with TLS when useTLS is true", func() {
+			tlsWrapperCalled := false
+			tlsWrapperFn = func(conn net.Conn) *fakeTLSConn {
+				tlsWrapperCalled = true
+				return &fakeTLSConn{Conn: conn}
+			}
+
+			conn, err := dialer.Dial(vmi, testPort, true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conn).ToNot(BeNil())
+			Expect(netnsDoFnCalled).To(BeTrue())
+			Expect(dialFnCalled).To(BeTrue())
+			Expect(tlsWrapperCalled).To(BeTrue())
+
+			mockConn, ok := conn.(*fakeTLSConn)
+			Expect(ok).To(BeTrue())
+			Expect(mockConn.handshakeCalled).To(BeTrue())
+		})
+
+		It("should return error when TLS handshake fails", func() {
+			expectedErr := errors.New("handshake failed")
+			tlsWrapperCalled := false
+			tlsWrapperFn = func(conn net.Conn) *fakeTLSConn {
+				tlsWrapperCalled = true
+				return &fakeTLSConn{
+					Conn:         conn,
+					handshakeErr: expectedErr,
+				}
+			}
+
+			conn, err := dialer.Dial(vmi, testPort, true)
+			Expect(err).To(MatchError(expectedErr))
+			Expect(conn).To(BeNil())
+			Expect(netnsDoFnCalled).To(BeTrue())
+			Expect(dialFnCalled).To(BeTrue())
+			Expect(tlsWrapperCalled).To(BeTrue())
+		})
+
+		It("should close connection when TLS handshake fails", func() {
+			expectedErr := errors.New("handshake failed")
+			var capturedMockConn *fakeTLSConn
+			tlsWrapperFn = func(conn net.Conn) *fakeTLSConn {
+				capturedMockConn = &fakeTLSConn{
+					Conn:         conn,
+					handshakeErr: expectedErr,
+				}
+				return capturedMockConn
+			}
+
+			conn, err := dialer.Dial(vmi, testPort, true)
+			Expect(err).To(MatchError(expectedErr))
+			Expect(conn).To(BeNil())
+			Expect(capturedMockConn.closeCalled).To(BeTrue())
 		})
 	})
 })
@@ -297,4 +364,22 @@ func (f *fakeIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.
 
 func (f *fakeIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
 	panic("should not be called")
+}
+
+type fakeTLSConn struct {
+	net.Conn
+	handshakeCalled bool
+	handshakeErr    error
+	closeCalled     bool
+	closeErr        error
+}
+
+func (m *fakeTLSConn) Close() error {
+	m.closeCalled = true
+	return m.closeErr
+}
+
+func (m *fakeTLSConn) Handshake() error {
+	m.handshakeCalled = true
+	return m.handshakeErr
 }
