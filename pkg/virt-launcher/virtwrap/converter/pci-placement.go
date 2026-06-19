@@ -371,6 +371,8 @@ func (a *expanderBusAssigner) placeDevice(topology *numaAwareTopology, device *a
 		}
 		if bdf.OASBits > 0 {
 			topology.iommuDev.Driver.OAS = strconv.Itoa(bdf.OASBits)
+			//TODO fix this Hardcoded value (seems like the calculated value results in a domain failure)
+			topology.iommuDev.Driver.OAS = "48"
 		}
 	}
 
