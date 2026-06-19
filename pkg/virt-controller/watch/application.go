@@ -321,7 +321,7 @@ func Execute() {
 		golog.Fatal(err)
 	}
 
-	app.k8sClient, err = kubernetes.NewForConfig(clientConfig)
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		golog.Fatal(err)
 	}

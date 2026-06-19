@@ -173,7 +173,7 @@ func (app *virtAPIApp) Execute() {
 		panic(err)
 	}
 
-	app.k8sClient, err = kubernetes.NewForConfig(clientConfig)
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
 	}
