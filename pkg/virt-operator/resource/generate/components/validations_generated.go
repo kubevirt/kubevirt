@@ -9592,6 +9592,11 @@ var CRDsValidation map[string]string = map[string]string{
             EndpointCert is the raw CACert that is to be used when connecting
             to an exported backup endpoint in pull mode.
           type: string
+        exportUID:
+          description: |-
+            ExportUID tracks the UID of the associated VMExport for pull-mode backups
+            used to detect VMExport recreation and re-initiate the export handshake
+          type: string
         includedVolumes:
           description: IncludedVolumes lists the volumes that were included in the
             backup

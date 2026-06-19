@@ -711,7 +711,7 @@ var _ = Describe(SIG("Backup", func() {
 		backup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), tracker.Namespace, smallFSDv.Name, tracker.Name, waitBackupFailed)
 		Expect(backup).ToNot(BeNil())
 		Expect(backup.Status).To(Not(BeNil()))
-		cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionDone))
+		cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionFailed))
 		Expect(cond.Message).To(ContainSubstring("No space left on device"))
 
 		By("Verifying BackupTracker was not updated with a checkpoint")
@@ -1418,7 +1418,7 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":    Equal(string(backupv1.ConditionDone)),
+					"Type":    Equal(string(backupv1.ConditionComplete)),
 					"Status":  Equal(metav1.ConditionTrue),
 					"Message": ContainSubstring("Successfully completed VirtualMachineBackup")}),
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -1447,7 +1447,7 @@ func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backu
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":    Equal(string(backupv1.ConditionDone)),
+					"Type":    Equal(string(backupv1.ConditionFailed)),
 					"Status":  Equal(metav1.ConditionTrue),
 					"Message": ContainSubstring("Backup has failed")}),
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -1476,8 +1476,9 @@ func waitBackupExportReady(virtClient kubecli.KubevirtClient, namespace string, 
 		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Conditions": ContainElements(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Type":   Equal(string(backupv1.ConditionExportReady)),
+					"Type":   Equal(string(backupv1.ConditionProgressing)),
 					"Status": Equal(metav1.ConditionTrue),
+					"Reason": Equal(backupv1.ReasonExportReady),
 				}),
 			),
 		})),

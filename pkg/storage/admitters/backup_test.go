@@ -227,7 +227,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 				Status: &backupv1.VirtualMachineBackupStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   string(backupv1.ConditionDone),
+							Type:   string(backupv1.ConditionComplete),
 							Status: metav1.ConditionTrue,
 						},
 					},

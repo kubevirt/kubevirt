@@ -22,6 +22,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // BackupMode is the const type for the backup possible modes
@@ -225,27 +226,38 @@ type VirtualMachineBackupStatus struct {
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
+	// +optional
+	// ExportUID tracks the UID of the associated VMExport for pull-mode backups
+	// used to detect VMExport recreation and re-initiate the export handshake
+	ExportUID *types.UID `json:"exportUID,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
 type ConditionType string
 
 const (
-	// ConditionDone indicates the backup was completed
-	ConditionDone ConditionType = "Done"
+	// ConditionComplete indicates the backup completed successfully
+	ConditionComplete ConditionType = "Complete"
+
+	// ConditionFailed indicates the backup has encountered a terminal failure
+	ConditionFailed ConditionType = "Failed"
 
 	// ConditionProgressing indicates the backup is in progress
 	ConditionProgressing ConditionType = "Progressing"
+)
 
-	// ConditionInitializing indicates the backup is initializing
-	ConditionInitializing ConditionType = "Initializing"
-
-	// ConditionExportInitiated indicates the backup export has been initiated
-	ConditionExportInitiated ConditionType = "ExportInitiated"
-
-	// ConditionExportReady indicates the backup export is ready
-	ConditionExportReady ConditionType = "ExportReady"
-
-	// ConditionAborting indicates the backup is aborting
-	ConditionAborting ConditionType = "Aborting"
+// Reason constants for ConditionProgressing, ConditionComplete, and ConditionFailed
+const (
+	ReasonInitializing         = "Initializing"
+	ReasonInitiated            = "Initiated"
+	ReasonPreparingExport      = "PreparingExport"
+	ReasonExportInitiated      = "ExportInitiated"
+	ReasonExportReady          = "ExportReady"
+	ReasonAborting             = "Aborting"
+	ReasonCompleted            = "Completed"
+	ReasonCompletedWithWarning = "CompletedWithWarning"
+	ReasonFailed               = "Failed"
+	ReasonSourceLost           = "SourceLost"
+	ReasonSourceUnhealthy      = "SourceUnhealthy"
+	ReasonDeletedDuringInit    = "DeletedDuringInit"
 )

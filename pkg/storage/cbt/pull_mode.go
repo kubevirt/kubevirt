@@ -51,12 +51,8 @@ func isPullMode(backup *backupv1.VirtualMachineBackup) bool {
 	return backup.Spec.Mode != nil && *backup.Spec.Mode == backupv1.PullMode
 }
 
-func isBackupExportInitialized(backup *backupv1.VirtualMachineBackup) bool {
-	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionExportInitiated))
-}
-
-func isBackupExportReady(backup *backupv1.VirtualMachineBackup) bool {
-	return meta.IsStatusConditionTrue(backupConditions(backup), string(backupv1.ConditionExportReady))
+func isExportSentForVMExport(backup *backupv1.VirtualMachineBackup, vmExport *exportv1.VirtualMachineExport) bool {
+	return backup.Status.ExportUID != nil && *backup.Status.ExportUID == vmExport.UID
 }
 
 func getPullBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
@@ -103,26 +99,18 @@ func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBa
 		return nil
 	}
 
-	if !isBackupExportInitialized(backup) {
+	if !isExportSentForVMExport(backup, vmExport) {
 		if vmExport.Status == nil || vmExport.Status.ServiceName == "" {
 			return nil
 		}
-		return ctrl.handlePrepareBackupExport(backup, vmi, vmExport)
-	}
-
-	if !isBackupExportReady(backup) {
-		if err := ctrl.waitForBackupExportReady(backup); err != nil {
+		if err := ctrl.handlePrepareBackupExport(backup, vmi, vmExport); err != nil {
 			return err
 		}
+		backup.Status.ExportUID = &vmExport.UID
+		return nil
 	}
 
-	if isBackupExportReady(backup) {
-		if err := ctrl.validateExportHealth(backup); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return ctrl.populateExportLinks(backup, vmExport)
 }
 
 func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmExport *exportv1.VirtualMachineExport) error {
@@ -150,7 +138,6 @@ func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.Virtu
 	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
 		return err
 	}
-	setExportInitiated(backup)
 	return nil
 }
 
@@ -201,17 +188,7 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 	return nil
 }
 
-func (ctrl *VMBackupController) waitForBackupExportReady(backup *backupv1.VirtualMachineBackup) error {
-	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
-	obj, exists, err := ctrl.vmExportStore.GetByKey(objKey)
-	if err != nil {
-		return fmt.Errorf("error getting VMExport from store: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf("associated export does not exist")
-	}
-	vmExport := obj.(*exportv1.VirtualMachineExport)
-
+func (ctrl *VMBackupController) populateExportLinks(backup *backupv1.VirtualMachineBackup, vmExport *exportv1.VirtualMachineExport) error {
 	if vmExport.Status == nil || vmExport.Status.Phase != exportv1.Ready {
 		return nil
 	}
@@ -262,23 +239,11 @@ func (ctrl *VMBackupController) waitForBackupExportReady(backup *backupv1.Virtua
 	return nil
 }
 
-func (ctrl *VMBackupController) validateExportHealth(backup *backupv1.VirtualMachineBackup) error {
-	objKey := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
-	_, exists, err := ctrl.vmExportStore.GetByKey(objKey)
-	if err != nil {
-		return fmt.Errorf("error getting VMExport from store: %w", err)
-	}
-
-	if exists {
-		return nil
-	}
-
-	setPreparingExport(backup)
-	return nil
-}
-
 func (ctrl *VMBackupController) generateBackupTunnelCert(backup *backupv1.VirtualMachineBackup) (*triple.KeyPair, error) {
 	caCert := ctrl.caCertManager.Current()
+	if caCert == nil {
+		return nil, fmt.Errorf("CA certificate not yet available")
+	}
 	caKeyPair := &triple.KeyPair{
 		Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
 		Cert: caCert.Leaf,
@@ -319,52 +284,13 @@ func (ctrl *VMBackupController) cleanupBackupExport(backup *backupv1.VirtualMach
 func setPreparingExport(backup *backupv1.VirtualMachineBackup) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-		Reason: "PreparingExport", Message: backupPreparingVMExport,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionExportInitiated), Status: metav1.ConditionFalse,
-		Reason: "PreparingExport", Message: backupPreparingVMExport,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionExportReady), Status: metav1.ConditionFalse,
-		Reason: "PreparingExport", Message: backupPreparingVMExport,
-	})
-}
-
-func setExportInitiated(backup *backupv1.VirtualMachineBackup) {
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-		Reason: "ExportInitiated", Message: backupExportInitiated,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionExportInitiated), Status: metav1.ConditionTrue,
-		Reason: "ExportInitiated", Message: backupExportInitiated,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionExportReady), Status: metav1.ConditionFalse,
-		Reason: "ExportInitiated", Message: backupExportInitiated,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionDone), Status: metav1.ConditionFalse,
-		Reason: "ExportInitiated", Message: backupExportInitiated,
+		Reason: backupv1.ReasonPreparingExport, Message: backupPreparingVMExport,
 	})
 }
 
 func setExportReady(backup *backupv1.VirtualMachineBackup) {
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-		Reason: "ExportReady", Message: backupExportReady,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionExportInitiated), Status: metav1.ConditionTrue,
-		Reason: "ExportReady", Message: backupExportReady,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionExportReady), Status: metav1.ConditionTrue,
-		Reason: "ExportReady", Message: backupExportReady,
-	})
-	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
-		Type: string(backupv1.ConditionDone), Status: metav1.ConditionFalse,
-		Reason: "ExportReady", Message: backupExportReady,
+		Reason: backupv1.ReasonExportReady, Message: backupExportReady,
 	})
 }
