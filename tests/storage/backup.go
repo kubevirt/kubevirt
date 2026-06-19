@@ -892,7 +892,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyExportPodAffinity(virtClient, incBackup, vm)
 	})
 
-	It("Pull mode backup data integrity and export immutability", func() {
+	It("Pull mode backup data integrity and export immutability", decorators.RequiresBlockStorage, func() {
 		const (
 			secondaryDiskSize = "256Mi"
 			testOffset        = 1048576
