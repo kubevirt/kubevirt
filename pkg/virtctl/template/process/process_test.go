@@ -40,8 +40,8 @@ import (
 	kvtesting "kubevirt.io/client-go/testing"
 
 	templateapi "kubevirt.io/virt-template-api/core"
-	"kubevirt.io/virt-template-api/core/subresourcesv1alpha1"
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/subresourcesv1beta1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 	templateclient "kubevirt.io/virt-template-client-go/virttemplate"
 	templatefake "kubevirt.io/virt-template-client-go/virttemplate/fake"
 	"kubevirt.io/virt-template-engine/template"
@@ -95,7 +95,7 @@ var _ = Describe("Process command", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			var params []v1alpha1.Parameter
+			var params []v1beta1.Parameter
 			Expect(unmarshalFn(out, &params)).To(Succeed())
 			Expect(params).To(Equal(tpl.Spec.Parameters))
 		},
@@ -182,8 +182,8 @@ var _ = Describe("Process command", func() {
 
 		It("should fail when template contains undefined parameter reference", func() {
 			tpl := newVirtualMachineTemplateWithSpec(
-				&v1alpha1.VirtualMachineTemplateSpec{
-					Parameters: []v1alpha1.Parameter{
+				&v1beta1.VirtualMachineTemplateSpec{
+					Parameters: []v1beta1.Parameter{
 						{
 							Name: param1Name,
 						},
@@ -204,8 +204,8 @@ var _ = Describe("Process command", func() {
 
 		It("should warn when template contains unused parameter", func() {
 			tpl := newVirtualMachineTemplateWithSpec(
-				&v1alpha1.VirtualMachineTemplateSpec{
-					Parameters: []v1alpha1.Parameter{
+				&v1beta1.VirtualMachineTemplateSpec{
+					Parameters: []v1beta1.Parameter{
 						{
 							Name: param1Name,
 						},
@@ -235,8 +235,8 @@ var _ = Describe("Process command", func() {
 
 		It("should fail and warn when template contains both undefined and unused parameters", func() {
 			tpl := newVirtualMachineTemplateWithSpec(
-				&v1alpha1.VirtualMachineTemplateSpec{
-					Parameters: []v1alpha1.Parameter{
+				&v1beta1.VirtualMachineTemplateSpec{
+					Parameters: []v1beta1.Parameter{
 						{
 							Name: param1Name,
 						},
@@ -261,7 +261,7 @@ var _ = Describe("Process command", func() {
 		var (
 			tplClient             *templatefake.Clientset
 			origGetTemplateClient func(*rest.Config) (templateclient.Interface, error)
-			tpl                   *v1alpha1.VirtualMachineTemplate
+			tpl                   *v1beta1.VirtualMachineTemplate
 		)
 
 		BeforeEach(func() {
@@ -272,7 +272,7 @@ var _ = Describe("Process command", func() {
 			}
 
 			var err error
-			tpl, err = tplClient.TemplateV1alpha1().VirtualMachineTemplates(metav1.NamespaceDefault).
+			tpl, err = tplClient.TemplateV1beta1().VirtualMachineTemplates(metav1.NamespaceDefault).
 				Create(context.Background(), newVirtualMachineTemplate(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -298,7 +298,7 @@ var _ = Describe("Process command", func() {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			var params []v1alpha1.Parameter
+			var params []v1beta1.Parameter
 			Expect(unmarshalFn(out, &params)).To(Succeed())
 			Expect(params).To(Equal(tpl.Spec.Parameters))
 		},
@@ -324,7 +324,7 @@ var _ = Describe("Process command", func() {
 					Expect(c.Name).To(Equal(tpl.Name))
 					Expect(c.GetSubresource()).To(Equal(expectedSubresource))
 
-					opts, ok := c.GetObject().(*subresourcesv1alpha1.ProcessOptions)
+					opts, ok := c.GetObject().(*subresourcesv1beta1.ProcessOptions)
 					Expect(ok).To(BeTrue())
 					Expect(opts.Parameters).To(Equal(map[string]string{
 						param1Name: param1Val,
@@ -337,7 +337,7 @@ var _ = Describe("Process command", func() {
 					vm, _, err := template.GetDefaultProcessor().Process(tpl)
 					Expect(err).ToNot(HaveOccurred())
 
-					return true, &subresourcesv1alpha1.ProcessedVirtualMachineTemplate{VirtualMachine: vm}, nil
+					return true, &subresourcesv1beta1.ProcessedVirtualMachineTemplate{VirtualMachine: vm}, nil
 				})
 			})
 
@@ -584,10 +584,10 @@ func unmarshalYAML(data []byte, out any) error {
 	return yaml.Unmarshal(data, out)
 }
 
-func newVirtualMachineTemplateWithSpec(spec *v1alpha1.VirtualMachineTemplateSpec) *v1alpha1.VirtualMachineTemplate {
-	return &v1alpha1.VirtualMachineTemplate{
+func newVirtualMachineTemplateWithSpec(spec *v1beta1.VirtualMachineTemplateSpec) *v1beta1.VirtualMachineTemplate {
+	return &v1beta1.VirtualMachineTemplate{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.String(),
+			APIVersion: v1beta1.GroupVersion.String(),
 			Kind:       "VirtualMachineTemplate",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -598,10 +598,10 @@ func newVirtualMachineTemplateWithSpec(spec *v1alpha1.VirtualMachineTemplateSpec
 	}
 }
 
-func newVirtualMachineTemplate() *v1alpha1.VirtualMachineTemplate {
+func newVirtualMachineTemplate() *v1beta1.VirtualMachineTemplate {
 	return newVirtualMachineTemplateWithSpec(
-		&v1alpha1.VirtualMachineTemplateSpec{
-			Parameters: []v1alpha1.Parameter{
+		&v1beta1.VirtualMachineTemplateSpec{
+			Parameters: []v1beta1.Parameter{
 				{
 					Name: param1Name,
 				},

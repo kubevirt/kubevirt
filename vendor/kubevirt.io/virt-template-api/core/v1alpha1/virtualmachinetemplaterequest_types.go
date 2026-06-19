@@ -37,6 +37,25 @@ type VirtualMachineTemplateRequestSpec struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	TemplateName string `json:"templateName,omitempty" protobuf:"bytes,2,name=templateName"`
+
+	// TemplateLabels holds optional labels to apply to the created VirtualMachineTemplate.
+	// Labels with the "template.kubevirt.io/" prefix are reserved for system use and are not allowed.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:XValidation:rule="self.all(k, !k.startsWith('template.kubevirt.io/'))",message="labels with the prefix \"template.kubevirt.io/\" are reserved for system use"
+	// +optional
+	TemplateLabels map[string]string `json:"templateLabels,omitempty" protobuf:"bytes,3,rep,name=templateLabels"`
+
+	// TTLSecondsAfterFinished limits the lifetime of a VirtualMachineTemplateRequest
+	// that has finished execution. Failed VirtualMachineTemplateRequests are never
+	// cleaned up by the TTL controller, so they remain available for debugging. If
+	// this field is unset, the VirtualMachineTemplateRequest is not automatically
+	// deleted and must be removed manually or through the owner reference cleanup
+	// described below. If this field is set to zero, the VirtualMachineTemplateRequest
+	// becomes eligible to be deleted immediately after it finishes.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty" protobuf:"varint,4,opt,name=ttlSecondsAfterFinished"`
 }
 
 // VirtualMachineReference holds a reference to a VirtualMachine.kubevirt.io
@@ -75,6 +94,8 @@ type VirtualMachineTemplateRequestStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion
 // +kubebuilder:printcolumn:name="Template",type=string,JSONPath=`.status.templateRef.name`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

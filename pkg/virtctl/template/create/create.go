@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	templateapi "kubevirt.io/virt-template-api/core"
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 	templateclient "kubevirt.io/virt-template-client-go/virttemplate"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
@@ -105,7 +105,7 @@ func (c *create) run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	c.cmd.Printf("%s.%s/%s created\n", templateapi.SingularRequestResourceName, v1alpha1.GroupVersion.Group, tplReq.Name)
+	c.cmd.Printf("%s.%s/%s created\n", templateapi.SingularRequestResourceName, v1beta1.GroupVersion.Group, tplReq.Name)
 
 	return nil
 }
@@ -131,14 +131,14 @@ func (c *create) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func (c *create) createTemplateRequest() (*v1alpha1.VirtualMachineTemplateRequest, error) {
-	tplReq := &v1alpha1.VirtualMachineTemplateRequest{
+func (c *create) createTemplateRequest() (*v1beta1.VirtualMachineTemplateRequest, error) {
+	tplReq := &v1beta1.VirtualMachineTemplateRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: c.vmName + "-",
 			Namespace:    c.namespace,
 		},
-		Spec: v1alpha1.VirtualMachineTemplateRequestSpec{
-			VirtualMachineRef: v1alpha1.VirtualMachineReference{
+		Spec: v1beta1.VirtualMachineTemplateRequestSpec{
+			VirtualMachineRef: v1beta1.VirtualMachineReference{
 				Namespace: c.vmNamespace,
 				Name:      c.vmName,
 			},
@@ -146,7 +146,7 @@ func (c *create) createTemplateRequest() (*v1alpha1.VirtualMachineTemplateReques
 		},
 	}
 
-	tplReq, err := c.client.TemplateV1alpha1().VirtualMachineTemplateRequests(c.namespace).
+	tplReq, err := c.client.TemplateV1beta1().VirtualMachineTemplateRequests(c.namespace).
 		Create(c.cmd.Context(), tplReq, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error creating VirtualMachineTemplateRequest: %w", err)
