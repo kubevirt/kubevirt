@@ -254,6 +254,22 @@ func (k *KvmVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
+	isolateVhost := vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.VhostThreadPolicy != nil
+
+	if isolateVhost && domain.Spec.Metadata.KubeVirt.VhostCPUSet != "" {
+		vhostCPUs, err := hardware.ParseCPUSetLine(domain.Spec.Metadata.KubeVirt.VhostCPUSet, 100)
+		if err != nil {
+			return err
+		}
+		if err := cgroupManager.CreateChildCgroup("vhost", "cpuset"); err != nil {
+			k.logger.Reason(err).Error("CreateChildCgroup vhost")
+			return err
+		}
+		if err := cgroupManager.SetCpuSet("vhost", vhostCPUs); err != nil {
+			return err
+		}
+	}
+
 	tids, err := cgroupManager.GetCgroupThreads()
 	if err != nil {
 		return err
@@ -261,7 +277,7 @@ func (k *KvmVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInsta
 	hktids := make([]int, 0, 10)
 
 	for _, tid := range tids {
-		proc, err := ps.FindProcess(tid)
+		proc, err := findProcess(tid)
 		if err != nil {
 			k.logger.Object(vmi).Errorf("Failure to find process: %s", err.Error())
 			return err
@@ -271,6 +287,15 @@ func (k *KvmVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInsta
 		}
 		comm := proc.Executable()
 		if strings.Contains(comm, "CPU ") && strings.Contains(comm, "KVM") {
+			continue
+		}
+		if isolateVhost && strings.HasPrefix(comm, "vhost-") {
+			if domain.Spec.Metadata.KubeVirt.VhostCPUSet != "" {
+				k.logger.V(3).Object(vmi).Infof("moving vhost thread %d to vhost cgroup (cpus %s)", tid, domain.Spec.Metadata.KubeVirt.VhostCPUSet)
+				if err := cgroupManager.AttachTID("cpuset", "vhost", tid); err != nil {
+					k.logger.Object(vmi).Errorf("Error moving vhost tid %d to vhost cgroup: %v", tid, err)
+				}
+			}
 			continue
 		}
 		hktids = append(hktids, tid)
@@ -287,6 +312,8 @@ func (k *KvmVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInsta
 
 	return nil
 }
+
+var findProcess = ps.FindProcess
 
 var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
 
