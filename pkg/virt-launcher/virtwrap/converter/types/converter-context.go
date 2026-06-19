@@ -39,36 +39,37 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture                    arch.Converter
-	AllowEmulation                  bool
-	HypervisorDeviceAvailable       bool
-	VirtualMachine                  *v1.VirtualMachineInstance
-	CPUSet                          []int
-	IsBlockPVC                      map[string]bool
-	IsBlockDV                       map[string]bool
-	ApplyCBT                        map[string]string
-	HotplugVolumes                  map[string]v1.VolumeStatus
-	PermanentVolumes                map[string]v1.VolumeStatus
-	MigratedVolumes                 map[string]string
-	DisksInfo                       map[string]*disk.DiskInfo
-	SMBios                          *cmdv1.SMBios
-	SRIOVDevices                    []api.HostDevice
-	GenericHostDevices              []api.HostDevice
-	GPUHostDevices                  []api.HostDevice
-	EFIConfiguration                *EFIConfiguration
-	MemBalloonStatsPeriod           uint
-	UseVirtioTransitional           bool
-	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface
-	VolumesDiscardIgnore            []string
-	Topology                        *cmdv1.Topology
-	UseLaunchSecuritySEV            bool // For AMD SEV/ES/SNP
-	UseLaunchSecurityTDX            bool // For Intel TDX
-	UseLaunchSecurityPV             bool // For IBM SE(s390-pv)
-	FreePageReporting               bool
-	BochsForEFIGuests               bool
-	SerialConsoleLog                bool
-	PCINUMAAwareTopologyEnabled     bool
-	GraceIOVirtualizationEnabled    bool
+	Architecture                 arch.Converter
+	AllowEmulation               bool
+	HypervisorDeviceAvailable    bool
+	VirtualMachine               *v1.VirtualMachineInstance
+	CPUSet                       []int
+	IsBlockPVC                   map[string]bool
+	IsBlockDV                    map[string]bool
+	ApplyCBT                     map[string]string
+	HotplugVolumes               map[string]v1.VolumeStatus
+	PermanentVolumes             map[string]v1.VolumeStatus
+	MigratedVolumes              map[string]string
+	DisksInfo                    map[string]*disk.DiskInfo
+	SMBios                       *cmdv1.SMBios
+	SRIOVDevices                 []api.HostDevice
+	GenericHostDevices           []api.HostDevice
+	GPUHostDevices               []api.HostDevice
+	EFIConfiguration             *EFIConfiguration
+	MemBalloonStatsPeriod        uint
+	UseVirtioTransitional        bool
+	EphemeraldiskCreator         ephemeraldisk.EphemeralDiskCreatorInterface
+	VolumesDiscardIgnore         []string
+	Topology                     *cmdv1.Topology
+	UseLaunchSecuritySEV         bool // For AMD SEV/ES/SNP
+	UseLaunchSecurityTDX         bool // For Intel TDX
+	UseLaunchSecurityPV          bool // For IBM SE(s390-pv)
+	FreePageReporting            bool
+	BochsForEFIGuests            bool
+	SerialConsoleLog             bool
+	PCINUMAAwareTopologyEnabled  bool
+	GraceIOVirtualizationEnabled bool
+	// IommuPCI holds arm64 SMMUv3 and PCI hole sizing state used during Grace IO virtualization domain conversion.
 	IommuPCI                        *iommupci.IommuPCI
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
