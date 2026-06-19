@@ -300,6 +300,11 @@ func (in *CPU) DeepCopyInto(out *CPU) {
 		*out = new(NUMA)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.VhostThreadPolicy != nil {
+		in, out := &in.VhostThreadPolicy, &out.VhostThreadPolicy
+		*out = new(VhostThreadPolicy)
+		**out = **in
+	}
 	if in.Realtime != nil {
 		in, out := &in.Realtime, &out.Realtime
 		*out = new(Realtime)

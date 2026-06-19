@@ -6498,6 +6498,13 @@ var CRDsValidation map[string]string = map[string]string{
                             Must be a value greater or equal 1.
                           format: int32
                           type: integer
+                        vhostThreadPolicy:
+                          description: |-
+                            VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                            Omitting this field disables vhost thread isolation.
+                            Requires IsolateEmulatorThread to be enabled.
+                            One of: Shared
+                          type: string
                       type: object
                     devices:
                       description: Devices allows adding disks, network interfaces,
@@ -10153,6 +10160,13 @@ var CRDsValidation map[string]string = map[string]string{
                     Example: "0-3,^1","0,2,3","2-3"
                   type: string
               type: object
+            vhostThreadPolicy:
+              description: |-
+                VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                Omitting this field disables vhost thread isolation.
+                Requires IsolateEmulatorThread to be enabled.
+                One of: Shared
+              type: string
           required:
           - guest
           type: object
@@ -12734,6 +12748,13 @@ var CRDsValidation map[string]string = map[string]string{
                     Must be a value greater or equal 1.
                   format: int32
                   type: integer
+                vhostThreadPolicy:
+                  description: |-
+                    VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                    Omitting this field disables vhost thread isolation.
+                    Requires IsolateEmulatorThread to be enabled.
+                    One of: Shared
+                  type: string
               type: object
             devices:
               description: Devices allows adding disks, network interfaces, and others
@@ -16845,6 +16866,13 @@ var CRDsValidation map[string]string = map[string]string{
                     Must be a value greater or equal 1.
                   format: int32
                   type: integer
+                vhostThreadPolicy:
+                  description: |-
+                    VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                    Omitting this field disables vhost thread isolation.
+                    Requires IsolateEmulatorThread to be enabled.
+                    One of: Shared
+                  type: string
               type: object
             devices:
               description: Devices allows adding disks, network interfaces, and others
@@ -19435,6 +19463,13 @@ var CRDsValidation map[string]string = map[string]string{
                             Must be a value greater or equal 1.
                           format: int32
                           type: integer
+                        vhostThreadPolicy:
+                          description: |-
+                            VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                            Omitting this field disables vhost thread isolation.
+                            Requires IsolateEmulatorThread to be enabled.
+                            One of: Shared
+                          type: string
                       type: object
                     devices:
                       description: Devices allows adding disks, network interfaces,
@@ -21948,6 +21983,13 @@ var CRDsValidation map[string]string = map[string]string{
                     Example: "0-3,^1","0,2,3","2-3"
                   type: string
               type: object
+            vhostThreadPolicy:
+              description: |-
+                VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                Omitting this field disables vhost thread isolation.
+                Requires IsolateEmulatorThread to be enabled.
+                One of: Shared
+              type: string
           required:
           - guest
           type: object
@@ -24602,6 +24644,13 @@ var CRDsValidation map[string]string = map[string]string{
                                     Must be a value greater or equal 1.
                                   format: int32
                                   type: integer
+                                vhostThreadPolicy:
+                                  description: |-
+                                    VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                                    Omitting this field disables vhost thread isolation.
+                                    Requires IsolateEmulatorThread to be enabled.
+                                    One of: Shared
+                                  type: string
                               type: object
                             devices:
                               description: Devices allows adding disks, network interfaces,
@@ -30278,6 +30327,13 @@ var CRDsValidation map[string]string = map[string]string{
                                         Must be a value greater or equal 1.
                                       format: int32
                                       type: integer
+                                    vhostThreadPolicy:
+                                      description: |-
+                                        VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+                                        Omitting this field disables vhost thread isolation.
+                                        Requires IsolateEmulatorThread to be enabled.
+                                        One of: Shared
+                                      type: string
                                   type: object
                                 devices:
                                   description: Devices allows adding disks, network

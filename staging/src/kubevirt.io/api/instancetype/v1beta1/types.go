@@ -160,6 +160,13 @@ type CPUInstancetype struct {
 	// +optional
 	IsolateEmulatorThread *bool `json:"isolateEmulatorThread,omitempty"`
 
+	// VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s).
+	// Omitting this field disables vhost thread isolation.
+	// Requires IsolateEmulatorThread to be enabled.
+	// One of: Shared
+	// +optional
+	VhostThreadPolicy *v1.VhostThreadPolicy `json:"vhostThreadPolicy,omitempty"`
+
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *v1.Realtime `json:"realtime,omitempty"`

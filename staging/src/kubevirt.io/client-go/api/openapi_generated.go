@@ -19003,6 +19003,13 @@ func schema_kubevirtio_api_core_v1_CPU(ref common.ReferenceCallback) common.Open
 							Format:      "",
 						},
 					},
+					"vhostThreadPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s). Omitting this field disables vhost thread isolation. Requires IsolateEmulatorThread to be enabled. One of: Shared",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"realtime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
@@ -31837,6 +31844,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUInstancetype(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Description: "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"vhostThreadPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VhostThreadPolicy controls pinning of vhost-net kernel worker threads to dedicated pCPU(s). Omitting this field disables vhost thread isolation. Requires IsolateEmulatorThread to be enabled. One of: Shared",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
