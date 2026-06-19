@@ -20,7 +20,6 @@
 package rest
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -30,21 +29,16 @@ import (
 	"sync"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/mdlayher/vsock"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/certificate"
-
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtvsock "kubevirt.io/kubevirt/pkg/virt-handler/vsock"
-	"kubevirt.io/kubevirt/pkg/vsock/mode"
 )
 
 type ConsoleHandler struct {
@@ -56,14 +50,14 @@ type ConsoleHandler struct {
 	vmiStore             cache.Store
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
-	vsockCertManager     certificate.Manager
+	vsockDialer          *virtvsock.Dialer
 }
 
 type UsbredirHandlerVMI struct {
 	stopChans map[int]chan struct{}
 }
 
-func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager) *ConsoleHandler {
+func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, vsockDialer *virtvsock.Dialer) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
 		serialStopChans:      make(map[types.UID]chan struct{}),
@@ -73,7 +67,7 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiS
 		usbredirLock:         &sync.Mutex{},
 		vmiStore:             vmiStore,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
-		vsockCertManager:     certManager,
+		vsockDialer:          vsockDialer,
 	}
 }
 
@@ -235,43 +229,8 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 		return
 	}
 	t.stream(vmi, request, response, func() (net.Conn, error) {
-		return t.dialVSOCK(vmi, uint32(port), useTLS)
+		return t.vsockDialer.Dial(vmi, uint32(port), useTLS)
 	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
-}
-
-func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) (net.Conn, error) {
-	dialer := virtvsock.NewDialer(t.podIsolationDetector,
-		mode.DefaultProcPath,
-		func(pid int, fn func() error) error { return netns.New(pid).Do(fn) },
-		vsock.Dial)
-
-	conn, err := dialer.Dial(vmi, port)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial VSOCK for VM: %w", err)
-	}
-	if !useTLS {
-		return conn, nil
-	}
-	tlsConn := tls.Client(conn, &tls.Config{
-		InsecureSkipVerify: true,
-		MinVersion:         tls.VersionTLS13,
-		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			certificate := t.vsockCertManager.Current()
-			if certificate == nil {
-				return nil, fmt.Errorf("missing VSOCK certificate")
-			}
-			return certificate, nil
-		},
-	})
-	if err := tlsConn.Handshake(); err != nil {
-		closeErr := tlsConn.Close()
-		return nil, errors.Join(
-			fmt.Errorf("failed to connect to VSOCK port %d in VM %s/%s over TLS: %w", port, vmi.Namespace, vmi.Name, err),
-			closeErr,
-		)
-	}
-	log.Log.Object(vmi).Infof("Connected to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
-	return tlsConn, nil
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) chan struct{} {

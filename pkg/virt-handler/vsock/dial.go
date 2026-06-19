@@ -20,13 +20,17 @@
 package vsock
 
 import (
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 
 	"github.com/mdlayher/vsock"
+	"k8s.io/client-go/util/certificate"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtvsock "kubevirt.io/kubevirt/pkg/vsock"
 	"kubevirt.io/kubevirt/pkg/vsock/mode"
@@ -36,23 +40,58 @@ type vsockDialFunc func(contextID, port uint32, cfg *vsock.Config) (*vsock.Conn,
 
 type netnsDoFunc func(pid int, fn func() error) error
 
+type TLSConn interface {
+	net.Conn
+	Handshake() error
+}
+
+type tlsWrapperFunc func(conn net.Conn) TLSConn
+
 type Dialer struct {
 	isolationDetector isolation.PodIsolationDetector
 	procPath          string
 	netnsDoFn         netnsDoFunc
 	dialFn            vsockDialFunc
+	tlsWrapperFn      tlsWrapperFunc
 }
 
-func NewDialer(isolationDetector isolation.PodIsolationDetector, procPath string, netnsFn netnsDoFunc, dialFn vsockDialFunc) *Dialer {
+func NewDialer(
+	isolationDetector isolation.PodIsolationDetector,
+	procPath string,
+	netnsFn netnsDoFunc,
+	dialFn vsockDialFunc,
+	tlsWrapperFn tlsWrapperFunc,
+) *Dialer {
 	return &Dialer{
 		isolationDetector: isolationDetector,
 		procPath:          procPath,
 		dialFn:            dialFn,
 		netnsDoFn:         netnsFn,
+		tlsWrapperFn:      tlsWrapperFn,
 	}
 }
 
-func (d *Dialer) Dial(vmi *v1.VirtualMachineInstance, port uint32) (net.Conn, error) {
+func NewDefaultDialer(isolationDetector isolation.PodIsolationDetector, certManager certificate.Manager) *Dialer {
+	return NewDialer(isolationDetector,
+		mode.DefaultProcPath,
+		func(pid int, fn func() error) error { return netns.New(pid).Do(fn) },
+		vsock.Dial,
+		func(conn net.Conn) TLSConn {
+			return tls.Client(conn, &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec
+				MinVersion:         tls.VersionTLS13,
+				GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+					cert := certManager.Current()
+					if cert == nil {
+						return nil, fmt.Errorf("missing VSOCK certificate")
+					}
+					return cert, nil
+				},
+			})
+		})
+}
+
+func (d *Dialer) Dial(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) (net.Conn, error) {
 	if vmi.Status.VSOCKCID == nil {
 		return nil, fmt.Errorf("VSOCK is not enabled for the VM")
 	}
@@ -77,12 +116,29 @@ func (d *Dialer) Dial(vmi *v1.VirtualMachineInstance, port uint32) (net.Conn, er
 		if err != nil {
 			return fmt.Errorf("failed to dial VSOCK %d:%d: %w", cid, port, err)
 		}
-		log.Log.Object(vmi).Infof("Connected to %d:%d in %s mode", cid, port, vsockMode)
 		conn = c
 		return nil
 	})
 	if nsErr != nil {
 		return nil, nsErr
 	}
-	return conn, nil
+
+	if !useTLS {
+		log.Log.Object(vmi).Infof("Connected to %d:%d in %s mode", cid, port, vsockMode)
+		return conn, nil
+	}
+
+	// The TLS connection and handshake is done outside of netns.Do(),
+	// otherwise blocking this goroutine would also block the OS thread,
+	// leaving less threads to run other goroutines.
+	tlsConn := d.tlsWrapperFn(conn)
+	if err := tlsConn.Handshake(); err != nil {
+		closeErr := tlsConn.Close()
+		return nil, errors.Join(
+			fmt.Errorf("failed to connect to VSOCK port %d in VM %s/%s over TLS: %w", port, vmi.Namespace, vmi.Name, err),
+			closeErr,
+		)
+	}
+	log.Log.Object(vmi).Infof("Connected to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
+	return tlsConn, nil
 }
