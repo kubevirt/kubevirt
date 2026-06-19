@@ -28948,6 +28948,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							Format:      "",
 						},
 					},
+					"serviceAccountName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccountName is the name of the ServiceAccount to use to run the virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT automatically expose the service account token to the VM guest. To expose the token to the VM, use a serviceAccount volume.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"tolerations": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If toleration is specified, obey all the toleration rules.",

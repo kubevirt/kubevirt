@@ -70,6 +70,12 @@ func WithLabelledConfigMapDisk(configMapName, volumeName, label string) Option {
 	}
 }
 
+func WithServiceAccountName(name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.ServiceAccountName = name
+	}
+}
+
 func WithServiceAccountDisk(name string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		const volumeSuffix = "-disk"
