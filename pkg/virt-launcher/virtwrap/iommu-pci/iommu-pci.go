@@ -89,32 +89,27 @@ type BDF struct {
 	OASBits int
 }
 
-// NewIommuPCI creates a new IommuPCI checker that verifies IOMMU capabilities
-// and system configuration for device passthrough.
-//
-// On ARM64 systems, this function:
-//   - Detects if SMMUv3 (ARM IOMMU) is available in the kernel
-//   - Reads the CPU's Output Address Size (OAS) from hardware registers
-//   - Initializes tracking for PCI memory hole requirements
-//
-// On other architectures, the checks are skipped but the structure is still
-// created for API consistency.
-func NewIommuPCI(arch string) *IommuPCI {
-	if arch != "arm64" {
-		log.Log.V(3).Info("Skipping IOMMUFD/SMMUv3 check for non-arm64 architecture")
-		return &IommuPCI{}
+// NewIommuPCI creates a new IommuPCI configuration based on architecture and feature flags.
+// Returns nil if Grace IO Virtualization or IOMMUFD is not enabled.
+// On arm64, it probes for SMMUv3 availability; on other architectures it
+// returns a minimal configuration without SMMU support.
+func NewIommuPCI(arch string, graceIOVirtualizationEnabled, iommufdEnabled bool) *IommuPCI {
+	if !graceIOVirtualizationEnabled || !iommufdEnabled {
+		return nil
 	}
 
-	iommufdEnabled, err := IommufdEnabled()
-	if err != nil {
-		log.Log.Errorf("error checking Iommufd: %v", err)
+	if arch != "arm64" {
+		log.Log.V(3).Info("Skipping SMMUv3 check for non-arm64 architecture")
+		return &IommuPCI{
+			IommufdEnabled: pointer.P(iommufdEnabled),
+		}
 	}
+
 	smmuEnabled, err := isSMMUv3Enabled()
 	if err != nil {
 		log.Log.Errorf("error checking SMMUv3: %v", err)
 	}
 
-	log.Log.V(3).Infof("iommufd: %t", iommufdEnabled)
 	log.Log.V(3).Infof("smmuv3: %t", smmuEnabled)
 
 	return &IommuPCI{

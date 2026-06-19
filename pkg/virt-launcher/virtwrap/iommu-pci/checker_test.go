@@ -136,27 +136,45 @@ var _ = Describe("IOMMU PCI Checker", func() {
 	Describe("NewIommuPCI", func() {
 		Context("when initializing IOMMU checker", func() {
 			It("should create instance for arm64", func() {
-				iommu := iommupci.NewIommuPCI("arm64")
+				iommu := iommupci.NewIommuPCI("arm64", true, true)
 				Expect(iommu).NotTo(BeNil())
 				Expect(iommu.PCIHoleSize).To(Equal(uint64(0)))
 			})
 
 			It("should create instance for x86_64", func() {
-				iommu := iommupci.NewIommuPCI("x86_64")
+				iommu := iommupci.NewIommuPCI("x86_64", true, true)
 				Expect(iommu).NotTo(BeNil())
 				// On x86_64, SMMU should not be enabled
 				Expect(iommu.SMMUEnabled).To(BeFalse())
+				Expect(*iommu.IommufdEnabled).To(BeTrue())
 			})
 
 			It("should create instance for s390x", func() {
-				iommu := iommupci.NewIommuPCI("s390x")
+				iommu := iommupci.NewIommuPCI("s390x", true, true)
 				Expect(iommu).NotTo(BeNil())
 				Expect(iommu.SMMUEnabled).To(BeFalse())
+				Expect(*iommu.IommufdEnabled).To(BeTrue())
 			})
 
 			It("should handle unknown architectures", func() {
-				iommu := iommupci.NewIommuPCI("unknown")
+				iommu := iommupci.NewIommuPCI("unknown", true, true)
 				Expect(iommu).NotTo(BeNil())
+				Expect(*iommu.IommufdEnabled).To(BeTrue())
+			})
+
+			It("should return nil when iommufdEnabled is false", func() {
+				iommu := iommupci.NewIommuPCI("x86_64", true, false)
+				Expect(iommu).To(BeNil())
+			})
+
+			It("should return nil when graceIOVirtualizationEnabled is false", func() {
+				iommu := iommupci.NewIommuPCI("arm64", false, true)
+				Expect(iommu).To(BeNil())
+			})
+
+			It("should return nil when both flags are false", func() {
+				iommu := iommupci.NewIommuPCI("arm64", false, false)
+				Expect(iommu).To(BeNil())
 			})
 		})
 	})
@@ -184,7 +202,7 @@ var _ = Describe("IOMMU PCI Checker", func() {
 			var iommu *iommupci.IommuPCI
 
 			BeforeEach(func() {
-				iommu = iommupci.NewIommuPCI("arm64")
+				iommu = iommupci.NewIommuPCI("arm64", true, true)
 			})
 
 			It("should initialize with zero PCI hole size", func() {
@@ -285,7 +303,7 @@ var _ = Describe("IOMMU PCI Checker", func() {
 					Skip("CalculateTotalPCIHole64Size only implemented on ARM64")
 				}
 				// 4x NVIDIA T4 (16 GB each) = 64 GB total
-				iommu := iommupci.NewIommuPCI("arm64")
+				iommu := iommupci.NewIommuPCI("arm64", true, true)
 
 				for i := 0; i < 4; i++ {
 					// Each T4 contributes 16 GB
@@ -376,7 +394,7 @@ var _ = Describe("IOMMU PCI Checker", func() {
 				_ = err
 
 				// Step 2: Create IOMMU instance
-				iommu := iommupci.NewIommuPCI("arm64")
+				iommu := iommupci.NewIommuPCI("arm64", true, true)
 				Expect(iommu).NotTo(BeNil())
 
 				// Step 3: Create BDF device
@@ -394,7 +412,7 @@ var _ = Describe("IOMMU PCI Checker", func() {
 					Skip("ARM64-specific tests")
 				}
 
-				iommu := iommupci.NewIommuPCI("arm64")
+				iommu := iommupci.NewIommuPCI("arm64", true, true)
 
 				// Simulate discovering multiple GPUs
 				// GPU 1: 40 GB

@@ -1352,12 +1352,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 	c.IOMMUFDEnabled = l.iommuFD != -1
 	// We need the pre-configured FD for iommufd usage.
-	if l.iommuFD >= 0 {
-		c.IommuPCI = iommupci.NewIommuPCI(runtime.GOARCH)
-	} else {
-		c.IommuPCI = &iommupci.IommuPCI{
-			IommufdEnabled: pointer.P(c.IOMMUFDEnabled),
-		}
+	if c.GraceIOVirtualizationEnabled {
+		c.IommuPCI = iommupci.NewIommuPCI(runtime.GOARCH, c.GraceIOVirtualizationEnabled, c.IOMMUFDEnabled)
 	}
 	return c, nil
 }
