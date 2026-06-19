@@ -194,10 +194,10 @@ builder-build:
 builder-publish:
 	./hack/builder/publish.sh
 
-builder-build-centos-stream-10:
+builder-build-centos-stream-10 builder-build-cs10:
 	./hack/builder/build-centos-stream-10.sh
 
-builder-publish-centos-stream-10:
+builder-publish-centos-stream-10 builder-publish-cs10:
 	./hack/builder/publish-centos-stream-10.sh
 
 olm-verify:
@@ -302,6 +302,10 @@ vmlog-checker:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	builder-build-centos-stream-10 \
+	builder-build-cs10 \
+	builder-publish-centos-stream-10 \
+	builder-publish-cs10 \
 	feature-gate-report \
 	vmlog-checker \
 	$(NULL)
