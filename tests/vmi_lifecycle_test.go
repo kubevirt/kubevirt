@@ -1,22 +1,3 @@
-/*
- * This file is part of the KubeVirt project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright The KubeVirt Authors.
- *
- */
-
 package tests_test
 
 import (
@@ -157,8 +138,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			By("calling evict on VMI's pod")
 			err = kubevirt.Client().CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
-			// The "too many requests" err is what get's returned when an
-			// eviction would invalidate a pdb. This is what we want to see here.
+
 			Expect(err).To(MatchError(k8serrors.IsTooManyRequests, "too many requests should be returned as way of blocking eviction"))
 			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
 
@@ -175,7 +155,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}, 10*time.Second, 1*time.Second).Should(BeNil(), "Should not delete the Pod")
 		})
 
-		It("[test_id:1622]should log libvirtd logs", decorators.WgS390x, func() {
+		It("[QUARANTINE][test_id:1622]should log libvirtd logs", decorators.Quarantine, decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
@@ -211,8 +191,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			const logEntryToSearch = "QEMU_MONITOR_SEND_MSG"
 			const subcomponent = `"subcomponent":"libvirt"`
 
-			// There are plenty of strings we can use to identify the debug logs.
-			// Here we use something we deeply care about when in debug mode.
 			if expectDebugLogs {
 				Eventually(logs,
 					totalTestTime,
@@ -235,8 +213,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", decorators.WgS390x, func() {
 			vmi := libvmifact.NewAlpine()
-			// Add a disk that doesn't map to a volume.
-			// This should get rejected which tells us the webhook validator is working.
+
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
@@ -246,7 +223,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			result := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background())
 
-			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity), "VMI should be rejected as unprocessable")
@@ -265,12 +241,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred(), "Send POST successfully")
 
-			// Add a disk without a volume reference (this is in valid)
 			patchStr := fmt.Sprintf("{\"apiVersion\":\"kubevirt.io/%s\",\"kind\":\"VirtualMachineInstance\",\"spec\":{\"domain\":{\"devices\":{\"disks\":[{\"disk\":{\"bus\":\"virtio\"},\"name\":\"fakedisk\"}]}}}}", v1.ApiLatestVersion)
 
 			result := kubevirt.Client().RestClient().Patch(types.MergePatchType).Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Name(vmi.Name).Body([]byte(patchStr)).Do(context.Background())
 
-			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity), "The entity should be unprocessable")
@@ -345,23 +319,21 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					createdVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
 					launcher, err := libpod.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
 					Expect(err).ToNot(HaveOccurred())
-					// Wait until we see that starting the VirtualMachineInstance is failing
+
 					By(fmt.Sprintf("Checking that VirtualMachineInstance start failed: starting at %v", time.Now()))
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					event := watcher.New(launcher).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.WarningEvent, "FailedMount")
 					Expect(event.Message).To(SatisfyAny(
 						ContainSubstring(`secret "nonexistent" not found`),
-						ContainSubstring(`secrets "nonexistent" not found`), // for k8s 1.11.x
+						ContainSubstring(`secrets "nonexistent" not found`),
 					), "VMI should not be started")
 
-					// Creat nonexistent secret, so that the VirtualMachineInstance can recover
 					By("Creating a user-data secret")
 					secret := libsecret.New("nonexistent", libsecret.DataString{"userdata": userData64})
 					_, err = kubevirt.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create secret successfully")
 
-					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
 					By("Checking that VirtualMachineInstance start succeeded")
 					watcher.New(createdVMI).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.Started)
 				})
@@ -485,30 +457,23 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("when virt-handler crashes", Serial, decorators.WgS390x, func() {
-			// FIXME: This test has the issues that it tests a lot of different timing scenarios in an intransparent way:
-			// e.g. virt-handler can die before or after virt-launcher. If we wait until virt-handler is dead before we
-			// kill virt-launcher then we don't know if virt-handler already restarted.
-			// Also the virt-handler crash-loop plays a role here. We could also change the daemon-set but then we would not check the crash behaviour.
+
 			It("[test_id:1632]should recover and continue management", func() {
 				vmi := libvmifact.NewGuestless()
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
-				// Start a VirtualMachineInstance
 				vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 				nodeName := vmi.Status.NodeName
 
-				// Kill virt-handler on the node the VirtualMachineInstance is active on.
 				By("Crashing the virt-handler")
 				err = pkillHandler(kubevirt.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should kill virt-handler successfully")
 
-				// Crash the VirtualMachineInstance and verify a recovered version of virt-handler processes the crash
 				By("Killing the VirtualMachineInstance")
 				err = pkillVMI(kubevirt.Client(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should kill VMI successfully")
 
-				// Give virt-handler some time. It can greatly vary when virt-handler will be ready again
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
@@ -563,7 +528,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
-				// Start a VirtualMachineInstance
 				nodeName := libwait.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
 				By("triggering a device plugin re-registration on that node")
@@ -574,8 +538,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					"virt-handler",
 					[]string{
 						"rm",
-						// We want to fail if the file does not exist, but don't want to be asked
-						// if we really want to remove write-protected files
+
 						"--interactive=never",
 						device_manager.SocketPath("kvm"),
 					})
@@ -598,10 +561,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", "kvm"),
 					), "Should log device plugin restart")
 
-				// This is a little bit arbitrar
-				// Background is that new pods go into a crash loop if the devices are still report but virt-handler
-				// re-registers exactly during that moment. This is not too bad, since normally kubelet itself deletes
-				// the socket and knows that the devices are not there. However we have to wait in this test a little bit.
 				time.Sleep(10 * time.Second)
 
 				By("starting another VMI on the same node, to verify devices still work")
@@ -622,15 +581,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				// Note: we want VMI without any container
+
 				vmi = libvmifact.NewGuestless(libvmi.WithLogSerialConsole(false))
 				var err error
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
-				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
-				// the VMI. Otherwise virt-controller may move the VMI to failed instead of the node controller.
 				nodeName = libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithFailOnWarnings(false),
 					libwait.WithTimeout(180),
@@ -641,7 +597,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				ds, err := kubevirt.Client().AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
-				// Save virt-handler number of desired pods
+
 				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
 				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
@@ -670,7 +626,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
-				// Update virt-handler heartbeat, to trigger a timeout
+
 				node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
 
@@ -688,14 +644,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
-				// Note we cannot remove the Pod as the vmi controller also moves the VMI to Failed if Pod disappears
-				// This leads to race condition, killing the process gives us exactly what we want
 				By("killing the virt-launcher")
 				vmiKiller, err := pkillAllLaunchers(kubevirt.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should create vmi-killer pod to kill virt-launcher successfully")
 				watcher.New(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(20*time.Second).WaitFor(context.Background(), watcher.NormalEvent, v1.Started)
 
-				// it will take at least 45 seconds until the vmi is gone, check the schedulable state in the meantime
 				By("marking the node as not schedulable")
 				Eventually(func() map[string]string {
 					node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
@@ -717,7 +670,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			AfterEach(func() {
 				testsuite.RestoreKubeVirtResource()
 
-				// Wait until virt-handler ds will have expected number of pods
 				Eventually(func() bool {
 					ds, err := kubevirt.Client().AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get virthandler successfully")
@@ -739,7 +691,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					return nodes.Items
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 
-				// Taint first node with "NoSchedule"
 				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
 				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node")
@@ -747,7 +698,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			AfterEach(func() {
-				// Untaint first node
+
 				data := []byte(`{"spec":{"taints":[]}}`)
 				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node")
@@ -844,7 +795,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var defaultCPUModel string
 			var vmiCPUModel string
 
-			//store old kubevirt-config
 			BeforeEach(func() {
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
@@ -858,7 +808,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				originalConfig = kv.Spec.Configuration
 			})
 
-			//replace new kubevirt-config with old config
 			AfterEach(func() {
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
@@ -1001,7 +950,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Model: "486",
 				}
 
-				//Make sure the vmi should try to be scheduled only on master node
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node.Name}
 
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1025,8 +973,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("adding a node-feature-discovery CPU model label to a node")
 				vmi := libvmifact.NewGuestless()
 				var featureToDisable string
-				// Use a different feature to disable, as  s390x and
-				//other archs do not have common cpu features
 
 				switch libnode.GetArch() {
 				case "s390x":
@@ -1039,7 +985,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				featureToRequire := supportedFeatures[0]
 
 				if featureToRequire == featureToDisable {
-					// Picking another feature since this one is going to be disabled
+
 					featureToRequire = supportedFeatures[1]
 				}
 
@@ -1151,8 +1097,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", decorators.WgS390x, func() {
 
-				// Add node affinity first to test later on that although there is node affinity to
-				// the specific node - the feature policy 'forbid' will deny scheduling on that node.
 				vmi := libvmifact.NewGuestless(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
@@ -1207,25 +1151,21 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				seconds := int64(120)
 				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
 
-				// Make sure we schedule the VirtualMachineInstance to master
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 
-				// Start the VirtualMachineInstance and wait for the confirmation of the start
 				vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				// Check if the start event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance creation")
 				Eventually(func() string {
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs from virthandler")
 					return string(data)
 				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
-				// Check the VirtualMachineInstance Namespace
+
 				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
 
-				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				_, err = kubevirt.Client().RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
 				Expect(err).ToNot(HaveOccurred())
@@ -1234,23 +1174,15 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, v1.Deleted)
 				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 
-				// Check if the stop event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance deletion")
-				/*
-						Since we deleted the VMI object, there are two possible outcomes and both are expected:
-						1. virt-controller kicks in, registers a deletion request on the launcher pod and K8s deletes the pod
-					       before virt-handler had a chance to set or check the deletion timestamp on the domain.
-						2. virt-handler detects the deletion timestamp on the domain and removes it.
 
-						TODO: https://github.com/kubevirt/kubevirt/issues/3764
-				*/
 				Eventually(func() string {
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
 				}, 30, 0.5).Should(SatisfyAny(
-					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()),               // Domain was deleted by virt-handler
-					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
+					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()),
+					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()),
 				), "Logs should confirm pod deletion")
 			},
 				Entry("[test_id:1641]Default test namespace", false),
@@ -1481,7 +1413,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			grepGuestUptime := func(vmi *v1.VirtualMachineInstance) float64 {
 				res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 					&expect.BSnd{S: `cat /proc/uptime | awk '{print $1;}'` + "\n"},
-					&expect.BExp{R: console.RetValue("[0-9\\.]+")}, // guest uptime
+					&expect.BExp{R: console.RetValue("[0-9\\.]+")},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
 				re := regexp.MustCompile("\r\n[0-9\\.]+\r\n")
@@ -1507,7 +1439,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-			time.Sleep(sleepTimeSeconds * time.Second) // sleep to increase uptime diff
+			time.Sleep(sleepTimeSeconds * time.Second)
 
 			By("Unpausing the VMI")
 			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
@@ -1517,11 +1449,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			By("Verifying VMI was indeed Paused")
 			uptimeDiffAfterPausing := hostUptime(startTime) - grepGuestUptime(vmi)
 
-			// We subtract from the sleep time the deviation due to the low resolution of `uptime` (seconds).
-			// If you capture the uptime when it is at the beginning of that second or at the end of that second,
-			// the value comes out the same even though in fact a whole second has almost passed.
-			// In extreme cases, as we take 4 readings (2 initially and 2 after the unpause), the deviation could be up to just under 4 seconds.
-			// This fact does not invalidate the purpose of the test, which is to prove that during the pause the vmi is actually paused.
 			Expect(uptimeDiffAfterPausing-uptimeDiffBeforePausing).To(BeNumerically(">=", sleepTimeSeconds-deviation), fmt.Sprintf("guest should be paused for at least %d seconds", sleepTimeSeconds-deviation))
 		})
 	})
@@ -1535,14 +1462,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 
-			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
 			err = kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// TODD By("Verifying VirtualMachineInstance's pod terminates")
-
-			// Wait for VirtualMachineInstance to finalize
 			By("Waiting for the VirtualMachineInstance to move to a finalized state")
 			Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).
 				Should(Or(matcher.BeInPhase(v1.Succeeded), matcher.BeInPhase(v1.Failed)))
@@ -1603,20 +1526,16 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
-				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 
-				// Check if the graceful shutdown was logged
 				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")
 				event := watcher.New(vmi).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "ShuttingDown")
 				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
 
-				// Verify VirtualMachineInstance is killed after grace period expires
-				// 5 seconds is grace period, doubling to prevent flakiness
 				By("Checking that the VirtualMachineInstance does not exist after grace period")
 				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
 				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
@@ -1638,7 +1557,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			By("Killing the VirtualMachineInstance")
 			Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
 
-			// Wait for stop event of the VirtualMachineInstance
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			objectEventWatcher := watcher.New(vmi).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
@@ -1652,11 +1570,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			objectEventWatcher.SetWarningsPolicy(wp)
 			objectEventWatcher.WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
 
-			// Wait for some time and see if a sync event happens on the stopped VirtualMachineInstance
 			By("Checking that virt-handler does not try to sync stopped VirtualMachineInstance")
 			stoppedVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should refresh VMI to get its current resourceVersion")
-			// This is not optimal as we always spend 10 seconds here. Optimally we should wait for the Failed test and verify that no warning were fired.
+
 			event := watcher.New(stoppedVMI).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitNotFor(ctx, watcher.WarningEvent, v1.SyncFailed)
 			Expect(event).To(BeNil(), "virt-handler tried to sync on a VirtualMachineInstance in final state")
 
