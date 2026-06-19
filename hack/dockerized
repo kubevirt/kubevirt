@@ -13,7 +13,7 @@ fi
 fail_if_cri_bin_missing
 
 kubevirt_builder_version="2606231619-4fe2cd536f"
-kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
+kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-"2606291605-cd18b3548f"}
 
 # CentOS Stream 9 builder images (default)
 default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
@@ -28,13 +28,6 @@ kubevirt_cs10_cross_compile_image="quay.io/kubevirt/builder-cs10-cross:${kubevir
 if [ -n "${KUBEVIRT_BUILDER_IMAGE}" ]; then
     : # User has specified a custom builder image
 elif [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" == "10" ]; then
-    if [ -z "${kubevirt_cs10_builder_version}" ]; then
-        echo "ERROR: KUBEVIRT_CENTOS_STREAM_VERSION=10 requires KUBEVIRT_CS10_BUILDER_VERSION to be set" >&2
-        echo "Build a CS10 builder image with: hack/builder/build-cs10.sh" >&2
-        echo "Then set: export KUBEVIRT_CS10_BUILDER_VERSION=<version>" >&2
-        echo "Or set KUBEVIRT_BUILDER_IMAGE directly to your local CS10 builder image" >&2
-        exit 1
-    fi
     KUBEVIRT_BUILDER_IMAGE="${default_kubevirt_cs10_builder_image}"
     kubevirt_cross_compile_image="${kubevirt_cs10_cross_compile_image}"
 else
