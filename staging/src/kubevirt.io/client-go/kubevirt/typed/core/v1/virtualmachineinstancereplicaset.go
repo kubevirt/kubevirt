@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	corev1 "kubevirt.io/api/core/v1"
+	applyconfigurationscorev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineInstanceReplicaSetInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineInstanceReplicaSetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstanceReplicaSet, err error)
+	Apply(ctx context.Context, virtualMachineInstanceReplicaSet *applyconfigurationscorev1.VirtualMachineInstanceReplicaSetApplyConfiguration, opts metav1.ApplyOptions) (result *corev1.VirtualMachineInstanceReplicaSet, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineInstanceReplicaSet *applyconfigurationscorev1.VirtualMachineInstanceReplicaSetApplyConfiguration, opts metav1.ApplyOptions) (result *corev1.VirtualMachineInstanceReplicaSet, err error)
 	VirtualMachineInstanceReplicaSetExpansion
 }
 
 // virtualMachineInstanceReplicaSets implements VirtualMachineInstanceReplicaSetInterface
 type virtualMachineInstanceReplicaSets struct {
-	*gentype.ClientWithList[*corev1.VirtualMachineInstanceReplicaSet, *corev1.VirtualMachineInstanceReplicaSetList]
+	*gentype.ClientWithListAndApply[*corev1.VirtualMachineInstanceReplicaSet, *corev1.VirtualMachineInstanceReplicaSetList, *applyconfigurationscorev1.VirtualMachineInstanceReplicaSetApplyConfiguration]
 }
 
 // newVirtualMachineInstanceReplicaSets returns a VirtualMachineInstanceReplicaSets
 func newVirtualMachineInstanceReplicaSets(c *KubevirtV1Client, namespace string) *virtualMachineInstanceReplicaSets {
 	return &virtualMachineInstanceReplicaSets{
-		gentype.NewClientWithList[*corev1.VirtualMachineInstanceReplicaSet, *corev1.VirtualMachineInstanceReplicaSetList](
+		gentype.NewClientWithListAndApply[*corev1.VirtualMachineInstanceReplicaSet, *corev1.VirtualMachineInstanceReplicaSetList, *applyconfigurationscorev1.VirtualMachineInstanceReplicaSetApplyConfiguration](
 			"virtualmachineinstancereplicasets",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "kubevirt.io/api/migrations/v1alpha1"
-	migrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
+	migrationsv1alpha1 "kubevirt.io/client-go/applyconfigurations/migrations/v1alpha1"
+	typedmigrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 )
 
 // fakeMigrationPolicies implements MigrationPolicyInterface
 type fakeMigrationPolicies struct {
-	*gentype.FakeClientWithList[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList]
+	*gentype.FakeClientWithListAndApply[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList, *migrationsv1alpha1.MigrationPolicyApplyConfiguration]
 	Fake *FakeMigrationsV1alpha1
 }
 
-func newFakeMigrationPolicies(fake *FakeMigrationsV1alpha1) migrationsv1alpha1.MigrationPolicyInterface {
+func newFakeMigrationPolicies(fake *FakeMigrationsV1alpha1) typedmigrationsv1alpha1.MigrationPolicyInterface {
 	return &fakeMigrationPolicies{
-		gentype.NewFakeClientWithList[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList](
+		gentype.NewFakeClientWithListAndApply[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList, *migrationsv1alpha1.MigrationPolicyApplyConfiguration](
 			fake.Fake,
 			"",
 			v1alpha1.SchemeGroupVersion.WithResource("migrationpolicies"),

@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypev1beta1 "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1"
+	typedinstancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 )
 
 // fakeVirtualMachineClusterPreferences implements VirtualMachineClusterPreferenceInterface
 type fakeVirtualMachineClusterPreferences struct {
-	*gentype.FakeClientWithList[*v1beta1.VirtualMachineClusterPreference, *v1beta1.VirtualMachineClusterPreferenceList]
+	*gentype.FakeClientWithListAndApply[*v1beta1.VirtualMachineClusterPreference, *v1beta1.VirtualMachineClusterPreferenceList, *instancetypev1beta1.VirtualMachineClusterPreferenceApplyConfiguration]
 	Fake *FakeInstancetypeV1beta1
 }
 
-func newFakeVirtualMachineClusterPreferences(fake *FakeInstancetypeV1beta1) instancetypev1beta1.VirtualMachineClusterPreferenceInterface {
+func newFakeVirtualMachineClusterPreferences(fake *FakeInstancetypeV1beta1) typedinstancetypev1beta1.VirtualMachineClusterPreferenceInterface {
 	return &fakeVirtualMachineClusterPreferences{
-		gentype.NewFakeClientWithList[*v1beta1.VirtualMachineClusterPreference, *v1beta1.VirtualMachineClusterPreferenceList](
+		gentype.NewFakeClientWithListAndApply[*v1beta1.VirtualMachineClusterPreference, *v1beta1.VirtualMachineClusterPreferenceList, *instancetypev1beta1.VirtualMachineClusterPreferenceApplyConfiguration](
 			fake.Fake,
 			"",
 			v1beta1.SchemeGroupVersion.WithResource("virtualmachineclusterpreferences"),

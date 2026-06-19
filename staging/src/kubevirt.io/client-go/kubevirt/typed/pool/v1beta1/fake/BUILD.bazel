@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/api/pool/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/applyconfigurations/pool/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/pool/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/gentype:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",

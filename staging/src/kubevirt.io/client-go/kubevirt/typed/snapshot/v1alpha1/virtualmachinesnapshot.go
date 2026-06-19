@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	applyconfigurationssnapshotv1alpha1 "kubevirt.io/client-go/applyconfigurations/snapshot/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineSnapshotInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*snapshotv1alpha1.VirtualMachineSnapshotList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *snapshotv1alpha1.VirtualMachineSnapshot, err error)
+	Apply(ctx context.Context, virtualMachineSnapshot *applyconfigurationssnapshotv1alpha1.VirtualMachineSnapshotApplyConfiguration, opts v1.ApplyOptions) (result *snapshotv1alpha1.VirtualMachineSnapshot, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineSnapshot *applyconfigurationssnapshotv1alpha1.VirtualMachineSnapshotApplyConfiguration, opts v1.ApplyOptions) (result *snapshotv1alpha1.VirtualMachineSnapshot, err error)
 	VirtualMachineSnapshotExpansion
 }
 
 // virtualMachineSnapshots implements VirtualMachineSnapshotInterface
 type virtualMachineSnapshots struct {
-	*gentype.ClientWithList[*snapshotv1alpha1.VirtualMachineSnapshot, *snapshotv1alpha1.VirtualMachineSnapshotList]
+	*gentype.ClientWithListAndApply[*snapshotv1alpha1.VirtualMachineSnapshot, *snapshotv1alpha1.VirtualMachineSnapshotList, *applyconfigurationssnapshotv1alpha1.VirtualMachineSnapshotApplyConfiguration]
 }
 
 // newVirtualMachineSnapshots returns a VirtualMachineSnapshots
 func newVirtualMachineSnapshots(c *SnapshotV1alpha1Client, namespace string) *virtualMachineSnapshots {
 	return &virtualMachineSnapshots{
-		gentype.NewClientWithList[*snapshotv1alpha1.VirtualMachineSnapshot, *snapshotv1alpha1.VirtualMachineSnapshotList](
+		gentype.NewClientWithListAndApply[*snapshotv1alpha1.VirtualMachineSnapshot, *snapshotv1alpha1.VirtualMachineSnapshotList, *applyconfigurationssnapshotv1alpha1.VirtualMachineSnapshotApplyConfiguration](
 			"virtualmachinesnapshots",
 			c.RESTClient(),
 			scheme.ParameterCodec,

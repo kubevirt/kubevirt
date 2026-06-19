@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "virtualmachinepool.go",
+        "virtualmachinepoolautohealingstrategy.go",
+        "virtualmachinepoolcondition.go",
+        "virtualmachinepoolnamegeneration.go",
+        "virtualmachinepoolopportunisticscaleinstrategy.go",
+        "virtualmachinepoolproactivescaleinstrategy.go",
+        "virtualmachinepoolproactiveupdatestrategy.go",
+        "virtualmachinepoolscaleinstrategy.go",
+        "virtualmachinepoolselectionpolicy.go",
+        "virtualmachinepoolselectors.go",
+        "virtualmachinepoolspec.go",
+        "virtualmachinepoolstatus.go",
+        "virtualmachinepoolupdatestrategy.go",
+        "virtualmachinetemplatespec.go",
+    ],
+    importpath = "kubevirt.io/client-go/applyconfigurations/pool/v1beta1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/pool/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/applyconfigurations/core/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/meta/v1:go_default_library",
+    ],
+)

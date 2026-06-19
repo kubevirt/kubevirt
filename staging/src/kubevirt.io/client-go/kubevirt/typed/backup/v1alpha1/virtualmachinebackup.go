@@ -28,6 +28,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	applyconfigurationsbackupv1alpha1 "kubevirt.io/client-go/applyconfigurations/backup/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -49,18 +50,21 @@ type VirtualMachineBackupInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*backupv1alpha1.VirtualMachineBackupList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *backupv1alpha1.VirtualMachineBackup, err error)
+	Apply(ctx context.Context, virtualMachineBackup *applyconfigurationsbackupv1alpha1.VirtualMachineBackupApplyConfiguration, opts v1.ApplyOptions) (result *backupv1alpha1.VirtualMachineBackup, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, virtualMachineBackup *applyconfigurationsbackupv1alpha1.VirtualMachineBackupApplyConfiguration, opts v1.ApplyOptions) (result *backupv1alpha1.VirtualMachineBackup, err error)
 	VirtualMachineBackupExpansion
 }
 
 // virtualMachineBackups implements VirtualMachineBackupInterface
 type virtualMachineBackups struct {
-	*gentype.ClientWithList[*backupv1alpha1.VirtualMachineBackup, *backupv1alpha1.VirtualMachineBackupList]
+	*gentype.ClientWithListAndApply[*backupv1alpha1.VirtualMachineBackup, *backupv1alpha1.VirtualMachineBackupList, *applyconfigurationsbackupv1alpha1.VirtualMachineBackupApplyConfiguration]
 }
 
 // newVirtualMachineBackups returns a VirtualMachineBackups
 func newVirtualMachineBackups(c *BackupV1alpha1Client, namespace string) *virtualMachineBackups {
 	return &virtualMachineBackups{
-		gentype.NewClientWithList[*backupv1alpha1.VirtualMachineBackup, *backupv1alpha1.VirtualMachineBackupList](
+		gentype.NewClientWithListAndApply[*backupv1alpha1.VirtualMachineBackup, *backupv1alpha1.VirtualMachineBackupList, *applyconfigurationsbackupv1alpha1.VirtualMachineBackupApplyConfiguration](
 			"virtualmachinebackups",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["internal.go"],
+    importpath = "kubevirt.io/client-go/applyconfigurations/internal",
+    visibility = ["//staging/src/kubevirt.io/client-go/applyconfigurations:__subpackages__"],
+    deps = ["//vendor/sigs.k8s.io/structured-merge-diff/v6/typed:go_default_library"],
+)

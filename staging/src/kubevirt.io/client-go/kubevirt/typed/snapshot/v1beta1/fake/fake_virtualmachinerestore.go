@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1beta1 "kubevirt.io/api/snapshot/v1beta1"
-	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
+	snapshotv1beta1 "kubevirt.io/client-go/applyconfigurations/snapshot/v1beta1"
+	typedsnapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 )
 
 // fakeVirtualMachineRestores implements VirtualMachineRestoreInterface
 type fakeVirtualMachineRestores struct {
-	*gentype.FakeClientWithList[*v1beta1.VirtualMachineRestore, *v1beta1.VirtualMachineRestoreList]
+	*gentype.FakeClientWithListAndApply[*v1beta1.VirtualMachineRestore, *v1beta1.VirtualMachineRestoreList, *snapshotv1beta1.VirtualMachineRestoreApplyConfiguration]
 	Fake *FakeSnapshotV1beta1
 }
 
-func newFakeVirtualMachineRestores(fake *FakeSnapshotV1beta1, namespace string) snapshotv1beta1.VirtualMachineRestoreInterface {
+func newFakeVirtualMachineRestores(fake *FakeSnapshotV1beta1, namespace string) typedsnapshotv1beta1.VirtualMachineRestoreInterface {
 	return &fakeVirtualMachineRestores{
-		gentype.NewFakeClientWithList[*v1beta1.VirtualMachineRestore, *v1beta1.VirtualMachineRestoreList](
+		gentype.NewFakeClientWithListAndApply[*v1beta1.VirtualMachineRestore, *v1beta1.VirtualMachineRestoreList, *snapshotv1beta1.VirtualMachineRestoreApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1beta1.SchemeGroupVersion.WithResource("virtualmachinerestores"),

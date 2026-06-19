@@ -23,18 +23,19 @@ package fake
 import (
 	gentype "k8s.io/client-go/gentype"
 	v1 "kubevirt.io/api/core/v1"
-	corev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	corev1 "kubevirt.io/client-go/applyconfigurations/core/v1"
+	typedcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
 // fakeVirtualMachineInstances implements VirtualMachineInstanceInterface
 type fakeVirtualMachineInstances struct {
-	*gentype.FakeClientWithList[*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceList]
+	*gentype.FakeClientWithListAndApply[*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceList, *corev1.VirtualMachineInstanceApplyConfiguration]
 	Fake *FakeKubevirtV1
 }
 
-func newFakeVirtualMachineInstances(fake *FakeKubevirtV1, namespace string) corev1.VirtualMachineInstanceInterface {
+func newFakeVirtualMachineInstances(fake *FakeKubevirtV1, namespace string) typedcorev1.VirtualMachineInstanceInterface {
 	return &fakeVirtualMachineInstances{
-		gentype.NewFakeClientWithList[*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceList](
+		gentype.NewFakeClientWithListAndApply[*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceList, *corev1.VirtualMachineInstanceApplyConfiguration](
 			fake.Fake,
 			namespace,
 			v1.SchemeGroupVersion.WithResource("virtualmachineinstances"),

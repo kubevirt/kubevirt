@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "condition.go",
+        "error.go",
+        "persistentvolumeclaim.go",
+        "snapshotvolumeslists.go",
+        "sourceindication.go",
+        "sourcespec.go",
+        "virtualmachine.go",
+        "virtualmachinerestore.go",
+        "virtualmachinerestorespec.go",
+        "virtualmachinerestorestatus.go",
+        "virtualmachinesnapshot.go",
+        "virtualmachinesnapshotcontent.go",
+        "virtualmachinesnapshotcontentspec.go",
+        "virtualmachinesnapshotcontentstatus.go",
+        "virtualmachinesnapshotspec.go",
+        "virtualmachinesnapshotstatus.go",
+        "volumebackup.go",
+        "volumerestore.go",
+        "volumesnapshotstatus.go",
+    ],
+    importpath = "kubevirt.io/client-go/applyconfigurations/snapshot/v1alpha1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/applyconfigurations/core/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/meta/v1:go_default_library",
+    ],
+)

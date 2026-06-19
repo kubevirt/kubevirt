@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "clockpreferences.go",
+        "cpuinstancetype.go",
+        "cpupreferencerequirement.go",
+        "cpupreferences.go",
+        "devicepreferences.go",
+        "featurepreferences.go",
+        "firmwarepreferences.go",
+        "machinepreferences.go",
+        "memoryinstancetype.go",
+        "memorypreferencerequirement.go",
+        "preferencerequirements.go",
+        "spreadoptions.go",
+        "virtualmachineclusterinstancetype.go",
+        "virtualmachineclusterpreference.go",
+        "virtualmachineinstancetype.go",
+        "virtualmachineinstancetypespec.go",
+        "virtualmachinepreference.go",
+        "virtualmachinepreferencespec.go",
+        "volumepreferences.go",
+    ],
+    importpath = "kubevirt.io/client-go/applyconfigurations/instancetype/v1beta1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/applyconfigurations/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/meta/v1:go_default_library",
+    ],
+)
