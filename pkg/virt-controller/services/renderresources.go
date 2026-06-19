@@ -353,6 +353,17 @@ func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]strin
 			}
 		}
 
+		if cpu.VhostThreadPolicy != nil {
+			vhostCPU := resource.NewQuantity(1, resource.BinarySI)
+			limits := renderer.vmLimits[k8sv1.ResourceCPU]
+			limits.Add(*vhostCPU)
+			renderer.vmLimits[k8sv1.ResourceCPU] = limits
+			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*vhostCPU)
+				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
 		// Align memory limits with requests for consistency
 		if memRequest, ok := renderer.vmRequests[k8sv1.ResourceMemory]; ok {
 			renderer.vmLimits[k8sv1.ResourceMemory] = memRequest
