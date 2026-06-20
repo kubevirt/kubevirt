@@ -84,7 +84,11 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
 
 			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), libvmops.StartupTimeoutSecondsXLarge)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				), libvmops.StartupTimeoutSecondsXLarge)
 
 				originalNode := vmi.Status.NodeName
 
@@ -111,7 +115,11 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
 				By("creating the VMI")
-				vmi := alpineVMIWithEvictionStrategy()
+				vmi := libvmifact.NewGuestless(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for VMI")
@@ -289,7 +297,11 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
-					vmi := alpineVMIWithEvictionStrategy()
+					vmi := libvmifact.NewGuestless(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					)
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
@@ -320,23 +332,26 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						},
 						TopologyKey: k8sv1.LabelHostname,
 					}
-					vmi_evict1 := alpineVMIWithEvictionStrategy(
+					vmi_evict1 := libvmifact.NewGuestless(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
 						libvmi.WithRequiredPodAffinity(podAffinityTerm),
 						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
-					vmi_evict2 := alpineVMIWithEvictionStrategy(
+					vmi_evict2 := libvmifact.NewGuestless(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
 						libvmi.WithRequiredPodAffinity(podAffinityTerm),
 						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
-					vmi_noevict := libvmifact.NewAlpine(
-						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					vmi_noevict := libvmifact.NewGuestless(
+						libnet.WithMasqueradeNetworking(),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
 						libvmi.WithRequiredPodAffinity(podAffinityTerm),
 						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
@@ -412,7 +427,11 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
-					vmi := alpineVMIWithEvictionStrategy()
+					vmi := libvmifact.NewGuestless(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					)
 					vmi.Spec.NodeSelector = map[string]string{cleanup.TestLabelForNamespace(vmi.Namespace): "target"}
 					vmis = append(vmis, vmi)
 				}
@@ -507,10 +526,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			Context("with no eviction strategy set", func() {
 				It("[test_id:10155]should block the eviction api and migrate", func() {
 					// no EvictionStrategy set
-					vmi := libvmifact.NewAlpine(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
+					vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
 
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 					vmiNodeOrig := vmi.Status.NodeName
@@ -548,9 +564,8 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 			Context("with eviction strategy set to 'None'", func() {
 				It("[test_id:10156]The VMI should get evicted", func() {
-					vmi := libvmifact.NewAlpine(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					vmi := libvmifact.NewGuestless(
+						libnet.WithMasqueradeNetworking(),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 					)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
@@ -570,13 +585,6 @@ func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 		libvmi.WithMemoryRequest(fedoraVMSize),
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
-}
-
-func alpineVMIWithEvictionStrategy(additionalOpts ...libvmi.Option) *v1.VirtualMachineInstance {
-	opts := []libvmi.Option{libnet.WithMasqueradeNetworking(), libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate), libvmi.WithNamespace(testsuite.GetTestNamespace(nil))}
-	opts = append(opts, additionalOpts...)
-
-	return libvmifact.NewAlpine(opts...)
 }
 
 func filterRunningMigrations(migrations []v1.VirtualMachineInstanceMigration) []v1.VirtualMachineInstanceMigration {
