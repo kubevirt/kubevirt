@@ -126,6 +126,11 @@ function sriov_components::deploy() {
 
 function sriov_components::deploy_dra() {
   _kubectl create namespace "$SRIOV_DRA_NAMESPACE"
+  _kubectl label namespace "$SRIOV_DRA_NAMESPACE" \
+    pod-security.kubernetes.io/enforce=privileged \
+    pod-security.kubernetes.io/warn=privileged \
+    pod-security.kubernetes.io/audit=privileged
+
   _kubectl apply -f "$SRIOV_DRA_MANIFEST"
 
   return 0
@@ -193,6 +198,12 @@ function _format_json_array() {
 }
 
 function _deploy_sriov_components() {
+  _kubectl create namespace sriov
+  _kubectl label namespace sriov \
+    pod-security.kubernetes.io/enforce=privileged \
+    pod-security.kubernetes.io/warn=privileged \
+    pod-security.kubernetes.io/audit=privileged
+
   _kubectl kustomize "$CUSTOM_MANIFESTS" >"$SRIOV_COMPONENTS_MANIFEST"
 
   echo "Deploying SRIOV components:"
