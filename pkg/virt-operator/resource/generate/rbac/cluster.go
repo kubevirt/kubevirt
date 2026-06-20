@@ -820,6 +820,17 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					plugin.GroupName,
+				},
+				Resources: []string{
+					apiPlugins,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
