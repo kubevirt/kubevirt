@@ -200,10 +200,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 			Context(" with node tainted during node drain", Serial, func() {
 
-				var (
-					nodeAffinity     *k8sv1.NodeAffinity
-					nodeAffinityTerm k8sv1.PreferredSchedulingTerm
-				)
+				var nodeAffinity *k8sv1.NodeAffinity
 
 				expectVMIMigratedToAnotherNode := func(vmiNamespace, vmiName, sourceNodeName string) {
 					EventuallyWithOffset(1, func() error {
@@ -233,21 +230,15 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						config.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 
-					controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
-
-					// This nodeAffinity will make sure the vmi, initially, will not be scheduled in the control-plane node in those clusters where there is only one.
-					// This is mandatory, since later the tests will drain the node where the vmi will be scheduled.
-					nodeAffinityTerm = k8sv1.PreferredSchedulingTerm{
-						Weight: int32(1),
-						Preference: k8sv1.NodeSelectorTerm{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{Key: k8sv1.LabelHostname, Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
-							},
-						},
-					}
-
+					// Ensure VMIs don't land on the control-plane node, since the tests drain the node they start on.
 					nodeAffinity = &k8sv1.NodeAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{nodeAffinityTerm},
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{Key: "node-role.kubernetes.io/control-plane", Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{""}},
+								},
+							}},
+						},
 					}
 				})
 
@@ -333,13 +324,13 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
 						libvmi.WithRequiredPodAffinity(podAffinityTerm),
-						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
 					vmi_evict2 := alpineVMIWithEvictionStrategy(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
 						libvmi.WithRequiredPodAffinity(podAffinityTerm),
-						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
 					vmi_noevict := libvmifact.NewAlpine(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -348,7 +339,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 						libvmi.WithLabel(labelKey, ""),
 						libvmi.WithRequiredPodAffinity(podAffinityTerm),
-						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
 
 					By("Starting the VirtualMachineInstance with eviction set to live migration")
