@@ -114,20 +114,20 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		}
 	},
-		Entry("should reject when RoleAggregationStrategy is Manual without OptOutRoleAggregation feature gate",
+		Entry("should reject when RoleAggregationStrategy is Manual with OptOutRoleAggregation feature gate disabled",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
+					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				},
 			},
 			true,
 		),
-		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation feature gate",
+		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation enabled by default (Beta)",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.OptOutRoleAggregation},
-					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				},
 			},
@@ -142,6 +142,17 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Entry("should allow when RoleAggregationStrategy is AggregateToDefault without feature gate",
 			v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+				},
+			},
+			false,
+		),
+		Entry("should allow when RoleAggregationStrategy is AggregateToDefault and OptOutRoleAggregation is disabled",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.OptOutRoleAggregation},
+					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
 				},
 			},
