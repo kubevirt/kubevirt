@@ -165,6 +165,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			},
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: pointer.P(true),
+				RunAsUser:  pointer.P(int64(0)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
