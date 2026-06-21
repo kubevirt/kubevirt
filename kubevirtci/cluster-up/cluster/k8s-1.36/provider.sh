@@ -6,7 +6,7 @@ if [ "${KUBEVIRT_CGROUPV2}" == "false" ]; then
 fi
 
 if [ "${KUBEVIRT_WITH_SRIOV}" == "true" ]; then
-    export KUBEVIRT_WITH_MULTUS=true
+    # export KUBEVIRT_WITH_MULTUS=true
     export KUBEVIRT_NUM_NUMA_NODES=2
 fi
 

@@ -20,7 +20,7 @@ SRIOVDP_RESOURCE_PREFIX="kubevirt.io"
 SRIOVDP_RESOURCE_NAME="sriov_net"
 VFS_DRIVER="vfio-pci"
 VFS_DRIVER_KMODULE="vfio_pci"
-VFS_COUNT="${VFS_COUNT:-6}"
+VFS_COUNT="${VFS_COUNT:-7}"
 KUBEVIRT_USE_DRA=${KUBEVIRT_USE_DRA:-false}
 
 # Source SR-IOV components deployment functions
