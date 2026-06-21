@@ -262,21 +262,25 @@ var _ = Describe("Install Strategy", func() {
 			}
 		},
 			Entry("by default", config, "true"),
-			Entry("when OptOutRoleAggregation FG is enabled and strategy is Manual",
+			Entry("when OptOutRoleAggregation FG is enabled (Beta default) and strategy is Manual",
 				getConfigWith(v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{"OptOutRoleAggregation"},
-					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
 				}), "false"),
-			Entry("when strategy is Manual but FG is not enabled",
-				getConfigWith(v1.KubeVirtConfiguration{
-					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
-				}), "true"),
-			Entry("when FG is enabled but strategy is AggregateToDefault",
+			Entry("when strategy is Manual but FG is disabled",
 				getConfigWith(v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{"OptOutRoleAggregation"},
+						DisabledFeatureGates: []string{"OptOutRoleAggregation"},
+					},
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+				}), "true"),
+			Entry("when FG is enabled (Beta default) but strategy is AggregateToDefault",
+				getConfigWith(v1.KubeVirtConfiguration{
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+				}), "true"),
+			Entry("when FG is explicitly disabled and strategy is AggregateToDefault",
+				getConfigWith(v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{"OptOutRoleAggregation"},
 					},
 					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
 				}), "true"),
