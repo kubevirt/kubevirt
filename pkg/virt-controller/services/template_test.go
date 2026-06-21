@@ -549,6 +549,7 @@ var _ = Describe("Template", func() {
 					"--ovmf-path", ovmfPath,
 					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
 					"--hypervisor", config.GetHypervisor().Name,
+					"--libvirt-hook-server-and-client",
 				}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -1150,6 +1151,7 @@ var _ = Describe("Template", func() {
 					"--ovmf-path", ovmfPath,
 					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
 					"--hypervisor", config.GetHypervisor().Name,
+					"--libvirt-hook-server-and-client",
 				}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))

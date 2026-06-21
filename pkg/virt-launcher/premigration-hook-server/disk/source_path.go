@@ -30,7 +30,7 @@ import (
 )
 
 // DiskSourcePathHook updates disk source file paths in the domain XML by
-// replacing the VMI namespace with the target domain namespace.
+// replacing the source domain namespace with the target domain namespace.
 // This is the target-side equivalent of the source-side
 // updateFilePathsToNewDomain() + convertDisks() functions.
 func DiskSourcePathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
@@ -38,12 +38,13 @@ func DiskSourcePathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachi
 		return nil
 	}
 
+	sourceDomainNamespace := getSourceDomainNamespace(vmi)
 	targetDomainNamespace := getTargetDomainNamespace(vmi)
-	if targetDomainNamespace == "" || targetDomainNamespace == vmi.Namespace {
+	if targetDomainNamespace == "" || sourceDomainNamespace == targetDomainNamespace {
 		return nil
 	}
 
-	oldSegment := "/" + vmi.Namespace + "/"
+	oldSegment := "/" + sourceDomainNamespace + "/"
 	newSegment := "/" + targetDomainNamespace + "/"
 
 	for i := range domain.Devices.Disks {
@@ -68,6 +69,15 @@ func DiskSourcePathHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachi
 	}
 
 	return nil
+}
+
+func getSourceDomainNamespace(vmi *v1.VirtualMachineInstance) string {
+	if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.SourceState != nil &&
+		vmi.Status.MigrationState.SourceState.DomainNamespace != nil {
+		return *vmi.Status.MigrationState.SourceState.DomainNamespace
+	}
+	return vmi.Namespace
 }
 
 func getTargetDomainNamespace(vmi *v1.VirtualMachineInstance) string {

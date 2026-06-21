@@ -47,6 +47,7 @@ func (c *Controller) initializeMigrateSourceState(migration *v1.VirtualMachineIn
 	}
 	vmi.Status.MigrationState.SourceState.MigrationUID = migration.UID
 	vmi.Status.MigrationState.SourceState.VirtualMachineInstanceUID = &vmi.UID
+	vmi.Status.MigrationState.SourceState.DomainNamespace = &vmi.Namespace
 
 	vmi.Status.MigrationState.TargetState.SyncAddress = &migration.Spec.SendTo.ConnectURL
 }

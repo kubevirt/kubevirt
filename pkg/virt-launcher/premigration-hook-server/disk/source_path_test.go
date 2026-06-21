@@ -43,11 +43,17 @@ var _ = Describe("DiskSourcePathHook", func() {
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
+		sourceNs := sourceNamespace
 		targetNs := targetNamespace
 		vmi = libvmi.New(
 			libvmi.WithNamespace(sourceNamespace),
 			libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							DomainNamespace: &sourceNs,
+						},
+					},
 					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
 						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
 							DomainNamespace: &targetNs,
