@@ -43,7 +43,6 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -56,6 +55,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -66,7 +67,7 @@ import (
 //
 // DRA SR-IOV uses BOTH NetworkAttachmentDefinition (for CNI config) AND ResourceClaimTemplate
 // (for device allocation with VfConfig parameters).
-var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
+var _ = Describe(SIG("DRA-SRIOV", decorators.DRANetwork, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -128,8 +129,10 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 			srcAddr := nic.Source.Address
 			sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
-			alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
+			alignedCPUsInt := lookupDeviceVCPUAffinityOnPod(vmiPod, sourcePCIAddress, domSpec)
+			Expect(alignedCPUsInt).ToNot(BeEmpty(), "expected aligned CPUs for SR-IOV device")
 			deviceData := []cloudinit.DeviceData{
 				{
 					Type:        cloudinit.NICMetadataType,
@@ -214,11 +217,13 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 		})
 
 		It("should create a virtual machine with DRA sriov interface with custom MAC address", func() {
-			const mac = "de:ad:00:00:be:ef"
+			macAddr, err := libnet.GenerateRandomMac()
+			Expect(err).NotTo(HaveOccurred())
+			mac := macAddr.String()
 			vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
-			vmi, err := createVMIAndWait(vmi)
+			vmi, err = createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
@@ -256,14 +261,16 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 
 		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var vmi *v1.VirtualMachineInstance
-
-			const mac = "de:ad:00:00:be:ef"
+			var mac string
 
 			BeforeEach(func() {
+				macAddr, err := libnet.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				mac = macAddr.String()
+
 				vmi = newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
-				var err error
 				vmi, err = createVMIAndWait(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vmi)
@@ -488,7 +495,6 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 		})
 
 		It("should correctly plug all the DRA interfaces based on the specified MAC and (guest) PCI addresses", func() {
-			macAddressTemplate := "de:ad:00:be:ef:%02d"
 			pciAddressTemplate := "0000:2%d:00.0"
 
 			vmi := libvmifact.NewFedora(
@@ -503,7 +509,9 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			}
 			for i := range claims {
 				secondaryInterfaceIdx := i + 1
-				vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].MacAddress = fmt.Sprintf(macAddressTemplate, secondaryInterfaceIdx)
+				mac, err := libnet.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].MacAddress = mac.String()
 				vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].PciAddress = fmt.Sprintf(pciAddressTemplate, secondaryInterfaceIdx)
 			}
 
@@ -526,17 +534,20 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			networkNameLinked  = "dra-sriov-net-linked"
 			templateNameLinked = "single-vf-dra-sriov-net-linked"
 			driverName         = "sriovnetwork.k8snetworkplumbingwg.io"
-			sriovNode          = "sriov-worker"
+			sriovNode          string
 		)
 
 		BeforeEach(func() {
+			sriovNode = draSRIOVNodeName()
+			Expect(sriovNode).NotTo(BeEmpty(), "could not find a schedulable node with sriov_capable=true label")
+
 			err := libnet.CreateSRIOVNetworkWithDRA(
 				context.Background(),
 				testsuite.NamespaceTestDefault,
 				networkNameLinked,
 				driverName,
 				defaultVLAN,
-				libnet.WithLinkState(),
+				withLinkState(),
 			)
 			Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
 
@@ -606,7 +617,7 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 						netName,
 						driverName,
 						vlanID,
-						libnet.WithLinkState(),
+						withLinkState(),
 					)
 					Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
 				}
@@ -699,4 +710,14 @@ func createDRASRIOVVmiOnNode(nodeName, claimName, templateName, cidr string) (*v
 	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi, nil
+}
+
+func draSRIOVNodeName() string {
+	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+	for _, node := range nodes.Items {
+		if val, ok := node.Labels["sriov_capable"]; ok && val == "true" {
+			return node.Name
+		}
+	}
+	return ""
 }
