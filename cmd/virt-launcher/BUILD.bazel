@@ -257,5 +257,6 @@ oci_image(
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-launcher"],
     tars = [":setcaps"],
+    user = "107",
     visibility = ["//visibility:public"],
 )
