@@ -3,3 +3,4 @@ if [ "$2" != "release" ] || [ "$3" != "end" ] || [ "$4" != "migrated" ]; then
 	exit
 fi
 touch /run/kubevirt-private/backend-storage-meta/migrated
+chmod 0644 /run/kubevirt-private/backend-storage-meta/migrated
