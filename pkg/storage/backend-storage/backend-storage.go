@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/tpm"
-	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -209,9 +208,6 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 					RestartPolicy: v1.RestartPolicyNever,
 					SecurityContext: &v1.PodSecurityContext{
 						RunAsNonRoot: pointer.P(true),
-						RunAsUser:    pointer.P(int64(util.NonRootUID)),
-						RunAsGroup:   pointer.P(int64(util.NonRootUID)),
-						FSGroup:      pointer.P(int64(util.NonRootUID)),
 						SeccompProfile: &v1.SeccompProfile{
 							Type: v1.SeccompProfileTypeRuntimeDefault,
 						},

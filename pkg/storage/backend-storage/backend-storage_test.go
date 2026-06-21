@@ -256,6 +256,16 @@ var _ = Describe("Backend Storage", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sourcePVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
+		It("Should build a recovery job without RunAsUser, RunAsGroup, or FSGroup", func() {
+			job := buildRecoveryJob("test-recovery", "test-image", migration)
+
+			psc := job.Spec.Template.Spec.SecurityContext
+			Expect(psc).NotTo(BeNil())
+			Expect(psc.RunAsNonRoot).To(HaveValue(BeTrue()))
+			Expect(psc.RunAsUser).To(BeNil())
+			Expect(psc.RunAsGroup).To(BeNil())
+			Expect(psc.FSGroup).To(BeNil())
+		})
 	})
 
 	Context("createPVC", func() {
