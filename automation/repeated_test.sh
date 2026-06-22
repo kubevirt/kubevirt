@@ -263,6 +263,7 @@ add_to_label_filter '(!USB)' '&&'
 add_to_label_filter '(!requires-arm64)' '&&'
 add_to_label_filter '(!requires-s390x)' '&&'
 add_to_label_filter '(!requires-cross-arch-emulation)' '&&'
+add_to_label_filter '(!requires-arm64-secure-boot)' '&&'
 add_to_label_filter '(!RequiresPersistentReservation)' '&&'
 
 if ! kubectl get clusterversion version &>/dev/null; then
