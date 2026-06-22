@@ -128,10 +128,12 @@ type VirtualMachineController struct {
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipath_monitor.MultipathSocketMonitor
 
-	hotplugContainerDiskMounter container_disk.HotplugMounter
-	nam                         *migrations.NetworkAccessibilityManager
-	checksumCtrl                *checksum_controller.Controller
-	hostDeviceAttacher          hotplug_hostdevice.HostDeviceAttacher
+	hotplugContainerDiskMounter      container_disk.HotplugMounter
+	nam                              *migrations.NetworkAccessibilityManager
+	checksumCtrl                     *checksum_controller.Controller
+	pvcDiskImgCreator                func() hostdisk.PVCDiskImgCreator
+	hostDeviceAttacher               hotplug_hostdevice.HostDeviceAttacher
+	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -157,6 +159,8 @@ func NewVirtualMachineController(
 	hostCpuModel string,
 	netConf netconf,
 	netStat netstat,
+	checksumCtrl *checksum_controller.Controller,
+	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 ) (*VirtualMachineController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -165,6 +169,7 @@ func NewVirtualMachineController(
 		domainInformer,
 		clusterConfig,
 		podIsolationDetector,
+		checksumCtrl,
 	)
 	if err != nil {
 		return nil, err
@@ -217,8 +222,10 @@ func NewVirtualMachineController(
 			clusterConfig,
 			hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		),
-		nam:                migrations.NewNetworkAccessibilityManager(clientset),
-		hostDeviceAttacher: hotplug_hostdevice.NewHostDeviceAttacher(hostDeviceState),
+		nam:                              migrations.NewNetworkAccessibilityManager(clientset),
+		hostDeviceAttacher:               hotplug_hostdevice.NewHostDeviceAttacher(hostDeviceState),
+		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
+		checksumCtrl:                     checksumCtrl,
 	}
 
 	pvcDiskImgCreator := func() hostdisk.PVCDiskImgCreator {
@@ -272,7 +279,6 @@ func NewVirtualMachineController(
 		clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
-	c.checksumCtrl = checksum_controller.NewController(vmiInformer, c.clientset)
 	return c, nil
 }
 
@@ -312,8 +318,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-
-	go c.checksumCtrl.Run(stopCh)
 
 	<-heartBeatDone
 	<-stopCh
@@ -2417,6 +2421,35 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 			return err
 		}
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
+	}
+
+	// hotplug cpu and memory via in-place resize API
+	if c.clusterConfig.InPlaceResizeEnabledOnVMI(vmi) {
+		vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+		cond := vmiConditions.GetCondition(vmi, v1.VirtualMachineInstancePodResourceResizeInProgress)
+		if cond != nil && cond.Reason == v1.VirtualMachineInstanceReasonPodResizeCompleted {
+			client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
+			if err != nil {
+				return err
+			}
+			if err := c.hotplugCPU(vmi, client, c.capabilities); err != nil {
+				log.Log.Object(vmi).Reason(err).Error("failed to change vCPUs")
+				c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
+				return err
+			}
+
+			if err := c.hotplugMemory(vmi, client, c.netBindingPluginMemoryCalculator, c.capabilities); err != nil {
+				log.Log.Object(vmi).Reason(err).Error("failed to update guest memory")
+				c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
+				return err
+			}
+
+			log.Log.Object(vmi).Info("Hotplug CPU and memory completed")
+			vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstancePodResourceResizeInProgress)
+			delete(vmi.Annotations, v1.VirtualMachineInstanceInPlaceResizeInProgressAnn)
+		} else {
+			log.Log.Object(vmi).Info("Hotplug CPU and memory skipped, waiting for pod resize to complete")
+		}
 	}
 
 	if err := c.getMemoryDump(vmi); err != nil {

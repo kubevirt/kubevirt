@@ -266,6 +266,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
+					"pods/resize",
+				},
+				Verbs: []string{
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
 					"nodes",
 				},
 				Verbs: []string{

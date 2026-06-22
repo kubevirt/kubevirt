@@ -4762,6 +4762,10 @@ var _ = Describe("VirtualMachine", func() {
 						MaxSockets: 4,
 					}
 					vmi.Spec.Domain.Resources = resources
+					virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					vcpusDelta := int64(vm.Spec.Template.Spec.Domain.CPU.Sockets - vmi.Spec.Domain.CPU.Sockets)
 					resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000*(1.0/float32(config.GetCPUAllocationRatio()))), resource.DecimalSI)
@@ -4828,6 +4832,10 @@ var _ = Describe("VirtualMachine", func() {
 						MaxSockets: 4,
 					}
 					vmi.Spec.Domain.Resources = resources
+					virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					})
 
 					originalVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
@@ -5263,7 +5271,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).To(Not(BeNil()))
 					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":    Equal(v1.VirtualMachineRestartRequired),
-						"Message": ContainSubstring("memory updated in template spec. Memory-hotplug is only available for migratable VMs"),
+						"Message": ContainSubstring("memory updated in template spec. Memory-hotplug is only available for migratable VMs or when in-place resize is enabled"),
 						"Status":  Equal(k8sv1.ConditionTrue),
 					}))
 				})
@@ -5884,6 +5892,10 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
 				watchtesting.MarkAsReady(vmi)
+				virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				})
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				controller.vmiIndexer.Add(vmi)

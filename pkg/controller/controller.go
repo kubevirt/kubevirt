@@ -685,3 +685,40 @@ func GetHostDevicesByName(spec *v1.VirtualMachineInstanceSpec) map[string]*v1.Ho
 	}
 	return devices
 }
+
+// ResolveControllerRef returns the controller referenced by a ControllerRef,
+// or nil if the ControllerRef could not be resolved to a matching controller
+// of the correct Kind.
+func ResolveControllerRef(namespace string, controllerRef *metav1.OwnerReference, podIndexer, vmiIndexer cache.Indexer) *v1.VirtualMachineInstance {
+	if controllerRef != nil && controllerRef.Kind == "Pod" {
+		// This could be an attachment pod, look up the pod, and check if it is owned by a VMI.
+		obj, exists, err := podIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+		if err != nil {
+			return nil
+		}
+		if !exists {
+			return nil
+		}
+		pod, _ := obj.(*k8sv1.Pod)
+		controllerRef = GetControllerOf(pod)
+	}
+	// We can't look up by UID, so look up by Name and then verify UID.
+	// Don't even try to look up by Name if it is nil or the wrong Kind.
+	if controllerRef == nil || controllerRef.Kind != v1.VirtualMachineInstanceGroupVersionKind.Kind {
+		return nil
+	}
+	vmi, exists, err := vmiIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	if err != nil {
+		return nil
+	}
+	if !exists {
+		return nil
+	}
+
+	if vmi.(*v1.VirtualMachineInstance).UID != controllerRef.UID {
+		// The controller we found with this Name is not the same one that the
+		// ControllerRef points to.
+		return nil
+	}
+	return vmi.(*v1.VirtualMachineInstance)
+}

@@ -193,6 +193,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			"",  // host cpu model
 			&netConfStub{},
 			&netStatStub{},
+			nil,
+			&stubNetBindingPluginMemoryCalculator{},
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

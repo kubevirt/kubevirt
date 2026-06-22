@@ -92,6 +92,7 @@ import (
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	checksum_controller "kubevirt.io/kubevirt/pkg/virt-handler/checksum-controller"
 )
 
 const (
@@ -379,6 +380,8 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	migrationProxy := migrationproxy.NewMigrationProxyManager(migrationIpAddress, portRange, app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
+	checksumCtrl := checksum_controller.NewController(vmiSourceInformer, app.virtCli)
+	go checksumCtrl.Run(stop)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
@@ -394,6 +397,7 @@ func (app *virtHandlerApp) Run() {
 		netStat,
 		passtRepairHandler,
 		ctSourceHandler,
+		checksumCtrl,
 	)
 	if err != nil {
 		panic(err)
@@ -419,6 +423,7 @@ func (app *virtHandlerApp) Run() {
 		netbinding.MemoryCalculator{},
 		passtRepairHandler,
 		ctTargetHandler,
+		checksumCtrl,
 	)
 	if err != nil {
 		panic(err)
@@ -443,6 +448,8 @@ func (app *virtHandlerApp) Run() {
 		hostCpuModel,
 		netConf,
 		netStat,
+		checksumCtrl,
+		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
 		panic(err)

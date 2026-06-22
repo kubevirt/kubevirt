@@ -129,6 +129,11 @@ const (
 	// Alpha: v1.6.2
 	// HotplugHostDevicesWithDRAGate allows hotplug host devices with DRA to a VirtualMachineInstance.
 	HotplugHostDevicesWithDRAGate = "HotplugHostDevicesWithDRA"
+
+	// Owner: @yaroslavborbat
+	// Alpha: v1.6.2
+	// InPlaceResize enables in-place resize cpu and memory of a VirtualMachineInstance.
+	InPlaceResize = "InPlaceResize"
 )
 
 func init() {
@@ -163,4 +168,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HotplugHostDevicesWithDRAGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: InPlaceResize, State: Alpha})
 }

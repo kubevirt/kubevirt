@@ -1166,7 +1166,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	}
 
 	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
-		cpuLimitsCount, err := getTargetPodLimitsCount(pod)
+		cpuLimitsCount, err := services.GetPodCPULimitsCount(pod)
 		if err != nil {
 			return err
 		}
@@ -1174,7 +1174,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	}
 
 	if controller.VMIHasHotplugMemory(vmi) {
-		memoryReq, err := getTargetPodMemoryRequests(pod)
+		memoryReq, err := services.GetPodMemoryRequests(pod)
 		if err != nil {
 			return err
 		}
@@ -2352,50 +2352,6 @@ func (c *Controller) removeHandOffKey(migrationKey string) {
 	defer c.handOffLock.Unlock()
 
 	delete(c.handOffMap, migrationKey)
-}
-
-func getComputeContainer(pod *k8sv1.Pod) *k8sv1.Container {
-	for _, container := range pod.Spec.Containers {
-		if strings.HasSuffix(container.Name, "compute") {
-			return &container
-		}
-	}
-	return nil
-}
-
-func getTargetPodLimitsCount(pod *k8sv1.Pod) (int64, error) {
-	cc := getComputeContainer(pod)
-	if cc == nil {
-		return 0, fmt.Errorf("Could not find VMI compute container")
-	}
-
-	cpuLimit, ok := cc.Resources.Limits[k8sv1.ResourceCPU]
-	if !ok {
-		return 0, fmt.Errorf("Could not find dedicated CPU limit in VMI compute container")
-	}
-	return cpuLimit.Value(), nil
-}
-
-func getTargetPodMemoryRequests(pod *k8sv1.Pod) (string, error) {
-	cc := getComputeContainer(pod)
-	if cc == nil {
-		return "", fmt.Errorf("Could not find VMI compute container")
-	}
-
-	memReq, ok := cc.Resources.Requests[k8sv1.ResourceMemory]
-	if !ok {
-		return "", fmt.Errorf("Could not find memory request in VMI compute container")
-	}
-
-	if hugePagesReq, ok := cc.Resources.Requests[k8sv1.ResourceHugePagesPrefix+"2Mi"]; ok {
-		memReq.Add(hugePagesReq)
-	}
-
-	if hugePagesReq, ok := cc.Resources.Requests[k8sv1.ResourceHugePagesPrefix+"1Gi"]; ok {
-		memReq.Add(hugePagesReq)
-	}
-
-	return memReq.String(), nil
 }
 
 func setMigrationFailedConditionIfNotExists(migration *virtv1.VirtualMachineInstanceMigration, reason, message string) {

@@ -112,6 +112,7 @@ import (
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/rest/auth"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/inplaceresize"
 )
 
 const (
@@ -164,11 +165,12 @@ type VirtControllerApp struct {
 	nodeInformer   cache.SharedIndexInformer
 	nodeController *node.Controller
 
-	vmiCache            cache.Store
-	vmiController       *vmi.Controller
-	draStatusController *dra.DRAStatusController
-	vmiInformer         cache.SharedIndexInformer
-	vmiRecorder         record.EventRecorder
+	vmiCache                cache.Store
+	vmiController           *vmi.Controller
+	draStatusController     *dra.DRAStatusController
+	inPlaceResizeController *inplaceresize.Controller
+	vmiInformer             cache.SharedIndexInformer
+	vmiRecorder             record.EventRecorder
 
 	namespaceInformer cache.SharedIndexInformer
 	namespaceStore    cache.Store
@@ -262,6 +264,7 @@ type VirtControllerApp struct {
 	nodeControllerThreads             int
 	vmiControllerThreads              int
 	draStatusControllerThreads        int
+	inPlaceResizeControllerThreads    int
 	rsControllerThreads               int
 	poolControllerThreads             int
 	vmControllerThreads               int
@@ -650,6 +653,9 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		if vca.isDRAEnabled {
 			go vca.draStatusController.Run(vca.draStatusControllerThreads, stop)
 		}
+		if vca.clusterConfig.InPlaceResizeEnabled() {
+			go vca.inPlaceResizeController.Run(vca.inPlaceResizeControllerThreads, ctx)
+		}
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go vca.vmController.Run(vca.vmControllerThreads, stop)
@@ -768,6 +774,18 @@ func (vca *VirtControllerApp) initCommon() {
 			vca.resourceSliceInformer,
 			draStatusRecorder,
 			vca.clientSet,
+		)
+	}
+
+	if vca.clusterConfig.InPlaceResizeEnabled() {
+		inPlaceResizeRecorder := vca.newRecorder(k8sv1.NamespaceAll, "in-place-resize-controller")
+		vca.inPlaceResizeController, err = inplaceresize.NewInPlaceResizeController(
+			vca.clusterConfig,
+			vca.vmiInformer,
+			vca.kvPodInformer,
+			inPlaceResizeRecorder,
+			vca.clientSet,
+			vca.templateService,
 		)
 	}
 
@@ -1076,6 +1094,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.draStatusControllerThreads, "dra-status-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for dra status controller")
+
+	flag.IntVar(&vca.inPlaceResizeControllerThreads, "in-place-resize-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for in-place resize controller")
 
 	flag.IntVar(&vca.rsControllerThreads, "rs-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for replicaset controller")

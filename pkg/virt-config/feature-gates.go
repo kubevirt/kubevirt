@@ -19,7 +19,10 @@
 
 package virtconfig
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	v1 "kubevirt.io/api/core/v1"
+)
 
 /*
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
@@ -215,4 +218,16 @@ func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
 
 func (config *ClusterConfig) HotplugHostDevicesWithDRAEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HotplugHostDevicesWithDRAGate)
+}
+
+func (config *ClusterConfig) InPlaceResizeEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.InPlaceResize)
+}
+
+func (config *ClusterConfig) InPlaceResizeEnabledOnVMI(vmi *v1.VirtualMachineInstance) bool {
+	return config.InPlaceResizeEnabled() && !inplaceResizeDisabledOnVMI(vmi)
+}
+
+func inplaceResizeDisabledOnVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi == nil || vmi.GetAnnotations()[v1.VirtualMachineInstanceDisableInPlaceResizeAnn] == "true"
 }

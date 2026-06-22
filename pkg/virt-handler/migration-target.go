@@ -26,8 +26,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/conntrack"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -102,7 +99,6 @@ type MigrationTargetController struct {
 	recorder                         record.EventRecorder
 	virtLauncherFSRunDirPattern      string
 	hotplugContainerDiskMounter      container_disk.HotplugMounter
-	checksumCtrl                     *checksum_controller.Controller
 	conntrackSync                    *conntrack.TargetHandler
 }
 
@@ -126,6 +122,7 @@ func NewMigrationTargetController(
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 	passtRepairHandler passtRepairTargetHandler,
 	conntrackSync *conntrack.TargetHandler,
+	checksumCtrl *checksum_controller.Controller,
 ) (*MigrationTargetController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -134,6 +131,7 @@ func NewMigrationTargetController(
 		domainInformer,
 		clusterConfig,
 		podIsolationDetector,
+		checksumCtrl,
 	)
 	if err != nil {
 		return nil, err
@@ -203,7 +201,6 @@ func NewMigrationTargetController(
 		return nil, err
 	}
 
-	c.checksumCtrl = checksum_controller.NewController(vmiInformer, c.clientset)
 	return c, nil
 }
 
@@ -368,8 +365,6 @@ func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-
-	go c.checksumCtrl.Run(stopCh)
 
 	<-stopCh
 	log.Log.Info("Stopping virt-handler target controller.")
@@ -984,133 +979,6 @@ func (c *MigrationTargetController) reportTargetTopologyForMigratingVMI(vmi *v1.
 	return nil
 }
 
-func (c *MigrationTargetController) hotplugCPU(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-
-	removeVMIVCPUChangeConditionAndLabel := func() {
-		delete(vmi.Labels, v1.VirtualMachinePodCPULimitsLabel)
-		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
-	}
-	defer removeVMIVCPUChangeConditionAndLabel()
-
-	if !vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceVCPUChange) {
-		return nil
-	}
-
-	if vmi.IsCPUDedicated() {
-		cpuLimitStr, ok := vmi.Labels[v1.VirtualMachinePodCPULimitsLabel]
-		if !ok || len(cpuLimitStr) == 0 {
-			return fmt.Errorf("cannot read CPU limit from VMI annotation")
-		}
-
-		cpuLimit, err := strconv.Atoi(cpuLimitStr)
-		if err != nil {
-			return fmt.Errorf("cannot parse CPU limit from VMI annotation: %v", err)
-		}
-
-		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-		if vcpus > int64(cpuLimit) {
-			return fmt.Errorf("number of requested VCPUS (%d) exceeds the limit (%d)", vcpus, cpuLimit)
-		}
-	}
-
-	options := virtualMachineOptions(
-		nil,
-		0,
-		nil,
-		c.capabilities,
-		c.clusterConfig)
-
-	if err := c.SyncVirtualMachineCPUs(client, vmi, options); err != nil {
-		return err
-	}
-
-	if vmi.Status.CurrentCPUTopology == nil {
-		vmi.Status.CurrentCPUTopology = &v1.CPUTopology{}
-	}
-
-	vmi.Status.CurrentCPUTopology.Sockets = vmi.Spec.Domain.CPU.Sockets
-	vmi.Status.CurrentCPUTopology.Cores = vmi.Spec.Domain.CPU.Cores
-	vmi.Status.CurrentCPUTopology.Threads = vmi.Spec.Domain.CPU.Threads
-
-	return nil
-}
-
-func (c *MigrationTargetController) SyncVirtualMachineCPUs(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
-	control, err := checksum_controller.NewVMIControl(vmi, client)
-	if err != nil {
-		return err
-	}
-	if err = client.SyncVirtualMachineCPUs(vmi, options); err != nil {
-		return err
-	}
-	c.checksumCtrl.Set(control)
-	return nil
-}
-
-func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-
-	removeVMIMemoryChangeLabel := func() {
-		delete(vmi.Labels, v1.VirtualMachinePodMemoryRequestsLabel)
-		delete(vmi.Labels, v1.MemoryHotplugOverheadRatioLabel)
-	}
-	defer removeVMIMemoryChangeLabel()
-
-	if !vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange) {
-		return nil
-	}
-
-	podMemReqStr := vmi.Labels[v1.VirtualMachinePodMemoryRequestsLabel]
-	podMemReq, err := resource.ParseQuantity(podMemReqStr)
-	if err != nil {
-		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
-		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
-	}
-
-	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
-	requiredMemory.Add(
-		c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
-	)
-
-	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
-
-	if podMemReq.Cmp(requiredMemory) < 0 {
-		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
-		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
-	}
-
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
-
-	if err := c.SyncVirtualMachineMemory(client, vmi, options); err != nil {
-		// mark hotplug as failed
-		vmiConditions.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
-			Type:    v1.VirtualMachineInstanceMemoryChange,
-			Status:  k8sv1.ConditionFalse,
-			Reason:  memoryHotplugFailedReason,
-			Message: "memory hotplug failed, the VM configuration is not supported",
-		})
-		return err
-	}
-
-	vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
-	vmi.Status.Memory.GuestRequested = vmi.Spec.Domain.Memory.Guest
-	return nil
-}
-
-func (c *MigrationTargetController) SyncVirtualMachineMemory(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
-	control, err := checksum_controller.NewVMIControl(vmi, client)
-	if err != nil {
-		return err
-	}
-	if err = client.SyncVirtualMachineMemory(vmi, options); err != nil {
-		return err
-	}
-	c.checksumCtrl.Set(control)
-	return nil
-}
-
 func removeMigratedVolumes(vmi *v1.VirtualMachineInstance) {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceVolumesChange)
@@ -1125,12 +993,12 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
-	if err := c.hotplugCPU(vmi, client); err != nil {
+	if err := c.hotplugCPU(vmi, client, c.capabilities); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
 	}
 
-	if err := c.hotplugMemory(vmi, client); err != nil {
+	if err := c.hotplugMemory(vmi, client, c.netBindingPluginMemoryCalculator, c.capabilities); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
 	}

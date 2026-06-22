@@ -318,6 +318,10 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 }
 
 func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
+	// Migration is not required if hotplug is handled via the in-place resize API.
+	if _, exists := vmi.Annotations[virtv1.VirtualMachineInstanceInPlaceResizeInProgressAnn]; exists {
+		return false
+	}
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	return condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) ||
 		condManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue) ||
