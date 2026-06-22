@@ -56,7 +56,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	velero "kubevirt.io/kubevirt/pkg/storage/velero"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
@@ -1216,6 +1216,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})),
 			)
 		})
+		It("should requeue after the expectations timeout when expectations are not met", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			addVirtualMachine(vmi)
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeZero())
+
+			// A pending creation expectation that no event will satisfy.
+			controller.podExpectations.SetExpectations(key, 1, 0)
+
+			sanityExecute()
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
 		It("should remove the error condition if the sync finally succeeds", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 
