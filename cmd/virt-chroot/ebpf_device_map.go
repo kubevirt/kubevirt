@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/link"
+	systemdDbus "github.com/coreos/go-systemd/v22/dbus"
 	"golang.org/x/sys/unix"
 
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
@@ -239,7 +241,59 @@ func spliceSingleCgroup(cgroupPath string, deviceMap *ebpf.Map) error {
 		})
 	}
 
+	// Re-pin the spliced program over the container runtime's pin so that
+	// systemd re-attaches the spliced version on scope property changes
+	// (e.g. AllowedCPUs). Without this, systemd would re-read the original
+	// program from the pin and the AND semantics of BPF_F_ALLOW_MULTI
+	// would deny hotplugged devices.
+	//
+	// On SELinux-enforcing systems systemd (init_t) will get "Permission denied"
+	// when trying to re-attach because the spliced program has the spc_t label
+	// from virt-chroot rather than the container_runtime_t label from crun.
+	// This is benign: systemd leaves the already-attached spliced program untouched.
+	if pinPath, err := bpfPinPathFromSystemd(cgroupPath); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot determine BPFProgram pin path for %s: %v\n", cgroupPath, err)
+	} else if pinPath != "" {
+		if err := os.Remove(pinPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "warning: cannot remove old pin %s: %v\n", pinPath, err)
+		}
+		if err := newProg.Pin(pinPath); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: cannot re-pin spliced program to %s: %v\n", pinPath, err)
+		} else {
+			fmt.Fprintf(os.Stderr, "re-pinned spliced program to %s\n", pinPath)
+		}
+	}
+
 	return nil
+}
+
+// bpfPinPathFromSystemd returns the bpffs pin path for the BPFProgram=device
+// property of the systemd scope owning cgroupPath, or ("", nil) if unset.
+func bpfPinPathFromSystemd(cgroupPath string) (string, error) {
+	conn, err := systemdDbus.NewWithContext(context.Background())
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	prop, err := conn.GetUnitTypePropertyContext(context.Background(), filepath.Base(cgroupPath), "Scope", "BPFProgram")
+	if err != nil {
+		return "", err
+	}
+
+	// D-Bus type a(ss): [(attach_type, path), ...]
+	if entries, ok := prop.Value.Value().([][]interface{}); ok {
+		for _, e := range entries {
+			if len(e) == 2 {
+				if t, _ := e[0].(string); t == "device" {
+					if p, _ := e[1].(string); p != "" {
+						return p, nil
+					}
+				}
+			}
+		}
+	}
+	return "", nil
 }
 
 // updateDeviceMap adds or removes a device entry in a pinned BPF device map.

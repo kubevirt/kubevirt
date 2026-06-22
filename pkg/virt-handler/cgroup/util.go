@@ -45,6 +45,8 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virtselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virtchroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
@@ -398,7 +400,13 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 // an eBPF map lookup into the cgroup's device filter program. This is a
 // one-time operation per cgroup; subsequent calls are a no-op if the map
 // is already pinned.
-func execVirtChrootSpliceDeviceMap(cgroupPaths []string) error {
+//
+// launcherPid is the virt-launcher PID. Its parent (conmon) is discovered
+// automatically and used as the SELinux exec label, so the BPF program
+// carries container_runtime_t rather than spc_t. This allows systemd to
+// re-attach the spliced program on scope property changes without SELinux
+// denials.
+func execVirtChrootSpliceDeviceMap(cgroupPaths []string, launcherPid int) error {
 	args := []string{
 		"--mount", virtchroot.GetChrootMountNamespace(),
 		"splice-device-map",
@@ -408,6 +416,22 @@ func execVirtChrootSpliceDeviceMap(cgroupPaths []string) error {
 	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
 
 	log.Log.V(loggingVerbosity).Infof("splicing eBPF device map for cgroup paths %v. Full command: %s", cgroupPaths, cmd.String())
+
+	// The container runtime (conmon) is the parent of the container's PID 1.
+	// Exec virt-chroot under its SELinux label (container_runtime_t) so the
+	// BPF program carries that label, allowing systemd to re-attach it.
+	if pid1, err := isolation.GetPPid(launcherPid); err != nil {
+		log.Log.Warningf("cannot find container PID 1 for %d, skipping SELinux context switch: %v", launcherPid, err)
+	} else if runtimePid, err := isolation.GetPPid(pid1); err != nil {
+		log.Log.Warningf("cannot find container runtime PID for %d, skipping SELinux context switch: %v", pid1, err)
+	} else {
+		ctxExec, err := virtselinux.NewContextExecutor(runtimePid, cmd)
+		if err != nil {
+			log.Log.Warningf("cannot create SELinux context executor for pid %d: %v", runtimePid, err)
+		} else {
+			return ctxExec.Execute()
+		}
+	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
