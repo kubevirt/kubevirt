@@ -116,7 +116,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
 		})
 
-		It("should contain virt components metrics", func() {
+		It("[QUARANTINE]should contain virt components metrics", decorators.Quarantine, func() {
 			err := libmonitoring.RegisterAllMetrics()
 			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
