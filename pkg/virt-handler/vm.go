@@ -2036,6 +2036,12 @@ func (c *VirtualMachineController) handleStartingVMI(
 ) (bool, error) {
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := c.launcherClients.GetLauncherClientInfo(vmi)
+	if info == nil {
+		c.logger.Object(vmi).V(5).Info("not handling starting VMI, launcher client info is nil, requeuing")
+		c.queue.AddRateLimited(controller.VirtualMachineInstanceKey(vmi))
+		return false, nil
+	}
+
 	if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
 		if err != nil {
 			return false, err
