@@ -27,7 +27,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
@@ -38,7 +37,7 @@ const (
 type ControllersDomainConfigurator struct {
 	isUSBNeeded               bool
 	scsiModel                 string
-	autoThreads               uint
+	totalThreads              uint
 	useLaunchSecuritySEV      bool
 	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
@@ -68,7 +67,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.autoThreads, controllerDriver.DeepCopy())
+		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.totalThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -98,9 +97,9 @@ func ControllersWithSCSIModel(scsiModel string) controllersOption {
 	}
 }
 
-func ControllersWithSCSIIOThreads(autoThreads uint) controllersOption {
+func ControllersWithSCSIIOThreads(totalThreads uint) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
-		c.autoThreads = autoThreads
+		c.totalThreads = totalThreads
 	}
 }
 
@@ -210,18 +209,22 @@ func getBusFromDisk(disk v1.Disk) v1.DiskBus {
 	return ""
 }
 
+// configure dedicated thread(s) to scsi controller if vmi set ioThreadsPolicy and contains a scsi disk
 func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.IOThreadsPolicy == nil {
+		return false
+	}
 	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
-		return getBusFromDisk(disk) == v1.DiskBusSCSI && iothreads.HasDedicatedIOThread(disk)
+		return getBusFromDisk(disk) == v1.DiskBusSCSI
 	})
 }
 
 func assignSCSIControllerIOThread(
 	vmi *v1.VirtualMachineInstance,
-	autoThreads uint,
+	totalThreads uint,
 	scsiControllerDriver *api.ControllerDriver,
 ) *api.ControllerDriver {
-	if autoThreads == 0 || !shouldConfigSCSIThread(vmi) {
+	if totalThreads == 0 || !shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
 	}
 
@@ -234,20 +237,23 @@ func assignSCSIControllerIOThread(
 		vcpus = 1
 	}
 
-	scsiControllerDriver.IOThread = computeScsiControllerThread(autoThreads, vmi.Spec.Domain.Devices.Disks)
+	// we don't want to allocate more threads than the controller needs
+	// totalThreads should never exceed the number of created virtqueues (1 per vCPU)
+	totalThreads = min(totalThreads, vcpus)
+
+	// if we just have single thread, we don't need to populate thread list
+	if totalThreads == 1 {
+		scsiControllerDriver.IOThread = pointer.P(totalThreads)
+	} else {
+		iothreads := &api.DiskIOThreads{}
+		for id := 1; id <= int(totalThreads); id++ {
+			iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+		}
+
+		scsiControllerDriver.IOThreads = iothreads
+	}
+
 	scsiControllerDriver.Queues = pointer.P(vcpus)
 
 	return scsiControllerDriver
-}
-
-func computeScsiControllerThread(autoThreads uint, disks []v1.Disk) *uint {
-	currentAutoThread := defaultIOThread
-
-	for _, disk := range disks {
-		if getBusFromDisk(disk) == v1.DiskBusVirtio && !iothreads.HasDedicatedIOThread(disk) {
-			currentAutoThread = (currentAutoThread % autoThreads) + 1
-		}
-	}
-
-	return &currentAutoThread
 }
