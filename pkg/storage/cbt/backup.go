@@ -575,7 +575,6 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 		backup.Status.CheckpointName = backupStatus.CheckpointName
 	}
 
-	// Set Quiesced condition early if not already set
 	if backupStatus.QuiesceStatus != "" {
 		ctrl.setQuiescedCondition(backup, backupStatus.QuiesceStatus)
 	}
@@ -607,7 +606,6 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 	}
 	backup.Status.IncludedVolumes = backupStatus.Volumes
 
-	// Set Quiesced condition at completion
 	if backupStatus.QuiesceStatus != "" {
 		ctrl.setQuiescedCondition(backup, backupStatus.QuiesceStatus)
 	}
@@ -1084,6 +1082,7 @@ func (ctrl *VMBackupController) setQuiescedCondition(backup *backupv1.VirtualMac
 		reason = backupv1.ReasonQuiesceSkipped
 		message = "Guest filesystem quiesce was skipped"
 	default:
+		log.Log.Object(backup).Warningf("Invalid QuiesceStatus value: %q, skipping Quiesced condition", quiesceStatus)
 		return
 	}
 
