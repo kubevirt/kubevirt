@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cgroup.go",
+        "ebpf_device_map.go",
         "main.go",
         "mdev-handler.go",
         "selinux.go",

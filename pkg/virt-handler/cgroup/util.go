@@ -44,6 +44,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
+	virtchroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
 type CgroupVersion string
@@ -372,6 +374,7 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 	}
 
 	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
 		"set-cgroups-resources",
 		"--subsystem-paths", base64.StdEncoding.EncodeToString(marshalledPaths),
 		"--resources", base64.StdEncoding.EncodeToString(marshalledRules),
@@ -379,7 +382,7 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 		fmt.Sprintf("--isV2=%t", version == V2),
 	}
 
-	cmd := exec.Command("virt-chroot", args...)
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
 
 	log.Log.V(loggingVerbosity).Infof("setting resources for cgroup %s: %+v", version, *r)
 	log.Log.V(loggingVerbosity).Infof("applying resources with virt-chroot. Full command: %s", cmd.String())
@@ -389,6 +392,83 @@ func execVirtChrootCgroups(r *cgroups.Resources, subsystemPaths map[string]strin
 		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
 	}
 	return nil
+}
+
+// execVirtChrootSpliceDeviceMap calls virt-chroot splice-device-map to splice
+// an eBPF map lookup into the cgroup's device filter program. This is a
+// one-time operation per cgroup; subsequent calls are a no-op if the map
+// is already pinned.
+func execVirtChrootSpliceDeviceMap(cgroupPaths []string) error {
+	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
+		"splice-device-map",
+		"--cgroup-paths", strings.Join(cgroupPaths, ","),
+	}
+
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
+
+	log.Log.V(loggingVerbosity).Infof("splicing eBPF device map for cgroup paths %v. Full command: %s", cgroupPaths, cmd.String())
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
+	}
+	log.Log.V(loggingVerbosity).Infof("splice-device-map output:\n%s", output)
+	return nil
+}
+
+// execVirtChrootUpdateDevice calls virt-chroot update-device to add or remove
+// a device entry in the pinned eBPF device map for the given cgroup path.
+func execVirtChrootUpdateDevice(cgroupPath string, deviceType string, major, minor int64, permissions string, allow bool) error {
+	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
+		"update-device",
+		"--cgroup-path", cgroupPath,
+		"--device-type", deviceType,
+		"--major", strconv.FormatInt(major, 10),
+		"--minor", strconv.FormatInt(minor, 10),
+		fmt.Sprintf("--allow=%t", allow),
+	}
+	if permissions != "" {
+		args = append(args, "--permissions", permissions)
+	}
+
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
+
+	action := "allowing"
+	if !allow {
+		action = "removing"
+	}
+	log.Log.V(loggingVerbosity).Infof("%s device %s %d:%d (perms=%s) via virt-chroot. Full command: %s",
+		action, deviceType, major, minor, permissions, cmd.String())
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
+	}
+	return nil
+}
+
+// execVirtChrootListDevices calls virt-chroot list-devices and parses the JSON output.
+func execVirtChrootListDevices(cgroupPath string) ([]cgroupconsts.DeviceMapEntry, error) {
+	args := []string{
+		"--mount", virtchroot.GetChrootMountNamespace(),
+		"list-devices",
+		"--cgroup-path", cgroupPath,
+	}
+
+	cmd := exec.Command(virtchroot.GetChrootBinaryPath(), args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed running command %s, err: %v", cmd.String(), err)
+	}
+
+	var entries []cgroupconsts.DeviceMapEntry
+	if err := json.Unmarshal(output, &entries); err != nil {
+		return nil, fmt.Errorf("cannot parse device list from virt-chroot: %w", err)
+	}
+	return entries, nil
 }
 
 func getCgroupThreadsHelper(manager Manager, fname string) ([]int, error) {
