@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,6 +87,17 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 
 	if hasCELExpressions(p) {
 		eval := celutil.GetEvaluator()
+
+		if p.Spec.Condition != "" {
+			if err := eval.CompileCondition(p.Spec.Condition); err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
+					Field:   specPath.Child("condition").String(),
+				})
+			}
+		}
+
 		for i, dh := range p.Spec.DomainHooks {
 			causes = append(causes, validateDomainHookCEL(eval, dh, specPath.Child("domainHooks").Index(i))...)
 		}
@@ -110,17 +122,15 @@ func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
 }
 
 func hasCELExpressions(p *pluginv1alpha1.Plugin) bool {
-	for _, dh := range p.Spec.DomainHooks {
-		if (dh.CEL != nil && dh.CEL.Expression != "") || dh.Condition != "" {
-			return true
-		}
+	if p.Spec.Condition != "" {
+		return true
 	}
-	for _, nh := range p.Spec.NodeHooks {
-		if nh.Condition != "" {
-			return true
-		}
+	if slices.ContainsFunc(p.Spec.NodeHooks, func(nh pluginv1alpha1.NodeHook) bool { return nh.Condition != "" }) {
+		return true
 	}
-	return false
+	return slices.ContainsFunc(p.Spec.DomainHooks, func(dh pluginv1alpha1.DomainHook) bool {
+		return (dh.CEL != nil && dh.CEL.Expression != "") || dh.Condition != ""
+	})
 }
 
 func validateDomainHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.DomainHook, dhPath *field.Path) []metav1.StatusCause {

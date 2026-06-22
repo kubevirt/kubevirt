@@ -156,6 +156,26 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	It("should accept valid plugin-level condition", func() {
+		p := newMinimalPlugin()
+		p.Spec.Condition = `vmi.Name == "test"`
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	DescribeTable("should reject invalid plugin-level condition", func(condition string) {
+		p := newMinimalPlugin()
+		p.Spec.Condition = condition
+		resp := admit(p)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(
+			WithTransform(func(c metav1.StatusCause) string { return c.Field }, Equal("spec.condition")),
+		))
+	},
+		Entry("with invalid syntax", "invalid!!! condition"),
+		Entry("with non-bool return type", `vmi.Name`),
+	)
+
 	It("should reject CEL domain hook with type-incorrect field value", func() {
 		p := newMinimalPlugin()
 		p.Spec.DomainHooks = []pluginv1alpha1.DomainHook{{
