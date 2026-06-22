@@ -176,38 +176,31 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 		backupMetadata.Volumes = string(volumesJSON)
 	})
 
-	frozenFS := false
 	if !backupOptions.SkipQuiesce {
 		logger.Info("Freezing VMI to capture backup state")
-		if err := dom.FSFreeze(nil, 0); err != nil {
+		if err := m.FreezeVMI(vmi, 0); err != nil {
 			logger.Warningf(freezeFailedMsg, err)
 			m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
-				backupMetadata.BackupMsg = fmt.Sprintf(freezeFailedMsg, err)
 				backupMetadata.QuiesceStatus = string(backupv1.QuiesceFailed)
+				backupMetadata.BackupMsg = err.Error()
 			})
 		} else {
-			frozenFS = true
 			m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
 				backupMetadata.QuiesceStatus = string(backupv1.QuiesceSucceeded)
 			})
 		}
+
+		defer func() {
+			logger.Info("Thawing VMI after backup job started")
+			if err := m.UnfreezeVMI(vmi); err != nil {
+				logger.Reason(err).Error(unfreezeFailedMsg)
+			}
+		}()
 	} else {
 		m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
 			backupMetadata.QuiesceStatus = string(backupv1.QuiesceSkipped)
 		})
 	}
-
-	defer func() {
-		if frozenFS {
-			logger.Info("Thawing VMI after backup job started")
-			if err := dom.FSThaw(nil, 0); err != nil {
-				logger.Reason(err).Error(unfreezeFailedMsg)
-				m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
-					backupMetadata.BackupMsg = unfreezeFailedMsg
-				})
-			}
-		}
-	}()
 
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
