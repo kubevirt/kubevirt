@@ -1308,5 +1308,6 @@ func convertEFIConfiguration(input *convertertypes.EFIConfiguration) *compute.EF
 		EFIVars:                   input.EFIVars,
 		SecureLoader:              input.SecureLoader,
 		UsesFirmwareAutoSelection: input.UsesFirmwareAutoSelection,
+		NVRAMBlockDevice:          input.NVRAMBlockDevice,
 	}
 }

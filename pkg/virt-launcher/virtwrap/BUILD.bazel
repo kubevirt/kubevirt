@@ -38,6 +38,7 @@ go_library(
         "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/volumepath:go_default_library",

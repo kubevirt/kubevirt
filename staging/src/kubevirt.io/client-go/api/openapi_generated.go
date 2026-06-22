@@ -22903,6 +22903,14 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"vmStateVolumeMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMStateVolumeMode is the volume mode of the PVC created to preserve persistent EFI NVRAM state. When unset, KubeVirt defaults to Filesystem, the only historically supported mode. When set to Block, the EFI NVRAM is stored directly on a raw block device (no filesystem) via libvirt's <nvram type='block'> / QEMU pflash. This targets storage that offers ReadWriteMany only in Block mode (e.g. DRBD/LINSTOR), enabling live migration of persistent-EFI VMs without an RWX-Filesystem storage class. Block mode is EFI-only: VMs that also require persistent TPM or CBT state (which need a filesystem) are rejected. Only Filesystem and Block are accepted.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Block", "Filesystem", "FromStorageProfile"},
+						},
+					},
 					"virtualMachineOptions": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/api/core/v1.VirtualMachineOptions"),

@@ -383,13 +383,35 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 	}
 }
 
-func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
+func withBackendStorage(pvcStore cache.Store, namespace string, vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		if !backendstorage.IsBackendStorageNeeded(vmi) {
 			return nil
 		}
 
 		volumeName := "vm-state"
+
+		// Determine whether the backend-storage PVC was provisioned in Block mode.
+		// In Block mode the device cannot be consumed via SubPath Filesystem mounts;
+		// instead it is attached as a raw VolumeDevice and libvirt uses it directly as
+		// the EFI NVRAM pflash backend (no filesystem, no mkfs, no mount). The Block path
+		// is EFI-only (persistent TPM / CBT are rejected at createPVC time), so unlike the
+		// Filesystem path it needs no swtpm/cbt/meta SubPath mounts.
+		//
+		// The VolumeMode decides between two mutually exclusive renderings (raw
+		// VolumeDevice vs. SubPath VolumeMounts), so we must not guess it. If the backend
+		// PVC is not yet visible in the informer store, returning PvcNotFoundError makes
+		// the controller requeue rather than silently defaulting to the Filesystem layout
+		// (which would produce wrong mounts for a Block PVC and fail at pod start). This
+		// mirrors addPVCToLaunchManifest's handling of a not-yet-cached PVC.
+		_, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, namespace, backendStoragePVCName)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return types.PvcNotFoundError{Reason: fmt.Sprintf("backend-storage PVC %s not yet in store", backendStoragePVCName)}
+		}
+
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{
@@ -400,6 +422,18 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			},
 		})
 
+		if isBlock {
+			// Block mode: attach the PVC as a raw block device. libvirt points the EFI
+			// NVRAM pflash at this device directly; no path on the launcher filesystem is
+			// involved, so there are no SubPath mounts and no emptyDir scaffolding here.
+			renderer.volumeDevices = append(renderer.volumeDevices, k8sv1.VolumeDevice{
+				Name:       volumeName,
+				DevicePath: backendstorage.BlockDevicePath,
+			})
+			return nil
+		}
+
+		// Filesystem mode (default): historical SubPath multiplexing, unchanged.
 		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
 			Name:      volumeName,
 			ReadOnly:  false,

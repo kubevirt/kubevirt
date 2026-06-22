@@ -18,6 +18,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 )
 
+// filesystemBackendStore returns a PVC store that resolves the backend-storage PVC as a
+// Filesystem-mode claim, so withBackendStorage takes the (historical) Filesystem path.
+func filesystemBackendStore() cache.Store {
+	fsMode := k8sv1.PersistentVolumeFilesystem
+	return &cache.FakeCustomStore{
+		GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+			return &k8sv1.PersistentVolumeClaim{
+				Spec: k8sv1.PersistentVolumeClaimSpec{VolumeMode: &fsMode},
+			}, true, nil
+		},
+	}
+}
+
 var _ = Describe("Container spec renderer", func() {
 	var vsr *VolumeRenderer
 
@@ -346,7 +359,7 @@ var _ = Describe("Container spec renderer", func() {
 			vmi := &v1.VirtualMachineInstance{}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(filesystemBackendStore(), namespace, vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedMount := k8sv1.VolumeMount{
@@ -367,7 +380,7 @@ var _ = Describe("Container spec renderer", func() {
 			)
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(filesystemBackendStore(), namespace, vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedVolume := k8sv1.Volume{

@@ -3119,7 +3119,19 @@ type KubeVirtConfiguration struct {
 	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
 
 	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
+	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
+
+	// VMStateVolumeMode is the volume mode of the PVC created to preserve persistent EFI NVRAM state.
+	// When unset, KubeVirt defaults to Filesystem, the only historically supported mode.
+	// When set to Block, the EFI NVRAM is stored directly on a raw block device (no filesystem) via
+	// libvirt's <nvram type='block'> / QEMU pflash. This targets storage that offers ReadWriteMany only
+	// in Block mode (e.g. DRBD/LINSTOR), enabling live migration of persistent-EFI VMs without an
+	// RWX-Filesystem storage class. Block mode is EFI-only: VMs that also require persistent TPM or CBT
+	// state (which need a filesystem) are rejected. Only Filesystem and Block are accepted.
+	// +nullable
+	// +kubebuilder:validation:Enum=Filesystem;Block
+	VMStateVolumeMode *k8sv1.PersistentVolumeMode `json:"vmStateVolumeMode,omitempty"`
+
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 
 	// KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).

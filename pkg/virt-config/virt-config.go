@@ -426,6 +426,16 @@ func (c *ClusterConfig) GetVMStateStorageClass() string {
 	return c.GetConfig().VMStateStorageClass
 }
 
+// GetVMStateVolumeMode returns the volume mode configured for backend-storage (VM state) PVCs.
+// It defaults to Filesystem when unset, preserving the historical behavior.
+func (c *ClusterConfig) GetVMStateVolumeMode() k8sv1.PersistentVolumeMode {
+	mode := c.GetConfig().VMStateVolumeMode
+	if mode == nil {
+		return k8sv1.PersistentVolumeFilesystem
+	}
+	return *mode
+}
+
 func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
 	return c.GetConfig().VirtualMachineOptions != nil && c.GetConfig().VirtualMachineOptions.DisableFreePageReporting != nil
 }

@@ -35,6 +35,10 @@ type EFIConfiguration struct {
 	EFIVars                   string
 	SecureLoader              bool
 	UsesFirmwareAutoSelection bool
+	// NVRAMBlockDevice is the in-pod path of a raw block device backing the persistent
+	// EFI NVRAM directly (QEMU pflash). Non-empty only when the backend-storage PVC is
+	// Block mode (VMStateVolumeMode=Block); empty means the legacy file-path NVRAM form.
+	NVRAMBlockDevice string
 }
 
 type ConverterContext struct {

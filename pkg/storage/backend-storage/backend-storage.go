@@ -53,6 +53,13 @@ const (
 	PVCPrefix  = "persistent-state-for"
 	PVCSize    = "10Mi"
 	VolumeName = PVCPrefix + "-this-vm"
+
+	// BlockDevicePath is the in-pod device path at which a Block-mode backend-storage
+	// (VM state) PVC is attached as a raw VolumeDevice. In Block mode the only state is
+	// the EFI NVRAM, which libvirt backs directly with this raw device as a QEMU pflash
+	// (no filesystem). Both the volume renderer (which attaches the device) and
+	// virt-launcher (which detects it to emit the block <nvram> form) reference this.
+	BlockDevicePath = "/dev/vm-state"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -118,6 +125,18 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 		migration.Status.MigrationState.TargetPersistentStatePVCName == migration.Status.MigrationState.SourcePersistentStatePVCName {
 		// The migration either didn't actually start, or the backend storage is RWX.
 		// In both cases we consider the migration as failed.
+		migration.Status.Phase = corev1.MigrationFailed
+		return nil
+	}
+
+	// Block-mode backend storage stores only the EFI NVRAM on a raw block device with no
+	// filesystem and no /meta/migrated marker. The recovery Job mounts the source PVC via a
+	// SubPath Filesystem mount to read that marker, which is impossible on a block device.
+	// Block-mode EFI NVRAM travels in QEMU's pflash migration stream rather than through the
+	// filesystem-marker handshake, so the marker-Job recovery path does not apply: fall back
+	// to the same outcome as the RWX case (the migration is considered failed if it did not
+	// reach the handoff). See the design note's migration section.
+	if _, _, isBlock, err := storagetypes.IsPVCBlockFromStore(pvcStore, vmi.Namespace, migration.Status.MigrationState.SourcePersistentStatePVCName); err == nil && isBlock {
 		migration.Status.Phase = corev1.MigrationFailed
 		return nil
 	}
@@ -515,7 +534,28 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	if err != nil {
 		return nil, err
 	}
-	mode := v1.PersistentVolumeFilesystem
+	// VolumeMode is configurable via the KubeVirtConfiguration field VMStateVolumeMode
+	// (defaults to Filesystem). Block mode is intended for storage that only offers RWX
+	// in Block mode (e.g. DRBD/LINSTOR). getAccessMode already filters StorageProfile
+	// ClaimPropertySets by this mode (see the `*property.VolumeMode != mode` guard), so
+	// requesting Block here makes access-mode negotiation pick RWX-Block when the profile
+	// advertises it, exactly as it picks RWX-Filesystem today.
+	mode := bs.clusterConfig.GetVMStateVolumeMode()
+
+	// Guard rail: Block mode stores only the EFI NVRAM, a single fixed-size OVMF VARS
+	// blob, directly on the raw device as a QEMU pflash backend (no filesystem). It cannot
+	// host the directory-of-files layouts that persistent TPM (swtpm state dir) and CBT
+	// (changed-block-tracking bitmaps) require. Rather than silently corrupt those, reject
+	// the combination with a descriptive error. EFI-only is the supported Block combination.
+	if mode == v1.PersistentVolumeBlock {
+		if tpm.HasPersistentDevice(&vmi.Spec) {
+			return nil, fmt.Errorf("vmStateVolumeMode=Block is only supported for persistent EFI; VMI %s/%s also requests persistent TPM, which needs a Filesystem-backed swtpm state directory. Use vmStateVolumeMode=Filesystem (or an RWX-Filesystem vmStateStorageClass) for TPM-persisting VMs", vmi.Namespace, vmi.Name)
+		}
+		if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+			return nil, fmt.Errorf("vmStateVolumeMode=Block is only supported for persistent EFI; VMI %s/%s also has changed-block-tracking (CBT) enabled, whose bitmaps need a Filesystem-backed directory. Use vmStateVolumeMode=Filesystem for CBT VMs", vmi.Namespace, vmi.Name)
+		}
+	}
+
 	accessMode := bs.getAccessMode(storageClass, mode)
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {

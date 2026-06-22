@@ -19,6 +19,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -28,9 +29,18 @@ import (
 
 const (
 	migrationHookSocket = "/var/run/kubevirt/migration-hook-socket"
-	migratedMarkerPath  = "/run/kubevirt-private/backend-storage-meta/migrated"
+	migratedMarkerDir   = "/run/kubevirt-private/backend-storage-meta"
+	migratedMarkerPath  = migratedMarkerDir + "/migrated"
 	connectTimeout      = 30 * time.Second
 	idleTimeout         = 30 * time.Second
+
+	// blockStateDevicePath is the in-pod path of the raw VolumeDevice that backs a
+	// Block-mode (VMStateVolumeMode=Block) backend-storage volume. Its presence is the
+	// positive signal that the VMI runs with Block-mode backend storage. This is a copy
+	// of backendstorage.BlockDevicePath; this hook binary is deliberately stdlib-only and
+	// must not pull in the backend-storage package (and its client-go deps), so the
+	// constant is duplicated here. Keep the two in sync.
+	blockStateDevicePath = "/dev/vm-state"
 )
 
 func main() {
@@ -118,10 +128,45 @@ func handleMigrationBegin() error {
 }
 
 func handleMigrationEnd() error {
+	// The /meta/migrated marker is a Filesystem-mode-only handoff: the recovery Job reads
+	// it (via a SubPath mount of the source PVC) to decide whether an interrupted migration
+	// completed. In Block mode (VMStateVolumeMode=Block) the backend storage is a raw block
+	// device with no filesystem and no meta directory, and the state (EFI NVRAM, vTPM)
+	// travels in QEMU's / swtpm's migration stream on RWX-Block PVCs shared by source and
+	// target, so no marker handshake is needed.
+	//
+	// Decide Block-vs-Filesystem positively, by detecting the presence of the Block-mode
+	// state device, rather than by the absence of the marker directory. The latter would
+	// silently swallow a genuinely missing marker directory in Filesystem mode (a real
+	// misconfiguration) as if it were Block mode.
+	isBlock, err := isBlockMode()
+	if err != nil {
+		return err
+	}
+	if isBlock {
+		return nil
+	}
+
 	file, err := os.Create(migratedMarkerPath)
 	if err != nil {
 		return fmt.Errorf("failed to create marker file: %w", err)
 	}
 
 	return file.Close()
+}
+
+// isBlockMode reports whether this VMI runs with Block-mode backend storage, detected by
+// the presence of the raw state device that the controller attaches as a VolumeDevice.
+func isBlockMode() (bool, error) {
+	info, err := os.Stat(blockStateDevicePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// No state device: Filesystem mode. The marker directory must exist; if it
+			// doesn't, surface that as an error from handleMigrationEnd rather than here,
+			// so the caller's os.Create returns a descriptive failure.
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to stat state device %s: %w", blockStateDevicePath, err)
+	}
+	return (info.Mode() & os.ModeDevice) != 0, nil
 }

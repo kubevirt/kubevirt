@@ -1198,9 +1198,27 @@ type SMBios struct {
 }
 
 type NVRam struct {
-	Template string `xml:"template,attr,omitempty"`
-	Format   string `xml:"format,attr,omitempty"`
-	NVRam    string `xml:",chardata"`
+	// Type selects the NVRAM backend. Empty (legacy) and "file" use the NVRam
+	// chardata file path. "block" (libvirt >= 8.5.0) points the EFI NVRAM pflash at
+	// a raw block device described by the Source sub-element.
+	//
+	// NVRam (chardata) and Source are mutually exclusive: exactly one of them describes
+	// where the OVMF VARS live. The legacy/file form sets only NVRam (chardata host file
+	// path) and leaves Source nil; the source form (file/block) sets only Source and
+	// leaves NVRam empty. Setting both is invalid libvirt XML -- callers (see the
+	// converter in compute/os.go) must emit one form or the other, never both.
+	Type     string       `xml:"type,attr,omitempty"`
+	Template string       `xml:"template,attr,omitempty"`
+	Format   string       `xml:"format,attr,omitempty"`
+	NVRam    string       `xml:",chardata"`        // legacy/file form: host file path (exclusive with Source)
+	Source   *NVRamSource `xml:"source,omitempty"` // file/block source form (exclusive with NVRam chardata)
+}
+
+// NVRamSource mirrors libvirt's disk <source> for the NVRAM backend. For block-backed
+// NVRAM (type='block') the device path is set via Dev; for file-backed via File.
+type NVRamSource struct {
+	Dev  string `xml:"dev,attr,omitempty"`
+	File string `xml:"file,attr,omitempty"`
 }
 
 type Boot struct {
