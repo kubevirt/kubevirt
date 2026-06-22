@@ -1746,6 +1746,17 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 		return nil, err
 	}
 
+	// When placeholderCount == 0, WithNetworkIfacesResources skips the
+	// read-back, so domainSpec lacks libvirt-assigned Target.BusNr values
+	// needed by DisableHotplugOnOccupiedRootPorts.
+	if placeholderCount == 0 {
+		readBack, readErr := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+		if readErr != nil {
+			return nil, readErr
+		}
+		readBack.Devices.DeepCopyInto(&domainSpec.Devices)
+	}
+
 	// Extra controllers must be added AFTER WithNetworkIfacesResources so
 	// that libvirt has already assigned devices to root ports. Controllers
 	// appended here get indices above the occupied ports and remain empty,
@@ -1756,7 +1767,9 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 
 	pci.DisableHotplugOnOccupiedRootPorts(domainSpec)
 
-	dom.Free()
+	if freeErr := dom.Free(); freeErr != nil {
+		err = errors.Join(err, freeErr)
+	}
 	dom, err = l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return nil, err

@@ -57,9 +57,6 @@ func DisableHotplugOnOccupiedRootPorts(spec *api.DomainSpec) {
 			continue
 		}
 		if _, occupied := occupiedBuses[bus]; occupied {
-			if spec.Devices.Controllers[i].Target == nil {
-				spec.Devices.Controllers[i].Target = &api.ControllerTarget{}
-			}
 			spec.Devices.Controllers[i].Target.Hotplug = "off"
 		}
 	}
