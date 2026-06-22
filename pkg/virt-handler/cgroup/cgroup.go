@@ -133,8 +133,24 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 
 	if err != nil {
 		log.Log.Errorf("error occurred while initialized a new cgroup %s manager: %v", version, err)
-	} else {
-		log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+		return manager, err
+	}
+	log.Log.Infof("initialized a new cgroup %s manager successfully. controllerPaths: %v, procCgroupBasePath: %s", version, controllerPaths, procCgroupBasePath)
+
+	if v2mgr, ok := manager.(*v2Manager); ok && v2mgr.spliceDeviceMap {
+		// Splice the eBPF device map into the cgroup's device filter once per
+		// cgroup path. The splice itself (via virt-chroot) is idempotent, but
+		// we skip re-running it to avoid forking a process on every sync loop.
+		if _, already := splicedCgroups.LoadOrStore(slicePath, true); !already {
+			cgroupPaths := []string{slicePath}
+			if targetDir, parentPath := filepath.Base(slicePath), path.Dir(slicePath); targetDir == "container" && strings.HasSuffix(parentPath, ".scope") {
+				cgroupPaths = append(cgroupPaths, parentPath)
+			}
+			if err := execVirtChrootSpliceDeviceMap(cgroupPaths, pid); err != nil {
+				splicedCgroups.Delete(slicePath)
+				return nil, fmt.Errorf("failed to splice eBPF device map: %w", err)
+			}
+		}
 	}
 
 	return manager, err
