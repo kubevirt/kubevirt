@@ -114,7 +114,7 @@ func applyNUMADistances(domain *api.DomainSpec) {
 // buildGuestToHostMapping builds a mapping from guest NUMA cell IDs to host
 // NUMA node IDs. CPU cells are mapped via NUMATune MemNodes. GI cells are
 // mapped by discovering all memory-less/CPU-less host nodes and distributing
-// them among GPUs in domain spec order (matching handleFakeNumaNodes ordering).
+// them among GPUs in domain spec order (matching handleGraceVirtualizationNumaNodes ordering).
 //
 // On a real GB200, GPU PCI devices report the CPU socket NUMA node (e.g., 0 or
 // 1), not a GI node. The GI nodes (memory-less, CPU-less) start after the CPU

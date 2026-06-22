@@ -46,11 +46,11 @@ func HandleIOMMU(domain *api.DomainSpec, iommu *iommupci.IommuPCI) {
 	if iommu == nil || !iommu.SMMUEnabled {
 		return
 	}
-	handleFakeNumaNodes(domain)
+	handleGraceVirtualizationNumaNodes(domain)
 	applyNUMADistances(domain)
 }
 
-// handleFakeNumaNodes creates fake NUMA nodes for host devices that require them.
+// handleGraceVirtualizationNumaNodes creates fake NUMA nodes for host devices that require them.
 //
 // This function is specifically needed for NVIDIA GPU passthrough on ARM64 systems
 // with SMMUv3. The NVIDIA vGPU driver requires a set of 8 contiguous NUMA nodes to
@@ -67,7 +67,7 @@ func HandleIOMMU(domain *api.DomainSpec, iommu *iommupci.IommuPCI) {
 //
 // Parameters:
 //   - domain: The libvirt domain specification to modify
-func handleFakeNumaNodes(domain *api.DomainSpec) {
+func handleGraceVirtualizationNumaNodes(domain *api.DomainSpec) {
 	for i := range domain.Devices.HostDevices {
 		hostDev := &domain.Devices.HostDevices[i]
 		if hostDev.ACPI != nil && hostDev.ACPI.NodeSet == "tofill" {
