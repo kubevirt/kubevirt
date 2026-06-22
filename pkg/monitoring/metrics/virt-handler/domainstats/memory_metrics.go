@@ -112,6 +112,35 @@ var (
 			Help: "The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file.",
 		},
 	)
+
+	memoryAnonBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_memory_anon_bytes",
+			Help: "Anonymous memory usage of the container cgroup in bytes, from cgroup memory.stat.",
+		},
+	)
+
+	memoryAnonTHPBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_memory_anon_thp_bytes",
+			Help: "Anonymous memory backed by transparent huge pages in the container cgroup in bytes, from cgroup memory.stat.",
+		},
+	)
+
+	memoryInactiveAnonBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_memory_inactive_anon_bytes",
+			Help: "Inactive anonymous memory in the container cgroup in bytes. " +
+				"High values indicate reclaim-eligible pages that may be swapped under pressure.",
+		},
+	)
+
+	memoryActiveAnonBytes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_memory_active_anon_bytes",
+			Help: "Active anonymous memory in the container cgroup in bytes. Recently accessed pages are less likely to be reclaimed.",
+		},
+	)
 )
 
 type memoryMetrics struct{}
@@ -129,6 +158,10 @@ func (memoryMetrics) Describe() []operatormetrics.Metric {
 		memoryActualBallon,
 		memoryUsableBytes,
 		memoryDomainBytes,
+		memoryAnonBytes,
+		memoryAnonTHPBytes,
+		memoryInactiveAnonBytes,
+		memoryActiveAnonBytes,
 	}
 }
 
@@ -185,5 +218,29 @@ func (memoryMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operator
 		crs = append(crs, vmiReport.newCollectorResult(memoryDomainBytes, kibibytesToBytes(mem.Total)))
 	}
 
+	crs = append(crs, collectCgroupMemoryMetrics(vmiReport)...)
+
+	return crs
+}
+
+func collectCgroupMemoryMetrics(vmiReport *VirtualMachineInstanceReport) []operatormetrics.CollectorResult {
+	cgMem := vmiReport.vmiStats.DomainStats.CgroupMemory
+	if cgMem == nil {
+		return nil
+	}
+
+	var crs []operatormetrics.CollectorResult
+	if cgMem.AnonSet {
+		crs = append(crs, vmiReport.newCollectorResult(memoryAnonBytes, float64(cgMem.Anon)))
+	}
+	if cgMem.AnonTHPSet {
+		crs = append(crs, vmiReport.newCollectorResult(memoryAnonTHPBytes, float64(cgMem.AnonTHP)))
+	}
+	if cgMem.InactiveAnonSet {
+		crs = append(crs, vmiReport.newCollectorResult(memoryInactiveAnonBytes, float64(cgMem.InactiveAnon)))
+	}
+	if cgMem.ActiveAnonSet {
+		crs = append(crs, vmiReport.newCollectorResult(memoryActiveAnonBytes, float64(cgMem.ActiveAnon)))
+	}
 	return crs
 }

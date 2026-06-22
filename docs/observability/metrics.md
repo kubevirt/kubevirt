@@ -44,10 +44,14 @@
 | kubevirt_vmi_info | Metric | Gauge | Information about VirtualMachineInstances. |
 | kubevirt_vmi_last_api_connection_timestamp_seconds | Metric | Gauge | Virtual Machine Instance last API connection timestamp. Including VNC, console, portforward, SSH and usbredir connections. |
 | kubevirt_vmi_launcher_memory_overhead_bytes | Metric | Gauge | Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU). |
+| kubevirt_vmi_memory_active_anon_bytes | Metric | Gauge | Active anonymous memory in the container cgroup in bytes. Recently accessed pages are less likely to be reclaimed. |
 | kubevirt_vmi_memory_actual_balloon_bytes | Metric | Gauge | Current balloon size in bytes. |
+| kubevirt_vmi_memory_anon_bytes | Metric | Gauge | Anonymous memory usage of the container cgroup in bytes, from cgroup memory.stat. |
+| kubevirt_vmi_memory_anon_thp_bytes | Metric | Gauge | Anonymous memory backed by transparent huge pages in the container cgroup in bytes, from cgroup memory.stat. |
 | kubevirt_vmi_memory_available_bytes | Metric | Gauge | Amount of usable memory as seen by the domain. This value may not be accurate if a balloon driver is in use or if the guest OS does not initialize all assigned pages |
 | kubevirt_vmi_memory_cached_bytes | Metric | Gauge | The amount of memory that is being used to cache I/O and is available to be reclaimed, corresponds to the sum of `Buffers` + `Cached` + `SwapCached` in `/proc/meminfo`. |
 | kubevirt_vmi_memory_domain_bytes | Metric | Gauge | The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file. |
+| kubevirt_vmi_memory_inactive_anon_bytes | Metric | Gauge | Inactive anonymous memory in the container cgroup in bytes. High values indicate reclaim-eligible pages that may be swapped under pressure. |
 | kubevirt_vmi_memory_pgmajfault_total | Metric | Counter | The number of page faults when disk IO was required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is required, it is considered as major fault. |
 | kubevirt_vmi_memory_pgminfault_total | Metric | Counter | The number of other page faults, when disk IO was not required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is NOT required, it is considered as minor fault. |
 | kubevirt_vmi_memory_resident_bytes | Metric | Gauge | Resident set size of the process running the domain. |
