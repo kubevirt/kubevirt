@@ -204,6 +204,86 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 	return false
 }
 
+func isTargetMigrationAbortCompleted(state *v1.VirtualMachineInstanceMigrationState) bool {
+	return state != nil && state.EndTimestamp != nil && (state.Completed || state.Failed)
+}
+
+func (c *MigrationTargetController) decentralizedMigrationMetadataUIDMatchesVMI(vmi *v1.VirtualMachineInstance, migrationMetadata *api.MigrationMetadata) bool {
+	state := vmi.Status.MigrationState
+	if state == nil {
+		return false
+	}
+	uid := migrationMetadata.UID
+	return vmi.IsDecentralizedMigration() &&
+		state.TargetState != nil && uid == state.TargetState.MigrationUID
+}
+
+func (c *MigrationTargetController) setDecentralizedMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil ||
+		domain.Spec.Metadata.KubeVirt.Migration == nil ||
+		vmi.Status.MigrationState == nil ||
+		!c.isMigrationTarget(vmi) {
+		c.logger.Object(vmi).V(5).Info("not setting decentralized migration progress status, domain is nil or migration metadata is nil or migration state is nil or not a migration target")
+		return
+	}
+
+	migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
+	if !c.decentralizedMigrationMetadataUIDMatchesVMI(vmi, migrationMetadata) {
+		c.logger.Object(vmi).V(5).Info("not setting decentralized migration progress status, metadata UID does not match")
+		return
+	}
+	if migrationMetadata.StartTimestamp != nil {
+		vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+	}
+
+	if migrationMetadata.Failed {
+		vmi.Status.MigrationState.Failed = true
+		vmi.Status.MigrationState.Completed = true
+		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+		vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
+		vmi.Status.MigrationState.FailureReason = migrationMetadata.FailureReason
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
+		c.logger.Object(vmi).V(5).Infof("migration failed, completed: true, end timestamp: %v, abort status: %s, failure reason: %s", migrationMetadata.EndTimestamp, migrationMetadata.AbortStatus, migrationMetadata.FailureReason)
+	}
+
+	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
+}
+
+func (c *MigrationTargetController) handleDecentralizedMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	migrationState := vmi.Status.MigrationState
+	if !vmi.IsDecentralizedMigration() || migrationState == nil || !migrationState.AbortRequested || isTargetMigrationAbortCompleted(migrationState) {
+		c.logger.Object(vmi).V(5).Info("not aborting migration, not a decentralized migration or migration state is nil or not abort requested or abort completed")
+		return nil
+	}
+
+	// set status from domain metadata
+	c.setDecentralizedMigrationProgressStatus(vmi, domain)
+
+	if !isTargetMigrationAbortCompleted(migrationState) {
+		if domainIsActiveOnTarget(domain) {
+			c.logger.Object(vmi).Info("not aborting migration, domain is active on target")
+			return nil
+		}
+
+		if migrationState.EndTimestamp == nil {
+			migrationState.EndTimestamp = pointer.P(metav1.Now())
+		}
+		migrationState.Failed = true
+		migrationState.Completed = true
+		if migrationState.AbortStatus == "" {
+			migrationState.AbortStatus = v1.MigrationAbortSucceeded
+		}
+		if migrationState.FailureReason == "" {
+			migrationState.FailureReason = "Live migration has been aborted"
+		}
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), VMIAbortingMigration)
+	} else {
+		c.logger.Object(vmi).V(5).Info("migration abort completed")
+	}
+
+	return nil
+}
+
 func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	// as fallback set the target migration start timestamp
 	if vmi.Status.MigrationState.StartTimestamp == nil && domain.Spec.Metadata.KubeVirt.Migration.StartTimestamp != nil {
@@ -234,11 +314,18 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	c.logger.Object(vmi).Info("The target node detected that the migration has completed")
 }
 
+func abortInProgress(vmi *v1.VirtualMachineInstance) bool {
+	migrationState := vmi.Status.MigrationState
+	return migrationState != nil && migrationState.AbortRequested && !isTargetMigrationAbortCompleted(migrationState)
+}
+
 func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) (error, bool) {
 	if migrations.MigrationFailed(vmi) {
 		c.logger.Object(vmi).V(4).Info("migration has failed, nothing to report on the target node")
 		return nil, false
 	}
+
+	c.setDecentralizedMigrationProgressStatus(vmi, domain)
 
 	domainExists := domain != nil
 
@@ -296,7 +383,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		}
 	}
 
-	if migrations.IsMigrating(vmi) {
+	if migrations.IsMigrating(vmi) && !abortInProgress(vmi) {
 		c.logger.Object(vmi).V(4).Info("migration is already in progress")
 		return nil, false
 	}
@@ -497,6 +584,10 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 	oldLabels := vmi.Labels
 	vmi = vmi.DeepCopy()
 
+	if err := c.handleDecentralizedMigrationAbort(vmi, domain); err != nil {
+		return err
+	}
+
 	// post-migration clean up
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp != nil &&
 		(vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed) {
@@ -600,8 +691,12 @@ func (c *MigrationTargetController) execute(key string) error {
 		domain.Status.Status != ""
 
 	if domainExists && !domainAlive {
-		c.logger.V(4).Object(vmi).Info("domain is not alive")
-		return nil
+		migrationState := vmi.Status.MigrationState
+		needsCleanup := migrationState != nil && migrationState.EndTimestamp != nil && (migrationState.Completed || migrationState.Failed)
+		if !abortInProgress(vmi) && !needsCleanup {
+			c.logger.V(4).Object(vmi).Info("domain is not alive")
+			return nil
+		}
 	}
 
 	if vmi.Status.MigrationState == nil {
@@ -775,8 +870,10 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	// controller from processing external events (domain updates, sync
 	// controller VMI patches).
 	if len(c.migrationProxy.GetTargetListenerPorts(migrationProxyKey(vmi))) > 0 {
-		c.logger.Object(vmi).V(4).Info("migration target already prepared, nothing to do")
-		return nil, true
+		if !abortInProgress(vmi) {
+			c.logger.Object(vmi).V(4).Info("migration target already prepared, nothing to do")
+			return nil, true
+		}
 	}
 
 	// In decentralized migrations the target VMI is created before the
