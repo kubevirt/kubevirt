@@ -24,6 +24,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "checker_arm64_test.go",
         "checker_test.go",
         "iommupci_suite_test.go",
     ],
