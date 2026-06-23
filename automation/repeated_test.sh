@@ -240,7 +240,7 @@ add_to_label_filter() {
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
 # skip certain tests on flake lane
-add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs))" "&&"
+add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU))" "&&"
 
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
