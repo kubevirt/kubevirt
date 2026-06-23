@@ -313,28 +313,27 @@ build_images() {
     return $rc
 }
 
+panic_in_file() {
+    grep -vE "panicked:\s*false|panic_total|guest.os.panic" | grep -qiE "\bpanic(ked)?\b"
+}
+
+prow_url() {
+    local file="$1"
+    if [[ -n "${PULL_NUMBER}" && -n "${JOB_NAME}" && -n "${BUILD_ID}" ]]; then
+        echo "https://storage.googleapis.com/kubevirt-prow/pr-logs/pull/kubevirt_kubevirt/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID}/${file#/logs/}"
+    else
+        echo "$file"
+    fi
+}
+
 check_for_panics() {
     set +x
     if [ -d "${ARTIFACTS_PATH}" ]; then
-        local panic_files=$(grep -rlE --color=never -i "\bpanic(ked)?\b" "${ARTIFACTS_PATH}" 2>/dev/null | \
-            while IFS= read -r file; do
-                grep -qE "panicked:\s*false" "$file" 2>/dev/null || echo "$file"
-            done)
-        if [ -n "$panic_files" ]; then
-            echo ""
-            echo "================================"
-            echo "ERROR: Found panic in test output"
-            echo "Files:"
-            if [[ -n "${PULL_NUMBER}" && -n "${JOB_NAME}" && -n "${BUILD_ID}" ]]; then
-                while IFS= read -r file; do
-                    local relative_path="${file#/logs/}"
-                    echo "https://storage.googleapis.com/kubevirt-prow/pr-logs/pull/kubevirt_kubevirt/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID}/${relative_path}"
-                done <<< "$panic_files"
-            else
-                echo "$panic_files"
+        find "${ARTIFACTS_PATH}" -type f 2>/dev/null | while IFS= read -r file; do
+            if panic_in_file < "$file" 2>/dev/null; then
+                echo "ERROR: Found panic: $(prow_url "$file")"
             fi
-            echo "================================"
-        fi
+        done | tee /dev/stderr | grep -q .
     fi
     set -x
 }
@@ -342,7 +341,7 @@ check_for_panics() {
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ ret=$?; check_for_panics; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; check_for_panics || ret=1; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
