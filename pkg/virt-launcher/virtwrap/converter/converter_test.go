@@ -4571,6 +4571,36 @@ var _ = Describe("Converter", func() {
 			),
 		)
 	})
+
+	Context("with IOMMUFD", func() {
+		It("should set IOMMUFD on domain when IOMMUFDEnabled is true", func() {
+			vmi := libvmi.New()
+			c := &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:            true,
+				HypervisorDeviceAvailable: true,
+				IOMMUFDEnabled:            true,
+			}
+			domain := vmiToDomain(vmi, c)
+
+			Expect(domain.Spec.IOMMUFD).NotTo(BeNil())
+			Expect(domain.Spec.IOMMUFD.Enabled).To(Equal("yes"))
+			Expect(domain.Spec.IOMMUFD.FDGroup).To(Equal("iommu"))
+		})
+
+		It("should not set IOMMUFD on domain when IOMMUFDEnabled is false", func() {
+			vmi := libvmi.New()
+			c := &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:            true,
+				HypervisorDeviceAvailable: true,
+				IOMMUFDEnabled:            false,
+			}
+			domain := vmiToDomain(vmi, c)
+
+			Expect(domain.Spec.IOMMUFD).To(BeNil())
+		})
+	})
 })
 
 var _ = Describe("disk device naming", func() {
