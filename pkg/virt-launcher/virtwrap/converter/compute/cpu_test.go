@@ -251,7 +251,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 		It("should configure VCPUs for hotplug when MaxSockets is set and hotplug is supported", func() {
 			vmi := libvmi.New(
 				libvmi.WithCPUCount(1, 1, 2),
-				withMaxSockets(4),
+				libvmi.WithMaxSockets(4),
 			)
 			var domain api.Domain
 
@@ -274,7 +274,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 		It("should not configure VCPUs for hotplug when hotplug is not supported", func() {
 			vmi := libvmi.New(
 				libvmi.WithCPUCount(1, 1, 2),
-				withMaxSockets(4),
+				libvmi.WithMaxSockets(4),
 			)
 			var domain api.Domain
 
@@ -305,7 +305,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 		It("should mark first socket vCPUs as non-hotpluggable", func() {
 			vmi := libvmi.New(
 				libvmi.WithCPUCount(2, 1, 1),
-				withMaxSockets(3),
+				libvmi.WithMaxSockets(3),
 			)
 			var domain api.Domain
 
@@ -328,12 +328,3 @@ var _ = Describe("CPU Domain Configurator", func() {
 		})
 	})
 })
-
-func withMaxSockets(maxSockets uint32) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.CPU == nil {
-			vmi.Spec.Domain.CPU = &v1.CPU{}
-		}
-		vmi.Spec.Domain.CPU.MaxSockets = maxSockets
-	}
-}
