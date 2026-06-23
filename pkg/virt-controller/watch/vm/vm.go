@@ -604,7 +604,7 @@ func (c *Controller) handleResourceClaims(vm *virtv1.VirtualMachine) (bool, erro
 		return false, err
 	}
 	for _, entry := range vm.Spec.ResourceClaimTemplates {
-		claimName := fmt.Sprintf("%s-%s", vm.Name, entry.Name)
+		claimName := watchutil.ResourceClaimNameForVM(vm.Name, entry.Name)
 		key := fmt.Sprintf("%s/%s", vm.Namespace, claimName)
 		_, exists, err := c.resourceClaimStore.GetByKey(key)
 		if err != nil {
@@ -1971,7 +1971,7 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		if rc.ResourceClaimTemplateName != nil {
 			for _, rct := range vm.Spec.ResourceClaimTemplates {
 				if rct.Name == rc.Name {
-					derivedName := fmt.Sprintf("%s-%s", vm.Name, rct.Name)
+					derivedName := watchutil.ResourceClaimNameForVM(vm.Name, rct.Name)
 					vmi.Spec.ResourceClaims[i].ResourceClaimName = &derivedName
 					vmi.Spec.ResourceClaims[i].ResourceClaimTemplateName = nil
 					break
