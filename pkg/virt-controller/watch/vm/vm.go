@@ -554,14 +554,15 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
 		} else {
-			value, ok := curDataVolume.ObjectMeta.Labels[virtv1.CreatedByLabel]
-			if !ok {
+			if len(curDataVolume.OwnerReferences) == 0 {
 				ready = false
-				return ready, fmt.Errorf("requests existing static DataVolume")
+				return ready, fmt.Errorf("requests existing static DataVolume %s", curDataVolume.Name)
 			}
-			if value != string(vm.UID) {
-				ready = false
-				return ready, fmt.Errorf("requests DataVolume owned by another VM")
+			for _, owner := range curDataVolume.OwnerReferences {
+				if owner.Name != vm.Name {
+					ready = false
+					return ready, fmt.Errorf("requests DataVolume %s owned by another VM %s", curDataVolume.Name, owner.Name)
+				}
 			}
 
 			switch curDataVolume.Status.Phase {
