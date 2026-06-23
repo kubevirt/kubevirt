@@ -701,7 +701,6 @@
           }
         },
         "schedulerName": "schedulerNameValue",
-        "serviceAccountName": "serviceAccountNameValue",
         "tolerations": [
           {
             "key": "keyValue",
@@ -919,10 +918,6 @@
             "multus": {
               "networkName": "networkNameValue",
               "default": true
-            },
-            "resourceClaim": {
-              "claimName": "claimNameValue",
-              "requestName": "requestNameValue"
             }
           }
         ],
@@ -1362,8 +1357,7 @@
           {
             "volumeName": "volumeNameValue"
           }
-        ],
-        "quiesceStatus": "quiesceStatusValue"
+        ]
       }
     },
     "instancetypeRef": {

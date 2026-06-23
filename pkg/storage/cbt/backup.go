@@ -571,7 +571,7 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 	}
 
 	if len(backupStatus.Volumes) > 0 && len(backup.Status.IncludedVolumes) == 0 {
-		backup.Status.IncludedVolumes = backupStatus.Volumes
+		backup.Status.IncludedVolumes = toBackupVolumeInfo(backupStatus.Volumes)
 		backup.Status.CheckpointName = backupStatus.CheckpointName
 	}
 
@@ -604,7 +604,7 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 	if backupTracker != nil && !backupStatus.Failed {
 		backup.Status.CheckpointName = backupStatus.CheckpointName
 	}
-	backup.Status.IncludedVolumes = backupStatus.Volumes
+	backup.Status.IncludedVolumes = toBackupVolumeInfo(backupStatus.Volumes)
 
 	if backupStatus.QuiesceStatus != "" {
 		ctrl.setQuiescedCondition(backup, backupStatus.QuiesceStatus)
@@ -910,7 +910,7 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	newCheckpoint := backupv1.BackupCheckpoint{
 		Name:         *backupStatus.CheckpointName,
 		CreationTime: backupStatus.StartTimestamp,
-		Volumes:      backupStatus.Volumes,
+		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -1092,4 +1092,12 @@ func (ctrl *VMBackupController) setQuiescedCondition(backup *backupv1.VirtualMac
 		Reason:  reason,
 		Message: message,
 	})
+}
+
+func toBackupVolumeInfo(vols []v1.VirtualMachineInstanceBackupVolumeInfo) []backupv1.BackupVolumeInfo {
+	out := make([]backupv1.BackupVolumeInfo, len(vols))
+	for i, v := range vols {
+		out[i] = backupv1.BackupVolumeInfo{VolumeName: v.VolumeName}
+	}
+	return out
 }

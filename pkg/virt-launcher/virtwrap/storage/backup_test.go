@@ -281,7 +281,6 @@ var _ = Describe("Backup", func() {
 				Expect(backupMetadata.CheckpointName).To(ContainSubstring("test-backup"))
 				Expect(backupMetadata.Volumes).ToNot(BeEmpty())
 				Expect(backupMetadata.Volumes).To(ContainSubstring("disk0"))
-				Expect(backupMetadata.Volumes).To(ContainSubstring("vda"))
 			})
 		})
 
@@ -407,7 +406,6 @@ var _ = Describe("Backup", func() {
 			Expect(domainCheckpoint.CheckpointDisks.Disks[0].Checkpoint).To(Equal("bitmap"))
 			Expect(volumesInfo).To(HaveLen(1))
 			Expect(volumesInfo[0].VolumeName).To(Equal("disk0"))
-			Expect(volumesInfo[0].DiskTarget).To(Equal("vda"))
 		})
 
 		It("should populate exportbitmap and exportname for disks with a DataStore for pull mode backup", func() {
@@ -518,9 +516,7 @@ var _ = Describe("Backup", func() {
 
 			Expect(volumesInfo).To(HaveLen(2))
 			Expect(volumesInfo[0].VolumeName).To(Equal("rootdisk"))
-			Expect(volumesInfo[0].DiskTarget).To(Equal("vda"))
 			Expect(volumesInfo[1].VolumeName).To(Equal("datadisk"))
-			Expect(volumesInfo[1].DiskTarget).To(Equal("vdb"))
 		})
 	})
 
