@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"kubevirt.io/api/clone"
+	"kubevirt.io/api/plugin"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
@@ -71,6 +72,7 @@ var (
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
 	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
 	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1alpha1.SchemeGroupVersion.Group
+	PLUGIN                           = "plugins." + plugin.GroupName
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -979,4 +981,32 @@ func NewKubeVirtPriorityClassCR() *schedulingv1.PriorityClass {
 		GlobalDefault: false,
 		Description:   "This priority class should be used for KubeVirt core components only.",
 	}
+}
+
+func NewPluginCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = PLUGIN
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: plugin.GroupName,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    "v1alpha1",
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.ClusterScoped,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   plugin.ResourcePluginPlural,
+			Singular: plugin.ResourcePluginSingular,
+			Kind:     plugin.Kind,
+			ListKind: plugin.ListKind,
+		},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }

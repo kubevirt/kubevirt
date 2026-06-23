@@ -96,6 +96,12 @@ func (ctrl *VMExportController) getLinks(exporterPod *corev1.Pod, export *export
 			Url:  scheme + path.Join(hostAndBase, linkType, paths.SecretURI),
 		})
 	}
+	if paths.OCIURI != "" {
+		exportLink.Manifests = append(exportLink.Manifests, exportv1.VirtualMachineExportManifest{
+			Type: exportv1.OCI,
+			Url:  scheme + path.Join(hostAndBase, paths.OCIURI),
+		})
+	}
 
 	source.ConfigureExportLink(exportLink, paths, export, exporterPod, hostAndBase, scheme)
 

@@ -136,7 +136,7 @@ var _ = Describe("Application", func() {
 
 		app.vmiInformer = vmiInformer
 		app.nodeTopologyUpdater = topologyUpdater
-		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
+		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, nil, "test")
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
 		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
@@ -253,6 +253,7 @@ var _ = Describe("Application", func() {
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
 			VMBackupInformer:            backupInformer,
+			VMBackupTrackerInformer:     backupTrackerInformer,
 		}
 		_ = app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer

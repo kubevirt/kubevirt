@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -100,7 +99,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -109,8 +108,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 							GPUs: []v1.GPU{{
 								Name: "gpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							}},
 						},
@@ -163,7 +162,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -172,8 +171,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 							GPUs: []v1.GPU{{
 								Name: "vgpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							}},
 						},
@@ -228,7 +227,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -237,8 +236,8 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 							GPUs: []v1.GPU{{
 								Name: "vgpu1",
 								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   ptr.To("claim1"),
-									RequestName: ptr.To("req1"),
+									ClaimName:   "claim1",
+									RequestName: "req1",
 								},
 							}},
 						},
@@ -314,7 +313,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "pgpu", ResourceClaimName: ptr.To("pgpu-claim")},
 						{Name: "vgpu", ResourceClaimName: ptr.To("vgpu-claim")},
 					},
@@ -324,15 +323,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 								{
 									Name: "pgpu0",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("pgpu"),
-										RequestName: ptr.To("gpu"),
+										ClaimName:   "pgpu",
+										RequestName: "gpu",
 									},
 								},
 								{
 									Name: "vgpu0",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("vgpu"),
-										RequestName: ptr.To("vgpu"),
+										ClaimName:   "vgpu",
+										RequestName: "vgpu",
 									},
 								},
 							},
@@ -395,7 +394,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
 						{Name: "claim2", ResourceClaimName: ptr.To("claim2")},
 					},
@@ -405,15 +404,15 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 								{
 									Name: "gpu1",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("claim1"),
-										RequestName: ptr.To("req1"),
+										ClaimName:   "claim1",
+										RequestName: "req1",
 									},
 								},
 								{
 									Name: "gpu2",
 									ClaimRequest: &v1.ClaimRequest{
-										ClaimName:   ptr.To("claim2"),
-										RequestName: ptr.To("req2"),
+										ClaimName:   "claim2",
+										RequestName: "req2",
 									},
 								},
 							},

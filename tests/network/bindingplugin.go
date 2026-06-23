@@ -75,8 +75,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			const (
 				macAddress = "02:00:00:00:00:02"
 			)
-			passtIface := libvmi.InterfaceWithPasstBindingPlugin()
-			passtIface.MacAddress = macAddress
+			passtIface := libvmi.InterfaceWithMac(libvmi.InterfaceWithPasstBindingPlugin(), macAddress)
 			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -225,21 +224,16 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 					},
 				},
 			}
-			primaryIface.MacAddress = "de:ad:00:00:be:af"
-			opts := []libvmi.Option{
-				libvmi.WithInterface(primaryIface),
+			serverVMI := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(libvmi.InterfaceWithMac(primaryIface, "de:ad:00:00:be:af")),
 				libvmi.WithNetwork(&primaryNetwork),
 				libvmi.WithNodeAffinityFor(nodeName),
-			}
-			serverVMI := libvmifact.NewAlpineWithTestTooling(opts...)
-
-			primaryIface.MacAddress = "de:ad:00:00:be:aa"
-			opts = []libvmi.Option{
-				libvmi.WithInterface(primaryIface),
+			)
+			clientVMI := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(libvmi.InterfaceWithMac(primaryIface, "de:ad:00:00:be:aa")),
 				libvmi.WithNetwork(&primaryNetwork),
 				libvmi.WithNodeAffinityFor(nodeName),
-			}
-			clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+			)
 
 			ns := testsuite.GetTestNamespace(nil)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, metav1.CreateOptions{})

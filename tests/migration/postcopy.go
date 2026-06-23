@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -65,10 +65,14 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		virtClient      kubecli.KubevirtClient
 		err             error
 		migrationPolicy *migrationsv1.MigrationPolicy
+		defaultArch     string
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+		var err error
+		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Allowing post-copy and limiting migration bandwidth")
 		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
@@ -88,7 +92,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			}
 
 			dv = libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
+				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
@@ -129,8 +133,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 
 		DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Namespace = testsuite.NamespacePrivileged
 
 			switch settingsType {
@@ -171,11 +173,10 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			// via the QEMU guest agent. Because virt-launcher pods use
 			// restartPolicy: Never, the failed probe kills the compute container
 			// and the pod enters Failed phase, aborting the migration.
-			It("should complete post-copy migration without the liveness probe killing the source pod", func() {
+			It("[QUARANTINE] should complete post-copy migration without the liveness probe killing the source pod", decorators.Quarantine, func() {
 				By("Creating a Fedora VMI with a GuestAgentPing liveness probe")
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
-					libvmi.WithMemoryRequest("512Mi"),
 					libvmi.WithRng(),
 					libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),

@@ -233,6 +233,8 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    persistentReservationConfiguration:
+      enabled: true
     roleAggregationStrategy: roleAggregationStrategyValue
     seccompConfiguration:
       virtualMachineInstanceProfile:

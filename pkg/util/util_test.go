@@ -30,76 +30,50 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var _ = Describe("GPU VMI Predicates", func() {
-	It("should detect VMI with GPU device plugins", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{
-							{
-								Name:       "gpu1",
-								DeviceName: "nvidia.com/gpu",
-							},
-						},
+var _ = Describe("CountVFIODevices", func() {
+	DescribeTable("should count VFIO devices correctly",
+		func(devices v1.Devices, expected int) {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: devices,
 					},
 				},
+			}
+			Expect(CountVFIODevices(vmi)).To(Equal(expected))
+		},
+		Entry("no devices", v1.Devices{}, 0),
+		Entry("single GPU", v1.Devices{
+			GPUs: []v1.GPU{{Name: "gpu1"}},
+		}, 1),
+		Entry("multiple GPUs", v1.Devices{
+			GPUs: []v1.GPU{{Name: "gpu1"}, {Name: "gpu2"}},
+		}, 2),
+		Entry("single HostDevice", v1.Devices{
+			HostDevices: []v1.HostDevice{{Name: "dev1"}},
+		}, 1),
+		Entry("multiple HostDevices", v1.Devices{
+			HostDevices: []v1.HostDevice{{Name: "dev1"}, {Name: "dev2"}},
+		}, 2),
+		Entry("single SRIOV", v1.Devices{
+			Interfaces: []v1.Interface{
+				{Name: "sriov1", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 			},
-		}
-		Expect(IsGPUVMI(vmi)).To(BeTrue())
-	})
-
-	It("should not detect GPU VMI when no GPUs are specified", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{},
-				},
+		}, 1),
+		Entry("non-SRIOV interfaces are not counted", v1.Devices{
+			Interfaces: []v1.Interface{
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 			},
-		}
-		Expect(IsGPUVMI(vmi)).To(BeFalse())
-	})
-})
-
-var _ = Describe("Host Device VMI Predicates", func() {
-	It("should detect VMI with host device plugins", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{
-							{
-								Name:       "hostdev1",
-								DeviceName: "vendor.com/device",
-							},
-						},
-					},
-				},
+		}, 0),
+		Entry("mixed devices", v1.Devices{
+			GPUs:        []v1.GPU{{Name: "gpu1"}, {Name: "gpu2"}},
+			HostDevices: []v1.HostDevice{{Name: "dev1"}},
+			Interfaces: []v1.Interface{
+				{Name: "sriov1", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 			},
-		}
-		Expect(IsHostDevVMI(vmi)).To(BeTrue())
-	})
-
-	It("should detect VMI with host device DRA", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						HostDevices: []v1.HostDevice{
-							{
-								Name: "hostdev1",
-								ClaimRequest: &v1.ClaimRequest{
-									ClaimName:   pointer.P("hostdev-claim"),
-									RequestName: pointer.P("hostdev-request"),
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		Expect(IsHostDevVMI(vmi)).To(BeTrue())
-	})
+		}, 4),
+	)
 })
 
 var _ = DescribeTable("memory overhead reservation requirements",

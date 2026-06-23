@@ -49,14 +49,25 @@ type DomainCapsVCPU struct {
 }
 
 type DomainCapsOS struct {
-	Supported string              `xml:"supported,attr"`
-	Loader    *DomainCapsOSLoader `xml:"loader"`
-	Enums     []DomainCapsEnum    `xml:"enum"`
+	Supported        string                        `xml:"supported,attr"`
+	Loader           *DomainCapsOSLoader           `xml:"loader"`
+	VarStore         *DomainCapsOSVarStore         `xml:"varstore"`
+	FirmwareFeatures *DomainCapsOSFirmwareFeatures `xml:"firmwareFeatures"`
+	Enums            []DomainCapsEnum              `xml:"enum"`
 }
 
 type DomainCapsOSLoader struct {
 	Supported string           `xml:"supported,attr"`
 	Values    []string         `xml:"value"`
+	Enums     []DomainCapsEnum `xml:"enum"`
+}
+
+type DomainCapsOSVarStore struct {
+	Supported string `xml:"supported,attr"`
+}
+
+type DomainCapsOSFirmwareFeatures struct {
+	Supported string           `xml:"supported,attr"`
 	Enums     []DomainCapsEnum `xml:"enum"`
 }
 
@@ -130,6 +141,7 @@ type DomainCapsDevices struct {
 	Crypto     *DomainCapsDevice `xml:"crypto"`
 	Interface  *DomainCapsDevice `xml:"interface"`
 	Panic      *DomainCapsDevice `xml:"panic"`
+	Console    *DomainCapsDevice `xml:"console"`
 }
 
 type DomainCapsDevice struct {
@@ -146,6 +158,7 @@ type DomainCapsFeatures struct {
 	AsyncTeardown     *DomainCapsFeatureAsyncTeardown     `xml:"async-teardown"`
 	S390PV            *DomainCapsFeatureS390PV            `xml:"s390-pv"`
 	PS2               *DomainCapsFeaturePS2               `xml:"ps2"`
+	TDX               *DomainCapsFeatureTDX               `xml:"tdx"`
 	SEV               *DomainCapsFeatureSEV               `xml:"sev"`
 	SGX               *DomainCapsFeatureSGX               `xml:"sgx"`
 	HyperV            *DomainCapsFeatureHyperV            `xml:"hyperv"`
@@ -185,12 +198,17 @@ type DomainCapsFeaturePS2 struct {
 	Supported string `xml:"supported,attr"`
 }
 
+type DomainCapsFeatureTDX struct {
+	Supported string `xml:"supported,attr"`
+}
+
 type DomainCapsFeatureSEV struct {
 	Supported       string `xml:"supported,attr"`
 	CBitPos         uint   `xml:"cbitpos,omitempty"`
 	ReducedPhysBits uint   `xml:"reducedPhysBits,omitempty"`
 	MaxGuests       uint   `xml:"maxGuests,omitempty"`
 	MaxESGuests     uint   `xml:"maxESGuests,omitempty"`
+	Cpu0ID          string `xml:"cpu0Id,omitempty"`
 }
 
 type DomainCapsFeatureSGX struct {
@@ -217,9 +235,18 @@ type DomainCapsFeatureSGXSection struct {
 	Unit string `xml:"unit,attr"`
 }
 
+type DomainCapsFeatureHyperVDefaults struct {
+	Spinlocks        uint   `xml:"spinlocks,omitempty"`
+	STimerDirect     string `xml:"stimer_direct,omitempty"`
+	TLBFlushDirect   string `xml:"tlbflush_direct,omitempty"`
+	TLBFlushExtended string `xml:"tlbflush_extended,omitempty"`
+	VendorID         string `xml:"vendor_id,omitempty"`
+}
+
 type DomainCapsFeatureHyperV struct {
-	Supported string           `xml:"supported,attr"`
-	Enums     []DomainCapsEnum `xml:"enum"`
+	Supported string                           `xml:"supported,attr"`
+	Enums     []DomainCapsEnum                 `xml:"enum"`
+	Defaults  *DomainCapsFeatureHyperVDefaults `xml:"defaults"`
 }
 
 type DomainCapsFeatureLaunchSecurity struct {

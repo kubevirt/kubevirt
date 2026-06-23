@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
-	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -56,8 +55,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	gomegatypes "github.com/onsi/gomega/types"
-
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
@@ -3213,7 +3210,9 @@ var _ = Describe("VirtualMachine", func() {
 		Context("dynamic annotations and labels", func() {
 			const selectedAnnotationKey = descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction
 			const customSyncAnnotation = "custom/annotation"
+			const customSyncAnnotationPrefix = "custom/annotation-prefix/"
 			const customSyncLabel = "custom/label"
+			const customSyncLabelPrefix = "custom/label-prefix/"
 			const ignoredKey = "anotherKey"
 			const intitialValue = "initialValue"
 			const updatedValue = "updatedValue"
@@ -3305,10 +3304,48 @@ var _ = Describe("VirtualMachine", func() {
 					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotation: customSyncAnnotation},
 					1,
 				),
+				Entry("should sync annotations matching wildcard prefixes",
+					[]string{customSyncAnnotationPrefix + "*"},
+					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotationPrefix + "one": intitialValue},
+					map[string]string{
+						selectedAnnotationKey:              intitialValue,
+						customSyncAnnotationPrefix + "one": updatedValue,
+						customSyncAnnotationPrefix + "two": updatedValue,
+						ignoredKey:                         anotherValue,
+					},
+					map[string]string{
+						selectedAnnotationKey:              intitialValue,
+						customSyncAnnotationPrefix + "one": updatedValue,
+						customSyncAnnotationPrefix + "two": updatedValue,
+					},
+					1,
+				),
+				Entry("should remove annotations matching wildcard prefixes when absent in VM template",
+					[]string{customSyncAnnotationPrefix + "*"},
+					map[string]string{
+						selectedAnnotationKey:              intitialValue,
+						customSyncAnnotationPrefix + "one": intitialValue,
+						customSyncAnnotationPrefix + "two": intitialValue,
+					},
+					map[string]string{
+						selectedAnnotationKey: intitialValue,
+					},
+					map[string]string{
+						selectedAnnotationKey: intitialValue,
+					},
+					1,
+				),
+				Entry("should ignore bare '*' pattern and not sync any annotations",
+					[]string{"*"},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: updatedValue},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					0,
+				),
 			)
 
-			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {
-				controller.additionalLauncherLabelsSync = []string{customSyncLabel}
+			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(additionalLauncherLabelsSync []string, existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {
+				controller.additionalLauncherLabelsSync = additionalLauncherLabelsSync
 
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Template.ObjectMeta.Labels = existingLabels
@@ -3337,32 +3374,75 @@ var _ = Describe("VirtualMachine", func() {
 
 			},
 				Entry("should copy selected custom labels from VM.spec.template.metadata.labels to VMI",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue},
 					map[string]string{customSyncLabel: updatedValue},
 					map[string]string{customSyncLabel: updatedValue},
 					1,
 				),
 				Entry("should remove selected custom labels from VMI if missing in VM.spec.template.metadata.labels",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{ignoredKey: anotherValue},
 					map[string]string{ignoredKey: anotherValue},
 					1,
 				),
 				Entry("should do nothing if selected custom labels are already equal",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					0,
 				),
 				Entry("should update only custom selected labels",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
 					map[string]string{customSyncLabel: updatedValue, ignoredKey: updatedValue},
 					map[string]string{customSyncLabel: updatedValue, ignoredKey: anotherValue},
 					1,
 				),
 				Entry("should ignore other labels on VM.spec.template.metadata.labels",
+					[]string{customSyncLabel},
 					map[string]string{customSyncLabel: intitialValue},
 					map[string]string{customSyncLabel: intitialValue, ignoredKey: updatedValue},
+					map[string]string{customSyncLabel: intitialValue},
+					0,
+				),
+				Entry("should sync labels matching wildcard prefixes",
+					[]string{customSyncLabelPrefix + "*"},
+					map[string]string{
+						customSyncLabelPrefix + "one": intitialValue,
+					},
+					map[string]string{
+						customSyncLabelPrefix + "one": updatedValue,
+						customSyncLabelPrefix + "two": updatedValue,
+						ignoredKey:                    anotherValue,
+					},
+					map[string]string{
+						customSyncLabelPrefix + "one": updatedValue,
+						customSyncLabelPrefix + "two": updatedValue,
+					},
+					1,
+				),
+				Entry("should remove labels matching wildcard prefixes when absent in VM template",
+					[]string{customSyncLabelPrefix + "*"},
+					map[string]string{
+						customSyncLabelPrefix + "one": intitialValue,
+						customSyncLabelPrefix + "two": intitialValue,
+						ignoredKey:                    anotherValue,
+					},
+					map[string]string{
+						ignoredKey: anotherValue,
+					},
+					map[string]string{
+						ignoredKey: anotherValue,
+					},
+					1,
+				),
+				Entry("should ignore bare '*' pattern and not sync any labels",
+					[]string{"*"},
+					map[string]string{customSyncLabel: intitialValue},
+					map[string]string{customSyncLabel: updatedValue, ignoredKey: updatedValue},
 					map[string]string{customSyncLabel: intitialValue},
 					0,
 				),
@@ -6020,7 +6100,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 
-				DescribeTable("should return an error for retry", func(dvExist bool, _ error) {
+				DescribeTable("should return an error for retry", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
@@ -6029,14 +6109,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
-					if dvExist {
-						dv := libdv.NewDataVolume(libdv.WithName(newDVName), libdv.WithNamespace(ns))
-						Expect(dataVolumeInformer.GetStore().Add(dv)).To(Succeed())
-					}
-					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
-					vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
-						libvmi.WithDataVolume(diskName, newDVName)),
-						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+					vmi, vm := setup()
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm,
 						metav1.CreateOptions{})
 					Expect(err).To(Succeed())
@@ -6048,8 +6121,29 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm,
 						v1.VirtualMachineRestartRequired)).Should(BeNil())
 				},
-					Entry("when the destination DV doesn't exist", false, storagetypes.NewDVNotFoundError(newDVName)),
-					Entry("when the destination DV exist but the PVC", true, storagetypes.NewPVCNotFoundError(newDVName)),
+					Entry("when the destination DV doesn't exist", func() (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+						vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+						vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+							libvmi.WithDataVolume(diskName, newDVName)),
+							libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+						return vmi, vm
+					}),
+					Entry("when the destination DV exists but not the PVC", func() (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+						dv := libdv.NewDataVolume(libdv.WithName(newDVName), libdv.WithNamespace(ns))
+						Expect(dataVolumeInformer.GetStore().Add(dv)).To(Succeed())
+						vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+						vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+							libvmi.WithDataVolume(diskName, newDVName)),
+							libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+						return vmi, vm
+					}),
+					Entry("when the destination PVC doesn't exist", func() (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+						vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithPersistentVolumeClaim(diskName, "oldPVC"))
+						vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+							libvmi.WithPersistentVolumeClaim(diskName, "newPVC")),
+							libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+						return vmi, vm
+					}),
 				)
 			})
 

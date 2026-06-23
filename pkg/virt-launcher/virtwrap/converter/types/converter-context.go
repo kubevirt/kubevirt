@@ -31,9 +31,10 @@ import (
 )
 
 type EFIConfiguration struct {
-	EFICode      string
-	EFIVars      string
-	SecureLoader bool
+	EFICode                   string
+	EFIVars                   string
+	SecureLoader              bool
+	UsesFirmwareAutoSelection bool
 }
 
 type ConverterContext struct {
@@ -66,6 +67,8 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	PCINUMAAwareTopologyEnabled     bool
+	GraceIOVirtualizationEnabled    bool
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
+	IOMMUFDEnabled                  bool
 }

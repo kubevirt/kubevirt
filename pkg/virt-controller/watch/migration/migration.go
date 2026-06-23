@@ -1321,7 +1321,7 @@ func (c *Controller) updateTargetMemoryOverheadFromPod(vmi *virtv1.VirtualMachin
 func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
 
 	if vmi.Status.MigrationState == nil {
-		return fmt.Errorf("migration state is nil when trying to mark migratio abortion in vmi status")
+		return fmt.Errorf("migration state is nil when trying to mark migration abortion in vmi status")
 	}
 
 	vmiCopy := vmi.DeepCopy()

@@ -35,6 +35,7 @@ const (
 	windowsDiskName = "windows-disk"
 	WindowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 	WindowsPVCName  = "disk-windows"
+	FedoraMemory    = "544Mi"
 )
 
 // NewFedora instantiates a new Fedora based VMI configuration,
@@ -42,7 +43,7 @@ const (
 // This image has tooling for the guest agent, stress, SR-IOV and more.
 func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []libvmi.Option{
-		libvmi.WithMemoryRequest("512Mi"),
+		libvmi.WithMemoryRequest(FedoraMemory),
 		libvmi.WithRng(),
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
@@ -50,7 +51,11 @@ func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	return libvmi.New(opts...)
 }
 
-// NewCirros instantiates a new CirrOS based VMI configuration
+// NewCirros instantiates a new CirrOS based VMI configuration.
+//
+// Deprecated: Use NewAlpine or NewAlpineWithTestTooling instead.
+// CirrOS is not available on s390x and is being removed from the test suite.
+// See https://github.com/kubevirt/kubevirt/issues/15043
 func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),

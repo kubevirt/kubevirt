@@ -59,7 +59,10 @@ func main() {
 		config.BackupCheckpoint = getBackupCheckpoint()
 		config.BackupCACert = getBackupCACert()
 	}
-	server := exportServer.NewExportServer(config)
+	server, err := exportServer.NewExportServer(config)
+	if err != nil {
+		panic(err)
+	}
 	service.Setup(server)
 	server.Run()
 }

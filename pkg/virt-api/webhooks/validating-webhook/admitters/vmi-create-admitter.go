@@ -234,10 +234,11 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
-	causes = append(causes, validateVideoConfig(field, spec, config)...)
+	causes = append(causes, validateVideoConfig(field, spec)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
 	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
+	causes = append(causes, validateServiceAccountName(field, spec)...)
 
 	return causes
 }
@@ -2027,7 +2028,7 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 	if !config.PersistentReservationEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.PersistentReservation),
+			Message: "persistent reservation is not enabled in kubevirt config",
 			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
 		})
 	}
@@ -2049,19 +2050,10 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 	return causes
 }
 
-func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain.Devices.Video == nil {
-		return causes
-	}
-
-	if !config.VideoConfigEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig),
-			Field:   field.Child("video").String(),
-		})
 		return causes
 	}
 
@@ -2151,6 +2143,35 @@ func validateReservedOverheadMemlock(field *k8sfield.Path, spec *v1.VirtualMachi
 			Field:   field.Child("domain", "memory", "reservedOverhead").String(),
 		})
 		return causes
+	}
+
+	return causes
+}
+
+func validateServiceAccountName(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.ServiceAccountName == "" {
+		return causes
+	}
+
+	if errors := validation.IsDNS1123Subdomain(spec.ServiceAccountName); len(errors) != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s is not a valid service account name: %s", field.Child("serviceAccountName").String(), strings.Join(errors, "; ")),
+			Field:   field.Child("serviceAccountName").String(),
+		})
+	}
+
+	for _, volume := range spec.Volumes {
+		if volume.ServiceAccount != nil && volume.ServiceAccount.ServiceAccountName != spec.ServiceAccountName {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("spec.serviceAccountName %q and serviceAccount volume %q must reference the same service account", spec.ServiceAccountName, volume.ServiceAccount.ServiceAccountName),
+				Field:   field.Child("serviceAccountName").String(),
+			})
+			break
+		}
 	}
 
 	return causes

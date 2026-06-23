@@ -35,6 +35,7 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -61,13 +62,14 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
 	})
 
-	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
-		podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components",
+		decorators.WgS390x, func() {
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
 
-		By("Verifying TLS connections to kubevirt pods")
-		const kubevirtPodTLSPort = 8443
-		verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
-	})
+			By("Verifying TLS connections to kubevirt pods")
+			const kubevirtPodTLSPort = 8443
+			verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
+		})
 
 	It("should enforce TLS configuration on virt-template components", func() {
 		By("Enabling the Template feature gate")
@@ -99,12 +101,12 @@ func listPods(labelSelectors ...string) []k8sv1.Pod {
 
 func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.CipherSuite) {
 	for i := range pods {
-		func(i int, pod *k8sv1.Pod) {
+		func(pod *k8sv1.Pod) {
 			stopChan := make(chan struct{})
 			defer close(stopChan)
 			const expectTimeout = 10 * time.Second
-			localPort := 8440 + i
-			Expect(libpod.ForwardPorts(pod, []string{fmt.Sprintf("%d:%d", localPort, containerPort)}, stopChan, expectTimeout)).To(Succeed())
+			localPort, fwErr := libpod.ForwardPorts(pod, []string{fmt.Sprintf("0:%d", containerPort)}, stopChan, expectTimeout)
+			Expect(fwErr).ToNot(HaveOccurred())
 
 			acceptedTLSConfig := &tls.Config{
 				//nolint:gosec
@@ -131,6 +133,6 @@ func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.Ciphe
 				// The error message changed with the golang 1.19 update
 				BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
 			))
-		}(i, &pods[i])
+		}(&pods[i])
 	}
 }

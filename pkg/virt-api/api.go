@@ -1044,6 +1044,9 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)
 	})
+	http.HandleFunc(components.PluginValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServePlugins(w, r, app.clusterConfig)
+	})
 }
 
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
@@ -1184,7 +1187,7 @@ func (app *virtAPIApp) Run() {
 	app.prepareCertManager()
 
 	// Run informers for webhooks usage
-	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.virtCli, app.aggregatorClient, app.namespace)
 
 	kubeVirtInformer := kubeInformerFactory.KubeVirt()
 	// Wire up health check trigger

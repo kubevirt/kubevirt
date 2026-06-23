@@ -131,6 +131,49 @@ quarantined test will propose a PR to remove the text `[QUARANTINE]` and the
 label decorator from the test description in the code.
 After merging this PR the test will be out of quarantine.
 
+# The `NoFlakeCheck` Decorator
+
+The `decorators.NoFlakeCheck` decorator excludes a test from the
+[`pull-kubevirt-check-tests-for-flakes`] presubmit lane. It exists for tests
+that **cannot run** on the flake-check lane due to infrastructure constraints —
+for example, tests that require storage classes, hardware features, or cluster
+topologies that the flake-check environment does not provide.
+
+## When to use `NoFlakeCheck`
+
+Apply `NoFlakeCheck` only when the flake-check lane lacks the infrastructure a
+test requires. Common legitimate reasons include:
+
+* The test needs a storage class (e.g. RWX filesystem, VM state storage) that
+  is not provisioned on the flake-check cluster.
+* The test requires special hardware (GPU, SRIOV, SEV) that the flake-check
+  nodes do not have.
+* The test depends on a multi-node topology that the flake-check environment
+  cannot satisfy.
+
+## When NOT to use `NoFlakeCheck`
+
+**This decorator must not be used on tests that are flaky.** If a test fails
+intermittently, it must be [quarantined](#putting-tests-in-quarantine) instead.
+Misusing `NoFlakeCheck` to hide flakes undermines CI stability for everyone.
+
+## Requirements when applying the decorator
+
+1. **Document the reason.** The commit message (or an inline code comment next
+   to the decorator) must explain why the test is incompatible with the
+   flake-check lane.
+2. **Treat it as temporary.** The long-term goal is to maximize test coverage
+   on the flake-check lane. When the lane infrastructure is extended to support
+   the test, the decorator should be removed.
+3. **Consider a flake-check clone.** Where possible, create a simplified
+   variant of the test decorated with `decorators.FlakeCheck` that can run on
+   the flake-check lane, so that at least part of the functionality is covered.
+
+For background on this policy see the [kubevirt-dev mailing list discussion].
+
+[`pull-kubevirt-check-tests-for-flakes`]: https://github.com/kubevirt/project-infra/blob/e2fa3f46cb8acbaa4657cdc18a823a0665acbaff/github/ci/prow-deploy/files/jobs/kubevirt/kubevirt/kubevirt-presubmits.yaml#L325
+[kubevirt-dev mailing list discussion]: https://groups.google.com/g/kubevirt-dev/c/7z5TXJwmcrs
+
 # Test Lane Quarantine
 
 There can be cases where required test lanes are flaking in a clustered manner with a large

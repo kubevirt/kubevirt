@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net"
@@ -261,9 +262,12 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 })
 
 func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
-	const port = 4444
+	const (
+		port           = 4444
+		guestAgentPath = "/usr/bin/example-guest-agent"
+	)
 
-	err := console.RunCommand(vmi, fmt.Sprintf("netcat-openbsd -vl %d > /usr/bin/example-guest-agent < /dev/null &", port), 60*time.Second)
+	err := console.RunCommand(vmi, fmt.Sprintf("nc -vl %d > %s < /dev/null &", port, guestAgentPath), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	file, err := os.Open(flags.KubeVirtExampleGuestAgentPath)
@@ -277,14 +281,25 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 	conn := stream.AsConn()
-	_, err = io.Copy(conn, file)
+	sha256Hasher := sha256.New()
+	_, err = io.Copy(conn, io.TeeReader(file, sha256Hasher))
 	Expect(err).ToNot(HaveOccurred())
 	err = conn.Close()
 	Expect(err).ToNot(HaveOccurred())
 
-	// Wait for netcat to exit
-	err = console.RunCommand(vmi, "while pgrep netcat; do sleep 3; done", 60*time.Second)
-	Expect(err).ToNot(HaveOccurred())
+	expectedSHA256 := fmt.Sprintf("%x", sha256Hasher.Sum(nil))
+	guestAgentSHA256Command := fmt.Sprintf("sha256sum %s | awk '{print $1}'", guestAgentPath)
+	Eventually(func() error {
+		guestSHA256Output, err := console.RunCommandAndStoreOutput(vmi, guestAgentSHA256Command, 30*time.Second)
+		if err != nil {
+			return err
+		}
+		guestSHA256 := strings.TrimSpace(guestSHA256Output)
+		if guestSHA256 != expectedSHA256 {
+			return fmt.Errorf("guest agent sha256 mismatch: got %q, expected %q", guestSHA256, expectedSHA256)
+		}
+		return nil
+	}, 2*time.Minute, 10*time.Second).Should(Succeed(), "should validate the guest agent file was copied correctly")
 }
 
 func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port uint32) error {

@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -121,7 +122,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
+	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", decorators.WgS390x, func() {
 
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewGuestless(), 60)
@@ -320,7 +321,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(withSecureBoot bool, expectedSecureBootResult string) {
+		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(withSecureBoot bool, expectedSecureBootResult string, enableFirmwareAutoSelection bool) {
+			if enableFirmwareAutoSelection {
+				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+			}
+
 			fedoraWithUefi := libvmifact.NewFedora(
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithUefi(withSecureBoot),
@@ -331,7 +336,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge)
 			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
 
-			By("Check if EFI and SecureBoot state")
+			By("Checking EFI and SecureBoot state")
 			Expect(console.SafeExpectBatch(fedoraWithUefi, []expect.Batcher{
 				&expect.BSnd{S: "[ -d /sys/firmware/efi ]\n"},
 				&expect.BExp{R: ""},
@@ -341,8 +346,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				&expect.BExp{R: expectedSecureBootResult},
 			}, 200)).To(Succeed())
 		},
-			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled"),
-			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled"),
+			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled", false),
+			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
+			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
@@ -463,7 +469,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("with namespace different from provided", func() {
+		Context("with namespace different from provided", decorators.WgS390x, func() {
 			It("should fail admission", func() {
 				// create a namespace default limit
 				limitRangeObj := k8sv1.LimitRange{
@@ -793,7 +799,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 
-		Context("with geust-to-request memory ", Serial, func() {
+		Context("with guest-to-request memory ", Serial, decorators.WgS390x, func() {
 			setHeadroom := func(ratioStr string) {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -910,7 +916,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("with a custom scheduler", func() {
+	Context("with a custom scheduler", decorators.WgS390x, func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := libvmi.New(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
@@ -923,7 +929,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("using automatic resource limits", func() {
+	Context("using automatic resource limits", decorators.WgS390x, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
 			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
@@ -1639,7 +1645,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 	})
-	Context("virt-launcher processes memory usage", func() {
+	Context("virt-launcher processes memory usage", decorators.WgS390x, func() {
 		doesntExceedMemoryUsage := func(processRss *map[string]resource.Quantity, process string, memoryLimit resource.Quantity) {
 			actual := (*processRss)[process]
 			ExpectWithOffset(1, (&actual).Cmp(memoryLimit)).To(Equal(-1),

@@ -41,23 +41,6 @@ const (
 	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 )
 
-func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
-			return true
-		}
-	}
-	return false
-}
-
-// Check if a VMI spec requests GPU
-func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
-		return true
-	}
-	return false
-}
-
 // Check if a VMI spec requests VirtIO-FS
 func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Devices.Filesystems != nil {
@@ -70,21 +53,14 @@ func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// Check if a VMI spec requests a HostDevice
-func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
-		return true
+func CountVFIODevices(vmi *v1.VirtualMachineInstance) int {
+	count := len(vmi.Spec.Domain.Devices.GPUs) + len(vmi.Spec.Domain.Devices.HostDevices)
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil {
+			count++
+		}
 	}
-	return false
-}
-
-// Check if a VMI spec requests a VFIO device
-func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
-
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
-		return true
-	}
-	return false
+	return count
 }
 
 // Check if a VMI spec requests memory overhead

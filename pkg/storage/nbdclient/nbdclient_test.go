@@ -31,12 +31,10 @@ import (
 )
 
 var _ = Describe("NBDClient", func() {
-	Context("getExtentDescription", func() {
-		const bitmap = libnbd.CONTEXT_QEMU_DIRTY_BITMAP + "checkpoint"
-
-		DescribeTable("base:allocation",
+	Context("allocDescription", func() {
+		DescribeTable("should return correct description",
 			func(flags uint64, expected string) {
-				Expect(getExtentDescription(libnbd.CONTEXT_BASE_ALLOCATION, flags)).To(Equal(expected))
+				Expect(allocDescription(flags)).To(Equal(expected))
 			},
 			Entry("data", uint64(0), "data"),
 			Entry("hole", uint64(libnbd.STATE_HOLE), "hole"),
@@ -44,19 +42,19 @@ var _ = Describe("NBDClient", func() {
 			Entry("hole,zero", uint64(libnbd.STATE_HOLE|libnbd.STATE_ZERO), "hole,zero"),
 			Entry("unknown flags", uint64(99), "unknown"),
 		)
+	})
 
-		DescribeTable("qemu:dirty-bitmap",
+	Context("mergedDescription", func() {
+		DescribeTable("should return correct description",
 			func(flags uint64, expected string) {
-				Expect(getExtentDescription(bitmap, flags)).To(Equal(expected))
+				Expect(mergedDescription(flags)).To(Equal(expected))
 			},
 			Entry("clean", uint64(0), "clean"),
 			Entry("dirty", uint64(libnbd.STATE_DIRTY), "dirty"),
-			Entry("unknown flags", uint64(3), "unknown"),
+			Entry("zero", uint64(libnbd.STATE_ZERO), "zero"),
+			Entry("dirty,zero", uint64(libnbd.STATE_DIRTY)|uint64(libnbd.STATE_ZERO), "dirty,zero"),
+			Entry("unknown flags", uint64(99), "unknown"),
 		)
-
-		It("returns unknown for an unrecognised metacontext", func() {
-			Expect(getExtentDescription("some:other:context", 0)).To(Equal("unknown"))
-		})
 	})
 
 	Context("clampLength", func() {
@@ -120,21 +118,10 @@ var _ = Describe("NBDClient", func() {
 		})
 	})
 
-	Context("sortedContextsByOffset", func() {
-		It("should return contexts ordered by their extent offset ascending", func() {
-			extents := map[string]*nbdv1.Extent{
-				"ext-c": {Offset: 300},
-				"ext-a": {Offset: 100},
-				"ext-b": {Offset: 200},
-			}
-			Expect(sortedContextsByOffset(extents)).To(Equal([]string{"ext-a", "ext-b", "ext-c"}))
-		})
-	})
-
-	Context("mapBuilder", func() {
+	Context("singleContextMapper", func() {
 		var (
 			sent    []*nbdv1.MapResponse
-			builder *mapBuilder
+			builder *singleContextMapper
 		)
 
 		sendFn := func(r *nbdv1.MapResponse) error {
@@ -150,7 +137,7 @@ var _ = Describe("NBDClient", func() {
 
 		Context("HandleExtents and coalescing", func() {
 			It("should coalesce adjacent extents with the same flags", func() {
-				builder = newMapBuilder(1024, 512, sendFn)
+				builder = newSingleContextMapper(1024, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
@@ -160,13 +147,13 @@ var _ = Describe("NBDClient", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(builder.batch).To(BeEmpty(), "coalesced extent should not be flushed yet")
 
-				Expect(builder.FlushAll()).To(Succeed())
+				Expect(builder.Flush()).To(Succeed())
 				Expect(sent).To(HaveLen(1))
 				Expect(sent[0].Extents[0].Length).To(Equal(uint64(512)))
 			})
 
 			It("should not coalesce adjacent extents with different flags", func() {
-				builder = newMapBuilder(1024, 512, sendFn)
+				builder = newSingleContextMapper(1024, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
@@ -175,7 +162,7 @@ var _ = Describe("NBDClient", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(builder.FlushAll()).To(Succeed())
+				Expect(builder.Flush()).To(Succeed())
 				Expect(sent).To(HaveLen(1))
 				Expect(sent[0].Extents).To(HaveLen(2))
 				Expect(sent[0].Extents[0].Flags).To(Equal(uint64(0)))
@@ -183,7 +170,7 @@ var _ = Describe("NBDClient", func() {
 			})
 
 			It("should clip extents that extend beyond endOffset", func() {
-				builder = newMapBuilder(300, 512, sendFn)
+				builder = newSingleContextMapper(300, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
@@ -191,24 +178,24 @@ var _ = Describe("NBDClient", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(builder.FlushAll()).To(Succeed())
+				Expect(builder.Flush()).To(Succeed())
 				Expect(sent[0].Extents[0].Length).To(Equal(uint64(300)))
 			})
 
 			It("should skip zero-length extents after clipping", func() {
-				builder = newMapBuilder(256, 512, sendFn)
+				builder = newSingleContextMapper(256, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 256, []libnbd.LibnbdExtent{
 					{Length: 128, Flags: 0},
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(builder.FlushAll()).To(Succeed())
+				Expect(builder.Flush()).To(Succeed())
 				Expect(sent).To(BeEmpty())
 			})
 
 			It("should return the highest offset advanced by entries", func() {
-				builder = newMapBuilder(1024, 512, sendFn)
+				builder = newSingleContextMapper(1024, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				maxOffset, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
@@ -221,8 +208,8 @@ var _ = Describe("NBDClient", func() {
 		})
 
 		Context("Flush and batching", func() {
-			It("should send a batch when batchSize is reached", func() {
-				builder = newMapBuilder(4096, 2, sendFn)
+			It("should send a batch when batchSize is reached and flush the trailing extent", func() {
+				builder = newSingleContextMapper(4096, 2, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
@@ -233,30 +220,35 @@ var _ = Describe("NBDClient", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(sent).To(HaveLen(1), "one batch should already have been sent")
 				Expect(sent[0].Extents).To(HaveLen(2))
+
+				Expect(builder.Flush()).To(Succeed())
+				Expect(sent).To(HaveLen(2), "trailing extent should be flushed")
+				Expect(sent[1].Extents).To(HaveLen(1))
+				Expect(sent[1].Extents[0].Flags).To(Equal(uint64(libnbd.STATE_ZERO)))
 			})
 
 			It("should be a no-op when the batch is empty", func() {
-				builder = newMapBuilder(1024, 512, sendFn)
+				builder = newSingleContextMapper(1024, 512, sendFn)
 				Expect(builder.Flush()).To(Succeed())
 				Expect(sent).To(BeEmpty())
 			})
 
 			It("should send remaining extents", func() {
-				builder = newMapBuilder(1024, 512, sendFn)
+				builder = newSingleContextMapper(1024, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
 					{Length: 512, Flags: 0},
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(sent).To(BeEmpty(), "nothing sent before FlushAll")
+				Expect(sent).To(BeEmpty(), "nothing sent before Flush")
 
-				Expect(builder.FlushAll()).To(Succeed())
+				Expect(builder.Flush()).To(Succeed())
 				Expect(sent).To(HaveLen(1))
 			})
 
 			It("should set NextOffset to end of last extent in the batch", func() {
-				builder = newMapBuilder(1024, 512, sendFn)
+				builder = newSingleContextMapper(1024, 512, sendFn)
 				ctx := libnbd.CONTEXT_BASE_ALLOCATION
 
 				_, err := builder.HandleExtents(ctx, 0, []libnbd.LibnbdExtent{
@@ -265,8 +257,301 @@ var _ = Describe("NBDClient", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(builder.FlushAll()).To(Succeed())
+				Expect(builder.Flush()).To(Succeed())
 				Expect(sent[0].NextOffset).To(Equal(uint64(768)))
+			})
+		})
+	})
+
+	Context("mergedContextMapper", func() {
+		var (
+			sent   []*nbdv1.MapResponse
+			merger *mergedContextMapper
+		)
+
+		mergeSendFn := func(r *nbdv1.MapResponse) error {
+			extCopy := make([]*nbdv1.Extent, len(r.Extents))
+			copy(extCopy, r.Extents)
+			sent = append(sent, &nbdv1.MapResponse{Extents: extCopy, NextOffset: r.NextOffset})
+			return nil
+		}
+
+		BeforeEach(func() {
+			sent = nil
+		})
+
+		allExtents := func() []*nbdv1.Extent {
+			var result []*nbdv1.Extent
+			for _, r := range sent {
+				result = append(result, r.Extents...)
+			}
+			return result
+		}
+
+		Context("HandleExtents", func() {
+			It("should buffer allocation extents separately from dirty extents", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 512, Flags: 0},
+				})
+				Expect(err).NotTo(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 512, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(merger.allocExtents).To(HaveLen(1))
+				Expect(merger.dirtyExtents).To(HaveLen(1))
+			})
+
+			It("should clip extents beyond endOffset", func() {
+				merger = newMergedContextMapper(300, 512, mergeSendFn)
+
+				maxOff, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 512, Flags: 0},
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(maxOff).To(Equal(uint64(300)))
+				Expect(merger.allocExtents[0].Length).To(Equal(uint64(300)))
+			})
+
+			It("should skip zero-length extents after clipping", func() {
+				merger = newMergedContextMapper(256, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 256, []libnbd.LibnbdExtent{
+					{Length: 128, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.allocExtents).To(BeEmpty())
+			})
+		})
+
+		Context("Merge", func() {
+			It("should merge aligned extents with combined flags", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 512, Flags: 0},
+					{Length: 512, Flags: uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 512, Flags: uint64(libnbd.STATE_DIRTY)},
+					{Length: 512, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(2))
+				Expect(extents[0].Flags).To(Equal(uint64(libnbd.STATE_DIRTY)))
+				Expect(extents[0].Description).To(Equal("dirty"))
+				Expect(extents[0].Length).To(Equal(uint64(512)))
+				Expect(extents[1].Flags).To(Equal(uint64(libnbd.STATE_DIRTY) | uint64(libnbd.STATE_ZERO)))
+				Expect(extents[1].Description).To(Equal("dirty,zero"))
+				Expect(extents[1].Length).To(Equal(uint64(512)))
+			})
+
+			It("should split at misaligned boundaries", func() {
+				merger = newMergedContextMapper(16384, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 8192, Flags: 0},
+					{Length: 8192, Flags: uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 16384, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(2))
+				Expect(extents[0].Offset).To(Equal(uint64(0)))
+				Expect(extents[0].Length).To(Equal(uint64(8192)))
+				Expect(extents[0].Flags).To(Equal(uint64(libnbd.STATE_DIRTY)))
+				Expect(extents[0].Description).To(Equal("dirty"))
+				Expect(extents[1].Offset).To(Equal(uint64(8192)))
+				Expect(extents[1].Length).To(Equal(uint64(8192)))
+				Expect(extents[1].Flags).To(Equal(uint64(libnbd.STATE_DIRTY) | uint64(libnbd.STATE_ZERO)))
+				Expect(extents[1].Description).To(Equal("dirty,zero"))
+			})
+
+			It("should coalesce adjacent merged extents with the same flags", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 256, Flags: 0},
+					{Length: 256, Flags: 0},
+					{Length: 512, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(1))
+				Expect(extents[0].Length).To(Equal(uint64(1024)))
+				Expect(extents[0].Flags).To(Equal(uint64(libnbd.STATE_DIRTY)))
+			})
+
+			It("should produce clean extents for non-dirty allocated data", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(1))
+				Expect(extents[0].Flags).To(Equal(uint64(0)))
+				Expect(extents[0].Description).To(Equal("clean"))
+			})
+
+			It("should produce zero extents for non-dirty holes", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(1))
+				Expect(extents[0].Flags).To(Equal(uint64(libnbd.STATE_ZERO)))
+				Expect(extents[0].Description).To(Equal("zero"))
+			})
+
+			It("should correctly handle a block discard", func() {
+				merger = newMergedContextMapper(32768, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 4096, Flags: 0},
+					{Length: 24576, Flags: uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO)},
+					{Length: 4096, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 32768, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(3))
+
+				Expect(extents[0].Offset).To(Equal(uint64(0)))
+				Expect(extents[0].Length).To(Equal(uint64(4096)))
+				Expect(extents[0].Description).To(Equal("dirty"))
+
+				Expect(extents[1].Offset).To(Equal(uint64(4096)))
+				Expect(extents[1].Length).To(Equal(uint64(24576)))
+				Expect(extents[1].Description).To(Equal("dirty,zero"))
+
+				Expect(extents[2].Offset).To(Equal(uint64(28672)))
+				Expect(extents[2].Length).To(Equal(uint64(4096)))
+				Expect(extents[2].Description).To(Equal("dirty"))
+			})
+
+			It("should trigger batch send when batchSize is reached", func() {
+				merger = newMergedContextMapper(4096, 2, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+					{Length: 1024, Flags: uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO)},
+					{Length: 1024, Flags: 0},
+					{Length: 1024, Flags: uint64(libnbd.STATE_HOLE | libnbd.STATE_ZERO)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 4096, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(sent).To(HaveLen(1), "one batch should have been sent mid-merge")
+				Expect(sent[0].Extents).To(HaveLen(2))
+
+				Expect(merger.Flush()).To(Succeed())
+				extents := allExtents()
+				Expect(extents).To(HaveLen(4))
+			})
+
+			It("should be a no-op when one context is empty", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+
+				merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+				})
+
+				Expect(merger.Merge()).To(Succeed())
+				Expect(merger.Flush()).To(Succeed())
+				Expect(sent).To(BeEmpty())
+			})
+
+			It("should be a no-op when both contexts are empty", func() {
+				merger = newMergedContextMapper(1024, 512, mergeSendFn)
+				Expect(merger.Merge()).To(Succeed())
+			})
+
+			It("should handle multiple Merge calls with coalescing across calls", func() {
+				merger = newMergedContextMapper(2048, 512, mergeSendFn)
+
+				_, err := merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 0, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(merger.Merge()).To(Succeed())
+
+				_, err = merger.HandleExtents(libnbd.CONTEXT_BASE_ALLOCATION, 1024, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: 0},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = merger.HandleExtents(libnbd.CONTEXT_QEMU_DIRTY_BITMAP+"checkpoint", 1024, []libnbd.LibnbdExtent{
+					{Length: 1024, Flags: uint64(libnbd.STATE_DIRTY)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(merger.Merge()).To(Succeed())
+
+				Expect(merger.Flush()).To(Succeed())
+
+				extents := allExtents()
+				Expect(extents).To(HaveLen(1))
+				Expect(extents[0].Length).To(Equal(uint64(2048)))
+				Expect(extents[0].Description).To(Equal("dirty"))
 			})
 		})
 	})

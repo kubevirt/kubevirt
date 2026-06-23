@@ -22,6 +22,7 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/plugin/v1alpha1/types.go
 
 deepcopy-gen \
     --bounding-dirs kubevirt.io/api \
@@ -38,6 +39,7 @@ deepcopy-gen \
     kubevirt.io/api/clone/v1alpha1 \
     kubevirt.io/api/clone/v1beta1 \
     kubevirt.io/api/backup/v1alpha1 \
+    kubevirt.io/api/plugin/v1alpha1 \
     kubevirt.io/api/core/v1
 
 defaulter-gen \
@@ -68,6 +70,7 @@ openapi-gen \
     kubevirt.io/api/snapshot/v1alpha1 \
     kubevirt.io/api/snapshot/v1beta1 \
     kubevirt.io/api/backup/v1alpha1 \
+    kubevirt.io/api/plugin/v1alpha1 \
     kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 
 conversion-gen \
@@ -86,7 +89,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1 \
+    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1,plugin/v1alpha1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -159,6 +162,9 @@ deepcopy-gen \
     #include backup
     GOFLAGS= controller-gen crd paths=../api/backup/v1alpha1/
 
+    #include plugin
+    GOFLAGS= controller-gen crd paths=../api/plugin/v1alpha1/
+
     #remove some weird stuff from controller-gen
     cd config/crd
     for file in *; do
@@ -205,6 +211,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac
 # values after the file is generated.
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
+csv_generator_extra_flags="${CSV_GENERATOR_EXTRA_FLAGS:-}"
 ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
     --operatorImageVersion="{{.DockerTag}}" \
     --csvCreatedAtTimestamp={{.CreatedAt}} \
@@ -216,6 +223,7 @@ ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator \
     --pullPolicy={{.ImagePullPolicy}} \
     --replacesCsvVersion="$_fake_replaces_csv_version" \
     --verbosity={{.Verbosity}} \
+    ${csv_generator_extra_flags} \
     >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in

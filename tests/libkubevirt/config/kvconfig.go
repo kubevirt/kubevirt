@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -173,14 +172,10 @@ func WaitForConfigToBePropagatedToComponent(podLabel, resourceVersion string, co
 }
 
 func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
-	const minPort = 4321
-	const maxPortIncrease = 6000
-	//nolint:gosec
-	randPort := strconv.Itoa(minPort + rand.Intn(maxPortIncrease))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 	readyTimeout := 5 * time.Second
-	err := libpod.ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, readyTimeout)
+	localPort, err := libpod.ForwardPorts(pod, []string{"0:" + port}, stopChan, readyTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +188,7 @@ func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
 	client := &http.Client{Transport: tr}
 	req, err := http.NewRequestWithContext(
 		context.Background(), "GET",
-		fmt.Sprintf("https://localhost:%s/%s", randPort, strings.TrimSuffix(url, "/")), http.NoBody)
+		fmt.Sprintf("https://localhost:%d/%s", localPort, strings.TrimSuffix(url, "/")), http.NoBody)
 	if err != nil {
 		return nil, err
 	}

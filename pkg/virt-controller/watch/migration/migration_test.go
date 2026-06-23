@@ -2733,6 +2733,11 @@ var _ = Describe("Migration watcher", func() {
 
 	Context("Priority queue", func() {
 		It("should properly re-enqueue pending migrations as low priority when no new migration can start", func() {
+			setConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
+				},
+			})
 			By("Creating 1 pending migration. It will be picked up by the call to Execute()")
 			vmi := newVirtualMachine("testvmipending", v1.Running)
 			migration := newMigration("testmigrationpending", vmi.Name, v1.MigrationPending)

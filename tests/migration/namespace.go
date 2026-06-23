@@ -67,6 +67,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		virtClient    kubecli.KubevirtClient
 		connectionURL string
 		err           error
+		defaultArch   string
 	)
 
 	BeforeEach(func() {
@@ -74,6 +75,9 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			Fail("Fail DataVolume tests when CDI is not present")
 		}
 		virtClient = kubevirt.Client()
+		var err error
+		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
+		Expect(err).ToNot(HaveOccurred())
 		connectionURL, err = getKubevirtSynchronizationSyncAddress(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -739,7 +743,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 		It("should live migrate block to filesystem", decorators.RequiresBlockStorage, func() {
 			sourceDV := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 				libdv.WithStorage(
 					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
 					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
@@ -782,7 +786,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		It("should live migrate regular disk several times", decorators.RequiresBlockStorage, func() {
 			var targetVM *virtv1.VirtualMachine
 			sourceDV := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 				libdv.WithStorage(
 					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
 					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),

@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSchedulableNodes, Serial, func() {
+var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSchedulableNodes, decorators.WgS390x, Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

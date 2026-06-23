@@ -44,17 +44,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
@@ -384,7 +385,7 @@ func getConfigFromEnvWithEnvVarManager(envVarManager operatorutil.EnvVarManager)
 	return nil, fmt.Errorf("no config provided")
 }
 
-func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
+func DumpInstallStrategyToConfigMap(clientset kubernetes.Interface, operatorNamespace string) error {
 	config, err := GetConfigFromEnv()
 	if err != nil {
 		return err
@@ -500,6 +501,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineExportCrd,
 		components.NewVirtualMachineCloneCrd, components.NewVirtualMachineBackupCrd,
 		components.NewVirtualMachineBackupTrackerCrd,
+		components.NewPluginCrd,
 	}
 	for _, f := range functions {
 		crd, err := f()
@@ -625,9 +627,14 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
 
-	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, components.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
 	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
-	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, components.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
+
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginValidatingAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginValidatingAdmissionPolicy())
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewPluginWarningAdmissionPolicyBinding())
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewPluginWarningAdmissionPolicy())
 
 	instancetypes, err := components.NewClusterInstancetypes()
 	if err != nil {

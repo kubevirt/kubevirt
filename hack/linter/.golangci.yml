@@ -8,6 +8,7 @@ linters:
     - dupl
     - errcheck
     - exhaustive
+    - forbidigo
     - funlen
     - gochecknoinits
     - goconst
@@ -32,6 +33,16 @@ linters:
   settings:
     dupl:
       threshold: 100
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^Skip$
+          pkg: ^github\.com/onsi/ginkgo/v2$
+          msg: >-
+            Use labels/decorators instead of runtime Skip().
+            Runtime skips silently suppress tests, making it easy to
+            unknowingly stop running tests you care about.
+            Labeling shifts the choice of what to run to the test executor.
     funlen:
       lines: 100
       statements: 50

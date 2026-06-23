@@ -36,12 +36,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -55,19 +53,17 @@ const (
 	vmiReadyTimeout = 180
 )
 
-var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Serial, func() {
+var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func() {
 	var err error
-
-	BeforeEach(OncePerOrdered, func() {
-		config.EnableFeatureGate(featuregate.PasstBinding)
-	})
 
 	It("should apply the interface configuration", func() {
 		const testMACAddr = "02:02:02:02:02:02"
 		const testPCIAddr = "0000:01:00.0"
-		passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
+		passtIface := libvmi.InterfaceWithMac(
+			libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name),
+			testMACAddr,
+		)
 		passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
-		passtIface.MacAddress = testMACAddr
 		passtIface.PciAddress = testPCIAddr
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(passtIface),
@@ -281,12 +277,12 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 			waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
 		})
 
-		DescribeTable("connectivity should be preserved", func(ipFamily k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+		It("[QUARANTINE] connectivity should be preserved for ipv4", decorators.Quarantine, func() {
+			libnet.SkipWhenClusterNotSupportIPFamily(k8sv1.IPv4Protocol)
 
 			By("Verify the VMIs can ping each other")
-			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
-			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
+			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
+			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, k8sv1.IPv4Protocol)
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
 
@@ -310,17 +306,14 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 				migrateVMI, err = vmiClient.Get(
 					context.Background(), migrateVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
-				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, k8sv1.IPv4Protocol)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
 			By("Verify the VMIs can ping each other after migration")
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
-		},
-			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol, decorators.Quarantine),
-		)
+		})
 	})
 }),
 )

@@ -41,9 +41,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/cgroups"
 
-	"github.com/opencontainers/runc/libcontainer/devices"
+	devices "github.com/opencontainers/cgroups/devices/config"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -51,6 +51,8 @@ import (
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+var ErrWaitingForHotplugMount = errors.New("waiting for hotplug mount")
 
 const (
 	unableFindHotplugMountedDir = "unable to find hotplug mounted directories for vmi without uid"
@@ -140,8 +142,10 @@ var (
 		parent isolation.IsolationResult,
 		child isolation.IsolationResult,
 		findmntInfo FindmntInfo,
+		podUID string,
+		kubeletPodsDir string,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target)
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target, podUID, kubeletPodsDir)
 	}
 )
 
@@ -311,7 +315,7 @@ func (m *volumeMounter) mountHotplugVolume(
 	mountDirectory bool,
 	cgroupManager cgroup.Manager,
 ) error {
-	logger := log.DefaultLogger()
+	logger := log.Log.Object(vmi)
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != "" {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
@@ -355,10 +359,11 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		}
 
 		mountDirectory := m.isDirectoryMounted(vmi, volumeStatus.Name)
-		if sourceUID == "" {
-			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
+		volumeSourceUID := sourceUID
+		if volumeSourceUID == "" {
+			volumeSourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory, cgroupManager); err != nil {
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, volumeSourceUID, record, mountDirectory, cgroupManager); err != nil {
 			return err
 		}
 	}
@@ -437,7 +442,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 		if err := m.createBlockDeviceFile(targetPath, volume, dev, permissions); err != nil && !os.IsExist(err) {
 			return err
 		}
-		log.DefaultLogger().V(1).Infof("successfully created block device %v", volume)
+		log.Log.Object(vmi).V(1).Infof("successfully created block device %s", volume)
 	} else if err != nil {
 		return err
 	}
@@ -506,7 +511,7 @@ func (m *volumeMounter) updateBlockMajorMinor(dev uint64, allow bool, cgroupMana
 		return fmt.Errorf("failed to apply device rule %+v: cgroup manager is nil", *deviceRule)
 	}
 
-	err := cgroupManager.Set(&configs.Resources{
+	err := cgroupManager.Set(&cgroups.Resources{
 		Devices: []*devices.Rule{deviceRule},
 	})
 
@@ -551,10 +556,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
-			log.DefaultLogger().V(3).Infof("Error getting source path: %v", err)
-			// We are eating the error to avoid spamming the log with errors, it might take a while for the volume
-			// to get mounted on the node, and this will error until the volume is mounted.
-			return nil
+			return fmt.Errorf("failed to get source path for volume %s from source pod %s: %v: %w", volume, sourceUID, err, ErrWaitingForHotplugMount)
 		}
 		if err := m.writePathToMountRecord(unsafepath.UnsafeAbsolute(target.Raw()), vmi, record); err != nil {
 			return err
@@ -568,7 +570,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if out, err := mountCommand(sourcePath, target); err != nil {
 			return fmt.Errorf("failed to bindmount hotplug volume source from %v to %v: %v : %v", sourcePath, target, string(out), err)
 		}
-		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
+		log.Log.Object(vmi).V(1).Infof("successfully mounted hotplug volume %s", volume)
 	}
 
 	return m.ownershipManager.SetFileOwnership(target)
@@ -609,7 +611,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
+			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt, string(sourceUID), m.kubeletPodsDir)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err

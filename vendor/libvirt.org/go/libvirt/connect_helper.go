@@ -33,19 +33,19 @@ package libvirt
 #include "connect_helper.h"
 #include "callbacks_helper.h"
 
-extern void closeCallback(virConnectPtr, int, long);
-void closeCallbackHelper(virConnectPtr conn, int reason, void *opaque)
+extern void virGoCloseCallback(virConnectPtr, int, long);
+void virGoCloseCallbackHelper(virConnectPtr conn, int reason, void *opaque)
 {
-    closeCallback(conn, reason, (long)opaque);
+    virGoCloseCallback(conn, reason, (long)opaque);
 }
 
 
-extern int connectAuthCallback(virConnectCredentialPtr, unsigned int, int);
-int connectAuthCallbackHelper(virConnectCredentialPtr cred, unsigned int ncred, void *cbdata)
+extern int virGoConnectAuthCallback(virConnectCredentialPtr, unsigned int, int);
+int virGoConnectAuthCallbackHelper(virConnectCredentialPtr cred, unsigned int ncred, void *cbdata)
 {
     int *callbackID = cbdata;
 
-    return connectAuthCallback(cred, ncred, *callbackID);
+    return virGoConnectAuthCallback(cred, ncred, *callbackID);
 }
 
 
@@ -60,7 +60,7 @@ virConnectOpenAuthHelper(const char *name,
     virConnectAuth auth = {
        .credtype = credtype,
        .ncredtype = ncredtype,
-       .cb = connectAuthCallbackHelper,
+       .cb = virGoConnectAuthCallbackHelper,
        .cbdata = &callbackID,
     };
 
@@ -83,8 +83,8 @@ virConnectRegisterCloseCallbackHelper(virConnectPtr conn,
                                       virErrorPtr err)
 {
     void *id = (void *)goCallbackId;
-    return virConnectRegisterCloseCallbackWrapper(conn, closeCallbackHelper, id,
-                                                  freeGoCallbackHelper, err);
+    return virConnectRegisterCloseCallbackWrapper(conn, virGoCloseCallbackHelper, id,
+                                                  virGoFreeCallbackHelper, err);
 }
 
 
@@ -92,7 +92,7 @@ int
 virConnectUnregisterCloseCallbackHelper(virConnectPtr conn,
                                         virErrorPtr err)
 {
-    return virConnectUnregisterCloseCallbackWrapper(conn, closeCallbackHelper, err);
+    return virConnectUnregisterCloseCallbackWrapper(conn, virGoCloseCallbackHelper, err);
 }
 
 */

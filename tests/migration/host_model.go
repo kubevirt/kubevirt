@@ -41,18 +41,20 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
-	Context("with a host-model cpu", func() {
+	Context("with a host-model cpu", decorators.WgS390x, func() {
 		It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
 			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
 			if err != nil {
-				Skip(err.Error())
+				Skip(err.Error()) //nolint:forbidigo
 			}
 
 			By("Creating a VMI with default CPU mode to land in source node")
@@ -110,7 +112,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			BeforeEach(func() {
 				var err error
 				By("Creating a VMI with default CPU mode")
-				vmi = alpineVMIWithEvictionStrategy()
+				vmi = libvmifact.NewGuestless(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
 				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 				By("Starting the VirtualMachineInstance")
@@ -166,11 +172,15 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			BeforeEach(func() {
 				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client()).Items
 				if len(nodes) == 1 || len(nodes) > 10 {
-					Skip("This test can't run with single node and it's too slow to run with more than 10 nodes")
+					Skip("This test can't run with single node and it's too slow to run with more than 10 nodes") //nolint:forbidigo
 				}
 
 				By("Creating a VMI with default CPU mode")
-				vmi = alpineVMIWithEvictionStrategy()
+				vmi = libvmifact.NewGuestless(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
 				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 				By("Starting the VirtualMachineInstance")
@@ -235,7 +245,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var err error
 			sourceNode, targetNode, err = libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
 			if err != nil {
-				Skip(err.Error())
+				Skip(err.Error()) //nolint:forbidigo
 			}
 			targetNode = libinfra.ExpectStoppingNodeLabellerToSucceed(targetNode.Name, kubevirt.Client())
 		})

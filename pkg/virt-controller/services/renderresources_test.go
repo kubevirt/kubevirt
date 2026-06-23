@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -325,8 +324,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 			draHostDev := v1.HostDevice{
 				Name: "dra-host",
 				ClaimRequest: &v1.ClaimRequest{
-					ClaimName:   pointer.P("dra-claim"),
-					RequestName: pointer.P("dra-request"),
+					ClaimName:   "dra-claim",
+					RequestName: "dra-request",
 				},
 			}
 			hostDevices := []v1.HostDevice{devicePluginHostDev, draHostDev}
@@ -350,8 +349,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 			draGPU := v1.GPU{
 				Name: "dra-gpu",
 				ClaimRequest: &v1.ClaimRequest{
-					ClaimName:   pointer.P("gpu-claim"),
-					RequestName: pointer.P("gpu-request"),
+					ClaimName:   "gpu-claim",
+					RequestName: "gpu-request",
 				},
 			}
 			gpus := []v1.GPU{devicePluginGPU, draGPU}
@@ -365,6 +364,117 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims).To(HaveLen(1))
 			Expect(claims[0].Name).To(Equal("gpu-claim"))
 			Expect(claims[0].Request).To(Equal("gpu-request"))
+		})
+
+		It("should preserve HostDevice DRA claims with same name and different requests", func() {
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "request-a",
+					},
+				},
+				{
+					Name: "dra-host-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "request-b",
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "request-a"},
+				{Name: "shared-claim", Request: "request-b"},
+			}))
+		})
+
+		It("should preserve GPU DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu-1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "request-a",
+					},
+				},
+				{
+					Name: "dra-gpu-2",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "request-b",
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "request-a"},
+				{Name: "shared-claim", Request: "request-b"},
+			}))
+		})
+
+		It("should preserve mixed GPU and HostDevice DRA claims with same name and different requests", func() {
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "gpu-request",
+					},
+				},
+			}
+
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "dra-host",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "shared-claim",
+						RequestName: "hostdev-request",
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus), WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(Equal([]kubev1.ResourceClaim{
+				{Name: "shared-claim", Request: "gpu-request"},
+				{Name: "shared-claim", Request: "hostdev-request"},
+			}))
+		})
+
+		It("should handle networks with DRA resources in API", func() {
+			networks := []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "net-claim",
+							RequestName: "net-request",
+						},
+					},
+				},
+				{
+					Name: "pod-net",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil, WithNetworksDRA(networks))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("net-claim"))
+			Expect(claims[0].Request).To(Equal("net-request"))
 		})
 
 		It("Unified functions should not interfere with other renderer options", func() {
@@ -386,8 +496,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "dra-gpu",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("gpu-claim"),
-						RequestName: pointer.P("gpu-request"),
+						ClaimName:   "gpu-claim",
+						RequestName: "gpu-request",
 					},
 				},
 			}
@@ -408,8 +518,20 @@ var _ = Describe("Resource pod spec renderer", func() {
 				{
 					Name: "host-dev",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("hostdev-claim"),
-						RequestName: pointer.P("hostdev-request"),
+						ClaimName:   "hostdev-claim",
+						RequestName: "hostdev-request",
+					},
+				},
+			}
+
+			networks := []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "net-claim",
+							RequestName: "net-request",
+						},
 					},
 				},
 			}
@@ -417,6 +539,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(limits, requests,
 				WithGPUsDRA(gpus),
 				WithHostDevicesDRA(hostDevices),
+				WithNetworksDRA(networks),
 			)
 
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
@@ -425,7 +548,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
 
 			claims = rr.Claims()
-			Expect(claims).To(HaveLen(2))
+			Expect(claims).To(HaveLen(3))
 
 			claimNames := make(map[string]string)
 			for _, claim := range claims {
@@ -434,6 +557,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 			Expect(claimNames).To(HaveKeyWithValue("gpu-claim", "gpu-request"))
 			Expect(claimNames).To(HaveKeyWithValue("hostdev-claim", "hostdev-request"))
+			Expect(claimNames).To(HaveKeyWithValue("net-claim", "net-request"))
 		})
 	})
 
@@ -456,6 +580,17 @@ var _ = Describe("Resource pod spec renderer", func() {
 		}))
 		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
 			tdxResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+	})
+
+	It("WithIOMMUFD option adds IOMMUFD device resource", func() {
+		iommufdResourceKey := kubev1.ResourceName(IOMMUFDDevice)
+		rr = NewResourceRenderer(nil, nil, WithIOMMUFD())
+		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{
+			iommufdResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
+			iommufdResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
 		}))
 	})
 
@@ -698,8 +833,8 @@ var _ = Describe("validatePermittedHostDevices", func() {
 					// DRA device - no DeviceName, has ClaimRequest
 					Name: "dra-hostdev",
 					ClaimRequest: &v1.ClaimRequest{
-						ClaimName:   pointer.P("my-claim"),
-						RequestName: pointer.P("my-request"),
+						ClaimName:   "my-claim",
+						RequestName: "my-request",
 					},
 				},
 			}

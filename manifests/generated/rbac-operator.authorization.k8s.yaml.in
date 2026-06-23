@@ -950,6 +950,14 @@ rules:
   - watch
   - patch
 - apiGroups:
+  - plugin.kubevirt.io
+  resources:
+  - plugins
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - export.kubevirt.io
   resources:
   - virtualmachineexports
@@ -1135,6 +1143,19 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
+  - plugin.kubevirt.io
+  resources:
+  - plugins
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
   - export.kubevirt.io
   resources:
   - virtualmachineexports
@@ -1466,6 +1487,14 @@ rules:
   - migrations.kubevirt.io
   resources:
   - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - plugin.kubevirt.io
+  resources:
+  - plugins
   verbs:
   - get
   - list

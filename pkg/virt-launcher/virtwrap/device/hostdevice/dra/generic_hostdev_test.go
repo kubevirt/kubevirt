@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -85,7 +84,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -93,7 +92,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "hd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
@@ -140,7 +139,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -148,7 +147,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "vhd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
@@ -197,7 +196,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{{
 						Name:              "claim1",
 						ResourceClaimName: ptr.To("claim1"),
 					}},
@@ -205,7 +204,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "vhd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}},
 						},
 					},
@@ -255,7 +254,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
-					ResourceClaims: []k8sv1.PodResourceClaim{
+					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
 						{Name: "claim1", ResourceClaimName: ptr.To("claim1")},
 						{Name: "claim2", ResourceClaimName: ptr.To("claim2")},
 					},
@@ -263,10 +262,10 @@ var _ = Describe("CreateDRAHostDevices", func() {
 						Devices: v1.Devices{
 							HostDevices: []v1.HostDevice{{
 								Name:         "hd1",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "req1"},
 							}, {
 								Name:         "hd2",
-								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim2"), RequestName: ptr.To("req2")},
+								ClaimRequest: &v1.ClaimRequest{ClaimName: "claim2", RequestName: "req2"},
 							}},
 						},
 					},

@@ -377,3 +377,21 @@ func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfi
 		return
 	}
 }
+
+// SupportsPCIeHotplug reports whether the VMI spec uses PCIe bus topology
+// and requires pcie-root-port controllers for hotplug capacity.
+// Returns false for architectures that use flat bus topologies (s390x, ppc64le)
+// and for non-PCIe machine types (i440fx).
+func SupportsPCIeHotplug(spec *v1.VirtualMachineInstanceSpec) bool {
+	switch spec.Architecture {
+	case "amd64", "arm64", "":
+	default:
+		return false
+	}
+	if spec.Domain.Machine != nil &&
+		!strings.Contains(spec.Domain.Machine.Type, "q35") &&
+		!strings.HasPrefix(spec.Domain.Machine.Type, "virt") {
+		return false
+	}
+	return true
+}

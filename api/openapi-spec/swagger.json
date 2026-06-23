@@ -12837,28 +12837,6 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PodResourceClaim": {
-    "description": "PodResourceClaim references exactly one ResourceClaim, either directly or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim for the pod.\n\nIt adds a name to it that uniquely identifies the ResourceClaim inside the Pod. Containers that need access to the ResourceClaim reference it with this name.",
-    "type": "object",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name uniquely identifies this resource claim inside the pod. This must be a DNS_LABEL.",
-      "type": "string",
-      "default": ""
-     },
-     "resourceClaimName": {
-      "description": "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
-      "type": "string"
-     },
-     "resourceClaimTemplateName": {
-      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
-      "type": "string"
-     }
-    }
-   },
    "k8s.io.api.core.v1.PreferredSchedulingTerm": {
     "description": "An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).",
     "type": "object",
@@ -14183,6 +14161,19 @@
      }
     }
    },
+   "v1.ClaimRequest": {
+    "type": "object",
+    "properties": {
+     "claimName": {
+      "description": "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array. The referenced entry may use either resourceClaimName or resourceClaimTemplateName.",
+      "type": "string"
+     },
+     "requestName": {
+      "description": "RequestName specifies which request from the ResourceClaim/ResourceClaimTemplate spec.devices.requests array this claim request corresponds to.",
+      "type": "string"
+     }
+    }
+   },
    "v1.ClientPassthroughDevices": {
     "description": "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
     "type": "object"
@@ -15385,7 +15376,7 @@
     ],
     "properties": {
      "claimName": {
-      "description": "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+      "description": "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array. The referenced entry may use either resourceClaimName or resourceClaimTemplateName.",
       "type": "string"
      },
      "deviceName": {
@@ -15398,7 +15389,7 @@
       "default": ""
      },
      "requestName": {
-      "description": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+      "description": "RequestName specifies which request from the ResourceClaim/ResourceClaimTemplate spec.devices.requests array this claim request corresponds to.",
       "type": "string"
      },
      "tag": {
@@ -15491,7 +15482,7 @@
     ],
     "properties": {
      "claimName": {
-      "description": "ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this device is allocated",
+      "description": "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array. The referenced entry may use either resourceClaimName or resourceClaimTemplateName.",
       "type": "string"
      },
      "deviceName": {
@@ -15503,7 +15494,7 @@
       "default": ""
      },
      "requestName": {
-      "description": "RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this device is requested",
+      "description": "RequestName specifies which request from the ResourceClaim/ResourceClaimTemplate spec.devices.requests array this claim request corresponds to.",
       "type": "string"
      },
      "tag": {
@@ -16136,6 +16127,10 @@
      },
      "permittedHostDevices": {
       "$ref": "#/definitions/v1.PermittedHostDevices"
+     },
+     "persistentReservationConfiguration": {
+      "description": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs",
+      "$ref": "#/definitions/v1.PersistentReservationConfiguration"
      },
      "roleAggregationStrategy": {
       "description": "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated to the default Kubernetes roles (admin, edit, view). When set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles. When set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles. Setting this field to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled. This is an Alpha feature and subject to change.",
@@ -16802,6 +16797,10 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     },
+     "resourceClaim": {
+      "description": "ResourceClaim represents a network resource requested via a VMI spec.resourceClaims[] entry, backed by either a Kubernetes ResourceClaim or ResourceClaimTemplate. This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled. This feature is in alpha.",
+      "$ref": "#/definitions/v1.ClaimRequest"
      }
     }
    },
@@ -17040,6 +17039,15 @@
        "$ref": "#/definitions/v1.USBHostDevice"
       },
       "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.PersistentReservationConfiguration": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled controls the deployment of additional resources like the pr-helper container for enabling the use of the SCSI persistent reservation VMs, defaults to False.",
+      "type": "boolean"
      }
     }
    },
@@ -19586,6 +19594,27 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceResourceClaim": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name uniquely identifies this resource claim inside the VMI. This field is required and must be a DNS_LABEL.",
+      "type": "string",
+      "default": ""
+     },
+     "resourceClaimName": {
+      "description": "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this VMI.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
+     },
+     "resourceClaimTemplateName": {
+      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this VMI.\n\nThe template name is passed through to the generated virt-launcher Pod spec. From the Pod spec, the template is used to create a new ResourceClaim, which is bound to the virt-launcher Pod. When the virt-launcher Pod is deleted, the ResourceClaim is also deleted. The generated ResourceClaim name is unique and is recorded in pod.status.resourceClaimStatuses.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceSpec": {
     "description": "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
     "type": "object",
@@ -19666,11 +19695,11 @@
       "$ref": "#/definitions/v1.Probe"
      },
      "resourceClaims": {
-      "description": "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled. This feature is in alpha.",
+      "description": "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA, or NetworkDevicesWithDRA is enabled. This feature is in alpha.",
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.PodResourceClaim"
+       "$ref": "#/definitions/v1.VirtualMachineInstanceResourceClaim"
       },
       "x-kubernetes-list-map-keys": [
        "name"
@@ -19679,6 +19708,10 @@
      },
      "schedulerName": {
       "description": "If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.",
+      "type": "string"
+     },
+     "serviceAccountName": {
+      "description": "ServiceAccountName is the name of the ServiceAccount to use to run the virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT automatically expose the service account token to the VM guest. To expose the token to the VM, use a serviceAccount volume.",
       "type": "string"
      },
      "startStrategy": {
@@ -20692,6 +20725,10 @@
      },
      "endpointCert": {
       "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+      "type": "string"
+     },
+     "exportUID": {
+      "description": "ExportUID tracks the UID of the associated VMExport for pull-mode backups used to detect VMExport recreation and re-initiate the export handshake",
       "type": "string"
      },
      "includedVolumes": {
@@ -21972,7 +22009,7 @@
       "type": "string"
      },
      "launchSecurity": {
-      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.",
+      "description": "Optionally defines the LaunchSecurity to be used by the instancetype.\n\nDeprecated: Will be removed with v1beta2 or v1",
       "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "memory": {
@@ -22390,6 +22427,10 @@
      "preferredArchitecture": {
       "description": "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
       "type": "string"
+     },
+     "preferredLaunchSecurity": {
+      "description": "Optionally defines the preferred LaunchSecurity",
+      "$ref": "#/definitions/v1.LaunchSecurity"
      },
      "preferredSubdomain": {
       "description": "Subdomain of the VirtualMachineInstance",

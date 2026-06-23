@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -94,6 +95,14 @@ var _ = Describe("ContainerDisk", func() {
 	}
 
 	Context("checking if containerDisks are ready", func() {
+
+		BeforeEach(func() {
+			m.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.ImageVolume},
+				},
+			})
+		})
 
 		DescribeTable("should", func(
 			pathGetter containerdisk.SocketPathGetter,

@@ -20,9 +20,11 @@
 package virthandler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -113,6 +116,8 @@ type BaseController struct {
 	hasSynced                   func() bool
 	hypervisorNodeInfo          hypervisor.HypervisorNodeInformation
 	hypervisorRuntime           hypervisor.VirtRuntime
+	pluginStore                 cache.Store
+	pluginCache                 pluginCache
 }
 
 func NewBaseController(
@@ -131,6 +136,7 @@ func NewBaseController(
 	netStat netstat,
 	hypervisorNodeInfo hypervisor.HypervisorNodeInformation,
 	hypervisorRuntime hypervisor.VirtRuntime,
+	pluginStore cache.Store,
 ) (*BaseController, error) {
 
 	c := &BaseController{
@@ -150,9 +156,63 @@ func NewBaseController(
 		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
 		hypervisorNodeInfo:          hypervisorNodeInfo,
 		hypervisorRuntime:           hypervisorRuntime,
+		pluginStore:                 pluginStore,
 	}
 
 	return c, nil
+}
+
+type pluginCache struct {
+	mu   sync.Mutex
+	data []byte
+}
+
+func (c *BaseController) serializePlugins() ([]byte, error) {
+	c.pluginCache.mu.Lock()
+	defer c.pluginCache.mu.Unlock()
+
+	if c.pluginCache.data != nil {
+		return c.pluginCache.data, nil
+	}
+
+	data, err := c.buildPluginsJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	c.pluginCache.data = data
+	return data, nil
+}
+
+func (c *BaseController) buildPluginsJSON() ([]byte, error) {
+	if c.pluginStore == nil || !c.clusterConfig.PluginsEnabled() {
+		return nil, nil
+	}
+	objs := c.pluginStore.List()
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	var pluginList []pluginv1alpha1.Plugin
+	for _, obj := range objs {
+		if p, ok := obj.(*pluginv1alpha1.Plugin); ok {
+			pluginList = append(pluginList, *p)
+		}
+	}
+	if len(pluginList) == 0 {
+		return nil, nil
+	}
+	data, err := json.Marshal(pluginList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize plugins: %w", err)
+	}
+	return data, nil
+}
+
+func (c *BaseController) InvalidatePluginsCache() {
+	c.pluginCache.mu.Lock()
+	defer c.pluginCache.mu.Unlock()
+
+	c.pluginCache.data = nil
 }
 
 func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {

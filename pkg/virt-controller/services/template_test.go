@@ -114,8 +114,10 @@ var _ = Describe("Template", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+	disableFeatureGate := func(featureGates ...string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = featureGates
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
 	BeforeEach(func() {
@@ -190,7 +192,7 @@ var _ = Describe("Template", func() {
 	})
 
 	AfterEach(func() {
-		disableFeatureGates()
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	})
 
 	Describe("Rendering", func() {
@@ -224,6 +226,43 @@ var _ = Describe("Template", func() {
 
 			return vmi
 		}
+
+		Context("DRA network resource claims", func() {
+			const (
+				computeContainerName = "compute"
+				vmiName              = "testvmi"
+			)
+
+			It("should add network DRA claim to compute container resources when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: "net-claim", Request: "net-request"},
+				}))
+
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:                      "net-claim",
+						ResourceClaimTemplateName: ptr.To("net-claim-template"),
+					},
+				}))
+			})
+
+			It("should not add network DRA claim to compute container resources when feature gate is disabled", func() {
+				config, _, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(BeEmpty())
+			})
+		})
 
 		Context("Use emulation", func() {
 			const (
@@ -442,6 +481,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should work", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -509,6 +549,7 @@ var _ = Describe("Template", func() {
 					"--ovmf-path", ovmfPath,
 					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
 					"--hypervisor", config.GetHypervisor().Name,
+					"--libvirt-hook-server-and-client",
 				}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -972,6 +1013,7 @@ var _ = Describe("Template", func() {
 
 			It("should add init containers to inject binary and pre-pull container disks", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk1",
@@ -1063,6 +1105,7 @@ var _ = Describe("Template", func() {
 		Context("with node selectors", func() {
 			DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
 
 				nodeSelector := map[string]string{
 					k8sv1.LabelHostname: "master",
@@ -1108,6 +1151,7 @@ var _ = Describe("Template", func() {
 					"--ovmf-path", ovmfPath,
 					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
 					"--hypervisor", config.GetHypervisor().Name,
+					"--libvirt-hook-server-and-client",
 				}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -1830,6 +1874,86 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity.PodAntiAffinity).To(BeEquivalentTo(&podAntiAffinity))
 			})
 
+			It("should add persistent reservation anti-affinity for PR LUN with PVC", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				Expect(pvcCache.Add(&k8sv1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-1234"},
+				})).To(Succeed())
+
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaimLun("lun0", "shared-pvc", true),
+				)
+				vmi.ObjectMeta = metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}
+				vmi.Annotations = map[string]string{v1.DeprecatedNonRootVMIAnnotation: ""}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedKey := v1.PersistentReservationLabelPrefix + "pvc-uid-1234"
+				Expect(pod.Labels).To(HaveKeyWithValue(expectedKey, ""))
+
+				Expect(pod.Spec.Affinity).ToNot(BeNil())
+				Expect(pod.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+				Expect(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				term := pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
+				Expect(term.TopologyKey).To(Equal("kubernetes.io/hostname"))
+				Expect(term.LabelSelector.MatchExpressions).To(HaveLen(1))
+				Expect(term.LabelSelector.MatchExpressions[0].Key).To(Equal(expectedKey))
+				Expect(term.LabelSelector.MatchExpressions[0].Operator).To(Equal(metav1.LabelSelectorOpExists))
+			})
+
+			It("should merge persistent reservation anti-affinity with existing pod anti-affinity", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				Expect(pvcCache.Add(&k8sv1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-5678"},
+				})).To(Succeed())
+
+				existingAntiAffinity := &k8sv1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: k8sv1.PodAffinityTerm{
+								TopologyKey: "zone",
+							},
+						},
+					},
+				}
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaimLun("lun0", "shared-pvc", true),
+				)
+				vmi.ObjectMeta = metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"}
+				vmi.Annotations = map[string]string{v1.DeprecatedNonRootVMIAnnotation: ""}
+				vmi.Spec.Affinity = &k8sv1.Affinity{PodAntiAffinity: existingAntiAffinity}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			})
+
+			It("should not add persistent reservation anti-affinity when no PR disks", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				if pod.Spec.Affinity != nil && pod.Spec.Affinity.PodAntiAffinity != nil {
+					Expect(pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(BeEmpty())
+				}
+			})
+
 			It("should add tolerations to pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				podToleration := k8sv1.Toleration{Key: "test"}
@@ -2411,6 +2535,7 @@ var _ = Describe("Template", func() {
 		Context("with hugepages constraints", func() {
 			DescribeTable("should add to the template constraints ", func(arch, pagesize string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2486,6 +2611,7 @@ var _ = Describe("Template", func() {
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
+				disableFeatureGate(featuregate.ImageVolume)
 				guestMem := resource.MustParse("64M")
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2566,6 +2692,7 @@ var _ = Describe("Template", func() {
 		Context("with file mode pvc source", func() {
 			It("should add volume to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				namespace := "testns"
 				pvcName := "pvcFile"
 				pvc := k8sv1.PersistentVolumeClaim{
@@ -2621,6 +2748,7 @@ var _ = Describe("Template", func() {
 		Context("with blockdevice mode pvc source", func() {
 			It("should add device to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				namespace := "testns"
 				pvcName := "pvcDevice"
 				mode := k8sv1.PersistentVolumeBlock
@@ -2862,6 +2990,7 @@ var _ = Describe("Template", func() {
 
 			It("should have compute as first container in the pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
@@ -3171,6 +3300,7 @@ var _ = Describe("Template", func() {
 
 			It("Should add an empytDir backed by Memory", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				vmi.Spec.Volumes = []v1.Volume{
 					{
 						Name: "downardMetrics",
@@ -3224,6 +3354,7 @@ var _ = Describe("Template", func() {
 		Context("with a configMap volume source", func() {
 			It("Should add the ConfigMap to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "configmap-volume",
@@ -3267,6 +3398,7 @@ var _ = Describe("Template", func() {
 			Context("with a ConfigMap", func() {
 				It("Should add the Sysprep ConfigMap to template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
+					disableFeatureGate(featuregate.ImageVolume)
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
@@ -3304,6 +3436,7 @@ var _ = Describe("Template", func() {
 			Context("with a Secret", func() {
 				It("Should add the Sysprep SecretRef to template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
+					disableFeatureGate(featuregate.ImageVolume)
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
@@ -3344,6 +3477,7 @@ var _ = Describe("Template", func() {
 		Context("with a secret volume source", func() {
 			It("should add the Secret to template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				volumes := []v1.Volume{
 					{
 						Name: "secret-volume",
@@ -3580,6 +3714,34 @@ var _ = Describe("Template", func() {
 				if ok {
 					Expect(val).To(Equal(*resource.NewQuantity(0, resource.DecimalSI)))
 				}
+			})
+		})
+
+		Context("with IOMMUFD feature gate", func() {
+			It("should add IOMMUFD device resource when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.IOMMUFDGate)
+				vmi := api.NewMinimalVMI("testvmi")
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resources := pod.Spec.Containers[0].Resources
+				val, ok := resources.Limits[k8sv1.ResourceName(IOMMUFDDevice)]
+				Expect(ok).To(BeTrue())
+				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
+			})
+
+			It("should not add IOMMUFD device resource when feature gate is disabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI("testvmi")
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resources := pod.Spec.Containers[0].Resources
+				_, ok := resources.Limits[k8sv1.ResourceName(IOMMUFDDevice)]
+				Expect(ok).To(BeFalse())
 			})
 		})
 
@@ -3830,6 +3992,7 @@ var _ = Describe("Template", func() {
 
 			It("should define containers and volumes properly", func() {
 				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.ImageVolume)
 				vmi := utils.GetVMIKernelBootWithRandName()
 				vmi.ObjectMeta = metav1.ObjectMeta{
 					Name: "testvmi-kernel-boot", Namespace: "default", UID: "1234",
@@ -4314,6 +4477,43 @@ var _ = Describe("Template", func() {
 					},
 				),
 			)
+		})
+
+		Context("with VMStatsCollector", func() {
+			BeforeEach(func() {
+				config, kvStore, svc = configFactory(defaultArch)
+			})
+
+			It("should pass --vm-stats-collector flag when VMStatsCollector is enabled", func() {
+				enableFeatureGate(featuregate.VMStatsCollector)
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						Expect(container.Command).To(ContainElement("--vm-stats-collector"))
+						return
+					}
+				}
+				Fail("compute container not found")
+			})
+
+			It("should not pass --vm-stats-collector flag when VMStatsCollector is disabled", func() {
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				for _, container := range pod.Spec.Containers {
+					if container.Name == "compute" {
+						Expect(container.Command).NotTo(ContainElement("--vm-stats-collector"))
+						return
+					}
+				}
+				Fail("compute container not found")
+			})
 		})
 
 		Context("Using defaultRuntimeClass", func() {
@@ -5166,6 +5366,72 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.ServiceAccountName).To(BeEmpty(), "ServiceAccount is empty")
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
+		})
+
+		It("Should set service account from spec.serviceAccountName without automounting token", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ServiceAccountName: "my-sa",
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							DisableHotplug: true,
+						},
+					},
+				},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.ServiceAccountName).To(Equal("my-sa"))
+			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse())
+
+			By("Ensuring no service account token disk volume was created")
+			for _, volume := range pod.Spec.Volumes {
+				Expect(volume.Name).ToNot(ContainSubstring("service-account"),
+					"No service account token disk volume should be present")
+			}
+			for _, container := range pod.Spec.Containers {
+				for _, mount := range container.VolumeMounts {
+					Expect(mount.MountPath).ToNot(Equal(k6tconfig.ServiceAccountSourceDir),
+						"No service account token mount should be present")
+				}
+			}
+		})
+
+		It("Should use spec.serviceAccountName and automount token when serviceAccount volume is also present", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					ServiceAccountName: "my-sa",
+					Volumes: []v1.Volume{
+						{
+							Name: "sa-vol",
+							VolumeSource: v1.VolumeSource{
+								ServiceAccount: &v1.ServiceAccountVolumeSource{
+									ServiceAccountName: "my-sa",
+								},
+							},
+						},
+					},
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							DisableHotplug: true,
+						},
+					},
+				},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.ServiceAccountName).To(Equal("my-sa"))
+			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue())
 		})
 
 	})
@@ -6025,6 +6291,27 @@ var _ = Describe("Template", func() {
 			Expect(limExists).To(BeFalse())
 		})
 	})
+
+	Context("FirmwareAutoSelection feature gate", func() {
+		It("should pass --firmware-auto-selection flag to virt-launcher when enabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			enableFeatureGate(featuregate.FirmwareAutoSelection)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--firmware-auto-selection"))
+		})
+
+		It("should not pass --firmware-auto-selection flag when disabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].Command).ToNot(ContainElement("--firmware-auto-selection"))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -6102,6 +6389,7 @@ var _ = Describe("requestResource", func() {
 			Expect(valInt).To(Equal(i))
 		}
 	})
+
 })
 
 func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
@@ -6120,6 +6408,36 @@ func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{sriovInterface}
 
+	return vmi
+}
+
+func newVMIWithDRANetwork(name string) *v1.VirtualMachineInstance {
+	vmi := api.NewMinimalVMI(name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{
+			Name: "dra-net",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				SRIOV: &v1.InterfaceSRIOV{},
+			},
+		},
+	}
+	vmi.Spec.Networks = []v1.Network{
+		{
+			Name: "dra-net",
+			NetworkSource: v1.NetworkSource{
+				ResourceClaim: &v1.ClaimRequest{
+					ClaimName:   "net-claim",
+					RequestName: "net-request",
+				},
+			},
+		},
+	}
+	vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
+		{
+			Name:                      "net-claim",
+			ResourceClaimTemplateName: ptr.To("net-claim-template"),
+		},
+	}
 	return vmi
 }
 

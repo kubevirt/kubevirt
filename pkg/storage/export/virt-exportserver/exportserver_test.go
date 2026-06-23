@@ -33,6 +33,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -92,7 +94,8 @@ func newTestServer(token string) *exportServer {
 			return true
 		},
 	}
-	s := NewExportServer(config)
+	s, err := NewExportServer(config)
+	Expect(err).ToNot(HaveOccurred())
 	return s.(*exportServer)
 }
 
@@ -1264,6 +1267,83 @@ var _ = Describe("exportserver", func() {
 		})
 	})
 
+	Context("dirHandler symlink safety", func() {
+		It("should serve files within the mount root", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(root, "hello.txt"), []byte("hello"), 0644)).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/hello.txt", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(Equal("hello"))
+		})
+
+		It("should block symlinks pointing outside the mount root", func() {
+			root := GinkgoT().TempDir()
+			outside := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(outside, "secret"), []byte("ESCAPED"), 0600)).To(Succeed())
+			Expect(os.Symlink(filepath.Join(outside, "secret"), filepath.Join(root, "escape-link"))).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/escape-link", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should allow symlinks that stay within the mount root", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.MkdirAll(filepath.Join(root, "subdir"), 0755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(root, "subdir", "data.txt"), []byte("internal"), 0644)).To(Succeed())
+			Expect(os.Symlink("subdir/data.txt", filepath.Join(root, "internal-link"))).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/internal-link", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(Equal("internal"))
+		})
+
+		It("should block path traversal via dot-dot segments", func() {
+			root := GinkgoT().TempDir()
+			outside := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(outside, "secret"), []byte("ESCAPED"), 0600)).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/../../"+filepath.Base(outside)+"/secret", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("ESCAPED"))
+		})
+
+		It("should block symlink to absolute path outside root", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.Symlink("/etc/hostname", filepath.Join(root, "host-link"))).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/host-link", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should serve the root directory listing", func() {
+			root := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(root, "file.txt"), []byte("content"), 0644)).To(Succeed())
+
+			req := httptest.NewRequest(http.MethodGet, "/volumes/pvc/dir/", nil)
+			rec := httptest.NewRecorder()
+			dirHandler("/volumes/pvc/dir/", root).ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).To(ContainSubstring("file.txt"))
+		})
+	})
+
 	Context("buildServer", func() {
 		var (
 			server      *exportServer
@@ -1282,7 +1362,7 @@ var _ = Describe("exportserver", func() {
 		})
 
 		It("should return standard TLS config and unmodified base handler when BackupUID is empty", func() {
-			srv := server.buildServer()
+			srv := server.buildServer(context.Background())
 
 			Expect(srv.Addr).To(Equal(":8443"))
 			Expect(srv.Handler).To(BeIdenticalTo(baseHandler))
@@ -1297,7 +1377,7 @@ var _ = Describe("exportserver", func() {
 			server.BackupCACert = []byte("badcert")
 
 			Expect(func() {
-				server.buildServer()
+				server.buildServer(context.Background())
 			}).To(PanicWith("failed to parse Backup CA"))
 		})
 
@@ -1313,7 +1393,7 @@ var _ = Describe("exportserver", func() {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			srv := server.buildServer()
+			srv := server.buildServer(context.Background())
 			Expect(srv.Addr).To(Equal(":8443"))
 			Expect(srv.Handler).ToNot(BeIdenticalTo(baseHandler))
 			Expect(srv.TLSConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))

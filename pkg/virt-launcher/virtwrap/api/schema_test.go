@@ -251,10 +251,11 @@ var _ = ginkgo.Describe("Schema", func() {
 	ginkgo.Context("With numa topology", func() {
 		ginkgo.It("should marshal and unmarshal the values", func() {
 			spec := &DomainSpec{}
+			mem3 := uint64(3)
 			expectedSpec := &DomainSpec{
 				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
-					{ID: "0", CPUs: "0-1", Memory: 3, Unit: "GiB"},
-					{ID: "1", CPUs: "2-3", Memory: 3, Unit: "GiB"},
+					{ID: "0", CPUs: "0-1", Memory: &mem3, Unit: "GiB"},
+					{ID: "1", CPUs: "2-3", Memory: &mem3, Unit: "GiB"},
 				}}},
 				CPUTune: &CPUTune{
 					VCPUPin: []CPUTuneVCPUPin{
@@ -532,5 +533,203 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			Expect(xml.Unmarshal(xmlBytes, &parsed)).To(Succeed())
 			Expect(parsed.LaunchSecurity).To(BeNil())
 		})
+	})
+})
+
+var _ = ginkgo.Describe("IOMMU SMMUv3 device", func() {
+	ginkgo.Context("IOMMU device XML marshaling", func() {
+		ginkgo.It("should marshal and unmarshal SMMUv3 IOMMU with driver attributes", func() {
+			iommuDevice := &IOMMUDevice{
+				Model: "smmuv3",
+				Driver: &IOMMUDriver{
+					PCIBus:   "1",
+					Accel:    "on",
+					ATS:      "on",
+					RIL:      "off",
+					SSIDSize: "20",
+					OAS:      "48",
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(iommuDevice)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<iommu model="smmuv3"><driver pciBus="1" accel="on" ats="on" ril="off" ssidSize="20" oas="48"></driver></iommu>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
+			var unmarshalled IOMMUDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			iommuDevice.XMLName = xml.Name{Local: "iommu"}
+			Expect(unmarshalled).To(Equal(*iommuDevice))
+		})
+
+		ginkgo.It("should omit empty driver attributes", func() {
+			iommuDevice := &IOMMUDevice{
+				Model: "smmuv3",
+				Driver: &IOMMUDriver{
+					PCIBus: "1",
+				},
+			}
+
+			xmlBytes, err := xml.Marshal(iommuDevice)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<iommu model="smmuv3"><driver pciBus="1"></driver></iommu>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
+			var unmarshalled IOMMUDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.Model).To(Equal("smmuv3"))
+			Expect(unmarshalled.Driver.PCIBus).To(Equal("1"))
+		})
+
+		ginkgo.It("should handle IOMMU without driver", func() {
+			iommuDevice := &IOMMUDevice{
+				Model: "smmuv3",
+			}
+
+			xmlBytes, err := xml.Marshal(iommuDevice)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedXML := `<iommu model="smmuv3"></iommu>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
+			var unmarshalled IOMMUDevice
+			err = xml.Unmarshal(xmlBytes, &unmarshalled)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unmarshalled.Model).To(Equal("smmuv3"))
+			Expect(unmarshalled.Driver).To(BeNil())
+		})
+	})
+})
+
+var _ = ginkgo.Describe("HostDevice IOMMU driver and ACPI extensions", func() {
+	ginkgo.It("should marshal and unmarshal hostdev with IOMMUFD driver", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+			Driver:  &HostDevDriver{Iommufd: "yes"},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<driver iommufd="yes"></driver>`))
+
+		var unmarshalled HostDevice
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.Driver).ToNot(BeNil())
+		Expect(unmarshalled.Driver.Iommufd).To(Equal("yes"))
+	})
+
+	ginkgo.It("should marshal and unmarshal hostdev with ACPI nodeset", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+			ACPI:    &ACPIHostDev{NodeSet: "2"},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<acpi nodeset="2"></acpi>`))
+
+		var unmarshalled HostDevice
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.ACPI).ToNot(BeNil())
+		Expect(unmarshalled.ACPI.NodeSet).To(Equal("2"))
+	})
+
+	ginkgo.It("should marshal and unmarshal hostdev with both driver and ACPI", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+			Driver:  &HostDevDriver{Iommufd: "yes"},
+			ACPI:    &ACPIHostDev{NodeSet: "2"},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<driver iommufd="yes"></driver>`))
+		Expect(string(xmlBytes)).To(ContainSubstring(`<acpi nodeset="2"></acpi>`))
+
+		var unmarshalled HostDevice
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.Driver).ToNot(BeNil())
+		Expect(unmarshalled.Driver.Iommufd).To(Equal("yes"))
+		Expect(unmarshalled.ACPI).ToNot(BeNil())
+		Expect(unmarshalled.ACPI.NodeSet).To(Equal("2"))
+	})
+
+	ginkgo.It("should omit driver and ACPI when nil", func() {
+		hostdev := &HostDevice{
+			Type:    "pci",
+			Managed: "no",
+			Mode:    "subsystem",
+			Source:  HostDeviceSource{Address: &Address{Type: AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}},
+		}
+
+		xmlBytes, err := xml.Marshal(hostdev)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<driver"))
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<acpi"))
+	})
+})
+
+var _ = ginkgo.Describe("NUMACell distances", func() {
+	ginkgo.It("should marshal and unmarshal NUMA cell with distances", func() {
+		mem := uint64(2048)
+		cell := NUMACell{
+			ID:     "0",
+			CPUs:   "0-1",
+			Memory: &mem,
+			Unit:   "MiB",
+			Distances: &NUMACellDistances{
+				Siblings: []NUMACellSibling{
+					{ID: "0", Value: 10},
+					{ID: "1", Value: 20},
+				},
+			},
+		}
+
+		xmlBytes, err := xml.Marshal(cell)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<distances>`))
+		Expect(string(xmlBytes)).To(ContainSubstring(`<sibling id="0" value="10"></sibling>`))
+		Expect(string(xmlBytes)).To(ContainSubstring(`<sibling id="1" value="20"></sibling>`))
+
+		var unmarshalled NUMACell
+		err = xml.Unmarshal(xmlBytes, &unmarshalled)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(unmarshalled.Distances).ToNot(BeNil())
+		Expect(unmarshalled.Distances.Siblings).To(HaveLen(2))
+		Expect(unmarshalled.Distances.Siblings[0].ID).To(Equal("0"))
+		Expect(unmarshalled.Distances.Siblings[0].Value).To(Equal(uint64(10)))
+		Expect(unmarshalled.Distances.Siblings[1].ID).To(Equal("1"))
+		Expect(unmarshalled.Distances.Siblings[1].Value).To(Equal(uint64(20)))
+	})
+
+	ginkgo.It("should omit distances when nil", func() {
+		mem := uint64(2048)
+		cell := NUMACell{
+			ID:     "0",
+			CPUs:   "0-1",
+			Memory: &mem,
+			Unit:   "MiB",
+		}
+
+		xmlBytes, err := xml.Marshal(cell)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<distances"))
+		Expect(string(xmlBytes)).ToNot(ContainSubstring("<sibling"))
 	})
 })

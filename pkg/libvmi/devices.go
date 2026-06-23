@@ -44,6 +44,12 @@ func WithAutoattachGraphicsDevice(enable bool) Option {
 	}
 }
 
+func WithAutoattachMemBalloon(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachMemBalloon = &enable
+	}
+}
+
 // WithRng adds `rng` to the vmi devices.
 func WithRng() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
@@ -93,10 +99,9 @@ func WithDownwardMetricsChannel() Option {
 	}
 }
 
-func WithoutSerialConsole() Option {
+func WithAutoattachSerialConsole(enable bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		enabled := false
-		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
+		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enable
 	}
 }
 
@@ -113,6 +118,24 @@ func WithVideo(videoType string) Option {
 		vmi.Spec.Domain.Devices.Video = &v1.VideoDevice{
 			Type: videoType,
 		}
+	}
+}
+
+func WithGPU(gpu v1.GPU) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, gpu)
+	}
+}
+
+func WithHostDevice(hostDevice v1.HostDevice) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices, hostDevice)
+	}
+}
+
+func WithResourceClaim(claim v1.VirtualMachineInstanceResourceClaim) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.ResourceClaims = append(vmi.Spec.ResourceClaims, claim)
 	}
 }
 

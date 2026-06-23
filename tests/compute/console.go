@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
+var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", decorators.WgS390x, func() {
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
@@ -53,26 +53,24 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 	}
 
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		Context("with a serial console", func() {
-			It("[test_id:1588]should return OS login", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-				expectConsoleOutput(
-					vmi,
-					"localhost login:",
-				)
-			})
-			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		Context("with a serial console", Ordered, decorators.OncePerOrderedCleanup, func() {
+			var vmi *v1.VirtualMachineInstance
 
+			BeforeAll(func() {
+				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
+			})
+
+			It("[test_id:1588]should return OS login", func() {
+				expectConsoleOutput(vmi, "localhost login:")
+			})
+
+			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				for i := 0; i < 5; i++ {
 					expectConsoleOutput(vmi, "login")
 				}
 			})
 
 			It("[test_id:1591]should close console connection when new console connection is opened", decorators.Conformance, func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsSmall)
 				expectConsoleOutput(vmi, "login")
 
 				By("opening 1st console connection")
@@ -99,7 +97,9 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 				By("expecting error on 1st console connection")
 				Eventually(firstConsoleErrChan, 1*time.Minute, 1*time.Second).Should(Receive(MatchError(ContainSubstring("EOF"))))
 			})
+		})
 
+		Context("with a serial console connection", func() {
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := libvmifact.NewAlpine()
 				By("Creating a new VirtualMachineInstance")
@@ -127,7 +127,7 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 
 		Context("without a serial console", func() {
 			It("[test_id:4118]should run but not be connectable via the serial console", decorators.Conformance, func() {
-				vmi := libvmifact.NewAlpine(libvmi.WithoutSerialConsole())
+				vmi := libvmifact.NewAlpine(libvmi.WithAutoattachSerialConsole(false))
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 
 				By("failing to connect to serial console")

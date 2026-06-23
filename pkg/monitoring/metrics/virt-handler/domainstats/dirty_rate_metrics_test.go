@@ -20,12 +20,17 @@
 package domainstats
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -63,4 +68,34 @@ var _ = Describe("dirty rate metrics", func() {
 			Expect(crs).To(BeEmpty())
 		})
 	})
+
+	Context("dirty rate collector filtering", func() {
+		It("should only collect from running, non-migrating VMIs", func() {
+			running := api.NewMinimalVMI("running")
+			running.Status.Phase = k6tv1.Running
+
+			scheduled := api.NewMinimalVMI("scheduled")
+			scheduled.Status.Phase = k6tv1.Scheduled
+
+			migrating := api.NewMinimalVMI("migrating")
+			migrating.Status.Phase = k6tv1.Running
+			now := metav1.Now()
+			migrating.Status.MigrationState = &k6tv1.VirtualMachineInstanceMigrationState{StartTimestamp: &now}
+
+			rc := &recCollector{}
+			execDomainDirtyRateStatsCollector(rc, []*k6tv1.VirtualMachineInstance{running, scheduled, migrating})
+			Expect(rc.collected).To(ConsistOf(HaveField("Name", "running")))
+		})
+	})
 })
+
+type recCollector struct {
+	collector.Collector
+	collected []*k6tv1.VirtualMachineInstance
+}
+
+func (rc *recCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scraper collector.MetricsScraper, _ time.Duration) ([]string, bool) {
+	rc.collected = vmis
+	scraper.Complete()
+	return nil, true
+}

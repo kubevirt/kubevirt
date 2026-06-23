@@ -49,8 +49,8 @@ type NodeDeviceEventLifecycle struct {
 
 type NodeDeviceEventLifecycleCallback func(c *Connect, n *NodeDevice, event *NodeDeviceEventLifecycle)
 
-//export nodeDeviceEventLifecycleCallback
-func nodeDeviceEventLifecycleCallback(c C.virConnectPtr, s C.virNodeDevicePtr,
+//export virGoNodeDeviceEventLifecycleCallback
+func virGoNodeDeviceEventLifecycleCallback(c C.virConnectPtr, s C.virNodeDevicePtr,
 	event int, detail int,
 	goCallbackId int) {
 
@@ -70,8 +70,8 @@ func nodeDeviceEventLifecycleCallback(c C.virConnectPtr, s C.virNodeDevicePtr,
 	callback(connection, node_device, eventDetails)
 }
 
-//export nodeDeviceEventGenericCallback
-func nodeDeviceEventGenericCallback(c C.virConnectPtr, d C.virNodeDevicePtr,
+//export virGoNodeDeviceEventGenericCallback
+func virGoNodeDeviceEventGenericCallback(c C.virConnectPtr, d C.virNodeDevicePtr,
 	goCallbackId int) {
 
 	node_device := &NodeDevice{ptr: d}
@@ -88,7 +88,7 @@ func nodeDeviceEventGenericCallback(c C.virConnectPtr, d C.virNodeDevicePtr,
 func (c *Connect) NodeDeviceEventLifecycleRegister(device *NodeDevice, callback NodeDeviceEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 
-	callbackPtr := unsafe.Pointer(C.nodeDeviceEventLifecycleCallbackHelper)
+	callbackPtr := unsafe.Pointer(C.virGoNodeDeviceEventLifecycleCallbackHelper)
 	var cdevice C.virNodeDevicePtr
 	if device != nil {
 		cdevice = device.ptr
@@ -99,7 +99,7 @@ func (c *Connect) NodeDeviceEventLifecycleRegister(device *NodeDevice, callback 
 		C.virConnectNodeDeviceEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil
@@ -108,7 +108,7 @@ func (c *Connect) NodeDeviceEventLifecycleRegister(device *NodeDevice, callback 
 func (c *Connect) NodeDeviceEventUpdateRegister(device *NodeDevice, callback NodeDeviceEventGenericCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 
-	callbackPtr := unsafe.Pointer(C.nodeDeviceEventGenericCallbackHelper)
+	callbackPtr := unsafe.Pointer(C.virGoNodeDeviceEventGenericCallbackHelper)
 	var cdevice C.virNodeDevicePtr
 	if device != nil {
 		cdevice = device.ptr
@@ -119,7 +119,7 @@ func (c *Connect) NodeDeviceEventUpdateRegister(device *NodeDevice, callback Nod
 		C.virConnectNodeDeviceEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {
-		freeCallbackId(goCallBackId)
+		virGoFreeCallbackId(goCallBackId)
 		return 0, makeError(&err)
 	}
 	return int(ret), nil

@@ -113,6 +113,16 @@ func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *
 	}
 
 	return &admissionv1.AdmissionResponse{
-		Allowed: true,
+		Allowed:  true,
+		Warnings: checkForDeprecatedFields(instancetypeSpecObj),
 	}
+}
+
+const DeprecatedLaunchSecurityWarning = "launchSecurity is deprecated and will be removed in a future release. Use preference instead."
+
+func checkForDeprecatedFields(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []string {
+	if spec.LaunchSecurity != nil {
+		return []string{DeprecatedLaunchSecurityWarning}
+	}
+	return nil
 }

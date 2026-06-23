@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -66,7 +67,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	It("[test_id:4099] should be rotated when a new CA is created", func() {
+	It("[test_id:4099] should be rotated when a new CA is created", decorators.WgS390x, func() {
 		By("checking that the config-map gets the new CA bundle attached")
 		Eventually(func() int {
 			_, crts := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
@@ -169,7 +170,7 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 		}, 120*time.Second).Should(BeTrue())
 	})
 
-	DescribeTable("should be rotated when deleted for ", func(secretName string) {
+	DescribeTable("should be rotated when deleted for ", decorators.WgS390x, func(secretName string) {
 		By("destroying the certificate")
 		secretPatch, err := patch.New(
 			patch.WithReplace("/data/tls.crt", ""),

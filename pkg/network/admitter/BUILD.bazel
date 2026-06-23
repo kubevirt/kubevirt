@@ -6,6 +6,7 @@ go_library(
         "admit.go",
         "binding.go",
         "discontinued.go",
+        "dra.go",
         "netiface.go",
         "netsource.go",
         "passt.go",
@@ -31,6 +32,7 @@ go_test(
         "admit_test.go",
         "binding_test.go",
         "discontinued_test.go",
+        "dra_test.go",
         "netiface_test.go",
         "netsource_test.go",
         "passt_test.go",
@@ -47,5 +49,6 @@ go_test(
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )

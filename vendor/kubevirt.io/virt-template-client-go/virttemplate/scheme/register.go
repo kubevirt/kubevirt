@@ -28,6 +28,7 @@ import (
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	templatev1alpha1 "kubevirt.io/virt-template-api/core/v1alpha1"
+	templatev1beta1 "kubevirt.io/virt-template-api/core/v1beta1"
 )
 
 var Scheme = runtime.NewScheme()
@@ -35,6 +36,7 @@ var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	templatev1alpha1.AddToScheme,
+	templatev1beta1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

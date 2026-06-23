@@ -29,7 +29,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 	"kubevirt.io/virt-template-engine/template/generator"
 )
 
@@ -65,7 +65,7 @@ func GetDefaultProcessor() *processor {
 // parameter expressions, so it is left up to the user in which namespace to create the
 // resulting VirtualMachine. The message of the template is also processed and expressions
 // in it are replaced.
-func (p *processor) Process(tpl *v1alpha1.VirtualMachineTemplate) (*virtv1.VirtualMachine, string, *field.Error) {
+func (p *processor) Process(tpl *v1beta1.VirtualMachineTemplate) (*virtv1.VirtualMachine, string, *field.Error) {
 	params, gErr := generateParameterValues(tpl.Spec.Parameters, p.generators)
 	if gErr != nil {
 		return nil, "", gErr

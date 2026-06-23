@@ -41,7 +41,9 @@ spec:
           eth0:
             addresses: [ fd10:0:2::2/120 ]
             dhcp4: true
-            gateway6: fd10:0:2::1
+            routes:
+            - to: ::/0
+              via: fd10:0:2::1
       userData: |-
         #cloud-config
         password: fedora

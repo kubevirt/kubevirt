@@ -65,7 +65,7 @@ var _ = Describe("VirtTemplate", func() {
 		Expect(resources.ValidatingAdmissionPolicies).To(HaveLen(1))
 		Expect(resources.ValidatingAdmissionPolicyBindings).To(HaveLen(1))
 		Expect(resources.ValidatingWebhookConfigurations).To(HaveLen(1))
-		Expect(resources.APIServices).To(HaveLen(1))
+		Expect(resources.APIServices).To(HaveLen(2))
 		Expect(resources.NetworkPolicies).To(HaveLen(3))
 	})
 

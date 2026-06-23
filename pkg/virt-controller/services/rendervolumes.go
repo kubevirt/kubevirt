@@ -551,15 +551,6 @@ func imgPullSecrets(volumes ...v1.Volume) []k8sv1.LocalObjectReference {
 	return imagePullSecrets
 }
 
-func serviceAccount(volumes ...v1.Volume) string {
-	for _, volume := range volumes {
-		if volume.ServiceAccount != nil {
-			return volume.ServiceAccount.ServiceAccountName
-		}
-	}
-	return ""
-}
-
 func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string) error {
 	logger := log.DefaultLogger()
 	pvc, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)

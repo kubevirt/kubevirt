@@ -414,9 +414,6 @@ func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOpti
 	defer m.backupTunnelMu.Unlock()
 
 	backupSock := filepath.Join(pullBackupSocketDir, pullBackupSocketName)
-	if _, err := os.Stat(backupSock); err != nil {
-		return fmt.Errorf("cannot initialize backup tunnel: %w", err)
-	}
 
 	if m.activeBackupTunnel != nil {
 		if m.activeBackupTunnel.IsMatch(backupOptions.BackupName, backupOptions.BackupStartTime) {
@@ -437,7 +434,7 @@ func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOpti
 		m.registerNBD,
 	)
 	if err := tunnel.Start(); err != nil {
-		return fmt.Errorf("failed to initialize backup tunnel: %w", err)
+		return err
 	}
 
 	m.activeBackupTunnel = tunnel
@@ -565,6 +562,10 @@ func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName st
 	}
 	for _, bm := range bitmaps {
 		if bm.Name == bitmapName {
+			if bm.Inconsistent {
+				log.Log.Warningf("Bitmap %s on %s is inconsistent (possibly from failed migration), treating as absent", bitmapName, filePath)
+				return false
+			}
 			return true
 		}
 	}
@@ -572,7 +573,8 @@ func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName st
 }
 
 type qmpBitmapInfo struct {
-	Name string `json:"name"`
+	Name         string `json:"name"`
+	Inconsistent bool   `json:"inconsistent,omitempty"`
 }
 
 type qmpBlockNodeInfo struct {

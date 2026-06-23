@@ -122,6 +122,7 @@ type DomainStatus struct {
 	Interfaces     []InterfaceStatus
 	OSInfo         GuestOSInfo
 	FSFreezeStatus FSFreeze
+	GuestPanicInfo *GuestPanicInfo
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU
@@ -237,6 +238,7 @@ type DomainSpec struct {
 	IOThreads      *IOThreads      `xml:"iothreads,omitempty"`
 	LaunchSecurity *LaunchSecurity `xml:"launchSecurity,omitempty"`
 	OnReboot       string          `xml:"on_reboot,omitempty"`
+	IOMMUFD        *IOMMUFD        `xml:"iommufd,omitempty"`
 }
 
 const DomainOnRebootDestroy = "destroy"
@@ -307,11 +309,21 @@ type NUMA struct {
 }
 
 type NUMACell struct {
-	ID           string `xml:"id,attr"`
-	CPUs         string `xml:"cpus,attr"`
-	Memory       uint64 `xml:"memory,attr,omitempty"`
-	Unit         string `xml:"unit,attr,omitempty"`
-	MemoryAccess string `xml:"memAccess,attr,omitempty"`
+	ID           string             `xml:"id,attr"`
+	CPUs         string             `xml:"cpus,attr,omitempty"`
+	Memory       *uint64            `xml:"memory,attr,omitempty"`
+	Unit         string             `xml:"unit,attr,omitempty"`
+	MemoryAccess string             `xml:"memAccess,attr,omitempty"`
+	Distances    *NUMACellDistances `xml:"distances,omitempty"`
+}
+
+type NUMACellDistances struct {
+	Siblings []NUMACellSibling `xml:"sibling"`
+}
+
+type NUMACellSibling struct {
+	ID    string `xml:"id,attr"`
+	Value uint64 `xml:"value,attr"`
 }
 
 type CPUFeature struct {
@@ -641,6 +653,7 @@ type Devices struct {
 	TPMs         []TPM              `xml:"tpm,omitempty"`
 	VSOCK        *VSOCK             `xml:"vsock,omitempty"`
 	Memory       *MemoryDevice      `xml:"memory,omitempty"`
+	IOMMU        []IOMMUDevice      `xml:"iommu,omitempty"`
 }
 
 type PanicDevice struct {
@@ -732,10 +745,20 @@ type HostDevice struct {
 	Alias     *Alias           `xml:"alias,omitempty"`
 	Display   string           `xml:"display,attr,omitempty"`
 	RamFB     string           `xml:"ramfb,attr,omitempty"`
+	Driver    *HostDevDriver   `xml:"driver,omitempty"`
+	ACPI      *ACPIHostDev     `xml:"acpi,omitempty"`
 }
 
 type HostDeviceSource struct {
 	Address *Address `xml:"address,omitempty"`
+}
+
+type HostDevDriver struct {
+	Iommufd string `xml:"iommufd,attr,omitempty"`
+}
+
+type ACPIHostDev struct {
+	NodeSet string `xml:"nodeset,attr,omitempty"`
 }
 
 // END HostDevice -----------------------------
@@ -780,6 +803,25 @@ type ControllerTarget struct {
 }
 
 // END ControllerTarget
+
+// BEGIN IOMMU -----------------------------
+
+type IOMMUDevice struct {
+	XMLName xml.Name     `xml:"iommu"`
+	Model   string       `xml:"model,attr"`
+	Driver  *IOMMUDriver `xml:"driver,omitempty"`
+}
+
+type IOMMUDriver struct {
+	PCIBus   string `xml:"pciBus,attr,omitempty"`
+	Accel    string `xml:"accel,attr,omitempty"`
+	ATS      string `xml:"ats,attr,omitempty"`
+	RIL      string `xml:"ril,attr,omitempty"`
+	SSIDSize string `xml:"ssidSize,attr,omitempty"`
+	OAS      string `xml:"oas,attr,omitempty"`
+}
+
+// END IOMMU -----------------------------
 
 // BEGIN Disk -----------------------------
 
@@ -889,6 +931,7 @@ type BlockIO struct {
 
 type Reservations struct {
 	Managed            string              `xml:"managed,attr,omitempty"`
+	Migration          string              `xml:"migration,attr,omitempty"`
 	SourceReservations *SourceReservations `xml:"source,omitempty"`
 }
 
@@ -1111,17 +1154,28 @@ func (alias *Alias) UnmarshalJSON(data []byte) error {
 //BEGIN OS --------------------
 
 type OS struct {
-	Type       OSType    `xml:"type"`
-	ACPI       *OSACPI   `xml:"acpi,omitempty"`
-	SMBios     *SMBios   `xml:"smbios,omitempty"`
-	BootOrder  []Boot    `xml:"boot"`
-	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
-	BIOS       *BIOS     `xml:"bios,omitempty"`
-	BootLoader *Loader   `xml:"loader,omitempty"`
-	NVRam      *NVRam    `xml:"nvram,omitempty"`
-	Kernel     string    `xml:"kernel,omitempty"`
-	Initrd     string    `xml:"initrd,omitempty"`
-	KernelArgs string    `xml:"cmdline,omitempty"`
+	Firmware     string        `xml:"firmware,attr,omitempty"`
+	FirmwareInfo *FirmwareInfo `xml:"firmware,omitempty"`
+	Type         OSType        `xml:"type"`
+	ACPI         *OSACPI       `xml:"acpi,omitempty"`
+	SMBios       *SMBios       `xml:"smbios,omitempty"`
+	BootOrder    []Boot        `xml:"boot"`
+	BootMenu     *BootMenu     `xml:"bootmenu,omitempty"`
+	BIOS         *BIOS         `xml:"bios,omitempty"`
+	BootLoader   *Loader       `xml:"loader,omitempty"`
+	NVRam        *NVRam        `xml:"nvram,omitempty"`
+	Kernel       string        `xml:"kernel,omitempty"`
+	Initrd       string        `xml:"initrd,omitempty"`
+	KernelArgs   string        `xml:"cmdline,omitempty"`
+}
+
+type FirmwareInfo struct {
+	Features []FirmwareFeature `xml:"feature,omitempty"`
+}
+
+type FirmwareFeature struct {
+	Enabled string `xml:"enabled,attr"`
+	Name    string `xml:"name,attr"`
 }
 
 type OSType struct {
@@ -1145,6 +1199,7 @@ type SMBios struct {
 
 type NVRam struct {
 	Template string `xml:"template,attr,omitempty"`
+	Format   string `xml:"format,attr,omitempty"`
 	NVRam    string `xml:",chardata"`
 }
 
@@ -1200,6 +1255,15 @@ type QGS struct {
 }
 
 //END LaunchSecurity --------------------
+//BEGIN IOMMUFD --------------------
+
+type IOMMUFD struct {
+	XMLName xml.Name `xml:"iommufd"`
+	Enabled string   `xml:"enabled,attr"`
+	FDGroup string   `xml:"fdgroup,attr,omitempty"`
+}
+
+//END IOMMUFD --------------------
 //BEGIN Clock --------------------
 
 type Clock struct {

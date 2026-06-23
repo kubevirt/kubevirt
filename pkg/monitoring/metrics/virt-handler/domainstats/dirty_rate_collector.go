@@ -51,8 +51,10 @@ func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
 func execDomainDirtyRateStatsCollector(
 	concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance,
 ) []operatormetrics.CollectorResult {
-	scraper := NewDomainsDirtyRateStatsScraper(len(vmis))
-	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
+	eligible := filterDirtyRateEligible(vmis)
+
+	scraper := NewDomainsDirtyRateStatsScraper(len(eligible))
+	go concCollector.Collect(eligible, scraper, PrometheusCollectionTimeout)
 
 	var crs []operatormetrics.CollectorResult
 
@@ -62,4 +64,21 @@ func execDomainDirtyRateStatsCollector(
 	}
 
 	return crs
+}
+
+// StartDirtyRateCalc requires a running guest and conflicts with an active
+// migration (which already provides MemDirtyRate via DomainJobInfo).
+// StartTimestamp distinguishes an active migration from pending/scheduling.
+func filterDirtyRateEligible(vmis []*k6tv1.VirtualMachineInstance) []*k6tv1.VirtualMachineInstance {
+	var eligible []*k6tv1.VirtualMachineInstance
+	for _, vmi := range vmis {
+		if vmi.Status.Phase != k6tv1.Running {
+			continue
+		}
+		if ms := vmi.Status.MigrationState; ms != nil && ms.StartTimestamp != nil && !ms.Completed && !ms.Failed {
+			continue
+		}
+		eligible = append(eligible, vmi)
+	}
+	return eligible
 }

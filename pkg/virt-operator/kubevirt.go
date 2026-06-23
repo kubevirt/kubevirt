@@ -27,9 +27,11 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -60,7 +62,8 @@ type strategyCacheEntry struct {
 }
 
 type KubeVirtController struct {
-	clientset            kubecli.KubevirtClient
+	virtClient           kubecli.KubevirtClient
+	k8sClient            kubernetes.Interface
 	queue                workqueue.TypedRateLimitingInterface[string]
 	delayedQueueAdder    func(key string, queue workqueue.TypedRateLimitingInterface[string])
 	recorder             record.EventRecorder
@@ -74,7 +77,8 @@ type KubeVirtController struct {
 }
 
 func NewKubeVirtController(
-	clientset kubecli.KubevirtClient,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	aggregatorClient install.APIServiceInterface,
 	recorder record.EventRecorder,
 	config util.OperatorConfig,
@@ -118,7 +122,8 @@ func NewKubeVirtController(
 	}
 
 	c := KubeVirtController{
-		clientset:        clientset,
+		virtClient:       virtClient,
+		k8sClient:        k8sClient,
 		aggregatorClient: aggregatorClient,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			rl,
@@ -819,7 +824,7 @@ func (c *KubeVirtController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(kv) {
 		kv := kv.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(kv)
-		_, err = c.clientset.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+		_, err = c.virtClient.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
 		}
@@ -860,7 +865,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// If we detect a change on KubeVirt we update it
 	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
-		if _, err := c.clientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.virtClient.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
 			return err
 		}
@@ -874,7 +879,7 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 		patch := fmt.Sprintf(`[{"op": "replace", "path": "/metadata/finalizers", "value": %s}]`, string(finalizersJson))
-		_, err = c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(context.Background(), kvCopy.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
+		_, err = c.virtClient.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(context.Background(), kvCopy.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not patch the KubeVirt finalizers.")
 			return err
@@ -912,7 +917,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	log.Log.Infof("Install strategy config map not loaded. reason: %v", err)
 
 	// 3. See if we have a pending job in flight for this install strategy.
-	batch := c.clientset.BatchV1()
+	batch := c.k8sClient.BatchV1()
 	cachedJob, exists := c.getInstallStrategyJob(config)
 	if exists {
 		if cachedJob.Status.CompletionTime != nil {
@@ -968,6 +973,13 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	// 4. execute a job to generate the install strategy for the target version of KubeVirt that's being installed/updated
 	job, err := c.generateInstallStrategyJob(kv.Spec.Infra, config)
 	if err != nil {
+		return nil, true, err
+	}
+	customizer, err := apply.NewCustomizer(kv.Spec.CustomizeComponents)
+	if err != nil {
+		return nil, true, err
+	}
+	if err := customizer.GenericApplyPatches([]*batchv1.Job{job}); err != nil {
 		return nil, true, err
 	}
 	c.kubeVirtExpectations.InstallStrategyJob.RaiseExpectations(kvkey, 1, 0)
@@ -1074,7 +1086,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
+	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)
@@ -1094,15 +1106,18 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	// the entire sync can't always occur within a single control loop execution.
 	// when synced==true that means SyncAll() has completed and has nothing left to wait on.
 	if synced {
-		// record the version that has been completely installed
-		config.SetObservedDeploymentConfig(kv)
-
 		// update conditions
 		util.UpdateConditionsCreated(kv)
 		logger.Info("All KubeVirt resources created")
 
 		// check if components are ready
 		if c.isReady(kv) {
+			// record the version that has been completely installed only once all
+			// components are ready. This ensures isUpdating() returns true while
+			// optional feature deployments (e.g. virt-template) are still starting,
+			// keeping Available=True during the transition instead of flipping to
+			// Available=False (DeploymentInProgress).
+			config.SetObservedDeploymentConfig(kv)
 			logger.Info("All KubeVirt components ready")
 			kv.Status.Phase = v1.KubeVirtPhaseDeployed
 			util.UpdateConditionsAvailable(kv)
@@ -1164,7 +1179,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 			return nil
 		}
 
-		err = apply.DeleteAll(kv, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
+		err = apply.DeleteAll(kv, c.stores, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations)
 		if err != nil {
 			// deletion failed
 			util.UpdateConditionsDeletionFailed(kv, err)

@@ -105,6 +105,18 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Expect(response.Result.Code).To(
 			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
+
+	It("should warn off deprecated launchSecurity field", func() {
+		version := instancetypev1beta1.SchemeGroupVersion.Version
+		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
+			LaunchSecurity: &v1.LaunchSecurity{},
+		}
+		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
+		response := admitter.Admit(context.Background(), ar)
+
+		Expect(response.Allowed).To(BeTrue())
+		Expect(response.Warnings).To(ConsistOf(webhooks.DeprecatedLaunchSecurityWarning))
+	})
 })
 
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
@@ -132,6 +144,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	},
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
+
 	It("should reject specs with memory overcommit and hugepages", func() {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
 		clusterInstancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -152,6 +165,18 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(
 			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+	})
+
+	It("should warn off deprecated launchSecurity field", func() {
+		version := instancetypev1beta1.SchemeGroupVersion.Version
+		clusterInstancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
+			LaunchSecurity: &v1.LaunchSecurity{},
+		}
+		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, version)
+		response := admitter.Admit(context.Background(), ar)
+
+		Expect(response.Allowed).To(BeTrue())
+		Expect(response.Warnings).To(ConsistOf(webhooks.DeprecatedLaunchSecurityWarning))
 	})
 })
 

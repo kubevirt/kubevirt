@@ -100,6 +100,12 @@ type VirtualMachineInstanceSpec struct {
 	// If not specified, the VMI will be dispatched by default scheduler.
 	// +optional
 	SchedulerName string `json:"schedulerName,omitempty"`
+	// ServiceAccountName is the name of the ServiceAccount to use to run the
+	// virt-launcher pod. This sets pod.spec.serviceAccountName but does NOT
+	// automatically expose the service account token to the VM guest.
+	// To expose the token to the VM, use a serviceAccount volume.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
 	// TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology
@@ -180,13 +186,14 @@ type VirtualMachineInstanceSpec struct {
 	// This is an alpha field and requires enabling the
 	// DynamicResourceAllocation feature gate in kubernetes
 	//  https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+	// This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
+	// or NetworkDevicesWithDRA is enabled.
 	// This feature is in alpha.
 	//
 	// +listType=map
 	// +listMapKey=name
 	// +optional
-	ResourceClaims []k8sv1.PodResourceClaim `json:"resourceClaims,omitempty"`
+	ResourceClaims []VirtualMachineInstanceResourceClaim `json:"resourceClaims,omitempty"`
 	// List of utility volumes that can be mounted to the vmi virt-launcher pod
 	// without having a matching disk in the domain.
 	// Used to collect data for various operational workflows.
@@ -195,6 +202,31 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
+}
+
+type VirtualMachineInstanceResourceClaim struct {
+	// Name uniquely identifies this resource claim inside the VMI.
+	// This field is required and must be a DNS_LABEL.
+	Name string `json:"name"`
+	// ResourceClaimName is the name of a ResourceClaim object in the same
+	// namespace as this VMI.
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimName *string `json:"resourceClaimName,omitempty"`
+	// ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+	// object in the same namespace as this VMI.
+	//
+	// The template name is passed through to the generated virt-launcher Pod
+	// spec. From the Pod spec, the template is used to create a new
+	// ResourceClaim, which is bound to the virt-launcher Pod. When the
+	// virt-launcher Pod is deleted, the ResourceClaim is also deleted. The
+	// generated ResourceClaim name is unique and is recorded in
+	// pod.status.resourceClaimStatuses.
+	//
+	// Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+	// be set.
+	ResourceClaimTemplateName *string `json:"resourceClaimTemplateName,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
@@ -302,6 +334,9 @@ type VirtualMachineInstanceStatus struct {
 
 	// VSOCKCID is used to track the allocated VSOCK CID in the VM.
 	// +optional
+	// +kubebuilder:validation:Format:=int64
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=4294967295
 	VSOCKCID *uint32 `json:"VSOCKCID,omitempty"`
 
 	// SELinuxContext is the actual SELinux context of the virt-launcher pod
@@ -1213,6 +1248,22 @@ const (
 	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
 	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
+	// PciTopologyVersionAnnotation documents which PCI topology scheme was used to
+	// define the domain. Used to preserve PCI device addresses across reboots and upgrades.
+	PciTopologyVersionAnnotation string = "kubevirt.io/pci-topology-version"
+	// PciInterfaceSlotCountAnnotation stores the frozen total of placeholder interfaces
+	// plus boot-time non-hotplug interfaces. Set by virt-handler on detected v2 VMs.
+	// On subsequent boots, the placeholder count is derived as
+	// max(0, slotTotal - currentInterfaceCount), absorbing interface additions/removals
+	// while stopped without shifting PCI addresses.
+	PciInterfaceSlotCountAnnotation string = "kubevirt.io/pci-interface-slot-count"
+	// PciTopologyVersionV2 indicates the VM was created with the v2 hotplug port formula
+	// from PR #14754, which is unstable across spec changes.
+	PciTopologyVersionV2 string = "v2"
+	// PciTopologyVersionV3 indicates the VM uses v1 placeholders (for address stability)
+	// plus direct pcie-root-port controllers (for hotplug capacity).
+	PciTopologyVersionV3 string = "v3"
+
 	// This label represents supported cpu features on the node
 	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
 	// This label represents supported cpu models on the node
@@ -1333,6 +1384,11 @@ const (
 	// representation of the name to ensure uniqueness.
 	VirtualMachineInstanceIDLabel = "vmi.kubevirt.io/id"
 
+	// PersistentReservationLabelPrefix is the label key prefix used to mark
+	// virt-launcher pods that use SCSI PersistentReservation on a given PVC.
+	// The suffix is the PVC's UID.
+	PersistentReservationLabelPrefix = "pr.kubevirt.io/"
+
 	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
 	// pvc name and the timestamp the memory dump was collected
 	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
@@ -1399,6 +1455,12 @@ const (
 	// QGSSocketPathAnnotation specifies the path to the TDX Quote Generation Service socket.
 	// This annotation is set by virt-handler based on the cluster configuration.
 	QGSSocketPathAnnotation = "kubevirt.io/qgs-socket-path"
+
+	// PauseGuestAgentProbesAnnotation, when set to a truthy value (strconv.ParseBool)
+	// on a VMI, causes virt-launcher to short-circuit GuestAgentPing probes and
+	// return immediate success without contacting the QEMU guest agent.
+	// Remove the annotation (or set to a falsy value) to resume normal probe behavior.
+	PauseGuestAgentProbesAnnotation string = "kubevirt.io/pause-guest-agent-probes"
 
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
@@ -2012,10 +2074,10 @@ const (
 	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
 	VirtualMachineStatusUnschedulable VirtualMachinePrintableStatus = "ErrorUnschedulable"
-	// VirtualMachineStatusErrImagePull indicates that an error has occured while pulling an image for
+	// VirtualMachineStatusErrImagePull indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume.
 	VirtualMachineStatusErrImagePull VirtualMachinePrintableStatus = "ErrImagePull"
-	// VirtualMachineStatusImagePullBackOff indicates that an error has occured while pulling an image for
+	// VirtualMachineStatusImagePullBackOff indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
@@ -3099,6 +3161,10 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
 
+	// PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs
+	// +nullable
+	PersistentReservationConfiguration *PersistentReservationConfiguration `json:"persistentReservationConfiguration,omitempty"`
+
 	// QGS configuration for attestation on the Intel TDX Platform
 	// +nullable
 	ConfidentialCompute *ConfidentialComputeConfiguration `json:"confidentialCompute,omitempty"`
@@ -3857,4 +3923,11 @@ type ObjectGraphOptions struct {
 	IncludeOptionalNodes *bool `json:"includeOptionalNodes,omitempty"`
 	// LabelSelector is used to filter nodes in the graph based on their labels.
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+}
+
+type PersistentReservationConfiguration struct {
+	// Enabled controls the deployment of additional resources like the pr-helper container
+	// for enabling the use of the SCSI persistent reservation VMs, defaults to False.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
 }

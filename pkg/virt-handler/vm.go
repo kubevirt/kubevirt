@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/cgroups"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -57,6 +57,7 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
+	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -140,6 +141,7 @@ func NewVirtualMachineController(
 	netConf netconf,
 	netStat netstat,
 	cbtHandler *CBTHandler,
+	pluginStore cache.Store,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -166,6 +168,7 @@ func NewVirtualMachineController(
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
 		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		pluginStore,
 	)
 	if err != nil {
 		return nil, err
@@ -1224,10 +1227,6 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses Secure Execution", v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable), isBlockMigration
 	}
 
-	if reservation.HasVMIPersistentReservation(vmi) {
-		return newNonMigratableCondition("VMI uses SCSI persistent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
-	}
-
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
 		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
 	}
@@ -1730,6 +1729,9 @@ func (c *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 func (c *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstance) error {
 
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
+	// Always clear the cached client afterward so that a stale entry from a
+	// dying launcher cannot poison the cache for subsequent controllers.
+	defer c.launcherClients.CloseLauncherClient(vmi)
 	client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
 
 	// If the pod has been torn down, we know the VirtualMachineInstance is down.
@@ -1931,10 +1933,15 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		if !goerror.Is(err, os.ErrNotExist) {
+		switch {
+		case goerror.Is(err, hotplugvolume.ErrWaitingForHotplugMount):
+			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		case goerror.Is(err, os.ErrNotExist):
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
+		default:
 			return err
 		}
-		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
 	}
 
 	if err := c.getMemoryDump(vmi); err != nil {
@@ -1980,10 +1987,15 @@ func (c *VirtualMachineController) handleStartingVMI(
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		if !goerror.Is(err, os.ErrNotExist) {
+		switch {
+		case goerror.Is(err, hotplugvolume.ErrWaitingForHotplugMount):
+			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		case goerror.Is(err, os.ErrNotExist):
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
+		default:
 			return false, err
 		}
-		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
 	}
 
 	if !c.hotplugVolumesReady(vmi) {
@@ -2034,8 +2046,13 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+	pluginsJSON, err := c.serializePlugins()
+	if err != nil {
+		return err
+	}
+	options.PluginsJson = pluginsJSON
 
-	err := client.SyncVirtualMachine(vmi, options)
+	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
 		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
@@ -2170,7 +2187,32 @@ func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 	if err != nil {
 		return err
 	}
+	if phase == v1.Failed && vmi.Status.Phase != v1.Failed {
+		panicInfo := c.getGuestPanicInfo(domain, vmi)
+		if panicInfo != nil {
+			panicType := "unknown"
+			if panicInfo.Type != "" {
+				panicType = panicInfo.Type
+			}
+			bugcheckCode := panicInfo.Arg1
+			vhmetrics.IncGuestOSPanic(vmi.Namespace, vmi.Name, panicType, bugcheckCode)
+		}
+	}
 	vmi.Status.Phase = phase
+	return nil
+}
+
+func (c *VirtualMachineController) getGuestPanicInfo(domain *api.Domain, vmi *v1.VirtualMachineInstance) *api.GuestPanicInfo {
+	if domain != nil {
+		return domain.Status.GuestPanicInfo
+	}
+	obj, exists, err := c.domainStore.GetByKey(controller.VirtualMachineInstanceKey(vmi))
+	if err != nil || !exists {
+		return nil
+	}
+	if d, ok := obj.(*api.Domain); ok {
+		return d.Status.GuestPanicInfo
+	}
 	return nil
 }
 

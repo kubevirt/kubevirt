@@ -58,11 +58,11 @@ const (
 	// Deprecated: v1.4.0
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 
-	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
+	// NetworkBindingPluginsGate enables using a plugin to bind the pod and the VM network
 	// Alpha: v1.1.0
 	// Beta:  v1.4.0
 	// GA:    v1.5.0
-	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
+	NetworkBindingPluginsGate = "NetworkBindingPlugins"
 
 	// DynamicPodInterfaceNamingGate enables a mechanism to dynamically determine the primary pod interface for KubeVirt virtual machines.
 	// Beta:  v1.4.0
@@ -115,11 +115,19 @@ const (
 	MultiArchitecture = "MultiArchitecture"
 
 	// VirtIOFSConfigVolumesGate enables the use of virtiofs for config volumes, i.e., config-maps, secrets, downwardAPI, etc.
-	// Ownwers: @germag @jcanocan
+	// Owners: @germag @jcanocan
 	// Alpha: v1.5.0
 	// Beta: v1.6.0
 	// GA: v1.8.0
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
+
+	// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb) via the `Video` field, overriding default settings.
+	// Requires `autoattachGraphicsDevice` to be true or unset.
+	// Owner: @dasionov
+	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	// GA: v1.9.0
+	VideoConfig = "VideoConfig"
 
 	// Owner: sig-compute
 	// Alpha: v1.0.0
@@ -139,7 +147,7 @@ const (
 	// Owner: @varunrsekar
 	// Alpha: v1.6.0
 	// Beta: v1.7.0
-	// GA: v1.8.0
+	// GA: v1.9.0
 	//
 	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
 	PanicDevicesGate = "PanicDevices"
@@ -150,6 +158,18 @@ const (
 	//
 	// LiveUpdateNADRef enables dynamic modification of NAD references for secondary networks on running VMs.
 	LiveUpdateNADRef = "LiveUpdateNADRef"
+
+	// Owner: sig-storage
+	// Alpha: v0.36.0
+	// Deprecated: v1.9.0
+	HotplugVolumesGate = "HotplugVolumes"
+
+	// Owner: sig-storage
+	// Alpha: v1.0.0
+	// GA: v1.9.0
+	//
+	// PersistentReservation enables the use of the SCSI persistent reservation in VMs using the pr-helper daemon
+	PersistentReservation = "PersistentReservation"
 )
 
 func init() {
@@ -164,7 +184,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMLiveUpdateFeaturesGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPlugingsGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPluginsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DynamicPodInterfaceNamingGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
@@ -173,6 +193,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
@@ -189,4 +210,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Deprecated, Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes"})
+	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 }

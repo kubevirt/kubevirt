@@ -818,6 +818,11 @@ func (in *VirtualMachinePreferenceSpec) DeepCopyInto(out *VirtualMachinePreferen
 		*out = new(string)
 		**out = **in
 	}
+	if in.PreferredLaunchSecurity != nil {
+		in, out := &in.PreferredLaunchSecurity, &out.PreferredLaunchSecurity
+		*out = new(v1.LaunchSecurity)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

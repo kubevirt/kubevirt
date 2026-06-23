@@ -132,6 +132,21 @@ func (mr *MockDomainManagerMockRecorder) FreezeVMI(arg0, arg1 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVMI", reflect.TypeOf((*MockDomainManager)(nil).FreezeVMI), arg0, arg1)
 }
 
+// GetAgentData mocks base method.
+func (m *MockDomainManager) GetAgentData(dataKey string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAgentData", dataKey)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAgentData indicates an expected call of GetAgentData.
+func (mr *MockDomainManagerMockRecorder) GetAgentData(dataKey any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentData", reflect.TypeOf((*MockDomainManager)(nil).GetAgentData), dataKey)
+}
+
 // GetDomainDirtyRateStats mocks base method.
 func (m *MockDomainManager) GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error) {
 	m.ctrl.T.Helper()
@@ -174,6 +189,20 @@ func (m *MockDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileSyst
 func (mr *MockDomainManagerMockRecorder) GetFilesystems() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilesystems", reflect.TypeOf((*MockDomainManager)(nil).GetFilesystems))
+}
+
+// GetGuestAgentVersion mocks base method.
+func (m *MockDomainManager) GetGuestAgentVersion() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGuestAgentVersion")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetGuestAgentVersion indicates an expected call of GetGuestAgentVersion.
+func (mr *MockDomainManagerMockRecorder) GetGuestAgentVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestAgentVersion", reflect.TypeOf((*MockDomainManager)(nil).GetGuestAgentVersion))
 }
 
 // GetGuestInfo mocks base method.

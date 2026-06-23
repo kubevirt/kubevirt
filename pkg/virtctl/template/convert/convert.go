@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
-	"kubevirt.io/virt-template-api/core/v1alpha1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -187,15 +187,15 @@ func (c *convert) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func (c *convert) convertTemplate() (*v1alpha1.VirtualMachineTemplate, error) {
+func (c *convert) convertTemplate() (*v1beta1.VirtualMachineTemplate, error) {
 	ocpTpl, err := c.getTemplate()
 	if err != nil {
 		return nil, err
 	}
 
-	tpl := &v1alpha1.VirtualMachineTemplate{
+	tpl := &v1beta1.VirtualMachineTemplate{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.String(),
+			APIVersion: v1beta1.GroupVersion.String(),
 			Kind:       "VirtualMachineTemplate",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -204,7 +204,7 @@ func (c *convert) convertTemplate() (*v1alpha1.VirtualMachineTemplate, error) {
 			Labels:      ocpTpl.Labels,
 			Annotations: ocpTpl.Annotations,
 		},
-		Spec: v1alpha1.VirtualMachineTemplateSpec{
+		Spec: v1beta1.VirtualMachineTemplateSpec{
 			Message:    ocpTpl.Message,
 			Parameters: convertParameters(ocpTpl.Parameters),
 		},
@@ -218,14 +218,14 @@ func (c *convert) convertTemplate() (*v1alpha1.VirtualMachineTemplate, error) {
 	return tpl, nil
 }
 
-func convertParameters(ocpParams []ocpv1.Parameter) []v1alpha1.Parameter {
+func convertParameters(ocpParams []ocpv1.Parameter) []v1beta1.Parameter {
 	if len(ocpParams) == 0 {
 		return nil
 	}
 
-	params := make([]v1alpha1.Parameter, len(ocpParams))
+	params := make([]v1beta1.Parameter, len(ocpParams))
 	for i, p := range ocpParams {
-		params[i] = v1alpha1.Parameter{
+		params[i] = v1beta1.Parameter{
 			Name:        p.Name,
 			DisplayName: p.DisplayName,
 			Description: p.Description,

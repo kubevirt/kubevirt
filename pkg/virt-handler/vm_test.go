@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	io_prometheus_client "github.com/prometheus/client_model/go"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -57,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -202,6 +205,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			&netConfStub{},
 			&netStatStub{},
 			cbtHandler,
+			nil,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
@@ -646,6 +650,49 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedVMI.Status.Machine).To(Equal(&v1.Machine{Type: "q35-123"}))
+		})
+
+		It("should continue sync when hotplug mount returns ErrWaitingForHotplugMount", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			addVMI(vmi, domain)
+
+			unmountCalled := false
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(hotplugvolume.ErrWaitingForHotplugMount)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Do(func(_ *v1.VirtualMachineInstance, _ cgroup.Manager) {
+				unmountCalled = true
+			}).Return(nil)
+
+			sanityExecute()
+			Expect(unmountCalled).To(BeTrue(), "Unmount should still be called when Mount returns ErrWaitingForHotplugMount")
+		})
+
+		It("should emit HotplugFailed event when hotplug mount returns os.ErrNotExist", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			addVMI(vmi, domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(os.ErrNotExist)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, "HotplugFailed")
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
@@ -1109,6 +1156,101 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
 		})
 
+		Context("guest OS panic metric", func() {
+			expectPanicMetricValue := func(namespace, name, panicType, bugcheckCode string, expectedValue float64) {
+				dto := &io_prometheus_client.Metric{}
+				counter, err := vhmetrics.GetGuestOSPanicTotal().GetMetricWithLabelValues(namespace, name, panicType, bugcheckCode)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, counter).ToNot(BeNil())
+				ExpectWithOffset(1, counter.Write(dto)).To(Succeed())
+				ExpectWithOffset(1, *dto.Counter.Value).To(Equal(expectedValue))
+			}
+
+			newPanicVMI := func() *v1.VirtualMachineInstance {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.ObjectMeta.ResourceVersion = "1"
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				return vmi
+			}
+
+			newPanicDomain := func(panicInfo *api.GuestPanicInfo) *api.Domain {
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Crashed
+				domain.Status.Reason = api.ReasonPanicked
+				domain.Status.GuestPanicInfo = panicInfo
+				return domain
+			}
+
+			It("should increment counter on hyper-v panic with bugcheck code", func() {
+				vmi := newPanicVMI()
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e})
+
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
+			})
+
+			It("should not increment counter for non-panic crash reasons", func() {
+				vmi := newPanicVMI()
+
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Crashed
+				domain.Status.Reason = api.ReasonCrashed
+
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "", 0.0)
+			})
+
+			It("should not double-increment counter when already in Failed phase", func() {
+				vmi := newPanicVMI()
+				vmi.Status.Phase = v1.Failed
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e})
+
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 0.0)
+			})
+
+			It("should default to unknown type and empty bugcheck code when GuestPanicInfo has no details", func() {
+				vmi := newPanicVMI()
+				domain := newPanicDomain(&api.GuestPanicInfo{})
+
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "unknown", 1.0)
+			})
+
+			It("should preserve bugcheck code even when panic type falls back to unknown", func() {
+				vmi := newPanicVMI()
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "", Arg1: 0x50})
+
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "0x50", 1.0)
+			})
+
+			It("should use domainStore fallback for GuestPanicInfo when domain is nil", func() {
+				vmi := newPanicVMI()
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e})
+				Expect(controller.domainStore.Add(domain)).To(Succeed())
+
+				controller.launcherClients = &launcherclients.MockLauncherClientManager{
+					Initialized:  true,
+					UnResponsive: true,
+				}
+
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				Expect(controller.setVmPhaseForStatusReason(nil, vmi)).To(Succeed())
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
+			})
+		})
+
 		It("should move VirtualMachineInstance to Failed if configuring the networks on the virt-launcher fails with critical error", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -1256,6 +1398,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should compute checksums for the specified containerDisks and kernelboot containers", func() {
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						DisabledFeatureGates: []string{featuregate.ImageVolume},
+					},
+				})
+				controller.clusterConfig = config
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -2488,7 +2636,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonTDXNotMigratable))
 		})
 
-		It("should not be allowed to live-migrate if the VMI uses SCSI persistent reservation", func() {
+		It("should be allowed to live-migrate if the VMI uses SCSI persistent reservation", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
@@ -2504,8 +2652,27 @@ var _ = Describe("VirtualMachineInstance", func() {
 			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
+		It("should not be allowed to storage-migrate if the VMI uses SCSI persistent reservation", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
+				v1.Disk{
+					Name: "scsi0",
+					DiskDevice: v1.DiskDevice{
+						LUN: &v1.LunTarget{
+							Bus:         "scsi",
+							Reservation: true,
+						},
+					},
+				})
+			condition := controller.calculateLiveStorageMigrationCondition(vmi)
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonPRNotMigratable))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonNotMigratable))
+			Expect(condition.Message).To(ContainSubstring("SCSI persistent reservation"))
 		})
 
 		Context("with network configuration", func() {

@@ -71,6 +71,7 @@ import (
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -489,10 +490,10 @@ func (c *Controller) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv1.
 
 func (c *Controller) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
 	serviceAccountName := "default"
-	for _, vol := range vm.Spec.Template.Spec.Volumes {
-		if vol.ServiceAccount != nil {
-			serviceAccountName = vol.ServiceAccount.ServiceAccountName
-		}
+	if vm.Spec.Template.Spec.ServiceAccountName != "" {
+		serviceAccountName = vm.Spec.Template.Spec.ServiceAccountName
+	} else if sa := storageutils.ServiceAccountNameFromVolumes(vm.Spec.Template.Spec.Volumes); sa != "" {
+		serviceAccountName = sa
 	}
 
 	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
@@ -3051,15 +3052,21 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 
 	patchSet := patch.New()
 	newVmiAnnotations := maps.Clone(vmi.Annotations)
+	if newVmiAnnotations == nil {
+		newVmiAnnotations = map[string]string{}
+	}
 	newVmiLabels := maps.Clone(vmi.Labels)
+	if newVmiLabels == nil {
+		newVmiLabels = map[string]string{}
+	}
 
-	syncMap := func(keys []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
+	syncMap := func(patterns []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
 		changed := false
-		for _, key := range keys {
+		syncKey := func(key string) {
 			vmVal, vmExists := vmMap[key]
 			vmiVal, vmiExists := vmiMap[key]
 			if vmExists == vmiExists && vmVal == vmiVal {
-				continue
+				return
 			}
 			changed = true
 			if vmExists {
@@ -3067,6 +3074,41 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 			} else {
 				delete(vmiMap, key)
 			}
+		}
+
+		syncPrefix := func(prefix string) {
+			visited := map[string]struct{}{}
+			for key := range vmMap {
+				if strings.HasPrefix(key, prefix) {
+					visited[key] = struct{}{}
+					syncKey(key)
+				}
+			}
+			for key := range vmiMap {
+				if strings.HasPrefix(key, prefix) {
+					if _, ok := visited[key]; ok {
+						continue
+					}
+					visited[key] = struct{}{}
+					syncKey(key)
+				}
+			}
+		}
+
+		for _, pattern := range patterns {
+			if pattern == "" {
+				continue
+			}
+			if strings.HasSuffix(pattern, "*") {
+				prefix := strings.TrimSuffix(pattern, "*")
+				// Reject bare "*" to prevent accidental sync-all. Only prefix wildcards like "vendor.io/*" are supported.
+				if prefix == "" {
+					continue
+				}
+				syncPrefix(prefix)
+				continue
+			}
+			syncKey(pattern)
 		}
 
 		if !changed {
@@ -3120,6 +3162,35 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 	}
 
 	return updatedVMI, nil
+}
+
+// syncPCITopologyAnnotationsToVM copies PCI topology annotations from the VMI
+// back to the VM template so they persist across reboots. This is needed for
+// VMs that were detected as v2 by virt-handler — the frozen placeholder count
+// must be preserved in the VM template for future VMI incarnations.
+func syncPCITopologyAnnotationsToVM(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if vm == nil || vmi == nil {
+		return
+	}
+
+	vmiVersion := vmi.Annotations[virtv1.PciTopologyVersionAnnotation]
+	if vmiVersion == "" {
+		return
+	}
+
+	if vm.Spec.Template.ObjectMeta.Annotations[virtv1.PciTopologyVersionAnnotation] != "" {
+		return
+	}
+
+	if vm.Spec.Template.ObjectMeta.Annotations == nil {
+		vm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	vm.Spec.Template.ObjectMeta.Annotations[virtv1.PciTopologyVersionAnnotation] = vmiVersion
+
+	if count, exists := vmi.Annotations[virtv1.PciInterfaceSlotCountAnnotation]; exists {
+		vm.Spec.Template.ObjectMeta.Annotations[virtv1.PciInterfaceSlotCountAnnotation] = count
+	}
 }
 
 func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, common.SyncError, error) {
@@ -3254,6 +3325,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if vmi, err = c.syncDynamicAnnotationsAndLabelsToVMI(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling annotation and labels sync request: %v", err), annotationsLabelsChangeErrorReason), nil
 	}
+
+	syncPCITopologyAnnotationsToVM(vmCopy, vmi)
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {

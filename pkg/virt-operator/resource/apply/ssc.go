@@ -15,7 +15,7 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateSCC() error {
-	sec := r.clientset.SecClient()
+	sec := r.virtClient.SecClient()
 
 	if !r.config.IsOnOpenshift {
 		return nil
@@ -37,7 +37,8 @@ func (r *Reconciler) createOrUpdateSCC() error {
 			_, err := sec.SecurityContextConstraints().Create(context.Background(), scc, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.SCC.LowerExpectations(r.kvKey, 1, 0)
-				return fmt.Errorf("unable to create SCC %+v: %v", scc, err)
+				log.Log.V(2).Infof("failed to create SCC %s: %+v", scc.Name, scc)
+				return fmt.Errorf("unable to create SCC %s: %v", scc.Name, err)
 			}
 
 			log.Log.V(2).Infof("SCC %v created", scc.Name)
@@ -71,7 +72,8 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 
 	SCC, ok := SCCObj.(*secv1.SecurityContextConstraints)
 	if !ok {
-		return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", SCCObj)
+		log.Log.V(2).Infof("failed to cast object to SecurityContextConstraints: %+v", SCCObj)
+		return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %T", SCCObj)
 	}
 
 	modified := false
@@ -93,7 +95,7 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 			return err
 		}
 
-		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		_, err = r.virtClient.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch scc: %v", err)
 		}

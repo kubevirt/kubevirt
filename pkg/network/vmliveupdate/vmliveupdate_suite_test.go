@@ -22,11 +22,9 @@ package vmliveupdate_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestVMLiveUpdate(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "VMLiveUpdate Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }

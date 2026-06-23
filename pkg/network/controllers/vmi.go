@@ -47,11 +47,35 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 
 	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
 
+	// Keep statuses for spec interfaces that are not managed by the virt-controller updater,
+	// such as DRA resource-claim networks.
+	interfaceStatuses = append(interfaceStatuses,
+		filterDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks)...,
+	)
+
 	// Preserve interfaces discovered by the virt-handler which are not specified in the VMI.Spec.
 	interfaceStatuses = append(interfaceStatuses, filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks)...)
 
 	vmi.Status.Interfaces = interfaceStatuses
 	return nil
+}
+
+func filterDRAIfaceStatuses(
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	networks []v1.Network,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	var preservedIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	networksByName := vmispec.IndexNetworkSpecByName(networks)
+	for _, ifaceStatus := range ifaceStatuses {
+		if !vmispec.IsDRANetwork(networksByName[ifaceStatus.Name]) {
+			continue
+		}
+
+		preservedIfaceStatuses = append(preservedIfaceStatuses, ifaceStatus)
+	}
+
+	return preservedIfaceStatuses
 }
 
 func calculatePrimaryIfaceStatus(

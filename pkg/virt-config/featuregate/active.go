@@ -31,11 +31,7 @@ const (
 	// Beta: v1.3.0
 	SnapshotGate = "Snapshot"
 
-	// Owner: sig-storage
-	// Alpha: v0.55.0
-	// Beta: v1.3.0
-	HotplugVolumesGate = "HotplugVolumes"
-	HostDiskGate       = "HostDisk"
+	HostDiskGate = "HostDisk"
 
 	// Owner: sig-storage
 	// Alpha: v1.7.0
@@ -52,9 +48,6 @@ const (
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
 	KubevirtSeccompProfile = "KubevirtSeccompProfile"
-	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
-	PersistentReservation = "PersistentReservation"
-
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
 
@@ -78,6 +71,7 @@ const (
 
 	// Owner: @Barakmor1
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	//
 	// LibvirtHooksServerAndClient The LibvirtHooksServerAndClient FG enables running pre-migration
 	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
@@ -112,6 +106,14 @@ const (
 	// PCINUMAAwareTopologyEnabled enables NUMA-aware PCIe topology mapping for passthrough devices
 	PCINUMAAwareTopologyEnabled = "PCINUMAAwareTopology"
 
+	// Owner: SIG network
+	// Alpha: v1.9.0
+	//
+	// NetworkDevicesWithDRAGate allows users to create VMIs with DRA provisioned Network devices
+	// specified in spec.networks with resourceClaim type. This enables DRA-managed network
+	// resources to be attached to VMs using the natural networks API.
+	NetworkDevicesWithDRAGate = "NetworkDevicesWithDRA"
+
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
 	// Owner: sig-storage / @alromeros
@@ -122,6 +124,10 @@ const (
 	// to the specified VM or VMI, enabling better dependency tracking.
 	ObjectGraph = "ObjectGraph"
 
+	// Owner: sig-storage / @mhenriks
+	// Alpha: v1.6.0
+	// Beta: v1.9.0
+	//
 	// DeclarativeHotplugVolumes enables adding/removing volumes declaratively
 	// also implicitly handles inject/eject CDROM
 	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
@@ -132,14 +138,6 @@ const (
 	//
 	// SecureExecution introduces secure execution of VMs on IBM Z architecture
 	SecureExecution = "SecureExecution"
-
-	// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb) via the `Video` field, overriding default settings.
-	// Requires `autoattachGraphicsDevice` to be true or unset. Alpha feature, defaults unchanged.
-	// Owner: @dasionov
-	// Alpha: v1.6.0
-	// Beta: v1.7.0
-	//
-	VideoConfig = "VideoConfig"
 
 	// Beta: v1.8.0
 	//
@@ -177,6 +175,7 @@ const (
 
 	// Owner: sig-compute / @MarSik
 	// Alpha: v1.8.0
+	// Beta: v1.9.0
 	//
 	// RebootPolicy enables setting the RebootPolicy field on VMI's DomainSpec
 	// which allows terminating the VMI on guest reboot instead of silently rebooting,
@@ -223,10 +222,59 @@ const (
 	// The VGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
 	// target XML's mdev UUID to be mutated.
 	VGPULiveMigration = "VGPULiveMigration"
+
+	// Owner: sig-compute / @enp0s3
+	// Alpha: v1.9.0
+	//
+	// VMStatsCollector enables the additional guest agent polling workers
+	// (frequent/medium/infrequent tiers) that collect raw monitoring data
+	// for the GetVMStats gRPC RPC.
+	VMStatsCollector = "VMStatsCollector"
+
+	// Owner: sig-compute, sig-storage / @0xFelix
+	// Alpha: v1.9.0
+	//
+	// OCIExport enables exporting VM disks as OCI image layout TAR archives.
+	OCIExport = "OCIExport"
+
+	// Owner: @iholder101
+	// Alpha: v1.9.0
+	//
+	// Plugins enables the Plugin CRD for declarative VM extension
+	// via domain hooks, node hooks, and admission references (VEP-190).
+	PluginsGate = "Plugins"
+
+	// Owner: sig-compute / @fanzhangio
+	// Alpha: v1.9.0
+	// GraceIOVirtualization enables GPU passthrough optimized for NVIDIA Grace
+	// platforms (i.e ARM64 architectures by utilizing SMMUv3 IOMMU).
+	// It utilizes SMMUv3 IOMMU, IOMMUFD device binding on ARM64, and ACPI Generic Initiator NUMA topology.
+	GraceIOVirtualization = "GraceIOVirtualization"
+
+	// Owner: sig-compute / @fossedihelm
+	// Alpha: v1.9.0
+	//
+	// IOMMUFD enables the IOMMUFD device plugin for passthrough devices.
+	// When enabled, virt-controller requests devices.kubevirt.io/iommufd for
+	// every launcher pod. Nodes without /dev/iommu (kernel <6.2) will report
+	// unhealthy devices, making pods unschedulable there.
+	// This feature also emits domain-level <iommufd enabled='yes' fdgroup='iommu'/>
+	// and uses virDomainFDAssociate, which require a libvirt/QEMU stack that supports
+	// fdgroup-based IOMMUFD, currently libvirt >= 12.2. Enable this gate only on
+	// clusters where target nodes and virt-launcher images provide compatible
+	// kernel, libvirt, and QEMU support.
+	IOMMUFDGate = "IOMMUFD"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.9.0
+	//
+	// FirmwareAutoSelection uses libvirt's firmware auto-selection feature for
+	// EFI Secure Boot instead of hardcoded OVMF firmware paths.
+	FirmwareAutoSelection = "FirmwareAutoSelection"
 )
 
 func init() {
-	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
@@ -234,7 +282,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
@@ -242,17 +289,17 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
@@ -260,11 +307,17 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VMStatsCollector, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OCIExport, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PluginsGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GraceIOVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 }

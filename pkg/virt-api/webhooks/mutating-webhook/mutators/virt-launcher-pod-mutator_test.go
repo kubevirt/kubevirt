@@ -21,6 +21,7 @@ package mutators_test
 
 import (
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
@@ -126,6 +128,54 @@ var _ = Describe("VirtLauncherPodMutator", func() {
 			Entry("should not inject when readOnly is false", pointer.P(false), false),
 			Entry("should not inject when readOnly is nil", nil, false),
 		)
+
+		It("should include --translate-uid when projected volume has SA token source", func() {
+			vmi := newVMIWithContainerPath()
+			pod := newVirtLauncherPodWithProjectedSAToken(vmi)
+
+			virtClient.EXPECT().VirtualMachineInstance(pod.Namespace).Return(vmiInterface)
+			vmiInterface.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
+
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			mutator := mutators.NewVirtLauncherPodMutator(clusterConfig, virtClient)
+
+			ar := createPodAdmissionReview(pod)
+			response := mutator.Mutate(ar)
+
+			Expect(response.Allowed).To(BeTrue())
+			Expect(response.Patch).ToNot(BeNil())
+			var patches []map[string]any
+			Expect(json.Unmarshal(response.Patch, &patches)).To(Succeed())
+			Expect(patches).To(HaveLen(1))
+			container := patches[0]["value"].(map[string]any)
+			args := container["args"].([]any)
+			expectedArg := fmt.Sprintf("--translate-uid=host:%d:0:1", util.NonRootUID)
+			Expect(args).To(ContainElement(expectedArg))
+		})
+
+		It("should not include --translate-uid when projected volume has no SA token source", func() {
+			vmi := newVMIWithContainerPath()
+			pod := newVirtLauncherPodWithProjectedNoSAToken(vmi)
+
+			virtClient.EXPECT().VirtualMachineInstance(pod.Namespace).Return(vmiInterface)
+			vmiInterface.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
+
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			mutator := mutators.NewVirtLauncherPodMutator(clusterConfig, virtClient)
+
+			ar := createPodAdmissionReview(pod)
+			response := mutator.Mutate(ar)
+
+			Expect(response.Allowed).To(BeTrue())
+			Expect(response.Patch).ToNot(BeNil())
+			var patches []map[string]any
+			Expect(json.Unmarshal(response.Patch, &patches)).To(Succeed())
+			Expect(patches).To(HaveLen(1))
+			container := patches[0]["value"].(map[string]any)
+			args := container["args"].([]any)
+			translateArg := fmt.Sprintf("--translate-uid=host:%d:0:1", util.NonRootUID)
+			Expect(args).ToNot(ContainElement(translateArg))
+		})
 
 		It("should not mutate if virtiofs container already exists", func() {
 			vmi := newVMIWithContainerPath()
@@ -272,6 +322,86 @@ func newVirtLauncherPodWithVolumeMounts(vmi *v1.VirtualMachineInstance) *k8sv1.P
 		},
 		{
 			Name:      "aws-iam-token",
+			MountPath: "/var/run/secrets/token",
+			ReadOnly:  true,
+		},
+	}
+
+	return pod
+}
+
+func newVirtLauncherPodWithProjectedSAToken(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+	pod := newVirtLauncherPod(vmi)
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes,
+		k8sv1.Volume{
+			Name: virtiofs.VirtioFSContainers,
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		},
+		k8sv1.Volume{
+			Name: "aws-iam-token",
+			VolumeSource: k8sv1.VolumeSource{
+				Projected: &k8sv1.ProjectedVolumeSource{
+					Sources: []k8sv1.VolumeProjection{
+						{ServiceAccountToken: &k8sv1.ServiceAccountTokenProjection{
+							Audience:          "sts.amazonaws.com",
+							ExpirationSeconds: pointer.P(int64(3600)),
+							Path:              "token",
+						}},
+					},
+				},
+			},
+		},
+	)
+
+	pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
+		{
+			Name:      virtiofs.VirtioFSContainers,
+			MountPath: virtiofs.VirtioFSContainersMountBaseDir,
+		},
+		{
+			Name:      "aws-iam-token",
+			MountPath: "/var/run/secrets/token",
+			ReadOnly:  true,
+		},
+	}
+
+	return pod
+}
+
+func newVirtLauncherPodWithProjectedNoSAToken(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+	pod := newVirtLauncherPod(vmi)
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes,
+		k8sv1.Volume{
+			Name: virtiofs.VirtioFSContainers,
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		},
+		k8sv1.Volume{
+			Name: "config-projected",
+			VolumeSource: k8sv1.VolumeSource{
+				Projected: &k8sv1.ProjectedVolumeSource{
+					Sources: []k8sv1.VolumeProjection{
+						{ConfigMap: &k8sv1.ConfigMapProjection{
+							LocalObjectReference: k8sv1.LocalObjectReference{Name: "my-config"},
+						}},
+					},
+				},
+			},
+		},
+	)
+
+	pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
+		{
+			Name:      virtiofs.VirtioFSContainers,
+			MountPath: virtiofs.VirtioFSContainersMountBaseDir,
+		},
+		{
+			Name:      "config-projected",
 			MountPath: "/var/run/secrets/token",
 			ReadOnly:  true,
 		},

@@ -24,7 +24,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -329,43 +328,4 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 	}
 	return storageClass.VolumeBindingMode != nil &&
 		*storageClass.VolumeBindingMode == wffc
-}
-
-func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs int) {
-	virtClient := kubevirt.Client()
-	sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
-		return
-	}
-
-	// Verify we have at least `numExpectedPVs` available file system PVs
-	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	if countLocalStoragePVAvailableForUse(pvList, storageClassName) < numExpectedPVs {
-		Skip("Not enough available filesystem local storage PVs available, expected: %d", numExpectedPVs)
-	}
-}
-
-func countLocalStoragePVAvailableForUse(pvList *k8sv1.PersistentVolumeList, storageClassName string) int {
-	count := 0
-	for _, pv := range pvList.Items {
-		if pv.Spec.StorageClassName == storageClassName && isLocalPV(pv) && isPVAvailable(pv) {
-			count++
-		}
-	}
-	return count
-}
-
-func isLocalPV(pv k8sv1.PersistentVolume) bool {
-	return pv.Spec.NodeAffinity != nil &&
-		pv.Spec.NodeAffinity.Required != nil &&
-		len(pv.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 &&
-		(pv.Spec.VolumeMode == nil || *pv.Spec.VolumeMode != k8sv1.PersistentVolumeBlock)
-}
-
-func isPVAvailable(pv k8sv1.PersistentVolume) bool {
-	return pv.Spec.ClaimRef == nil
 }

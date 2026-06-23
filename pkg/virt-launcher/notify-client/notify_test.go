@@ -342,11 +342,6 @@ var _ = Describe("Notify", func() {
 	})
 
 	Describe("K8s Events", func() {
-		var err error
-		var shareDir string
-		var stop chan struct{}
-		var stopped bool
-		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
 		var client *Notifier
 		var recorder *record.FakeRecorder
@@ -354,11 +349,10 @@ var _ = Describe("Notify", func() {
 		var e *eventCaller
 
 		BeforeEach(func() {
-			stop = make(chan struct{})
-			eventChan = make(chan watch.Event, 100)
+			stop := make(chan struct{})
+			eventChan := make(chan watch.Event, 100)
 			deleteNotificationSent = make(chan watch.Event, 100)
-			stopped = false
-			shareDir, err = os.MkdirTemp("", "kubevirt-share")
+			shareDir, err := os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 
 			recorder = record.NewFakeRecorder(10)
@@ -367,25 +361,21 @@ var _ = Describe("Notify", func() {
 			vmiStore = vmiInformer.GetStore()
 			e = &eventCaller{}
 
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
-			}()
+			go func(rec record.EventRecorder, store cache.Store) {
+				notifyserver.RunServer(shareDir, stop, eventChan, rec, store)
+			}(recorder, vmiStore)
 			// mimic pipe
 			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
 			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
 			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
-			time.Sleep(1 * time.Second)
-
 			client = NewNotifier(shareDir)
-		})
 
-		AfterEach(func() {
-			if stopped == false {
+			DeferCleanup(func() {
 				close(stop)
-			}
-			client.Close()
-			os.RemoveAll(shareDir)
+				client.Close()
+				os.RemoveAll(shareDir)
+			})
 		})
 
 		It("Should send a k8s event", func() {
@@ -435,6 +425,70 @@ var _ = Describe("Notify", func() {
 			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache, false)
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
+		})
+
+		Context("handleGuestPanicEvent", func() {
+			It("should return GuestPanicInfo with type unknown when log file is missing", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+
+				panicInfo := e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+
+				Expect(panicInfo).ToNot(BeNil())
+				Expect(panicInfo.Type).To(Equal("unknown"))
+			})
+
+			It("should mark panic as handled for PANICKED events", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+
+				e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+
+				handled, exists := cache.GuestPanicHandled.Load()
+				Expect(exists).To(BeTrue())
+				Expect(handled).To(BeTrue())
+			})
+
+			It("should not mark panic as handled for CRASHLOADED events", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+
+				e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED), false)
+
+				_, exists := cache.GuestPanicHandled.Load()
+				Expect(exists).To(BeFalse())
+			})
+
+			It("should return nil when VMI is nil", func() {
+				cache := metadata.NewCache()
+				panicInfo := e.handleGuestPanicEvent(client, nil, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+				Expect(panicInfo).To(BeNil())
+			})
+
+			It("should skip already handled panic events", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+				cache.GuestPanicHandled.Set(true)
+
+				panicInfo := e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+				Expect(panicInfo).To(BeNil())
+			})
 		})
 
 	})

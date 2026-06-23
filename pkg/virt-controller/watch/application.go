@@ -335,7 +335,7 @@ func Execute() {
 	stopChan := ctx.Done()
 	app.ctx = ctx
 
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, nil, app.kubevirtNamespace)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.clientSet, nil, app.kubevirtNamespace)
 
 	app.crdInformer = app.informerFactory.CRD()
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
@@ -356,7 +356,7 @@ func Execute() {
 
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
-	app.isDRAEnabled = app.clusterConfig.GPUsWithDRAGateEnabled() || app.clusterConfig.HostDevicesWithDRAEnabled()
+	app.isDRAEnabled = app.clusterConfig.AnyDeviceDRAGateEnabled()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
@@ -508,7 +508,7 @@ func (vca *VirtControllerApp) configModificationCallback() {
 		vca.reInitChan <- "reinit"
 		return
 	}
-	newIsDRAEnabled := vca.clusterConfig.GPUsWithDRAGateEnabled() || vca.clusterConfig.HostDevicesWithDRAEnabled()
+	newIsDRAEnabled := vca.clusterConfig.AnyDeviceDRAGateEnabled()
 	if newIsDRAEnabled != vca.isDRAEnabled {
 		if newIsDRAEnabled {
 			log.Log.Infof("Reinitialize virt-controller, DRA integration has been introduced")
@@ -941,6 +941,7 @@ func (vca *VirtControllerApp) initExportController() {
 		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
 		ControllerRevisionInformer:  vca.controllerRevisionInformer,
 		VMBackupInformer:            vca.vmBackupInformer,
+		VMBackupTrackerInformer:     vca.vmBackupTrackerInformer,
 		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
 	}
 	if err := vca.exportController.Init(); err != nil {
@@ -1086,11 +1087,10 @@ func (vca *VirtControllerApp) AddFlags() {
 		"Number of goroutines to run for clone controller")
 
 	flag.StringSliceVar(&vca.additionalLauncherAnnotationsSync, "additional-launcher-annotations-sync", []string{},
-		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
+		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Supports prefix wildcards via the '*' suffix (for example 'vendor.io/*'). Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
 
 	flag.StringSliceVar(&vca.additionalLauncherLabelsSync, "additional-launcher-labels-sync", []string{},
-		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
-
+		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Supports prefix wildcards via the '*' suffix (for example 'vendor.io/*'). Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
 	flag.IntVar(&vca.backupControllerThreads, "backup-controller-threads", defaultBackupControllerThreads,
 		"Number of goroutines to run for backup controller")
 }

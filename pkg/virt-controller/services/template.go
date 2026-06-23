@@ -59,6 +59,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -88,6 +89,8 @@ const SevDeviceName = "sev"
 const TdxDeviceName = "tdx"
 const SevDevice = K8sDevicePrefix + "/" + SevDeviceName
 const TdxDevice = K8sDevicePrefix + "/" + TdxDeviceName
+const IOMMUFDDeviceName = "iommufd"
+const IOMMUFDDevice = K8sDevicePrefix + "/" + IOMMUFDDeviceName
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -154,6 +157,37 @@ type TemplateService struct {
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
+}
+
+func setPersistentReservationAntiAffinity(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, pvcStore cache.Store) error {
+	prLabels, err := reservation.PersistentReservationPVCLabels(vmi, pvcStore)
+	if err != nil {
+		return err
+	}
+	if len(prLabels) == 0 {
+		return nil
+	}
+
+	maps.Copy(pod.Labels, prLabels)
+
+	terms := reservation.PersistentReservationPodAntiAffinityTerms(prLabels)
+	if len(terms) == 0 {
+		return nil
+	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.PodAntiAffinity == nil {
+		pod.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{}
+	}
+
+	pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+		pod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+		terms...,
+	)
+
+	return nil
 }
 
 func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -422,6 +456,12 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.VGPULiveMigrationEnabled() {
 			command = append(command, "--vgpu-dedicated-hook")
 		}
+		if t.clusterConfig.VMStatsCollectorEnabled() {
+			command = append(command, "--vm-stats-collector")
+		}
+		if t.clusterConfig.FirmwareAutoSelectionEnabled() {
+			command = append(command, "--firmware-auto-selection")
+		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			command = append(command, "--libvirt-log-filters", customDebugFilters)
@@ -667,7 +707,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
-			ResourceClaims:                vmi.Spec.ResourceClaims,
+			ResourceClaims:                drautil.ToPodResourceClaims(vmi.Spec.ResourceClaims),
 		},
 	}
 
@@ -688,13 +728,18 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	setNodeAffinityForPod(vmi, &pod)
+	if err := setPersistentReservationAntiAffinity(vmi, &pod, t.persistentVolumeClaimStore); err != nil {
+		return nil, err
+	}
 
-	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
-	if len(serviceAccountName) > 0 {
-		pod.Spec.ServiceAccountName = serviceAccountName
-		automount := true
-		pod.Spec.AutomountServiceAccountToken = &automount
-	} else if istio.ProxyInjectionEnabled(vmi) {
+	serviceAccountVolumeName := storageutils.ServiceAccountNameFromVolumes(vmi.Spec.Volumes)
+	if vmi.Spec.ServiceAccountName != "" {
+		pod.Spec.ServiceAccountName = vmi.Spec.ServiceAccountName
+	} else if serviceAccountVolumeName != "" {
+		pod.Spec.ServiceAccountName = serviceAccountVolumeName
+	}
+
+	if serviceAccountVolumeName != "" || istio.ProxyInjectionEnabled(vmi) {
 		automount := true
 		pod.Spec.AutomountServiceAccountToken = &automount
 	} else {
@@ -1555,9 +1600,15 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
+			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
+				return t.clusterConfig.NetworkDevicesWithDRAGateEnabled() && vmispec.HasDRANetwork(vmi.Spec.Networks)
+			}, WithNetworksDRA(vmi.Spec.Networks)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
+			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
+				return t.clusterConfig.IOMMUFDEnabled()
+			}, WithIOMMUFD()),
 		},
 	}
 }

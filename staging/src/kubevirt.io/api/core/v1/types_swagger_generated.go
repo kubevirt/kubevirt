@@ -24,6 +24,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"schedulerName":                 "If specified, the VMI will be dispatched by specified scheduler.\nIf not specified, the VMI will be dispatched by default scheduler.\n+optional",
+		"serviceAccountName":            "ServiceAccountName is the name of the ServiceAccount to use to run the\nvirt-launcher pod. This sets pod.spec.serviceAccountName but does NOT\nautomatically expose the service account token to the VM guest.\nTo expose the token to the VM, use a serviceAccount volume.\n+optional",
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
 		"topologySpreadConstraints":     "TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology\ndomains. K8s scheduler will schedule VMI pods in a way which abides by the constraints.\n+optional\n+patchMergeKey=topologyKey\n+patchStrategy=merge\n+listType=map\n+listMapKey=topologyKey\n+listMapKey=whenUnsatisfiable",
 		"evictionStrategy":              "EvictionStrategy describes the strategy to follow when a node drain occurs.\nThe possible options are:\n- \"None\": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown.\n- \"LiveMigrate\": the VirtualMachineInstance will be migrated instead of being shutdown.\n- \"LiveMigrateIfPossible\": the same as \"LiveMigrate\" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as \"None\".\n- \"External\": the VirtualMachineInstance will be protected and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.\n+optional",
@@ -39,8 +40,16 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
 		"accessCredentials":             "Specifies a set of public keys to inject into the vm guest\n+listType=atomic\n+optional\n+kubebuilder:validation:MaxItems:=256",
 		"architecture":                  "Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components",
-		"resourceClaims":                "ResourceClaims define which ResourceClaims must be allocated\nand reserved before the VMI, hence virt-launcher pod is allowed to start. The resources\nwill be made available to the domain which consumes them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.\nThis feature is in alpha.\n\n+listType=map\n+listMapKey=name\n+optional",
+		"resourceClaims":                "ResourceClaims define which ResourceClaims must be allocated\nand reserved before the VMI, hence virt-launcher pod is allowed to start. The resources\nwill be made available to the domain which consumes them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,\nor NetworkDevicesWithDRA is enabled.\nThis feature is in alpha.\n\n+listType=map\n+listMapKey=name\n+optional",
 		"utilityVolumes":                "List of utility volumes that can be mounted to the vmi virt-launcher pod\nwithout having a matching disk in the domain.\nUsed to collect data for various operational workflows.\n+kubebuilder:validation:MaxItems:=256\n+listType=map\n+listMapKey=name\n+optional",
+	}
+}
+
+func (VirtualMachineInstanceResourceClaim) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":                      "Name uniquely identifies this resource claim inside the VMI.\nThis field is required and must be a DNS_LABEL.",
+		"resourceClaimName":         "ResourceClaimName is the name of a ResourceClaim object in the same\nnamespace as this VMI.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must\nbe set.",
+		"resourceClaimTemplateName": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate\nobject in the same namespace as this VMI.\n\nThe template name is passed through to the generated virt-launcher Pod\nspec. From the Pod spec, the template is used to create a new\nResourceClaim, which is bound to the virt-launcher Pod. When the\nvirt-launcher Pod is deleted, the ResourceClaim is also deleted. The\ngenerated ResourceClaim name is unique and is recorded in\npod.status.resourceClaimStatuses.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must\nbe set.",
 	}
 }
 
@@ -79,7 +88,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"topologyHints":                 "+optional",
 		"virtualMachineRevisionName":    "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing\nan online vm snapshot\n+optional",
 		"runtimeUser":                   "RuntimeUser is used to determine what user will be used in launcher\n+optional",
-		"VSOCKCID":                      "VSOCKCID is used to track the allocated VSOCK CID in the VM.\n+optional",
+		"VSOCKCID":                      "VSOCKCID is used to track the allocated VSOCK CID in the VM.\n+optional\n+kubebuilder:validation:Format:=int64\n+kubebuilder:validation:Minimum:=0\n+kubebuilder:validation:Maximum:=4294967295",
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
@@ -888,6 +897,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"instancetype":                       "Instancetype configuration\n+nullable",
 		"hypervisors":                        "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.\n+listType=atomic\n+kubebuilder:validation:MaxItems:=1",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
+		"persistentReservationConfiguration": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs\n+nullable",
 		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
 		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting this field to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled.\nThis is an Alpha feature and subject to change.\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
 	}
@@ -1246,5 +1256,11 @@ func (ObjectGraphOptions) SwaggerDoc() map[string]string {
 		"":                     "ObjectGraphOptions holds options for the object graph.",
 		"includeOptionalNodes": "IncludeOptionalNodes indicates whether to include optional nodes in the graph.\nTrue by default.",
 		"labelSelector":        "LabelSelector is used to filter nodes in the graph based on their labels.",
+	}
+}
+
+func (PersistentReservationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled controls the deployment of additional resources like the pr-helper container\nfor enabling the use of the SCSI persistent reservation VMs, defaults to False.\n+nullable",
 	}
 }

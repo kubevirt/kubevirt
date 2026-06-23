@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	kubectlutil "k8s.io/kubectl/pkg/util"
@@ -92,6 +93,7 @@ const (
 	// Possible output format for volumes
 	GZIP_FORMAT = "gzip"
 	RAW_FORMAT  = "raw"
+	OCI_FORMAT  = "oci"
 
 	ACCEPT           = "Accept"
 	APPLICATION_YAML = "application/yaml"
@@ -583,10 +585,29 @@ func getVirtualMachineManifest(client kubecli.KubevirtClient, vmexport *exportv1
 
 // downloadVolume handles the process of downloading the requested volume from a VirtualMachineExport
 func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (bool, error) {
-	// Extract the URL from the vmexport
-	downloadUrl, err := GetUrlFromVirtualMachineExport(vmexport, vmeInfo)
-	if err != nil {
-		return false, err
+	var downloadUrl string
+	var err error
+
+	if format == OCI_FORMAT {
+		sourceKind := vmexport.Spec.Source.Kind
+		if sourceKind != "VirtualMachine" && sourceKind != "VirtualMachineSnapshot" {
+			return false, fmt.Errorf("OCI export is only supported for VirtualMachine and VirtualMachineSnapshot sources, got %q", sourceKind)
+		}
+		manifestUrls, err := GetManifestUrlsFromVirtualMachineExport(vmexport, vmeInfo)
+		if err != nil {
+			return false, err
+		}
+		ociUrl, ok := manifestUrls[exportv1.OCI]
+		if !ok {
+			return false, fmt.Errorf("OCI export format not available for '%s/%s'", vmexport.Namespace, vmexport.Name)
+		}
+		downloadUrl = ociUrl
+		vmeInfo.Decompress = false
+	} else {
+		downloadUrl, err = GetUrlFromVirtualMachineExport(vmexport, vmeInfo)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	resp, err := HandleHTTPGetRequestFn(client, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
@@ -1005,8 +1026,20 @@ func handleDownloadFlags() error {
 		}
 	}
 
-	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT {
-		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw")
+	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT && format != OCI_FORMAT {
+		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw/oci")
+	}
+
+	if format == OCI_FORMAT {
+		if volumeName != "" {
+			return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, FORMAT_FLAG+"=oci")
+		}
+		if exportManifest {
+			return fmt.Errorf(ErrIncompatibleFlag, MANIFEST_FLAG, FORMAT_FLAG+"=oci")
+		}
+		if pvc != "" {
+			return fmt.Errorf(ErrIncompatibleFlag, PVC_FLAG, FORMAT_FLAG+"=oci")
+		}
 	}
 
 	if downloadRetries < 0 {
@@ -1162,11 +1195,16 @@ func RunPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace stri
 		SubResource("portforward")
 
 	// Set up the port forwarding options
-	transport, upgrader, err := spdy.RoundTripperFor(client.Config())
+	spdyTransport, upgrader, err := spdy.RoundTripperFor(client.Config())
 	if err != nil {
 		log.Fatalf("Failed to set up transport: %v", err)
 	}
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+	spdyDialer := spdy.NewDialer(upgrader, &http.Client{Transport: spdyTransport}, "POST", req.URL())
+	wsDialer, err := portforward.NewSPDYOverWebsocketDialer(req.URL(), client.Config())
+	if err != nil {
+		log.Fatalf("Failed to set up websocket transport: %v", err)
+	}
+	dialer := portforward.NewFallbackDialer(wsDialer, spdyDialer, httpstream.IsUpgradeFailure)
 
 	// Start port-forwarding
 	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stderr, os.Stderr)

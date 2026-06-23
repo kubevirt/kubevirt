@@ -37,7 +37,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    c.operatorNamespace,
-			GenerateName: fmt.Sprintf("kubevirt-%s-job", config.GetDeploymentID()),
+			GenerateName: "virt-operator-install-strategy-",
 			Labels: map[string]string{
 				v1.AppLabel:             "",
 				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
@@ -135,7 +135,7 @@ func (c *KubeVirtController) getInstallStrategyJob(config *operatorutil.KubeVirt
 }
 
 func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
-	batch := c.clientset.BatchV1()
+	batch := c.k8sClient.BatchV1()
 	jobs := c.stores.InstallStrategyJobCache.List()
 
 	for _, obj := range jobs {

@@ -235,6 +235,7 @@ fmt: format
 
 lint:
 	hack/dockerized "hack/lint-test-cleanup-label.sh"
+	hack/dockerized "hack/lint-newcirros-deprecation.sh"
 	hack/dockerized "hack/golangci-lint.sh"
 	hack/dockerized "monitoringlinter ./pkg/..."
 	hack/dockerized "hack/license-header-check.sh"
@@ -249,6 +250,10 @@ gofumpt:
 
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
+
+feature-gate-report:
+	hack/dockerized "bazel build //tools/feature-gate-report && \
+		./bazel-bin/tools/feature-gate-report/feature-gate-report_/feature-gate-report"
 
 vmlog-checker:
 	@echo "Building vmlog-checker..."
@@ -297,5 +302,6 @@ vmlog-checker:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	feature-gate-report \
 	vmlog-checker \
 	$(NULL)

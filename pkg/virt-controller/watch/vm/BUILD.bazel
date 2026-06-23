@@ -22,6 +22,7 @@ go_library(
         "//pkg/storage/hotplug:go_default_library",
         "//pkg/storage/memorydump:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/utils:go_default_library",
         "//pkg/storage/velero:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
@@ -62,6 +63,7 @@ go_test(
     srcs = [
         "firmware_test.go",
         "patchreactor_test.go",
+        "pci_topology_test.go",
         "updatereactor_test.go",
         "vm_suite_test.go",
         "vm_test.go",
@@ -79,7 +81,6 @@ go_test(
         "//pkg/libvmi/status:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
-        "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",

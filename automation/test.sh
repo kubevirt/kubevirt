@@ -40,6 +40,7 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
         echo "Aborting as there were only none-code related changes detected."
         exit 0
     fi
+    RPM_CHANGES=$(echo "$CI_GIT_ALL_CHANGES" | grep -E '^(rpm/|WORKSPACE)' || :)
  fi
 
 if [ -z $TARGET ]; then
@@ -169,7 +170,6 @@ if [[ $TARGET =~ sriov.* ]]; then
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
-  add_feature_gate "ExternalNetResourceInjection"
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
 else
@@ -356,9 +356,14 @@ fi
 cp /etc/bazel.bazelrc ci.bazelrc 2>/dev/null || : >ci.bazelrc
 cat >>ci.bazelrc <<EOF
 build --jobs=4
-build --remote_download_toplevel
 build --noshow_progress
 EOF
+# Use --remote_download_toplevel for bandwidth savings, but skip it when
+# RPMs change since novel OCI image action hashes need their transitive
+# inputs downloaded to build locally.
+if [[ -z "${RPM_CHANGES:-}" ]]; then
+    echo "build --remote_download_toplevel" >>ci.bazelrc
+fi
 
 echo "=== ci.bazelrc ==="
 cat ci.bazelrc
@@ -664,6 +669,21 @@ spec:
     - nfsvers=4.1
   storageClassName: rhel
 EOF
+fi
+
+if [[ $TARGET =~ sig-storage ]]; then
+  # sig-storage cares about persistent reservation, others don't
+  kubectl patch -n ${namespace} kv kubevirt --type merge -p '
+  {
+    "spec": {
+      "configuration": {
+        "persistentReservationConfiguration": {
+          "enabled": true
+        }
+      }
+    }
+  }'
+  kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m
 fi
 
 

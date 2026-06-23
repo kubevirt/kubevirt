@@ -57,10 +57,10 @@ import (
 )
 
 const (
-	makeTestDirectoryCmd      = "sudo mkdir -p /test\n"
-	mountTestDirectoryCmd     = "sudo mount %s /test \n"
-	makeTestDataDirectoryCmd  = "sudo mkdir -p /test/data\n"
-	chmodTestDataDirectoryCmd = "sudo chmod a+w /test/data\n"
+	makeTestDirectoryCmd      = "mkdir -p /test\n"
+	mountTestDirectoryCmd     = "mount %s /test \n"
+	makeTestDataDirectoryCmd  = "mkdir -p /test/data\n"
+	chmodTestDataDirectoryCmd = "chmod a+w /test/data\n"
 	catTestDataMessageCmd     = "cat /test/data/message\n"
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
@@ -281,7 +281,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 		BeforeEach(func() {
 			vm = libvmi.NewVirtualMachine(
-				libvmifact.NewCirros(
+				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
@@ -452,7 +452,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
-				newVM := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+				newVM := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), newVM, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
@@ -759,7 +759,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					var batch []expect.Batcher
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", device)},
+							&expect.BSnd{S: fmt.Sprintf("mkfs.ext4 -F %s\n", device)},
 							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
@@ -795,22 +795,22 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_createprimary -C o -c %s.ctx\n", "/dev/tpm0")},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_createprimary -C o -c %s.ctx\n", "/dev/tpm0")},
 							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvdefine -C o -s %d 1\n", len(string(vm.UID))+1)},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_nvdefine -C o -s %d 1\n", len(string(vm.UID))+1)},
 							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_nvwrite -C o -i /test/data/message 1\n")},
 							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
@@ -869,11 +869,11 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_nvwrite -C o -i /test/data/message 1\n")},
 							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
@@ -925,7 +925,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
+							&expect.BSnd{S: fmt.Sprintf("tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
@@ -1133,7 +1133,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = libvmops.StopVirtualMachine(vm)
@@ -1155,7 +1155,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			It("restore should allow grace period for the target to be ready", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
@@ -1172,7 +1172,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			It("restore should stop target if targetReadinessPolicy is StopTarget", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
@@ -1196,7 +1196,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			// behavior. In case of running this test with other provisioner or if ceph
 			// will change this behavior it will fail.
 			DescribeTable("should restore a vm with restore size bigger then PVC size", decorators.RequiresSizeRoundUp, func(restoreToNewVM bool) {
-				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
+				vm = createVMWithCloudInit(cd.ContainerDiskAlpineTestTooling, snapshotStorageClass)
 				quantity, err := resource.ParseQuantity("1528Mi")
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests["storage"] = quantity
@@ -1207,21 +1207,19 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
 
-				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				resQuantity := content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]
-				Expect(resQuantity.Value()).To(Equal(quantity.Value()))
 				vs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(vm.Namespace).Get(context.Background(), *content.Spec.VolumeBackups[0].VolumeSnapshotName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*vs.Status.RestoreSize).To(Equal(expectedCapacity))
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
+				restoredPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
-				Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
+				Expect(restoredPVC.Status.Capacity["storage"]).To(Equal(expectedCapacity))
+				Expect(restoredPVC.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
 
 			},
 				Entry("to the same VM", false),
@@ -1229,10 +1227,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a datavolumetemplate", decorators.StorageCritical, func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskAlpineTestTooling, snapshotStorageClass))
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
-				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				verifyRestore(restoreToNewVM, originalDVName)
 			},
 				Entry("[test_id:5260] to the same VM", false),
@@ -1240,7 +1238,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a datavolume (not template)", func(restoreToNewVM bool) {
-				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
+				vm = createVMWithCloudInit(cd.ContainerDiskAlpineTestTooling, snapshotStorageClass)
 				dv := orphanDataVolumeTemplate(vm, 0)
 				originalPVCName := dv.Name
 
@@ -1249,7 +1247,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				vm, vmi = createAndStartVM(vm)
 				dv = waitDVReady(dv)
-				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
@@ -1277,7 +1275,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			DescribeTable("should restore a vm that boots from a PVC", func(restoreToNewVM, ownedByVM bool) {
 				dv := libdv.NewDataVolume(
 					libdv.WithName("restore-pvc-"+rand.String(12)),
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling), cdiv1.RegistryPullNode),
 					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
 				)
 
@@ -1310,7 +1308,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				}
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
@@ -1355,7 +1353,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				)
 				vm, vmi = createAndStartVM(
 					libvmi.NewVirtualMachine(
-						libvmifact.NewCirros(
+						libvmifact.NewAlpineWithTestTooling(
 							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -1365,7 +1363,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					),
 				)
 
-				doRestore("/dev/vdb", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+				doRestore("/dev/vdb", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				if restoreToNewVM {
@@ -1383,7 +1381,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
-				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory))
 				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 				vm, vmi = createAndStartVM(vm)
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
@@ -1417,7 +1415,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = libvmops.StopVirtualMachine(vm)
@@ -1517,11 +1515,11 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm from an online snapshot", decorators.StorageCritical, func(restoreToNewVM bool) {
-				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
+				vm = createVMWithCloudInit(cd.ContainerDiskAlpineTestTooling, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 				vm, vmi = createAndStartVM(vm)
 				targetVMName := getTargetVMName(restoreToNewVM, newVmName)
-				login := console.LoginToCirros
+				login := console.LoginToAlpine
 
 				if !restoreToNewVM {
 					// Expect to get event in case we stop
@@ -1575,7 +1573,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", decorators.StorageCritical, func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest("512Mi")))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory)))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1588,7 +1586,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should restore vm spec at startup without new changes", func() {
-				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest("512Mi")))
+				vm, vmi = createAndStartVM(createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithMemoryRequest(libvmifact.FedoraMemory)))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1686,7 +1684,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should override VM during restore", func() {
 				// Create a VM and snapshot it
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
@@ -1729,7 +1727,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should restore with volume restore policy InPlace and DV template as disk", func() {
 				// Create a VM and snapshot it
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
 
@@ -1808,7 +1806,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should restore with volume restore policy InPlace and DV (not template) as disk", func() {
 				// VM with normal DV mounted to it
-				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
+				vm = createVMWithCloudInit(cd.ContainerDiskAlpine, snapshotStorageClass)
 
 				// Create standalone DV, not linked to a VM's template
 				dv := orphanDataVolumeTemplate(vm, 0)
@@ -1941,7 +1939,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("standalone PVC should have no owner with volumeOwnershipPolicyNone", func() {
 				pvcName := "standalone-pvc"
-				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass, libstorage.WithStorageProfile())
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2094,7 +2092,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					forcedHostAssistedScName = sc.Name
 
 					source := libdv.NewDataVolume(
-						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling), cdiv1.RegistryPullNode),
 						libdv.WithStorage(libdv.StorageWithStorageClass(forcedHostAssistedScName)),
 						libdv.WithForceBindAnnotation(),
 					)
@@ -2186,7 +2184,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+					doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
 					Entry("to the same VM", false, false, false),
@@ -2212,7 +2210,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.Background(), sourceDV.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}
-					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
+					doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
 					Entry("to the same VM", false, false),

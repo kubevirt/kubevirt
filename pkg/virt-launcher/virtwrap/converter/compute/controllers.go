@@ -41,6 +41,7 @@ type ControllersDomainConfigurator struct {
 	autoThreads               uint
 	controllerDriver          *api.ControllerDriver
 	supportPCIHole64Disabling bool
+	virtioSerialModel         string
 }
 
 type controllersOption func(*ControllersDomainConfigurator)
@@ -65,6 +66,10 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 
 	if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64Disabled())
+	}
+
+	if requiresVirtioSerialController(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newVirtioSerialController(c.virtioSerialModel, c.controllerDriver))
 	}
 
 	return nil
@@ -97,6 +102,12 @@ func ControllersWithControllerDriver(controllerDriver *api.ControllerDriver) con
 func ControllersWithSupportPCIHole64Disabling(support bool) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
 		c.supportPCIHole64Disabling = support
+	}
+}
+
+func ControllersWithVirtioSerialModel(model string) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.virtioSerialModel = model
 	}
 }
 
@@ -135,11 +146,24 @@ func newPCIControllerWithHole64Disabled() api.Controller {
 	}
 }
 
+func newVirtioSerialController(model string, controllerDriver *api.ControllerDriver) api.Controller {
+	return api.Controller{
+		Type:   "virtio-serial",
+		Index:  "0",
+		Model:  model,
+		Driver: controllerDriver,
+	}
+}
+
 func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
 	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
 		return strings.EqualFold(val, "true")
 	}
 	return false
+}
+
+func requiresVirtioSerialController(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole
 }
 
 func requiresSCSIController(vmi *v1.VirtualMachineInstance) bool {

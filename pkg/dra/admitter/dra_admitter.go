@@ -21,12 +21,16 @@ package admitter
 
 import (
 	"fmt"
+	"strings"
 
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -39,6 +43,7 @@ type Validator struct {
 type DRAConfigChecker interface {
 	GPUsWithDRAGateEnabled() bool
 	HostDevicesWithDRAEnabled() bool
+	NetworkDevicesWithDRAGateEnabled() bool
 }
 
 func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, configChecker DRAConfigChecker) *Validator {
@@ -64,24 +69,31 @@ func (v Validator) Validate() []metav1.StatusCause {
 func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker DRAConfigChecker) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	rcField := field.Child("resourceClaims")
-	rcNames := sets.New[string]()
-	for i, rc := range spec.ResourceClaims {
-		if rcNames.Has(rc.Name) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("duplicate resourceClaims name %q", rc.Name),
-				Field:   rcField.Index(i).Child("name").String(),
-			})
-		}
-		rcNames.Insert(rc.Name)
-	}
+	causes = append(causes, validateResourceClaims(field.Child("resourceClaims"), spec.ResourceClaims)...)
 
-	gpuCauses, gpuClaimNames := validateDRAGPUs(field, spec.Domain.Devices.GPUs, checker)
+	gpuCauses, gpuClaimNames, gpuClaimRequestPairs := validateDRAGPUs(field, spec.Domain.Devices.GPUs, checker)
 	causes = append(causes, gpuCauses...)
 
-	hdCauses, hdClaimNames := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices, checker)
+	hdCauses, hdClaimNames, hdClaimRequestPairs := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices, checker)
 	causes = append(causes, hdCauses...)
+
+	var netClaimRequestPairs map[string]int
+	if checker.NetworkDevicesWithDRAGateEnabled() {
+		netClaimRequestPairs = vmispec.ExtractDRANetworkClaimRequestTuples(spec)
+	}
+
+	duplicateChecker := newPairDuplicateChecker()
+	causes = append(causes, duplicateChecker.mergeTupleSource("GPUs", gpuClaimRequestPairs, field.Child("domain", "devices", "gpus"))...)
+	causes = append(causes, duplicateChecker.mergeTupleSource(
+		"HostDevices",
+		hdClaimRequestPairs,
+		field.Child("domain", "devices", "hostDevices"),
+	)...)
+	causes = append(causes, duplicateChecker.mergeTupleSource(
+		"Networks",
+		netClaimRequestPairs,
+		field.Child("networks"),
+	)...)
 
 	allClaimNames := gpuClaimNames.Union(hdClaimNames)
 
@@ -96,6 +108,72 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 			Message: "vmi.spec.resourceClaims must specify all claims used in vmi.spec.domain.devices.gpus and vmi.spec.domain.devices.hostDevices",
 			Field:   field.Child("resourceClaims").String(),
 		})
+	}
+
+	return causes
+}
+
+func validateResourceClaims(field *k8sfield.Path, resourceClaims []v1.VirtualMachineInstanceResourceClaim) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	claimNames := sets.New[string]()
+
+	for i, claim := range resourceClaims {
+		claimField := field.Index(i)
+		if claim.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("%s is a required field", claimField.Child("name")),
+				Field:   claimField.Child("name").String(),
+			})
+		} else if claimNames.Has(claim.Name) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate resourceClaims name %q", claim.Name),
+				Field:   claimField.Child("name").String(),
+			})
+		} else {
+			if errs := utilvalidation.IsDNS1123Label(claim.Name); len(errs) != 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules: %s", claimField.Child("name"), strings.Join(errs, ", ")),
+					Field:   claimField.Child("name").String(),
+				})
+			}
+			claimNames.Insert(claim.Name)
+		}
+
+		if claim.ResourceClaimName != nil && claim.ResourceClaimTemplateName != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "at most one of resourceClaimName or resourceClaimTemplateName may be specified",
+				Field:   claimField.String(),
+			})
+		}
+		if claim.ResourceClaimName == nil && claim.ResourceClaimTemplateName == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "must specify one of: resourceClaimName, resourceClaimTemplateName",
+				Field:   claimField.String(),
+			})
+		}
+		if claim.ResourceClaimName != nil {
+			for _, detail := range apivalidation.NameIsDNSSubdomain(*claim.ResourceClaimName, false) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: detail,
+					Field:   claimField.Child("resourceClaimName").String(),
+				})
+			}
+		}
+		if claim.ResourceClaimTemplateName != nil {
+			for _, detail := range apivalidation.NameIsDNSSubdomain(*claim.ResourceClaimTemplateName, false) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: detail,
+					Field:   claimField.Child("resourceClaimTemplateName").String(),
+				})
+			}
+		}
 	}
 
 	return causes
@@ -132,7 +210,59 @@ type indexedDevice struct {
 	device draCapableDevice
 }
 
-func validateDRAGPUs(field *k8sfield.Path, gpus []v1.GPU, checker DRAConfigChecker) ([]metav1.StatusCause, sets.Set[string]) {
+type claimRequestPairOwner struct {
+	deviceType string
+	index      int
+}
+
+type pairDuplicateChecker struct {
+	pairOwnerByKey map[string]claimRequestPairOwner
+}
+
+func newPairDuplicateChecker() *pairDuplicateChecker {
+	return &pairDuplicateChecker{
+		pairOwnerByKey: map[string]claimRequestPairOwner{},
+	}
+}
+
+func (s *pairDuplicateChecker) mergeTupleSource(
+	deviceType string,
+	firstIndexByTuple map[string]int,
+	baseField *k8sfield.Path,
+) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	for tuple, idx := range firstIndexByTuple {
+		if previous, exists := s.pairOwnerByKey[tuple]; exists {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf(
+					"duplicate claimName/requestName pair %q between %s[%d] and %s[%d]",
+					tuple,
+					previous.deviceType,
+					previous.index,
+					deviceType,
+					idx,
+				),
+				Field: baseField.Index(idx).String(),
+			})
+			continue
+		}
+
+		s.pairOwnerByKey[tuple] = claimRequestPairOwner{
+			deviceType: deviceType,
+			index:      idx,
+		}
+	}
+
+	return causes
+}
+
+func validateDRAGPUs(
+	field *k8sfield.Path,
+	gpus []v1.GPU,
+	checker DRAConfigChecker,
+) ([]metav1.StatusCause, sets.Set[string], map[string]int) {
 	devices := make([]draCapableDevice, len(gpus))
 	for i, g := range gpus {
 		devices[i] = gpuAdapter(g)
@@ -145,7 +275,11 @@ func validateDRAGPUs(field *k8sfield.Path, gpus []v1.GPU, checker DRAConfigCheck
 	})
 }
 
-func validateDRAHostDevices(field *k8sfield.Path, hostDevices []v1.HostDevice, checker DRAConfigChecker) ([]metav1.StatusCause, sets.Set[string]) {
+func validateDRAHostDevices(
+	field *k8sfield.Path,
+	hostDevices []v1.HostDevice,
+	checker DRAConfigChecker,
+) ([]metav1.StatusCause, sets.Set[string], map[string]int) {
 	devices := make([]draCapableDevice, len(hostDevices))
 	for i, hd := range hostDevices {
 		devices[i] = hostDeviceAdapter(hd)
@@ -158,46 +292,30 @@ func validateDRAHostDevices(field *k8sfield.Path, hostDevices []v1.HostDevice, c
 	})
 }
 
-func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg deviceValidationConfig) ([]metav1.StatusCause, sets.Set[string]) {
-	var (
-		causes     []metav1.StatusCause
-		draDevs    []indexedDevice
-		nonDRADevs []indexedDevice
-	)
+func validateDRADevices(
+	field *k8sfield.Path,
+	devices []draCapableDevice,
+	cfg deviceValidationConfig,
+) ([]metav1.StatusCause, sets.Set[string], map[string]int) {
 	devField := field.Child("domain", "devices", cfg.fieldPath)
+	draDevs, nonDRADevs := splitDRADevices(devices)
 
-	for i, d := range devices {
-		if d.isDRA() {
-			draDevs = append(draDevs, indexedDevice{i, d})
-		} else {
-			nonDRADevs = append(nonDRADevs, indexedDevice{i, d})
-		}
-	}
-
+	var causes []metav1.StatusCause
 	if cfg.rejectMixed && len(nonDRADevs) > 0 && len(draDevs) > 0 {
 		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("vmi.spec.domain.devices.%s contains both DRA and non-DRA %ss; each %s must be either DRA or non-DRA", cfg.fieldPath, cfg.typeName, cfg.typeName),
-			Field:   devField.String(),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(
+				"vmi.spec.domain.devices.%s contains both DRA and non-DRA %ss; each %s must be either DRA or non-DRA",
+				cfg.fieldPath,
+				cfg.typeName,
+				cfg.typeName,
+			),
+			Field: devField.String(),
 		})
-		return causes, sets.New[string]()
+		return causes, sets.New[string](), map[string]int{}
 	}
 
-	for _, nd := range nonDRADevs {
-		if nd.device.getDeviceName() == "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf("vmi.spec.domain.devices.%s contains %ss without deviceName or claimRequest; each %s must specify either a deviceName or a claimRequest", cfg.fieldPath, cfg.typeName, cfg.typeName),
-				Field:   devField.String(),
-			})
-		} else if nd.device.getClaimRequest() != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("vmi.spec.domain.devices.%s contains %ss with both deviceName and claimRequest", cfg.fieldPath, cfg.typeName),
-				Field:   devField.String(),
-			})
-		}
-	}
+	causes = append(causes, validateNonDRADevices(devField, nonDRADevs, cfg)...)
 
 	if len(draDevs) > 0 && !cfg.gateEnabled {
 		causes = append(causes, metav1.StatusCause{
@@ -205,38 +323,40 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 			Message: fmt.Sprintf("vmi.spec.domain.devices.%s contains DRA enabled %ss but feature gate is not enabled", cfg.fieldPath, cfg.typeName),
 			Field:   devField.String(),
 		})
-		return causes, sets.New[string]()
+		return causes, sets.New[string](), map[string]int{}
 	}
 
-	var validDRA []indexedDevice
+	claimNames := sets.New[string]()
+	claimRequestPairs := sets.New[string]()
+	validPairFirstIndexByKey := map[string]int{}
 	for _, id := range draDevs {
-		valid := true
 		cr := id.device.getClaimRequest()
-		if cr.ClaimName == nil || *cr.ClaimName == "" {
+		missingClaimName := cr.ClaimName == ""
+		missingRequestName := cr.RequestName == ""
+
+		if missingClaimName {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("claimName is required for DRA %s", cfg.typeName),
 				Field:   devField.Index(id.idx).Child("claimName").String(),
 			})
-			valid = false
 		}
-		if cr.RequestName == nil || *cr.RequestName == "" {
+		if missingRequestName {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("requestName is required for DRA %s", cfg.typeName),
 				Field:   devField.Index(id.idx).Child("requestName").String(),
 			})
-			valid = false
 		}
-		if valid {
-			validDRA = append(validDRA, id)
+		if missingClaimName || missingRequestName {
+			continue
 		}
-	}
 
-	claimRequestPairs := sets.New[string]()
-	for _, id := range validDRA {
-		cr := id.device.getClaimRequest()
-		key := *cr.ClaimName + "/" + *cr.RequestName
+		claimNames.Insert(cr.ClaimName)
+		key := cr.ClaimName + "/" + cr.RequestName
+		if _, exists := validPairFirstIndexByKey[key]; !exists {
+			validPairFirstIndexByKey[key] = id.idx
+		}
 		if claimRequestPairs.Has(key) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueDuplicate,
@@ -247,14 +367,57 @@ func validateDRADevices(field *k8sfield.Path, devices []draCapableDevice, cfg de
 		claimRequestPairs.Insert(key)
 	}
 
-	claimNames := sets.New[string]()
-	for _, id := range validDRA {
-		claimNames.Insert(*id.device.getClaimRequest().ClaimName)
-	}
-
-	return causes, claimNames
+	return causes, claimNames, validPairFirstIndexByKey
 }
 
-func ValidateCreation(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
+func splitDRADevices(devices []draCapableDevice) (draDevs, nonDRADevs []indexedDevice) {
+	for i, d := range devices {
+		indexed := indexedDevice{idx: i, device: d}
+		if d.isDRA() {
+			draDevs = append(draDevs, indexed)
+			continue
+		}
+		nonDRADevs = append(nonDRADevs, indexed)
+	}
+	return draDevs, nonDRADevs
+}
+
+func validateNonDRADevices(
+	devField *k8sfield.Path,
+	nonDRADevs []indexedDevice,
+	cfg deviceValidationConfig,
+) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for _, nd := range nonDRADevs {
+		if nd.device.getDeviceName() == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf(
+					"vmi.spec.domain.devices.%s contains %ss without deviceName or claimRequest; "+
+						"each %s must specify either a deviceName or a claimRequest",
+					cfg.fieldPath,
+					cfg.typeName,
+					cfg.typeName,
+				),
+				Field: devField.String(),
+			})
+			continue
+		}
+		if nd.device.getClaimRequest() != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("vmi.spec.domain.devices.%s contains %ss with both deviceName and claimRequest", cfg.fieldPath, cfg.typeName),
+				Field:   devField.String(),
+			})
+		}
+	}
+	return causes
+}
+
+func ValidateCreation(
+	field *k8sfield.Path,
+	vmiSpec *v1.VirtualMachineInstanceSpec,
+	clusterCfg *virtconfig.ClusterConfig,
+) []metav1.StatusCause {
 	return NewValidator(field, vmiSpec, clusterCfg).ValidateCreation()
 }

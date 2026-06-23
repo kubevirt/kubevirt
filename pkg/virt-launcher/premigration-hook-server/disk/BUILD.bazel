@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["source_path.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "disk_suite_test.go",
+        "source_path_test.go",
+    ],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/status:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)

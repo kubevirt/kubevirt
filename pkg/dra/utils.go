@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -55,7 +54,12 @@ const (
 
 // GetPCIAddressForClaim returns the PCI address for a device in the given claim and request.
 // It lazily reads the KEP-5304 metadata file at lookup time.
-func GetPCIAddressForClaim(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (string, error) {
+func GetPCIAddressForClaim(
+	basePath string,
+	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+	claimRefName,
+	requestName string,
+) (string, error) {
 	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return "", err
@@ -71,7 +75,12 @@ func GetPCIAddressForClaim(basePath string, resourceClaims []k8sv1.PodResourceCl
 
 // GetMDevUUIDForClaim returns the mdev UUID for a device in the given claim and request.
 // It lazily reads the KEP-5304 metadata file at lookup time.
-func GetMDevUUIDForClaim(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (string, error) {
+func GetMDevUUIDForClaim(
+	basePath string,
+	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+	claimRefName,
+	requestName string,
+) (string, error) {
 	device, err := resolveDevice(basePath, resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return "", err
@@ -87,7 +96,12 @@ func GetMDevUUIDForClaim(basePath string, resourceClaims []k8sv1.PodResourceClai
 
 // resolveDevice finds and reads the metadata file for a specific claim ref and
 // request, returning the single device from that request.
-func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (*metadata.Device, error) {
+func resolveDevice(
+	basePath string,
+	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+	claimRefName,
+	requestName string,
+) (*metadata.Device, error) {
 	md, err := resolveClaimMetadata(basePath, resourceClaims, claimRefName, requestName)
 	if err != nil {
 		return nil, err
@@ -99,18 +113,32 @@ func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, cla
 				return nil, fmt.Errorf("request %q has no devices", requestName)
 			}
 			if len(req.Devices) > 1 {
-				return nil, fmt.Errorf("request %q has %d devices but KubeVirt only supports exactly one device per request (count > 1 is not supported)", requestName, len(req.Devices))
+				return nil, fmt.Errorf(
+					"request %q has %d devices but KubeVirt only supports exactly one device per request (count > 1 is not supported)",
+					requestName,
+					len(req.Devices),
+				)
 			}
 			return &req.Devices[0], nil
 		}
 	}
-	return nil, fmt.Errorf("request %q not found in metadata for claim %q (available requests: %v)", requestName, md.Name, metadataRequestNames(md))
+	return nil, fmt.Errorf(
+		"request %q not found in metadata for claim %q (available requests: %v)",
+		requestName,
+		md.Name,
+		metadataRequestNames(md),
+	)
 }
 
 // resolveClaimMetadata reads the metadata file for a claim ref + request pair.
 // Direct claims:   {base}/resourceclaims/{claimName}/{requestName}/{driverName}-metadata.json
 // Template claims: {base}/resourceclaimtemplates/{podClaimName}/{requestName}/{driverName}-metadata.json
-func resolveClaimMetadata(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (*metadata.DeviceMetadata, error) {
+func resolveClaimMetadata(
+	basePath string,
+	resourceClaims []v1.VirtualMachineInstanceResourceClaim,
+	claimRefName,
+	requestName string,
+) (*metadata.DeviceMetadata, error) {
 	for _, rc := range resourceClaims {
 		if rc.Name != claimRefName {
 			continue
@@ -137,7 +165,12 @@ func readMetadataFromDir(basePath, claimName, requestName string) (*metadata.Dev
 		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: no files matching %s", claimName, requestName, pattern)
 	}
 	if len(matches) > 1 {
-		return nil, fmt.Errorf("found %d metadata files for claim %q request %q but KubeVirt only supports exactly one driver per request", len(matches), claimName, requestName)
+		return nil, fmt.Errorf(
+			"found %d metadata files for claim %q request %q but KubeVirt only supports exactly one driver per request",
+			len(matches),
+			claimName,
+			requestName,
+		)
 	}
 	log.Log.Infof("Reading DRA device metadata file %s", matches[0])
 	return readMetadataFile(matches[0])

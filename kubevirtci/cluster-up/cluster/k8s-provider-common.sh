@@ -52,7 +52,6 @@ function configure_nfs() {
     fi
 }
 
-
 function up() {
     params=$(_add_common_params)
     if echo "$params" | grep -q ERROR; then
@@ -99,6 +98,10 @@ function up() {
     copy_istio_cni_conf_files
 
     configure_nfs
+
+    if [[ "${KUBEVIRT_WITH_SRIOV}" == "true" ]]; then
+        "${KUBEVIRTCI_PATH}/cluster/${KUBEVIRT_PROVIDER}/config_sriov_cluster.sh"
+    fi
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault

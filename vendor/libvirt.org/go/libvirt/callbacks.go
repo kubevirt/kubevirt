@@ -71,8 +71,8 @@ var goCallbackLock sync.RWMutex
 var goCallbacks = make(map[int]interface{})
 var nextGoCallbackId int = firstGoCallbackId
 
-//export freeCallbackId
-func freeCallbackId(goCallbackId int) {
+//export virGoFreeCallbackId
+func virGoFreeCallbackId(goCallbackId int) {
 	goCallbackLock.Lock()
 	defer goCallbackLock.Unlock()
 	delete(goCallbacks, goCallbackId)
@@ -84,7 +84,7 @@ func getCallbackId(goCallbackId int) interface{} {
 	ctx := goCallbacks[goCallbackId]
 	if ctx == nil {
 		// If this happens there must be a bug in libvirt
-		panic("Callback arrived after freeCallbackId was called")
+		panic("Callback arrived after virGoFreeCallbackId was called")
 	}
 	return ctx
 }

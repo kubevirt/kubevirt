@@ -28,3 +28,25 @@ func IsNonRoot(vmi *v1.VirtualMachineInstance) bool {
 	nonRoot := vmi.Status.RuntimeUser != 0
 	return ok || nonRoot
 }
+
+// HasVFIO reports whether the VMI requests any VFIO device.
+func HasVFIO(vmi *v1.VirtualMachineInstance) bool {
+	return hasHostDev(vmi) || hasGPU(vmi) || hasSRIOV(vmi)
+}
+
+func hasHostDev(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.HostDevices) > 0
+}
+
+func hasGPU(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.GPUs) > 0
+}
+
+func hasSRIOV(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil {
+			return true
+		}
+	}
+	return false
+}

@@ -59,7 +59,7 @@ var _ = Describe("PCI Device", func() {
 		By("making sure the environment has a PCI device at " + fakeAddress)
 		_, err := os.Stat("/sys/bus/pci/devices/" + fakeAddress)
 		if errors.Is(err, os.ErrNotExist) {
-			Skip("No PCI device found at " + fakeAddress + ", can't run PCI tests")
+			Skip("No PCI device found at " + fakeAddress + ", can't run PCI tests") //nolint:forbidigo
 		}
 
 		By("mocking PCI functions to simulate a vfio-pci device at " + fakeAddress)

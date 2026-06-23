@@ -61,7 +61,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 	createVM := func(options ...libvmi.Option) *v1.VirtualMachine {
 		vm := libvmi.NewVirtualMachine(
-			libvmifact.NewCirros(options...),
+			libvmifact.NewAlpineWithTestTooling(options...),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
@@ -187,8 +187,8 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	loginToVM := func(vm *v1.VirtualMachine) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
-		err = console.LoginToCirros(vmi)
-		Expect(err).ToNot(HaveOccurred(), "failed to login to Cirros VM %s", vmi.Name)
+		err = console.LoginToAlpine(vmi)
+		Expect(err).ToNot(HaveOccurred(), "failed to login to Alpine VM %s", vmi.Name)
 	}
 
 	validateVMHasCDRom := func(vm *v1.VirtualMachine, numItems string) {
@@ -197,11 +197,11 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo umount -f /mnt\n"},
+				&expect.BSnd{S: "umount -f /mnt\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "sudo mount /dev/sr0 /mnt\n"},
+				&expect.BSnd{S: "mount /dev/sr0 /mnt\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: console.EchoLastReturnValue},
 				&expect.BExp{R: console.RetValue("0")},
@@ -216,7 +216,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo umount -f /mnt\n"},
+				&expect.BSnd{S: "umount -f /mnt\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
@@ -231,8 +231,8 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "sudo mount /dev/sr0 /mnt\n"},
-				&expect.BExp{R: console.RetValue("mount: mounting /dev/sr0 on /mnt failed: No medium found")},
+				&expect.BSnd{S: "mount /dev/sr0 /mnt\n"},
+				&expect.BExp{R: "no medium found.*sr0"},
 			}, 20)
 		}, 240*time.Second, 2*time.Second).Should(Succeed(), "Failed to validate that CD-ROM is not present in VM")
 	}

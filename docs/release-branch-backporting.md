@@ -45,3 +45,28 @@ a defect. Would this be considered a bug fix? Maybe, maybe not. The reviewers
 will have to weigh whether backporting will improve overall stability or
 introduce unacceptable risk.
 
+# Documenting Cherry-Pick Conflicts
+
+When a cherry-pick does not apply cleanly to a release branch, the author must
+document any meaningful conflicts that were resolved as part of the backport.
+This allows reviewers to focus their attention on the manual conflict
+resolutions rather than re-reviewing the entire change.
+
+Trivial conflicts such as import reordering, generated files, or build system
+files do not need to be listed. Only conflicts that required a judgment call or
+a non-obvious resolution should be documented.
+
+Conflict notes should be added as a comment on the backport pull request using
+the following format:
+
+```
+NOTE($author): This backport required manual conflict resolution.
+
+Conflicts:
+- file/path/to/first_conflict.go
+- file/path/to/second_conflict.go
+```
+
+Replace `$author` with your GitHub username. Include a brief explanation of how
+each conflict was resolved when the resolution is not obvious.
+

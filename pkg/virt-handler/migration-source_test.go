@@ -384,42 +384,72 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	})
 
 	Context("handleMigrationAbort", func() {
-		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance) {
+		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 			client.EXPECT().CancelVirtualMachineMigration(vmi)
-			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+			Expect(controller.handleMigrationAbort(vmi, domain, client)).To(Succeed())
 			testutils.ExpectEvent(recorder, VMIAbortingMigration)
 		},
-			Entry("when the request failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when the previous abort attempt failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 						AbortStatus:    v1.MigrationAbortFailed,
 					})))),
+				nil,
 			),
-			Entry("when the request the abort status isn't set", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when the abort status isn't set", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 					})))),
+				nil,
+			),
+			Entry("when abort status is empty in both VMI and domain metadata", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+				&api.Domain{Spec: api.DomainSpec{Metadata: api.Metadata{KubeVirt: api.KubeVirtMetadata{
+					Migration: &api.MigrationMetadata{AbortStatus: ""},
+				}}}},
 			),
 		)
-		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance) {
-
-			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+			Expect(controller.handleMigrationAbort(vmi, domain, client)).To(Succeed())
 		},
-			Entry("when the request succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when VMI abort status is InProgress", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 						AbortStatus:    v1.MigrationAbortInProgress,
 					})))),
+				nil,
 			),
-			Entry("when the request is in progress", libvmi.New(libvmi.WithUID(vmiTestUUID),
+			Entry("when VMI abort status is Succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						AbortRequested: true,
 						AbortStatus:    v1.MigrationAbortSucceeded,
 					})))),
+				nil,
+			),
+			Entry("when domain metadata has AbortInProgress", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+				&api.Domain{Spec: api.DomainSpec{Metadata: api.Metadata{KubeVirt: api.KubeVirtMetadata{
+					Migration: &api.MigrationMetadata{AbortStatus: string(v1.MigrationAbortInProgress)},
+				}}}},
+			),
+			Entry("when domain metadata has AbortSucceeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+				&api.Domain{Spec: api.DomainSpec{Metadata: api.Metadata{KubeVirt: api.KubeVirtMetadata{
+					Migration: &api.MigrationMetadata{AbortStatus: string(v1.MigrationAbortSucceeded)},
+				}}}},
 			),
 		)
 
@@ -431,7 +461,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 						AbortRequested: true,
 					}))))
 			client.EXPECT().CancelVirtualMachineMigration(vmi).Return(fmt.Errorf(errMsg))
-			Expect(controller.handleMigrationAbort(vmi, client)).To(MatchError(errMsg))
+			Expect(controller.handleMigrationAbort(vmi, nil, client)).To(MatchError(errMsg))
 		})
 
 		It("should abort vmi migration vmi when migration object indicates deletion", func() {
@@ -528,18 +558,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Entry("with a zero CPU quantity", pointer.P(resource.MustParse("0"))),
 			)
 
-			DescribeTable("should not configure multiple threads", func(allowPostcopy bool, vmiLimits k8sv1.ResourceList) {
-				var migrationConfiguration = &v1.MigrationConfiguration{
-					BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
-					ProgressTimeout:         pointer.P(int64(150)),
-					AllowAutoConverge:       pointer.P(false),
-					CompletionTimeoutPerGiB: pointer.P(int64(50)),
-					UnsafeMigrationOverride: pointer.P(false),
-					AllowPostCopy:           pointer.P(allowPostcopy),
-					AllowWorkloadDisruption: pointer.P(true),
-				}
-				vmi.Status.MigrationState.MigrationConfiguration = migrationConfiguration
+			DescribeTable("should not configure multiple threads", func(vmiLimits k8sv1.ResourceList, cpu *v1.CPU) {
 				vmi.Spec.Domain.Resources.Limits = vmiLimits
+				vmi.Spec.Domain.CPU = cpu
 
 				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 					Expect(options.ParallelMigrationThreads).To(BeNil())
@@ -548,7 +569,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				controller.Execute()
 				testutils.ExpectEvent(recorder, VMIMigrating)
 			},
-				Entry("if CPU is limited", false, k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}),
+				Entry("if CPU is limited", k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}, nil),
+				Entry("if CPU is dedicated", nil, &v1.CPU{DedicatedCPUPlacement: true, Cores: 2, Sockets: 1, Threads: 1}),
 			)
 		})
 	})

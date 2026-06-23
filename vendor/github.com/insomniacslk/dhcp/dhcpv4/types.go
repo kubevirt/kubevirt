@@ -238,6 +238,8 @@ const (
 	OptionGeoConfCivic                optionCode = 99
 	OptionIEEE10031TZString           optionCode = 100
 	OptionReferenceToTZDatabase       optionCode = 101
+	// Option 108 returned in RFC 8925
+	OptionIPv6OnlyPreferred optionCode = 108
 	// Options 102-111 returned in RFC 3679
 	OptionNetInfoParentServerAddress optionCode = 112
 	OptionNetInfoParentServerTag     optionCode = 113
@@ -401,6 +403,8 @@ var optionCodeToString = map[OptionCode]string{
 	OptionGeoConfCivic:                "GEOCONF_CIVIC",
 	OptionIEEE10031TZString:           "IEEE 1003.1 TZ String",
 	OptionReferenceToTZDatabase:       "Reference to the TZ Database",
+	// Option 108 returned in RFC 8925
+	OptionIPv6OnlyPreferred: "IPv6-Only Preferred",
 	// Options 102-111 returned in RFC 3679
 	OptionNetInfoParentServerAddress: "NetInfo Parent Server Address",
 	OptionNetInfoParentServerTag:     "NetInfo Parent Server Tag",

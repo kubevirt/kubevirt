@@ -97,7 +97,7 @@ import (
 )
 
 const (
-	fedoraVMSize               = "256M"
+	fedoraVMSize               = "512Mi"
 	secretDiskSerial           = "D23YZ9W6WA5DJ487"
 	stressDefaultVMSize        = "100M"
 	stressLargeVMSize          = "400M"
@@ -108,6 +108,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	var (
 		virtClient              kubecli.KubevirtClient
 		migrationBandwidthLimit resource.Quantity
+		defaultArch             string
 	)
 
 	const (
@@ -157,6 +158,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		migrationBandwidthLimit = resource.MustParse("1Ki")
+		var err error
+		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("with Headless service", func() {
@@ -370,7 +374,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					Fail("Failed test when RWX Block storage is not present")
 				}
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
@@ -445,7 +449,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 
 			},
-				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
+				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk, decorators.WgS390x),
 				Entry("[QUARANTINE] channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio, decorators.Quarantine),
 			)
 
@@ -694,7 +698,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 			})
 
-			It("should automatically cancel unschedulable migration after a timeout period", decorators.Conformance, func() {
+			It("should automatically cancel unschedulable migration after a timeout period", decorators.Conformance, decorators.WgS390x, func() {
 				// Add node affinity to ensure VMI affinity rules block target pod from being created
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
@@ -728,7 +732,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Eventually(matcher.ThisMigration(migration)).WithPolling(5 * time.Second).WithTimeout(2 * time.Minute).Should(matcher.BeInPhase(v1.MigrationFailed))
 			})
 
-			It("should automatically cancel pending target pod after a catch all timeout period", func() {
+			It("should automatically cancel pending target pod after a catch all timeout period", decorators.WgS390x, func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Starting the VirtualMachineInstance")
@@ -756,7 +760,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Eventually(matcher.ThisMigration(migration)).WithPolling(5 * time.Second).WithTimeout(2 * time.Minute).Should(matcher.BeInPhase(v1.MigrationFailed))
 			})
 		})
-		Context(" with auto converge enabled", Serial, func() {
+		Context(" with auto converge enabled", Serial, decorators.WgS390x, func() {
 			BeforeEach(func() {
 
 				// set autoconverge flag
@@ -788,7 +792,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 		})
-		Context("with setting guest time", func() {
+		Context("with setting guest time", decorators.WgS390x, func() {
 			It("[test_id:4114]should set an updated time after a migration", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize), libvmi.WithRng())
 
@@ -847,11 +851,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
 				sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
+					Skip("Skip test when Filesystem storage is not present") //nolint:forbidigo
 				}
 
 				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
@@ -1023,7 +1027,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			createDV := func(namespace string) {
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(url), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(storageClass),
 						libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
@@ -1085,7 +1089,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(size),
@@ -1346,21 +1350,21 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					var wg sync.WaitGroup
 					wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 
-					i := 0
 					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-						portI, _ := strconv.Atoi(port)
-						go func(i int, port int) {
+						portI, err := strconv.Atoi(port)
+						Expect(err).ToNot(HaveOccurred())
+						go func(port int) {
 							defer GinkgoRecover()
 							defer wg.Done()
 							stopChan := make(chan struct{})
 							defer close(stopChan)
-							Expect(libpod.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-							_, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+							localPort, fwErr := libpod.ForwardPorts(handler, []string{fmt.Sprintf("0:%d", port)}, stopChan, 10*time.Second)
+							Expect(fwErr).ToNot(HaveOccurred())
+							_, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), tlsConfig)
 							Expect(err).To(HaveOccurred())
 							errors <- err
-						}(i, portI)
-						i++
+						}(portI)
 					}
 					wg.Wait()
 					close(errors)
@@ -1376,7 +1380,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					cfg := getCurrentKvConfig(virtClient)
 					tlsEnabled := cfg.MigrationConfiguration.DisableTLS == nil || *cfg.MigrationConfiguration.DisableTLS == false
 					if !tlsEnabled {
-						Skip("test requires secure migrations to be enabled")
+						Skip("test requires secure migrations to be enabled") //nolint:forbidigo
 					}
 				})
 
@@ -1425,25 +1429,25 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					var wg sync.WaitGroup
 					wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 
-					i := 0
 					errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 					for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-						portI, _ := strconv.Atoi(port)
-						go func(i int, port int) {
+						portI, err := strconv.Atoi(port)
+						Expect(err).ToNot(HaveOccurred())
+						go func(port int) {
 							defer GinkgoRecover()
 							defer wg.Done()
 							stopChan := make(chan struct{})
 							defer close(stopChan)
-							Expect(libpod.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-							conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+							localPort, fwErr := libpod.ForwardPorts(handler, []string{fmt.Sprintf("0:%d", port)}, stopChan, 10*time.Second)
+							Expect(fwErr).ToNot(HaveOccurred())
+							conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", localPort), tlsConfig)
 							if conn != nil {
 								b := make([]byte, 1)
 								_, err = conn.Read(b)
 							}
 							Expect(err).To(HaveOccurred())
 							errors <- err
-						}(i, portI)
-						i++
+						}(portI)
 					}
 					wg.Wait()
 					close(errors)
@@ -1788,7 +1792,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				sc, exists := libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Skip("Skip test when Block storage is not present") //nolint:forbidigo
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1824,11 +1828,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
 				if !foundSC {
-					Skip("Skip test when Block storage is not present")
+					Skip("Skip test when Block storage is not present") //nolint:forbidigo
 				}
 
 				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
+					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(sc),
 						libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
@@ -2014,18 +2018,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				var nodesSetUnschedulable []string
 
-				BeforeEach(func() {
-					By("Keeping only one schedulable node")
-					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
-					Expect(schedulableNodes).NotTo(And(BeEmpty(), HaveLen(1)))
-
-					// Iterate on all schedulable nodes but one
-					for _, schedulableNode := range schedulableNodes[:len(schedulableNodes)-1] {
-						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
-						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
-					}
-				})
-
 				AfterEach(func() {
 					By("Restoring nodes to be schedulable")
 					for _, schedulableNodeName := range nodesSetUnschedulable {
@@ -2040,6 +2032,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+					By("Making all other nodes unschedulable so migration target cannot be placed")
+					schedulableNodes := libnode.GetAllSchedulableNodes(virtClient).Items
+					for _, schedulableNode := range schedulableNodes {
+						if schedulableNode.Name == vmi.Status.NodeName {
+							continue
+						}
+						libnode.SetNodeUnschedulable(schedulableNode.Name, virtClient)
+						nodesSetUnschedulable = append(nodesSetUnschedulable, schedulableNode.Name)
+					}
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2292,7 +2294,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 
 			if count < 2 {
-				Skip(fmt.Sprintf("Not enough nodes with hugepages %s capacity. Need 2, found %d.", hugepageType, count))
+				Skip(fmt.Sprintf("Not enough nodes with hugepages %s capacity. Need 2, found %d.", hugepageType, count)) //nolint:forbidigo
 			}
 
 			hugepagesVmi := libvmifact.NewAlpine(
@@ -2761,8 +2763,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 	})
 
-	Context("Virtiofs", decorators.VirtioFS, func() {
-		It("should migrate with a shared ConfigMap", func() {
+	Context("Virtiofs", func() {
+		It("should migrate with a shared ConfigMap", decorators.ConfigVolumesVirtiofs, func() {
 			configMapName := "configmap-" + uuid.NewString()[:6]
 			data := map[string]string{
 				"option1": "value1",
@@ -2812,7 +2814,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}, 200)).To(Succeed())
 		})
 
-		It("should migrate with a shared DV", decorators.RequiresRWXFilesystemStorage, func() {
+		It("should migrate with a shared DV", decorators.RequiresRWXFilesystemStorage, decorators.StorageVolumesVirtiofs, func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 
 			if !foundSC {
@@ -3143,8 +3145,11 @@ func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 
+	arch, err := libkubevirt.GetDefaultArchitecture(virtClient)
+	Expect(err).ToNot(HaveOccurred())
+
 	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(containerDisk), cdiv1.RegistryPullNode),
+		libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(arch)),
 		libdv.WithStorage(
 			libdv.StorageWithStorageClass(storageClass),
 			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
@@ -3153,7 +3158,7 @@ func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode
 		),
 	)
 
-	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 

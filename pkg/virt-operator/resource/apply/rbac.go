@@ -56,7 +56,8 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 		// Create non existent
 		err = getRbacCreateFunction(r, required)()
 		if err != nil {
-			return fmt.Errorf("unable to create %v %+v: %v", roleTypeName, required, err)
+			log.Log.V(2).Infof("failed to create %v %s: %+v", roleTypeName, requiredMeta.GetName(), required)
+			return fmt.Errorf("unable to create %v %s: %v", roleTypeName, requiredMeta.GetName(), err)
 		}
 		log.Log.V(2).Infof("%v %v created", roleTypeName, requiredMeta.GetName())
 		return nil
@@ -79,7 +80,8 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 	// Update existing, we don't need to patch for rbac rules.
 	err = getRbacUpdateFunction(r, existingCopy)()
 	if err != nil {
-		return fmt.Errorf("unable to update %v %+v: %v", roleTypeName, required, err)
+		log.Log.V(2).Infof("failed to update %v %s: %+v", roleTypeName, requiredMeta.GetName(), existingCopy)
+		return fmt.Errorf("unable to update %v %s: %v", roleTypeName, requiredMeta.GetName(), err)
 	}
 	log.Log.V(2).Infof("%v %v updated", roleTypeName, requiredMeta.GetName())
 
@@ -88,7 +90,7 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 
 func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func() error) {
 
-	rbacObj := r.clientset.RbacV1()
+	rbacObj := r.k8sClient.RbacV1()
 	namespace := r.kv.Namespace
 
 	raiseExpectation := func(exp *controller.UIDTrackingControllerExpectations) {
@@ -144,7 +146,7 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 }
 
 func getRbacUpdateFunction(r *Reconciler, obj runtime.Object) (updateFunc func() (err error)) {
-	rbacObj := r.clientset.RbacV1()
+	rbacObj := r.k8sClient.RbacV1()
 	namespace := r.kv.Namespace
 
 	switch obj.(type) {

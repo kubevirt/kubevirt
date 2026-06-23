@@ -61,11 +61,12 @@ func virtualMachineOptions(
 			bochsDisplay = false
 		}
 		options.ClusterConfig = &cmdv1.ClusterConfig{
-			FreePageReportingDisabled:   clusterConfig.IsFreePageReportingDisabled(),
-			BochsDisplayForEFIGuests:    bochsDisplay,
-			SerialConsoleLogDisabled:    clusterConfig.IsSerialConsoleLogDisabled(),
-			PCINUMAAwareTopologyEnabled: clusterConfig.PCINUMAAwareTopologyEnabled(),
-			VGPULiveMigrationEnabled:    clusterConfig.VGPULiveMigrationEnabled(),
+			FreePageReportingDisabled:    clusterConfig.IsFreePageReportingDisabled(),
+			BochsDisplayForEFIGuests:     bochsDisplay,
+			SerialConsoleLogDisabled:     clusterConfig.IsSerialConsoleLogDisabled(),
+			PCINUMAAwareTopologyEnabled:  clusterConfig.PCINUMAAwareTopologyEnabled(),
+			VGPULiveMigrationEnabled:     clusterConfig.VGPULiveMigrationEnabled(),
+			GraceIOVirtualizationEnabled: clusterConfig.GraceIOVirtualizationEnabled(),
 		}
 	}
 

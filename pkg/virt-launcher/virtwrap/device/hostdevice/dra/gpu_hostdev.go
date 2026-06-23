@@ -22,8 +22,6 @@ package dra
 import (
 	"fmt"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -78,13 +76,13 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, basePath string) ([
 	return hostDevices, nil
 }
 
-func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []k8sv1.PodResourceClaim) (*api.HostDevice, error) {
-	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == nil || *gpu.ClaimRequest.ClaimName == "" || gpu.ClaimRequest.RequestName == nil || *gpu.ClaimRequest.RequestName == "" {
+func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []v1.VirtualMachineInstanceResourceClaim) (*api.HostDevice, error) {
+	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == "" || gpu.ClaimRequest.RequestName == "" {
 		return nil, fmt.Errorf("GPU %s has incomplete ClaimRequest", gpu.Name)
 	}
 
-	claimName := *gpu.ClaimRequest.ClaimName
-	requestName := *gpu.ClaimRequest.RequestName
+	claimName := gpu.ClaimRequest.ClaimName
+	requestName := gpu.ClaimRequest.RequestName
 
 	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
 	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating

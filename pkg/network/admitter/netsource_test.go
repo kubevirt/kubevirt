@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -84,6 +85,57 @@ var _ = Describe("Validate network source", func() {
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("should have a network type"))
 	})
+
+	It("should accept resourceClaim network type", func() {
+		const draSRIOVNetName = "sriov-dra"
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			{Name: draSRIOVNetName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+		}
+		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+		spec.Networks = []v1.Network{
+			{
+				Name: draSRIOVNetName,
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ClaimRequest{
+						ClaimName:   "claim1",
+						RequestName: "request1",
+					},
+				},
+			},
+		}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	DescribeTable("should reject when resourceClaim is combined with another network type",
+		func(networkSource v1.NetworkSource) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+			spec.Networks = []v1.Network{
+				{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "claim1",
+							RequestName: "request1",
+						},
+						Pod:    networkSource.Pod,
+						Multus: networkSource.Multus,
+					},
+				},
+			}
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
+			causes := validator.Validate()
+			Expect(causes).To(ContainElement(HaveField("Message", "should have only one network type")))
+		},
+		Entry("pod network", v1.NetworkSource{Pod: &v1.PodNetwork{}}),
+		Entry("multus network", v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "default1"}}),
+	)
 
 	It("should reject multus network source without networkName", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}

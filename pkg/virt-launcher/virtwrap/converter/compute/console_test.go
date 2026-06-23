@@ -25,8 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -83,7 +81,7 @@ var _ = Describe("Console Domain Configurator", func() {
 	)
 
 	It("should NOT configure serial console when AutoattachSerialConsole is explicitly false", func() {
-		vmi := libvmi.New(withAutoattachSerialConsole(false))
+		vmi := libvmi.New(libvmi.WithAutoattachSerialConsole(false))
 		var domain api.Domain
 
 		Expect(compute.NewConsoleDomainConfigurator(false).Configure(vmi, &domain)).To(Succeed())
@@ -132,9 +130,3 @@ var _ = Describe("Console Domain Configurator", func() {
 		Expect(domain).To(Equal(expectedDomain))
 	})
 })
-
-func withAutoattachSerialConsole(enabled bool) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(enabled)
-	}
-}

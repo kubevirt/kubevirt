@@ -34,96 +34,96 @@ package libvirt
 #include "events_helper.h"
 
 
-void eventHandleCallback(int watch, int fd, int events, int callbackID);
+void virGoEventHandleCallback(int watch, int fd, int events, int callbackID);
 
-static void eventAddHandleHelper(int watch, int fd, int events, void *opaque)
+static void virGoEventAddHandleHelper(int watch, int fd, int events, void *opaque)
 {
-    eventHandleCallback(watch, fd, events, (int)(intptr_t)opaque);
+    virGoEventHandleCallback(watch, fd, events, (int)(intptr_t)opaque);
 }
 
 
-void eventTimeoutCallback(int timer, int callbackID);
+void virGoEventTimeoutCallback(int timer, int callbackID);
 
-static void eventAddTimeoutHelper(int timer, void *opaque)
+static void virGoEventAddTimeoutHelper(int timer, void *opaque)
 {
-    eventTimeoutCallback(timer, (int)(intptr_t)opaque);
+    virGoEventTimeoutCallback(timer, (int)(intptr_t)opaque);
 }
 
 
-int eventAddHandleFunc(int fd, int event, uintptr_t callback, uintptr_t opaque, uintptr_t freecb);
-void eventUpdateHandleFunc(int watch, int event);
-int eventRemoveHandleFunc(int watch);
-int eventAddTimeoutFunc(int freq, uintptr_t callback, uintptr_t opaque, uintptr_t freecb);
-void eventUpdateTimeoutFunc(int timer, int freq);
-int eventRemoveTimeoutFunc(int timer);
+int virGoEventAddHandleFunc(int fd, int event, uintptr_t callback, uintptr_t opaque, uintptr_t freecb);
+void virGoEventUpdateHandleFunc(int watch, int event);
+int virGoEventRemoveHandleFunc(int watch);
+int virGoEventAddTimeoutFunc(int freq, uintptr_t callback, uintptr_t opaque, uintptr_t freecb);
+void virGoEventUpdateTimeoutFunc(int timer, int freq);
+int virGoEventRemoveTimeoutFunc(int timer);
 
 
-int eventAddHandleFuncHelper(int fd, int event, virEventHandleCallback callback, void *opaque, virFreeCallback freecb)
+int virGoEventAddHandleFuncHelper(int fd, int event, virEventHandleCallback callback, void *opaque, virFreeCallback freecb)
 {
-    return eventAddHandleFunc(fd, event, (uintptr_t)callback, (uintptr_t)opaque, (uintptr_t)freecb);
+    return virGoEventAddHandleFunc(fd, event, (uintptr_t)callback, (uintptr_t)opaque, (uintptr_t)freecb);
 }
 
 
-void eventUpdateHandleFuncHelper(int watch, int event)
+void virGoEventUpdateHandleFuncHelper(int watch, int event)
 {
-    eventUpdateHandleFunc(watch, event);
+    virGoEventUpdateHandleFunc(watch, event);
 }
 
 
-int eventRemoveHandleFuncHelper(int watch)
+int virGoEventRemoveHandleFuncHelper(int watch)
 {
-    return eventRemoveHandleFunc(watch);
+    return virGoEventRemoveHandleFunc(watch);
 }
 
 
-int eventAddTimeoutFuncHelper(int freq, virEventTimeoutCallback callback, void *opaque, virFreeCallback freecb)
+int virGoEventAddTimeoutFuncHelper(int freq, virEventTimeoutCallback callback, void *opaque, virFreeCallback freecb)
 {
-    return eventAddTimeoutFunc(freq, (uintptr_t)callback, (uintptr_t)opaque, (uintptr_t)freecb);
+    return virGoEventAddTimeoutFunc(freq, (uintptr_t)callback, (uintptr_t)opaque, (uintptr_t)freecb);
 }
 
 
-void eventUpdateTimeoutFuncHelper(int timer, int freq)
+void virGoEventUpdateTimeoutFuncHelper(int timer, int freq)
 {
-    eventUpdateTimeoutFunc(timer, freq);
+    virGoEventUpdateTimeoutFunc(timer, freq);
 }
 
 
-int eventRemoveTimeoutFuncHelper(int timer)
+int virGoEventRemoveTimeoutFuncHelper(int timer)
 {
-    return eventRemoveTimeoutFunc(timer);
+    return virGoEventRemoveTimeoutFunc(timer);
 }
 
 
 void virEventRegisterImplHelper(void)
 {
-    virEventRegisterImplWrapper(eventAddHandleFuncHelper,
-                                eventUpdateHandleFuncHelper,
-                                eventRemoveHandleFuncHelper,
-                                eventAddTimeoutFuncHelper,
-                                eventUpdateTimeoutFuncHelper,
-                                eventRemoveTimeoutFuncHelper);
+    virEventRegisterImplWrapper(virGoEventAddHandleFuncHelper,
+                                virGoEventUpdateHandleFuncHelper,
+                                virGoEventRemoveHandleFuncHelper,
+                                virGoEventAddTimeoutFuncHelper,
+                                virGoEventUpdateTimeoutFuncHelper,
+                                virGoEventRemoveTimeoutFuncHelper);
 }
 
 
-void eventHandleCallbackInvoke(int watch, int fd, int events, uintptr_t callback, uintptr_t opaque)
+void virGoEventHandleCallbackInvoke(int watch, int fd, int events, uintptr_t callback, uintptr_t opaque)
 {
     ((virEventHandleCallback)callback)(watch, fd, events, (void *)opaque);
 }
 
 
-void eventTimeoutCallbackInvoke(int timer, uintptr_t callback, uintptr_t opaque)
+void virGoEventTimeoutCallbackInvoke(int timer, uintptr_t callback, uintptr_t opaque)
 {
     ((virEventTimeoutCallback)callback)(timer, (void *)opaque);
 }
 
 
-void eventHandleCallbackFree(uintptr_t callback, uintptr_t opaque)
+void virGoEventHandleCallbackFree(uintptr_t callback, uintptr_t opaque)
 {
     ((virFreeCallback)callback)((void *)opaque);
 }
 
 
-void eventTimeoutCallbackFree(uintptr_t callback, uintptr_t opaque)
+void virGoEventTimeoutCallbackFree(uintptr_t callback, uintptr_t opaque)
 {
     ((virFreeCallback)callback)((void *)opaque);
 }
@@ -135,7 +135,7 @@ virEventAddHandleHelper(int fd,
                         int callbackID,
                         virErrorPtr err)
 {
-    return virEventAddHandleWrapper(fd, events, eventAddHandleHelper,
+    return virEventAddHandleWrapper(fd, events, virGoEventAddHandleHelper,
                                     (void *)(intptr_t)callbackID, NULL, err);
 }
 
@@ -145,7 +145,7 @@ virEventAddTimeoutHelper(int timeout,
                          int callbackID,
                          virErrorPtr err)
 {
-    return virEventAddTimeoutWrapper(timeout, eventAddTimeoutHelper,
+    return virEventAddTimeoutWrapper(timeout, virGoEventAddTimeoutHelper,
                                      (void *)(intptr_t)callbackID, NULL, err);
 }
 
