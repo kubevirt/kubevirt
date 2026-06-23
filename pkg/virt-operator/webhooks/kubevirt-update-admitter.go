@@ -82,6 +82,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
+	results = append(results, validateCrossClusterMigrationNetwork(&newKV.Spec.Configuration)...)
 	results = append(results, validateMigrationConfiguration(
 		&currKV.Spec.Configuration,
 		&newKV.Spec.Configuration,
@@ -592,4 +593,20 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 	}
 
 	return causes
+}
+
+func validateCrossClusterMigrationNetwork(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	if config.MigrationConfiguration == nil || config.MigrationConfiguration.CrossClusterNetwork == nil {
+		return nil
+	}
+
+	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+		return nil
+	}
+
+	return []metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Field:   "spec.configuration.migrationConfiguration.crossClusterNetwork",
+		Message: fmt.Sprintf("CrossClusterNetwork cannot be set without enabling the %s feature gate", featuregate.CrossClusterMigrationProxy),
+	}}
 }
