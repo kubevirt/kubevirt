@@ -31,13 +31,15 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -107,8 +109,11 @@ var _ = Describe("DomainNotifyServer integration", func() {
 		})
 
 		It("should get notify events", func() {
-			vmi := api2.NewMinimalVMI("fake-vmi")
-			vmi.UID = "4321"
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				libvmi.WithUID("4321"),
+			)
 			vmiStore.Add(vmi)
 
 			eventType := "Normal"
@@ -142,8 +147,11 @@ var _ = Describe("DomainNotifyServer integration", func() {
 		})
 
 		It("should eventually get notify events once pipe is online", func() {
-			vmi := api2.NewMinimalVMI("fake-vmi")
-			vmi.UID = "4321"
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				libvmi.WithUID("4321"),
+			)
 			vmiStore.Add(vmi)
 
 			eventType := "Normal"
@@ -185,8 +193,11 @@ var _ = Describe("DomainNotifyServer integration", func() {
 
 			time.Sleep(3)
 
-			vmi := api2.NewMinimalVMI("fake-vmi")
-			vmi.UID = "4321"
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				libvmi.WithUID("4321"),
+			)
 			vmiStore.Add(vmi)
 
 			eventType := "Normal"
@@ -288,11 +299,14 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 	)
 
 	BeforeEach(func() {
-		vmi = api2.NewMinimalVMI("test-vmi")
-		vmi.UID = "test-vmi-uid"
-		vmi.Status.ActivePods = map[types.UID]string{
-			types.UID(podUID): "test-node",
-		}
+		vmi = libvmi.New(
+			libvmi.WithName("test-vmi"),
+			libvmi.WithNamespace(k8sv1.NamespaceDefault),
+			libvmi.WithUID("test-vmi-uid"),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithActivePod(types.UID(podUID), "test-node"),
+			)),
+		)
 
 		// Set up socket directory
 		podsDir := GinkgoT().TempDir()
