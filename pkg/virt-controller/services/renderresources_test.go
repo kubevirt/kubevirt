@@ -234,6 +234,26 @@ var _ = Describe("Resource pod spec renderer", func() {
 				*resource.NewQuantity(int64(cores)+int64(iothreads)+1, resource.BinarySI),
 			), "should have the limits")
 		})
+
+		It("requires additional vhost CPU when VhostThreadPolicy is set", func() {
+			cores := uint32(2)
+
+			vmi := libvmi.New(
+				libvmi.WithCPUCount(cores, 0, 0),
+				libvmi.WithIsolateEmulatorThread(),
+				libvmi.WithVhostThreadPolicy(v1.VhostThreadPolicyShared),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
+			rr = NewResourceRenderer(
+				nil, nil,
+				WithCPUPinning(vmi, nil, 0),
+			)
+			// cores + 1 emulator + 1 vhost = 4
+			Expect(rr.Limits()).Should(HaveKeyWithValue(
+				kubev1.ResourceCPU,
+				*resource.NewQuantity(int64(cores)+2, resource.BinarySI),
+			), "should allocate cores + emulator CPU + vhost CPU")
+		})
 	})
 
 	Context("WithNetworkResources option", func() {
