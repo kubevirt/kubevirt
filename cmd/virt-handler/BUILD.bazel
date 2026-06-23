@@ -20,6 +20,7 @@ go_library(
         "//pkg/healthz:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-handler:go_default_library",
+        "//pkg/monitoring/metrics/virt-handler/collector:go_default_library",
         "//pkg/monitoring/metrics/virt-handler/handler:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/network/passt:go_default_library",
