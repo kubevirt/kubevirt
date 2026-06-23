@@ -223,6 +223,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		"3",
 		"--console-server-port",
 		"8186",
+		"--vmstats-server-port",
+		"8187",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
 		"-v",
@@ -233,6 +235,11 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			Name:          "metrics",
 			Protocol:      corev1.ProtocolTCP,
 			ContainerPort: 8443,
+		},
+		{
+			Name:          "vmstats",
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: 8187,
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{

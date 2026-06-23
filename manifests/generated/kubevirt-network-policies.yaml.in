@@ -9,6 +9,8 @@ spec:
   - ports:
     - port: 8443
       protocol: TCP
+    - port: 8187
+      protocol: TCP
   podSelector:
     matchExpressions:
     - key: kubevirt.io
@@ -20,6 +22,7 @@ spec:
       - virt-api
       - virt-exportproxy
       - virt-synchronization-controller
+      - virt-observability-controller
   policyTypes:
   - Ingress
 ---
@@ -200,6 +203,26 @@ spec:
   podSelector:
     matchLabels:
       kubevirt.io: virt-handler
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kubevirt-allow-observability-to-virt-handler
+  namespace: {{.Namespace}}
+spec:
+  egress:
+  - ports:
+    - port: 8187
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          kubevirt.io: virt-handler
+  podSelector:
+    matchLabels:
+      kubevirt.io: virt-observability-controller
   policyTypes:
   - Egress
 ---
