@@ -45,6 +45,12 @@ linters:
             Runtime skips silently suppress tests, making it easy to
             unknowingly stop running tests you care about.
             Labeling shifts the choice of what to run to the test executor.
+        - pattern: \.(Update|UpdateStatus)$
+          pkg: ^(kubevirt\.io/client-go/|k8s\.io/client-go/|github\.com/openshift/client-go/|sigs\.k8s\.io/controller-runtime/)
+          msg: >-
+            Use Patch/PatchStatus instead of Update/UpdateStatus.
+            Most often, tests do not really need to use Update (for an
+            atomic change) and Patch would be quicker and more precise.
     funlen:
       lines: 100
       statements: 50
@@ -111,6 +117,10 @@ linters:
       - legacy
       - std-error-handling
     rules:
+      - linters:
+          - forbidigo
+        path-except: 'tests/'
+        text: 'Use Patch/PatchStatus instead of Update/UpdateStatus'
       - linters:
           - staticcheck
         text: 'SA1019: checks.SkipTestIfNoCPUManager'

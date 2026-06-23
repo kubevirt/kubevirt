@@ -373,7 +373,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			service.Spec.Ports[0].Port = 123
 
 			By("Update service with undesired port")
-			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{})
+			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
@@ -607,7 +607,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = imagePullSecrets
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -629,7 +629,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = []k8sv1.LocalObjectReference{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -2298,7 +2298,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					},
 				}
 
-				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(instancetype.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(instancetype.Labels).To(HaveKeyWithValue(keyTest, valModified))
@@ -2329,7 +2329,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					},
 				}
 
-				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{})
+				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(preference.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(preference.Labels).To(HaveKeyWithValue(keyTest, valModified))

@@ -2272,7 +2272,7 @@ var _ = Describe(SIG("Export", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.AddDataVolume(vm, "blank-disk", dv)
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{}) //nolint:forbidigo
 		Expect(err).ToNot(HaveOccurred())
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// With WFFC we expect the volume to not be populated and the condition to be not ready and reason populating

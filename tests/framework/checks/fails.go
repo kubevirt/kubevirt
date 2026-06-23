@@ -25,7 +25,7 @@ func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
 		ginkgo.Fail(fmt.Sprintf("Skip tests that requires PV %s", imageName))
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{}) //nolint:forbidigo
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }

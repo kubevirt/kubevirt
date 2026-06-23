@@ -645,7 +645,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						},
 					},
 				}
-				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
 
 				Eventually(func() error {
