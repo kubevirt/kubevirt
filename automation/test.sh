@@ -136,7 +136,10 @@ case "$TARGET" in
     ;;
   *sig-compute-dra-gpu*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-dra-gpu/}
-    export KUBEVIRT_USE_FAKE_VFIO="${KUBEVIRT_USE_FAKE_VFIO:-true}"
+    export KUBEVIRT_USE_FAKE_VFIO=true
+    export DRA_DRIVER_PROFILE=vfio-gpu
+    export FAKE_PCI_DEVICES=8
+    export DRA_DRIVER_NAME="vfio-gpu.example.com"
     add_feature_gate "GPUsWithDRA"
     ;;
   *sig-compute*)
@@ -555,7 +558,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
     label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
