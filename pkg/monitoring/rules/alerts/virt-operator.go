@@ -30,10 +30,11 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtOperatorDown",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_pods_running:count == 0"),
+			Expr:  intstr.FromString(componentDownExpr(namespace, "operator")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "No running virt-operator pods were detected for the last 10 min.",
+				summaryAnnotationKey:     "No running virt-operator pods were detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-operator", ""),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -72,13 +73,11 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowReadyVirtOperatorsCount",
-			Expr: intstr.FromString(
-				"cluster:kubevirt_virt_operator_ready:sum < cluster:kubevirt_virt_operator_pods_running:count " +
-					"and cluster:kubevirt_virt_operator_ready:sum > 0",
-			),
-			For: ptr.To(promv1.Duration("10m")),
+			Expr:  intstr.FromString(lowReadyAlertExpr(namespace, "operator")),
+			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "Some virt-operators are running but not ready.",
+				summaryAnnotationKey:     "Some virt-operators are running but not ready.",
+				descriptionAnnotationKey: "virt-operator pod {{ $labels.pod }} has been running but not ready for more than 10 minutes.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -87,7 +86,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtOperator",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_ready:sum == 0"),
+			Expr:  intstr.FromString(noReadyAlertExpr(namespace, "operator")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-operator was detected for the last 10 min.",
