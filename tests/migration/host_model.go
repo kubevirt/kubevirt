@@ -41,10 +41,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
@@ -110,7 +112,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			BeforeEach(func() {
 				var err error
 				By("Creating a VMI with default CPU mode")
-				vmi = alpineVMIWithEvictionStrategy()
+				vmi = libvmifact.NewGuestless(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
 				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 				By("Starting the VirtualMachineInstance")
@@ -170,7 +176,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				By("Creating a VMI with default CPU mode")
-				vmi = alpineVMIWithEvictionStrategy()
+				vmi = libvmifact.NewGuestless(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
 				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 				By("Starting the VirtualMachineInstance")
