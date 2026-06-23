@@ -118,10 +118,14 @@ func CreateDataVolumeManifest(clientset kubecli.KubevirtClient, dataVolumeTempla
 	return newDataVolume, nil
 }
 
+func ResourceClaimNameForVM(vmName, entryName string) string {
+	return fmt.Sprintf("%s-%s", vmName, entryName)
+}
+
 func CreateResourceClaimManifest(entry virtv1.ResourceClaimTemplateEntry, claimTemplate *resourcev1.ResourceClaimTemplate, vm *virtv1.VirtualMachine) *resourcev1.ResourceClaim {
 	return &resourcev1.ResourceClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", vm.Name, entry.Name),
+			Name:      ResourceClaimNameForVM(vm.Name, entry.Name),
 			Namespace: vm.Namespace,
 			Labels: map[string]string{
 				virtv1.CreatedByLabel: string(vm.UID),

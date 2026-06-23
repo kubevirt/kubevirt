@@ -235,12 +235,24 @@ func validateResourceClaimTemplates(field *k8sfield.Path, spec *v1.VirtualMachin
 	}
 
 	if !config.GPUsWithDRAGateEnabled() && !config.HostDevicesWithDRAEnabled() {
-		causes = append(causes, metav1.StatusCause{
+		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "ResourceClaimTemplates requires the GPUsWithDRA or HostDevicesWithDRA feature gate to be enabled",
 			Field:   field.Child("resourceClaimTemplates").String(),
-		})
-		return causes
+		}}
+	}
+
+	if spec.Template == nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "spec.template is required when resourceClaimTemplates are specified",
+			Field:   field.Child("template").String(),
+		}}
+	}
+
+	templateClaims := make(map[string]struct{})
+	for _, rc := range spec.Template.Spec.ResourceClaims {
+		templateClaims[rc.Name] = struct{}{}
 	}
 
 	nameSet := make(map[string]bool)
@@ -269,16 +281,8 @@ func validateResourceClaimTemplates(field *k8sfield.Path, spec *v1.VirtualMachin
 				Field:   entryField.Child("resourceClaimTemplateName").String(),
 			})
 		}
-
-		if spec.Template != nil {
-			found := false
-			for _, rc := range spec.Template.Spec.ResourceClaims {
-				if rc.Name == entry.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
+		if entry.Name != "" {
+			if _, ok := templateClaims[entry.Name]; !ok {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("ResourceClaimTemplateEntry %q has no matching entry in spec.template.spec.resourceClaims", entry.Name),
