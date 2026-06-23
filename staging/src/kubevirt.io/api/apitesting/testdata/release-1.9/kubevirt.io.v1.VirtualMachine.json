@@ -1367,7 +1367,10 @@
         "checkpointName": "checkpointNameValue",
         "volumes": [
           {
-            "volumeName": "volumeNameValue"
+            "volumeName": "volumeNameValue",
+            "diskTarget": "diskTargetValue",
+            "dataEndpoint": "dataEndpointValue",
+            "mapEndpoint": "mapEndpointValue"
           }
         ],
         "quiesceStatus": "quiesceStatusValue"

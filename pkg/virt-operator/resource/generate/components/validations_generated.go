@@ -8929,26 +8929,13 @@ var CRDsValidation map[string]string = map[string]string{
                 volumes:
                   description: Volumes lists the volumes included in the backup
                   items:
-                    description: BackupVolumeInfo contains information about a volume
-                      included in a backup
+                    description: VirtualMachineInstanceBackupVolumeInfo contains information
+                      about a volume included in a backup
                     properties:
-                      dataEndpoint:
-                        description: DataEndpoint is the URL of the endpoint for read
-                          for pull mode
-                        type: string
-                      diskTarget:
-                        description: DiskTarget is the disk target device name at
-                          backup time
-                        type: string
-                      mapEndpoint:
-                        description: MapEndpoint is the URL of the endpoint for map
-                          for pull mode
-                        type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
                     required:
-                    - diskTarget
                     - volumeName
                     type: object
                   type: array
@@ -9747,9 +9734,6 @@ var CRDsValidation map[string]string = map[string]string{
                 description: DataEndpoint is the URL of the endpoint for read for
                   pull mode
                 type: string
-              diskTarget:
-                description: DiskTarget is the disk target device name at backup time
-                type: string
               mapEndpoint:
                 description: MapEndpoint is the URL of the endpoint for map for pull
                   mode
@@ -9758,7 +9742,6 @@ var CRDsValidation map[string]string = map[string]string{
                 description: VolumeName is the volume name from VMI spec
                 type: string
             required:
-            - diskTarget
             - volumeName
             type: object
           type: array
@@ -9850,8 +9833,7 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               type: string
             volumes:
-              description: Volumes lists volumes and their disk targets at backup
-                time
+              description: Volumes lists volumes included in the backup
               items:
                 description: BackupVolumeInfo contains information about a volume
                   included in a backup
@@ -9859,10 +9841,6 @@ var CRDsValidation map[string]string = map[string]string{
                   dataEndpoint:
                     description: DataEndpoint is the URL of the endpoint for read
                       for pull mode
-                    type: string
-                  diskTarget:
-                    description: DiskTarget is the disk target device name at backup
-                      time
                     type: string
                   mapEndpoint:
                     description: MapEndpoint is the URL of the endpoint for map for
@@ -9872,7 +9850,6 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VolumeName is the volume name from VMI spec
                     type: string
                 required:
-                - diskTarget
                 - volumeName
                 type: object
               type: array
@@ -15140,26 +15117,13 @@ var CRDsValidation map[string]string = map[string]string{
                 volumes:
                   description: Volumes lists the volumes included in the backup
                   items:
-                    description: BackupVolumeInfo contains information about a volume
-                      included in a backup
+                    description: VirtualMachineInstanceBackupVolumeInfo contains information
+                      about a volume included in a backup
                     properties:
-                      dataEndpoint:
-                        description: DataEndpoint is the URL of the endpoint for read
-                          for pull mode
-                        type: string
-                      diskTarget:
-                        description: DiskTarget is the disk target device name at
-                          backup time
-                        type: string
-                      mapEndpoint:
-                        description: MapEndpoint is the URL of the endpoint for map
-                          for pull mode
-                        type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
                     required:
-                    - diskTarget
                     - volumeName
                     type: object
                   type: array
@@ -32778,27 +32742,15 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Volumes lists the volumes included in the
                                 backup
                               items:
-                                description: BackupVolumeInfo contains information
-                                  about a volume included in a backup
+                                description: VirtualMachineInstanceBackupVolumeInfo
+                                  contains information about a volume included in
+                                  a backup
                                 properties:
-                                  dataEndpoint:
-                                    description: DataEndpoint is the URL of the endpoint
-                                      for read for pull mode
-                                    type: string
-                                  diskTarget:
-                                    description: DiskTarget is the disk target device
-                                      name at backup time
-                                    type: string
-                                  mapEndpoint:
-                                    description: MapEndpoint is the URL of the endpoint
-                                      for map for pull mode
-                                    type: string
                                   volumeName:
                                     description: VolumeName is the volume name from
                                       VMI spec
                                     type: string
                                 required:
-                                - diskTarget
                                 - volumeName
                                 type: object
                               type: array
