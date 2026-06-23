@@ -1338,6 +1338,114 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Entry("without resource requirements set", nil),
 			)
 
+			It("should start a vmi with dedicated cpus and vhost thread policy", func() {
+				kvconfig.EnableFeatureGate(featuregate.VhostThreadCPUIsolation)
+				policy := v1.VhostThreadPolicyShared
+				cpuVmi := libvmifact.NewAlpine()
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 2,
+					DedicatedCPUPlacement: true,
+					IsolateEmulatorThread: true,
+					VhostThreadPolicy:     &policy,
+				}
+
+				By("Starting a VirtualMachineInstance")
+				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				node := libwait.WaitForSuccessfulVMIStart(cpuVmi).Status.NodeName
+
+				By("Checking that the VMI QOS is guaranteed")
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Get(context.Background(), cpuVmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.QOSClass).ToNot(BeNil())
+				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
+
+				readyPod, err := libpod.GetPodByVirtualMachineInstance(cpuVmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying the pod received cores + emulator + vhost dedicated CPUs")
+				podCPUSetRaw, err := getPodCPUSet(readyPod)
+				Expect(err).ToNot(HaveOccurred())
+				podCPUs, err := hw_utils.ParseCPUSetLine(strings.TrimSpace(podCPUSetRaw), 100)
+				Expect(err).ToNot(HaveOccurred())
+				expectedCPUs := int(cpuVmi.Spec.Domain.CPU.Cores) + 2
+				Expect(podCPUs).To(HaveLen(expectedCPUs),
+					"pod should have %d dedicated CPUs (2 vcpus + emulator + vhost), got cpuset: %s",
+					expectedCPUs, strings.TrimSpace(podCPUSetRaw))
+
+				By("Verifying the domain spec allocated a dedicated vhost CPU")
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				vhostCPUSet := domSpec.Metadata.KubeVirt.VhostCPUSet
+				emulatorCPUSet := ""
+				if domSpec.CPUTune != nil && domSpec.CPUTune.EmulatorPin != nil {
+					emulatorCPUSet = domSpec.CPUTune.EmulatorPin.CPUSet
+				}
+				vcpuPins := ""
+				if domSpec.CPUTune != nil {
+					for _, pin := range domSpec.CPUTune.VCPUPin {
+						vcpuPins += fmt.Sprintf("vcpu%d->cpu%s ", pin.VCPU, pin.CPUSet)
+					}
+				}
+				fmt.Fprintf(GinkgoWriter, "Domain CPU layout: vhostCPUSet=%q emulatorPin=%q vcpuPins=[%s]\n",
+					vhostCPUSet, emulatorCPUSet, vcpuPins)
+
+				Expect(vhostCPUSet).ToNot(BeEmpty(),
+					"domain metadata should contain VhostCPUSet (emulatorPin=%s, vcpuPins=[%s])",
+					emulatorCPUSet, vcpuPins)
+				Expect(domSpec.CPUTune).ToNot(BeNil(), "CPUTune should not be nil in domain spec")
+				Expect(domSpec.CPUTune.EmulatorPin).ToNot(BeNil(), "EmulatorPin should not be nil in CPUTune")
+
+				By("Verifying the vhost CPU is distinct from the emulator CPU")
+				Expect(vhostCPUSet).ToNot(Equal(emulatorCPUSet),
+					"vhost CPU (%s) must differ from emulator CPU (%s)", vhostCPUSet, emulatorCPUSet)
+
+				By("Finding vhost threads via virt-handler and verifying CPU affinity")
+				domainName := vmi.Namespace + "_" + vmi.Name
+				qemuHostPidRaw, err := libnode.ExecuteCommandInVirtHandlerPod(node,
+					[]string{"pgrep", "-f", "guest=" + domainName})
+				Expect(err).ToNot(HaveOccurred(),
+					"failed to find QEMU process for domain %s on node %s", domainName, node)
+				qemuHostPid := strings.TrimSpace(qemuHostPidRaw)
+				fmt.Fprintf(GinkgoWriter, "QEMU host PID: %s (domain: %s)\n", qemuHostPid, domainName)
+
+				vhostPidsRaw, err := libnode.ExecuteCommandInVirtHandlerPod(node,
+					[]string{"pgrep", "-x", "vhost-" + qemuHostPid})
+				Expect(err).ToNot(HaveOccurred(),
+					"failed to find vhost threads for QEMU host pid %s on node %s", qemuHostPid, node)
+				vhostPids := strings.Split(strings.TrimSpace(vhostPidsRaw), "\n")
+				Expect(vhostPids).ToNot(BeEmpty())
+				Expect(vhostPids[0]).ToNot(BeEmpty(),
+					"expected at least one vhost thread for QEMU host pid %s", qemuHostPid)
+				fmt.Fprintf(GinkgoWriter, "Found %d vhost thread(s): %v\n", len(vhostPids), vhostPids)
+
+				By("Verifying vhost threads are pinned to the dedicated CPU")
+				Eventually(func() string {
+					for _, pid := range vhostPids {
+						if pid == "" {
+							continue
+						}
+						tasksetCmd := "taskset -pc " + pid + " | cut -f2 -d:"
+						cpuAffinity, err := libnode.ExecuteCommandInVirtHandlerPod(node,
+							[]string{"/bin/bash", "-c", tasksetCmd})
+						if err != nil {
+							return "error: " + err.Error()
+						}
+						affinity := strings.TrimSpace(cpuAffinity)
+						if affinity != vhostCPUSet {
+							return affinity
+						}
+					}
+					return vhostCPUSet
+				}, 60*time.Second, 2*time.Second).Should(Equal(vhostCPUSet),
+					"vhost threads should be pinned to CPU %s", vhostCPUSet)
+
+				By("Expecting the VirtualMachineInstance console")
+				Expect(console.LoginToAlpine(cpuVmi)).To(Succeed())
+			})
+
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := libvmifact.NewAlpine()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
