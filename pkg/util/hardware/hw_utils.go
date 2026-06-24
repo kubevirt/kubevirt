@@ -116,6 +116,12 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 	return res[1:], nil
 }
 
+// NormalizePCIID normalizes PCI vendor and device IDs for comparison.
+func NormalizePCIID(id string) string {
+	id = strings.ToUpper(strings.TrimSpace(id))
+	return strings.TrimPrefix(id, "0X")
+}
+
 var (
 	PciBasePath  = "/sys/bus/pci/devices"
 	NodeBasePath = "/sys/bus/node/devices"
