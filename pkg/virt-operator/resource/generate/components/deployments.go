@@ -48,6 +48,7 @@ const (
 	VirtOperatorName                  = "virt-operator"
 	VirtExportProxyName               = "virt-exportproxy"
 	VirtSynchronizationControllerName = "virt-synchronization-controller"
+	VirtObservabilityControllerName   = "virt-observability-controller"
 
 	kubevirtLabelKey = "kubevirt.io"
 
