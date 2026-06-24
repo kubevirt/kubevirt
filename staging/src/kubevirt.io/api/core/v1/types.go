@@ -1447,6 +1447,10 @@ const (
 	// This annotation might be deprecated in the future if we decided to add a struct for it.
 	DisablePCIHole64 string = "kubevirt.io/disablePCIHole64"
 
+	// PCIHole64SizeAnnotation configures the 64-bit PCI MMIO aperture size for the root PCIe controller.
+	// This annotation is alpha and may be replaced by a typed API field in the future.
+	PCIHole64SizeAnnotation string = "alpha.kubevirt.io/pciHole64Size"
+
 	// EvictionSourceAnnotation indicates the origin of an api initiated eviction in the VirtualMachineInstance.
 	// This annotation might be empty if the source is not a recognized actor (an admin for example).
 	// This could be useful to distinguish evictions originated from the descheduler.

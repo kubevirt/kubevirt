@@ -70,6 +70,10 @@ func (converterARM64) SupportPCIHole64Disabling() bool {
 	return false
 }
 
+func (converterARM64) SupportPCIHole64Sizing() bool {
+	return true
+}
+
 func (converterARM64) SupportPCIePlacement() bool {
 	return true
 }

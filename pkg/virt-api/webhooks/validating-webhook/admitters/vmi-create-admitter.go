@@ -125,6 +125,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, isKubeVirtServiceAccount)...)
+	causes = append(causes, validatePCIHole64SizeAnnotation(k8sfield.NewPath("metadata"), vmi.Annotations)...)
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	if len(causes) > 0 {
@@ -241,6 +242,42 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateServiceAccountName(field, spec)...)
 
 	return causes
+}
+
+func validatePCIHole64SizeAnnotation(field *k8sfield.Path, annotations map[string]string) []metav1.StatusCause {
+	value, ok := annotations[v1.PCIHole64SizeAnnotation]
+	if !ok {
+		return nil
+	}
+
+	annotationField := field.Child("annotations").Key(v1.PCIHole64SizeAnnotation).String()
+	size, err := resource.ParseQuantity(value)
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be a valid memory quantity: %v", annotationField, err),
+			Field:   annotationField,
+		}}
+	}
+
+	if _, err := hwutil.PCIHole64SizeToKiB(size); err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be a positive memory quantity representable in KiB: %v", annotationField, err),
+			Field:   annotationField,
+		}}
+	}
+
+	if value, ok := annotations[v1.DisablePCIHole64]; ok && strings.EqualFold(value, "true") {
+		return []metav1.StatusCause{{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s cannot be set when annotation %s is true",
+				annotationField, v1.DisablePCIHole64),
+			Field: annotationField,
+		}}
+	}
+
+	return nil
 }
 
 func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
