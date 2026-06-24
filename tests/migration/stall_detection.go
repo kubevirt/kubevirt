@@ -137,7 +137,7 @@ func getVirtLauncherSourceLogs(g Gomega, virtClient kubecli.KubevirtClient, vmi 
 	return string(logsRaw)
 }
 
-var _ = Describe(SIG("Migration Stall Detection", Serial, decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIGStall("Migration Stall Detection", Serial, decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 	var envPolicy *libpodmutator.EnvInjectionPolicy
 	var stallTestNamespace string
