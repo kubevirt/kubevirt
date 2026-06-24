@@ -71,11 +71,13 @@ type MigrationOptions struct {
 	Bandwidth                resource.Quantity
 	ProgressTimeout          int64
 	CompletionTimeoutPerGiB  int64
+	MaxDowntimeMs            uint64
 	UnsafeMigration          bool
 	AllowAutoConverge        bool
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
 	AllowWorkloadDisruption  bool
+	StallDetectionEnabled    bool
 }
 
 type LauncherClient interface {

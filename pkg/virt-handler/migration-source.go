@@ -521,15 +521,20 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	if migrationConfiguration.AllowWorkloadDisruption == nil {
 		migrationConfiguration.AllowWorkloadDisruption = pointer.P(*migrationConfiguration.AllowPostCopy)
 	}
+	if migrationConfiguration.MaxDowntimeMs == nil {
+		migrationConfiguration.MaxDowntimeMs = pointer.P(virtconfig.DefaultMigrationMaxDowntimeMs)
+	}
 
 	options := &cmdclient.MigrationOptions{
 		Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
 		ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
 		CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
+		MaxDowntimeMs:           *migrationConfiguration.MaxDowntimeMs,
 		UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
 		AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 		AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
+		StallDetectionEnabled:   c.clusterConfig.MigrationStallDetectionEnabled(),
 	}
 
 	configureParallelMigrationThreads(options, vmi)

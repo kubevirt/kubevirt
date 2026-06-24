@@ -723,6 +723,7 @@ status:
       completionTimeoutPerGiB: -23
       disableTLS: true
       matchSELinuxLevelOnMigration: true
+      maxDowntimeMs: 18446744073709551603
       network: networkValue
       nodeDrainTaintKey: nodeDrainTaintKeyValue
       parallelMigrationsPerCluster: 4294967268
