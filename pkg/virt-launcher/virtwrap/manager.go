@@ -1214,7 +1214,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			vmType = efi.TDX
 		}
 
-		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled {
+		useAutoSelection := secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled
+
+		if useAutoSelection {
 			log.Log.V(4).Infof("Using firmware auto-selection for EFI Secure Boot")
 			efiConf = &convertertypes.EFIConfiguration{
 				SecureLoader:              true,

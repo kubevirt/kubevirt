@@ -351,6 +351,30 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
 
+		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
+		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
+		// fbaa64.efi (fallback) is signed with a test certificate, causing a
+		// Security Violation on first boot. See:
+		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
+		// Once switched to Fedora 45, SSH into the guest and assert that
+		// Secure Boot is enabled within the OS (e.g. mokutil --sb-state).
+		It("should enable ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, decorators.RequiresARM64SecureBoot, func() {
+			kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+			kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "quay.io/containerdisks/ubuntu:24.04"),
+				libvmi.WithMemoryRequest("1Gi"),
+				libvmi.WithRng(),
+				libvmi.WithArchitecture("arm64"),
+				libvmi.WithUefi(true),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			By("Starting the VirtualMachineInstance with ARM64 Secure Boot")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+		})
+
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				overcommitVmi := libvmifact.NewAlpine(overcommitGuestOverhead())

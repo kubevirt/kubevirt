@@ -142,6 +142,9 @@ case "$TARGET" in
   *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    export KUBEVIRT_CENTOS_STREAM_VERSION=10
+    export KUBEVIRT_CS10_BUILDER_VERSION="2606191521-425c1339de"
+    export KUBEVIRT_ARM64_SECURE_BOOT=true
     ;;
   *sev*)
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
@@ -581,6 +584,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
 
   if [[ ! $TARGET =~ wg-arm64 ]]; then
     add_to_label_filter "(!requires-arm64)" "&&"
+  fi
+
+  if [[ ${KUBEVIRT_ARM64_SECURE_BOOT} != "true" ]]; then
+    add_to_label_filter "(!requires-arm64-secure-boot)" "&&"
   fi
 
   if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
