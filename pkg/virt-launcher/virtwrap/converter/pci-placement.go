@@ -15,6 +15,8 @@ import (
 
 const (
 	maxExpanderBusNr = 255
+
+	maxDownstreamPortsPerUpstream = 32
 )
 
 // iteratePCIAddresses invokes the callback function for each PCI device specified in the domain
@@ -170,6 +172,8 @@ func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *api.Address) (*a
 type numaAwareTopology struct {
 	expanderBus               *api.Controller
 	rootPorts                 []*api.Controller
+	upstreamSwitches          []*api.Controller
+	downstreamSwitches        []*api.Controller
 	addressPerDeviceSourcePCI map[string]*api.Address
 }
 
@@ -182,6 +186,7 @@ type expanderBusAssigner struct {
 	topologyMap      map[uint32]*numaAwareTopology
 	devices          map[string]*api.HostDevice
 	devicesNUMANodes map[string]uint32
+	devicesPCIeRoots map[string]string
 
 	// lastAssignedBusNr tracks the last assigned bus number for expander buses.
 	// It starts from maxExpanderBusNr and decreases as expander buses are assigned
@@ -213,6 +218,7 @@ func newExpanderBusAssigner(domainSpec *api.DomainSpec) *expanderBusAssigner {
 		topologyMap:       make(map[uint32]*numaAwareTopology),
 		devices:           make(map[string]*api.HostDevice),
 		devicesNUMANodes:  make(map[string]uint32),
+		devicesPCIeRoots:  make(map[string]string),
 		controllerIndex:   currentControllerIndex,
 		controllerCount:   0,
 		lastAssignedBusNr: maxExpanderBusNr,
@@ -283,24 +289,43 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) {
 		if numaNode, exists := numaNodes[address]; exists {
 			a.devices[address] = device
 			a.devicesNUMANodes[address] = numaNode
+
+			pcieRoot, err := hardware.LookupPCIeRootByPCIBusID(device.Source.Address)
+			if err != nil {
+				log.Log.Infof("device %s has no PCIe root information, skipping PCIe root alignment", address)
+				continue
+			}
+			a.devicesPCIeRoots[address] = pcieRoot
 		} else {
 			log.Log.Infof("device %s has no NUMA affinity information, skipping for pcie-expander-bus assignment", address)
 		}
 	}
 }
 
-// numaDeviceGroups represents a mapping of NUMA nodes to host devices.
-type numaDeviceGroups map[uint32][]*api.HostDevice
+// pcieDeviceGroups represents a mapping of PCIe root to host devices.
+type pcieDeviceGroups map[string][]*api.HostDevice
 
-// groupDevicesByNUMA groups devices by their NUMA node.
-func (a *expanderBusAssigner) groupDevicesByNUMA() numaDeviceGroups {
+// numaDeviceGroups represents a mapping of NUMA nodes to PCIe root groups.
+type numaDeviceGroups map[uint32]pcieDeviceGroups
+
+// groupDevicesByNUMAAndPCIeRoot groups devices by their NUMA node and PCIe root.
+// Devices without PCIe root information are each placed in their own group
+// (keyed by source PCI address) to avoid incorrect switch grouping.
+func (a *expanderBusAssigner) groupDevicesByNUMAAndPCIeRoot() numaDeviceGroups {
 	groups := make(numaDeviceGroups)
-	for addressKey, device := range a.devices {
-		numaNode, exists := a.devicesNUMANodes[addressKey]
+	for address, device := range a.devices {
+		numaNode, exists := a.devicesNUMANodes[address]
 		if !exists {
 			continue
 		}
-		groups[numaNode] = append(groups[numaNode], device)
+		pcieRoot, exists := a.devicesPCIeRoots[address]
+		if !exists {
+			pcieRoot = address
+		}
+		if groups[numaNode] == nil {
+			groups[numaNode] = make(pcieDeviceGroups)
+		}
+		groups[numaNode][pcieRoot] = append(groups[numaNode][pcieRoot], device)
 	}
 	return groups
 }
@@ -321,51 +346,103 @@ func (a *expanderBusAssigner) getNumaAwareTopology(numaKey uint32) *numaAwareTop
 }
 
 // addRootPort creates a PCIe root port and adds it to the topology.
-func (a *expanderBusAssigner) addRootPort(topology *numaAwareTopology, parentBus string) *api.Controller {
-	slot := uint32(len(topology.rootPorts))
+func (a *expanderBusAssigner) addRootPort(topology *numaAwareTopology, parentBus string, slot uint32) *api.Controller {
 	rootPort := a.createController(api.ControllerModelPCIeRootPort, parentBus, slot, nil)
 	topology.rootPorts = append(topology.rootPorts, rootPort)
 	return rootPort
 }
 
-// placeDevice creates a root port and assigns the device directly to it.
-func (a *expanderBusAssigner) placeDevice(topology *numaAwareTopology, device *api.HostDevice) error {
+// addUpstreamSwitch creates a PCIe upstream switch and adds it to the topology.
+func (a *expanderBusAssigner) addUpstreamSwitch(topology *numaAwareTopology, parentBus string) *api.Controller {
+	upstreamSwitch := a.createController(api.ControllerModelPCIeSwitchUpstream, parentBus, 0, nil)
+	topology.upstreamSwitches = append(topology.upstreamSwitches, upstreamSwitch)
+	return upstreamSwitch
+}
+
+// addDownstreamSwitch creates a PCIe downstream switch and adds it to the topology.
+func (a *expanderBusAssigner) addDownstreamSwitch(topology *numaAwareTopology, parentBus string, slot uint32) *api.Controller {
+	downstreamSwitch := a.createController(api.ControllerModelPCIeSwitchDownstream, parentBus, slot, nil)
+	topology.downstreamSwitches = append(topology.downstreamSwitches, downstreamSwitch)
+	return downstreamSwitch
+}
+
+// placeSingleDevice handles the simple case where only one device from a PCIe root
+// is placed. Creates a root port and assigns the device address directly to it.
+func (a *expanderBusAssigner) placeSingleDevice(topology *numaAwareTopology, device *api.HostDevice, rootPortSlot uint32) {
+	rootPort := a.addRootPort(topology, topology.expanderBus.Index, rootPortSlot)
+	sourceAddress := hardware.PCIAddressToString(device.Source.Address)
+	topology.addressPerDeviceSourcePCI[sourceAddress] = newPCIAddress(rootPort.Index, "0x00")
+}
+
+// placeMultipleDevices handles the case with upstream/downstream switches.
+// Creates a root port, upstream switch, and downstream switches for each device.
+func (a *expanderBusAssigner) placeMultipleDevices(topology *numaAwareTopology, devices []*api.HostDevice, rootPortSlot uint32) {
+	rootPort := a.addRootPort(topology, topology.expanderBus.Index, rootPortSlot)
+	upstreamSwitch := a.addUpstreamSwitch(topology, rootPort.Index)
+
+	for i, device := range devices {
+		slot := uint32(i)
+		downstreamSwitch := a.addDownstreamSwitch(topology, upstreamSwitch.Index, slot)
+		sourceAddress := hardware.PCIAddressToString(device.Source.Address)
+		topology.addressPerDeviceSourcePCI[sourceAddress] = newPCIAddress(downstreamSwitch.Index, "0x00")
+	}
+}
+
+// placeDevicesForPCIeRoot places devices from a PCIe root, choosing between single
+// or multiple device placement logic based on the number of devices.
+func (a *expanderBusAssigner) placeDevicesForPCIeRoot(topology *numaAwareTopology, pcieRoot string, devices []*api.HostDevice) error {
+	if len(devices) > maxDownstreamPortsPerUpstream {
+		return fmt.Errorf(
+			"too many devices on PCIe root %s: pcie-switch-upstream-port supports up to %d downstream ports",
+			pcieRoot,
+			maxDownstreamPortsPerUpstream)
+	}
+
 	if a.controllerIndex >= a.lastAssignedBusNr-1 {
 		return fmt.Errorf("insufficient bus numbers for NUMA-aligned PCIe topology: current controller index %d, last assigned expander bus number %d",
 			a.controllerIndex, a.lastAssignedBusNr)
 	}
 
-	rootPort := a.addRootPort(topology, topology.expanderBus.Index)
-	sourceAddress := hardware.PCIAddressToString(device.Source.Address)
-	topology.addressPerDeviceSourcePCI[sourceAddress] = newPCIAddress(rootPort.Index, "0x00")
+	rootPortSlot := uint32(len(topology.rootPorts))
+
+	if len(devices) == 1 {
+		a.placeSingleDevice(topology, devices[0], rootPortSlot)
+	} else {
+		a.placeMultipleDevices(topology, devices, rootPortSlot)
+	}
 
 	return nil
 }
 
-// buildTopology groups devices by NUMA node by using a pcie-expander-bus per
-// NUMA node. Within a pcie-expander-bus one pcie-root-port per device is created.
-// Each device is then placed behind its respective root port.
+// buildTopology groups devices by NUMA node and PCIe root, using a pcie-expander-bus
+// per NUMA node. Within a pcie-expander-bus, devices sharing the same PCIe root are
+// grouped under a pcie-switch-upstream-port with individual pcie-switch-downstream-ports.
+// A single device on a PCIe root is placed directly behind a pcie-root-port.
 //
-// pcie-expander-bus (one per NUMA node) -> pcie-root-port (one per device) -> device
+// pcie-expander-bus (one per NUMA node) -> pcie-root-port (one per PCIe root) ->
+//
+//	[single device: device directly on root port bus]
+//	[multiple devices: pcie-switch-upstream-port -> pcie-switch-downstream-ports -> devices]
 //
 // It modifies the topology per NUMA node in place by creating the necessary controllers
 // and updating the addresses of the devices.
 func (a *expanderBusAssigner) buildTopology() error {
-	numaDeviceGroups := a.groupDevicesByNUMA()
+	numaDeviceGroups := a.groupDevicesByNUMAAndPCIeRoot()
 
-	for numaKey, devices := range numaDeviceGroups {
+	for numaKey, pcieRootGroups := range numaDeviceGroups {
 		topology := a.getNumaAwareTopology(numaKey)
 
-		for _, device := range devices {
-			if err := a.placeDevice(topology, device); err != nil {
-				return fmt.Errorf("failed to place device %s: %w", hardware.PCIAddressToString(device.Source.Address), err)
+		for pcieRoot, devices := range pcieRootGroups {
+			if err := a.placeDevicesForPCIeRoot(topology, pcieRoot, devices); err != nil {
+				return err
 			}
 		}
 
 		// Set the busNr of the expander bus so that it has enough space for all
-		// its children. We start from 254 (1 expander bus + 1 root port, when one
-		// device is aligned with a NUMA node) and go downwards to leave space for
-		// system controllers and additional expander buses.
+		// its children. We start from maxExpanderBusNr and go downwards,
+		// reserving one bus for the expander bus itself plus one for each child
+		// controller, to leave space for system controllers and additional
+		// expander buses.
 		busNr := maxExpanderBusNr - a.controllerCount + 1
 		topology.expanderBus.Target.BusNr = ptr.To(busNr)
 
@@ -390,6 +467,12 @@ func (a *expanderBusAssigner) PlaceNumaAlignedDevices() error {
 
 		for _, rootPort := range topology.rootPorts {
 			a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *rootPort)
+		}
+		for _, upstreamSwitch := range topology.upstreamSwitches {
+			a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *upstreamSwitch)
+		}
+		for _, downstreamSwitch := range topology.downstreamSwitches {
+			a.domainSpec.Devices.Controllers = append(a.domainSpec.Devices.Controllers, *downstreamSwitch)
 		}
 
 		for sourceAddress, address := range topology.addressPerDeviceSourcePCI {
