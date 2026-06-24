@@ -204,11 +204,7 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 	return false
 }
 
-func isTargetMigrationAbortCompleted(state *v1.VirtualMachineInstanceMigrationState) bool {
-	return state != nil && state.EndTimestamp != nil && (state.Completed || state.Failed)
-}
-
-func (c *MigrationTargetController) decentralizedMigrationMetadataUIDMatchesVMI(vmi *v1.VirtualMachineInstance, migrationMetadata *api.MigrationMetadata) bool {
+func decentralizedMigrationMetadataUIDMatchesVMI(vmi *v1.VirtualMachineInstance, migrationMetadata *api.MigrationMetadata) bool {
 	state := vmi.Status.MigrationState
 	if state == nil {
 		return false
@@ -228,7 +224,7 @@ func (c *MigrationTargetController) setDecentralizedMigrationProgressStatus(vmi 
 	}
 
 	migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
-	if !c.decentralizedMigrationMetadataUIDMatchesVMI(vmi, migrationMetadata) {
+	if !decentralizedMigrationMetadataUIDMatchesVMI(vmi, migrationMetadata) {
 		c.logger.Object(vmi).V(5).Info("not setting decentralized migration progress status, metadata UID does not match")
 		return
 	}
@@ -251,15 +247,15 @@ func (c *MigrationTargetController) setDecentralizedMigrationProgressStatus(vmi 
 
 func (c *MigrationTargetController) handleDecentralizedMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	migrationState := vmi.Status.MigrationState
-	if !vmi.IsDecentralizedMigration() || migrationState == nil || !migrationState.AbortRequested || isTargetMigrationAbortCompleted(migrationState) {
-		c.logger.Object(vmi).V(5).Info("not aborting migration, not a decentralized migration or migration state is nil or not abort requested or abort completed")
+	if !vmi.IsDecentralizedMigration() || migrationState == nil || !migrationState.AbortRequested || isMigrationDone(migrationState) {
+		c.logger.Object(vmi).V(5).Info("not aborting migration, not a decentralized migration or migration is done")
 		return nil
 	}
 
 	// set status from domain metadata
 	c.setDecentralizedMigrationProgressStatus(vmi, domain)
 
-	if !isTargetMigrationAbortCompleted(migrationState) {
+	if !isMigrationDone(migrationState) {
 		if domainIsActiveOnTarget(domain) {
 			c.logger.Object(vmi).Info("not aborting migration, domain is active on target")
 			return nil
@@ -316,7 +312,7 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 
 func abortInProgress(vmi *v1.VirtualMachineInstance) bool {
 	migrationState := vmi.Status.MigrationState
-	return migrationState != nil && migrationState.AbortRequested && !isTargetMigrationAbortCompleted(migrationState)
+	return migrationState != nil && migrationState.AbortRequested && !isMigrationDone(migrationState)
 }
 
 func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) (error, bool) {
@@ -325,7 +321,10 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		return nil, false
 	}
 
-	c.setDecentralizedMigrationProgressStatus(vmi, domain)
+	if !abortInProgress(vmi) {
+		// Only call this if abort is not in progress, the abort handler calls this function
+		c.setDecentralizedMigrationProgressStatus(vmi, domain)
+	}
 
 	domainExists := domain != nil
 
@@ -645,6 +644,11 @@ func (c *MigrationTargetController) isMigrationTarget(vmi *v1.VirtualMachineInst
 	return migrationTargetNodeName == c.host
 }
 
+func needsCleanup(vmi *v1.VirtualMachineInstance) bool {
+	migrationState := vmi.Status.MigrationState
+	return migrationState != nil && isMigrationDone(migrationState)
+}
+
 func (c *MigrationTargetController) execute(key string) error {
 	vmi, vmiExists, err := c.getVMIFromCache(key)
 	if err != nil {
@@ -691,9 +695,7 @@ func (c *MigrationTargetController) execute(key string) error {
 		domain.Status.Status != ""
 
 	if domainExists && !domainAlive {
-		migrationState := vmi.Status.MigrationState
-		needsCleanup := migrationState != nil && migrationState.EndTimestamp != nil && (migrationState.Completed || migrationState.Failed)
-		if !abortInProgress(vmi) && !needsCleanup {
+		if !abortInProgress(vmi) && !needsCleanup(vmi) {
 			c.logger.V(4).Object(vmi).Info("domain is not alive")
 			return nil
 		}
