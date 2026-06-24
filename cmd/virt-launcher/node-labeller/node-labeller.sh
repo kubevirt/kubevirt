@@ -36,11 +36,21 @@ fi
 
 virtqemud -d
 
-virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
+EXPAND_CPU_FEATURES=""
+if virsh domcapabilities --help 2>&1 | grep -q -- '--expand-cpu-features'; then
+   EXPAND_CPU_FEATURES="--expand-cpu-features"
+fi
+
+SUPPORTED_CPU_FEATURES=""
+if virsh domcapabilities --help 2>&1 | grep -q -- '--supported-cpu-features'; then
+   SUPPORTED_CPU_FEATURES="--supported-cpu-features"
+fi
+
+virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE $EXPAND_CPU_FEATURES > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
 # hypervisor-cpu-baseline command only works on x86 and s390x
 if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "s390x" ]; then
-   virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE | virsh hypervisor-cpu-baseline --features /dev/stdin --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
+   virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE $EXPAND_CPU_FEATURES $SUPPORTED_CPU_FEATURES | virsh hypervisor-cpu-baseline --features /dev/stdin --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
 fi
 
 virsh capabilities > /var/lib/kubevirt-node-labeller/capabilities.xml
