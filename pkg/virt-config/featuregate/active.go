@@ -274,6 +274,13 @@ const (
 	// hardware-accelerated virtualization. Independent of useEmulation.
 	// See VEP #172.
 	CrossArchitectureVirtualization = "CrossArchitectureVirtualization"
+
+	// Owner: sig-network
+	// Alpha: v1.9.0
+	//
+	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
+	// allowing compact specification of contiguous port intervals to forward to the VM guest.
+	PortRangesSpec = "PortRangesSpec"
 )
 
 func init() {
@@ -323,4 +330,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 }

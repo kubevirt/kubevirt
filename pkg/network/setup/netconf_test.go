@@ -207,3 +207,7 @@ type cConfigStub struct{}
 func (c cConfigStub) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
 	return map[string]v1.InterfaceBindingPlugin{}
 }
+
+func (c cConfigStub) PortRangesSpecGateEnabled() bool {
+	return false
+}

@@ -317,6 +317,10 @@ spec:
         passt: {}
         passtBinding: {}
         pciAddress: pciAddressValue
+        portRanges:
+        - end: -3
+          protocol: protocolValue
+          start: -5
         ports:
         - name: nameValue
           port: -4
