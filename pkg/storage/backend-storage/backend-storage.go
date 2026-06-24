@@ -155,24 +155,12 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 			}
 		case batchv1.JobFailed:
 			if c.Status == v1.ConditionTrue {
-				if c.Reason == batchv1.JobReasonPodFailurePolicy {
-					// The job ran properly but didn't find /meta/migrated, meaning the migration failed
-					err = MigrationAbort(client, migration)
-					if err == nil {
-						migration.Status.Phase = corev1.MigrationFailed
-					}
-					return err
-				} else {
-					// The job failed to run properly. Deleting it to retry asap.
-					// Ignoring the deletion error because the job may already be gone, or will get auto-removed anyway.
-					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
-					})
-					return fmt.Errorf("%s", c.Message)
+				err = MigrationAbort(client, migration)
+				if err == nil {
+					migration.Status.Phase = corev1.MigrationFailed
 				}
+				return err
 			}
-		default:
-			break
 		}
 	}
 
@@ -188,8 +176,8 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 			},
 		},
 		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds:   pointer.P(int64(30)),
-			BackoffLimit:            pointer.P(int32(0)),
+			ActiveDeadlineSeconds:   pointer.P(int64(120)),
+			BackoffLimit:            pointer.P(int32(3)),
 			TTLSecondsAfterFinished: pointer.P(int32(30)),
 			PodFailurePolicy: &batchv1.PodFailurePolicy{
 				Rules: []batchv1.PodFailurePolicyRule{{
