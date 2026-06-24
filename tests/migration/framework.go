@@ -28,3 +28,9 @@ const describeName = "[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:sy
 func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
 	return decorators.SIG(describeName, text, decorators.SigCompute, decorators.SigComputeMigrations, args)
 }
+
+const stallDescribeName = "[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute-migrations-stall]"
+
+func SIGStall(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG(stallDescribeName, text, decorators.SigComputeMigrationsStall, args)
+}
