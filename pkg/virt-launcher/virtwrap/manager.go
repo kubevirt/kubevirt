@@ -598,6 +598,10 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
 
+		if domain.Spec.Metadata.KubeVirt.VhostCPUSet != "" {
+			l.metadataCache.VhostCPUSet.Set(domain.Spec.Metadata.KubeVirt.VhostCPUSet)
+		}
+
 		for _, vcpupin := range domain.Spec.CPUTune.VCPUPin {
 			vcpu := vcpupin.VCPU
 			cpuSet := vcpupin.CPUSet
@@ -1639,6 +1643,9 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
+	if domain.Spec.Metadata.KubeVirt.VhostCPUSet != "" {
+		l.metadataCache.VhostCPUSet.Set(domain.Spec.Metadata.KubeVirt.VhostCPUSet)
+	}
 	logger.Info("Domain defined.")
 	return dom, err
 }
