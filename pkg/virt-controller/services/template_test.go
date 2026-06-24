@@ -514,14 +514,15 @@ var _ = Describe("Template", func() {
 					v1.DeprecatedVirtualMachineNameLabel: "testvmi",
 					v1.VirtualMachineInstanceIDLabel:     "testvmi",
 				}))
-				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:                                  "testvmi",
-					"test":                                               "shouldBeInPod",
-					hooks.HookSidecarListAnnotationName:                  `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
-					"kubevirt.io/migrationTransportUnix":                 "true",
-					"kubectl.kubernetes.io/default-container":            "compute",
-					"descheduler.alpha.kubernetes.io/request-evict-only": "",
-				}))
+				Expect(pod.ObjectMeta.Annotations).To(And(
+					HaveKeyWithValue(v1.DomainAnnotation, "testvmi"),
+					HaveKeyWithValue("test", "shouldBeInPod"),
+					HaveKeyWithValue(hooks.HookSidecarListAnnotationName, `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`),
+					HaveKeyWithValue("kubevirt.io/migrationTransportUnix", "true"),
+					HaveKeyWithValue("kubectl.kubernetes.io/default-container", "compute"),
+					HaveKeyWithValue("descheduler.alpha.kubernetes.io/request-evict-only", ""),
+					HaveKey(v1.MemoryOverheadAnnotationBytes),
+				))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
 					Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
