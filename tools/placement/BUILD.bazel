@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["placement.go"],
+    importpath = "kubevirt.io/kubevirt/tools/placement",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["placement_test.go"],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+    ],
+)
