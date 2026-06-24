@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
-	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -6101,7 +6100,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 
-				DescribeTable("should return an error", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
+				DescribeTable("should return an error for retry", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
@@ -6109,30 +6108,6 @@ var _ = Describe("VirtualMachine", func() {
 							},
 						},
 					})
-					virtFakeClient.PrependReactor("patch", "virtualmachineinstance",
-						func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-							a := action.(testing.PatchActionImpl)
-							patch, err := jsonpatch.DecodePatch(a.Patch)
-							Expect(err).ToNot(HaveOccurred())
-
-							vmi := &v1.VirtualMachineInstance{}
-							obj, err := json.Marshal(vmi)
-							Expect(err).ToNot(HaveOccurred())
-
-							obj, err = patch.Apply(obj)
-							Expect(err).ToNot(HaveOccurred())
-
-							vmi = &v1.VirtualMachineInstance{}
-							Expect(json.Unmarshal(obj, vmi)).To(Succeed())
-							Expect(virtcontroller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi,
-								v1.VirtualMachineInstanceVolumesChange)).Should(
-								gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-									"Type":    Equal(v1.VirtualMachineInstanceVolumesChange),
-									"Status":  Equal(k8sv1.ConditionFalse),
-									"Message": ContainSubstring("One of the destination volumes doesn't exist"),
-								}))
-							return true, vmi, nil
-						})
 
 					vmi, vm := setup()
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm,
@@ -6141,7 +6116,8 @@ var _ = Describe("VirtualMachine", func() {
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.TODO(),
 						vmi, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					Expect(controller.handleVolumeUpdateRequest(vm, vmi)).Should(Succeed())
+					err = controller.handleVolumeUpdateRequest(vm, vmi)
+					Expect(err).To(HaveOccurred())
 					Expect(virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm,
 						v1.VirtualMachineRestartRequired)).Should(BeNil())
 				},
@@ -7302,20 +7278,6 @@ var _ = Describe("VirtualMachine", func() {
 					DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: dst},
 				}}
 		}
-		withVMCondVolumeMigInProgress := func(inProgress k8sv1.ConditionStatus, reason string) v1.VirtualMachineCondition {
-			return v1.VirtualMachineCondition{
-				Type:   v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange),
-				Status: inProgress,
-				Reason: reason,
-			}
-		}
-		withVMICondVolumeMigInProgress := func(inProgress k8sv1.ConditionStatus, reason string) v1.VirtualMachineInstanceCondition {
-			return v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceVolumesChange,
-				Status: inProgress,
-				Reason: reason,
-			}
-		}
 		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, condMatcher gomegatypes.GomegaMatcher) {
 			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
@@ -7326,7 +7288,7 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("with volume migration in progress but no vmi", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1")}},
-				), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionTrue, ""))),
+				)),
 			)),
 				nil, nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with recovered volumes", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv0")), libvmistatus.WithVMStatus(
@@ -7349,52 +7311,19 @@ var _ = Describe("VirtualMachine", func() {
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
 				}, matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired),
 			),
-			Entry("with volume change", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
+			Entry("with volume change in progress", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
 					libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
 						MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-					}}), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionTrue, "")),
-					))),
-				libvmi.New(libvmi.WithDataVolume(volName, "dv0"),
-					libvmistatus.WithStatus(
-						libvmistatus.New(libvmistatus.WithCondition(
-							withVMICondVolumeMigInProgress(k8sv1.ConditionTrue, "")))),
-				),
+					}})))),
+				libvmi.New(libvmi.WithDataVolume(volName, "dv0")),
 				&v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
-			),
-			Entry("with volume change cancellation", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
-				libvmistatus.WithVMStatus(
-					libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
-						MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-					}}), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionFalse, v1.VirtualMachineInstanceReasonVolumesChangeCancellation)),
-					))),
-				libvmi.New(libvmi.WithDataVolume(volName, "dv0"),
-					libvmistatus.WithStatus(
-						libvmistatus.New(libvmistatus.WithCondition(
-							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, v1.VirtualMachineInstanceReasonVolumesChangeCancellation)))),
-				),
-				nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
-			),
-			Entry("with a failed volume migration", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
-				libvmistatus.WithVMStatus(
-					libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
-						MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-					}}), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionFalse, "")),
-					))),
-				libvmi.New(libvmi.WithDataVolume(volName, "dv0"),
-					libvmistatus.WithStatus(
-						libvmistatus.New(libvmistatus.WithCondition(
-							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, "")))),
-				), &v1.VolumeMigrationState{
-					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume migration in progress and vmi disappeared", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
 					libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
 						MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-					}}), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionTrue, "")),
-					))),
+					}})))),
 				nil, &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
 				}, matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired),
@@ -7534,7 +7463,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should return error when PatchVMIStatusWithMigratedVolumes fails", func() {
+		It("should store migration info in VM status", func() {
 			addPVCToStore("pvc-dst", ns)
 
 			vm := libvmi.NewVirtualMachine(libvmi.New(
@@ -7542,74 +7471,17 @@ var _ = Describe("VirtualMachine", func() {
 				libvmi.WithDataVolume("disk0", "pvc-dst"),
 			))
 			vmi := libvmi.New(libvmi.WithNamespace(ns))
-			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Make the patch fail by setting up a reactor that returns an error
-			fakeClientset.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				return true, nil, fmt.Errorf("patch failed")
-			})
-
-			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("patch failed"))
-		})
-
-		It("should successfully patch VMI with migrated volumes", func() {
-			addPVCToStore("pvc-dst", ns)
-
-			vm := libvmi.NewVirtualMachine(libvmi.New(
-				libvmi.WithNamespace(ns),
-				libvmi.WithDataVolume("disk0", "pvc-dst"),
-			))
-			vmi := libvmi.New(libvmi.WithNamespace(ns))
-			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Verify the VMI was patched with migrated volumes
-			updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedVMI.Status.MigratedVolumes).ToNot(BeEmpty())
-			Expect(updatedVMI.Status.MigratedVolumes).To(HaveLen(1))
-			Expect(updatedVMI.Status.MigratedVolumes[0].VolumeName).To(Equal("disk0"))
-			Expect(updatedVMI.Status.MigratedVolumes[0].DestinationPVCInfo).ToNot(BeNil())
-			Expect(updatedVMI.Status.MigratedVolumes[0].DestinationPVCInfo.ClaimName).To(Equal("pvc-dst"))
-		})
-
-		It("should not patch VMI when migrated volumes already exist", func() {
-			addPVCToStore("pvc-dst", ns)
-
-			vm := libvmi.NewVirtualMachine(libvmi.New(
-				libvmi.WithNamespace(ns),
-				libvmi.WithDataVolume("disk0", "pvc-dst"),
-			))
-			vmi := libvmi.New(libvmi.WithNamespace(ns))
-			// Set migrated volumes already
-			vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
-				{
-					VolumeName: "disk0",
-					DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
-						ClaimName: "pvc-dst",
-					},
-				},
-			}
-			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Track patch calls
-			patchCallCount := 0
-			fakeClientset.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				patchCallCount++
-				return false, nil, nil
-			})
-
-			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// PatchVMIStatusWithMigratedVolumes should not be called when volumes already exist
-			Expect(patchCallCount).To(Equal(0))
+			// Verify the VM status has the volume migration state
+			Expect(vm.Status.VolumeUpdateState).ToNot(BeNil())
+			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).ToNot(BeNil())
+			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes).To(HaveLen(1))
+			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes[0].VolumeName).To(Equal("disk0"))
+			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes[0].DestinationPVCInfo).ToNot(BeNil())
+			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes[0].DestinationPVCInfo.ClaimName).To(Equal("pvc-dst"))
 		})
 	})
 })

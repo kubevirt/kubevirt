@@ -49,7 +49,6 @@ import (
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -168,8 +167,14 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
-		waitVMIToHaveVolumeChangeCond := func(vmiName, ns string) {
-			Eventually(matcher.ThisVMIWith(ns, vmiName), 120*time.Second, time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineInstanceVolumesChange))
+		waitVMIToHaveMigratedVolumes := func(vmiName, ns string) {
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
+				if err != nil {
+					return false
+				}
+				return len(vmi.Status.MigratedVolumes) > 0
+			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
 
 		createDV := func() *cdiv1.DataVolume {
@@ -505,17 +510,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(func() []virtv1.VirtualMachineInstanceCondition {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Conditions
-			}, 30*time.Second, time.Second).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Type":    Equal(virtv1.VirtualMachineInstanceVolumesChange),
-				"Status":  Equal(k8sv1.ConditionFalse),
-				"Message": ContainSubstring("One of the destination volumes doesn't exist"),
-			})))
-
-			By("Create the destination DV")
+			By("Create the destination DV (VM controller retries until it exists)")
 			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
 				destDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -529,17 +524,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			vm := createVMWithDV(srcDV, volName)
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
-			Eventually(func() []virtv1.VirtualMachineInstanceCondition {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Conditions
-			}, 30*time.Second, time.Second).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Type":    Equal(virtv1.VirtualMachineInstanceVolumesChange),
-				"Status":  Equal(k8sv1.ConditionFalse),
-				"Message": ContainSubstring("One of the destination volumes doesn't exist"),
-			})))
 
-			By("Create the destination PVC")
+			By("Create the destination PVC (VM controller retries until it exists)")
 			libstorage.CreateBlankFSDataVolume(destPVC, ns, "2Gi", nil)
 
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
@@ -685,12 +671,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
-			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			waitVMIToHaveMigratedVolumes(vm.Name, ns)
 			By("Cancel the volume migration")
 			updateVMWithPVC(vm, volName, dv.Name)
-			// After the volume migration abortion the VMI should have:
+			// After the volume migration cancellation the VMI should have:
 			// 1. the source volume restored
-			// 2. condition VolumesChange set to false
+			// 2. MigratedVolumes cleared
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
@@ -699,12 +685,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				if claim != dv.Name {
 					return false
 				}
-				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-				c := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
-				if c == nil {
-					return false
-				}
-				return c.Status == k8sv1.ConditionFalse
+				return len(vmi.Status.MigratedVolumes) == 0
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitMigrationToNotExist(vm.Name, ns)
 		})
@@ -773,7 +754,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
-			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			waitVMIToHaveMigratedVolumes(vm.Name, ns)
 
 			By("Restarting the VM during the volume migration")
 			restartOptions := &virtv1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))}
@@ -818,7 +799,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
-			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
+			waitVMIToHaveMigratedVolumes(vm.Name, ns)
 			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

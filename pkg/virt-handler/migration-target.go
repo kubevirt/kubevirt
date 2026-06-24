@@ -1099,8 +1099,6 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 }
 
 func removeMigratedVolumes(vmi *v1.VirtualMachineInstance) {
-	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-	vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceVolumesChange)
 	vmi.Status.MigratedVolumes = nil
 }
 

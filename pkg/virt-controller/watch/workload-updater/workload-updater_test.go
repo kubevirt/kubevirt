@@ -665,11 +665,11 @@ var _ = Describe("Workload Updater", func() {
 	Context("workload volumes update", func() {
 		DescribeTable("should use correct label value for filtering", func(vmName, expectedLabelValue string) {
 			vmi := newVirtualMachineInstance(vmName, true, "madeup")
-			condition := v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceVolumesChange,
-				Status: k8sv1.ConditionTrue,
-			}
-			virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &condition)
+			vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{{
+				VolumeName:         "disk0",
+				SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+			}}
 			pod := newLauncherPodForVMI(vmi)
 			kv := newKubeVirt(1)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
@@ -702,10 +702,10 @@ var _ = Describe("Workload Updater", func() {
 			controller.clusterConfig = config
 		})
 
-		DescribeTable("should set correct priority to the migration object", func(condition *v1.VirtualMachineInstanceCondition, expectedPriority string) {
+		DescribeTable("should set correct priority to the migration object", func(setupVMI func(*v1.VirtualMachineInstance), expectedPriority string) {
 			vmi := newVirtualMachineInstance("testvm", true, "madeup")
-			if condition != nil {
-				virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, condition)
+			if setupVMI != nil {
+				setupVMI(vmi)
 			}
 			pod := newLauncherPodForVMI(vmi)
 			kv := newKubeVirt(1)
@@ -723,13 +723,18 @@ var _ = Describe("Workload Updater", func() {
 			Expect(migrations.Items[0].Spec.Priority).To(gstruct.PointTo(BeEquivalentTo(expectedPriority)))
 		},
 			Entry("system-critical in case of upgrade", nil, "system-critical"),
-			Entry("user-triggered in case of hotplug", &v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceMemoryChange,
-				Status: k8sv1.ConditionTrue,
+			Entry("user-triggered in case of hotplug", func(vmi *v1.VirtualMachineInstance) {
+				virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceMemoryChange,
+					Status: k8sv1.ConditionTrue,
+				})
 			}, "user-triggered"),
-			Entry("user-triggered in case of volume update", &v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceVolumesChange,
-				Status: k8sv1.ConditionTrue,
+			Entry("user-triggered in case of volume update", func(vmi *v1.VirtualMachineInstance) {
+				vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{{
+					VolumeName:         "disk0",
+					SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+					DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+				}}
 			}, "user-triggered"),
 		)
 	})

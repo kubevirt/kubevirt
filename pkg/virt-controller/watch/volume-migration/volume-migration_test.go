@@ -215,8 +215,6 @@ var _ = Describe("Volume Migration", func() {
 
 		DescribeTable("should evaluate the volume migration cancellation", func(vmiVols, vmVols []string, migVols []migVolumes, expectRes bool, expectErr error, expectCancellation bool) {
 			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
-			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
-				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue})
 			for _, v := range migVols {
 				vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, v1.StorageMigratedVolumeInfo{
 					VolumeName:         v.volName,
@@ -225,6 +223,9 @@ var _ = Describe("Volume Migration", func() {
 				})
 			}
 			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes(vmVols), libvmi.WithNamespace(ns))...))
+			vm.Status.VolumeUpdateState = &v1.VolumeUpdateState{
+				VolumeMigrationState: &v1.VolumeMigrationState{},
+			}
 
 			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -236,15 +237,7 @@ var _ = Describe("Volume Migration", func() {
 			res, err := volumemigration.VolumeMigrationCancel(virtClient, vmi, vm)
 
 			if expectCancellation {
-				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedVMI.Status.MigratedVolumes).To(BeEmpty())
-				Expect(updatedVMI.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
-					Fields{
-						"Type":   Equal(v1.VirtualMachineInstanceVolumesChange),
-						"Status": Equal(k8sv1.ConditionFalse),
-					},
-				)))
+				// Verify VMI volumes were patched (spec volumes updated)
 				Expect(fakeClientset.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
 					var patchOperations []testing.Action
 					for _, action := range actions {
@@ -253,7 +246,9 @@ var _ = Describe("Volume Migration", func() {
 						}
 					}
 					return patchOperations
-				}, HaveLen(2)))
+				}, HaveLen(1)))
+				// Verify VM's VolumeUpdateState.VolumeMigrationState is cleared
+				Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(BeNil())
 			}
 			if expectErr != nil {
 				Expect(err).To(Equal(expectErr))
@@ -274,143 +269,19 @@ var _ = Describe("Volume Migration", func() {
 	})
 
 	Context("IsVolumeMigrating", func() {
-		DescribeTable("should detect the volume update condition", func(cond *v1.VirtualMachineInstanceCondition, expectRes bool) {
+		DescribeTable("should detect volume migration via MigratedVolumes", func(migratedVolumes []v1.StorageMigratedVolumeInfo, expectRes bool) {
 			vmi := libvmi.New()
-			if cond != nil {
-				vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
-			}
+			vmi.Status.MigratedVolumes = migratedVolumes
 			Expect(volumemigration.IsVolumeMigrating(vmi)).To(Equal(expectRes))
 		},
-			Entry("without the condition", nil, false),
-			Entry("with true condition", &v1.VirtualMachineInstanceCondition{
-				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue}, true),
-			Entry("without false condition", &v1.VirtualMachineInstanceCondition{
-				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionFalse}, false),
+			Entry("without migrated volumes", nil, false),
+			Entry("with empty migrated volumes", []v1.StorageMigratedVolumeInfo{}, false),
+			Entry("with migrated volumes", []v1.StorageMigratedVolumeInfo{
+				{VolumeName: "disk0", SourcePVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "src0"}, DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst0"}},
+			}, true),
 		)
 	})
 
-	Context("PatchVMIStatusWithMigratedVolumes", func() {
-		var (
-			ctrl          *gomock.Controller
-			virtClient    *kubecli.MockKubevirtClient
-			fakeClientset *fake.Clientset
-			pvcStore      cache.Store
-		)
-		const ns = k8sv1.NamespaceDefault
-		type migVolumes struct {
-			src string
-			dst string
-		}
-
-		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
-			fakeClientset = fake.NewSimpleClientset()
-			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
-			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-			pvcStore = pvcInformer.GetStore()
-		})
-		shouldAddPVCsIntoTheStore := func(vmiVols, vmVols []string) {
-			alreadyAddedVols := make(map[string]bool)
-			for _, v := range vmiVols {
-				pvcStore.Add(&k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{Name: v, Namespace: ns},
-					Spec: k8sv1.PersistentVolumeClaimSpec{
-						VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
-						Resources: k8sv1.VolumeResourceRequirements{
-							Requests: k8sv1.ResourceList{
-								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
-							},
-						},
-						AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-					},
-					Status: k8sv1.PersistentVolumeClaimStatus{
-						Capacity: k8sv1.ResourceList{
-							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
-						},
-					},
-				})
-				alreadyAddedVols[v] = true
-			}
-			for _, v := range vmVols {
-				if _, ok := alreadyAddedVols[v]; ok {
-					continue
-				}
-				pvcStore.Add(&k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{Name: v, Namespace: ns},
-					Spec: k8sv1.PersistentVolumeClaimSpec{
-						VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
-						Resources: k8sv1.VolumeResourceRequirements{
-							Requests: k8sv1.ResourceList{
-								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
-							},
-						},
-						AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-					},
-					Status: k8sv1.PersistentVolumeClaimStatus{
-						Capacity: k8sv1.ResourceList{
-							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
-						},
-					},
-				})
-			}
-		}
-		DescribeTable("should update the migrated volumes in the vmi", func(vmiVols, vmVols []string, expectedMigVols map[string]migVolumes) {
-			shouldAddPVCsIntoTheStore(vmiVols, vmVols)
-			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
-			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes(vmVols), libvmi.WithNamespace(ns))...))
-			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			_, err = fakeClientset.KubevirtV1().VirtualMachines(ns).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			volMig, err := volumemigration.GenerateMigratedVolumes(pvcStore, vmi, vm)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, volMig, vmi)).ToNot(HaveOccurred())
-
-			if len(expectedMigVols) > 0 {
-				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, migVol := range updatedVMI.Status.MigratedVolumes {
-					v, ok := expectedMigVols[migVol.VolumeName]
-					Expect(ok).To(BeTrue())
-					Expect(migVol.SourcePVCInfo).ToNot(BeNil())
-					Expect(migVol.DestinationPVCInfo).ToNot(BeNil())
-					Expect(migVol.SourcePVCInfo).To(
-						PointTo(
-							MatchFields(IgnoreExtras, Fields{
-								"ClaimName":   Equal(v.src),
-								"VolumeMode":  HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)),
-								"AccessModes": Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
-								"Requests":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
-								"Capacity":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
-							}),
-						),
-					)
-					Expect(migVol.DestinationPVCInfo).To(
-						PointTo(
-							MatchFields(IgnoreExtras, Fields{
-								"ClaimName":   Equal(v.dst),
-								"VolumeMode":  HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)),
-								"AccessModes": Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
-								"Requests":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
-								"Capacity":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
-							}),
-						),
-					)
-				}
-			}
-		},
-			Entry("with an update of a volume", []string{"src0"}, []string{"dst0"},
-				map[string]migVolumes{generateDiskNameFromIndex(0): {src: "src0", dst: "dst0"}}),
-			Entry("with an update of multiple volumes", []string{"src0", "src1"}, []string{"dst0", "dst1"},
-				map[string]migVolumes{generateDiskNameFromIndex(0): {src: "src0", dst: "dst0"},
-					generateDiskNameFromIndex(1): {src: "src1", dst: "dst1"}}),
-			Entry("without any update", []string{"vol0"}, []string{"vol0"}, map[string]migVolumes{}),
-		)
-
-	})
 
 	Context("ValidateVolumesUpdateMigration", func() {
 		DescribeTable("should validate if the VMI can be migrate due to a volume update", func(vmi *v1.VirtualMachineInstance, exectedRes error) {
@@ -590,7 +461,7 @@ var _ = Describe("Volume Migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, err = fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceNone).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			_, err = volumemigration.PatchVMIVolumes(virtClient, vmi, vm)
+			_, err = volumemigration.PatchVMIVolumes(virtClient, vmi.Status.MigratedVolumes, vmi, vm)
 			Expect(err).ToNot(HaveOccurred())
 			updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceNone).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -613,7 +484,7 @@ var _ = Describe("Volume Migration", func() {
 		})
 
 		DescribeTable("should not patch the VMI volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine) {
-			vmiRes, err := volumemigration.PatchVMIVolumes(virtClient, vmi, vm)
+			vmiRes, err := volumemigration.PatchVMIVolumes(virtClient, vmi.Status.MigratedVolumes, vmi, vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiRes).To(Equal(vmi))
 		},
