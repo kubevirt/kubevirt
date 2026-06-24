@@ -264,11 +264,11 @@ func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint32, 
 		},
 	})
 	if err := tlsConn.Handshake(); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
-		if closeErr := tlsConn.Close(); closeErr != nil {
-			log.Log.Object(vmi).Reason(closeErr).Info("Failed to close connection.")
-		}
-		return nil, err
+		closeErr := tlsConn.Close()
+		return nil, errors.Join(
+			fmt.Errorf("failed to connect to VSOCK port %d in VM %s/%s over TLS: %w", port, vmi.Namespace, vmi.Name, err),
+			closeErr,
+		)
 	}
 	log.Log.Object(vmi).Infof("Connected to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
 	return tlsConn, nil
@@ -317,8 +317,7 @@ func unixSocketDialer(vmi *v1.VirtualMachineInstance, socketPath *safepath.Path)
 			var dialErr error
 			conn, dialErr = net.Dial("unix", safePath)
 			if dialErr != nil {
-				log.Log.Object(vmi).Reason(dialErr).Errorf("failed to dial unix socket %s", safePath)
-				return dialErr
+				return fmt.Errorf("failed to dial unix socket %s: %w", safePath, dialErr)
 			}
 			log.Log.Object(vmi).Infof("Connected to %s", safePath)
 			return nil
@@ -341,6 +340,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	conn, err := dial()
 	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to dial connection")
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
