@@ -29,17 +29,22 @@ import (
 )
 
 const (
-	allowIngressToMetrics             = "kubevirt-allow-ingress-to-metrics"
-	allowIngressToVirtApiWebhook      = "kubevirt-allow-ingress-to-virt-api-webhook-server"
-	allowVirtApiToComponents          = "kubevirt-allow-virt-api-to-components"
-	allowVirtApiToLaunchers           = "kubevirt-allow-virt-api-to-launchers"
-	allowVirtApiToHandlers            = "kubevirt-allow-virt-api-to-virt-handler"
-	allowIngressToHandler             = "kubevirt-allow-ingress-to-virt-handler"
-	allowIngressToVirtOperatorWebhook = "kubevirt-allow-ingress-to-virt-operator-webhook-server"
-	allowExportProxyCommunications    = "kubevirt-allow-virt-exportproxy-communications"
-	allowHandlerToHandler             = "kubevirt-allow-handler-to-handler"
-	allowHandlerToPrometheus          = "kubevirt-allow-handler-to-prometheus"
-	allowObservabilityToHandlers      = "kubevirt-allow-observability-to-virt-handler"
+	allowIngressToMetrics                      = "kubevirt-allow-ingress-to-metrics"
+	allowIngressToVirtApiWebhook               = "kubevirt-allow-ingress-to-virt-api-webhook-server"
+	allowVirtApiToComponents                   = "kubevirt-allow-virt-api-to-components"
+	allowVirtApiToLaunchers                    = "kubevirt-allow-virt-api-to-launchers"
+	allowVirtApiToHandlers                     = "kubevirt-allow-virt-api-to-virt-handler"
+	allowIngressToHandler                      = "kubevirt-allow-ingress-to-virt-handler"
+	allowIngressToVirtOperatorWebhook          = "kubevirt-allow-ingress-to-virt-operator-webhook-server"
+	allowExportProxyCommunications             = "kubevirt-allow-virt-exportproxy-communications"
+	allowHandlerToHandler                      = "kubevirt-allow-handler-to-handler"
+	allowHandlerToPrometheus                   = "kubevirt-allow-handler-to-prometheus"
+	allowObservabilityToHandlers               = "kubevirt-allow-observability-to-virt-handler"
+	allowHandlerEphemeralMigrationProxy        = "kubevirt-allow-virt-handler-ephemeral-migration-proxy"
+	allowSyncControllerEphemeralMigrationProxy = "kubevirt-allow-sync-controller-ephemeral-migration-proxy"
+
+	ephemeralMigrationProxyPortMin = int32(32768)
+	ephemeralMigrationProxyPortMax = int32(60999)
 )
 
 // NewKubeVirtNetworkPolicies returns the network policies required by kv to operate
@@ -56,6 +61,8 @@ func NewKubeVirtNetworkPolicies(namespace string) []*networkv1.NetworkPolicy {
 		newHandlerToHandlerNP(namespace),
 		newHandlerToPrometheusNP(namespace),
 		newObservabilityToHandlersNP(namespace),
+		newEphemeralMigrationProxyNP(namespace, allowSyncControllerEphemeralMigrationProxy, VirtSynchronizationControllerName, VirtHandlerName),
+		newEphemeralMigrationProxyNP(namespace, allowHandlerEphemeralMigrationProxy, VirtHandlerName, VirtSynchronizationControllerName),
 	}
 }
 
@@ -412,6 +419,51 @@ func newObservabilityToHandlersNP(namespace string) *networkv1.NetworkPolicy {
 							Protocol: pointer.P(k8sv1.ProtocolTCP),
 						},
 					},
+				},
+			},
+		},
+	)
+}
+
+func ephemeralMigrationProxyTCPPort() networkv1.NetworkPolicyPort {
+	return networkv1.NetworkPolicyPort{
+		Protocol: pointer.P(k8sv1.ProtocolTCP),
+		Port:     pointer.P(intstr.FromInt32(ephemeralMigrationProxyPortMin)),
+		EndPort:  pointer.P(ephemeralMigrationProxyPortMax),
+	}
+}
+
+// newEphemeralMigrationProxyNP allows pod-network migration proxy traffic on
+// OS-allocated ephemeral ports for pods matching componentLabel. Under default-deny,
+// both ingress and egress must be permitted on each pod type; call twice with
+// swapped componentLabel and peerComponentLabel.
+func newEphemeralMigrationProxyNP(namespace, name, componentLabel, peerComponentLabel string) *networkv1.NetworkPolicy {
+	peerSelector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{kubevirtLabelKey: peerComponentLabel},
+	}
+
+	return newNetworkPolicy(
+		namespace,
+		name,
+		&networkv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{kubevirtLabelKey: componentLabel},
+			},
+			PolicyTypes: []networkv1.PolicyType{networkv1.PolicyTypeIngress, networkv1.PolicyTypeEgress},
+			Ingress: []networkv1.NetworkPolicyIngressRule{
+				{
+					From: []networkv1.NetworkPolicyPeer{
+						{PodSelector: peerSelector},
+					},
+					Ports: []networkv1.NetworkPolicyPort{ephemeralMigrationProxyTCPPort()},
+				},
+			},
+			Egress: []networkv1.NetworkPolicyEgressRule{
+				{
+					To: []networkv1.NetworkPolicyPeer{
+						{PodSelector: peerSelector},
+					},
+					Ports: []networkv1.NetworkPolicyPort{ephemeralMigrationProxyTCPPort()},
 				},
 			},
 		},
