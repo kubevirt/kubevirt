@@ -284,7 +284,7 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(*containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.MustParse("1")))
-				Expect(containers[0].Command).NotTo(ContainElements(allowEmulationOption))
+				Expect(containers[0].Args).NotTo(ContainElements(allowEmulationOption))
 			})
 
 			It("should not add the kvm resource and add the allow-emulation option when emulation is enabled", func() {
@@ -299,7 +299,7 @@ var _ = Describe("Template", func() {
 				containers := pod.Spec.Containers
 				Expect(containers[0].Name).To(Equal(computeContainerName))
 				Expect(containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
-				Expect(containers[0].Command).To(ContainElements(allowEmulationOption))
+				Expect(containers[0].Args).To(ContainElements(allowEmulationOption))
 			})
 		})
 
@@ -536,8 +536,9 @@ var _ = Describe("Template", func() {
 					k8sv1.LabelArchStable: arch,
 				}))
 
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
-					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor"}))
+				Expect(pod.Spec.Containers[0].Args).To(Equal([]string{
+					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Args),
 					"--name", "testvmi",
 					"--uid", "1234",
 					"--namespace", "testns",
@@ -1050,7 +1051,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.InitContainers).To(HaveLen(3))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
-				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp", "--preserve=all",
+				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp"}))
+				Expect(pod.Spec.InitContainers[0].Args).To(Equal([]string{"--preserve=all",
 					"/usr/bin/container-disk",
 					"/init/usr/bin/container-disk",
 				}))
@@ -1138,8 +1140,9 @@ var _ = Describe("Template", func() {
 					v1.NodeSchedulable:    "true",
 					k8sv1.LabelArchStable: arch,
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
-					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor"}))
+				Expect(pod.Spec.Containers[0].Args).To(Equal([]string{
+					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Args),
 					"--name", "testvmi",
 					"--uid", "1234",
 					"--namespace", "default",
@@ -4180,7 +4183,7 @@ var _ = Describe("Template", func() {
 				initContainers := pod.Spec.InitContainers
 				for _, container := range append(containers, initContainers...) {
 					if container.Name == "compute" {
-						Expect(container.Command).To(ContainElement("--image-volume"))
+						Expect(container.Args).To(ContainElement("--image-volume"))
 						break
 					}
 				}
@@ -4493,7 +4496,7 @@ var _ = Describe("Template", func() {
 
 				for _, container := range pod.Spec.Containers {
 					if container.Name == "compute" {
-						Expect(container.Command).To(ContainElement("--vm-stats-collector"))
+						Expect(container.Args).To(ContainElement("--vm-stats-collector"))
 						return
 					}
 				}
@@ -4508,7 +4511,7 @@ var _ = Describe("Template", func() {
 
 				for _, container := range pod.Spec.Containers {
 					if container.Name == "compute" {
-						Expect(container.Command).NotTo(ContainElement("--vm-stats-collector"))
+						Expect(container.Args).NotTo(ContainElement("--vm-stats-collector"))
 						return
 					}
 				}
@@ -6300,7 +6303,7 @@ var _ = Describe("Template", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"))
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--firmware-auto-selection"))
+			Expect(pod.Spec.Containers[0].Args).To(ContainElement("--firmware-auto-selection"))
 		})
 
 		It("should not pass --firmware-auto-selection flag when disabled", func() {
@@ -6309,7 +6312,7 @@ var _ = Describe("Template", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"))
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.Containers[0].Command).ToNot(ContainElement("--firmware-auto-selection"))
+			Expect(pod.Spec.Containers[0].Args).ToNot(ContainElement("--firmware-auto-selection"))
 		})
 	})
 })

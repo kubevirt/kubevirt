@@ -354,7 +354,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				func(pod *k8sv1.Pod) string {
 					for _, c := range pod.Spec.Containers {
 						if c.Name == "compute" {
-							return strings.Join(c.Command, " ")
+							return strings.Join(append(c.Command, c.Args...), " ")
 						}
 					}
 
@@ -716,7 +716,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				func(pod *k8sv1.Pod) string {
 					for _, c := range pod.Spec.Containers {
 						if c.Name == "compute" {
-							return strings.Join(c.Command, " ")
+							return strings.Join(append(c.Command, c.Args...), " ")
 						}
 					}
 
