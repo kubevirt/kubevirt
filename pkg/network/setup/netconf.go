@@ -46,6 +46,7 @@ type cacheCreator interface {
 
 type clusterConfigurer interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	PortRangesSpecGateEnabled() bool
 }
 
 type NetConf struct {
@@ -107,7 +108,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		ownerID,
 		queuesCapacity,
 		state,
-		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi, c.clusterConfigurer.PortRangesSpecGateEnabled())),
 		netpod.WithCacheCreator(c.cacheCreator),
 		netpod.WithBindingPlugins(c.clusterConfigurer.GetNetworkBindings()),
 		netpod.WithLogger(log.Log.Object(vmi)),
@@ -132,12 +133,16 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
+func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance, portRangesSpecGateEnabled bool) masquerade.MasqPod {
 	if vmi.Status.MigrationTransport == v1.MigrationTransportUnix {
-		return masquerade.New(masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)))
+		return masquerade.New(
+			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
+			masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
+		)
 	} else {
 		return masquerade.New(
 			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
+			masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
 			masquerade.WithLegacyMigrationPorts(),
 		)
 	}

@@ -29,6 +29,7 @@ type clusterConfigChecker interface {
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
 	PasstBindingEnabled() bool
 	NetworkDevicesWithDRAGateEnabled() bool
+	PortRangesSpecGateEnabled() bool
 }
 
 type Validator struct {
@@ -58,7 +59,7 @@ func (v Validator) Validate() []metav1.StatusCause {
 	causes = append(causes, validateNetworksAssignedToInterfaces(v.field, v.vmiSpec)...)
 	causes = append(causes, validateInterfaceNameUnique(v.field, v.vmiSpec)...)
 	causes = append(causes, validateInterfacesAssignedToNetworks(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfacesFields(v.field, v.vmiSpec)...)
+	causes = append(causes, validateInterfacesFields(v.field, v.vmiSpec, v.configChecker)...)
 
 	return causes
 }

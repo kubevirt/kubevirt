@@ -746,7 +746,8 @@ func (Interface) SwaggerDoc() map[string]string {
 		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
 		"model":       "Interface model.\nOne of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
-		"ports":       "List of ports to be forwarded to the virtual machine.",
+		"ports":       "List of ports to be forwarded to the virtual machine.\nMutually exclusive with portRanges.",
+		"portRanges":  "List of port ranges to be forwarded to the virtual machine.\nMutually exclusive with ports. Only supported on masquerade interfaces.\nThis feature is in Alpha.\n+optional\n+listType=atomic",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
 		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
@@ -839,6 +840,15 @@ func (Port) SwaggerDoc() map[string]string {
 		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
 		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
 		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+	}
+}
+
+func (PortRange) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "PortRange represents a range of ports to be forwarded to the virtual machine.\nAll fields are mandatory.",
+		"protocol": "Required. Must be UDP or TCP.",
+		"start":    "First port of the range to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+		"end":      "Last port of the range to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.\nMust be greater than or equal to start.",
 	}
 }
 
