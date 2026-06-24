@@ -1097,14 +1097,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			return nodeHaveCpuManagerLabel
 		}
 
-		BeforeEach(func() {
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			if len(nodes.Items) == 1 {
-				Fail(`CPU pinning test that requires multiple nodes when only one node is present. You can filter by "requires-two-worker-nodes-with-cpu-manager" label`)
-			}
-		})
-
 		Context("with cpu pinning enabled", Serial, func() {
 			It("[test_id:1685]non master node should have a cpumanager label", func() {
 				cpuManagerEnabled := false
