@@ -277,7 +277,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
 		})
 
-		It("[QUARANTINE] connectivity should be preserved for ipv4", decorators.Quarantine, func() {
+		It("connectivity should be preserved for ipv4", func() {
 			libnet.SkipWhenClusterNotSupportIPFamily(k8sv1.IPv4Protocol)
 
 			By("Verify the VMIs can ping each other")
