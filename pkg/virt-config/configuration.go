@@ -444,6 +444,14 @@ func (c *ClusterConfig) HasPrometheusRuleAPI() bool {
 	return false
 }
 
+func (c *ClusterConfig) VirtTemplateDeploymentEnabled() bool {
+	if !c.TemplateEnabled() {
+		return false
+	}
+	vtd := c.GetConfig().VirtTemplateDeployment
+	return vtd == nil || vtd.Enabled == nil || *vtd.Enabled
+}
+
 func parseNodeSelectors(str string) (map[string]string, error) {
 	nodeSelectors := make(map[string]string)
 	for _, s := range strings.Split(strings.TrimSpace(str), "\n") {

@@ -227,6 +227,8 @@ type VirtControllerApp struct {
 	preferenceInformer          cache.SharedIndexInformer
 	clusterPreferenceInformer   cache.SharedIndexInformer
 
+	vmTemplateInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
@@ -249,6 +251,11 @@ type VirtControllerApp struct {
 	hasCDI bool
 	// indicates if controllers were started with or without DRA support
 	isDRAEnabled bool
+	// indicates if controllers were started with or without Template support
+	isVirtTemplateDeploymentEnabled bool
+	// indicates if controllers were started with or without OCI export support
+	isOCIExportEnabled bool
+
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
 
@@ -357,6 +364,8 @@ func Execute() {
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.isDRAEnabled = app.clusterConfig.AnyDeviceDRAGateEnabled()
+	app.isVirtTemplateDeploymentEnabled = app.clusterConfig.VirtTemplateDeploymentEnabled()
+	app.isOCIExportEnabled = app.clusterConfig.OCIExportEnabled()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
@@ -450,6 +459,10 @@ func Execute() {
 	app.preferenceInformer = app.informerFactory.VirtualMachinePreference()
 	app.clusterPreferenceInformer = app.informerFactory.VirtualMachineClusterPreference()
 
+	if app.isVirtTemplateDeploymentEnabled && app.isOCIExportEnabled {
+		app.vmTemplateInformer = app.informerFactory.VirtualMachineTemplate()
+	}
+
 	app.onOpenshift = onOpenShift
 
 	metricsInformers := &metrics.Indexers{
@@ -514,6 +527,26 @@ func (vca *VirtControllerApp) configModificationCallback() {
 			log.Log.Infof("Reinitialize virt-controller, DRA integration has been introduced")
 		} else {
 			log.Log.Infof("Reinitialize virt-controller, DRA integration has been removed")
+		}
+		vca.reInitChan <- "reinit"
+		return
+	}
+	newIsVirtTemplateDeploymentEnabled := vca.clusterConfig.VirtTemplateDeploymentEnabled()
+	if newIsVirtTemplateDeploymentEnabled != vca.isVirtTemplateDeploymentEnabled {
+		if newIsVirtTemplateDeploymentEnabled {
+			log.Log.Infof("Reinitialize virt-controller, Template support has been introduced")
+		} else {
+			log.Log.Infof("Reinitialize virt-controller, Template support has been removed")
+		}
+		vca.reInitChan <- "reinit"
+		return
+	}
+	newIsOCIExportEnabled := vca.clusterConfig.OCIExportEnabled()
+	if newIsOCIExportEnabled != vca.isOCIExportEnabled {
+		if newIsOCIExportEnabled {
+			log.Log.Infof("Reinitialize virt-controller, OCI export has been enabled")
+		} else {
+			log.Log.Infof("Reinitialize virt-controller, OCI export has been disabled")
 		}
 		vca.reInitChan <- "reinit"
 		return
@@ -943,6 +976,7 @@ func (vca *VirtControllerApp) initExportController() {
 		VMBackupInformer:            vca.vmBackupInformer,
 		VMBackupTrackerInformer:     vca.vmBackupTrackerInformer,
 		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
+		VMTemplateInformer:          vca.vmTemplateInformer,
 	}
 	if err := vca.exportController.Init(); err != nil {
 		panic(err)

@@ -24,8 +24,9 @@ EXCLUDE_PATTERN="./decorators/decorators.go|\
 ./tests/network|\
 ./tests/compute/guest_agent.go|\
 ./tests/vnc_test.go|\
-./tests/infrastructure/prometheus.go|\"
-./tests/compute/console.go"
+./tests/infrastructure/prometheus.go|\
+./tests/compute/console.go|\
+./tests/storage/export.go"
 
 if grep -rl 'OncePerOrderedCleanup' ./tests --include=*.go |
     grep -Evq "$EXCLUDE_PATTERN"; then

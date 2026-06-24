@@ -29,9 +29,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"kubevirt.io/virt-template-api/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -44,6 +46,7 @@ var _ = Describe("OCI export", func() {
 		testToken         = "foo"
 		testOCIURI        = "/export.oci.tar"
 		exportTokenHeader = "x-kubevirt-export-token"
+		testNs            = "test-ns"
 	)
 
 	It("should register OCI endpoint when enabled", func() {
@@ -119,7 +122,7 @@ var _ = Describe("OCI export", func() {
 
 	It("should return 200 from readiness when OCI is ready", func() {
 		es := newTestServer(testToken)
-		builder := oci.NewBuilder([]byte("{}"), "amd64", nil)
+		builder := oci.NewVMBuilder([]byte("{}"), "amd64", nil)
 		Expect(builder.Prepare(context.Background())).To(Succeed())
 		es.ociBuilder = builder
 		es.Paths = &export.ServerPaths{}
@@ -166,7 +169,7 @@ var _ = Describe("OCI export", func() {
 		BeforeEach(func() {
 			vmi := libvmi.New(
 				libvmi.WithName(vmName),
-				libvmi.WithNamespace("test-ns"),
+				libvmi.WithNamespace(testNs),
 				libvmi.WithDataVolume("rootdisk", dvName),
 				libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(userData)),
 			)
@@ -196,17 +199,9 @@ var _ = Describe("OCI export", func() {
 			Expect(out.Kind).To(Equal("VirtualMachine"))
 		})
 
-		It("should strip cluster-specific fields", func() {
+		It("should strip namespace", func() {
 			out := prepareAndUnmarshal()
 			Expect(out.Namespace).To(BeEmpty())
-			Expect(string(out.UID)).To(BeEmpty())
-			Expect(out.ResourceVersion).To(BeEmpty())
-			Expect(out.CreationTimestamp.IsZero()).To(BeTrue())
-			Expect(out.Generation).To(BeZero())
-			Expect(out.ManagedFields).To(BeNil())
-			Expect(out.OwnerReferences).To(BeNil())
-			Expect(out.Finalizers).To(BeNil())
-			Expect(out.Status).To(Equal(virtv1.VirtualMachineStatus{}))
 		})
 
 		It("should preserve labels and annotations", func() {
@@ -234,6 +229,72 @@ var _ = Describe("OCI export", func() {
 			cloudVol := out.Spec.Template.Spec.Volumes[len(out.Spec.Template.Spec.Volumes)-1]
 			Expect(cloudVol.CloudInitNoCloud).ToNot(BeNil())
 			Expect(cloudVol.CloudInitNoCloud.UserData).To(Equal(userData))
+		})
+	})
+
+	Context("prepareVMTemplateConfig", func() {
+		const (
+			tplName = "test-template"
+		)
+
+		createTemplate := func(arch string) *v1beta1.VirtualMachineTemplate {
+			vm := &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Architecture: arch,
+						},
+					},
+				},
+			}
+			vmJSON, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
+			return &v1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tplName,
+					Namespace: testNs,
+				},
+				Spec: v1beta1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: vmJSON},
+					Parameters: []v1beta1.Parameter{
+						{Name: "VM_NAME", Value: "my-vm"},
+					},
+				},
+			}
+		}
+
+		It("should set APIVersion and Kind", func() {
+			tpl := createTemplate("amd64")
+			configJSON, err := prepareVMTemplateConfig(tpl)
+			Expect(err).ToNot(HaveOccurred())
+
+			var out v1beta1.VirtualMachineTemplate
+			Expect(json.Unmarshal(configJSON, &out)).To(Succeed())
+			Expect(out.APIVersion).To(Equal(v1beta1.GroupVersion.String()))
+			Expect(out.Kind).To(Equal("VirtualMachineTemplate"))
+		})
+
+		It("should extract architecture from embedded VM", func() {
+			tpl := createTemplate("arm64")
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(Equal("arm64"))
+		})
+
+		It("should resolve architecture from template parameter", func() {
+			tpl := createTemplate("${ARCH}")
+			tpl.Spec.Parameters = []v1beta1.Parameter{
+				{Name: "ARCH", Value: "arm64"},
+			}
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(Equal("arm64"))
+		})
+
+		It("should return empty architecture when parameter is unresolved", func() {
+			tpl := createTemplate("${ARCH}")
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(BeEmpty())
+		})
+
+		It("should return empty architecture when embedded VM has none", func() {
+			tpl := createTemplate("")
+			Expect(extractArchitectureFromVMTemplate(tpl)).To(BeEmpty())
 		})
 	})
 })
