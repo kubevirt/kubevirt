@@ -1921,7 +1921,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -1988,7 +1988,7 @@ var _ = Describe("Manager", func() {
 			})
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -1996,7 +1996,7 @@ var _ = Describe("Manager", func() {
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
 			monitor.startMonitor(make(chan error, 1))
-			Eventually(abortStatus, 2*time.Second, 100*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
+			Eventually(abortStatus, 500*time.Millisecond, 50*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
 		DescribeTable("migration should be canceled when GetJobStats does not report progress", func(stubGetJobStats func()) {
 			migrationDone := make(chan struct{})
@@ -2017,6 +2017,11 @@ var _ = Describe("Manager", func() {
 			migrationMetadata.StartTimestamp = &now
 			metadataCache.Migration.Store(migrationMetadata)
 
+			abortStatus := func() string {
+				m, _ := metadataCache.Migration.Load()
+				return m.AbortStatus
+			}
+
 			manager := &LibvirtDomainManager{
 				virConn:       mockLibvirt.VirtConnection,
 				virtShareDir:  testVirtShareDir,
@@ -2030,12 +2035,16 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
-				close(migrationDone)
+				go func() {
+					time.Sleep(100 * time.Millisecond)
+					close(migrationDone)
+				}()
 				return nil
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
 			monitor.startMonitor(make(chan error, 1))
+			Eventually(abortStatus, 500*time.Millisecond, 50*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		},
 			Entry("because GetJobStats keeps failing", func() {
 				mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(nil, fmt.Errorf("persistent stats error"))
@@ -2086,7 +2095,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -2305,7 +2314,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
 			mockLibvirt.DomainEXPECT().AbortJob().DoAndReturn(func() error {
 				go func() {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					close(migrationDone)
 				}()
 				return nil
@@ -2346,7 +2355,7 @@ var _ = Describe("Manager", func() {
 			migrationMetadata.UID = migrationUid
 			metadataCache.Migration.Store(migrationMetadata)
 
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 
 			// Allow the aync-abort (goroutine) to be processed before finishing.
 			// This is required in order to allow the expected calls to occur.
@@ -2374,7 +2383,7 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
 			manager, _ := newLibvirtDomainManagerDefault()
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 		})
 		It("monitor should exit when migration done channel is closed", func() {
 			migrationDone := make(chan struct{})
@@ -2595,7 +2604,7 @@ var _ = Describe("Manager", func() {
 
 			// Wait for MigrateToURI3 to be blocking, then trigger abort
 			time.Sleep(500 * time.Millisecond)
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 
 			Eventually(abortOrdered, 5*time.Second).Should(BeClosed())
 			Eventually(done, 10*time.Second).Should(BeClosed())
@@ -2651,7 +2660,7 @@ var _ = Describe("Manager", func() {
 			}()
 
 			time.Sleep(500 * time.Millisecond)
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 			Eventually(done, 10*time.Second).Should(BeClosed())
 
 			migration, _ := metadataCache.Migration.Load()
@@ -2693,7 +2702,7 @@ var _ = Describe("Manager", func() {
 			endTimestamp := migration.EndTimestamp.DeepCopy()
 
 			// Late abort: cancelMigration is a no-op because EndTimestamp is already set
-			Expect(manager.CancelVMIMigration(vmi)).To(Succeed())
+			manager.CancelVMIMigration(vmi)
 
 			// EndTimestamp should not be overwritten
 			migration, _ = metadataCache.Migration.Load()

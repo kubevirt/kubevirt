@@ -210,7 +210,7 @@ var _ = Describe("Live migration source", func() {
 			})
 			original, _ := libvirtDomainManager.metadataCache.Migration.Load()
 
-			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+			libvirtDomainManager.cancelMigration(vmi)
 
 			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
 			Expect(after.AbortStatus).To(Equal(original.AbortStatus))
@@ -221,7 +221,7 @@ var _ = Describe("Live migration source", func() {
 				m.EndTimestamp = pointer.P(metav1.Now())
 			})
 
-			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+			libvirtDomainManager.cancelMigration(vmi)
 
 			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
 			Expect(after.AbortStatus).To(Equal(""))
@@ -230,7 +230,7 @@ var _ = Describe("Live migration source", func() {
 		It("cancelMigration should no-op when abort is already in progress", func() {
 			libvirtDomainManager.setMigrationAbortStatus(v1.MigrationAbortInProgress)
 
-			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+			libvirtDomainManager.cancelMigration(vmi)
 
 			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
 			Expect(after.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)))
@@ -239,7 +239,7 @@ var _ = Describe("Live migration source", func() {
 		It("cancelMigration should no-op when abort already succeeded", func() {
 			libvirtDomainManager.setMigrationAbortStatus(v1.MigrationAbortSucceeded)
 
-			Expect(libvirtDomainManager.cancelMigration(vmi)).To(Succeed())
+			libvirtDomainManager.cancelMigration(vmi)
 
 			after, _ := libvirtDomainManager.metadataCache.Migration.Load()
 			Expect(after.AbortStatus).To(Equal(string(v1.MigrationAbortSucceeded)))
