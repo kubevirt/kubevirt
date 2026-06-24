@@ -62,6 +62,9 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -81,6 +84,7 @@ import (
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
+	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -105,6 +109,7 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplugvolume.VolumeMounter
 	hostCpuModel             string
 	ioErrorRetryManager      *FailRetryManager
+	pluginExecutor           plugins.NodeHookExecutor
 	deviceManagerController  *deviceManager.DeviceController
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
@@ -142,6 +147,7 @@ func NewVirtualMachineController(
 	netStat netstat,
 	cbtHandler *CBTHandler,
 	pluginStore cache.Store,
+	pluginExecutor plugins.NodeHookExecutor,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -200,6 +206,7 @@ func NewVirtualMachineController(
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 		cbtHandler:               cbtHandler,
+		pluginExecutor:           pluginExecutor,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1109,6 +1116,12 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	// Record an event on the VMI when the VMI's phase changes
 	if oldStatus.Phase != vmi.Status.Phase {
 		c.recordPhaseChangeEvent(vmi)
+
+		if c.pluginExecutor != nil && vmi.Status.Phase == v1.Running && !vmi.IsMigrationTarget() {
+			if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostVMStart, vmi, c.host); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -1493,6 +1506,12 @@ func (c *VirtualMachineController) sync(key string,
 		}
 	}
 
+	if c.pluginExecutor != nil && vmiExists && vmi.IsFinal() && !domainAlive {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostVMStop, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	var syncErr error
 
 	// Process the VirtualMachineInstance update in this order.
@@ -1584,11 +1603,23 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 }
 
 func (c *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if c.pluginExecutor != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStop, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	tryGracefully := false
 	return c.helperVmShutdown(vmi, domain, tryGracefully)
 }
 
 func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if c.pluginExecutor != nil {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStop, vmi, c.host); err != nil {
+			return err
+		}
+	}
+
 	tryGracefully := true
 	return c.helperVmShutdown(vmi, domain, tryGracefully)
 }
@@ -1888,6 +1919,12 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 
 	if !readyToProceed {
 		return nil
+	}
+
+	if c.pluginExecutor != nil && !vmi.IsRunning() {
+		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, c.host); err != nil {
+			return err
+		}
 	}
 
 	// Synchronize the VirtualMachineInstance state

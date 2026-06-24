@@ -47,6 +47,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -76,8 +77,17 @@ import (
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+type noopNodeHookExecutor struct{}
+
+func (n *noopNodeHookExecutor) CallNodeHooks(_ pluginv1alpha1.NodeHookPoint, _ *v1.VirtualMachineInstance, _ string) error {
+	return nil
+}
+
+var _ plugins.NodeHookExecutor = &noopNodeHookExecutor{}
 
 var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
@@ -206,6 +216,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			&netStatStub{},
 			cbtHandler,
 			nil,
+			&noopNodeHookExecutor{},
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter

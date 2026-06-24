@@ -408,6 +408,13 @@ oci_push(
 )
 
 oci_push(
+    name = "push-example-node-hook-plugin",
+    testonly = True,
+    image = "//cmd/example-node-hook-plugin:example-node-hook-plugin-image",
+    repository = "quay.io/kubevirt/example-node-hook-plugin",
+)
+
+oci_push(
     name = "push-winrmcli",
     image = "//images/winrmcli:winrmcli-image",
     repository = "quay.io/kubevirt/winrmcli",
