@@ -9,15 +9,16 @@ var (
 
 	/* SIGs */
 
-	SigCompute             = Label("sig-compute")
-	SigOperator            = Label("sig-operator")
-	SigNetwork             = Label("sig-network")
-	SigStorage             = Label("sig-storage")
-	SigComputeInstancetype = Label("sig-compute-instancetype")
-	SigComputeRealtime     = Label("sig-compute-realtime")
-	SigComputeMigrations   = Label("sig-compute-migrations")
-	SigMonitoring          = Label("sig-monitoring")
-	SigPerformance         = Label("sig-performance")
+	SigCompute                = Label("sig-compute")
+	SigOperator               = Label("sig-operator")
+	SigNetwork                = Label("sig-network")
+	SigStorage                = Label("sig-storage")
+	SigComputeInstancetype    = Label("sig-compute-instancetype")
+	SigComputeRealtime        = Label("sig-compute-realtime")
+	SigComputeMigrations      = Label("sig-compute-migrations")
+	SigComputeMigrationsStall = Label("sig-compute-migrations-stall")
+	SigMonitoring             = Label("sig-monitoring")
+	SigPerformance            = Label("sig-performance")
 
 	/* HW */
 
