@@ -6869,9 +6869,43 @@ var CRDsValidation map[string]string = map[string]string{
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
                                 type: string
+                              portRanges:
+                                description: |-
+                                  List of port ranges to be forwarded to the virtual machine.
+                                  Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                  This feature is in Alpha.
+                                items:
+                                  description: |-
+                                    PortRange represents a range of ports to be forwarded to the virtual machine.
+                                    All fields are mandatory.
+                                  properties:
+                                    end:
+                                      description: |-
+                                        Last port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                        Must be greater than or equal to start.
+                                      format: int32
+                                      type: integer
+                                    protocol:
+                                      description: Required. Must be UDP or TCP.
+                                      type: string
+                                    start:
+                                      description: |-
+                                        First port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - end
+                                  - protocol
+                                  - start
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
                               ports:
-                                description: List of ports to be forwarded to the
-                                  virtual machine.
+                                description: |-
+                                  List of ports to be forwarded to the virtual machine.
+                                  Mutually exclusive with portRanges.
                                 items:
                                   description: |-
                                     Port represents a port to expose from the virtual machine.
@@ -13065,9 +13099,43 @@ var CRDsValidation map[string]string = map[string]string{
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
                         type: string
+                      portRanges:
+                        description: |-
+                          List of port ranges to be forwarded to the virtual machine.
+                          Mutually exclusive with ports. Only supported on masquerade interfaces.
+                          This feature is in Alpha.
+                        items:
+                          description: |-
+                            PortRange represents a range of ports to be forwarded to the virtual machine.
+                            All fields are mandatory.
+                          properties:
+                            end:
+                              description: |-
+                                Last port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                                Must be greater than or equal to start.
+                              format: int32
+                              type: integer
+                            protocol:
+                              description: Required. Must be UDP or TCP.
+                              type: string
+                            start:
+                              description: |-
+                                First port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                              format: int32
+                              type: integer
+                          required:
+                          - end
+                          - protocol
+                          - start
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       ports:
-                        description: List of ports to be forwarded to the virtual
-                          machine.
+                        description: |-
+                          List of ports to be forwarded to the virtual machine.
+                          Mutually exclusive with portRanges.
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -16998,9 +17066,43 @@ var CRDsValidation map[string]string = map[string]string{
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
                         type: string
+                      portRanges:
+                        description: |-
+                          List of port ranges to be forwarded to the virtual machine.
+                          Mutually exclusive with ports. Only supported on masquerade interfaces.
+                          This feature is in Alpha.
+                        items:
+                          description: |-
+                            PortRange represents a range of ports to be forwarded to the virtual machine.
+                            All fields are mandatory.
+                          properties:
+                            end:
+                              description: |-
+                                Last port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                                Must be greater than or equal to start.
+                              format: int32
+                              type: integer
+                            protocol:
+                              description: Required. Must be UDP or TCP.
+                              type: string
+                            start:
+                              description: |-
+                                First port of the range to expose for the virtual machine.
+                                This must be a valid port number, 0 < x < 65536.
+                              format: int32
+                              type: integer
+                          required:
+                          - end
+                          - protocol
+                          - start
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
                       ports:
-                        description: List of ports to be forwarded to the virtual
-                          machine.
+                        description: |-
+                          List of ports to be forwarded to the virtual machine.
+                          Mutually exclusive with portRanges.
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -19560,9 +19662,43 @@ var CRDsValidation map[string]string = map[string]string{
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
                                 type: string
+                              portRanges:
+                                description: |-
+                                  List of port ranges to be forwarded to the virtual machine.
+                                  Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                  This feature is in Alpha.
+                                items:
+                                  description: |-
+                                    PortRange represents a range of ports to be forwarded to the virtual machine.
+                                    All fields are mandatory.
+                                  properties:
+                                    end:
+                                      description: |-
+                                        Last port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                        Must be greater than or equal to start.
+                                      format: int32
+                                      type: integer
+                                    protocol:
+                                      description: Required. Must be UDP or TCP.
+                                      type: string
+                                    start:
+                                      description: |-
+                                        First port of the range to expose for the virtual machine.
+                                        This must be a valid port number, 0 < x < 65536.
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - end
+                                  - protocol
+                                  - start
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
                               ports:
-                                description: List of ports to be forwarded to the
-                                  virtual machine.
+                                description: |-
+                                  List of ports to be forwarded to the virtual machine.
+                                  Mutually exclusive with portRanges.
                                 items:
                                   description: |-
                                     Port represents a port to expose from the virtual machine.
@@ -24708,9 +24844,44 @@ var CRDsValidation map[string]string = map[string]string{
                                           address with the specified PCI address.
                                           For example: 0000:81:01.10'
                                         type: string
+                                      portRanges:
+                                        description: |-
+                                          List of port ranges to be forwarded to the virtual machine.
+                                          Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                          This feature is in Alpha.
+                                        items:
+                                          description: |-
+                                            PortRange represents a range of ports to be forwarded to the virtual machine.
+                                            All fields are mandatory.
+                                          properties:
+                                            end:
+                                              description: |-
+                                                Last port of the range to expose for the virtual machine.
+                                                This must be a valid port number, 0 < x < 65536.
+                                                Must be greater than or equal to start.
+                                              format: int32
+                                              type: integer
+                                            protocol:
+                                              description: Required. Must be UDP or
+                                                TCP.
+                                              type: string
+                                            start:
+                                              description: |-
+                                                First port of the range to expose for the virtual machine.
+                                                This must be a valid port number, 0 < x < 65536.
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - end
+                                          - protocol
+                                          - start
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
                                       ports:
-                                        description: List of ports to be forwarded
-                                          to the virtual machine.
+                                        description: |-
+                                          List of ports to be forwarded to the virtual machine.
+                                          Mutually exclusive with portRanges.
                                         items:
                                           description: |-
                                             Port represents a port to expose from the virtual machine.
@@ -30356,9 +30527,44 @@ var CRDsValidation map[string]string = map[string]string{
                                               the guests pci address with the specified
                                               PCI address. For example: 0000:81:01.10'
                                             type: string
+                                          portRanges:
+                                            description: |-
+                                              List of port ranges to be forwarded to the virtual machine.
+                                              Mutually exclusive with ports. Only supported on masquerade interfaces.
+                                              This feature is in Alpha.
+                                            items:
+                                              description: |-
+                                                PortRange represents a range of ports to be forwarded to the virtual machine.
+                                                All fields are mandatory.
+                                              properties:
+                                                end:
+                                                  description: |-
+                                                    Last port of the range to expose for the virtual machine.
+                                                    This must be a valid port number, 0 < x < 65536.
+                                                    Must be greater than or equal to start.
+                                                  format: int32
+                                                  type: integer
+                                                protocol:
+                                                  description: Required. Must be UDP
+                                                    or TCP.
+                                                  type: string
+                                                start:
+                                                  description: |-
+                                                    First port of the range to expose for the virtual machine.
+                                                    This must be a valid port number, 0 < x < 65536.
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - end
+                                              - protocol
+                                              - start
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
                                           ports:
-                                            description: List of ports to be forwarded
-                                              to the virtual machine.
+                                            description: |-
+                                              List of ports to be forwarded to the virtual machine.
+                                              Mutually exclusive with portRanges.
                                             items:
                                               description: |-
                                                 Port represents a port to expose from the virtual machine.

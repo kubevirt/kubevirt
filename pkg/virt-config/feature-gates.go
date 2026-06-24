@@ -181,6 +181,10 @@ func (config *ClusterConfig) AnyDeviceDRAGateEnabled() bool {
 		config.NetworkDevicesWithDRAGateEnabled()
 }
 
+func (config *ClusterConfig) PortRangesSpecGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.PortRangesSpec)
+}
+
 func (config *ClusterConfig) PCINUMAAwareTopologyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PCINUMAAwareTopologyEnabled)
 }

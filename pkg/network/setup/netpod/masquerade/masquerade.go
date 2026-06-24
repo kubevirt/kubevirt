@@ -41,9 +41,10 @@ type nftable interface {
 }
 
 type MasqPod struct {
-	nftable        nftable
-	istioEnabled   bool
-	migrationPorts []uint
+	nftable                   nftable
+	istioEnabled              bool
+	migrationPorts            []uint
+	portRangesSpecGateEnabled bool
 }
 
 const (
@@ -76,6 +77,12 @@ func WithIstio(enabled bool) option {
 func WithNftableAdapter(h nftable) option {
 	return func(m *MasqPod) {
 		m.nftable = h
+	}
+}
+
+func WithPortRangesSpecGateEnabled(enabled bool) option {
+	return func(m *MasqPod) {
+		m.portRangesSpecGateEnabled = enabled
 	}
 }
 
@@ -188,7 +195,48 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 		}
 	}
 
-	if len(vmiIface.Ports) == 0 {
+	portRanges := vmiIface.PortRanges
+	if !m.portRangesSpecGateEnabled {
+		portRanges = nil
+	}
+
+	for _, portRange := range portRanges {
+		protocol := strings.ToLower(portRange.Protocol)
+		addressesToSnat := []string{ipLoopback(family)}
+		portRangeSpec := fmt.Sprintf("%d-%d", portRange.Start, portRange.End)
+
+		if m.istioEnabled {
+			var portsToForward []int
+			for _, nonProxiedPort := range istio.NonProxiedPorts() {
+				if int(portRange.Start) <= nonProxiedPort && nonProxiedPort <= int(portRange.End) {
+					portsToForward = append(portsToForward, nonProxiedPort)
+				}
+			}
+			if err := m.forwardPorts(family, guestIP, "tcp", portsToForward...); err != nil {
+				return err
+			}
+
+			if family == nft.IPv4 {
+				addressesToSnat = append(addressesToSnat, istio.GetLoopbackAddress())
+			}
+		} else {
+			if err := m.forwardPortRange(family, guestIP, protocol, int(portRange.Start), int(portRange.End)); err != nil {
+				return err
+			}
+		}
+
+		addressesToSnatSpec := fmt.Sprintf("{ %s }", strings.Join(addressesToSnat, ", "))
+		gw := guestIPGateway(family, *bridgeIfaceSpec).String()
+		if err := m.nftable.AddRule(family, natTable, kubevirtPostInboundChain, protocol, "dport", portRangeSpec, string(family), "saddr", addressesToSnatSpec, "counter", "snat", "to", gw); err != nil {
+			return err
+		}
+
+		if err := m.nftable.AddRule(family, natTable, outputChain, string(family), "daddr", addressesToDnatSpec, protocol, "dport", portRangeSpec, "counter", "dnat", "to", guestIP); err != nil {
+			return err
+		}
+	}
+
+	if len(vmiIface.Ports) == 0 && len(portRanges) == 0 {
 		addressesToSnat := []string{ipLoopback(family)}
 		if m.istioEnabled {
 			// Skip forwarding for the reserved istio ports
@@ -247,6 +295,11 @@ func (m MasqPod) forwardPorts(family nft.IPFamily, toIP string, protocol string,
 	p := strings.Trim(strings.Replace(fmt.Sprint(ports), " ", ", ", -1), "[]")
 	portsSpec := fmt.Sprintf("{ %s }", p)
 	return m.nftable.AddRule(family, natTable, kubevirtPreInboundChain, protocol, "dport", portsSpec, "counter", "dnat", "to", toIP)
+}
+
+func (m MasqPod) forwardPortRange(family nft.IPFamily, toIP string, protocol string, startPort, endPort int) error {
+	portRangeSpec := fmt.Sprintf("%d-%d", startPort, endPort)
+	return m.nftable.AddRule(family, natTable, kubevirtPreInboundChain, protocol, "dport", portRangeSpec, "counter", "dnat", "to", toIP)
 }
 
 func ipLoopback(family nft.IPFamily) string {

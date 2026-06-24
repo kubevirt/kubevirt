@@ -33,9 +33,12 @@ type stubClusterConfigChecker struct {
 	bridgeBindingOnPodNetEnabled   bool
 	passtBindingFeatureGateEnabled bool
 	networkDRAEnabled              bool
+	portRangesSpecGateEnabled      bool
 }
 
-func (s stubClusterConfigChecker) PasstBindingEnabled() bool { return s.passtBindingFeatureGateEnabled }
+func (s stubClusterConfigChecker) PasstBindingEnabled() bool {
+	return s.passtBindingFeatureGateEnabled
+}
 
 func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 	return s.bridgeBindingOnPodNetEnabled
@@ -43,4 +46,8 @@ func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 
 func (s stubClusterConfigChecker) NetworkDevicesWithDRAGateEnabled() bool {
 	return s.networkDRAEnabled
+}
+
+func (s stubClusterConfigChecker) PortRangesSpecGateEnabled() bool {
+	return s.portRangesSpecGateEnabled
 }
