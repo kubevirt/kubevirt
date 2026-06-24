@@ -23,6 +23,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // Lookup returns the trimmed value of key and whether it is set to a non-empty string.
@@ -32,19 +34,6 @@ func Lookup(key string) (string, bool) {
 		return "", false
 	}
 	return value, true
-}
-
-// Float parses key as a float64 when set.
-func Float(key string) (float64, bool) {
-	value, ok := Lookup(key)
-	if !ok {
-		return 0, false
-	}
-	parsed, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return 0, false
-	}
-	return parsed, true
 }
 
 // Uint64 parses key as a uint64 when set.
@@ -82,6 +71,19 @@ func Bool(key string) (bool, bool) {
 	parsed, err := strconv.ParseBool(value)
 	if err != nil {
 		return false, false
+	}
+	return parsed, true
+}
+
+// Quantity parses key as a resource.Quantity when set.
+func Quantity(key string) (resource.Quantity, bool) {
+	value, ok := Lookup(key)
+	if !ok {
+		return resource.Quantity{}, false
+	}
+	parsed, err := resource.ParseQuantity(value)
+	if err != nil {
+		return resource.Quantity{}, false
 	}
 	return parsed, true
 }

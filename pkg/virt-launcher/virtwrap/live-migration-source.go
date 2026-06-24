@@ -325,7 +325,19 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	return copyDisks
 }
 
+func applyDisableMultifdEnvOverride(options *cmdclient.MigrationOptions) {
+	if !options.StallDetectionEnabled {
+		return
+	}
+	if !migrationutils.ShouldDisableMultifd() {
+		return
+	}
+	options.ParallelMigrationThreads = nil
+}
+
 func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+	applyDisableMultifdEnvOverride(options)
+
 	if vmi.Status.ChangedBlockTracking != nil && vmi.Status.ChangedBlockTracking.BackupStatus != nil {
 		return fmt.Errorf("cannot migrate VMI until backup %s is completed", vmi.Status.ChangedBlockTracking.BackupStatus.BackupName)
 	}
@@ -454,6 +466,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 	if options.StallDetectionEnabled {
 		monitor.iterationCh = make(chan int, 16)
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
+		options.StallDetectorOptions = migrationutils.ApplyEnvOverrides(options.StallDetectorOptions)
 		monitor.stallDetector = &stallDetector{
 			stallDetectorOptions:    options.StallDetectorOptions,
 			maxDowntimeMs:           options.MaxDowntimeMs,
@@ -522,7 +535,7 @@ func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64, logg
 }
 
 func (m *migrationMonitor) scaledCompletionDeadlineSeconds(baseSeconds int64) int64 {
-	completionTimeoutFactor := m.options.StallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64()
+	completionTimeoutFactor := m.stallDetector.stallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64()
 	m.logger.V(4).Infof("scaledCompletionDeadlineSeconds: baseSeconds=%ds, completionTimeoutFactor=%g", baseSeconds, completionTimeoutFactor)
 	return int64(float64(baseSeconds) * completionTimeoutFactor)
 }

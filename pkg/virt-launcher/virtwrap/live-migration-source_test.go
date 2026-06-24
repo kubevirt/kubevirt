@@ -1026,7 +1026,7 @@ var _ = Describe("Live migration source", func() {
 				Expect(sd.ewmaBandwidthBps).To(BeNumerically("~", alpha*500+(1-alpha)*(alpha*2000+(1-alpha)*1000)))
 			})
 
-			It("should use configured EwmaAlpha from StallDetectorOptions", func() {
+			It("should use configured EwmaAlpha from stall detector config", func() {
 				sd.stallDetectorOptions.EwmaAlpha = resource.MustParse("0.2")
 				sd.updateBandwidthEstimate(1000, monitor.logger)
 				sd.updateBandwidthEstimate(2000, monitor.logger)
@@ -1108,7 +1108,7 @@ var _ = Describe("Live migration source", func() {
 				Expect(sd.checkStallCondition(970, monitor.logger)).To(BeTrue())
 			})
 
-			It("should use configured StallMargin from StallDetectorOptions", func() {
+			It("should use configured StallMargin from stall detector config", func() {
 				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
 				sd.stallDetectorOptions.StallMargin = 10
 				Expect(sd.checkStallCondition(955, monitor.logger)).To(BeTrue())
@@ -1416,7 +1416,7 @@ var _ = Describe("Live migration source", func() {
 			})
 
 			It("should set max downtime to maxDowntimeMs for actionSoftStopAndCopy", func() {
-				mockDomain.EXPECT().MigrateSetMaxDowntime(sd.maxDowntimeMs, uint32(0)).Times(1).Return(nil)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(monitor.options.MaxDowntimeMs, uint32(0)).Times(1).Return(nil)
 
 				monitor.triggerConvergenceAction(mockDomain, actionSoftStopAndCopy, "test soft stop", monitor.logger)
 				Expect(sd.switchoverInitiated).To(BeTrue())
@@ -1573,7 +1573,7 @@ var _ = Describe("Live migration source", func() {
 
 			It("should scale acceptableCompletionTime by CompletionTimeoutFactor when forcing switchover", func() {
 				monitor.options.AllowWorkloadDisruption = true
-				monitor.options.StallDetectorOptions.CompletionTimeoutFactor = resource.MustParse("3")
+				monitor.stallDetector.stallDetectorOptions.CompletionTimeoutFactor = resource.MustParse("3")
 				sd.ewmaBandwidthBps = 1000
 
 				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
@@ -1643,11 +1643,11 @@ var _ = Describe("Live migration source", func() {
 
 		})
 
-		It("newMigrationMonitor should pass StallDetectorOptions to the stall detector", func() {
+		It("newMigrationMonitor should pass stall detector options to the stall detector", func() {
 			customOptions := &cmdclient.MigrationOptions{
 				StallDetectionEnabled: true,
 				MaxDowntimeMs:         testMaxDowntimeMs,
-				StallDetectorOptions: cmdclient.StallDetectorOptions{
+				StallDetectorOptions: migrationutils.StallDetectorOptions{
 					StallMargin:             8,
 					StallProgressTimeout:    10,
 					SwitchoverTimeout:       42,

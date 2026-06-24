@@ -23,14 +23,14 @@ var _ = Describe("env", func() {
 
 	It("should parse typed values when set", func() {
 		Expect(os.Setenv(key, " 1.5 ")).To(Succeed())
-		value, ok := env.Float(key)
+		value, ok := env.Quantity(key)
 		Expect(ok).To(BeTrue())
-		Expect(value).To(Equal(1.5))
+		Expect(value.AsApproximateFloat64()).To(BeNumerically("~", 1.5))
 	})
 
 	It("should treat invalid values as absent", func() {
 		Expect(os.Setenv(key, "not-a-number")).To(Succeed())
-		_, ok := env.Float(key)
+		_, ok := env.Quantity(key)
 		Expect(ok).To(BeFalse())
 	})
 

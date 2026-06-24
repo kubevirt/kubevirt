@@ -5,6 +5,7 @@ go_library(
     srcs = ["env.go"],
     importpath = "kubevirt.io/kubevirt/pkg/util/env",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library"],
 )
 
 go_test(
