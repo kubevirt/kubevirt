@@ -26,7 +26,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type TPMDomainConfigurator struct{}
+type TPMDomainConfigurator struct {
+	// stateBlockDevice, when non-empty, is the in-pod path of a raw block device
+	// (e.g. /dev/vm-state-tpm) that backs the persistent vTPM state file directly via
+	// swtpm's file:// backend. Set only when the second Block-mode backend-storage PVC
+	// (persistent-tpm-state) is attached. When empty, libvirt manages the swtpm state
+	// directory itself (the Filesystem-mode default).
+	stateBlockDevice string
+}
+
+func NewTPMDomainConfigurator(stateBlockDevice string) TPMDomainConfigurator {
+	return TPMDomainConfigurator{stateBlockDevice: stateBlockDevice}
+}
 
 func (t TPMDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if !tpm.HasDevice(&vmi.Spec) {
@@ -48,6 +59,21 @@ func (t TPMDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 		//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
 		//   as it is now the generally preferred model
 		newTPMDevice.Model = "tpm-crb"
+
+		if t.stateBlockDevice != "" {
+			// Block-mode persistent TPM: back the swtpm state with a raw block device
+			// directly (no filesystem), symmetric to the EFI NVRAM pflash. swtpm opens
+			// the device via its file:// backend; libvirt exposes it as:
+			//   <backend type='emulator' version='2.0' persistent_state='yes'>
+			//     <source type='file' path='/dev/vm-state-tpm'/>
+			//   </backend>
+			// State migration is orchestrated by libvirt/swtpm via persistent_state + the
+			// swtpm migration stream, exactly as for the Filesystem-backed persistent TPM.
+			newTPMDevice.Backend.Source = &api.TPMSource{
+				Type: "file",
+				Path: t.stateBlockDevice,
+			}
+		}
 	}
 
 	domain.Spec.Devices.TPMs = []api.TPM{newTPMDevice}

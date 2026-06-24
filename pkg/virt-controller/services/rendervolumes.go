@@ -430,6 +430,26 @@ func withBackendStorage(pvcStore cache.Store, namespace string, vmi *v1.VirtualM
 				Name:       volumeName,
 				DevicePath: backendstorage.BlockDevicePath,
 			})
+
+			// Block-mode persistent TPM uses a SECOND raw device (one device per state
+			// blob), discovered by its TPMPVCPrefix label. When present, attach it too;
+			// libvirt/swtpm back the vTPM state file directly with this device.
+			if tpmPVC := backendstorage.PVCForVMITPM(pvcStore, vmi); tpmPVC != nil {
+				const tpmVolumeName = "vm-state-tpm"
+				renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
+					Name: tpmVolumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: tpmPVC.Name,
+							ReadOnly:  false,
+						},
+					},
+				})
+				renderer.volumeDevices = append(renderer.volumeDevices, k8sv1.VolumeDevice{
+					Name:       tpmVolumeName,
+					DevicePath: backendstorage.TPMBlockDevicePath,
+				})
+			}
 			return nil
 		}
 

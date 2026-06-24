@@ -295,6 +295,84 @@ var _ = Describe("Backend Storage", func() {
 		})
 	})
 
+	Context("Block-mode persistent TPM (second PVC)", func() {
+		var k8sClient *k8sfake.Clientset
+		const (
+			nsName  = "testns"
+			vmiName = "testvmi"
+		)
+
+		blockVMI := func() *virtv1.VirtualMachineInstance {
+			vmi := libvmi.New(libvmi.WithTPM(true))
+			vmi.Name = vmiName
+			vmi.Namespace = nsName
+			return vmi
+		}
+
+		setBlockMode := func() {
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+			block := v1.PersistentVolumeBlock
+			kvCR.Spec.Configuration.VMStateVolumeMode = &block
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+		}
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			sc := storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "sc",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+				},
+			}
+			Expect(storageClassStore.Add(&sc)).To(Succeed())
+		})
+
+		It("NeedsBlockTPMPVC is true only for Block mode + persistent TPM", func() {
+			vmi := blockVMI()
+			Expect(backendStorage.NeedsBlockTPMPVC(vmi)).To(BeFalse(), "Filesystem mode must not need the second PVC")
+			setBlockMode()
+			Expect(backendStorage.NeedsBlockTPMPVC(vmi)).To(BeTrue())
+			Expect(backendStorage.NeedsBlockTPMPVC(libvmi.New())).To(BeFalse(), "no persistent TPM must not need the second PVC")
+		})
+
+		It("CreatePVCForVMITPM creates a Block PVC labelled with TPMPVCPrefix", func() {
+			setBlockMode()
+			vmi := blockVMI()
+
+			pvc, err := backendStorage.CreatePVCForVMITPM(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc).NotTo(BeNil())
+			Expect(pvc.GenerateName).To(Equal(TPMPVCPrefix + "-" + vmiName + "-"))
+			Expect(pvc.Labels).To(HaveKeyWithValue(TPMPVCPrefix, vmiName))
+			Expect(pvc.Spec.VolumeMode).NotTo(BeNil())
+			Expect(*pvc.Spec.VolumeMode).To(Equal(v1.PersistentVolumeBlock))
+		})
+
+		It("PVCForVMITPM finds the second PVC by label and is idempotent on create", func() {
+			setBlockMode()
+			vmi := blockVMI()
+
+			existing := &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "persistent-tpm-state-for-" + vmiName + "-abcde",
+					Namespace: nsName,
+					Labels:    map[string]string{TPMPVCPrefix: vmiName},
+				},
+			}
+			Expect(pvcStore.Add(existing)).To(Succeed())
+
+			found := PVCForVMITPM(pvcStore, vmi)
+			Expect(found).NotTo(BeNil())
+			Expect(found.Name).To(Equal(existing.Name))
+
+			// Idempotent: when the PVC already exists in the store, create returns it.
+			pvc, err := backendStorage.CreatePVCForVMITPM(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc.Name).To(Equal(existing.Name))
+		})
+	})
+
 	Context("Legacy PVCs", func() {
 		var k8sClient *k8sfake.Clientset
 

@@ -238,6 +238,48 @@ var _ = ginkgo.Describe("Schema", func() {
 			Expect(string(buf)).To(ContainSubstring(`<nvram template="/usr/share/OVMF/OVMF_VARS.fd">/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd</nvram>`))
 		})
 	})
+
+	ginkgo.Context("With block-backed TPM", func() {
+		ginkgo.It("marshals the persistent TPM backend with a <source type='file'> element", func() {
+			tpm := TPM{
+				Model: "tpm-crb",
+				Backend: TPMBackend{
+					Type:            "emulator",
+					Version:         "2.0",
+					PersistentState: "yes",
+					Source:          &TPMSource{Type: "file", Path: "/dev/vm-state-tpm"},
+				},
+			}
+			buf, err := xml.Marshal(tpm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(buf)).To(ContainSubstring(`<backend type="emulator" version="2.0" persistent_state="yes"><source type="file" path="/dev/vm-state-tpm"></source></backend>`))
+		})
+
+		ginkgo.It("round-trips the block-backed TPM backend", func() {
+			in := `<tpm model="tpm-crb"><backend type="emulator" version="2.0" persistent_state="yes"><source type="file" path="/dev/vm-state-tpm"></source></backend></tpm>`
+			out := TPM{}
+			Expect(xml.Unmarshal([]byte(in), &out)).To(Succeed())
+			Expect(out.Backend.PersistentState).To(Equal("yes"))
+			Expect(out.Backend.Source).ToNot(BeNil())
+			Expect(out.Backend.Source.Type).To(Equal("file"))
+			Expect(out.Backend.Source.Path).To(Equal("/dev/vm-state-tpm"))
+		})
+
+		ginkgo.It("omits the <source> element for the Filesystem-mode persistent TPM", func() {
+			tpm := TPM{
+				Model: "tpm-crb",
+				Backend: TPMBackend{
+					Type:            "emulator",
+					Version:         "2.0",
+					PersistentState: "yes",
+				},
+			}
+			buf, err := xml.Marshal(tpm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(buf)).ToNot(ContainSubstring("<source"))
+			Expect(string(buf)).To(ContainSubstring(`<backend type="emulator" version="2.0" persistent_state="yes"></backend>`))
+		})
+	})
 	unmarshalTest := func(arch, domainStr string, domain *Domain) {
 		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
 		newDomain := DomainSpec{}

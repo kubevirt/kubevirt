@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -29,6 +30,18 @@ func filesystemBackendStore() cache.Store {
 			}, true, nil
 		},
 	}
+}
+
+// blockBackendStore returns a real (Indexer-backed) PVC store seeded with the given PVCs.
+// withBackendStorage uses GetByKey (for the EFI PVC's VolumeMode) and List (for the TPM PVC
+// label lookup), so the store must support both -- a FakeCustomStore with only a GetByKeyFunc
+// cannot serve the List used by PVCForVMITPM.
+func blockBackendStore(pvcs ...*k8sv1.PersistentVolumeClaim) cache.Store {
+	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	for _, pvc := range pvcs {
+		_ = store.Add(pvc)
+	}
+	return store
 }
 
 var _ = Describe("Container spec renderer", func() {
@@ -402,6 +415,72 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
+		})
+	})
+
+	Context("With Block-mode backend storage", func() {
+		const (
+			efiPVCName = "vm-state-pvc"
+			tpmPVCName = "persistent-tpm-state-for-testvmi-abcde"
+		)
+		blockMode := k8sv1.PersistentVolumeBlock
+
+		efiPVC := func() *k8sv1.PersistentVolumeClaim {
+			return &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: efiPVCName, Namespace: namespace},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeMode: &blockMode},
+			}
+		}
+		tpmPVC := func(vmiName string) *k8sv1.PersistentVolumeClaim {
+			return &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tpmPVCName,
+					Namespace: namespace,
+					Labels:    map[string]string{"persistent-tpm-state-for": vmiName},
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{VolumeMode: &blockMode},
+			}
+		}
+
+		It("attaches only the EFI raw device when there is no TPM PVC", func() {
+			vmi := libvmi.New(libvmi.WithTPM(true))
+			vmi.Name = "testvmi"
+			vmi.Namespace = namespace
+
+			var err error
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(blockBackendStore(efiPVC()), namespace, vmi, efiPVCName))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vsr.VolumeDevices()).To(ContainElement(k8sv1.VolumeDevice{Name: "vm-state", DevicePath: "/dev/vm-state"}))
+			Expect(vsr.VolumeDevices()).NotTo(ContainElement(k8sv1.VolumeDevice{Name: "vm-state-tpm", DevicePath: "/dev/vm-state-tpm"}))
+		})
+
+		It("attaches a second raw device and volume for the TPM PVC when present", func() {
+			vmi := libvmi.New(libvmi.WithTPM(true))
+			vmi.Name = "testvmi"
+			vmi.Namespace = namespace
+
+			var err error
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(blockBackendStore(efiPVC(), tpmPVC("testvmi")), namespace, vmi, efiPVCName))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vsr.VolumeDevices()).To(ContainElement(k8sv1.VolumeDevice{Name: "vm-state", DevicePath: "/dev/vm-state"}))
+			Expect(vsr.VolumeDevices()).To(ContainElement(k8sv1.VolumeDevice{Name: "vm-state-tpm", DevicePath: "/dev/vm-state-tpm"}))
+			Expect(vsr.Volumes()).To(ContainElement(k8sv1.Volume{
+				Name: "vm-state-tpm",
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: tpmPVCName,
+						ReadOnly:  false,
+					},
+				},
+			}))
+			// Block mode never adds backend-storage SubPath mounts (the state lives on the
+			// raw devices). Base renderer mounts (sockets, container-disks, ...) are unrelated.
+			for _, m := range vsr.Mounts() {
+				Expect(m.Name).NotTo(Or(Equal("vm-state"), Equal("vm-state-tpm")),
+					"Block mode must not produce backend-storage SubPath mounts")
+			}
 		})
 	})
 

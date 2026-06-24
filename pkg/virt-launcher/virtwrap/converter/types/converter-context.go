@@ -42,23 +42,28 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture                    arch.Converter
-	AllowEmulation                  bool
-	HypervisorDeviceAvailable       bool
-	VirtualMachine                  *v1.VirtualMachineInstance
-	CPUSet                          []int
-	IsBlockPVC                      map[string]bool
-	IsBlockDV                       map[string]bool
-	ApplyCBT                        map[string]string
-	HotplugVolumes                  map[string]v1.VolumeStatus
-	PermanentVolumes                map[string]v1.VolumeStatus
-	MigratedVolumes                 map[string]string
-	DisksInfo                       map[string]*disk.DiskInfo
-	SMBios                          *cmdv1.SMBios
-	SRIOVDevices                    []api.HostDevice
-	GenericHostDevices              []api.HostDevice
-	GPUHostDevices                  []api.HostDevice
-	EFIConfiguration                *EFIConfiguration
+	Architecture              arch.Converter
+	AllowEmulation            bool
+	HypervisorDeviceAvailable bool
+	VirtualMachine            *v1.VirtualMachineInstance
+	CPUSet                    []int
+	IsBlockPVC                map[string]bool
+	IsBlockDV                 map[string]bool
+	ApplyCBT                  map[string]string
+	HotplugVolumes            map[string]v1.VolumeStatus
+	PermanentVolumes          map[string]v1.VolumeStatus
+	MigratedVolumes           map[string]string
+	DisksInfo                 map[string]*disk.DiskInfo
+	SMBios                    *cmdv1.SMBios
+	SRIOVDevices              []api.HostDevice
+	GenericHostDevices        []api.HostDevice
+	GPUHostDevices            []api.HostDevice
+	EFIConfiguration          *EFIConfiguration
+	// TPMStateBlockDevice is the in-pod path of a raw block device backing the persistent
+	// vTPM state directly (swtpm file:// backend). Non-empty only when the second Block-mode
+	// backend-storage PVC (persistent-tpm-state) is attached; empty means the swtpm state
+	// directory is managed by libvirt on the Filesystem-backed backend storage.
+	TPMStateBlockDevice             string
 	MemBalloonStatsPeriod           uint
 	UseVirtioTransitional           bool
 	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface

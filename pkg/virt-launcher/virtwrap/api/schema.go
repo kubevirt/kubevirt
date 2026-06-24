@@ -669,6 +669,18 @@ type TPMBackend struct {
 	Type            string `xml:"type,attr"`
 	Version         string `xml:"version,attr"`
 	PersistentState string `xml:"persistent_state,attr,omitempty"`
+	// Source, when set, points the swtpm emulator backend at an explicit state file via
+	// the file:// backend (swtpm >= 0.7, libvirt >= 10.9). For Block-mode persistent TPM
+	// the file is a raw block device (Type "file", Path /dev/vm-state-tpm). When nil,
+	// libvirt manages the swtpm state directory itself (the Filesystem-mode default).
+	Source *TPMSource `xml:"source,omitempty"`
+}
+
+// TPMSource mirrors libvirt's TPM emulator <source> element. For a block-backed vTPM,
+// Type is "file" and Path is the raw device path; swtpm opens it via its file:// backend.
+type TPMSource struct {
+	Type string `xml:"type,attr"`
+	Path string `xml:"path,attr"`
 }
 
 // RedirectedDevice describes a device to be redirected

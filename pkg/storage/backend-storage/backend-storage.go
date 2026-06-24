@@ -54,16 +54,44 @@ const (
 	PVCSize    = "10Mi"
 	VolumeName = PVCPrefix + "-this-vm"
 
+	// PVCSizeBlock is the request size for a Block-mode backend-storage PVC. Unlike the
+	// Filesystem PVC (which only holds small files inside a much larger filesystem), a
+	// Block-mode device is consumed by QEMU *directly* as the EFI NVRAM pflash. The q35
+	// firmware flash window caps the combined size of the OVMF code + varstore pflashes at
+	// 8 MiB, so a 10Mi raw varstore device makes QEMU refuse to start ("combined size of
+	// system firmware exceeds 8388608 bytes"). 2Mi comfortably holds the ~528 KiB OVMF
+	// VARS blob (and the small swtpm state blob) while staying well under the firmware
+	// window alongside the ~3.6 MiB OVMF code.
+	PVCSizeBlock = "2Mi"
+
+	// TPMPVCPrefix labels/names the SECOND Block-mode backend-storage PVC, which holds
+	// the persistent vTPM (swtpm) state. In Block mode each raw device backs exactly one
+	// state blob, so the EFI NVRAM (PVCPrefix PVC) and the vTPM state (this PVC) cannot
+	// share one device; persistent-TPM-on-Block VMs therefore get a dedicated second PVC.
+	// In Filesystem mode the vTPM state lives in the single PVCPrefix PVC's swtpm SubPath,
+	// and no TPMPVCPrefix PVC is created.
+	TPMPVCPrefix = "persistent-tpm-state-for"
+
 	// BlockDevicePath is the in-pod device path at which a Block-mode backend-storage
-	// (VM state) PVC is attached as a raw VolumeDevice. In Block mode the only state is
-	// the EFI NVRAM, which libvirt backs directly with this raw device as a QEMU pflash
-	// (no filesystem). Both the volume renderer (which attaches the device) and
-	// virt-launcher (which detects it to emit the block <nvram> form) reference this.
+	// (VM state) PVC is attached as a raw VolumeDevice. In Block mode the EFI NVRAM is
+	// backed directly with this raw device as a QEMU pflash (no filesystem). Both the
+	// volume renderer (which attaches the device) and virt-launcher (which detects it to
+	// emit the block <nvram> form) reference this.
 	BlockDevicePath = "/dev/vm-state"
+
+	// TPMBlockDevicePath is the in-pod device path at which the SECOND Block-mode
+	// backend-storage PVC (the persistent vTPM state) is attached as a raw VolumeDevice.
+	// libvirt/swtpm back the vTPM state file directly with this raw device via the swtpm
+	// file:// backend (<backend type='emulator'><source type='file' path=.../></backend>).
+	TPMBlockDevicePath = "/dev/vm-state-tpm"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + "-" + vmi.Name
+}
+
+func baseTPMPVC(vmi *corev1.VirtualMachineInstance) string {
+	return TPMPVCPrefix + "-" + vmi.Name
 }
 
 func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
@@ -88,6 +116,38 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 	}
 
 	return legacyPVC
+}
+
+// PVCForVMITPM returns the second, vTPM-state Block-mode backend-storage PVC for the VMI,
+// identified by the TPMPVCPrefix label. It is the TPM analogue of PVCForVMI and returns
+// nil when no such PVC exists (Filesystem mode, or no persistent TPM, or not yet created).
+// Unlike PVCForVMI there is no legacy-name fallback: the second PVC was introduced together
+// with Block-mode persistent TPM, so it is always label-based.
+func PVCForVMITPM(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
+	objs := pvcStore.List()
+	for _, obj := range objs {
+		pvc := obj.(*v1.PersistentVolumeClaim)
+		if pvc.Namespace != vmi.Namespace {
+			continue
+		}
+		if pvc.DeletionTimestamp != nil {
+			continue
+		}
+		if vmName, found := pvc.Labels[TPMPVCPrefix]; found && vmName == vmi.Name {
+			return pvc
+		}
+	}
+
+	return nil
+}
+
+// NeedsBlockTPMPVC reports whether the VMI requires the dedicated second (vTPM-state)
+// Block-mode backend-storage PVC: i.e. the cluster runs backend storage in Block mode and
+// the VMI requests a persistent vTPM. Filesystem mode keeps the vTPM state in the single
+// PVCPrefix PVC's swtpm SubPath, so it never needs the second PVC.
+func (bs *BackendStorage) NeedsBlockTPMPVC(vmi *corev1.VirtualMachineInstance) bool {
+	return bs.clusterConfig.GetVMStateVolumeMode() == v1.PersistentVolumeBlock &&
+		tpm.HasPersistentDevice(&vmi.Spec)
 }
 
 func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
@@ -530,6 +590,14 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 }
 
 func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels map[string]string) (*v1.PersistentVolumeClaim, error) {
+	return bs.createNamedPVC(vmi, basePVC(vmi), labels)
+}
+
+// createNamedPVC provisions a backend-storage PVC whose GenerateName is derived from
+// generateNameBase. It is shared by the EFI NVRAM PVC (basePVC) and the second vTPM-state
+// PVC (baseTPMPVC); both use the same VolumeMode and access-mode negotiation, differing
+// only in name and label.
+func (bs *BackendStorage) createNamedPVC(vmi *corev1.VirtualMachineInstance, generateNameBase string, labels map[string]string) (*v1.PersistentVolumeClaim, error) {
 	storageClass, err := bs.getStorageClass()
 	if err != nil {
 		return nil, err
@@ -542,21 +610,26 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	// advertises it, exactly as it picks RWX-Filesystem today.
 	mode := bs.clusterConfig.GetVMStateVolumeMode()
 
-	// Guard rail: Block mode stores only the EFI NVRAM, a single fixed-size OVMF VARS
-	// blob, directly on the raw device as a QEMU pflash backend (no filesystem). It cannot
-	// host the directory-of-files layouts that persistent TPM (swtpm state dir) and CBT
-	// (changed-block-tracking bitmaps) require. Rather than silently corrupt those, reject
-	// the combination with a descriptive error. EFI-only is the supported Block combination.
+	// Guard rail: in Block mode each raw device backs a single fixed-size state blob
+	// directly (no filesystem), so it cannot host the directory-of-files layout that CBT
+	// (changed-block-tracking bitmaps) requires. Persistent EFI (a single OVMF VARS blob)
+	// and persistent TPM (a single swtpm state file) are both supported, each on its own
+	// raw device. CBT stays Filesystem-only; reject it rather than silently corrupt it.
 	if mode == v1.PersistentVolumeBlock {
-		if tpm.HasPersistentDevice(&vmi.Spec) {
-			return nil, fmt.Errorf("vmStateVolumeMode=Block is only supported for persistent EFI; VMI %s/%s also requests persistent TPM, which needs a Filesystem-backed swtpm state directory. Use vmStateVolumeMode=Filesystem (or an RWX-Filesystem vmStateStorageClass) for TPM-persisting VMs", vmi.Namespace, vmi.Name)
-		}
 		if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
-			return nil, fmt.Errorf("vmStateVolumeMode=Block is only supported for persistent EFI; VMI %s/%s also has changed-block-tracking (CBT) enabled, whose bitmaps need a Filesystem-backed directory. Use vmStateVolumeMode=Filesystem for CBT VMs", vmi.Namespace, vmi.Name)
+			return nil, fmt.Errorf("vmStateVolumeMode=Block is only supported for persistent EFI and TPM; VMI %s/%s also has changed-block-tracking (CBT) enabled, whose bitmaps need a Filesystem-backed directory. Use vmStateVolumeMode=Filesystem for CBT VMs", vmi.Namespace, vmi.Name)
 		}
 	}
 
 	accessMode := bs.getAccessMode(storageClass, mode)
+
+	// A Block-mode device is consumed directly as the OVMF pflash, which must fit the 8 MiB
+	// q35 firmware flash window; the Filesystem PVC has no such constraint. See PVCSizeBlock.
+	pvcSize := PVCSize
+	if mode == v1.PersistentVolumeBlock {
+		pvcSize = PVCSizeBlock
+	}
+
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {
 		// If the VMI has no owner, then it did not originate from a VM.
@@ -578,14 +651,14 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName:    basePVC(vmi) + "-",
+			GenerateName:    generateNameBase + "-",
 			OwnerReferences: ownerReferences,
 			Labels:          labels,
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
 			Resources: v1.VolumeResourceRequirements{
-				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
+				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(pvcSize)},
 			},
 			StorageClassName: &storageClass,
 			VolumeMode:       &mode,
@@ -617,6 +690,18 @@ func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*
 	return pvc, nil
 }
 
+// CreatePVCForVMITPM ensures the second, vTPM-state Block-mode backend-storage PVC exists
+// for the VMI and returns it. It is the TPM analogue of CreatePVCForVMI, only relevant when
+// NeedsBlockTPMPVC is true; the caller is responsible for that gating.
+func (bs *BackendStorage) CreatePVCForVMITPM(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
+	pvc := PVCForVMITPM(bs.pvcStore, vmi)
+	if pvc != nil {
+		return pvc, nil
+	}
+
+	return bs.createNamedPVC(vmi, baseTPMPVC(vmi), map[string]string{TPMPVCPrefix: vmi.Name})
+}
+
 func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachineInstance, migrationName string) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
 	if pvc != nil {
@@ -633,11 +718,31 @@ func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachine
 // - No PVC is needed for the VMI since it doesn't use backend storage
 // - The backend storage PVC is bound
 // - The backend storage PVC is pending uses a WaitForFirstConsumer storage class
+//
+// When the VMI also needs the dedicated Block-mode vTPM-state PVC (NeedsBlockTPMPVC), both
+// the primary (EFI/state) PVC and the vTPM-state PVC must be ready.
 func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance, pvcName string) (bool, error) {
 	if !IsBackendStorageNeeded(vmi) {
 		return true, nil
 	}
 
+	ready, err := bs.isPVCReadyByName(vmi, pvcName)
+	if err != nil || !ready {
+		return false, err
+	}
+
+	if bs.NeedsBlockTPMPVC(vmi) {
+		tpmPVC := PVCForVMITPM(bs.pvcStore, vmi)
+		if tpmPVC == nil {
+			return false, nil
+		}
+		return bs.isPVCReadyByName(vmi, tpmPVC.Name)
+	}
+
+	return true, nil
+}
+
+func (bs *BackendStorage) isPVCReadyByName(vmi *corev1.VirtualMachineInstance, pvcName string) (bool, error) {
 	obj, exists, err := bs.pvcStore.GetByKey(controller.NamespacedKey(vmi.Namespace, pvcName))
 	if err != nil {
 		return false, err

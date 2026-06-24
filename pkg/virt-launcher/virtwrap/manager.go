@@ -85,6 +85,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1338,6 +1339,15 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
+	// Block-mode persistent vTPM (the second backend-storage PVC attached as a raw block
+	// device) backs the swtpm state file directly. Detect it by the device's presence in
+	// the pod -- symmetric to the EFI block-NVRAM detection above -- and let the TPM
+	// converter emit the <source type='file'> backend pointing at it.
+	tpmStateBlockDevice := ""
+	if tpm.HasPersistentDevice(&vmi.Spec) && isBlockDeviceFile(backendstorage.TPMBlockDevicePath) {
+		tpmStateBlockDevice = backendstorage.TPMBlockDevicePath
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 
 	c := &convertertypes.ConverterContext{
@@ -1349,6 +1359,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		IsBlockPVC:                isBlockPVCMap,
 		IsBlockDV:                 isBlockDVMap,
 		EFIConfiguration:          efiConf,
+		TPMStateBlockDevice:       tpmStateBlockDevice,
 		UseVirtioTransitional:     vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:          permanentVolumes,
 		EphemeraldiskCreator:      l.ephemeralDiskCreator,
