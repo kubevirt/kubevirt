@@ -21,22 +21,53 @@ package checks
 
 import (
 	"fmt"
-
-	"kubevirt.io/kubevirt/tests/libnode"
+	"slices"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-const (
-	DescriptionTwoWorkerNodesWCPUManagerRequired = "at least two worker nodes with cpumanager are required for migration"
-)
+const cpuManagerNodeWaitTimeout = 360 * time.Second
 
-// ExpectAtLeastTwoWorkerNodesWithCPUManager uses gomega.Expect to verify that the node list returned by
-// libnode.GetWorkerNodesWithCPUManagerEnabled contains at least two elements.
-// DescriptionTwoWorkerNodesWCPUManagerRequired is added to the default description via ginkgo.By
-func ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient kubecli.KubevirtClient) {
-	ginkgo.By(fmt.Sprintf("expect at least 2 nodes - %s", DescriptionTwoWorkerNodesWCPUManagerRequired))
-	_ = gomega.Expect(len(libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient))).To(gomega.BeNumerically(">=", 2), DescriptionTwoWorkerNodesWCPUManagerRequired)
+// EnforceDecoratedCPUManagerRequirements waits for virt-handler to label worker nodes
+// when the current spec carries a CPU manager requirement decorator.
+func EnforceDecoratedCPUManagerRequirements(virtClient kubecli.KubevirtClient) {
+	switch {
+	case specHasLabel(decorators.RequiresTwoWorkerNodesWithCPUManager):
+		waitForWorkerNodesWithCPUManager(virtClient, 2, "at least two worker nodes with cpumanager are required for migration")
+	case specHasLabel(decorators.RequiresNodeWithCPUManager):
+		waitForWorkerNodesWithCPUManager(virtClient, 1, "at least one worker node with cpumanager is required")
+	}
+}
+
+func specHasLabel(labels ginkgo.Labels) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	specLabels := ginkgo.CurrentSpecReport().Labels()
+	for _, label := range labels {
+		if !slices.Contains(specLabels, label) {
+			return false
+		}
+	}
+	return true
+}
+
+func waitForWorkerNodesWithCPUManager(virtClient kubecli.KubevirtClient, minNodes int, description string) {
+	ginkgo.By(fmt.Sprintf("expect at least %d nodes with cpumanager - %s", minNodes, description))
+
+	workerNodes := libnode.GetWorkerNodes(virtClient)
+	if len(workerNodes) < minNodes {
+		ginkgo.Fail(fmt.Sprintf("not enough worker nodes: need at least %d to run this test but cluster has %d", minNodes, len(workerNodes)))
+	}
+
+	gomega.Eventually(func() int {
+		return len(libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient))
+	}, cpuManagerNodeWaitTimeout, time.Second).Should(gomega.BeNumerically(">=", minNodes), description)
 }

@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -53,6 +52,22 @@ import (
 )
 
 const workerLabel = "node-role.kubernetes.io/worker"
+
+func GetWorkerNodes(virtClient kubecli.KubevirtClient) []k8sv1.Node {
+	// CPUManager is typically not enabled in the control-plane node(s)
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+		LabelSelector: "!node-role.kubernetes.io/control-plane",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	// This case could happen in the case of single node clusters (like OpenShift SNO)
+	if len(nodeList.Items) == 0 {
+		nodeList, err = virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+			LabelSelector: workerLabel,
+		})
+		Expect(err).ToNot(HaveOccurred())
+	}
+	return nodeList.Items
+}
 
 var SchedulableNode = ""
 
@@ -377,9 +392,8 @@ func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
 }
 
 func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8sv1.Node {
-	ginkgo.By("getting the list of worker nodes that have cpumanager enabled")
 	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
+		LabelSelector: fmt.Sprintf("%s=,%s=%s,%s=%s", workerLabel, v1.NodeSchedulable, "true", v1.CPUManager, "true"),
 	})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(nodeList).ToNot(BeNil())
