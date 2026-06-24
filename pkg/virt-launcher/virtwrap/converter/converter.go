@@ -1227,6 +1227,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	domain.Spec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
 	return nil
 }
 

@@ -150,6 +150,7 @@
   <metadata>
     <kubevirt xmlns="http://kubevirt.io">
       <uid></uid>
+      <containerDiskNaming>v2</containerDiskNaming>
     </kubevirt>
   </metadata>
   <features>
