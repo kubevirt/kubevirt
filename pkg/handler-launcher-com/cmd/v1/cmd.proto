@@ -108,6 +108,7 @@ message ClusterConfig{
   bool PCINUMAAwareTopologyEnabled = 5;
   bool VGPULiveMigrationEnabled = 6;
   bool GraceIOVirtualizationEnabled = 7;
+  bool SCSIMultiIOThreadEnabled = 8;
 }
 
 message InterfaceBindingMigration{

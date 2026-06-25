@@ -268,6 +268,13 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-storage / @dsanatar
+	// Alpha: v1.10.0
+	//
+	// SCSIMultiIOThread enables iothread virtqueue mapping for virtio-scsi devices
+	// by leveraging IOThreadsPolicy to allocate thread pools to the SCSI Controller Driver.
+	SCSIMultiIOThread = "SCSIMultiIOThread"
 )
 
 func init() {
@@ -314,4 +321,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Alpha})
 }
