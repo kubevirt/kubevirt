@@ -15,6 +15,7 @@ PATCH_NODE_SELECTOR_TEMPLATE="${MANIFESTS_DIR}/patch-node-selector.yaml.in"
 PATCH_NODE_SELECTOR="${CUSTOM_MANIFESTS}/patch-node-selector.yaml"
 
 SRIOV_DRA_MANIFEST="${MANIFESTS_DIR}/dra/sriov_dra.yaml"
+SRIOV_DRA_DEFAULT_POLICY_MANIFEST="${MANIFESTS_DIR}/dra/sriov_dra_default_policy.yaml"
 SRIOV_DRA_NAMESPACE="dra-driver-sriov"
 
 function _kubectl() {
@@ -132,6 +133,10 @@ function sriov_components::deploy_dra() {
     pod-security.kubernetes.io/audit=privileged
 
   _kubectl apply -f "$SRIOV_DRA_MANIFEST"
+  _kubectl wait --for=condition=established \
+    crd/sriovresourcepolicies.sriovnetwork.k8snetworkplumbingwg.io \
+    --timeout=60s
+  _kubectl apply -f "$SRIOV_DRA_DEFAULT_POLICY_MANIFEST"
 
   return 0
 }

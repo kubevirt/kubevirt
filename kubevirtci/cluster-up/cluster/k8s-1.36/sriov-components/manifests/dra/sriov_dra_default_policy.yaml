@@ -1,0 +1,10 @@
+---
+# Default policy: advertise all discovered SR-IOV devices.
+apiVersion: sriovnetwork.k8snetworkplumbingwg.io/v1alpha1
+kind: SriovResourcePolicy
+metadata:
+  name: default-policy
+  namespace: dra-driver-sriov
+spec:
+  configs:
+  - {}

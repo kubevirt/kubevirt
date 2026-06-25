@@ -21,6 +21,7 @@ KUBECONFIG="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KUBECONFIG}"
 
 SRIOV_DRA_MANIFEST="${MANIFESTS_DIR}/dra/sriov_dra.yaml"
+SRIOV_DRA_DEFAULT_POLICY_MANIFEST="${MANIFESTS_DIR}/dra/sriov_dra_default_policy.yaml"
 SRIOV_DRA_NAMESPACE="dra-driver-sriov"
 
 NETWORK_RESOURCES_INJECTOR_AUTH_MANIFEST="${MANIFESTS_DIR}/network_resources_injector/auth.yaml"
@@ -148,6 +149,10 @@ function sriov_components::deploy() {
 function sriov_components::deploy_dra() {
   _kubectl create namespace "$SRIOV_DRA_NAMESPACE"
   _kubectl apply -f "$SRIOV_DRA_MANIFEST"
+  _kubectl wait --for=condition=established \
+    crd/sriovresourcepolicies.sriovnetwork.k8snetworkplumbingwg.io \
+    --timeout=60s
+  _kubectl apply -f "$SRIOV_DRA_DEFAULT_POLICY_MANIFEST"
 
   return 0
 }
