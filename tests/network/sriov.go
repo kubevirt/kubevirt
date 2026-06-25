@@ -91,7 +91,7 @@ const (
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
 
-var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := readSRIOVResourceName()
@@ -113,7 +113,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 		})
 
-		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
+		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", Serial, decorators.RequiresNodeWithCPUManager, func() {
 			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
 				libvmi.WithCPUCount(4, 0, 0),
@@ -234,11 +234,13 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
 		})
 		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
-			const mac = "de:ad:00:00:be:ef"
+			macAddr, err := libnet.GenerateRandomMac()
+			Expect(err).NotTo(HaveOccurred())
+			mac := macAddr.String()
 			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
-			vmi, err := createVMIAndWait(vmi)
+			vmi, err = createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
@@ -264,16 +266,20 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 					"Migration tests require at least 2 nodes with SR-IOV resources")
 			})
 
-			var vmi *v1.VirtualMachineInstance
-
-			const mac = "de:ad:00:00:be:ef"
+			var (
+				vmi *v1.VirtualMachineInstance
+				mac string
+			)
 
 			BeforeEach(func() {
 				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
+				macAddr, err := libnet.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				mac = macAddr.String()
+
 				vmi = newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
 				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
-				var err error
 				vmi, err = createVMIAndWait(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vmi)
@@ -349,8 +355,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 					initialGuestMemory      = "1Gi"
 					updatedGuestMemory      = "3Gi"
 					sriovNetworkLogicalName = "sriov-network"
-					mac                     = "de:ad:00:00:be:af"
 				)
+				macAddr, err := libnet.GenerateRandomMac()
+				Expect(err).NotTo(HaveOccurred())
+				mac := macAddr.String()
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithGuestMemory(initialGuestMemory),
 					libvmi.WithInterface(libvmi.InterfaceWithMac(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName), mac)),
@@ -360,7 +368,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
-				vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(matcher.ThisVM(vm)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
