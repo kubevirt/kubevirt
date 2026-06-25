@@ -215,11 +215,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	var ioThreadCount, autoThreads, scsiControllerThreads int
 	if hasIOThreads {
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
-		// if autoThreads is 0, then supplementalPool is being used
-		if autoThreads == 0 {
-			scsiControllerThreads = ioThreadCount
-		} else {
-			scsiControllerThreads = autoThreads
+		if c.SCSIMultiIOThreadEnabled {
+			if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+				scsiControllerThreads = ioThreadCount
+			} else {
+				scsiControllerThreads = autoThreads
+			}
 		}
 	}
 
@@ -294,6 +295,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
+			compute.ControllerWithSCSIMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 		compute.NewCPUDomainConfigurator(
