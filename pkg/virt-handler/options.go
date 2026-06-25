@@ -70,6 +70,7 @@ func virtualMachineOptions(
 			PCINUMAAwareTopologyEnabled:  clusterConfig.PCINUMAAwareTopologyEnabled(),
 			MDevVGPULiveMigrationEnabled: clusterConfig.MDevVGPULiveMigrationEnabled(),
 			GraceIOVirtualizationEnabled: clusterConfig.GraceIOVirtualizationEnabled(),
+			SCSIMultiIOThreadEnabled:     clusterConfig.SCSIMultiIOThreadEnabled(),
 		}
 		options.GraceHostDeviceAliases = graceHostDeviceAliases(vmi, clusterConfig)
 	}

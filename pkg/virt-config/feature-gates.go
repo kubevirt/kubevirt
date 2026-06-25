@@ -251,3 +251,7 @@ func (config *ClusterConfig) MigrationDowntimeTuningEnabled() bool {
 func (config *ClusterConfig) TLSGroupPreferencesEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.TLSGroupPreferences)
 }
+
+func (config *ClusterConfig) SCSIMultiIOThreadEnabled() bool {
+	return config.IsFeatureGateEnabled(featuregate.SCSIMultiIOThread)
+}
