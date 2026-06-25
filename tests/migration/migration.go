@@ -3079,6 +3079,14 @@ func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
 	time.Sleep(stressDefaultSleepDuration * time.Second)
 }
 
+func stopStressTest(vmi *v1.VirtualMachineInstance) {
+	By("Stopping the stress test")
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "pkill -f stress-ng\n"},
+		&expect.BExp{R: ""},
+	}, 15)).To(Succeed(), "should stop a stress test")
+}
+
 func getIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
