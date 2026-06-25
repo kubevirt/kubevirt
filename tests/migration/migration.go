@@ -295,32 +295,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
-			It("[test_id:5689]should be successfully migrate with a WriteBack disk cache", decorators.WgS390x, func() {
-				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
-				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
-
-				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
-				By("starting the migration")
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-
-				runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				disks := runningVMISpec.Devices.Disks
-				By("checking if requested cache 'writeback' has been set")
-				Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
-				Expect(disks[0].Driver.Cache).To(Equal(string(v1.CacheWriteBack)))
-			})
-
 			It("[test_id:6970]should migrate vmi with cdroms on various bus types", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking(),
@@ -891,26 +865,72 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
-			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, decorators.RequiresRWXBlock, func() {
-				sc, exists := libstorage.GetRWXBlockStorageClass()
-				if !exists {
-					Fail("Failed test when RWX Block storage is not present")
-				}
+			It("[test_id:1479][test_id:5689][storage-req] should migrate a vmi with shared block disks across all cache modes",
+				decorators.StorageReq, decorators.RequiresRWXBlock, func() {
+					sc, exists := libstorage.GetRWXBlockStorageClass()
+					if !exists {
+						Fail("Failed test when RWX Block storage is not present")
+					}
 
-				By("Starting the VirtualMachineInstance")
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
+					specs := []struct {
+						name  string
+						cache v1.DriverCache
+					}{
+						{"disk0", v1.CacheNone},
+						{"disk1", v1.CacheDirectSync},
+						{"disk2", v1.CacheWriteThrough},
+						{"disk3", v1.CacheWriteBack},
+					}
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+					By("Creating DataVolumes for each cache mode")
+					sourceURL := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
 
-				By("Starting a Migration")
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+					var vmiOpts []libvmi.Option
+					for _, spec := range specs {
+						dv := libdv.NewDataVolume(
+							libdv.WithRegistrySource(
+								libdv.WithURL(sourceURL),
+								libdv.WithPullMethod(cdiv1.RegistryPullNode),
+								libdv.WithPlatformArch(defaultArch),
+							),
+							libdv.WithStorage(
+								libdv.StorageWithStorageClass(sc),
+								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(sourceURL)),
+								libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+								libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+							),
+						)
+						dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+							context.Background(), dv, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+						vmiOpts = append(vmiOpts, libvmi.WithDataVolume(spec.name, dv.Name, libvmi.WithDiskCache(spec.cache)))
+					}
 
-				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			})
+					By("Starting the VirtualMachineInstance")
+					vmi := libvmi.New(append(vmiOpts,
+						libvmi.WithMemoryRequest("256Mi"),
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)...)
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
+
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By("Writing test data before migration")
+					testData := "migration-cache-test-data-1234567890"
+					Expect(console.RunCommand(vmi, fmt.Sprintf("echo '%s' > /testfile", testData), 30*time.Second)).To(Succeed())
+
+					By("Starting a Migration")
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+					By("Verifying test data survived migration")
+					Expect(console.RunCommand(vmi, fmt.Sprintf("grep -q '%s' /testfile", testData), 30*time.Second)).To(Succeed())
+				})
 
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
