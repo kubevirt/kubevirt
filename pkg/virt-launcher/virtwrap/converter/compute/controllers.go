@@ -41,6 +41,7 @@ type ControllersDomainConfigurator struct {
 	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
 	virtioSerialModel         string
+	scsiMultiIOThreadEnabled  bool
 }
 
 type controllersOption func(*ControllersDomainConfigurator)
@@ -66,7 +67,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.totalThreads, controllerDriver.DeepCopy())
+		scsiControllerDriver := c.assignSCSIControllerIOThread(vmi, c.totalThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -100,6 +101,12 @@ func ControllersWithSCSIModel(scsiModel string) controllersOption {
 func ControllersWithSCSIIOThreads(totalThreads uint) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
 		c.totalThreads = totalThreads
+	}
+}
+
+func ControllerWithSCSIMultiIOThreadEnabled(enabled bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.scsiMultiIOThreadEnabled = enabled
 	}
 }
 
@@ -219,21 +226,28 @@ func getBusFromDisk(disk v1.Disk) v1.DiskBus {
 }
 
 // configure dedicated thread(s) to scsi controller if vmi set ioThreadsPolicy and contains a scsi disk
-func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
+func (c ControllersDomainConfigurator) shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy == nil {
 		return false
 	}
-	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
-		return getBusFromDisk(disk) == v1.DiskBusSCSI
-	})
+
+	// if feature gate is enabled, allocate thread pool to the controller even if VMI contains no scsi disks
+	// this is to enable the multi iothread performance gain for scsi disks that may be hotplugged after initialization
+	if c.scsiMultiIOThreadEnabled {
+		return true
+	} else {
+		return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
+			return getBusFromDisk(disk) == v1.DiskBusSCSI
+		})
+	}
 }
 
-func assignSCSIControllerIOThread(
+func (c ControllersDomainConfigurator) assignSCSIControllerIOThread(
 	vmi *v1.VirtualMachineInstance,
 	totalThreads uint,
 	scsiControllerDriver *api.ControllerDriver,
 ) *api.ControllerDriver {
-	if totalThreads == 0 || !shouldConfigSCSIThread(vmi) {
+	if totalThreads == 0 || !c.shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
 	}
 
@@ -255,13 +269,14 @@ func assignSCSIControllerIOThread(
 	// if we just have single thread, we don't need to populate thread list
 	if totalThreads == 1 {
 		scsiControllerDriver.IOThread = new(totalThreads)
-	} else {
-		iothreads := &api.DiskIOThreads{}
-		for id := 1; id <= int(totalThreads); id++ {
-			iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
-		}
-
-		scsiControllerDriver.IOThreads = iothreads
+		return scsiControllerDriver
 	}
+
+	iothreads := &api.DiskIOThreads{}
+	for id := 1; id <= int(totalThreads); id++ {
+		iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+	}
+
+	scsiControllerDriver.IOThreads = iothreads
 	return scsiControllerDriver
 }
