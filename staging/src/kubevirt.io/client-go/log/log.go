@@ -24,16 +24,13 @@ import (
 	goflag "flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
-	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	klog "github.com/go-kit/log"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -71,13 +68,14 @@ type FilteredVerbosityLogger struct {
 }
 
 type FilteredLogger struct {
-	logger                klog.Logger
+	logger                logr.Logger
 	component             string
 	filterLevel           LogLevel
 	currentLogLevel       LogLevel
 	verbosityLevel        int
 	currentVerbosityLevel int
 	err                   error
+	contextValues         []interface{}
 }
 
 var Log = DefaultLogger()
@@ -93,14 +91,10 @@ func InitializeLogging(comp string) {
 	Log = DefaultLogger()
 	goflag.CommandLine.Set("component", comp)
 	goflag.CommandLine.Set("logtostderr", "true")
-	log.SetOutput(klog.NewStdlibAdapter(Log))
 }
 
-// Wrap a go-kit logger in a FilteredLogger. Not cached
-func MakeLogger(logger klog.Logger) *FilteredLogger {
+func MakeLogger(logger logr.Logger) *FilteredLogger {
 	defaultLogLevel := INFO
-
-	// This verbosity will be used for info logs without setting a custom verbosity level
 	defaultCurrentVerbosity := 2
 
 	return &FilteredLogger{
@@ -113,20 +107,28 @@ func MakeLogger(logger klog.Logger) *FilteredLogger {
 	}
 }
 
-type NullLogger struct{}
-
-func (n NullLogger) Log(params ...interface{}) error { return nil }
-
 var loggers = make(map[string]*FilteredLogger)
 var defaultComponent = ""
 var defaultVerbosity = 0
+
+func defaultLogr() logr.Logger {
+	return funcr.NewJSON(
+		func(obj string) { fmt.Fprintln(os.Stderr, obj) },
+		funcr.Options{
+			LogTimestamp:    true,
+			LogCaller:       funcr.All,
+			TimestampFormat: logTimestampFormat,
+			Verbosity:       10,
+		},
+	)
+}
 
 func createLogger(component string) {
 	lock.Lock()
 	defer lock.Unlock()
 	_, ok := loggers[component]
 	if ok == false {
-		logger := klog.NewJSONLogger(os.Stderr)
+		logger := defaultLogr()
 		log := MakeLogger(logger)
 		log.component = component
 		loggers[component] = log
@@ -145,65 +147,81 @@ func DefaultLogger() *FilteredLogger {
 	return Logger(defaultComponent)
 }
 
-// SetIOWriter is meant to be used for testing. "log" and "glog" logs are sent to /dev/nil.
-// KubeVirt related log messages will be sent to this writer
+// SetIOWriter redirects log output to the given writer. Intended for testing.
 func (l *FilteredLogger) SetIOWriter(w io.Writer) {
-	l.logger = klog.NewJSONLogger(w)
-	goflag.CommandLine.Set("logtostderr", "false")
+	l.logger = funcr.NewJSON(
+		func(obj string) { fmt.Fprintln(w, obj) },
+		funcr.Options{
+			LogTimestamp:    true,
+			LogCaller:       funcr.All,
+			TimestampFormat: logTimestampFormat,
+			Verbosity:       10,
+		},
+	)
 }
 
-func (l *FilteredLogger) SetLogger(logger klog.Logger) *FilteredLogger {
+func (l *FilteredLogger) SetLogger(logger logr.Logger) *FilteredLogger {
 	l.logger = logger
 	return l
 }
 
-type LogError struct {
-	message string
-}
-
-func (e LogError) Error() string {
-	return e.message
-}
-
 func (l FilteredLogger) msg(msg interface{}) {
-	l.log(3, "msg", msg)
+	l.log("msg", msg)
 }
 
 func (l FilteredLogger) msgf(msg string, args ...interface{}) {
-	l.log(3, "msg", fmt.Sprintf(msg, args...))
+	l.log("msg", fmt.Sprintf(msg, args...))
 }
 
 func (l FilteredLogger) Log(params ...interface{}) error {
-	return l.log(2, params...)
+	l.log(params...)
+	return nil
 }
 
-func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
+func (l FilteredLogger) log(params ...interface{}) {
 	// messages should be logged if any of these conditions are met:
 	// The log filtering level is info and verbosity checks match
 	// The log message priority is warning or higher
 	if l.currentLogLevel >= WARNING || (l.filterLevel == INFO &&
 		(l.currentLogLevel == l.filterLevel) &&
 		(l.currentVerbosityLevel <= l.verbosityLevel)) {
-		now := time.Now().UTC()
-		_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
-		logParams := make([]interface{}, 0, 8)
 
-		logParams = append(logParams,
-			"level", LogLevelNames[l.currentLogLevel],
-			"timestamp", now.Format(logTimestampFormat),
-			"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
-			"component", l.component,
-		)
-		if l.err != nil {
-			l.logger = klog.With(l.logger, "reason", l.err)
+		// Extract "msg" from params (params are key-value pairs)
+		msg := ""
+		kvs := make([]interface{}, 0, len(params)+4)
+		for i := 0; i < len(params)-1; i += 2 {
+			if key, ok := params[i].(string); ok && key == "msg" {
+				msg = fmt.Sprintf("%v", params[i+1])
+			} else {
+				kvs = append(kvs, params[i], params[i+1])
+			}
 		}
-		return klog.WithPrefix(l.logger, logParams...).Log(params...)
+		if len(params)%2 != 0 {
+			kvs = append(kvs, params[len(params)-1])
+		}
+
+		kvs = append(kvs, "level", LogLevelNames[l.currentLogLevel], "component", l.component)
+
+		logger := l.logger
+		if len(l.contextValues) > 0 {
+			logger = logger.WithValues(l.contextValues...)
+		}
+		if l.err != nil {
+			logger = logger.WithValues("reason", l.err)
+		}
+
+		switch l.currentLogLevel {
+		case ERROR, FATAL:
+			logger.Error(l.err, msg, kvs...)
+		default:
+			logger.Info(msg, kvs...)
+		}
 	}
-	return nil
 }
 
 func (l FilteredVerbosityLogger) Log(params ...interface{}) error {
-	return l.filteredLogger.log(2, params...)
+	l.filteredLogger.log(params...)
+	return nil
 }
 
 func (l FilteredVerbosityLogger) V(level int) *FilteredVerbosityLogger {
@@ -214,11 +232,11 @@ func (l FilteredVerbosityLogger) V(level int) *FilteredVerbosityLogger {
 }
 
 func (l FilteredVerbosityLogger) Info(msg string) {
-	l.filteredLogger.Level(INFO).log(2, "msg", msg)
+	l.filteredLogger.Level(INFO).log("msg", msg)
 }
 
 func (l FilteredVerbosityLogger) Infof(msg string, args ...interface{}) {
-	l.filteredLogger.Level(INFO).log(2, "msg", fmt.Sprintf(msg, args...))
+	l.filteredLogger.Level(INFO).log("msg", fmt.Sprintf(msg, args...))
 }
 
 func (l FilteredVerbosityLogger) Object(obj LoggableObject) *FilteredVerbosityLogger {
@@ -236,7 +254,6 @@ func (l FilteredVerbosityLogger) Verbosity(level int) bool {
 }
 
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
-
 	name := obj.GetObjectMeta().GetName()
 	namespace := obj.GetObjectMeta().GetNamespace()
 	uid := obj.GetObjectMeta().GetUID()
@@ -250,18 +267,13 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 	logParams = append(logParams, "kind", kind)
 	logParams = append(logParams, "uid", uid)
 
-	l.with(logParams...)
+	l.contextValues = append(append([]interface{}{}, l.contextValues...), logParams...)
 	return &l
 }
 
 func (l FilteredLogger) With(obj ...interface{}) *FilteredLogger {
-	l.logger = klog.With(l.logger, obj...)
+	l.contextValues = append(append([]interface{}{}, l.contextValues...), obj...)
 	return &l
-}
-
-func (l *FilteredLogger) with(obj ...interface{}) *FilteredLogger {
-	l.logger = klog.With(l.logger, obj...)
-	return l
 }
 
 func (l *FilteredLogger) SetLogLevel(filterLevel LogLevel) error {
@@ -340,7 +352,6 @@ func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
 }
 
 func LogLibvirtLogLine(logger *FilteredLogger, line string) {
-
 	if len(strings.TrimSpace(line)) == 0 {
 		return
 	}
@@ -348,12 +359,10 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	fragments := strings.SplitN(line, ": ", 5)
 	if len(fragments) < 4 {
 		now := time.Now()
-		logger.logger.Log(
-			"level", "info",
-			"timestamp", now.Format(logTimestampFormat),
-			"component", logger.component,
+		logger.logger.Info(line,
 			"subcomponent", "libvirt",
-			"msg", line,
+			"component", logger.component,
+			"timestamp", now.Format(logTimestampFormat),
 		)
 		return
 	}
@@ -372,57 +381,44 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
-	//TODO: implement proper behavior for unsupported GA commands
-	// by either considering the GA version as unsupported or just don't
-	// send commands which not supported
 	if strings.Contains(msg, "unable to execute QEMU agent command") {
 		if logger.verbosityLevel < 4 {
 			return
 		}
-
 		severity = LogLevelNames[WARNING]
 	}
 
-	// check if we really got a position
+	kvs := []interface{}{
+		"level", severity,
+		"timestamp", t.Format(logTimestampFormat),
+		"component", logger.component,
+		"subcomponent", "libvirt",
+		"thread", thread,
+	}
+
 	isPos := false
 	if split := strings.Split(pos, ":"); len(split) == 2 {
-		if _, err := strconv.Atoi(split[1]); err == nil {
+		if _, err := fmt.Sscanf(split[1], "%d", new(int)); err == nil {
 			isPos = true
 		}
 	}
 
-	if !isPos {
-		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
-		logger.logger.Log(
-			"level", severity,
-			"timestamp", t.Format(logTimestampFormat),
-			"component", logger.component,
-			"subcomponent", "libvirt",
-			"thread", thread,
-			"msg", msg,
-		)
+	if isPos {
+		kvs = append(kvs, "pos", pos)
 	} else {
-		logger.logger.Log(
-			"level", severity,
-			"timestamp", t.Format(logTimestampFormat),
-			"pos", pos,
-			"component", logger.component,
-			"subcomponent", "libvirt",
-			"thread", thread,
-			"msg", msg,
-		)
+		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
 	}
+
+	logger.logger.Info(msg, kvs...)
 }
 
 var qemuLogLines = ""
 
 func LogQemuLogLine(logger *FilteredLogger, line string) {
-
 	if len(strings.TrimSpace(line)) == 0 {
 		return
 	}
 
-	// Concat break lines to have full command in one log message
 	if strings.HasSuffix(line, "\\") {
 		qemuLogLines += line
 		return
@@ -434,11 +430,10 @@ func LogQemuLogLine(logger *FilteredLogger, line string) {
 	}
 
 	now := time.Now()
-	logger.logger.Log(
+	logger.logger.Info(line,
 		"level", "info",
 		"timestamp", now.Format(logTimestampFormat),
 		"component", logger.component,
 		"subcomponent", "qemu",
-		"msg", line,
 	)
 }

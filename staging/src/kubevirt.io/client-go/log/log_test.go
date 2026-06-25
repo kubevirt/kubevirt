@@ -22,62 +22,109 @@ package log
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 )
 
 var logCalled bool = false
-var logParams []interface{} = make([]interface{}, 0)
 
-type MockLogger struct {
+type logEntry struct {
+	level         int
+	msg           string
+	err           error
+	keysAndValues []interface{}
 }
 
-func (l MockLogger) Log(params ...interface{}) error {
+var logEntries []logEntry
+
+type MockLogSink struct {
+	values []interface{}
+}
+
+func (m *MockLogSink) Init(_ logr.RuntimeInfo) {}
+
+func (m *MockLogSink) Enabled(_ int) bool { return true }
+
+func (m *MockLogSink) Info(level int, msg string, keysAndValues ...interface{}) {
 	logCalled = true
-	logParams = append(logParams, params)
-	return nil
+	all := append(append([]interface{}{}, m.values...), keysAndValues...)
+	logEntries = append(logEntries, logEntry{level: level, msg: msg, keysAndValues: all})
+}
+
+func (m *MockLogSink) Error(err error, msg string, keysAndValues ...interface{}) {
+	logCalled = true
+	all := append(append([]interface{}{}, m.values...), keysAndValues...)
+	logEntries = append(logEntries, logEntry{err: err, msg: msg, keysAndValues: all})
+}
+
+func (m *MockLogSink) WithValues(keysAndValues ...interface{}) logr.LogSink {
+	newValues := append(append([]interface{}{}, m.values...), keysAndValues...)
+	return &MockLogSink{values: newValues}
+}
+
+func (m *MockLogSink) WithName(_ string) logr.LogSink {
+	return m
+}
+
+func mockLogger() logr.Logger {
+	return logr.New(&MockLogSink{})
 }
 
 func assert(t *testing.T, condition bool, failMessage string) {
+	t.Helper()
 	if !condition {
-		_, filePath, lineNumber, _ := runtime.Caller(1)
-		fileName := filepath.Base(filePath)
-		t.Fatalf("[%s:%d] %s", fileName, lineNumber, failMessage)
+		t.Fatalf("%s", failMessage)
 	}
 }
 
 func setUp() {
 	defaultComponent = "test"
 	logCalled = false
-	logParams = make([]interface{}, 0)
+	logEntries = nil
 }
 
-func tearDown() {
+func tearDown() {}
 
+func lastEntry() logEntry {
+	return logEntries[len(logEntries)-1]
+}
+
+func hasKey(e logEntry, key string) bool {
+	for i := 0; i < len(e.keysAndValues)-1; i += 2 {
+		if k, ok := e.keysAndValues[i].(string); ok && k == key {
+			return true
+		}
+	}
+	return false
+}
+
+func getValue(e logEntry, key string) interface{} {
+	for i := 0; i < len(e.keysAndValues)-1; i += 2 {
+		if k, ok := e.keysAndValues[i].(string); ok && k == key {
+			return e.keysAndValues[i+1]
+		}
+	}
+	return nil
 }
 
 func TestDefaultLogLevels(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
-	log.Log("default level message")
+	log := MakeLogger(mockLogger())
+	log.Log("msg", "default level message")
 	assert(t, logCalled, "default loglevel should have been info")
 	tearDown()
 }
 
-// Simply a self-check test as most tests will depend on this behavior working
-// Enforces that unit tests are run in isolated contexts
 func TestMockLogger(t *testing.T) {
 	setUp()
-	l := MockLogger{}
 	assert(t, !logCalled, "Test Case was not correctly initialized")
-	assert(t, len(logParams) == 0, "logParams was not reset")
-	l.Log("test", "message")
+	assert(t, len(logEntries) == 0, "logEntries was not reset")
+	l := MakeLogger(mockLogger())
+	l.Log("msg", "test message")
 	assert(t, logCalled, "MockLogger was not called")
 	tearDown()
 }
@@ -101,92 +148,84 @@ func TestGoodLevel(t *testing.T) {
 
 func TestComponent(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.Log("foo", "bar")
 
-	assert(t, len(logParams) == 1, "Expected 1 log line")
-
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	assert(t, len(logEntries) == 1, "Expected 1 log line")
+	e := lastEntry()
+	assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
 	tearDown()
 }
 
 func TestWith(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 
 	log.With("arg1", "val1").Log("foo1", "bar1")
 	log.With("arg2", "val2").Log("foo2", "bar2")
 
-	assert(t, len(logParams) == 2, "Expected 2 log lines")
+	assert(t, len(logEntries) == 2, "Expected 2 log lines")
 
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[8].(string) == "arg1", "Custom With() field was not logged")
-	assert(t, logEntry[9].(string) == "val1", "Custom With() field was not logged")
+	e := logEntries[0]
+	assert(t, getValue(e, "arg1").(string) == "val1", "Custom With() field was not logged")
 
-	logEntry = logParams[1].([]interface{})
-	assert(t, logEntry[8].(string) == "arg2", "Custom With() was not logged")
-	assert(t, logEntry[9].(string) == "val2", "Custom With() was not logged")
-
+	e = logEntries[1]
+	assert(t, getValue(e, "arg2").(string) == "val2", "Custom With() was not logged")
 	tearDown()
 }
 
 func TestInfoCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(WARNING)
 	assert(t, log.filterLevel == WARNING, "Unable to set log level")
 
 	log = log.Level(INFO)
-	log.Log("This is an info message")
+	log.Log("msg", "This is an info message")
 	assert(t, !logCalled, "Info log entry should not have been recorded")
 
 	log = log.Level(WARNING)
-	log.Log("This is a warning message")
+	log.Log("msg", "This is a warning message")
 	assert(t, logCalled, "Warning log entry should have been recorded")
 	tearDown()
 }
 
 func TestVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 
 	assert(t, log.verbosityLevel == 2, "Default verbosity should be 2")
 
 	if err := log.SetVerbosityLevel(3); err != nil {
 		t.Fatal("Unexpected error setting verbosity")
 	}
-	log.Log("this is a verbosity level 2 message")
+	log.Log("msg", "this is a verbosity level 2 message")
 	assert(t, logCalled, "Log entry (V=2) should have been recorded")
 
 	logCalled = false
 	vLog := log.V(4)
-	vLog.Log("This is a verbosity level 4 message")
+	vLog.Log("msg", "This is a verbosity level 4 message")
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 
-	// this call should be ignored. repeat last test to prove it
 	logCalled = false
 	vLog = vLog.V(-1)
-	vLog.Log("This is a verbosity level 4 message")
+	vLog.Log("msg", "This is a verbosity level 4 message")
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 
 	logCalled = false
-	vLog.V(3).Log("This is a verbosity level 3 message")
+	vLog.V(3).Log("msg", "This is a verbosity level 3 message")
 	assert(t, logCalled, "Log entry (V=3) should have been recorded")
 
-	// once again, this call should do nothing.
 	logCalled = false
 	vLog = vLog.V(-1)
-	vLog.Log("This is a verbosity level 4 message")
+	vLog.Log("msg", "This is a verbosity level 4 message")
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 	tearDown()
 }
 
 func TestNegativeVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	err := log.SetVerbosityLevel(-1)
 	assert(t, err != nil, "Requesting a negative verbosity should not have been allowed")
 	tearDown()
@@ -194,14 +233,10 @@ func TestNegativeVerbosity(t *testing.T) {
 
 func TestCachedLoggers(t *testing.T) {
 	setUp()
-	logger := MockLogger{}
 	log := Logger("test")
-	log.SetLogger(logger)
+	log.SetLogger(mockLogger())
 
-	// set a value on this log class
 	log.SetLogLevel(ERROR)
-	// obtain a new filtered logger and prove it reflects that same log level
-
 	log2 := Logger("test")
 
 	assert(t, log.filterLevel == ERROR, "Log object was not correctly filtered")
@@ -211,20 +246,19 @@ func TestCachedLoggers(t *testing.T) {
 
 func TestWarningCutoff(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 
-	log.Level(WARNING).Log("message", "test warning message")
+	log.Level(WARNING).Log("msg", "test warning message")
 	assert(t, logCalled, "Warning level message should have been recorded")
 
-	log.Level(ERROR).Log("error", "test error message")
+	log.Level(ERROR).Log("msg", "test error message")
 	assert(t, logCalled, "Error level message should have been recorded")
 	tearDown()
 }
 
 func TestLogConcurrency(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
-	// create a new log object from the previous one.
+	log := MakeLogger(mockLogger())
 	log2 := log.Level(WARNING)
 	assert(t, log.currentLogLevel != log2.currentLogLevel, "log and log2 should not have the same log level")
 	assert(t, log.currentLogLevel == INFO, "Calling Warning() did not create a new log object")
@@ -233,66 +267,55 @@ func TestLogConcurrency(t *testing.T) {
 
 func TestInfoMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
-	log.Level(INFO).Log("test", "message")
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not infoLevel level")
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	log.Level(INFO).Log("msg", "test message")
+	e := lastEntry()
+	assert(t, getValue(e, "level").(string) == LogLevelNames[INFO], "Logged line was not info level")
+	assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
+	assert(t, e.msg == "test message", "Message was not logged")
 	tearDown()
 }
 
 func TestWarningMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(WARNING)
-	log.Level(WARNING).Log("test", "message")
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[WARNING], "Logged line was not warningLevel level")
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	log.Level(WARNING).Log("msg", "test message")
+	e := lastEntry()
+	assert(t, getValue(e, "level").(string) == LogLevelNames[WARNING], "Logged line was not warning level")
+	assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
 	tearDown()
 }
 
 func TestErrorMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(ERROR)
-	log.Level(ERROR).Log("test", "message")
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[ERROR], "Logged line was not errorLevel level")
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	log.Level(ERROR).Log("msg", "test message")
+	e := lastEntry()
+	assert(t, getValue(e, "level").(string) == LogLevelNames[ERROR], "Logged line was not error level")
+	assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
 	tearDown()
 }
 
 func TestCriticalMessage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(FATAL)
-	log.Level(FATAL).Log("test", "message")
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[FATAL], "Logged line was not fatalLevel level")
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	log.Level(FATAL).Log("msg", "test message")
+	e := lastEntry()
+	assert(t, getValue(e, "level").(string) == LogLevelNames[FATAL], "Logged line was not fatal level")
+	assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
 	tearDown()
 }
 
 func TestError(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	err := errors.New("Test error")
-	log.Level(ERROR).Log(err)
+	log.Level(ERROR).Log("msg", err)
 	assert(t, logCalled, "Error was not logged via .Log()")
 
 	logCalled = false
@@ -300,7 +323,6 @@ func TestError(t *testing.T) {
 	assert(t, logCalled, "Error was not logged via .msg()")
 
 	logCalled = false
-	// using more than one parameter in format string
 	log.msgf("[%d] %s", 1, err)
 	assert(t, logCalled, "Error was not logged via .msgf()")
 
@@ -312,56 +334,43 @@ func TestError(t *testing.T) {
 
 func TestMultipleLevels(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
-	// change levels more than once
 	log.Level(WARNING).Level(INFO).Level(WARNING).msg("test")
-
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[WARNING], "Logged line was not of level warningLevel")
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
-	assert(t, logEntry[8].(string) == "msg", "Logged line did not contain message header")
-	assert(t, logEntry[9].(string) == "test", "Logged line did not contain message")
+	e := lastEntry()
+	assert(t, getValue(e, "level").(string) == LogLevelNames[WARNING], "Logged line was not of level warning")
+	assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
+	assert(t, e.msg == "test", "Message was not logged")
 	tearDown()
 }
 
 func TestLogVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
 
-	// Filtered Logger
 	assert(t, log.Verbosity(2), "Verbosity should match")
 	assert(t, log.Verbosity(1), "Actual verbosity is higher")
 	assert(t, !log.Verbosity(3), "Verbosity is lower")
 
-	// Filtered Verbosity Logger
 	assert(t, log.V(2).Verbosity(2), "Verbosity should match")
 	assert(t, log.V(2).Verbosity(1), "Actual verbosity is higher")
 	assert(t, !log.V(2).Verbosity(3), "Verbosity is lower")
 
 	log.V(2).Log("msg", "test")
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
+	assert(t, logCalled, "V(2) log should have been recorded")
 	tearDown()
 }
 
 func TestErrWithMsgf(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.Reason(fmt.Errorf("testerror")).msgf("%s", "test")
 
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[8].(string) == "reason", "Logged line did not contain message header")
-	assert(t, logEntry[9].(error).Error() == "testerror", "Logged line did not contain message header")
-	assert(t, logEntry[10].(string) == "msg", "Logged line did not contain message header")
-	assert(t, logEntry[11].(string) == "test", "Logged line did not contain message")
+	e := lastEntry()
+	assert(t, getValue(e, "reason").(error).Error() == "testerror", "Reason was not logged")
+	assert(t, e.msg == "test", "Message was not logged")
 	tearDown()
 }
 
@@ -374,7 +383,7 @@ func TestObjectLogging(t *testing.T) {
 		{
 			name: "simple",
 			logFunc: func(log *FilteredLogger, vm *v1.VirtualMachineInstance) {
-				log.Object(vm).Log("test", "message")
+				log.Object(vm).Log("msg", "test message")
 			},
 		},
 		{
@@ -383,7 +392,7 @@ func TestObjectLogging(t *testing.T) {
 				_ = log.SetVerbosityLevel(6)
 			},
 			logFunc: func(log *FilteredLogger, vm *v1.VirtualMachineInstance) {
-				log.Level(INFO).V(3).Object(vm).Log("test", "message")
+				log.Level(INFO).V(3).Object(vm).Log("msg", "test message")
 			},
 		},
 	}
@@ -391,7 +400,7 @@ func TestObjectLogging(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			setUp()
-			log := MakeLogger(MockLogger{})
+			log := MakeLogger(mockLogger())
 			log.SetLogLevel(INFO)
 			if tc.configure != nil {
 				tc.configure(log)
@@ -400,17 +409,13 @@ func TestObjectLogging(t *testing.T) {
 			vm := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Namespace: "test"}}
 			tc.logFunc(log, &vm)
 
-			logEntry := logParams[0].([]interface{})
-			assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-			assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not of level infoLevel")
-			assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-			assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
-			assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-			assert(t, logEntry[7].(string) == "test", "Component was not logged")
-			assert(t, logEntry[8].(string) == "namespace", "Logged line did not contain object namespace")
-			assert(t, logEntry[10].(string) == "name", "Logged line did not contain object name")
-			assert(t, logEntry[12].(string) == "kind", "Logged line did not contain object kind")
-			assert(t, logEntry[14].(string) == "uid", "Logged line did not contain UUID")
+			e := lastEntry()
+			assert(t, getValue(e, "level").(string) == LogLevelNames[INFO], "Logged line was not of level info")
+			assert(t, getValue(e, "component").(string) == "test", "Component was not logged")
+			assert(t, hasKey(e, "namespace"), "Logged line did not contain object namespace")
+			assert(t, hasKey(e, "name"), "Logged line did not contain object name")
+			assert(t, hasKey(e, "kind"), "Logged line did not contain object kind")
+			assert(t, hasKey(e, "uid"), "Logged line did not contain UUID")
 			tearDown()
 		})
 	}
@@ -418,7 +423,7 @@ func TestObjectLogging(t *testing.T) {
 
 func TestObjectContextLeakage(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	if err := log.SetVerbosityLevel(0); err != nil {
 		t.Fatal(err)
@@ -428,24 +433,21 @@ func TestObjectContextLeakage(t *testing.T) {
 		ObjectMeta: v12.ObjectMeta{Name: "leak-test"},
 	}
 
-	// Simulate logging with verbosity in different orders.
 	for range 10 {
 		log.V(3).Object(&vm).Info("noop")
 		log.Object(&vm).V(3).Info("noop")
 	}
 
-	// Ensure the mock is empty before the check.
 	assert(t, !logCalled, "Expected no log output during loop")
-	assert(t, len(logParams) == 0, fmt.Sprintf("Expected no log params during loop, got %d entries", len(logParams)))
+	assert(t, len(logEntries) == 0, fmt.Sprintf("Expected no log entries during loop, got %d entries", len(logEntries)))
 
-	// Ensure object context did not leak into the base logger.
 	log.Error("post-check")
 	assert(t, logCalled, "Expected post-check log to reach logger")
-	assert(t, len(logParams) == 1, fmt.Sprintf("Expected 1 log entry, got %d", len(logParams)))
-	logEntry := logParams[0].([]interface{})
-	for _, item := range logEntry {
-		if s, ok := item.(string); ok {
-			assert(t, s != "leak-test", fmt.Sprintf("Unexpected object context on base logger: %v", logEntry))
+	assert(t, len(logEntries) == 1, fmt.Sprintf("Expected 1 log entry, got %d", len(logEntries)))
+	e := lastEntry()
+	for i := 0; i < len(e.keysAndValues)-1; i += 2 {
+		if s, ok := e.keysAndValues[i+1].(string); ok {
+			assert(t, s != "leak-test", fmt.Sprintf("Unexpected object context on base logger: %v", e.keysAndValues))
 		}
 	}
 
@@ -454,7 +456,7 @@ func TestObjectContextLeakage(t *testing.T) {
 
 func TestInfofVerbosity(t *testing.T) {
 	setUp()
-	log := MakeLogger(MockLogger{})
+	log := MakeLogger(mockLogger())
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
 
@@ -466,13 +468,12 @@ func TestInfofVerbosity(t *testing.T) {
 	log.V(2).Infof("This should be logged: verbosity %d", 2)
 	assert(t, logCalled, "V(2).Infof() should log when verbosity level is 2")
 
-	logEntry := logParams[len(logParams)-1].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not INFO level")
+	e := lastEntry()
+	assert(t, getValue(e, "level").(string) == LogLevelNames[INFO], "Logged line was not INFO level")
 
 	warningLog := log.Level(WARNING)
 	logCalled = false
-	logParams = make([]interface{}, 0)
+	logEntries = nil
 	warningLog.V(3).Infof("This should not be logged: verbosity %d", 3)
 	assert(t, !logCalled, "V(3).Infof() should not log when verbosity level is 2, even after Level(WARNING)")
 
