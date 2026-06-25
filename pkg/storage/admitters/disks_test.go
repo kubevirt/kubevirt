@@ -410,7 +410,7 @@ var _ = Describe("Disk Validation", func() {
 			Expect(causes).To(HaveLen(1)) // Only first disk should fail
 			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
 			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus)))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("DedicatedIOThreads are not supported for disks on a %s bus", bus)))
 
 		},
 			Entry("SATA bus", v1.DiskBusSATA),
