@@ -3,10 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "rate.go",
-        "sometimes.go",
+        "edit.go",
+        "op_string.go",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/time/rate",
-    importpath = "golang.org/x/time/rate",
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/pkg/diff/edit",
+    importpath = "github.com/pkg/diff/edit",
     visibility = ["//visibility:public"],
 )
