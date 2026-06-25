@@ -1,10 +1,9 @@
 # Minikube provider
 
 > **⚠️ EXPERIMENTAL**: This provider is in an experimental stage and is not production-ready.
-> Several features are not yet implemented, including local container registry support.
 
 Provides a pre-deployed Kubernetes cluster that runs using [Minikube](https://minikube.sigs.k8s.io/).
-The cluster uses Podman as the driver and is managed through the `kubevirtci` profile.
+The cluster uses docker as the driver and is managed through the `kubevirtci` profile.
 
 ## Prerequisites
 
@@ -44,6 +43,6 @@ The provider uses the following environment variables:
 
 ## Notes
 
-- The cluster runs with Podman as the driver (`--driver=podman`)
+- The cluster runs with docker as the default driver (`--driver=docker`)
 - The cluster uses the `kubevirtci` profile to avoid conflicts with other Minikube instances
 - kubectl binary is automatically copied to the configuration directory for convenience
