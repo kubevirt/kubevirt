@@ -16,7 +16,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: alpine
 spec:
   annotations:
@@ -48,7 +48,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: centos.stream10
 spec:
   annotations:
@@ -81,7 +81,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: centos.stream10.desktop
 spec:
   annotations:
@@ -117,7 +117,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: centos.stream9
 spec:
   annotations:
@@ -150,7 +150,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: centos.stream9.desktop
 spec:
   annotations:
@@ -186,7 +186,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "8"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: centos.stream9.dpdk
 spec:
   annotations:
@@ -225,7 +225,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 256Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: cirros
 spec:
   annotations:
@@ -257,7 +257,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: debian
 spec:
   annotations:
@@ -290,10 +290,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: amd64
+    instancetype.kubevirt.io/required-architecture: amd64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: fedora
 spec:
   annotations:
@@ -307,7 +309,9 @@ spec:
   firmware:
     preferredEfi:
       secureBoot: true
+  preferredArchitecture: amd64
   requirements:
+    architecture: amd64
     cpu:
       guest: 1
     memory:
@@ -328,10 +332,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: arm64
+    instancetype.kubevirt.io/required-architecture: arm64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: fedora.arm64
 spec:
   annotations:
@@ -340,7 +346,9 @@ spec:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
     preferredRng: {}
+  preferredArchitecture: arm64
   requirements:
+    architecture: arm64
     cpu:
       guest: 1
     memory:
@@ -361,10 +369,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: s390x
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: s390x
+    instancetype.kubevirt.io/required-architecture: s390x
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: fedora.s390x
 spec:
   annotations:
@@ -373,7 +383,9 @@ spec:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
     preferredRng: {}
+  preferredArchitecture: s390x
   requirements:
+    architecture: s390x
     cpu:
       guest: 1
     memory:
@@ -394,7 +406,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: legacy
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: legacy
 spec:
   annotations:
@@ -418,7 +430,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: linux
 spec:
   annotations:
@@ -443,7 +455,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: linux.efi
 spec:
   annotations:
@@ -471,7 +483,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: linux.virtiotransitional
 spec:
   annotations:
@@ -499,7 +511,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: opensuse.leap
 spec:
   annotations:
@@ -531,7 +543,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: opensuse.tumbleweed
 spec:
   annotations:
@@ -563,7 +575,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "2"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: oraclelinux
 spec:
   annotations:
@@ -596,10 +608,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: amd64
+    instancetype.kubevirt.io/required-architecture: amd64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.10
 spec:
   annotations:
@@ -614,7 +628,9 @@ spec:
   firmware:
     preferredEfi:
       secureBoot: true
+  preferredArchitecture: amd64
   requirements:
+    architecture: amd64
     cpu:
       guest: 1
     memory:
@@ -635,10 +651,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: arm64
+    instancetype.kubevirt.io/required-architecture: arm64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.10.arm64
 spec:
   annotations:
@@ -648,7 +666,9 @@ spec:
     preferredDiskDedicatedIoThread: true
     preferredInterfaceModel: virtio
     preferredRng: {}
+  preferredArchitecture: arm64
   requirements:
+    architecture: arm64
     cpu:
       guest: 1
     memory:
@@ -669,10 +689,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: s390x
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: s390x
+    instancetype.kubevirt.io/required-architecture: s390x
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.10.s390x
 spec:
   annotations:
@@ -682,7 +704,9 @@ spec:
     preferredDiskDedicatedIoThread: true
     preferredInterfaceModel: virtio
     preferredRng: {}
+  preferredArchitecture: s390x
   requirements:
+    architecture: s390x
     cpu:
       guest: 1
     memory:
@@ -705,7 +729,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.7
 spec:
   annotations:
@@ -737,7 +761,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.7.desktop
 spec:
   annotations:
@@ -772,7 +796,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.8
 spec:
   annotations:
@@ -804,7 +828,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.8.desktop
 spec:
   annotations:
@@ -839,7 +863,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "8"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.8.dpdk
 spec:
   annotations:
@@ -875,10 +899,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: amd64
+    instancetype.kubevirt.io/required-architecture: amd64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.9
 spec:
   annotations:
@@ -893,7 +919,9 @@ spec:
   firmware:
     preferredEfi:
       secureBoot: true
+  preferredArchitecture: amd64
   requirements:
+    architecture: amd64
     cpu:
       guest: 1
     memory:
@@ -914,10 +942,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: arm64
+    instancetype.kubevirt.io/required-architecture: arm64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.9.arm64
 spec:
   annotations:
@@ -927,7 +957,9 @@ spec:
     preferredDiskDedicatedIoThread: true
     preferredInterfaceModel: virtio
     preferredRng: {}
+  preferredArchitecture: arm64
   requirements:
+    architecture: arm64
     cpu:
       guest: 1
     memory:
@@ -948,10 +980,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: amd64
+    instancetype.kubevirt.io/required-architecture: amd64
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.9.desktop
 spec:
   annotations:
@@ -969,7 +1003,9 @@ spec:
   firmware:
     preferredEfi:
       secureBoot: true
+  preferredArchitecture: amd64
   requirements:
+    architecture: amd64
     cpu:
       guest: 1
     memory:
@@ -990,10 +1026,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: amd64
+    instancetype.kubevirt.io/required-architecture: amd64
     instancetype.kubevirt.io/required-cpu: "8"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.9.dpdk
 spec:
   annotations:
@@ -1014,7 +1052,9 @@ spec:
   firmware:
     preferredEfi:
       secureBoot: true
+  preferredArchitecture: amd64
   requirements:
+    architecture: amd64
     cpu:
       guest: 8
     memory:
@@ -1035,10 +1075,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: amd64
+    instancetype.kubevirt.io/required-architecture: amd64
     instancetype.kubevirt.io/required-cpu: "4"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.9.realtime
 spec:
   annotations:
@@ -1061,7 +1103,9 @@ spec:
   firmware:
     preferredEfi:
       secureBoot: true
+  preferredArchitecture: amd64
   requirements:
+    architecture: amd64
     cpu:
       guest: 4
     memory:
@@ -1082,10 +1126,12 @@ metadata:
   labels:
     instancetype.kubevirt.io/arch: s390x
     instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: s390x
+    instancetype.kubevirt.io/required-architecture: s390x
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: rhel.9.s390x
 spec:
   annotations:
@@ -1095,7 +1141,9 @@ spec:
     preferredDiskDedicatedIoThread: true
     preferredInterfaceModel: virtio
     preferredRng: {}
+  preferredArchitecture: s390x
   requirements:
+    architecture: s390x
     cpu:
       guest: 1
     memory:
@@ -1118,7 +1166,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: sles
 spec:
   annotations:
@@ -1150,7 +1198,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: ubuntu
 spec:
   annotations:
@@ -1182,7 +1230,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.10
 spec:
   annotations:
@@ -1250,7 +1298,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.10.virtio
 spec:
   annotations:
@@ -1274,6 +1322,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1320,7 +1369,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "2"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.11
 spec:
   annotations:
@@ -1391,7 +1440,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "2"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.11.virtio
 spec:
   annotations:
@@ -1417,6 +1466,7 @@ spec:
     preferredInterfaceModel: virtio
     preferredTPM:
       persistent: true
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1464,7 +1514,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k12
 spec:
   annotations:
@@ -1528,7 +1578,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k12.virtio
 spec:
   annotations:
@@ -1552,6 +1602,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1594,7 +1645,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k16
 spec:
   annotations:
@@ -1662,7 +1713,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k16.virtio
 spec:
   annotations:
@@ -1686,6 +1737,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1732,7 +1784,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k19
 spec:
   annotations:
@@ -1800,7 +1852,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k19.virtio
 spec:
   annotations:
@@ -1824,6 +1876,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1870,7 +1923,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k22
 spec:
   annotations:
@@ -1941,7 +1994,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k22.virtio
 spec:
   annotations:
@@ -1967,6 +2020,7 @@ spec:
     preferredInterfaceModel: virtio
     preferredTPM:
       persistent: true
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2014,7 +2068,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k25
 spec:
   annotations:
@@ -2085,7 +2139,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k25.virtio
 spec:
   annotations:
@@ -2111,6 +2165,7 @@ spec:
     preferredInterfaceModel: virtio
     preferredTPM:
       persistent: true
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2158,7 +2213,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 256Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k3
 spec:
   annotations:
@@ -2223,7 +2278,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k8
 spec:
   annotations:
@@ -2287,7 +2342,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.2k8.virtio
 spec:
   annotations:
@@ -2311,6 +2366,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2353,7 +2409,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.7
 spec:
   annotations:
@@ -2417,7 +2473,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.7.virtio
 spec:
   annotations:
@@ -2441,6 +2497,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredVideoType: virtio
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2483,7 +2540,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 128Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
   name: windows.xp
 spec:
   annotations:
