@@ -209,11 +209,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	var ioThreadCount, autoThreads, scsiControllerThreads int
 	if hasIOThreads {
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
-		// if autoThreads is 0, then supplementalPool is being used
-		if autoThreads == 0 {
-			scsiControllerThreads = ioThreadCount
-		} else {
-			scsiControllerThreads = autoThreads
+		if c.SCSIMultiIOThreadEnabled {
+			// if autoThreads is 0, then supplementalPool is being used
+			if autoThreads == 0 {
+				scsiControllerThreads = ioThreadCount
+			} else {
+				scsiControllerThreads = autoThreads
+			}
 		}
 	}
 
