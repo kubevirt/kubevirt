@@ -574,8 +574,13 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		},
 	}
 
-	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil && exp.Compression != nil {
-		options.Compression = string(*exp.Compression)
+	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil {
+		if exp.Compression != nil {
+			options.Compression = string(*exp.Compression)
+		}
+		if exp.DowntimeTuning != nil {
+			options.DowntimeTuning = exp.DowntimeTuning
+		}
 	}
 
 	configureParallelMigrationThreads(options, vmi)

@@ -2147,6 +2147,61 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		})
 
+		Context("with downtime tuning", Serial, func() {
+			It("should migrate with downtime tuning and confirm via API and logs", func() {
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
+
+				By("Creating a migration policy with downtime tuning enabled")
+				policy := GeneratePolicyAndAlignVMI(vmi)
+				policy.Spec.MaxDowntimeMs = pointer.P(uint64(60000))
+				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					DowntimeTuning: &v1.DowntimeTuningOptions{
+						InitialMs:           pointer.P(int64(100)),
+						Steps:               pointer.P(int32(10)),
+						StartAfterIteration: pointer.P(int64(1)),
+						CooldownSeconds:     pointer.P(int32(5)),
+					},
+				}
+				policy = CreateMigrationPolicy(virtClient, policy)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+				Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Logging into the guest and running stress-ng")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				runStressTest(vmi, stressDefaultVMSize)
+
+				By("Starting the Migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				By("Confirming migration completed successfully")
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				By("Verifying the migration policy was applied")
+				Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
+				Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(policy.Name))
+
+				By("Verifying downtime tuning fields are set in the migration configuration")
+				mc := vmi.Status.MigrationState.VMIMConfigurationOptions
+				Expect(mc).ToNot(BeNil())
+				Expect(mc.ExperimentalMigrationOptions).ToNot(BeNil())
+				dt := mc.ExperimentalMigrationOptions.DowntimeTuning
+				Expect(dt).ToNot(BeNil())
+				Expect(dt.InitialMs).To(HaveValue(BeEquivalentTo(100)))
+				Expect(dt.Steps).To(HaveValue(BeEquivalentTo(10)))
+				Expect(dt.StartAfterIteration).To(HaveValue(BeEquivalentTo(1)))
+				Expect(dt.CooldownSeconds).To(HaveValue(BeEquivalentTo(5)))
+
+				By("Verifying downtime tuning was applied via launcher logs")
+				logs := getSourceLauncherLogs(virtClient, vmi)
+				Expect(logs).To(ContainSubstring("downtime tuning enabled"))
+				Expect(logs).To(ContainSubstring("downtime tuning: max_downtime 0ms -> 100ms"))
+			})
+		})
+
 		Context("with migration compression", Serial, func() {
 			It("should migrate with zstd compression and confirm via API and logs", func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())

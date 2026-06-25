@@ -156,7 +156,26 @@ func applyExperimentalMigrationOptions(base, spec *k6tv1.ExperimentalMigrationOp
 	if spec.StallDetector != nil {
 		result.StallDetector = applyStallDetectorOptions(result.StallDetector, spec.StallDetector)
 	}
+	if spec.DowntimeTuning != nil {
+		result.DowntimeTuning = applyDowntimeTuningOptions(result.DowntimeTuning, spec.DowntimeTuning)
+	}
 	setIfNotNil(&result.Compression, spec.Compression)
+
+	return result
+}
+
+func applyDowntimeTuningOptions(base, spec *k6tv1.DowntimeTuningOptions) *k6tv1.DowntimeTuningOptions {
+	var result *k6tv1.DowntimeTuningOptions
+	if base != nil {
+		result = base.DeepCopy()
+	} else {
+		result = &k6tv1.DowntimeTuningOptions{}
+	}
+
+	setIfNotNil(&result.InitialMs, spec.InitialMs)
+	setIfNotNil(&result.Steps, spec.Steps)
+	setIfNotNil(&result.StartAfterIteration, spec.StartAfterIteration)
+	setIfNotNil(&result.CooldownSeconds, spec.CooldownSeconds)
 
 	return result
 }
