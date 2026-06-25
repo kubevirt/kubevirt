@@ -11,6 +11,7 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 GRAPHQL_API_URL = "https://api.github.com/graphql"
+_TRACKED_STATUSES = ("Tracked", "At risk", "Exception Required")
 _TRACKED_ISSUES_QUERY = """
     query($orgName: String!, $projectNumber: Int!, $cursor: String) {
       organization(login: $orgName) {
@@ -137,7 +138,7 @@ def _is_item_field_tracked_status(field_value_node):
     field_name = field_node.get("field_definition_name")
     option_name = field_value_node.get("selected_option_name")
 
-    return field_name == "Status" and option_name in ("Tracked", "At risk")
+    return field_name == "Status" and option_name in _TRACKED_STATUSES
 
 
 def _check_item_fields_for_tracked_status(field_value_nodes):
