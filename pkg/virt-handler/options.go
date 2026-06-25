@@ -67,6 +67,7 @@ func virtualMachineOptions(
 			PCINUMAAwareTopologyEnabled:  clusterConfig.PCINUMAAwareTopologyEnabled(),
 			VGPULiveMigrationEnabled:     clusterConfig.VGPULiveMigrationEnabled(),
 			GraceIOVirtualizationEnabled: clusterConfig.GraceIOVirtualizationEnabled(),
+			SCSIMultiIOThreadEnabled:     clusterConfig.SCSIMultiIOThreadEnabled(),
 		}
 	}
 

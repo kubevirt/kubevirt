@@ -1330,6 +1330,7 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and shared iothreads set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
+			c.SCSIMultiIOThreadEnabled = true
 			one := uint(1)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
@@ -2688,6 +2689,32 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Disks[0].Driver.IOThreads).To(Equal(iothreads))
 		})
 
+		It("Should set the iothread pool for virtio-blk but NOT for SCSI controller when SCSIMultiIOThread feature gate is disabled", func() {
+			count := uint(4)
+			vmi := libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(uint32(count))}),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0", libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= int(count); id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: false})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
+			Expect(domain.Spec.Devices.Disks[0].Driver.IOThreads).To(Equal(iothreads))
+
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:   "scsi",
+				Index:  "0",
+				Model:  getModelForArch(runtime.GOARCH),
+				Driver: nil,
+			}))
+		})
+
 		It("Should set iothreads for a vmi using auto policy with scsi and virtio-blk disks", func() {
 			cores := uint(4)
 			vmi := libvmi.New(
@@ -2697,7 +2724,7 @@ var _ = Describe("Converter", func() {
 				libvmi.WithPersistentVolumeClaim("disk1", "pvc1"),
 				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 			)
-			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator})
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: true})
 
 			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(3)))
 
@@ -2741,7 +2768,7 @@ var _ = Describe("Converter", func() {
 				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(uint32(count))}),
 				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 			)
-			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator})
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: true})
 
 			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
 
