@@ -1662,6 +1662,11 @@ func (in *ExperimentalMigrationOptions) DeepCopyInto(out *ExperimentalMigrationO
 		*out = new(StallDetectorOptions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Compression != nil {
+		in, out := &in.Compression, &out.Compression
+		*out = new(MigrationCompression)
+		**out = **in
+	}
 	return
 }
 

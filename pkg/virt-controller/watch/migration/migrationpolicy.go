@@ -156,6 +156,7 @@ func applyExperimentalMigrationOptions(base, spec *k6tv1.ExperimentalMigrationOp
 	if spec.StallDetector != nil {
 		result.StallDetector = applyStallDetectorOptions(result.StallDetector, spec.StallDetector)
 	}
+	setIfNotNil(&result.Compression, spec.Compression)
 
 	return result
 }

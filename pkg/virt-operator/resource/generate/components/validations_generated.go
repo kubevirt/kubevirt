@@ -4140,6 +4140,15 @@ var CRDsValidation map[string]string = map[string]string{
             ExperimentalMigrationOptions is an alpha API. It is intended for experimental
             purposes only and will be removed in the future.
           properties:
+            compression:
+              description: |-
+                Compression selects the algorithm for compressing the live migration
+                data stream. When omitted (nil) or set to "none", compression is
+                disabled.
+              enum:
+              - none
+              - zstd
+              type: string
             stallDetector:
               properties:
                 completionTimeoutFactor:
@@ -15559,6 +15568,15 @@ var CRDsValidation map[string]string = map[string]string{
                     ExperimentalMigrationOptions is an alpha API. It is intended for experimental
                     purposes only and will be removed in the future.
                   properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
                     stallDetector:
                       properties:
                         completionTimeoutFactor:
@@ -16238,6 +16256,15 @@ var CRDsValidation map[string]string = map[string]string{
                     ExperimentalMigrationOptions is an alpha API. It is intended for experimental
                     purposes only and will be removed in the future.
                   properties:
+                    compression:
+                      description: |-
+                        Compression selects the algorithm for compressing the live migration
+                        data stream. When omitted (nil) or set to "none", compression is
+                        disabled.
+                      enum:
+                      - none
+                      - zstd
+                      type: string
                     stallDetector:
                       properties:
                         completionTimeoutFactor:

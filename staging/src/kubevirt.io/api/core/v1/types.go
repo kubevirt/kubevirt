@@ -3451,11 +3451,27 @@ type StallDetectorOptions struct {
 	CompletionTimeoutFactor *string `json:"completionTimeoutFactor,omitempty"`
 }
 
+// MigrationCompression represents the compression method for live migration.
+type MigrationCompression string
+
+const (
+	// MigrationCompressionNone disables compression.
+	MigrationCompressionNone MigrationCompression = "none"
+	// MigrationCompressionZstd enables zstd compression on multifd channels.
+	MigrationCompressionZstd MigrationCompression = "zstd"
+)
+
 // ExperimentalMigrationOptions is an alpha API for experimental migration tunables.
 // It is intended for experimental purposes only and will be removed in the future.
 type ExperimentalMigrationOptions struct {
 	//+optional
 	StallDetector *StallDetectorOptions `json:"stallDetector,omitempty"`
+	// Compression selects the algorithm for compressing the live migration
+	// data stream. When omitted (nil) or set to "none", compression is
+	// disabled.
+	// +kubebuilder:validation:Enum=none;zstd
+	//+optional
+	Compression *MigrationCompression `json:"compression,omitempty"`
 }
 
 // VMIMConfigurationOptions holds the resolved migration options for a single migration.
