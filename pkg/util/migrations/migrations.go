@@ -164,3 +164,27 @@ func PriorityFromMigration(migration *v1.VirtualMachineInstanceMigration) *int {
 		return pointer.P(QueuePriorityDefault)
 	}
 }
+
+// ToVMIMConfigurationOptions copies cluster migration defaults into the resolved
+// options type carried on VMIM status. cfg must not be nil. The returned value
+// owns its pointer fields and is safe to store on VMI status or mutate locally.
+func ToVMIMConfigurationOptions(cfg *v1.MigrationConfiguration) *v1.VMIMConfigurationOptions {
+	opts := &v1.VMIMConfigurationOptions{
+		AllowAutoConverge:                 cfg.AllowAutoConverge,
+		BandwidthPerMigration:             cfg.BandwidthPerMigration,
+		CompletionTimeoutPerGiB:           cfg.CompletionTimeoutPerGiB,
+		MaxDowntimeMs:                     cfg.MaxDowntimeMs,
+		ProgressTimeout:                   cfg.ProgressTimeout,
+		UtilityVolumesTimeout:             cfg.UtilityVolumesTimeout,
+		UnsafeMigrationOverride:           cfg.UnsafeMigrationOverride,
+		AllowPostCopy:                     cfg.AllowPostCopy,
+		AllowWorkloadDisruption:           cfg.AllowWorkloadDisruption,
+		MatchSELinuxLevelOnMigration:      cfg.MatchSELinuxLevelOnMigration,
+		ParallelOutboundMigrationsPerNode: cfg.ParallelOutboundMigrationsPerNode,
+		NodeDrainTaintKey:                 cfg.NodeDrainTaintKey,
+		ParallelMigrationsPerCluster:      cfg.ParallelMigrationsPerCluster,
+		DisableTLS:                        cfg.DisableTLS,
+		Network:                           cfg.Network,
+	}
+	return opts.DeepCopy()
+}
