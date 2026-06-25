@@ -94,12 +94,14 @@ const (
 
 	// Owner: @alaypatel07
 	// Alpha: v1.6.0
+	// Beta: v1.9.0
 	//
 	// GPUsWithDRAGate allows users to create VMIs with DRA provisioned GPU devices
 	GPUsWithDRAGate = "GPUsWithDRA"
 
 	// Owner: @alaypatel07
 	// Alpha: v1.6.0
+	// Beta: v1.9.0
 	//
 	// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 	HostDevicesWithDRAGate = "HostDevicesWithDRA"
@@ -306,8 +308,8 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})

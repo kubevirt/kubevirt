@@ -4028,6 +4028,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a DRA-GPU when the feature-gate is NOT enabled", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.GPUsWithDRAGate}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+			defer disableFeatureGates()
+
 			vmi := libvmi.New()
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				{
