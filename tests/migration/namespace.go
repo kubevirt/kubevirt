@@ -580,10 +580,11 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		)
 
 		BeforeEach(func() {
-			sourceVMI = libvmifact.NewAlpine(
+			sourceVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithMemoryRequest("1Gi"),
 			)
 			By("limiting the bandwidth of migrations")
 			Expect(CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(sourceVMI, resource.MustParse("1Ki")))).ToNot(BeNil())
@@ -598,6 +599,10 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 
 			By("starting the VirtualMachine")
 			createAndStartVMFromVMISpec(sourceVMI)
+			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
+			runStressTest(sourceVMI, stressLargeVMSize)
 			By("creating a receiver VM")
 			createReceiverVMFromVMISpec(targetVMI)
 			By("creating the migration")
@@ -646,6 +651,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				Expect(err).ToNot(HaveOccurred())
 				return targetVMI.Status.Phase
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
+			stopStressTest(sourceVMI)
 		},
 			Entry("[QUARANTINE] delete source migration", decorators.Quarantine, true),
 			Entry("[QUARANTINE]delete target migration", decorators.Quarantine, false),
