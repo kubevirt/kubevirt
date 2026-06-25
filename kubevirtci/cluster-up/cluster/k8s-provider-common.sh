@@ -102,6 +102,10 @@ function up() {
     if [[ "${KUBEVIRT_WITH_SRIOV}" == "true" ]]; then
         "${KUBEVIRTCI_PATH}/cluster/${KUBEVIRT_PROVIDER}/config_sriov_cluster.sh"
     fi
+
+    if [[ "${KUBEVIRT_USE_FAKE_VFIO}" == "true" ]]; then
+        "${KUBEVIRTCI_PATH}/cluster/${KUBEVIRT_PROVIDER}/config_vfio_cluster.sh"
+    fi
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault
