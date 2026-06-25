@@ -295,9 +295,28 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
-			It("[test_id:5689]should be successfully migrate with a WriteBack disk cache", decorators.WgS390x, func() {
-				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
-				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
+			It("[test_id:5689]should successfully migrate with all disk cache modes", decorators.WgS390x, func() {
+				alpineImage := cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)
+				cacheModes := map[string]v1.DriverCache{
+					"disk0": v1.CacheNone,
+					"disk1": v1.CacheWriteBack,
+					"disk2": v1.CacheWriteThrough,
+					"disk3": v1.CacheDirectSync,
+					"disk4": v1.CacheUnsafe,
+				}
+
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libnet.WithMasqueradeNetworking(),
+					libvmi.WithContainerDisk("disk1", alpineImage),
+					libvmi.WithContainerDisk("disk2", alpineImage),
+					libvmi.WithContainerDisk("disk3", alpineImage),
+					libvmi.WithContainerDisk("disk4", alpineImage),
+				)
+				for i, disk := range vmi.Spec.Domain.Devices.Disks {
+					if mode, ok := cacheModes[disk.Name]; ok {
+						vmi.Spec.Domain.Devices.Disks[i].Cache = mode
+					}
+				}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
@@ -305,20 +324,28 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				By("starting the migration")
+				By("Writing test data before migration")
+				testData := "migration-cache-test-data-1234567890"
+				Expect(console.RunCommand(vmi, fmt.Sprintf("echo '%s' > /testfile", testData), 30*time.Second)).To(Succeed())
+
+				By("Starting a Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
-				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
+				By("Verifying test data survived migration")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("grep -q '%s' /testfile", testData), 30*time.Second)).To(Succeed())
+
+				By("Checking all disk cache modes are preserved after migration")
 				runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
-
-				disks := runningVMISpec.Devices.Disks
-				By("checking if requested cache 'writeback' has been set")
-				Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
-				Expect(disks[0].Driver.Cache).To(Equal(string(v1.CacheWriteBack)))
+				for _, disk := range runningVMISpec.Devices.Disks {
+					if expected, ok := cacheModes[disk.Alias.GetName()]; ok {
+						Expect(disk.Driver.Cache).To(Equal(string(expected)),
+							"cache mode mismatch for disk %s", disk.Alias.GetName())
+					}
+				}
 			})
 
 			It("[test_id:6970]should migrate vmi with cdroms on various bus types", decorators.Conformance, func() {
@@ -911,6 +938,92 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
+
+			It("[storage-req] should migrate a vmi with shared block disks and preserve data across all cache modes",
+				decorators.StorageReq, decorators.RequiresRWXBlock, func() {
+					sc, exists := libstorage.GetRWXBlockStorageClass()
+					if !exists {
+						Fail("Failed test when RWX Block storage is not present")
+					}
+
+					type diskCacheSpec struct {
+						name  string
+						cache v1.DriverCache
+					}
+					specs := []diskCacheSpec{
+						{"disk0", v1.CacheNone},
+						{"disk1", v1.CacheDirectSync},
+						{"disk2", v1.CacheWriteThrough},
+						{"disk3", v1.CacheWriteBack},
+						{"disk4", v1.CacheUnsafe},
+					}
+
+					By("Creating DataVolumes for each cache mode")
+					virtClient := kubevirt.Client()
+					arch, err := libkubevirt.GetDefaultArchitecture(virtClient)
+					Expect(err).ToNot(HaveOccurred())
+					sourceURL := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+
+					var vmiOpts []libvmi.Option
+					for _, spec := range specs {
+						dv := libdv.NewDataVolume(
+							libdv.WithRegistrySource(
+								libdv.WithURL(sourceURL),
+								libdv.WithPullMethod(cdiv1.RegistryPullNode),
+								libdv.WithPlatformArch(arch),
+							),
+							libdv.WithStorage(
+								libdv.StorageWithStorageClass(sc),
+								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(sourceURL)),
+								libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+								libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+							),
+						)
+						dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(
+							context.Background(), dv, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+						vmiOpts = append(vmiOpts, libvmi.WithDataVolume(spec.name, dv.Name))
+					}
+
+					By("Starting the VirtualMachineInstance with all cache modes")
+					vmiOpts = append(vmiOpts,
+						libvmi.WithMemoryRequest("256Mi"),
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
+					vmi := libvmi.New(vmiOpts...)
+					for i, spec := range specs {
+						vmi.Spec.Domain.Devices.Disks[i].Cache = spec.cache
+					}
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+
+					By("Logging in and writing test data")
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+					testData := "migration-cache-test-data-1234567890"
+					Expect(console.RunCommand(vmi, fmt.Sprintf("echo '%s' > /testfile", testData), 30*time.Second)).To(Succeed())
+
+					By("Starting a Migration")
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+					By("Verifying test data survived migration")
+					Expect(console.RunCommand(vmi, fmt.Sprintf("grep -q '%s' /testfile", testData), 30*time.Second)).To(Succeed())
+
+					By("Checking all disk cache modes are preserved after migration")
+					runningSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					for _, spec := range specs {
+						for _, disk := range runningSpec.Devices.Disks {
+							if disk.Alias.GetName() == spec.name {
+								Expect(disk.Driver.Cache).To(Equal(string(spec.cache)),
+									"cache mode mismatch for disk %s", spec.name)
+							}
+						}
+					}
+				})
 
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
