@@ -28,7 +28,6 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Evacuation", func() {
@@ -101,25 +100,18 @@ var _ = Describe("Evacuation", func() {
 	}
 
 	Context("migration object creation", func() {
-		DescribeTable("should have expected values, annotations and priority", func(devConfig *v1.DeveloperConfiguration, annotations map[string]string, matcher types.GomegaMatcher) {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: devConfig,
-			})
+		DescribeTable("should have expected values, annotations and priority", func(annotations map[string]string, matcher types.GomegaMatcher) {
 			vmi := newVirtualMachine("my-vmi", "somenode")
 			vmi.Annotations = annotations
-			migration := GenerateNewMigration(vmi, "somenode", config)
+			migration := GenerateNewMigration(vmi, "somenode")
 			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
 			Expect(migration.Spec.Priority).To(matcher)
 		},
-			Entry("with MigrationPriorityQueue feature gate disabled",
-				&v1.DeveloperConfiguration{DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue}},
-				nil, BeNil()),
-			Entry("with MigrationPriorityQueue feature gate enabled",
-				nil, nil,
-				gstruct.PointTo(BeEquivalentTo("system-critical"))),
-			Entry("with MigrationPriorityQueue feature gate enabled, and descheduler annotation",
+			Entry("default priority is system-critical",
 				nil,
+				gstruct.PointTo(BeEquivalentTo("system-critical"))),
+			Entry("with descheduler annotation, priority is system-maintenance",
 				map[string]string{v1.EvictionSourceAnnotation: "descheduler"},
 				gstruct.PointTo(BeEquivalentTo("system-maintenance"))),
 		)
@@ -171,11 +163,6 @@ var _ = Describe("Evacuation", func() {
 		})
 
 		It("should ignore VMIs which are not migratable", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
 			node := newNode("testnode")
 			addNode(newNode("anothernode"))
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
@@ -193,18 +180,13 @@ var _ = Describe("Evacuation", func() {
 			controller.vmiIndexer.Add(vmi1)
 
 			sanityExecute()
-			testutils.ExpectEvents(recorder,
-				FailedCreateVirtualMachineInstanceMigrationReason,
-				FailedCreateVirtualMachineInstanceMigrationReason,
-			)
+
+			migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrationList.Items).To(BeEmpty())
 		})
 
-		It("should not evict VMIs if 5 migrations are in progress", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
+		It("should evict VMIs even if 5 migrations are in progress", func() {
 			node := newNode("testnode")
 			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
 			addNode(node)
@@ -223,42 +205,6 @@ var _ = Describe("Evacuation", func() {
 			controller.migrationIndexer.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
 			controller.migrationIndexer.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 
-			sanityExecute()
-
-		})
-
-		It("should start another migration if one completes and we have a free spot", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
-			node := newNode("testnode")
-			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
-			addNode(node)
-			enqueue(node)
-
-			vmi1 := newVirtualMachineMarkedForEviction("testvmi1", node.Name)
-			migration1 := newMigration("mig1", vmi1.Name, v1.MigrationRunning)
-			controller.vmiIndexer.Add(vmi1)
-			controller.migrationIndexer.Add(migration1)
-
-			vmi2 := newVirtualMachineMarkedForEviction("testvmi2", node.Name)
-			migration2 := newMigration("mig2", vmi1.Name, v1.MigrationRunning)
-			controller.vmiIndexer.Add(vmi2)
-			controller.migrationIndexer.Add(migration2)
-
-			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
-			controller.vmiIndexer.Add(vmi3)
-
-			enqueue(node)
-			sanityExecute()
-			Expect(recorder.Events).To(BeEmpty())
-
-			migration2.Status.Phase = v1.MigrationSucceeded
-			controller.migrationIndexer.Update(migration2)
-
-			enqueue(node)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
@@ -280,58 +226,7 @@ var _ = Describe("Evacuation", func() {
 			expectMigrationCreation()
 		})
 
-		It("Should record a warning on a not migratable VMI", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
-			node := newNode("foo")
-			addNode(node)
-			enqueue(node)
-			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionFalse,
-				},
-			}
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionFalse,
-				},
-			}
-			vmi.Status.EvacuationNodeName = vmi.Status.NodeName
-			controller.vmiIndexer.Add(vmi)
-			sanityExecute()
-			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineInstanceMigrationReason)
-		})
-
-		It("Should not evict VMI if max migrations are in progress", func() {
-			node := newNode("foo")
-			addNode(node)
-			enqueue(node)
-			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionFalse,
-				},
-			}
-			vmi.Status.EvacuationNodeName = node.Name
-			controller.vmiIndexer.Add(vmi)
-			controller.migrationIndexer.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
-			controller.migrationIndexer.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
-			controller.migrationIndexer.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
-			controller.migrationIndexer.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
-			controller.migrationIndexer.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
-			sanityExecute()
-		})
-
-		It("Shound do nothing when active migrations exceed the configured concurrent maximum", func() {
+		It("Should do nothing when active migrations exceed the configured concurrent maximum", func() {
 			const maxParallelMigrationsPerCluster uint32 = 2
 			const maxParallelMigrationsPerSourceNode uint32 = 1
 			const activeMigrations = 10
@@ -455,50 +350,6 @@ var _ = Describe("Evacuation", func() {
 			controller.vmiIndexer.Add(vmi)
 
 			sanityExecute()
-		})
-
-		It("Should create new evictions up to the configured maximum migrations per outbound node", func() {
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-					DisabledFeatureGates: []string{featuregate.MigrationPriorityQueue},
-				}
-			})
-			var maxParallelMigrationsPerCluster uint32 = 10
-			var maxParallelMigrationsPerOutboundNode uint32 = 5
-			var activeMigrationsFromThisSourceNode = 4
-			var migrationCandidatesFromThisSourceNode = 4
-
-			updateKV(func(kv *v1.KubeVirt) {
-				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
-					ParallelMigrationsPerCluster:      &maxParallelMigrationsPerCluster,
-					ParallelOutboundMigrationsPerNode: &maxParallelMigrationsPerOutboundNode,
-				}
-			})
-
-			nodeName := "node01"
-			node := newNode(nodeName)
-			addNode(node)
-			enqueue(node)
-
-			By(fmt.Sprintf("Creating %d active migrations from source node %s", activeMigrationsFromThisSourceNode, nodeName))
-			for i := 1; i <= activeMigrationsFromThisSourceNode; i++ {
-				vmiName := fmt.Sprintf("testvmi%d", i)
-				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				controller.migrationIndexer.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
-			}
-
-			By(fmt.Sprintf("Creating %d migration candidates from source node %s", migrationCandidatesFromThisSourceNode, nodeName))
-			for i := 1; i <= migrationCandidatesFromThisSourceNode; i++ {
-				vmiName := fmt.Sprintf("testvmi%d", i+activeMigrationsFromThisSourceNode)
-				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-			}
-
-			By(fmt.Sprintf("Expect only one new migration from node %s although cluster capacity allows more candidates", nodeName))
-
-			sanityExecute()
-
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
-			expectMigrationCreation()
 		})
 
 		It("should treat pending migrations as non-running migrations", func() {
