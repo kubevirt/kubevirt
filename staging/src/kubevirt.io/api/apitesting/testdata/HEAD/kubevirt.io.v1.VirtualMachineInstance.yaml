@@ -729,6 +729,11 @@ status:
       disableTLS: true
       experimental:
         compression: compressionValue
+        downtimeTuning:
+          cooldownSeconds: -15
+          initialMs: -9
+          startAfterIteration: -19
+          steps: -5
         stallDetector:
           completionTimeoutFactor: completionTimeoutFactorValue
           ewmaAlpha: ewmaAlphaValue

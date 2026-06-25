@@ -83,11 +83,13 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 				oldMaxDowntimeMs = oldPolicy.Spec.MaxDowntimeMs
 			}
 		}
+		hasDowntimeTuning := spec.ExperimentalMigrationOptions != nil && spec.ExperimentalMigrationOptions.DowntimeTuning != nil
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, spec.MaxDowntimeMs) &&
-			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
+			!admitter.clusterConfig.MigrationStallDetectionEnabled() &&
+			!hasDowntimeTuning {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate or as part of downtimeTuning", featuregate.MigrationStallDetection),
 				Field:   sourceField.Child("maxDowntimeMs").String(),
 			})
 		}

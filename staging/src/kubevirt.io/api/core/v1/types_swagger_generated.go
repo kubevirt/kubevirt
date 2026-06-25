@@ -1033,9 +1033,20 @@ func (StallDetectorOptions) SwaggerDoc() map[string]string {
 
 func (ExperimentalMigrationOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "ExperimentalMigrationOptions is an alpha API for experimental migration tunables.\nIt is intended for experimental purposes only and will be removed in the future.",
-		"stallDetector": "+optional",
-		"compression":   "Compression selects the algorithm for compressing the live migration\ndata stream. When omitted (nil) or set to \"none\", compression is\ndisabled.\n+kubebuilder:validation:Enum=none;zstd\n+optional",
+		"":               "ExperimentalMigrationOptions is an alpha API for experimental migration tunables.\nIt is intended for experimental purposes only and will be removed in the future.",
+		"stallDetector":  "+optional",
+		"downtimeTuning": "DowntimeTuning configures iteration-aware downtime ramping for live\nmigration convergence.\n+optional",
+		"compression":    "Compression selects the algorithm for compressing the live migration\ndata stream. When omitted (nil) or set to \"none\", compression is\ndisabled.\n+kubebuilder:validation:Enum=none;zstd\n+optional",
+	}
+}
+
+func (DowntimeTuningOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                    "DowntimeTuningOptions controls how virt-launcher gradually increases\nQEMU's max_downtime during live migration to help convergence.",
+		"initialMs":           "InitialMs is the initial max_downtime value in milliseconds\nset at the start of migration. Tuning steps increase from this value.\nDefaults to 150.\n+optional",
+		"steps":               "Steps is the number of equal increments used to ramp from\nInitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.\n+kubebuilder:validation:Minimum=1\n+optional",
+		"startAfterIteration": "StartAfterIteration is the memory copy iteration after which\ndowntime tuning begins. Defaults to 3.\n+optional",
+		"cooldownSeconds":     "CooldownSeconds is the minimum interval in seconds\nbetween successive downtime increases. Defaults to 10.\n+kubebuilder:validation:Minimum=1\n+optional",
 	}
 }
 
