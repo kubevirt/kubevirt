@@ -728,6 +728,7 @@ status:
       completionTimeoutPerGiB: -23
       disableTLS: true
       experimental:
+        compression: compressionValue
         stallDetector:
           completionTimeoutFactor: completionTimeoutFactorValue
           ewmaAlpha: ewmaAlphaValue
