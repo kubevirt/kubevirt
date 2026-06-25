@@ -132,13 +132,6 @@ const (
 	// also implicitly handles inject/eject CDROM
 	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
 
-	// Owner: sig-conpute / @jschintag
-	// Alpha: v1.6.0
-	// Beta: v1.7.0
-	//
-	// SecureExecution introduces secure execution of VMs on IBM Z architecture
-	SecureExecution = "SecureExecution"
-
 	// Beta: v1.8.0
 	//
 	// PasstBinding enables the use of passt core network binding
@@ -306,7 +299,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})

@@ -2860,19 +2860,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Architecture = "s390x"
 		})
 
-		It("should accept when the feature gate is enabled", func() {
-			enableFeatureGates(featuregate.SecureExecution)
+		It("should accept", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
-		})
-
-		It("should reject when the feature gate is disabled", func() {
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.SecureExecution}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.SecureExecution)))
 		})
 	})
 
