@@ -482,7 +482,7 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 	ExpectWithOffset(1, vmi.Status.MigrationState.Failed).To(BeTrue())
 	ExpectWithOffset(1, vmi.Status.MigrationState.Completed).To(BeTrue())
 	ExpectWithOffset(1, vmi.Status.MigrationState.AbortRequested).To(BeTrue())
-	ExpectWithOffset(1, vmi.Status.MigrationState.AbortStatus).To(BeElementOf(v1.MigrationAbortSucceeded, v1.MigrationAbortFailed))
+	ExpectWithOffset(1, vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
 
 	By("Verifying the VMI's is in the running state")
 	ExpectWithOffset(1, vmi).To(matcher.BeInPhase(v1.Running))

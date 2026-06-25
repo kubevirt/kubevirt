@@ -695,7 +695,7 @@ func (c *MigrationTargetController) execute(key string) error {
 		domain.Status.Status != ""
 
 	if domainExists && !domainAlive {
-		if !abortInProgress(vmi) && !needsCleanup(vmi) {
+		if !abortInProgress(vmi) && !(vmi.IsDecentralizedMigration() && needsCleanup(vmi)) {
 			c.logger.V(4).Object(vmi).Info("domain is not alive")
 			return nil
 		}
