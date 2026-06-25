@@ -1021,7 +1021,8 @@
             "patienceWindowDecayFactor": "patienceWindowDecayFactorValue",
             "searchLocalMinima": true,
             "completionTimeoutFactor": "completionTimeoutFactorValue"
-          }
+          },
+          "compression": "compressionValue"
         }
       },
       "targetCPUSet": [
