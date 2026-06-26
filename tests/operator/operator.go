@@ -2540,15 +2540,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Verifying aggregate labels are present by default")
 			verifyAggregateLabels(kubevirt.Client(), "true")
 
-			By("Setting RoleAggregationStrategy to Manual")
+			By("Setting RoleAggregationStrategy to Manual (OptOutRoleAggregation is Beta, enabled by default)")
 			currentKV := libkubevirt.GetCurrentKv(kubevirt.Client())
-			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
-				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-			}
-			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
-				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-				featuregate.OptOutRoleAggregation,
-			)
 			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
 			kv := kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
 
