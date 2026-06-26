@@ -113,7 +113,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			virtClient := kubevirt.Client()
 
 			By("Waiting for MigrationRequired condition to appear")
-			Eventually(matcher.ThisVMI(hotPluggedVMI), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+			Eventually(matcher.ThisVMI(hotPluggedVMI)).WithTimeout(1 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
@@ -153,7 +153,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 
 				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
 					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
-			}, time.Second*30, time.Second*3).Should(Succeed())
+			}).WithTimeout(30 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 	})
 }))
