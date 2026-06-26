@@ -111,18 +111,15 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
-			vmi := newSRIOVVmi([]string{sriovnet1},
+			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
 				libvmi.WithCPUCount(4, 0, 0),
 				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceWithTag(libvmi.InterfaceDeviceWithSRIOVBinding(sriovnet1), "specialNet")),
+				libvmi.WithNetwork(libvmi.MultusNetwork(sriovnet1, sriovnet1)),
 			)
-
-			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
-				if iface.Name == sriovnet1 {
-					iface.Tag = "specialNet"
-					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
-				}
-			}
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
@@ -422,10 +419,15 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			sriovNetworks := []string{sriovnet1, sriovnet2}
-			vmi := newSRIOVVmi(sriovNetworks, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
-			vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
-			vmi.Spec.Domain.Devices.Interfaces[2].PciAddress = "0000:07:00.0"
+			vmi := libvmifact.NewFedora(
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceWithPciAddress(libvmi.InterfaceDeviceWithSRIOVBinding(sriovnet1), "0000:06:00.0")),
+				libvmi.WithNetwork(libvmi.MultusNetwork(sriovnet1, sriovnet1)),
+				libvmi.WithInterface(libvmi.InterfaceWithPciAddress(libvmi.InterfaceDeviceWithSRIOVBinding(sriovnet2), "0000:07:00.0")),
+				libvmi.WithNetwork(libvmi.MultusNetwork(sriovnet2, sriovnet2)),
+			)
 
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
