@@ -71,6 +71,8 @@ const (
 	FailedBackendStorageCreateReason = "FailedBackendStorageCreate"
 	// FailedBackendStorageProbeReason is added when probing the backend storage PVC fails.
 	FailedBackendStorageProbeReason = "FailedBackendStorageProbe"
+	// FailedBackendStorageUpdateReason is added when the update of the backend storage state fails.
+	FailedBackendStorageUpdateReason = "FailedBackendStorageUpdate"
 	// BackendStorageNotReadyReason is added when the backend storage PVC is pending.
 	BackendStorageNotReadyReason = "BackendStorageNotReady"
 	// SuccessfulHandOverPodReason is added in an event
@@ -469,6 +471,24 @@ func VMIHasHotplugCPU(vmi *v1.VirtualMachineInstance) bool {
 
 func VMIHasHotplugMemory(vmi *v1.VirtualMachineInstance) bool {
 	return vmiHasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
+}
+
+// GetOwnerVM returns the VirtualMachine that owns the given VirtualMachineInstance.
+// Returns nil if the VMI has no VM owner or if the owner cannot be found.
+func GetOwnerVM(vmi *v1.VirtualMachineInstance, vmStore cache.Store) *v1.VirtualMachine {
+	controllerRef := metav1.GetControllerOf(vmi)
+	if controllerRef == nil || controllerRef.Kind != v1.VirtualMachineGroupVersionKind.Kind {
+		return nil
+	}
+	obj, exists, _ := vmStore.GetByKey(NamespacedKey(vmi.Namespace, controllerRef.Name))
+	if !exists {
+		return nil
+	}
+	ownerVM := obj.(*v1.VirtualMachine)
+	if controllerRef.UID == ownerVM.UID {
+		return ownerVM.DeepCopy()
+	}
+	return nil
 }
 
 func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod, error) {
