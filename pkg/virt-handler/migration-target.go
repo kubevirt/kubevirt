@@ -895,12 +895,6 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 
 	vmi = vmi.DeepCopy()
 
-	if c.pluginExecutor != nil {
-		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreMigrationTarget, vmi, c.host); err != nil {
-			return err, false
-		}
-	}
-
 	err = c.syncVolumes(vmi)
 	if goerror.Is(err, containerdisk.ErrWaitingForDisks) {
 		c.logger.Object(vmi).V(4).Info("waiting for container disks to become ready")
@@ -1202,12 +1196,6 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
 		cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
 		c.logger.Object(vmi).Info("Set CBT to Initializing after migration for checkpoint redefinition")
-	}
-
-	if c.pluginExecutor != nil {
-		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostMigrationTarget, vmi, c.host); err != nil {
-			return err
-		}
 	}
 
 	vmi.Status.MigrationState.Completed = true
