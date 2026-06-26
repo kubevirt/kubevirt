@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -179,6 +180,49 @@ var _ = Describe("VCPU pinning", func() {
 	)
 
 	Describe("AdjustDomainForTopologyAndCPUSet", func() {
+		It("should pin IOThreads with dedicatedIOThread and dedicatedCPU but without isolateEmulatorThread", func() {
+			vmi := &corev1.VirtualMachineInstance{
+				Spec: corev1.VirtualMachineInstanceSpec{
+					Domain: corev1.DomainSpec{
+						CPU: &corev1.CPU{
+							Cores:                 1,
+							Sockets:               8,
+							Threads:               1,
+							DedicatedCPUPlacement: true,
+						},
+						Devices: corev1.Devices{
+							Disks: []corev1.Disk{{
+								Name:              "rootdisk",
+								DedicatedIOThread: pointer.P(true),
+								DiskDevice: corev1.DiskDevice{
+									Disk: &corev1.DiskTarget{Bus: corev1.DiskBusVirtio},
+								},
+							}},
+						},
+					},
+				},
+			}
+			domain := &api.Domain{
+				Spec: api.DomainSpec{
+					CPU: api.CPU{
+						Topology: &api.CPUTopology{
+							Sockets: 8,
+							Cores:   1,
+							Threads: 1,
+						},
+					},
+					IOThreads: &api.IOThreads{IOThreads: 1},
+				},
+			}
+			cpuset := []int{0, 1, 2, 3, 4, 5, 6, 7}
+			topology := hostTopology(1, 1, 0, 1, 2, 3, 4, 5, 6, 7)
+
+			err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, cpuset)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domain.Spec.CPUTune).ToNot(BeNil())
+			Expect(domain.Spec.CPUTune.IOThreadPin).To(HaveLen(1))
+			Expect(domain.Spec.CPUTune.EmulatorPin).To(BeNil())
+		})
 		It("should succeed without modifying topology when VCPU metadata is absent", func() {
 			domain := &api.Domain{
 				Spec: api.DomainSpec{
