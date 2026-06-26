@@ -2167,6 +2167,39 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
 
+		It("should finalize migration on VMI when target pod fails after migration proxy is set up", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, "node02")
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPreparingTarget)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   migration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodFailed)
+			targetPod.Spec.NodeName = "node01"
+			addPod(targetPod)
+
+			sanityExecute()
+
+			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
+				"TargetNode":   Equal("node01"),
+				"SourceNode":   Equal("node02"),
+				"MigrationUID": Equal(types.UID("testmigration")),
+				"Completed":    BeTrue(),
+				"Failed":       BeTrue(),
+				"EndTimestamp": Not(BeNil()),
+			})))
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+		})
+
 		It("should set EndTimestamp on failed migration without overwriting existing StartTimestamp", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addNodeNameToVMI(vmi, "node02")
