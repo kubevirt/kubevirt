@@ -45,6 +45,7 @@ func GetIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
 		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		vmi.Spec.Domain.IOThreads != nil &&
 		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
 		return int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount), 0
 	}
