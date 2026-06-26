@@ -136,7 +136,7 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 
 				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
 					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
-			}, time.Second*30, time.Second*3).Should(Succeed())
+			}).WithTimeout(time.Second * 30).WithPolling(time.Second * 3).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -342,7 +342,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 				Expect(err).NotTo(HaveOccurred())
 				iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
 				return iface == nil || iface.State == v1.InterfaceStateAbsent
-			}, 30*time.Second).Should(BeTrue())
+			}).WithTimeout(30 * time.Second).Should(BeTrue())
 
 			By("verify unplugged interface is not reported in the VMI status")
 			vmi = verifyBridgeDynamicInterfaceChange(vmi, plugMethod)
@@ -414,7 +414,7 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 
 	if plugMethod == migrationBased {
 		By("Waiting for MigrationRequired condition to appear")
-		Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+		Eventually(matcher.ThisVMI(vmi)).WithTimeout(1 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
 
 		operationCompletionTimeout = 5 * time.Minute
 		pollInterval = 5 * time.Second
@@ -432,14 +432,14 @@ func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) 
 		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVMI(g, vmi, netName)
-	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())
+	}).WithTimeout(30 * time.Second).WithPolling(3 * time.Second).WithOffset(1).Should(Succeed())
 
 	var vm *v1.VirtualMachine
 	Eventually(func(g Gomega) {
 		vm, err = kubevirt.Client().VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVM(g, vm, netName)
-	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())
+	}).WithTimeout(30 * time.Second).WithPolling(3 * time.Second).WithOffset(1).Should(Succeed())
 
 	return vm, vmi
 }
