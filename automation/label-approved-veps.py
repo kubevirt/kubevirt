@@ -11,7 +11,7 @@ HEADERS = {
     "Accept": "application/vnd.github.v3+json",
 }
 GRAPHQL_API_URL = "https://api.github.com/graphql"
-_TRACKED_STATUSES = ("Tracked", "At risk", "Exception Required")
+_TRACKED_STATUSES = ("Tracked", "At risk")
 _TRACKED_ISSUES_QUERY = """
     query($orgName: String!, $projectNumber: Int!, $cursor: String) {
       organization(login: $orgName) {
