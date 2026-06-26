@@ -23,17 +23,30 @@ set -o pipefail
 DRA_EXAMPLE_DRIVER_REPO="https://github.com/Sreeja1725/dra-example-driver.git"
 DRA_EXAMPLE_DRIVER_BRANCH="kubevirt-dra-profile"
 DRA_EXAMPLE_DRIVER_DIR=${DRA_EXAMPLE_DRIVER_DIR:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_dra-example-driver"}
+DRA_DRIVER_NAMESPACE=${DRA_DRIVER_NAMESPACE:-dra-example-driver}
 
-function cluster::_get_dra_repo() {
+function _kubectl() {
+   ${KUBECTL} "$@"
+}
+
+function create_privileged_dra_driver_namespace() {
+    _kubectl create namespace "${DRA_DRIVER_NAMESPACE}"
+    _kubectl label namespace "${DRA_DRIVER_NAMESPACE}" \
+        pod-security.kubernetes.io/enforce=privileged \
+        pod-security.kubernetes.io/warn=privileged \
+        pod-security.kubernetes.io/audit=privileged
+}
+
+function _get_dra_repo() {
     git --git-dir "${DRA_EXAMPLE_DRIVER_DIR}/.git" config --get remote.origin.url 2>/dev/null || true
 }
 
-function cluster::_dra_driver_image_tag() {
+function _dra_driver_image_tag() {
     grep '^appVersion:' "${DRA_EXAMPLE_DRIVER_DIR}/deployments/helm/dra-example-driver/Chart.yaml" \
         | sed -E 's/^appVersion:[[:space:]]*"?([^"]*)"?/\1/'
 }
 
-function cluster::_container_tool() {
+function _container_tool() {
     if [ -n "${CONTAINER_TOOL:-}" ]; then
         echo "${CONTAINER_TOOL}"
     elif [ -n "${_cri_bin:-}" ]; then
@@ -48,9 +61,9 @@ function cluster::_container_tool() {
     fi
 }
 
-function cluster::clone_dra_example_driver() {
+function clone_dra_example_driver() {
     if [ -d "${DRA_EXAMPLE_DRIVER_DIR}" ]; then
-        if [ "$(cluster::_get_dra_repo)" != "${DRA_EXAMPLE_DRIVER_REPO}" ]; then
+        if [ "$(_get_dra_repo)" != "${DRA_EXAMPLE_DRIVER_REPO}" ]; then
             rm -rf "${DRA_EXAMPLE_DRIVER_DIR}"
         fi
     fi
@@ -66,7 +79,7 @@ function cluster::install_dra_example_driver() {
     : "${DRA_DRIVER_NAME:=vfio-gpu.example.com}"
     : "${DRA_DRIVER_IMAGE_NAME:=dra-example-driver}"
 
-    cluster::clone_dra_example_driver
+    clone_dra_example_driver
 
     local provider_config="${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/config-provider-${KUBEVIRT_PROVIDER}.sh"
     if [ ! -f "${provider_config}" ]; then
@@ -77,7 +90,7 @@ function cluster::install_dra_example_driver() {
     source "${provider_config}"
 
     local driver_image_tag
-    driver_image_tag=$(cluster::_dra_driver_image_tag)
+    driver_image_tag=$(_dra_driver_image_tag)
     if [ -z "${driver_image_tag}" ]; then
         echo "ERROR: could not determine DRA driver image tag from Chart.yaml" >&2
         exit 1
@@ -86,7 +99,7 @@ function cluster::install_dra_example_driver() {
     local local_image_repo="${docker_prefix}/${DRA_DRIVER_IMAGE_NAME}"
     local manifest_image_repo="${manifest_docker_prefix}/${DRA_DRIVER_IMAGE_NAME}"
 
-    export CONTAINER_TOOL="$(cluster::_container_tool)"
+    export CONTAINER_TOOL="$(_container_tool)"
     export DRIVER_IMAGE_REGISTRY="${docker_prefix}"
     export DRIVER_IMAGE_NAME="${DRA_DRIVER_IMAGE_NAME}"
     export DRIVER_IMAGE_TAG="${driver_image_tag}"
@@ -98,9 +111,11 @@ function cluster::install_dra_example_driver() {
 
     ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}"
 
+    create_privileged_dra_driver_namespace
+
     helm upgrade -i dra-example-driver "${DRA_EXAMPLE_DRIVER_DIR}/deployments/helm/dra-example-driver" \
         --kubeconfig "${KUBECONFIG}" \
-        --namespace dra-example-driver --create-namespace \
+        --namespace "${DRA_DRIVER_NAMESPACE}" \
         --set deviceProfile="${DRA_DRIVER_PROFILE}" \
         --set driverName="${DRA_DRIVER_NAME}" \
         --set image.repository="${manifest_image_repo}" \
