@@ -201,25 +201,7 @@ var _ = Describe("Migration watcher", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
 		Expect(updatedVMI.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
-
-		actual := updatedVMI.Status.MigrationState.VMIMConfigurationOptions
-		Expect(actual.NodeDrainTaintKey).To(Equal(expectedConfiguration.NodeDrainTaintKey))
-		Expect(actual.ParallelOutboundMigrationsPerNode).To(Equal(expectedConfiguration.ParallelOutboundMigrationsPerNode))
-		Expect(actual.ParallelMigrationsPerCluster).To(Equal(expectedConfiguration.ParallelMigrationsPerCluster))
-		Expect(actual.AllowAutoConverge).To(Equal(expectedConfiguration.AllowAutoConverge))
-		if expectedConfiguration.BandwidthPerMigration != nil && actual.BandwidthPerMigration != nil {
-			Expect(actual.BandwidthPerMigration.String()).To(BeEquivalentTo(expectedConfiguration.BandwidthPerMigration.String()))
-		} else {
-			Expect(actual.BandwidthPerMigration).To(Equal(expectedConfiguration.BandwidthPerMigration))
-		}
-		Expect(actual.CompletionTimeoutPerGiB).To(Equal(expectedConfiguration.CompletionTimeoutPerGiB))
-		Expect(actual.ProgressTimeout).To(Equal(expectedConfiguration.ProgressTimeout))
-		Expect(actual.UnsafeMigrationOverride).To(Equal(expectedConfiguration.UnsafeMigrationOverride))
-		Expect(actual.AllowPostCopy).To(Equal(expectedConfiguration.AllowPostCopy))
-		Expect(actual.DisableTLS).To(Equal(expectedConfiguration.DisableTLS))
-		Expect(actual.Network).To(Equal(expectedConfiguration.Network))
-		Expect(actual.AllowWorkloadDisruption).To(Equal(expectedConfiguration.AllowWorkloadDisruption))
-		Expect(actual.MatchSELinuxLevelOnMigration).To(Equal(expectedConfiguration.MatchSELinuxLevelOnMigration))
+		Expect(*updatedVMI.Status.MigrationState.VMIMConfigurationOptions).To(BeComparableTo(*expectedConfiguration))
 	}
 
 	expectMigrationCondition := func(namespace, name string, conditionType v1.VirtualMachineInstanceMigrationConditionType) {
@@ -2454,10 +2436,8 @@ var _ = Describe("Migration watcher", func() {
 				vmi = newVirtualMachine("testvmi", v1.Running)
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
 
-				if setup != nil {
-					if policy := setup(vmi); policy != nil {
-						addMigrationPolicies(*policy)
-					}
+				if policy := setup(vmi); policy != nil {
+					addMigrationPolicies(*policy)
 				}
 
 				resolvedConfig, matchedPolicy, err := controller.resolveMigrationConfig(vmi)
@@ -2494,11 +2474,11 @@ var _ = Describe("Migration watcher", func() {
 						ProgressTimeout:   pointer.P(int64(200)),
 					},
 				})
-				expectResolvedMigrationConfig(nil, false)
+				expectResolvedMigrationConfig(func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy { return nil }, false)
 			})
 
 			It("uses implicit cluster defaults when neither side sets overrides", func() {
-				expectResolvedMigrationConfig(nil, false)
+				expectResolvedMigrationConfig(func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy { return nil }, false)
 			})
 
 			It("merges cluster defaults with policy overrides", func() {
