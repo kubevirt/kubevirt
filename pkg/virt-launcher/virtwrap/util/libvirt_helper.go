@@ -26,6 +26,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -161,7 +163,8 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 	}
 
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, xmlStr, err := plugins.ApplyDomainHooks(pluginList, vmi, wantedSpec)
+		updatedSpec, xmlStr, err := plugins.ApplyDomainHooks(pluginList, vmi, wantedSpec,
+			pluginv1alpha1.InvocationContextBoot)
 		if err != nil {
 			return nil, err
 		}

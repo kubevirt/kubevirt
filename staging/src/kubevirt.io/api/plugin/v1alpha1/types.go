@@ -102,6 +102,16 @@ const (
 	FailureStrategyIgnore FailureStrategy = "Ignore"
 )
 
+// InvocationContext identifies why a domain hook is being invoked.
+// +enum
+type InvocationContext string
+
+const (
+	InvocationContextBoot            InvocationContext = "Boot"
+	InvocationContextMigrationSource InvocationContext = "MigrationSource"
+	InvocationContextMigrationTarget InvocationContext = "MigrationTarget"
+)
+
 // DomainHook defines a hook that modifies the libvirt domain XML.
 // Exactly one of cel or sidecar must be specified.
 type DomainHook struct {

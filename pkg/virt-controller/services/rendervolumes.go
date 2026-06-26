@@ -477,6 +477,17 @@ func withSidecarVolumes(hookSidecars hooks.HookSidecarList) VolumeRendererOption
 	}
 }
 
+func withPluginSocketVolume() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(pluginSocketsVolumeName))
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      pluginSocketsVolumeName,
+			MountPath: pluginSocketsDir,
+		})
+		return nil
+	}
+}
+
 func withVirioFS() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(virtiofs.VirtioFSContainers, virtiofs.VirtioFSContainersMountBaseDir))
