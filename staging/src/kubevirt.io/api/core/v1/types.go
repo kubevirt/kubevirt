@@ -21,6 +21,11 @@ package v1
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
+
+ NOTE: Place marker directives (+kubebuilder, +optional, etc.) after a "// ---"
+ separator to keep them out of the generated swagger docs. The swagger-doc tool
+ stops parsing at "---", while controller-gen still processes markers in the
+ same comment group.
 */
 
 import (
@@ -132,6 +137,7 @@ type VirtualMachineInstanceSpec struct {
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
+	// ---
 	// +kubebuilder:validation:MaxItems:=256
 	Volumes []Volume `json:"volumes,omitempty"`
 	// Periodic probe of VirtualMachineInstance liveness.
@@ -156,6 +162,7 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	Subdomain string `json:"subdomain,omitempty"`
 	// List of networks that can be attached to a vm's virtual interface.
+	// ---
 	// +kubebuilder:validation:MaxItems:=256
 	Networks []Network `json:"networks,omitempty"`
 	// Set DNS policy for the pod.
@@ -172,6 +179,7 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
 	// Specifies a set of public keys to inject into the vm guest
+	// ---
 	// +listType=atomic
 	// +optional
 	// +kubebuilder:validation:MaxItems:=256
@@ -197,6 +205,7 @@ type VirtualMachineInstanceSpec struct {
 	// List of utility volumes that can be mounted to the vmi virt-launcher pod
 	// without having a matching disk in the domain.
 	// Used to collect data for various operational workflows.
+	// ---
 	// +kubebuilder:validation:MaxItems:=256
 	// +listType=map
 	// +listMapKey=name
@@ -333,6 +342,7 @@ type VirtualMachineInstanceStatus struct {
 	RuntimeUser uint64 `json:"runtimeUser"`
 
 	// VSOCKCID is used to track the allocated VSOCK CID in the VM.
+	// ---
 	// +optional
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
@@ -410,6 +420,7 @@ type PersistentVolumeClaimInfo struct {
 }
 
 // Percent is a string that can only be a value between [0,1)
+// ---
 // +kubebuilder:validation:Pattern=`^(0(?:\.\d{1,3})?|1)$`
 type Percent string
 
@@ -439,19 +450,21 @@ type VolumeStatus struct {
 
 // KernelInfo show info about the kernel image
 type KernelInfo struct {
+	// Checksum is the checksum of the kernel image
+	// ---
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=4294967295
-	// Checksum is the checksum of the kernel image
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
 // InitrdInfo show info about the initrd file
 type InitrdInfo struct {
+	// Checksum is the checksum of the initrd file
+	// ---
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=4294967295
-	// Checksum is the checksum of the initrd file
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
@@ -485,10 +498,11 @@ type HotplugVolumeStatus struct {
 
 // ContainerDiskInfo shows info about the containerdisk
 type ContainerDiskInfo struct {
+	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
+	// ---
 	// +kubebuilder:validation:Format:=int64
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=4294967295
-	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
 	Checksum uint32 `json:"checksum,omitempty"`
 }
 
@@ -1721,6 +1735,7 @@ type DataVolumeTemplateSpec struct {
 	// this field is not used by our controllers and is a no-op.
 	// +nullable
 	metav1.TypeMeta `json:",inline"`
+	// ---
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -1735,6 +1750,7 @@ type DataVolumeTemplateSpec struct {
 }
 
 type VirtualMachineInstanceTemplateSpec struct {
+	// ---
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -2113,6 +2129,7 @@ type VirtualMachineStatus struct {
 	// Ready indicates if the virtual machine is running and ready
 	Ready bool `json:"ready,omitempty"`
 	// PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+	// ---
 	// +kubebuilder:default=Stopped
 	PrintableStatus VirtualMachinePrintableStatus `json:"printableStatus,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
@@ -2626,8 +2643,12 @@ type Flags struct {
 }
 
 type CustomizeComponentsPatch struct {
+	// ResourceName is the name of the component resource to customize.
+	// ---
 	// +kubebuilder:validation:MinLength=1
 	ResourceName string `json:"resourceName"`
+	// ResourceType is the type of the component resource to customize (e.g. Deployment, Service).
+	// ---
 	// +kubebuilder:validation:MinLength=1
 	ResourceType string    `json:"resourceType"`
 	Patch        string    `json:"patch"`
@@ -3135,6 +3156,7 @@ type KubeVirtConfiguration struct {
 
 	// VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
 	// tolerations, and affinity, are propagated from a VM to its VMI.
+	// ---
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
@@ -3152,6 +3174,7 @@ type KubeVirtConfiguration struct {
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
 
 	// Hypervisors holds information regarding the hypervisor configurations supported on this cluster.
+	// ---
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems:=1
 	Hypervisors []HypervisorConfiguration `json:"hypervisors,omitempty"`
@@ -3175,6 +3198,7 @@ type KubeVirtConfiguration struct {
 	// When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
 	// Setting this field to "Manual" requires the OptOutRoleAggregation feature gate to be enabled.
 	// This is an Alpha feature and subject to change.
+	// ---
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
@@ -3183,9 +3207,11 @@ type KubeVirtConfiguration struct {
 // QGSConfiguration holds QGS configuration
 type TDXAttestationConfiguration struct {
 	// Indicates whether TDX VM should enforce the existence of QGS (required for attestation) to be scheduled
+	// ---
 	// +kubebuilder:default=false
 	Enforced *bool `json:"enforced,omitempty"`
 	// Socket path pointing to the Quote Generation Service
+	// ---
 	// +kubebuilder:default=/var/run/tdx-qgs/qgs.socket
 	QgsSocketPath *string `json:"qgsSocketPath,omitempty"`
 }
@@ -3212,6 +3238,7 @@ const (
 type HypervisorConfiguration struct {
 	// Name is the name of the hypervisor.
 	// Supported values are: "kvm", "hyperv-direct".
+	// ---
 	// +kubebuilder:validation:Enum=kvm;hyperv-direct
 	Name string `json:"name,omitempty"`
 }
@@ -3230,6 +3257,7 @@ type InstancetypeConfiguration struct {
 	// reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
 	// expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
 	// expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+	// ---
 	// +nullable
 	// +kubebuilder:validation:Enum=reference;expand;expandAll
 	ReferencePolicy *InstancetypeReferencePolicy `json:"referencePolicy,omitempty"`
@@ -3381,6 +3409,7 @@ type TLSConfiguration struct {
 	//
 	// Note that SSLv3.0 is not a supported protocol version due to well known
 	// vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE
+	// ---
 	// +kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13
 	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
 	// +listType=set
@@ -3548,6 +3577,7 @@ type DeveloperConfiguration struct {
 	// "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
 	// Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
 	// Defaults to 100
+	// ---
 	// +kubebuilder:validation:Minimum:=10
 	MemoryOvercommit int `json:"memoryOvercommit,omitempty"`
 	// NodeSelectors allows restricting VMI creation to nodes that match a set of labels.
