@@ -2205,7 +2205,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	// Regression test for https://github.com/kubevirt/kubevirt/issues/17124
-	Context("with PCI hostdev", Serial, func() {
+	Context("with PCI HostDevices", Serial, func() {
 		const deviceName = "example.org/soundcard"
 
 		BeforeEach(func() {
