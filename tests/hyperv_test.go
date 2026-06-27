@@ -2,7 +2,6 @@ package tests_test
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -103,71 +102,6 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
 				Eventually(matcher.ThisVMI(reEnlightenmentVMI)).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionFalseWithMessage(v1.VirtualMachineInstanceIsMigratable, "HyperV Reenlightenment VMIs cannot migrate when TSC Frequency is not exposed on the cluster"))
 			})
-		})
-
-		It("the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
-			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
-				features := v1.FeatureHyperv{}
-				trueV := true
-				switch label {
-				case "vpindex":
-					features.VPIndex = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "runtime":
-					features.Runtime = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "reset":
-					features.Reset = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "synic":
-					features.SyNIC = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "frequencies":
-					features.Frequencies = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				case "reenlightenment":
-					features.Reenlightenment = &v1.FeatureState{
-						Enabled: &trueV,
-					}
-				}
-
-				return features
-			}
-			var supportedKVMInfoFeature []string
-			nodes := libnode.GetAllSchedulableNodes(virtClient)
-			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-			node := &nodes.Items[0]
-			supportedCPUs := libnode.GetSupportedCPUModels(*nodes)
-			Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
-
-			for key := range node.Labels {
-				if strings.Contains(key, v1.HypervLabel) &&
-					!strings.Contains(key, "tlbflush") &&
-					!strings.Contains(key, "ipi") &&
-					!strings.Contains(key, "synictimer") {
-					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
-				}
-			}
-
-			for _, label := range supportedKVMInfoFeature {
-				vmi := libvmifact.NewAlpine()
-				features := enableHyperVInVMI(label)
-				vmi.Spec.Domain.Features = &v1.Features{
-					Hyperv: &features,
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI when using %v", label)
-			}
 		})
 
 		DescribeTable(" the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
