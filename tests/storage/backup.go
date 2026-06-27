@@ -888,7 +888,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyPullEndpoints(virtClient, incBackup, incBackup.Status.Type, tokenValue)
 	})
 
-	It("Pull mode backup data integrity and export immutability", func() {
+	It("Pull mode backup data integrity and export immutability", decorators.RequiresBlockStorage, func() {
 		const (
 			secondaryDiskSize = "256Mi"
 			testOffset        = 1048576
