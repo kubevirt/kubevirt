@@ -36,7 +36,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -200,9 +199,6 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				serverCIDR     = serverIPAddr + "/24"
 				clientCIDR     = "10.1.1.101/24"
 			)
-			nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
-			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
-			nodeName := nodeList.Items[0].Name
 
 			const linuxBridgeNADName = "bridge0"
 			namespace := testsuite.GetTestNamespace(nil)
@@ -226,24 +222,24 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 					},
 				},
 			}
-			serverVMI := libvmifact.NewAlpineWithTestTooling(
+			vmiOpts := []libvmi.Option{
+				libvmi.WithNetwork(&primaryNetwork),
+				withGroupAffinity("managed-tap-peers"),
+			}
+			serverVMI := libvmifact.NewAlpineWithTestTooling(append(vmiOpts,
 				libvmi.WithInterface(libvmi.NewInterface(
 					"mynet1",
 					libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}),
 					libvmi.WithMac("de:ad:00:00:be:af"),
 				)),
-				libvmi.WithNetwork(&primaryNetwork),
-				libvmi.WithNodeAffinityFor(nodeName),
-			)
-			clientVMI := libvmifact.NewAlpineWithTestTooling(
+			)...)
+			clientVMI := libvmifact.NewAlpineWithTestTooling(append(vmiOpts,
 				libvmi.WithInterface(libvmi.NewInterface(
 					"mynet1",
 					libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}),
 					libvmi.WithMac("de:ad:00:00:be:aa"),
 				)),
-				libvmi.WithNetwork(&primaryNetwork),
-				libvmi.WithNodeAffinityFor(nodeName),
-			)
+			)...)
 
 			ns := testsuite.GetTestNamespace(nil)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, metav1.CreateOptions{})
