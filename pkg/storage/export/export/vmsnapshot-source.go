@@ -79,6 +79,10 @@ func (s *VMSnapshotSource) ServicePorts() []corev1.ServicePort {
 }
 
 func (s *VMSnapshotSource) ConfigurePod(pod *corev1.Pod) {
+	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "EXPORT_VM_DEF_URI",
+		Value: manifestsPath,
+	})
 	s.sourceVolumes.configurePodVolumes(pod)
 }
 
