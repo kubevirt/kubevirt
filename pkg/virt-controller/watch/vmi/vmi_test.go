@@ -912,6 +912,53 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 	})
 
+	Context("prepareVMIPatch per-key map operations", func() {
+		It("should use per-key add for activePods during migration", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA"}
+			newVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA", "uid-target": "nodeB"}
+
+			p := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(p.IsEmpty()).To(BeFalse())
+			patches := p.GetPatches()
+			Expect(patches).To(HaveLen(1))
+			Expect(patches[0].Op).To(Equal("add"))
+			Expect(patches[0].Path).To(Equal("/status/activePods/uid-target"))
+		})
+
+		It("should use per-key remove for activePods after migration", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA", "uid-target": "nodeB"}
+			newVMI.Status.ActivePods = map[types.UID]string{"uid-target": "nodeB"}
+
+			p := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(p.IsEmpty()).To(BeFalse())
+			patches := p.GetPatches()
+			Expect(patches).To(HaveLen(1))
+			Expect(patches[0].Op).To(Equal("remove"))
+			Expect(patches[0].Path).To(Equal("/status/activePods/uid-source"))
+		})
+
+		It("should use per-key operations for labels", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Labels = map[string]string{"existing": "val"}
+			newVMI.Labels = map[string]string{"existing": "val", "kubevirt.io/nodeName": "node1"}
+
+			p := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(p.IsEmpty()).To(BeFalse())
+			patches := p.GetPatches()
+			Expect(patches).To(HaveLen(1))
+			Expect(patches[0].Op).To(Equal("add"))
+			Expect(patches[0].Path).To(Equal("/metadata/labels/kubevirt.io~1nodeName"))
+		})
+	})
+
 	It("should fail which when network VMI spec validator fail", func() {
 		controller.validateNetworkSpec = validateNetVMISpecStub(metav1.StatusCause{Type: "test", Message: "test", Field: "test"})
 
