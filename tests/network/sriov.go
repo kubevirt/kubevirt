@@ -66,7 +66,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -95,9 +94,6 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
-			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 
 		checks.FailTestIfNoFeatureGate(featuregate.ExternalNetResourceInjection)
 	})
@@ -254,11 +250,6 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
-			BeforeEach(func() {
-				Expect(validateSRIOVSetup(sriovResourceName, 2)).To(Succeed(),
-					"Migration tests require at least 2 nodes with SR-IOV resources")
-			})
-
 			var vmi *v1.VirtualMachineInstance
 
 			const mac = "de:ad:00:00:be:ef"
@@ -648,31 +639,6 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 	return ""
 }
 
-func validateSRIOVSetup(sriovResourceName string, minRequiredNodes int) error {
-	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
-	if len(sriovNodes) < minRequiredNodes {
-		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
-	}
-	return nil
-}
-
-func getNodesWithAllocatedResource(resourceName string) []k8sv1.Node {
-	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-	filteredNodes := []k8sv1.Node{}
-	for _, node := range nodes.Items {
-		resourceList := node.Status.Allocatable
-		for k, v := range resourceList {
-			if string(k) == resourceName {
-				if v.Value() > 0 {
-					filteredNodes = append(filteredNodes, node)
-					break
-				}
-			}
-		}
-	}
-
-	return filteredNodes
-}
 
 func defaultCloudInitNetworkData() string {
 	networkData := netcloudinit.CreateDefaultCloudInitNetworkData()
