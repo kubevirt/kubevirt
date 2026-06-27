@@ -27096,6 +27096,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref common
 							},
 						},
 					},
+					"quiesceStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

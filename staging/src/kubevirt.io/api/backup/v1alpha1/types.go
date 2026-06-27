@@ -206,6 +206,18 @@ type VirtualMachineBackupSpec struct {
 	TTLDuration *metav1.Duration `json:"ttlDuration,omitempty"`
 }
 
+// QuiesceStatus represents the outcome of a filesystem quiesce operation
+type QuiesceStatus string
+
+const (
+	// QuiesceSucceeded indicates the filesystem was successfully quiesced
+	QuiesceSucceeded QuiesceStatus = "Succeeded"
+	// QuiesceFailed indicates the filesystem quiesce failed
+	QuiesceFailed QuiesceStatus = "Failed"
+	// QuiesceSkipped indicates the filesystem quiesce was skipped
+	QuiesceSkipped QuiesceStatus = "Skipped"
+)
+
 // VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource
 type VirtualMachineBackupStatus struct {
 	// +optional
@@ -244,9 +256,12 @@ const (
 
 	// ConditionProgressing indicates the backup is in progress
 	ConditionProgressing ConditionType = "Progressing"
+
+	// ConditionQuiesced indicates whether the VM filesystem was quiesced (frozen) during backup
+	ConditionQuiesced ConditionType = "Quiesced"
 )
 
-// Reason constants for ConditionProgressing, ConditionComplete, and ConditionFailed
+// Reason constants for ConditionProgressing, ConditionComplete, ConditionFailed, and ConditionQuiesced
 const (
 	ReasonInitializing         = "Initializing"
 	ReasonInitiated            = "Initiated"
@@ -257,6 +272,9 @@ const (
 	ReasonCompleted            = "Completed"
 	ReasonCompletedWithWarning = "CompletedWithWarning"
 	ReasonFailed               = "Failed"
+	ReasonQuiesceSucceeded     = "QuiesceSucceeded"
+	ReasonQuiesceFailed        = "QuiesceFailed"
+	ReasonQuiesceSkipped       = "QuiesceSkipped"
 	ReasonSourceLost           = "SourceLost"
 	ReasonSourceUnhealthy      = "SourceUnhealthy"
 	ReasonDeletedDuringInit    = "DeletedDuringInit"

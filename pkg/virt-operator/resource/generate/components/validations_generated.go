@@ -8806,6 +8806,10 @@ var CRDsValidation map[string]string = map[string]string{
                 failed:
                   description: Failed indicates that the backup failed
                   type: boolean
+                quiesceStatus:
+                  description: QuiesceStatus indicates whether filesystem freeze succeeded,
+                    failed, or was skipped.
+                  type: string
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -14979,6 +14983,10 @@ var CRDsValidation map[string]string = map[string]string{
                 failed:
                   description: Failed indicates that the backup failed
                   type: boolean
+                quiesceStatus:
+                  description: QuiesceStatus indicates whether filesystem freeze succeeded,
+                    failed, or was skipped.
+                  type: string
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -32329,6 +32337,10 @@ var CRDsValidation map[string]string = map[string]string{
                             failed:
                               description: Failed indicates that the backup failed
                               type: boolean
+                            quiesceStatus:
+                              description: QuiesceStatus indicates whether filesystem
+                                freeze succeeded, failed, or was skipped.
+                              type: string
                             startTimestamp:
                               description: StartTimestamp is the timestamp when the
                                 backup started

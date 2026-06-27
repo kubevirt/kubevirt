@@ -575,6 +575,10 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 		backup.Status.CheckpointName = backupStatus.CheckpointName
 	}
 
+	if backupStatus.QuiesceStatus != "" {
+		ctrl.setQuiescedCondition(backup, backupStatus.QuiesceStatus)
+	}
+
 	return nil
 }
 
@@ -601,6 +605,10 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 		backup.Status.CheckpointName = backupStatus.CheckpointName
 	}
 	backup.Status.IncludedVolumes = backupStatus.Volumes
+
+	if backupStatus.QuiesceStatus != "" {
+		ctrl.setQuiescedCondition(backup, backupStatus.QuiesceStatus)
+	}
 
 	return nil
 }
@@ -1053,4 +1061,35 @@ func setCompleteWithWarning(backup *backupv1.VirtualMachineBackup, message strin
 		Reason: backupv1.ReasonCompletedWithWarning, Message: message,
 	})
 	markTerminal(backup, backupv1.ReasonCompletedWithWarning, message)
+}
+
+func (ctrl *VMBackupController) setQuiescedCondition(backup *backupv1.VirtualMachineBackup, quiesceStatus string) {
+	var status metav1.ConditionStatus
+	var reason string
+	var message string
+
+	switch backupv1.QuiesceStatus(quiesceStatus) {
+	case backupv1.QuiesceSucceeded:
+		status = metav1.ConditionTrue
+		reason = backupv1.ReasonQuiesceSucceeded
+		message = "Guest filesystem was successfully quiesced"
+	case backupv1.QuiesceFailed:
+		status = metav1.ConditionFalse
+		reason = backupv1.ReasonQuiesceFailed
+		message = "Guest filesystem quiesce failed"
+	case backupv1.QuiesceSkipped:
+		status = metav1.ConditionFalse
+		reason = backupv1.ReasonQuiesceSkipped
+		message = "Guest filesystem quiesce was skipped"
+	default:
+		log.Log.Object(backup).Warningf("Invalid QuiesceStatus value: %q, skipping Quiesced condition", quiesceStatus)
+		return
+	}
+
+	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+		Type:    string(backupv1.ConditionQuiesced),
+		Status:  status,
+		Reason:  reason,
+		Message: message,
+	})
 }
