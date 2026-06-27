@@ -20,9 +20,42 @@
 package network
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 )
 
 func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
 	return decorators.SIG("[sig-network]", text, decorators.SigNetwork, args)
+}
+
+const (
+	testAffinityLabel     = "kubevirt.io/test-affinity"
+	testAntiAffinityLabel = "kubevirt.io/test-anti-affinity"
+)
+
+func podAffinityTerm(label, group string) k8sv1.PodAffinityTerm {
+	return k8sv1.PodAffinityTerm{
+		LabelSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{label: group},
+		},
+		TopologyKey: k8sv1.LabelHostname,
+	}
+}
+
+func withGroupAffinity(group string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		libvmi.WithLabel(testAffinityLabel, group)(vmi)
+		libvmi.WithRequiredPodAffinity(podAffinityTerm(testAffinityLabel, group))(vmi)
+	}
+}
+
+func withGroupAntiAffinity(group string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		libvmi.WithLabel(testAntiAffinityLabel, group)(vmi)
+		libvmi.WithRequiredPodAntiAffinity(podAffinityTerm(testAntiAffinityLabel, group))(vmi)
+	}
 }
