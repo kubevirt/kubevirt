@@ -105,6 +105,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_guest_load_1m":  true,
 			"kubevirt_vmi_guest_load_5m":  true,
 			"kubevirt_vmi_guest_load_15m": true,
+
+			// needs GPU - tested in MediatedDevices
+			"kubevirt_vmi_gpu_info": true,
 		}
 
 		BeforeAll(func() {
