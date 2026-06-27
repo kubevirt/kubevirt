@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,10 +54,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -138,8 +141,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 			srcAddr := nic.Source.Address
 			sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
-			alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
+			alignedCPUsInt := lookupDeviceVCPUAffinityOnPod(vmiPod, sourcePCIAddress, domSpec)
+			Expect(alignedCPUsInt).ToNot(BeEmpty(), "expected aligned CPUs for SR-IOV device")
 			deviceData := []cloudinit.DeviceData{
 				{
 					Type:        cloudinit.NICMetadataType,
@@ -488,7 +493,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		BeforeEach(func() {
-			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, libnet.WithLinkState())
+			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, withLinkState())
 			netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
@@ -535,7 +540,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
 
-				netAttachDef := libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN, libnet.WithLinkState())
+				netAttachDef := libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN, withLinkState())
 				netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 				_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 				Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
@@ -886,4 +891,48 @@ func trimRawString2JSON(input string) string {
 		return ""
 	}
 	return input[startIdx : endIdx+1]
+}
+
+func lookupDeviceVCPUAffinityOnPod(pod *k8sv1.Pod, pciAddress string, domSpec *api.DomainSpec) []uint32 {
+	numaNodeStr, err := exec.ExecuteCommandOnPod(pod, "compute",
+		[]string{"cat", fmt.Sprintf("/sys/bus/pci/devices/%s/numa_node", pciAddress)})
+	Expect(err).ToNot(HaveOccurred())
+
+	numaNode, err := strconv.Atoi(strings.TrimSpace(numaNodeStr))
+	Expect(err).ToNot(HaveOccurred())
+
+	if numaNode < 0 {
+		return []uint32{}
+	}
+
+	cpuListStr, err := exec.ExecuteCommandOnPod(pod, "compute",
+		[]string{"cat", fmt.Sprintf("/sys/bus/node/devices/node%d/cpulist", numaNode)})
+	Expect(err).ToNot(HaveOccurred())
+
+	physicalCPUs, err := hardware.ParseCPUSetLine(strings.TrimSpace(cpuListStr), hardware.MAX_CPU_LIMIT)
+	Expect(err).ToNot(HaveOccurred())
+
+	if domSpec == nil || domSpec.CPUTune == nil || len(domSpec.CPUTune.VCPUPin) == 0 {
+		return []uint32{}
+	}
+
+	p2vCPUMap := make(map[string]uint32)
+	for _, vcpuPin := range domSpec.CPUTune.VCPUPin {
+		p2vCPUMap[vcpuPin.CPUSet] = vcpuPin.VCPU
+	}
+
+	var alignedVCPUs []uint32
+	for _, pcpu := range physicalCPUs {
+		if vCPU, exist := p2vCPUMap[strconv.Itoa(pcpu)]; exist {
+			alignedVCPUs = append(alignedVCPUs, vCPU)
+		}
+	}
+	return alignedVCPUs
+}
+
+func withLinkState() func(map[string]interface{}) {
+	if flags.EmulatedSRIOV {
+		return func(_ map[string]interface{}) {}
+	}
+	return libnet.WithLinkState()
 }
