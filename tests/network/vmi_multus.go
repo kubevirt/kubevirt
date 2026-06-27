@@ -31,7 +31,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -47,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -89,10 +87,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	var nodes *k8sv1.NodeList
-
-	linuxBridgeInterface := libvmi.NewInterface(linuxBridgeIfaceName, libvmi.WithBridgeBinding())
-	linuxBridgeInterfaceWithIPAM := libvmi.NewInterface(linuxBridgeWithIPAMIfaceName, libvmi.WithBridgeBinding())
+	linuxBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName)
+	linuxBridgeInterfaceWithIPAM := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithIPAMIfaceName)
 
 	linuxBridgeNetwork := v1.Network{
 		Name: linuxBridgeIfaceName,
@@ -114,9 +110,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		nodes = libnode.GetAllSchedulableNodes(virtClient)
-		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100
 		Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100Network,
@@ -546,7 +539,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+						withGroupAffinity("mac-spoof-check"),
 					)
 					vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -564,7 +557,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 							linuxBridgeWithMACSpoofCheckNetwork, libvmi.WithBridgeBinding())),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(targetNetworkData)),
-						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+						withGroupAffinity("mac-spoof-check"),
 					)
 					targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
