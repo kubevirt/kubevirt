@@ -85,19 +85,6 @@ const (
 	bridge10MacSpoofCheck = false
 )
 
-func withCoLocationAffinity(group string) libvmi.Option {
-	const coLocationLabel = "kubevirt.io/test-co-location"
-	return func(vmi *v1.VirtualMachineInstance) {
-		libvmi.WithLabel(coLocationLabel, group)(vmi)
-		libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-			LabelSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{coLocationLabel: group},
-			},
-			TopologyKey: k8sv1.LabelHostname,
-		})(vmi)
-	}
-}
-
 var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -305,7 +292,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					[]libvmi.Option{
 						libvmi.WithInterface(linuxBridgeInterface),
 						libvmi.WithNetwork(&linuxBridgeNetwork),
-						withCoLocationAffinity("linux-bridge-ping"),
+						withGroupAffinity("linux-bridge-ping"),
 					},
 					"eth0",
 				),
@@ -315,7 +302,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithInterface(linuxBridgeInterface),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithNetwork(&linuxBridgeNetwork),
-						withCoLocationAffinity("linux-bridge-ping"),
+						withGroupAffinity("linux-bridge-ping"),
 					},
 					"eth1",
 				),
@@ -332,7 +319,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithInterface(linuxBridgeInterfaceWithIPAM),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithNetwork(&linuxBridgeWithIPAMNetwork),
-						withCoLocationAffinity("linux-bridge-ipam"),
+						withGroupAffinity("linux-bridge-ipam"),
 					)
 				}
 				ns := testsuite.GetTestNamespace(nil)
