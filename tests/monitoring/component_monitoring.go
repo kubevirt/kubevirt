@@ -368,6 +368,33 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			checkRESTErrorsBurst(virtClient, "kubevirt-handler", virtHandler.restErrorsBurtsAlert)
 		})
 	})
+
+	Context("Virt-handler alerts", func() {
+		It("VirtHandlerDaemonSetRolloutFailing should be triggered when virt-handler pods are not ready", func() {
+			const alertName = "VirtHandlerDaemonSetRolloutFailing"
+
+			virtHandlerDS, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtHandler.deploymentName, metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			originalVirtHandlerDS := virtHandlerDS.DeepCopy()
+			defer func() {
+				restoreDaemonSetImage(virtClient, virtHandler.deploymentName, originalVirtHandlerDS, alertName)
+			}()
+
+			By("Patching virt-handler DaemonSet with a non-existent image to cause ImagePullBackOff")
+			container := &virtHandlerDS.Spec.Template.Spec.Containers[0]
+			container.Image = "registry.example.com/nonexistent:v0.0.0"
+
+			Expect(mergePatchDaemonSet(
+				context.Background(), virtClient, flags.KubeVirtInstallNamespace, virtHandlerDS,
+			)).To(Succeed())
+
+			By("Verifying the alert exists")
+			libmonitoring.VerifyAlertExist(virtClient, alertName)
+		})
+	})
 })
 
 func restoreOperator(virtClient kubecli.KubevirtClient, scales *libmonitoring.Scaling) {
