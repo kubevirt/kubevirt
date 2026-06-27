@@ -2550,7 +2550,10 @@ type KubeVirtSpec struct {
 	// Defaults to the same registry the operator's container image is pulled from.
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 
-	// The ImagePullPolicy to use.
+	// The ImagePullPolicy to use for KubeVirt operator-managed infrastructure
+	// images (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).
+	// For pull policy of user workload pods, see
+	// spec.configuration.imagePullPolicy.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 
 	// The imagePullSecrets to pull the container images from
@@ -3079,7 +3082,10 @@ type KubeVirtConfiguration struct {
 	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
 	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
 	// Deprecated. Use architectureConfiguration instead.
-	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
+	EmulatedMachines []string `json:"emulatedMachines,omitempty"`
+	// The ImagePullPolicy to use for user workload pods and their containers
+	// (launcher pods, exporter pods, etc.).
+	// For KubeVirt infrastructure images, use spec.imagePullPolicy instead.
 	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
 	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
 	// Deprecated. Use architectureConfiguration instead.
