@@ -367,7 +367,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+					withGroupAffinity("custom-mac"),
 				)
 				vmiTwo, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -394,7 +394,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+					withGroupAffinity("custom-mac"),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
