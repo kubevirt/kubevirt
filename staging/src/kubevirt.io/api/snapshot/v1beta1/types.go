@@ -237,7 +237,7 @@ type VirtualMachine struct {
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineSpec contains the VirtualMachine specification.
-	Spec v1.VirtualMachineSpec `json:"spec,omitempty" valid:"required"`
+	Spec v1.VirtualMachineSpec `json:"spec,omitempty"`
 	// Status holds the current state of the controller and brief information
 	// about its associated VirtualMachineInstance
 	Status v1.VirtualMachineStatus `json:"status,omitempty"`
