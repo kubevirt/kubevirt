@@ -104,7 +104,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		By("Starting an Alpine VMI without a watchdog in its spec")
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 		By("Verifying the watchdog device is present inside the guest")
 		expectWatchdog(vmi)
@@ -115,7 +115,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		By("Starting an Alpine VMI with an explicit watchdog in its spec")
 		vmi := libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionReset, libnode.GetArch()))
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 		By("Verifying the original watchdog device survived the plugin merge")
 		expectWatchdog(vmi)
@@ -133,7 +133,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		By("Starting an Alpine VMI")
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 		By("Verifying the watchdog from plugin-a is present")
 		expectWatchdog(vmi)
@@ -153,7 +153,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		By("Starting an Alpine VMI")
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 		By("Verifying the watchdog from hook 1 is present")
 		expectWatchdog(vmi)
@@ -173,7 +173,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		By("Starting an Alpine VMI without the matching label")
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 		By("Verifying the watchdog device was NOT injected")
 		domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
@@ -188,7 +188,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		By("Starting an Alpine VMI")
 		vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsLarge)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 		By("Verifying the watchdog device is present before migration")
 		expectWatchdog(vmi)

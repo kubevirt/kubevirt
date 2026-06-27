@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -49,7 +50,6 @@ import (
 var _ = Describe(SIG("Guest Access Credentials", func() {
 
 	const (
-		fedoraRunningTimeout     = libvmops.StartupTimeoutSecondsLarge
 		guestAgentConnectTimeout = 2 * time.Minute
 		denyListTimeout          = 2 * time.Minute
 		fedoraPassword           = "fedora"
@@ -68,7 +68,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 		By("Creating a secret with three ssh keys")
 		Expect(createNewSecret(testsuite.GetTestNamespace(nil), pubKeySecretID, keysSecretData)).To(Succeed())
 
-		vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(options...), fedoraRunningTimeout)
+		vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(options...), flags.StartupTimeoutSecondsLarge())
 
 		By("Waiting for agent to connect")
 		Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -134,7 +134,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 			By("Creating a secret with custom password")
 			Expect(createNewSecret(testsuite.GetTestNamespace(vmi), userPassSecretID, userPassData)).To(Succeed())
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -161,7 +161,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 			By("Creating a secret with an ssh key")
 			Expect(createNewSecret(testsuite.GetTestNamespace(vmi), secretID, secretData)).To(Succeed())
 
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsLarge())
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
