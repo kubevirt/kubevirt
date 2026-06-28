@@ -59,14 +59,13 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 	It("should apply the interface configuration", func() {
 		const testMACAddr = "02:02:02:02:02:02"
 		const testPCIAddr = "0000:01:00.0"
-		passtIface := libvmi.InterfaceWithMac(
-			libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name),
-			testMACAddr,
-		)
-		passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
-		passtIface.PciAddress = testPCIAddr
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithInterface(passtIface),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+				libvmi.WithPasstBinding(),
+				libvmi.WithMac(testMACAddr),
+				libvmi.WithPorts(v1.Port{Port: 1234, Protocol: "TCP"}),
+				libvmi.WithPciAddress(testPCIAddr),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
@@ -104,7 +103,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
@@ -164,16 +163,15 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 		BeforeAll(func() {
 			namespace := testsuite.GetTestNamespace(nil)
 
-			ports := []v1.Port{
-				{Port: udpPortForIPv4, Protocol: "UDP"},
-				{Port: udpPortForIPv6, Protocol: "UDP"},
-			}
-			passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
-			passtIface.Ports = ports
-
 			By("Starting server VMI")
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(passtIface),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+					libvmi.WithPasstBinding(),
+					libvmi.WithPorts(
+						v1.Port{Port: udpPortForIPv4, Protocol: "UDP"},
+						v1.Port{Port: udpPortForIPv6, Protocol: "UDP"},
+					),
+				)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
@@ -182,7 +180,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 
 			By("Starting client VMI")
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
@@ -319,9 +317,10 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", func(
 )
 
 func withPasstInterfaceWithPort() libvmi.Option {
-	iface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
-	iface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
-	return libvmi.WithInterface(iface)
+	return libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+		libvmi.WithPasstBinding(),
+		libvmi.WithPorts(v1.Port{Port: 1234, Protocol: "TCP"}),
+	))
 }
 
 func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
@@ -345,7 +344,7 @@ func startPasstVMI() *v1.VirtualMachineInstance {
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	vmi := libvmifact.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
@@ -369,11 +368,11 @@ func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.V
 		return nil, nil, err
 	}
 
-	ports := []v1.Port{{Name: "http", Port: int32(tcpPort), Protocol: "TCP"}} //nolint:gosec // tcpPort is a test constant
-	passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
-	passtIface.Ports = ports
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithInterface(passtIface),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+			libvmi.WithPasstBinding(),
+			libvmi.WithPorts(v1.Port{Name: "http", Port: int32(tcpPort), Protocol: "TCP"}), //nolint:gosec // tcpPort is a test constant
+		)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
