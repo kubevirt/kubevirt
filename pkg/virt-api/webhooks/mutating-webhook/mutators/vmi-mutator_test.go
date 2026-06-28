@@ -992,6 +992,33 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			}, "LUN", v1.DiskBusVirtio),
 	)
 
+	DescribeTable("should default LUN bus to SCSI when reservation is enabled", func(arch string) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "a",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testclaim",
+					},
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "a",
+			DiskDevice: v1.DiskDevice{
+				LUN: &v1.LunTarget{
+					Reservation: true,
+				},
+			},
+		})
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmitWithArch(arch)
+		Expect(vmiSpec.Domain.Devices.Disks[0].DiskDevice.LUN.Bus).To(Equal(v1.DiskBusSCSI))
+	},
+		Entry("on amd64", "amd64"),
+		Entry("on arm64", "arm64"),
+		Entry("on s390x", "s390x"),
+	)
+
 	var (
 		vmxFeature = v1.CPUFeature{
 			Name:   nodelabellerutil.VmxFeature,
