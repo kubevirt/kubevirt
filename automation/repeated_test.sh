@@ -206,7 +206,7 @@ fi
 # TODO: check whether no test with label `RequiresTwoWorkerNodesWithCPUManager` is present, in that case use two nodes
 KUBEVIRT_NUM_NODES=3
 
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
+trap '{ ret=$?; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM
 
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
 export KUBEVIRT_MEMORY_SIZE='9216M'
