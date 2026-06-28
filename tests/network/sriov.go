@@ -114,7 +114,7 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 		})
 
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", Serial, decorators.RequiresNodeWithCPUManager, func() {
-			vmi := libvmifact.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())),
 				libvmi.WithCPUCount(4, 0, 0),
 				libvmi.WithDedicatedCPUPlacement(),
@@ -432,7 +432,7 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			vmi := libvmifact.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -701,7 +701,7 @@ func newSRIOVVmi(networks []string, opts ...libvmi.Option) *v1.VirtualMachineIns
 		)
 	}
 	opts = append(options, opts...)
-	return libvmifact.NewAlpineWithTestTooling(opts...)
+	return libvmifact.NewFedora(opts...)
 }
 
 func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string) {
@@ -786,7 +786,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-	libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithWarningsIgnoreList(warningsIgnoreList))
+	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
 
 	return kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 }
