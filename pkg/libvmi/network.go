@@ -39,6 +39,103 @@ func WithNetwork(network *kvirtv1.Network) Option {
 	}
 }
 
+// InterfaceOption represents an action that configures an Interface.
+type InterfaceOption func(iface *kvirtv1.Interface)
+
+// NewInterface instantiates a new Interface, building its properties based on the specified options.
+func NewInterface(name string, opts ...InterfaceOption) kvirtv1.Interface {
+	iface := kvirtv1.Interface{Name: name}
+	for _, opt := range opts {
+		opt(&iface)
+	}
+	return iface
+}
+
+// WithMasqueradeBinding sets the masquerade binding method.
+func WithMasqueradeBinding() InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.InterfaceBindingMethod = kvirtv1.InterfaceBindingMethod{
+			Masquerade: &kvirtv1.InterfaceMasquerade{},
+		}
+	}
+}
+
+// WithBridgeBinding sets the bridge binding method.
+func WithBridgeBinding() InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.InterfaceBindingMethod = kvirtv1.InterfaceBindingMethod{
+			Bridge: &kvirtv1.InterfaceBridge{},
+		}
+	}
+}
+
+// WithSRIOVBinding sets the SRIOV binding method.
+func WithSRIOVBinding() InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.InterfaceBindingMethod = kvirtv1.InterfaceBindingMethod{
+			SRIOV: &kvirtv1.InterfaceSRIOV{},
+		}
+	}
+}
+
+// WithPasstBinding sets the passt binding method.
+func WithPasstBinding() InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.InterfaceBindingMethod = kvirtv1.InterfaceBindingMethod{
+			PasstBinding: &kvirtv1.InterfacePasstBinding{},
+		}
+	}
+}
+
+// WithBindingPlugin sets a plugin binding.
+func WithBindingPlugin(binding kvirtv1.PluginBinding) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.Binding = &binding
+	}
+}
+
+// WithMac sets the MAC address.
+func WithMac(macAddress string) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.MacAddress = macAddress
+	}
+}
+
+// WithPorts sets the ports.
+func WithPorts(ports ...kvirtv1.Port) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.Ports = ports
+	}
+}
+
+// WithPciAddress sets the guest PCI address.
+func WithPciAddress(pciAddress string) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.PciAddress = pciAddress
+	}
+}
+
+// WithTag sets a tag.
+func WithTag(tag string) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.Tag = tag
+	}
+}
+
+// WithModel sets the interface model.
+func WithModel(model string) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.Model = model
+	}
+}
+
+// WithState sets the interface state.
+func WithState(state kvirtv1.InterfaceState) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.State = state
+	}
+}
+
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
