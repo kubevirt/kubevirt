@@ -81,11 +81,13 @@ const (
 )
 
 const (
-	sriovnet1           = "sriov"
-	sriovnet2           = "sriov2"
-	sriovnet3           = "sriov3"
-	sriovnet4           = "sriov4"
-	sriovnetLinkEnabled = "sriov-linked"
+	sriovnet1             = "sriov"
+	sriovnet2             = "sriov2"
+	sriovnet3             = "sriov3"
+	sriovnet4             = "sriov4"
+	sriovnetLinkEnabled   = "sriov-linked"
+	sriovPeerLabel        = "sriov-peer"
+	sriovMultiVFTestLabel = "sriov-multi-vf-test"
 )
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
@@ -461,7 +463,11 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 		It("should correctly plug all the interfaces based on the specified MAC and (guest) PCI addresses", func() {
 			macAddressTemplate := "de:ad:00:be:ef:%02d"
 			pciAddressTemplate := "0000:2%d:00.0"
-			vmi := newSRIOVVmi(sriovNetworks, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+			vmi := newSRIOVVmi(sriovNetworks,
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
+				libvmi.WithLabel(sriovMultiVFTestLabel, ""),
+				withRequiredPodAntiAffinity(sriovPeerLabel),
+			)
 			for i := range sriovNetworks {
 				secondaryInterfaceIdx := i + 1
 				vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].MacAddress = fmt.Sprintf(macAddressTemplate, secondaryInterfaceIdx)
@@ -483,8 +489,6 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 	})
 
 	Context("VMI connected to link-enabled SRIOV network", func() {
-		const sriovPeerLabel = "sriov-peer"
-
 		BeforeEach(func() {
 			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, withLinkState())
 			netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
@@ -503,18 +507,12 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 			// create two vms on the same sriov network
 			vmi1, err := createSRIOVVmi(sriovnetLinkEnabled, cidrA,
 				libvmi.WithLabel(sriovPeerLabel, ""),
+				withRequiredPodAntiAffinity(sriovMultiVFTestLabel),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi1)
 			vmi2, err := createSRIOVVmi(sriovnetLinkEnabled, cidrB,
-				libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-					LabelSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{
-							{Key: sriovPeerLabel, Operator: metav1.LabelSelectorOpExists},
-						},
-					},
-					TopologyKey: k8sv1.LabelHostname,
-				}),
+				libvmi.WithRequiredPodAffinity(podAffinityTermForLabel(sriovPeerLabel)),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi2)
@@ -553,18 +551,12 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
 				vlanedVMI1, err := createSRIOVVmi(sriovnetVlanned, cidrVlaned1,
 					libvmi.WithLabel(sriovPeerLabel, ""),
+					withRequiredPodAntiAffinity(sriovMultiVFTestLabel),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vlanedVMI1)
 				vlanedVMI2, err := createSRIOVVmi(sriovnetVlanned, "192.168.0.2/24",
-					libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{Key: sriovPeerLabel, Operator: metav1.LabelSelectorOpExists},
-							},
-						},
-						TopologyKey: k8sv1.LabelHostname,
-					}),
+					libvmi.WithRequiredPodAffinity(podAffinityTermForLabel(sriovPeerLabel)),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vlanedVMI2)
@@ -583,18 +575,12 @@ var _ = Describe(SIG("SRIOV", decorators.SRIOV, func() {
 			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
 				vlanedVMI, err := createSRIOVVmi(sriovnetVlanned, cidrVlaned1,
 					libvmi.WithLabel(sriovPeerLabel, ""),
+					withRequiredPodAntiAffinity(sriovMultiVFTestLabel),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, vlanedVMI)
 				nonVlanedVMI, err := createSRIOVVmi(sriovnetLinkEnabled, "192.168.0.3/24",
-					libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
-						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{Key: sriovPeerLabel, Operator: metav1.LabelSelectorOpExists},
-							},
-						},
-						TopologyKey: k8sv1.LabelHostname,
-					}),
+					libvmi.WithRequiredPodAffinity(podAffinityTermForLabel(sriovPeerLabel)),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				DeferCleanup(deleteVMI, nonVlanedVMI)
@@ -655,6 +641,32 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 func defaultCloudInitNetworkData() string {
 	networkData := netcloudinit.CreateDefaultCloudInitNetworkData()
 	return networkData
+}
+
+func podAffinityTermForLabel(labelKey string) k8sv1.PodAffinityTerm {
+	return k8sv1.PodAffinityTerm{
+		LabelSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: labelKey, Operator: metav1.LabelSelectorOpExists},
+			},
+		},
+		TopologyKey: k8sv1.LabelHostname,
+	}
+}
+
+func withRequiredPodAntiAffinity(labelKey string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Affinity == nil {
+			vmi.Spec.Affinity = &k8sv1.Affinity{}
+		}
+		if vmi.Spec.Affinity.PodAntiAffinity == nil {
+			vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{}
+		}
+		vmi.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+			vmi.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+			podAffinityTermForLabel(labelKey),
+		)
+	}
 }
 
 func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
