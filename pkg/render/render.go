@@ -22,6 +22,7 @@ package render
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/google/uuid"
 	k8sv1 "k8s.io/api/core/v1"
@@ -38,8 +39,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 // Options configures Pod rendering behavior.
@@ -88,18 +89,23 @@ func (o *Options) withDefaults() Options {
 func PodFromVM(vm *virtv1.VirtualMachine, opts Options) (*k8sv1.Pod, error) {
 	opts = opts.withDefaults()
 
+	if vm.Spec.Template == nil {
+		return nil, fmt.Errorf("VM %q has no template spec", vm.Name)
+	}
+
 	config, err := newClusterConfig(opts.FeatureGates)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster config: %w", err)
 	}
 
-	if vm.Namespace == "" {
-		vm.Namespace = "default"
+	vmCopy := vm.DeepCopy()
+	if vmCopy.Namespace == "" {
+		vmCopy.Namespace = "default"
 	}
 
-	defaults.SetVirtualMachineDefaults(vm, config, nil)
+	defaults.SetVirtualMachineDefaults(vmCopy, config, nil)
 
-	vmi := setupVMIFromVM(vm)
+	vmi := setupVMIFromVM(vmCopy)
 
 	return renderPod(vmi, config, opts)
 }
@@ -115,7 +121,7 @@ func PodFromVMI(vmi *virtv1.VirtualMachineInstance, opts Options) (*k8sv1.Pod, e
 		return nil, fmt.Errorf("failed to create cluster config: %w", err)
 	}
 
-	return renderPod(vmi, config, opts)
+	return renderPod(vmi.DeepCopy(), config, opts)
 }
 
 func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterConfig, opts Options) (*k8sv1.Pod, error) {
@@ -164,8 +170,11 @@ func renderPod(vmi *virtv1.VirtualMachineInstance, config *virtconfig.ClusterCon
 
 	pod.TypeMeta = metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"}
 
+	// RenderLaunchManifest sets GenerateName (e.g. "virt-launcher-myvm-") but not
+	// Name. Standalone runtimes like podman kube play require a concrete Name, so
+	// we strip the trailing dash to produce one.
 	if pod.GenerateName != "" && pod.Name == "" {
-		pod.Name = pod.GenerateName[:len(pod.GenerateName)-1]
+		pod.Name = strings.TrimRight(pod.GenerateName, "-")
 		pod.GenerateName = ""
 	}
 
@@ -274,11 +283,12 @@ func newClusterConfig(featureGates []string) (*virtconfig.ClusterConfig, error) 
 	crdInformer := cache.NewSharedIndexInformer(noopListerWatcher{}, &extv1.CustomResourceDefinition{}, 0, cache.Indexers{})
 	kvInformer := cache.NewSharedIndexInformer(noopListerWatcher{}, &virtv1.KubeVirt{}, 0, cache.Indexers{})
 
+	// Start informers so they sync, then populate stores before creating
+	// ClusterConfig (which adds event handlers that require running informers).
 	stopCh := make(chan struct{})
 	go crdInformer.Run(stopCh)
 	go kvInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, crdInformer.HasSynced, kvInformer.HasSynced)
-	close(stopCh)
 
 	kvInformer.GetStore().Add(kv)
 	crdInformer.GetStore().Add(&extv1.CustomResourceDefinition{
@@ -288,5 +298,7 @@ func newClusterConfig(featureGates []string) (*virtconfig.ClusterConfig, error) 
 		},
 	})
 
-	return virtconfig.NewClusterConfigWithCPUArch(crdInformer, kvInformer, "kubevirt", runtime.GOARCH)
+	cfg, err := virtconfig.NewClusterConfigWithCPUArch(crdInformer, kvInformer, "kubevirt", runtime.GOARCH)
+	close(stopCh)
+	return cfg, err
 }
