@@ -3164,9 +3164,13 @@ func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
+		&expect.BSnd{S: "command -v stress-ng\n"},
+		&expect.BExp{R: ""},
+		&expect.BSnd{S: console.EchoLastReturnValue},
+		&expect.BExp{R: console.RetValue("0")},
 		&expect.BSnd{S: stressCmd},
 		&expect.BExp{R: ""},
-	}, 15)).To(Succeed(), "should run a stress test")
+	}, 15)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
 
 	// give stress tool some time to trash more memory pages before returning control to next steps
 	time.Sleep(stressDefaultSleepDuration * time.Second)
