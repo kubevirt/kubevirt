@@ -195,6 +195,57 @@ var _ = Describe("Render", func() {
 			Expect(pod.Name).ToNot(BeEmpty())
 		})
 	})
+
+	// This test demonstrates the simplification over the traditional approach.
+	// Without pkg/render, generating a Pod from a VMI requires:
+	//   1. Create a KubeVirt CR with desired feature gates
+	//   2. Create fake informers for CRDs and KubeVirt objects
+	//   3. Call testutils.NewFakeClusterConfigUsingKV to get a ClusterConfig
+	//   4. Create PVC, ResourceQuota, and Namespace stores
+	//   5. Create a mock KubevirtClient
+	//   6. Call NewTemplateService with 14 positional arguments
+	//   7. Call svc.RenderLaunchManifest(vmi)
+	//
+	// With pkg/render, all of that becomes a single PodFromVMI call:
+	Describe("Simplification over traditional approach", func() {
+		It("should render a pod with container disk image pull policy in one call", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default",
+				},
+				Spec: virtv1.VirtualMachineInstanceSpec{
+					Domain: virtv1.DomainSpec{
+						Resources: virtv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+						},
+						Devices: virtv1.Devices{
+							Disks: []virtv1.Disk{
+								{Name: "test", DiskDevice: virtv1.DiskDevice{Disk: &virtv1.DiskTarget{Bus: virtv1.DiskBusVirtio}}},
+							},
+						},
+					},
+					Volumes: []virtv1.Volume{
+						{
+							Name: "test",
+							VolumeSource: virtv1.VolumeSource{
+								ContainerDisk: &virtv1.ContainerDiskSource{
+									Image:           "test:latest",
+									ImagePullPolicy: k8sv1.PullIfNotPresent,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			pod, err := PodFromVMI(vmi, Options{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod).ToNot(BeNil())
+			Expect(pod.Spec.Containers).ToNot(BeEmpty())
+		})
+	})
 })
 
 func minimalVM(name string) *virtv1.VirtualMachine {
