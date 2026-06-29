@@ -47,6 +47,7 @@ import (
 )
 
 var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
+	const hotplugSRIOVTestMAC = "0e:ad:00:00:be:20"
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
@@ -97,7 +98,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			Expect(createSRIOVNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), nadName, sriovResourceName)).To(Succeed())
 
 			By("Hotplugging an interface to the VM")
-			Expect(addSRIOVInterface(hotPluggedVM, ifaceName, nadName)).To(Succeed())
+			Expect(addSRIOVInterface(hotPluggedVM, ifaceName, nadName, hotplugSRIOVTestMAC)).To(Succeed())
 		})
 
 		It("can hotplug a network interface", func() {
@@ -174,13 +175,9 @@ func newSRIOVNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Int
 	return network, iface
 }
 
-func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
+func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName, mac string) error {
 	newNetwork, newIface := newSRIOVNetworkInterface(name, netAttachDefName)
-	mac, err := libnet.GenerateRandomMac()
-	if err != nil {
-		return err
-	}
-	return libnet.PatchVMWithNewInterface(vm, newNetwork, libvmi.InterfaceWithMac(newIface, mac.String()))
+	return libnet.PatchVMWithNewInterface(vm, newNetwork, libvmi.InterfaceWithMac(newIface, mac))
 }
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {

@@ -370,7 +370,7 @@ oci_pull(
 # like stress and qemu guest agent pre-configured
 oci_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:a53fd982787799c2d8cfaa37a2b6fbac4f416437768a25d2eb246dff46bb9d79",
+    digest = "sha256:73ad845b934476c560ffb484b036e6de318e91f7a059178661c5460b35457062",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
