@@ -2,6 +2,7 @@ package ssh_test
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -87,25 +88,30 @@ var _ = Describe("SSH", func() {
 			Entry("without SSH username", ssh.SSHOptions{}, "fake-kind.fake-name.fake-ns"),
 		)
 
-		It("BuildProxyCommandOption", func() {
-			const sshPort = 12345
-			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort)
-			expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name/fake-ns %d", sshPort)
-			Expect(proxyCommand).To(ContainSubstring(expected))
-		})
-
-		It("LocalClientCmd", func() {
-			opts := ssh.DefaultSSHOptions()
-			opts.SSHPort = 12345
-			c := ssh.NewSSH(opts)
-			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
-			const commandSSH = "ssh"
-			cmd := ssh.LocalClientCmd(commandSSH, fakeKind, fakeNamespace, fakeName, opts, clientArgs)
-			Expect(cmd).ToNot(BeNil())
-			Expect(cmd.Args).To(HaveLen(4))
-			Expect(cmd.Args[0]).To(Equal(commandSSH))
-			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort)))
-			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
-		})
+		DescribeTable("LocalClientCmd",
+			func(kind string, opts ssh.SSHOptions, expectedProxyCmd string) {
+				c := ssh.NewSSH(&opts)
+				clientArgs := c.BuildSSHTarget(kind, fakeNamespace, fakeName)
+				cmd := ssh.LocalClientCmd("ssh", kind, fakeNamespace, fakeName, &opts, clientArgs)
+				Expect(cmd).ToNot(BeNil())
+				Expect(cmd.Args).To(HaveLen(4))
+				Expect(cmd.Args[0]).To(Equal("ssh"))
+				Expect(cmd.Args[1]).To(Equal("-o"))
+				Expect(cmd.Args[2]).To(Equal(expectedProxyCmd))
+				Expect(cmd.Args[3]).To(Equal(clientArgs[0]))
+			},
+			Entry("without vsock",
+				fakeKind, ssh.SSHOptions{SSHPort: 12345},
+				fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true %s/%s/%s %d",
+					os.Args[0], fakeKind, fakeName, fakeNamespace, 12345)),
+			Entry("with vsock and vmi kind",
+				"vmi", ssh.SSHOptions{SSHPort: 12345, UseVsock: true},
+				fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true --vsock --vsock-tls=false vmi/%s/%s %d",
+					os.Args[0], fakeName, fakeNamespace, 12345)),
+			Entry("with vsock and vm kind",
+				"vm", ssh.SSHOptions{SSHPort: 12345, UseVsock: true},
+				fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true --vsock --vsock-tls=false vm/%s/%s %d",
+					os.Args[0], fakeName, fakeNamespace, 12345)),
+		)
 	})
 })
