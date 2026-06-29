@@ -97,15 +97,13 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 		var webhook *libpodmutator.Webhook
 
 		BeforeEach(func() {
-			webhookArgs := []string{
-				fmt.Sprintf("--port=%d", webhookPort),
-				"--volume-type=emptydir",
-			}
 			webhook = libpodmutator.Setup(libpodmutator.Options{
 				Name:       webhookName,
 				SecretName: webhookSecretName,
 				Port:       webhookPort,
-				Args:       webhookArgs,
+				VolumeInjection: &libpodmutator.VolumeInjection{
+					Type: libpodmutator.VolumeTypeEmptyDir,
+				},
 			})
 		})
 
@@ -187,16 +185,14 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			_, err := virtClient.CoreV1().ConfigMaps(testNamespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			webhookArgs := []string{
-				fmt.Sprintf("--port=%d", webhookPort),
-				"--volume-type=configmap",
-				fmt.Sprintf("--configmap-name=%s", configMapName),
-			}
 			webhook = libpodmutator.Setup(libpodmutator.Options{
 				Name:       webhookName,
 				SecretName: webhookSecretName,
 				Port:       webhookPort,
-				Args:       webhookArgs,
+				VolumeInjection: &libpodmutator.VolumeInjection{
+					Type:          libpodmutator.VolumeTypeConfigMap,
+					ConfigMapName: configMapName,
+				},
 			})
 		})
 

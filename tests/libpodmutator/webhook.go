@@ -17,11 +17,16 @@
  *
  */
 
+// Package libpodmutator provides helpers for deploying the test-pod-mutator webhook
+// in functional tests. The webhook can inject volumes or envFrom ConfigMap references
+// into virt-launcher pods, which is useful for overriding runtime configuration via
+// environment variables without extending the KubeVirt API.
 package libpodmutator
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -47,15 +53,32 @@ type Webhook struct {
 	Config  *admissionregistrationv1.MutatingWebhookConfiguration
 }
 
+// VolumeType selects the volume source injected by test-pod-mutator.
+type VolumeType string
+
+const (
+	VolumeTypeEmptyDir  VolumeType = "emptydir"
+	VolumeTypeConfigMap VolumeType = "configmap"
+)
+
+// VolumeInjection configures a test volume injected into virt-launcher pods.
+type VolumeInjection struct {
+	Type          VolumeType
+	ConfigMapName string // required when Type is VolumeTypeConfigMap
+}
+
 // Options configures a test-pod-mutator deployment.
 type Options struct {
 	Name       string
 	SecretName string
 	Port       int32
-	Args       []string
 	// Namespace scopes the webhook and MutatingWebhookConfiguration. VMIs whose
 	// virt-launcher pods should be mutated must run in this namespace.
 	Namespace string
+	// EnvFromConfigMap injects the named ConfigMap as envFrom into the compute container.
+	EnvFromConfigMap string
+	// VolumeInjection injects a test volume into virt-launcher pods.
+	VolumeInjection *VolumeInjection
 }
 
 func (opts Options) namespace() string {
@@ -65,9 +88,29 @@ func (opts Options) namespace() string {
 	return testsuite.GetTestNamespace(nil)
 }
 
+func (opts Options) webhookArgs() []string {
+	args := []string{fmt.Sprintf("--port=%d", opts.Port)}
+	if opts.EnvFromConfigMap != "" {
+		args = append(args, fmt.Sprintf("--env-from-configmap=%s", opts.EnvFromConfigMap))
+	}
+	if opts.VolumeInjection != nil {
+		args = append(args, fmt.Sprintf("--volume-type=%s", opts.VolumeInjection.Type))
+		if opts.VolumeInjection.Type == VolumeTypeConfigMap {
+			args = append(args, fmt.Sprintf("--configmap-name=%s", opts.VolumeInjection.ConfigMapName))
+		}
+	}
+	return args
+}
+
 // Setup deploys test-pod-mutator and registers a MutatingWebhookConfiguration scoped
 // to the current test namespace.
 func Setup(opts Options) *Webhook {
+	if opts.VolumeInjection != nil && opts.VolumeInjection.Type == VolumeTypeConfigMap && opts.VolumeInjection.ConfigMapName == "" {
+		Expect(false).To(BeTrue(), "VolumeInjection.ConfigMapName is required when Type is VolumeTypeConfigMap")
+	}
+
+	cleanupStaleWebhookResources(opts)
+
 	virtClient := kubevirt.Client()
 	testNamespace := opts.namespace()
 
@@ -104,7 +147,7 @@ func Setup(opts Options) *Webhook {
 				Image:           fmt.Sprintf("%s/test-helpers:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag),
 				ImagePullPolicy: k8sv1.PullAlways,
 				Command:         []string{"/usr/bin/test-pod-mutator"},
-				Args:            opts.Args,
+				Args:            opts.webhookArgs(),
 				Ports: []k8sv1.ContainerPort{{
 					ContainerPort: opts.Port,
 					Name:          "https",
@@ -214,6 +257,8 @@ func Setup(opts Options) *Webhook {
 	webhookConfig, err = virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), webhookConfig, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
+	waitAdmissionWebhookReady(opts, testNamespace)
+
 	return &Webhook{
 		Pod:     webhookPod,
 		Service: webhookService,
@@ -234,6 +279,7 @@ func Teardown(webhook *Webhook, secretName string) {
 		if !errors.IsNotFound(err) {
 			Expect(err).ToNot(HaveOccurred())
 		}
+		waitMutatingWebhookConfigurationAbsent(webhook.Config.Name)
 	}
 	if webhook.Service != nil {
 		err := virtClient.CoreV1().Services(testNamespace).Delete(context.Background(), webhook.Service.Name, metav1.DeleteOptions{})
@@ -251,6 +297,24 @@ func Teardown(webhook *Webhook, secretName string) {
 	if !errors.IsNotFound(err) {
 		Expect(err).ToNot(HaveOccurred())
 	}
+}
+
+func cleanupStaleWebhookResources(opts Options) {
+	virtClient := kubevirt.Client()
+	testNamespace := opts.namespace()
+	mwhName := fmt.Sprintf("%s-%s", opts.Name, testNamespace)
+
+	_ = virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), mwhName, metav1.DeleteOptions{})
+	_ = virtClient.CoreV1().Services(testNamespace).Delete(context.Background(), opts.Name, metav1.DeleteOptions{})
+	_ = virtClient.CoreV1().Pods(testNamespace).Delete(context.Background(), opts.Name, metav1.DeleteOptions{})
+	_ = virtClient.CoreV1().Secrets(testNamespace).Delete(context.Background(), opts.SecretName, metav1.DeleteOptions{})
+
+	waitMutatingWebhookConfigurationAbsent(mwhName)
+	waitServiceAbsent(testNamespace, opts.Name)
+	Eventually(func() bool {
+		_, err := virtClient.CoreV1().Pods(testNamespace).Get(context.Background(), opts.Name, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, 60*time.Second, time.Second).Should(BeTrue())
 }
 
 func waitPodReady(opts Options) {
@@ -293,4 +357,64 @@ func waitServiceEndpointsReady(opts Options) {
 		}
 		return false
 	}, 30*time.Second, time.Second).Should(BeTrue(), "Service endpoints should be ready")
+}
+
+func waitMutatingWebhookConfigurationAbsent(name string) {
+	virtClient := kubevirt.Client()
+	Eventually(func() bool {
+		_, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), name, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, 60*time.Second, time.Second).Should(BeTrue(), "MutatingWebhookConfiguration %s should be deleted", name)
+}
+
+func waitServiceAbsent(namespace, name string) {
+	virtClient := kubevirt.Client()
+	Eventually(func() bool {
+		_, err := virtClient.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, 30*time.Second, time.Second).Should(BeTrue(), "Service %s/%s should be deleted", namespace, name)
+}
+
+func isWebhookConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "failed calling webhook") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no endpoints available")
+}
+
+// waitAdmissionWebhookReady creates a probe pod so Setup blocks until the apiserver
+// can successfully call the mutating webhook, not just until the pod is Ready.
+func waitAdmissionWebhookReady(opts Options, namespace string) {
+	virtClient := kubevirt.Client()
+	probeName := fmt.Sprintf("%s-admission-probe", opts.Name)
+
+	By("Verifying the apiserver can reach the admission webhook")
+	Eventually(func(g Gomega) {
+		_ = virtClient.CoreV1().Pods(namespace).Delete(context.Background(), probeName, metav1.DeleteOptions{})
+
+		_, err := virtClient.CoreV1().Pods(namespace).Create(context.Background(), &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      probeName,
+				Namespace: namespace,
+			},
+			Spec: k8sv1.PodSpec{
+				RestartPolicy: k8sv1.RestartPolicyNever,
+				Containers: []k8sv1.Container{{
+					Name:    "probe",
+					Image:   cd.ContainerDiskFor(cd.ContainerDiskAlpine),
+					Command: []string{"/bin/sh", "-c", "exit 0"},
+				}},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil && isWebhookConnectionError(err) {
+			g.Expect(false).To(BeTrue(), "admission webhook is not reachable yet: %v", err)
+			return
+		}
+		g.Expect(err).ToNot(HaveOccurred())
+	}, 90*time.Second, 2*time.Second).Should(Succeed())
+
+	_ = virtClient.CoreV1().Pods(namespace).Delete(context.Background(), probeName, metav1.DeleteOptions{})
 }

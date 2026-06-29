@@ -33,7 +33,8 @@ import (
 )
 
 // CreateOrUpdateEnvConfigMap creates or updates a ConfigMap whose keys become environment
-// variables. The ConfigMap is created in namespace; when empty, testsuite.GetTestNamespace(nil) is used.
+// variables when referenced via Options.EnvFromConfigMap. The ConfigMap is created
+// in namespace; when empty, testsuite.GetTestNamespace(nil) is used.
 func CreateOrUpdateEnvConfigMap(virtClient kubecli.KubevirtClient, name string, data map[string]string, namespace ...string) {
 	testNamespace := testsuite.GetTestNamespace(nil)
 	if len(namespace) > 0 && namespace[0] != "" {
