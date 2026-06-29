@@ -516,7 +516,9 @@ func withHugepages() VolumeRendererOption {
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: "hugetblfs-dir",
 			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium: k8sv1.StorageMediumHugePages,
+				},
 			},
 		})
 		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
