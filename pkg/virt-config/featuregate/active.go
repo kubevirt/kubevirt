@@ -293,6 +293,16 @@ const (
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
 	PortRangesSpec = "PortRangesSpec"
+
+	// Owner: sig-compute / @vladikr
+	// Alpha: v1.10.0
+	//
+	// RenderAPI is a lifecycle tracker for the public pkg/render API.
+	// The feature gate does not guard any runtime behavior — the render
+	// package is always importable. It signals the API stability level
+	// (Alpha → Beta → GA) and will be removed when the API reaches GA.
+	// See VEP #359.
+	RenderAPI = "RenderAPI"
 )
 
 func init() {
@@ -343,4 +353,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: RenderAPI, State: Alpha})
 }
