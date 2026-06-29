@@ -188,6 +188,9 @@ func newDataVolume(name string, owner metav1.Object) *cdiv1.DataVolume {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: metav1.NamespaceDefault,
+			Annotations: map[string]string{
+				AllowClaimAdoptionAnnotation: "true",
+			},
 		},
 	}
 	if owner != nil {
@@ -273,6 +276,26 @@ func TestClaimDataVolume(t *testing.T) {
 					func() error { return nil }),
 				datavolumes: []*cdiv1.DataVolume{datavolumeToDelete1, datavolumeToDelete2},
 				claimed:     []*cdiv1.DataVolume{datavolumeToDelete1},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			standaloneDV := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "datavolume1",
+					Namespace: metav1.NamespaceDefault,
+				},
+			}
+			return test{
+				name: "Controller does not claim orphaned datavolumes without claim adoption annotation",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{standaloneDV},
+				claimed:     nil,
 			}
 		}(),
 	}

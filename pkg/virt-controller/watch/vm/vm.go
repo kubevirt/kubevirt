@@ -114,6 +114,10 @@ const (
 	// SourcePVCNotAvailabe is added in an event when the source PVC of a valid
 	// clone Datavolume doesn't exist
 	SourcePVCNotAvailabe = "SourcePVCNotAvailabe"
+
+	// DataVolumeNotOwnedByVM is added in an event when a VM's DVTemplate attempts to create
+	// a DataVolume that already exists and is not already owned by the VM.
+	DataVolumeNotOwnedByVM = "DataVolumeNotOwnedByVM"
 )
 
 const (
@@ -554,6 +558,12 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
 		} else {
+			// check that if the DV exists, it is owned by this VM
+			if len(curDataVolume.OwnerReferences) == 0 || metav1.GetControllerOf(curDataVolume).UID != vm.UID {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, DataVolumeNotOwnedByVM, "DataVolume %s already exists and is not owned by this VM", curDataVolume.Name)
+				return ready, fmt.Errorf("DataVolume %s already exists and is not owned by this VM", curDataVolume.Name)
+			}
+
 			switch curDataVolume.Status.Phase {
 			case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
 				continue

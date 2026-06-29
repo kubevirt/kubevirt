@@ -39,6 +39,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
+const AllowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
+
 type BaseControllerRefManager struct {
 	Controller metav1.Object
 	Selector   labels.Selector
@@ -340,8 +342,15 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 	var errlist []error
 
 	match := func(obj metav1.Object) bool {
+		dv := obj.(*cdiv1.DataVolume)
+		// for non-owned DVs, only match if the DV was explicitly created from VM's DVTemplate
+		// this prevents a VM from adopting an existing DV that shares same name as a DVTemplate entry
+		if len(dv.OwnerReferences) == 0 {
+			if _, exists := dv.GetAnnotations()[AllowClaimAdoptionAnnotation]; !exists {
+				return false
+			}
+		}
 		return true
-
 	}
 	adopt := func(obj metav1.Object) error {
 		return m.AdoptDataVolume(obj.(*cdiv1.DataVolume))
