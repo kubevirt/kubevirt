@@ -138,93 +138,62 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name: kvirtv1.DefaultPodNetwork().Name,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			Masquerade: &kvirtv1.InterfaceMasquerade{},
-		},
-		Ports: ports,
-	}
+	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPorts(ports...))
 }
 
 // InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
 func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name: name,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			Bridge: &kvirtv1.InterfaceBridge{},
-		},
-	}
+	return NewInterface(name, WithBridgeBinding())
 }
 
 // InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
 func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name: name,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			SRIOV: &kvirtv1.InterfaceSRIOV{},
-		},
-	}
+	return NewInterface(name, WithSRIOVBinding())
 }
 
 // InterfaceDeviceWithPasstBinding returns an Interface with passtBinding.
 func InterfaceDeviceWithPasstBinding(name string) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name: name,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			PasstBinding: &kvirtv1.InterfacePasstBinding{},
-		},
-	}
+	return NewInterface(name, WithPasstBinding())
 }
 
 // InterfaceWithPasstBinding returns an Interface named "default" with passt binding plugin.
 func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
 	const passtBindingName = "passt"
-	return kvirtv1.Interface{
-		Name:    kvirtv1.DefaultPodNetwork().Name,
-		Binding: &kvirtv1.PluginBinding{Name: passtBindingName},
-		Ports:   ports,
-	}
+	return NewInterface(kvirtv1.DefaultPodNetwork().Name,
+		WithBindingPlugin(kvirtv1.PluginBinding{Name: passtBindingName}), WithPorts(ports...))
 }
 
 // InterfaceWithMacvtapBindingPlugin returns an Interface named "default" with "macvtap" binding plugin.
 func InterfaceWithMacvtapBindingPlugin(name string) kvirtv1.Interface {
 	const macvtapBindingName = "macvtap"
-	return kvirtv1.Interface{
-		Name:    name,
-		Binding: &kvirtv1.PluginBinding{Name: macvtapBindingName},
-	}
+	return NewInterface(name, WithBindingPlugin(kvirtv1.PluginBinding{Name: macvtapBindingName}))
 }
 
 func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
-	return kvirtv1.Interface{
-		Name:    name,
-		Binding: &binding,
-		Ports:   ports,
-	}
+	return NewInterface(name, WithBindingPlugin(binding), WithPorts(ports...))
 }
 
 // InterfaceWithMac decorates an existing Interface with a MAC address.
 func InterfaceWithMac(iface kvirtv1.Interface, macAddress string) kvirtv1.Interface {
-	iface.MacAddress = macAddress
+	WithMac(macAddress)(&iface)
 	return iface
 }
 
 // InterfaceWithPciAddress decorates an existing Interface with a guest PCI address.
 func InterfaceWithPciAddress(iface kvirtv1.Interface, pciAddress string) kvirtv1.Interface {
-	iface.PciAddress = pciAddress
+	WithPciAddress(pciAddress)(&iface)
 	return iface
 }
 
 // InterfaceWithTag decorates an existing Interface with a tag.
 func InterfaceWithTag(iface kvirtv1.Interface, tag string) kvirtv1.Interface {
-	iface.Tag = tag
+	WithTag(tag)(&iface)
 	return iface
 }
 
 // InterfaceWithModel decorates an existing Interface with a model.
 func InterfaceWithModel(iface kvirtv1.Interface, model string) kvirtv1.Interface {
-	iface.Model = model
+	WithModel(model)(&iface)
 	return iface
 }
 
