@@ -2,6 +2,7 @@ package ssh_test
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -87,13 +88,6 @@ var _ = Describe("SSH", func() {
 			Entry("without SSH username", ssh.SSHOptions{}, "fake-kind.fake-name.fake-ns"),
 		)
 
-		It("BuildProxyCommandOption", func() {
-			const sshPort = 12345
-			proxyCommand := ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort)
-			expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name/fake-ns %d", sshPort)
-			Expect(proxyCommand).To(ContainSubstring(expected))
-		})
-
 		It("LocalClientCmd", func() {
 			opts := ssh.DefaultSSHOptions()
 			opts.SSHPort = 12345
@@ -104,8 +98,41 @@ var _ = Describe("SSH", func() {
 			Expect(cmd).ToNot(BeNil())
 			Expect(cmd.Args).To(HaveLen(4))
 			Expect(cmd.Args[0]).To(Equal(commandSSH))
-			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort)))
+			expected := fmt.Sprintf(
+				"ProxyCommand=%s port-forward --stdio=true %s/%s/%s %d",
+				os.Args[0], fakeKind, fakeName, fakeNamespace, opts.SSHPort)
+			Expect(cmd.Args[2]).To(Equal(expected))
 			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
+		})
+
+		It("LocalClientCmd with vsock", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			opts.UseVsock = true
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
+			const commandSSH = "ssh"
+			cmd := ssh.LocalClientCmd(commandSSH, "vmi", fakeNamespace, fakeName, opts, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			Expect(cmd.Args).To(HaveLen(4))
+			expected := fmt.Sprintf(
+				"ProxyCommand=%s port-forward --stdio=true --vsock vmi/%s/%s %d",
+				os.Args[0], fakeName, fakeNamespace, opts.SSHPort)
+			Expect(cmd.Args[2]).To(Equal(expected))
+		})
+
+		It("LocalClientCmd with vsock and vm kind passes kind through unchanged", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			opts.UseVsock = true
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget("vmi", fakeNamespace, fakeName)
+			cmd := ssh.LocalClientCmd("ssh", "vm", fakeNamespace, fakeName, opts, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			expected := fmt.Sprintf(
+				"ProxyCommand=%s port-forward --stdio=true --vsock vm/%s/%s %d",
+				os.Args[0], fakeName, fakeNamespace, opts.SSHPort)
+			Expect(cmd.Args[2]).To(Equal(expected))
 		})
 	})
 })
