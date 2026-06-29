@@ -274,6 +274,16 @@ const (
 	// hardware-accelerated virtualization. Independent of useEmulation.
 	// See VEP #172.
 	CrossArchitectureVirtualization = "CrossArchitectureVirtualization"
+
+	// Owner: sig-compute / @vladikr
+	// Alpha: v1.10.0
+	//
+	// RenderAPI is a lifecycle tracker for the public pkg/render API.
+	// The feature gate does not guard any runtime behavior — the render
+	// package is always importable. It signals the API stability level
+	// (Alpha → Beta → GA) and will be removed when the API reaches GA.
+	// See VEP #359.
+	RenderAPI = "RenderAPI"
 )
 
 func init() {
@@ -323,4 +333,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: RenderAPI, State: Alpha})
 }
