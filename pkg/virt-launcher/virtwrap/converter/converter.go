@@ -1069,8 +1069,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.MemoryBacking = &api.MemoryBacking{
 			HugePages: &api.HugePages{},
 		}
-		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
-			isMemfdRequired = true
+		// s390x does not support NUMA, and memfd requires a NUMA topology definition.
+		// Skip memfd on s390x to avoid injecting an unsupported -numa arg into qemu-kvm.
+		if c.Architecture.GetArchitecture() != "s390x" {
+			if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
+				isMemfdRequired = true
+			}
 		}
 	}
 	// virtiofs require shared access
