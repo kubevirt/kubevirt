@@ -32,6 +32,7 @@ go_library(
         "//pkg/virtctl/vm:go_default_library",
         "//pkg/virtctl/vmexport:go_default_library",
         "//pkg/virtctl/vnc:go_default_library",
+        "//pkg/virtctl/vsock:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",

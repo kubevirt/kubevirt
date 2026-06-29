@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
+	"kubevirt.io/kubevirt/pkg/virtctl/vsock"
 )
 
 var (
@@ -110,6 +111,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 		scp.NewCommand(),
 		ssh.NewCommand(),
 		portforward.NewCommand(),
+		vsock.NewCommand(),
 		vm.NewStartCommand(),
 		vm.NewStopCommand(),
 		vm.NewRestartCommand(),
