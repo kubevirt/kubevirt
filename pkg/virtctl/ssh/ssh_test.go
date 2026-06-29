@@ -107,5 +107,41 @@ var _ = Describe("SSH", func() {
 			Expect(cmd.Args[2]).To(Equal(ssh.BuildProxyCommandOption(fakeKind, fakeNamespace, fakeName, opts.SSHPort)))
 			Expect(cmd.Args[3]).To(Equal(c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)[0]))
 		})
+
+		It("LocalClientCmd with vsock", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			opts.UseVsock = true
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget(fakeKind, fakeNamespace, fakeName)
+			const commandSSH = "ssh"
+			cmd := ssh.LocalClientCmd(commandSSH, "vmi", fakeNamespace, fakeName, opts, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			Expect(cmd.Args).To(HaveLen(4))
+			Expect(cmd.Args[2]).To(ContainSubstring(fmt.Sprintf("vsock --tls=false vmi/%s/%s %d", fakeName, fakeNamespace, opts.SSHPort)))
+		})
+
+		It("LocalClientCmd with vsock and vm kind converts kind to vmi", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			opts.UseVsock = true
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget("vmi", fakeNamespace, fakeName)
+			cmd := ssh.LocalClientCmd("ssh", "vm", fakeNamespace, fakeName, opts, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			Expect(cmd.Args[2]).To(ContainSubstring(fmt.Sprintf("vsock --tls=false vmi/%s/%s %d", fakeName, fakeNamespace, opts.SSHPort)))
+		})
+
+		It("LocalClientCmd with vsock-tls enables TLS on the vsock ProxyCommand", func() {
+			opts := ssh.DefaultSSHOptions()
+			opts.SSHPort = 12345
+			opts.UseVsock = true
+			opts.VsockUseTLS = true
+			c := ssh.NewSSH(opts)
+			clientArgs := c.BuildSSHTarget("vmi", fakeNamespace, fakeName)
+			cmd := ssh.LocalClientCmd("ssh", "vmi", fakeNamespace, fakeName, opts, clientArgs)
+			Expect(cmd).ToNot(BeNil())
+			Expect(cmd.Args[2]).To(ContainSubstring(fmt.Sprintf("vsock --tls=true vmi/%s/%s %d", fakeName, fakeNamespace, opts.SSHPort)))
+		})
 	})
 })
