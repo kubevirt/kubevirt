@@ -95,7 +95,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 			return fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		if n.domainAttachments[iface.Name] != string(v1.Tap) {
+		if n.domainAttachments[iface.Name] != string(v1.Tap) && iface.PasstBinding == nil {
 			continue
 		}
 
@@ -104,10 +104,15 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 			return err
 		}
 
-		n.enrichTapDomainInterface(domain, iface, &networks[i], podIfaceName)
+		switch {
+		case n.domainAttachments[iface.Name] == string(v1.Tap):
+			n.enrichTapDomainInterface(domain, iface, &networks[i], podIfaceName)
+			if err := n.ensureDHCP(iface, &networks[i], podIfaceName); err != nil {
+				return err
+			}
 
-		if err := n.ensureDHCP(iface, &networks[i], podIfaceName); err != nil {
-			return err
+		case iface.PasstBinding != nil:
+			n.enrichPasstDomainInterface(domain, iface, &networks[i], podIfaceName)
 		}
 	}
 	return nil
@@ -131,6 +136,18 @@ func (n *VMNetworkConfigurator) enrichTapDomainInterface(
 	podIfaceName string,
 ) {
 	generator := domainspec.NewTapLibvirtSpecGenerator(iface, *network, domain, podIfaceName, n.handler)
+	if err := generator.Generate(); err != nil {
+		log.Log.Reason(err).Critical("failed to create libvirt configuration")
+	}
+}
+
+func (n *VMNetworkConfigurator) enrichPasstDomainInterface(
+	domain *api.Domain,
+	iface *v1.Interface,
+	network *v1.Network,
+	podIfaceName string,
+) {
+	generator := domainspec.NewPasstLibvirtSpecGenerator(iface, *network, domain, podIfaceName, n.handler)
 	if err := generator.Generate(); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
 	}

@@ -121,3 +121,94 @@ func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
 	}
 	return tapName, nil
 }
+
+func NewPasstLibvirtSpecGenerator(
+	iface *v1.Interface,
+	network v1.Network,
+	domain *api.Domain,
+	podInterfaceName string,
+	handler netdriver.NetworkHandler,
+) *PasstLibvirtSpecGenerator {
+	return &PasstLibvirtSpecGenerator{
+		vmiSpecIface:     iface,
+		vmiSpecNetwork:   network,
+		domain:           domain,
+		podInterfaceName: podInterfaceName,
+		handler:          handler,
+	}
+}
+
+type PasstLibvirtSpecGenerator struct {
+	vmiSpecIface     *v1.Interface
+	vmiSpecNetwork   v1.Network
+	domain           *api.Domain
+	podInterfaceName string
+	handler          netdriver.NetworkHandler
+}
+
+func (p *PasstLibvirtSpecGenerator) Generate() error {
+	podNicLink, err := p.handler.LinkByName(p.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf(linkIfaceFailFmt, p.podInterfaceName)
+		return err
+	}
+
+	// Extract IPv4 address
+	var ipv4Addr, ipv4Prefix string
+	addrListV4, err := p.handler.AddrList(podNicLink, netlink.FAMILY_V4)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get IPv4 addresses for interface: %s", p.podInterfaceName)
+		return err
+	}
+	for _, addr := range addrListV4 {
+		if addr.IP.IsGlobalUnicast() {
+			ipv4Addr = addr.IP.String()
+			prefixLen, _ := addr.Mask.Size()
+			ipv4Prefix = strconv.Itoa(prefixLen)
+			break
+		}
+	}
+
+	// Extract IPv6 address
+	var ipv6Addr string
+	addrListV6, err := p.handler.AddrList(podNicLink, netlink.FAMILY_V6)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get IPv6 addresses for interface: %s", p.podInterfaceName)
+		return err
+	}
+	for _, addr := range addrListV6 {
+		if addr.IP.IsGlobalUnicast() {
+			ipv6Addr = addr.IP.String()
+			break
+		}
+	}
+
+	const logLevel = 4
+	log.Log.V(logLevel).Infof("Passt interface %s - IPv4: %s, IPv6: %s",
+		p.vmiSpecIface.Name, ipv4Addr, ipv6Addr)
+
+	ifaces := p.domain.Spec.Devices.Interfaces
+	for i, iface := range ifaces {
+		if iface.Alias.GetName() != p.vmiSpecIface.Name {
+			continue
+		}
+		var ips []api.InterfaceIP
+		if ipv4Addr != "" {
+			ips = append(ips, api.InterfaceIP{
+				Family:  "ipv4",
+				Address: ipv4Addr,
+				Prefix:  ipv4Prefix,
+			})
+		}
+		if ipv6Addr != "" {
+			ips = append(ips, api.InterfaceIP{
+				Family:  "ipv6",
+				Address: ipv6Addr,
+			})
+		}
+		ifaces[i].IPs = ips
+		break
+	}
+
+	return nil
+}
