@@ -82,12 +82,6 @@ type FilteredLogger struct {
 
 var Log = DefaultLogger()
 
-func init() {
-	// "the practical default level is V(2)"
-	// see https://github.com/kubernetes/community/blob/master/contributors/devel/logging.md
-	goflag.IntVar(&defaultVerbosity, "v", 2, "log level for V logs")
-}
-
 func InitializeLogging(comp string) {
 	defaultComponent = comp
 	Log = DefaultLogger()
@@ -119,7 +113,9 @@ func (n NullLogger) Log(params ...interface{}) error { return nil }
 
 var loggers = make(map[string]*FilteredLogger)
 var defaultComponent = ""
-var defaultVerbosity = 0
+const defaultVerbosityLevel = 2
+
+var defaultVerbosity = defaultVerbosityLevel
 
 func createLogger(component string) {
 	lock.Lock()
