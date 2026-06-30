@@ -26,7 +26,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"io"
 	golog "log"
@@ -312,7 +311,7 @@ func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 }
 
 func (s *exportServer) AddFlags() {
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	flag.CommandLine.AddGoFlag(log.VerbosityFlag())
 }
 
 func NewExportServer(config ExportServerConfig) (service.Service, error) {

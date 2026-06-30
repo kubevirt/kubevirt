@@ -2,7 +2,6 @@ package virtctl
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -144,14 +143,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 }
 
 func addVerbosityFlag(fs *pflag.FlagSet) {
-	// The verbosity flag is added to the default flag set
-	// by init() in staging/src/kubevirt.io/client-go/log/log.go.
-	// We re-add it here to make it available in virtctl commands.
-	if f := flag.CommandLine.Lookup("v"); f != nil {
-		fs.AddFlag(pflag.PFlagFromGoFlag(f))
-	} else {
-		panic("failed to find verbosity flag \"v\" in default flag set")
-	}
+	fs.AddFlag(pflag.PFlagFromGoFlag(log.VerbosityFlag()))
 }
 
 func Execute() int {
