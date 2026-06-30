@@ -335,6 +335,21 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(path2).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid")))
 				})
+
+				It("should find new-style volume-name-based socket", func() {
+					// Create a new-style socket using volume name
+					f, err := os.Create(fmt.Sprintf(
+						"%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_r0.sock",
+						tmpDir, "poduid"))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(f.Close()).To(Succeed())
+
+					path, err := NewSocketPathGetter(tmpDir)(vmi, 0)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(path).To(Equal(fmt.Sprintf(
+						"%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_r0.sock",
+						tmpDir, "poduid")))
+				})
 			})
 		})
 
