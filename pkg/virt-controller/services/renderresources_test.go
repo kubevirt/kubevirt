@@ -756,6 +756,8 @@ var _ = Describe("validatePermittedHostDevices", func() {
 		kv      *v1.KubeVirt
 	)
 
+	const permittedHostDevice = "example.com/permittedDevice"
+
 	BeforeEach(func() {
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -768,7 +770,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 						PciHostDevices: []v1.PciHostDevice{
 							{
 								PCIVendorSelector: "8086:1234",
-								ResourceName:      "intel.com/gpu",
+								ResourceName:      permittedHostDevice,
 							},
 						},
 					},
@@ -794,7 +796,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 			vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{
 					Name:       "hostdev1",
-					DeviceName: "intel.com/gpu",
+					DeviceName: permittedHostDevice,
 				},
 			}
 			err := validatePermittedHostDevices(vmiSpec, config)
@@ -805,7 +807,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 			vmiSpec.Domain.Devices.GPUs = []v1.GPU{
 				{
 					Name:       "gpu1",
-					DeviceName: "intel.com/gpu",
+					DeviceName: permittedHostDevice,
 				},
 			}
 			err := validatePermittedHostDevices(vmiSpec, config)
@@ -850,7 +852,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 				{
 					// Legacy device - has DeviceName
 					Name:       "legacy-hostdev",
-					DeviceName: "intel.com/gpu", // permitted device
+					DeviceName: permittedHostDevice, // permitted device
 				},
 				{
 					// DRA device - no DeviceName, has ClaimRequest
@@ -869,7 +871,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 			vmiSpec.Domain.Devices.GPUs = []v1.GPU{
 				{
 					Name:       "legacy-gpu",
-					DeviceName: "intel.com/gpu", // permitted device
+					DeviceName: permittedHostDevice, // permitted device
 				},
 				{
 					Name: "dra-gpu",
