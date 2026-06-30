@@ -1,0 +1,40 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cdi.go",
+        "driver.go",
+        "main.go",
+        "state.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//cmd/test-helpers/dra-test-driver/internal/checkpoint:go_default_library",
+        "//cmd/test-helpers/dra-test-driver/internal/profiles:go_default_library",
+        "//cmd/test-helpers/dra-test-driver/internal/profiles/network:go_default_library",
+        "//cmd/test-helpers/dra-test-driver/internal/util:go_default_library",
+        "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer/json:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/kubeletplugin:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/resourceslice:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/dra/v1beta1:go_default_library",
+        "//vendor/tags.cncf.io/container-device-interface/pkg/cdi:go_default_library",
+        "//vendor/tags.cncf.io/container-device-interface/pkg/parser:go_default_library",
+        "//vendor/tags.cncf.io/container-device-interface/specs-go:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "dra-test-driver",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

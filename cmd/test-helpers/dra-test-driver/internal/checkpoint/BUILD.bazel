@@ -1,0 +1,11 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["checkpoint.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/internal/checkpoint",
+    visibility = ["//cmd/test-helpers/dra-test-driver:__subpackages__"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
