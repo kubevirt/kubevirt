@@ -463,7 +463,12 @@ else
   fi
 fi
 
-ginko_params="--no-color"
+ginkgo_params="--no-color"
+
+# Tests triggered by a Prow batch should stop after the first failure to save CI resources
+if [[ -n ${PROW_JOB_ID:-} && ${JOB_TYPE} == "batch" ]]; then
+  ginkgo_params="$ginkgo_params --fail-fast"
+fi
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
@@ -662,7 +667,7 @@ fi
 
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
-  ginko_params="$ginko_params|Networkpolicy"
+  ginkgo_params="$ginkgo_params|Networkpolicy"
 
   kubectl create -f - <<EOF
 ---
@@ -704,7 +709,7 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
+FUNC_TEST_ARGS=$ginkgo_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then
