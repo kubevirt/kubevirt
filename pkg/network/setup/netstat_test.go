@@ -183,7 +183,7 @@ var _ = Describe("netstat", func() {
 			).To(Succeed())
 
 			// Primary interface IP is identical to the pod one.
-			// Secondary interface IP is not reported from the guest.
+			// Secondary interface IP is not reported from the guest, so the pod IP is retained.
 			setup.addGuestAgentInterfaces(
 				newDomainStatusIface([]string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, primaryIfaceName),
 				newDomainStatusIface(nil, secondaryMAC, secondaryIfaceName),
@@ -205,6 +205,8 @@ var _ = Describe("netstat", func() {
 				{
 					Name:          secondaryNetworkName,
 					InterfaceName: secondaryIfaceName,
+					IP:            secondaryPodIPv4,
+					IPs:           []string{secondaryPodIPv4, secondaryPodIPv6},
 					MAC:           secondaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
@@ -369,14 +371,48 @@ var _ = Describe("netstat", func() {
 				{
 					Name:          primaryNetworkName,
 					InterfaceName: primaryIfaceName,
-					IP:            primaryGaIPv6,
-					IPs:           []string{primaryGaIPv6},
+					IP:            primaryPodIPv4,
+					IPs:           []string{primaryPodIPv4, primaryGaIPv6},
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
 					LinkState:     linkStateUp,
 				},
-			}), "the guest-agent IP/s should be reported in the status")
+			}), "the pod IPv4 must be kept and the guest-agent IPv6 added")
+
+			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
+		})
+
+		It("run status and keep the pod IP when the guest-agent reports only a link-local address", func() {
+			const primaryGaIPv6LinkLocal = "fe80::f4e1:74ff:fe94:b81a"
+
+			Expect(
+				setup.addNetworkInterface(
+					newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+					newVMISpecPodNetwork(primaryNetworkName),
+					newDomainSpecIface(primaryNetworkName, primaryMAC),
+					primaryPodIPv4,
+				),
+			).To(Succeed())
+
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface([]string{primaryGaIPv6LinkLocal}, primaryMAC, primaryIfaceName),
+			)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:          primaryNetworkName,
+					InterfaceName: primaryIfaceName,
+					IP:            primaryPodIPv4,
+					IPs:           []string{primaryPodIPv4, primaryGaIPv6LinkLocal},
+					MAC:           primaryMAC,
+					InfoSource:    netvmispec.InfoSourceDomainAndGA,
+					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
+				},
+			}), "the pod IPv4 must not be cleared by a link-local-only guest-agent report")
 
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 		})
@@ -445,7 +481,7 @@ var _ = Describe("netstat", func() {
 		})
 	})
 
-	It("should update existing interface status with missing IP from the guest-agent", func() {
+	It("should retain the existing interface IP when the guest-agent reports no IP", func() {
 		const (
 			primaryNetworkName = "primary"
 			primaryIfaceName   = "eth0"
@@ -482,12 +518,14 @@ var _ = Describe("netstat", func() {
 			{
 				Name:          primaryNetworkName,
 				InterfaceName: primaryIfaceName,
+				IP:            origIPv4,
+				IPs:           []string{origIPv4, origIPv6},
 				MAC:           origMAC,
 				InfoSource:    netvmispec.InfoSourceDomainAndGA,
 				QueueCount:    netsetup.DefaultInterfaceQueueCount,
 				LinkState:     linkStateUp,
 			},
-		}), "the pod IP/s should be reported in the status")
+		}), "the pod IP/s should be retained in the status")
 	})
 
 	It("should report SR-IOV interface when guest-agent is inactive and no other interface exists", func() {
@@ -775,6 +813,8 @@ var _ = Describe("netstat", func() {
 			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
 				{
 					Name:       primaryNetworkName,
+					IP:         primaryPodIPv4,
+					IPs:        []string{primaryPodIPv4},
 					MAC:        primaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,

@@ -348,17 +348,21 @@ func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.Inte
 
 func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
 	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
-	// IP data from the Guest Agent overrides previous iface status information in the following cases:
-	// - No status IPs existed before, i.e. GA data is adding new information.
-	// - Status IPs exist, however, GA information does not include any IP.
-	// In other words, if IP data already existed in the status, GA IP data will not override it.
-	// However, in case GA does not include IP data, it will clear IP status data (guest is not reachable by any IP).
+	// Guest Agent IP data augments, but never clears, the IP data already present
+	// in the interface status (which originates from the pod cache), per IP family:
+	// - If the status has no address for a family, the Guest Agent data for that
+	//   family is added.
+	// - If the status already has an address for a family, it is kept as-is, even
+	//   when the Guest Agent reports no address for that family.
+	// Keeping the existing address prevents the reported IP from flapping when the
+	// guest agent transiently reports only a link-local address (e.g. fe80::/10),
+	// or no address at all, while the assigned IP is being (re)acquired via DHCP.
 	ifaceStatusIPv4, ifaceStatusIPv6 := splitIPByFamiliy(ifaceStatus.IPs)
 	guestAgentIfaceIPv4, guestAgentIfaceIPv6 := splitIPByFamiliy(guestAgentIface.IPs)
-	if len(ifaceStatusIPv4) == 0 || len(guestAgentIfaceIPv4) == 0 {
+	if len(ifaceStatusIPv4) == 0 {
 		ifaceStatusIPv4 = guestAgentIfaceIPv4
 	}
-	if len(ifaceStatusIPv6) == 0 || len(guestAgentIfaceIPv6) == 0 {
+	if len(ifaceStatusIPv6) == 0 {
 		ifaceStatusIPv6 = guestAgentIfaceIPv6
 	}
 	ifaceStatus.IP = ""
