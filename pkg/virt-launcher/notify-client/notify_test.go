@@ -437,6 +437,70 @@ var _ = Describe("Notify", func() {
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})
 
+		Context("handleGuestPanicEvent", func() {
+			It("should return GuestPanicInfo with type unknown when log file is missing", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+
+				panicInfo := e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+
+				Expect(panicInfo).ToNot(BeNil())
+				Expect(panicInfo.Type).To(Equal("unknown"))
+			})
+
+			It("should mark panic as handled for PANICKED events", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+
+				e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+
+				handled, exists := cache.GuestPanicHandled.Load()
+				Expect(exists).To(BeTrue())
+				Expect(handled).To(BeTrue())
+			})
+
+			It("should not mark panic as handled for CRASHLOADED events", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+
+				e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED), false)
+
+				_, exists := cache.GuestPanicHandled.Load()
+				Expect(exists).To(BeFalse())
+			})
+
+			It("should return nil when VMI is nil", func() {
+				cache := metadata.NewCache()
+				panicInfo := e.handleGuestPanicEvent(client, nil, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+				Expect(panicInfo).To(BeNil())
+			})
+
+			It("should skip already handled panic events", func() {
+				vmi := api2.NewMinimalVMI("test-vmi")
+				vmi.Namespace = "test-ns"
+				vmi.UID = "1234"
+				vmiStore.Add(vmi)
+
+				cache := metadata.NewCache()
+				cache.GuestPanicHandled.Set(true)
+
+				panicInfo := e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
+				Expect(panicInfo).To(BeNil())
+			})
+		})
+
 	})
 
 	Describe("Version mismatch", func() {
