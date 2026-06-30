@@ -2475,7 +2475,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking if pod memory usage is > 80Mi")
 				Expect(m).To(BeNumerically(">", 83886080), "83886080 B = 80 Mi")
 			})
-			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
+			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", decorators.RequiresAMD64, func(resources *v1.ResourceRequirements) {
 				cpuVmi := libvmifact.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
