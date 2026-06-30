@@ -163,6 +163,7 @@ cc_library(
         "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:libnbd-libs_s390x/usr/include"],
         "//conditions:default": ["//rpm:libnbd-libs_x86_64/usr/include"],
     }),
+    defines = ["_GNU_SOURCE"],
     linkstatic = 1,
     strip_include_prefix = select({
         # CentOS Stream 10 combinations
