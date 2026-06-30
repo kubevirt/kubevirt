@@ -889,8 +889,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 			func(setupDevices func(), expectedError string) {
 				setupDevices()
 				err := validatePermittedHostDevices(vmiSpec, config)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(expectedError))
+				Expect(err).To(MatchError(ContainSubstring(expectedError)))
 			},
 			Entry("unpermitted legacy HostDevice", func() {
 				vmiSpec.Domain.Devices.HostDevices = []v1.HostDevice{
