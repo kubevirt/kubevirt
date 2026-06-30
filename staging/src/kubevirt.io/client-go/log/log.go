@@ -82,10 +82,29 @@ type FilteredLogger struct {
 
 var Log = DefaultLogger()
 
+var logFlags = goflag.NewFlagSet("kubevirt-log", goflag.ContinueOnError)
+
 func init() {
 	// "the practical default level is V(2)"
 	// see https://github.com/kubernetes/community/blob/master/contributors/devel/logging.md
-	goflag.IntVar(&defaultVerbosity, "v", 2, "log level for V logs")
+	logFlags.IntVar(&defaultVerbosity, "v", 2, "log level for V logs")
+}
+
+// VerbosityFlag returns the "-v" verbosity flag for bridging into
+// other flag sets (e.g. pflag). The flag is owned by a package-
+// internal FlagSet so that importing this package never registers
+// flags on flag.CommandLine and therefore cannot conflict with
+// other packages that register a "-v" flag there.
+//
+// Example:
+//
+//	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
+func VerbosityFlag() *goflag.Flag {
+	f := logFlags.Lookup("v")
+	if f == nil {
+		panic("kubevirt.io/client-go/log: verbosity flag \"v\" not registered on internal FlagSet")
+	}
+	return f
 }
 
 func InitializeLogging(comp string) {
