@@ -215,6 +215,8 @@ var _ = Describe("Volume Migration", func() {
 
 		DescribeTable("should evaluate the volume migration cancellation", func(vmiVols, vmVols []string, migVols []migVolumes, expectRes bool, expectErr error, expectCancellation bool) {
 			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue})
 			for _, v := range migVols {
 				vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, v1.StorageMigratedVolumeInfo{
 					VolumeName:         v.volName,
@@ -269,16 +271,18 @@ var _ = Describe("Volume Migration", func() {
 	})
 
 	Context("IsVolumeMigrating", func() {
-		DescribeTable("should detect volume migration via MigratedVolumes", func(migratedVolumes []v1.StorageMigratedVolumeInfo, expectRes bool) {
+		DescribeTable("should detect the volume update condition", func(cond *v1.VirtualMachineInstanceCondition, expectRes bool) {
 			vmi := libvmi.New()
-			vmi.Status.MigratedVolumes = migratedVolumes
+			if cond != nil {
+				vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
+			}
 			Expect(volumemigration.IsVolumeMigrating(vmi)).To(Equal(expectRes))
 		},
-			Entry("without migrated volumes", nil, false),
-			Entry("with empty migrated volumes", []v1.StorageMigratedVolumeInfo{}, false),
-			Entry("with migrated volumes", []v1.StorageMigratedVolumeInfo{
-				{VolumeName: "disk0", SourcePVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "src0"}, DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst0"}},
-			}, true),
+			Entry("without the condition", nil, false),
+			Entry("with true condition", &v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue}, true),
+			Entry("without false condition", &v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionFalse}, false),
 		)
 	})
 

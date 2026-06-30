@@ -36,6 +36,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
@@ -262,9 +263,10 @@ func revertedToOldVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.Virtual
 	return len(updatedVols) == 0
 }
 
-// IsVolumeMigrating checks if a volume migration is in progress
+// IsVolumeMigrating checks the VMI condition for volume migration
 func IsVolumeMigrating(vmi *virtv1.VirtualMachineInstance) bool {
-	return len(vmi.Status.MigratedVolumes) > 0
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
 }
 
 func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) ([]virtv1.StorageMigratedVolumeInfo, error) {

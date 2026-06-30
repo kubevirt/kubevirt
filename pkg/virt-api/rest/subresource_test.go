@@ -481,9 +481,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			It("should fail when the volume migration in ongoing", func() {
 				vmi := libvmi.New()
 				vm := libvmi.NewVirtualMachine(vmi)
-				vm.Status.VolumeUpdateState = &v1.VolumeUpdateState{
-					VolumeMigrationState: &v1.VolumeMigrationState{},
-				}
+				controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange),
+					Status: k8sv1.ConditionTrue,
+				})
 				request.PathParameters()["name"] = vm.Name
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
 

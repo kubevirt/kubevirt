@@ -167,14 +167,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
-		waitVMIToHaveMigratedVolumes := func(vmiName, ns string) {
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName, metav1.GetOptions{})
-				if err != nil {
-					return false
-				}
-				return len(vmi.Status.MigratedVolumes) > 0
-			}, 120*time.Second, time.Second).Should(BeTrue())
+		waitVMIToHaveVolumeChangeCond := func(vmiName, ns string) {
+			Eventually(matcher.ThisVMIWith(ns, vmiName), 120*time.Second, time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineInstanceVolumesChange))
 		}
 
 		createDV := func() *cdiv1.DataVolume {
@@ -671,7 +665,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
-			waitVMIToHaveMigratedVolumes(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			By("Cancel the volume migration")
 			updateVMWithPVC(vm, volName, dv.Name)
 			// After the volume migration cancellation the VMI should have:
@@ -754,7 +748,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
-			waitVMIToHaveMigratedVolumes(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 
 			By("Restarting the VM during the volume migration")
 			restartOptions := &virtv1.RestartOptions{GracePeriodSeconds: pointer.P(int64(0))}
@@ -799,7 +793,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
-			waitVMIToHaveMigratedVolumes(vm.Name, ns)
+			waitVMIToHaveVolumeChangeCond(vm.Name, ns)
 			Eventually(func() []virtv1.StorageMigratedVolumeInfo {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

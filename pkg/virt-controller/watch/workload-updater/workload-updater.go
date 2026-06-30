@@ -325,7 +325,8 @@ func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 }
 
 func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
-	return len(vmi.Status.MigratedVolumes) > 0
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
 }
 
 func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {

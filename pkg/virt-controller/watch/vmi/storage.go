@@ -462,45 +462,31 @@ func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (vi
 	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig)
 }
 
-// getVolumeMigrationState returns the volume migration state from the owning VM, if any.
-func (c *Controller) getVolumeMigrationState(vmi *virtv1.VirtualMachineInstance) []virtv1.StorageMigratedVolumeInfo {
+// volumeMigrationState returns the owning VM and its in-progress volume-migration volumes, if any.
+func (c *Controller) volumeMigrationState(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, []virtv1.StorageMigratedVolumeInfo) {
 	vm := c.getOwnerVM(vmi)
-	if vm == nil {
-		return nil
+	if vm == nil || vm.Status.VolumeUpdateState == nil || vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
+		return vm, nil
 	}
-	if vm.Status.VolumeUpdateState == nil || vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
-		return nil
-	}
-	return vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes
+	return vm, vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes
 }
 
-// syncVolumesUpdate populates VMI.Status.MigratedVolumes from the owning VM's
-// VolumeUpdateState.
-func (c *Controller) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
-	migVols := c.getVolumeMigrationState(vmi)
-	if len(migVols) == 0 {
-		return
-	}
-	vmi.Status.MigratedVolumes = migVols
-}
+func (c *Controller) syncVolumeMigrationStatus(vmi *virtv1.VirtualMachineInstance) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	migrating := vmiConditions.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
+	vm, migVols := c.volumeMigrationState(vmi)
 
-// requireVolumesUpdate returns true if the owning VM has a volume migration state
-// that hasn't been reflected in VMI.Status.MigratedVolumes yet.
-func (c *Controller) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance) bool {
-	if len(vmi.Status.MigratedVolumes) > 0 {
-		// Already populated - nothing to do
-		return false
-	}
-	return len(c.getVolumeMigrationState(vmi)) > 0
-}
-
-// syncVolumeMigrationCancellation clears VMI.Status.MigratedVolumes if the owning VM
-// no longer has a volume migration state (i.e., the migration was cancelled or completed).
-func (c *Controller) syncVolumeMigrationCancellation(vmi *virtv1.VirtualMachineInstance) {
-	if len(vmi.Status.MigratedVolumes) == 0 {
-		return
-	}
-	if len(c.getVolumeMigrationState(vmi)) == 0 {
+	switch {
+	case len(migVols) > 0 && !migrating:
+		vmi.Status.MigratedVolumes = migVols
+		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+			Type:               virtv1.VirtualMachineInstanceVolumesChange,
+			Status:             k8sv1.ConditionTrue,
+			LastTransitionTime: v1.Now(),
+			Message:            "migrate volumes",
+		})
+	case len(migVols) == 0 && migrating && vm != nil:
 		vmi.Status.MigratedVolumes = nil
+		vmiConditions.RemoveCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
 	}
 }

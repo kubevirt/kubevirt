@@ -523,10 +523,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.syncMemoryHotplug(vmiCopy)
 		}
 
-		if c.requireVolumesUpdate(vmiCopy) {
-			c.syncVolumesUpdate(vmiCopy)
-		}
-		c.syncVolumeMigrationCancellation(vmiCopy)
+		c.syncVolumeMigrationStatus(vmiCopy)
 
 		c.syncMigrationRequiredCondition(vmiCopy, pod)
 

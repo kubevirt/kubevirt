@@ -424,7 +424,8 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		writeError(statusErr, response)
 		return
 	}
-	if vm.Status.VolumeUpdateState != nil && vm.Status.VolumeUpdateState.VolumeMigrationState != nil {
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
+		v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange), k8sv1.ConditionTrue) {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
 		return
 	}

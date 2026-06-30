@@ -848,8 +848,8 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 
 func (c *Controller) handleValidationErrors(err error, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
 	if errors.Is(err, storagetypes.ErrPVCNotFound) || errors.Is(err, storagetypes.ErrDVNotFound) {
-		log.Log.Object(vm).Errorf("One of the destination volumes doesn't exist: %v", err)
-		return err
+		log.Log.Object(vm).Infof("destination volume for the migration is not present yet, waiting: %v", err)
+		return nil
 	}
 
 	setRestartRequired(vm, err.Error())
@@ -928,10 +928,10 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			log.Log.Object(vm).Errorf("failed to update volumes for vmi:%v", err)
 			return err
 		}
-		if vm.Status.VolumeUpdateState == nil {
-			vm.Status.VolumeUpdateState = &virtv1.VolumeUpdateState{}
-		}
 		if len(migVols) > 0 {
+			if vm.Status.VolumeUpdateState == nil {
+				vm.Status.VolumeUpdateState = &virtv1.VolumeUpdateState{}
+			}
 			vm.Status.VolumeUpdateState.VolumeMigrationState = &virtv1.VolumeMigrationState{
 				MigratedVolumes: migVols,
 			}
@@ -1600,6 +1600,7 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		return
 	}
 	vmCond := controller.NewVirtualMachineConditionManager()
+	vmiCond := controller.NewVirtualMachineInstanceConditionManager()
 
 	// Check if the volumes have been recovered and point to the original ones
 	srcMigVols := make(map[string]string)
@@ -1621,17 +1622,25 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 	}
 	if recoveredOldVMVolumes || (vm.Spec.UpdateVolumesStrategy == nil || *vm.Spec.UpdateVolumesStrategy != virtv1.UpdateVolumesStrategyMigration) {
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
+		// Clean-up the volume change label when the volume set has been restored
+		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
 	if vmi == nil || vmi.IsFinal() {
-		// Something went wrong with the VMI while the volume migration was in progress
-		vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:   virtv1.VirtualMachineManualRecoveryRequired,
-			Status: k8score.ConditionTrue,
-			Reason: "VMI was removed or was final during the volume migration",
-		})
+		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
+			// Something went wrong with the VMI while the volume migration was in progress
+			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachineManualRecoveryRequired,
+				Status: k8score.ConditionTrue,
+				Reason: "VMI was removed or was final during the volume migration",
+			})
+		}
 		return
+	}
+
+	if vmiCond.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceVolumesChange, k8score.ConditionFalse) {
+		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 	}
 }
 
