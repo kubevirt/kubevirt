@@ -1309,6 +1309,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	cbt.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
 
 	AutoAttachInputDevice(vmi)
+	AutoAttachPanicDevice(vmi)
 
 	err = netvmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
 	if err != nil {
@@ -3438,6 +3439,17 @@ func AutoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 		virtv1.Input{
 			Name: "default-0",
 		},
+	)
+}
+
+func AutoAttachPanicDevice(vmi *virtv1.VirtualMachineInstance) {
+	autoAttachPanic := vmi.Spec.Domain.Devices.AutoattachPanicDevice
+	if autoAttachPanic == nil || !*autoAttachPanic || len(vmi.Spec.Domain.Devices.PanicDevices) > 0 {
+		return
+	}
+	vmi.Spec.Domain.Devices.PanicDevices = append(
+		vmi.Spec.Domain.Devices.PanicDevices,
+		virtv1.PanicDevice{},
 	)
 }
 

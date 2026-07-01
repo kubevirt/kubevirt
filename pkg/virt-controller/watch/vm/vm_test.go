@@ -5166,6 +5166,136 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
+
+				It("should apply preferences to AutoattachPanicDevice attached panic device", func() {
+
+					panicDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "panicDevicePreference",
+							Namespace:  vm.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1beta1.DevicePreferences{
+								PreferredPanicDeviceModel: pointer.P(v1.Pvpanic),
+							},
+						},
+					}
+					_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), panicDevicePreference, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: panicDevicePreference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachPanicDevice = pointer.P(true)
+
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, panicDevicePreference)
+					Expect(err).ToNot(HaveOccurred())
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.Devices.PanicDevices).To(HaveLen(1))
+					Expect(vmi.Spec.Domain.Devices.PanicDevices[0].Model).To(Equal(pointer.P(v1.Pvpanic)))
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
+				})
+
+				It("should apply preferredAutoattachPanicDevice and add default panic device", func() {
+
+					autoattachPanicDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "autoattachPanicDevicePreference",
+							Namespace:  vm.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1beta1.DevicePreferences{
+								PreferredAutoattachPanicDevice: pointer.P(true),
+								PreferredPanicDeviceModel:      pointer.P(v1.Pvpanic),
+							},
+						},
+					}
+					_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachPanicDevicePreference, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: autoattachPanicDevicePreference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, autoattachPanicDevicePreference)
+					Expect(err).ToNot(HaveOccurred())
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.Devices.PanicDevices).To(HaveLen(1))
+					Expect(vmi.Spec.Domain.Devices.PanicDevices[0].Model).To(Equal(pointer.P(v1.Pvpanic)))
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
+				})
+
+				It("should apply preferredAutoattachPanicDevice and skip adding default panic device", func() {
+
+					autoattachPanicDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "preferredAutoattachPanicDevicePreference",
+							Namespace:  vm.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1beta1.DevicePreferences{
+								PreferredAutoattachPanicDevice: pointer.P(false),
+							},
+						},
+					}
+
+					_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), autoattachPanicDevicePreference, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						Name: autoattachPanicDevicePreference.Name,
+						Kind: instancetypeapi.SingularPreferenceResourceName,
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, autoattachPanicDevicePreference)
+					Expect(err).ToNot(HaveOccurred())
+
+					sanityExecute(vm)
+
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(*vmi.Spec.Domain.Devices.AutoattachPanicDevice).To(BeFalse())
+					Expect(vmi.Spec.Domain.Devices.PanicDevices).To(BeEmpty())
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
+				})
 			})
 		})
 
@@ -5356,6 +5486,34 @@ var _ = Describe("VirtualMachine", func() {
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("existing-0"),
 				}))),
+		)
+
+		DescribeTable("AutoattachPanicDevice should ", func(autoAttach *bool, existingPanicDevices []v1.PanicDevice, matcher gomegatypes.GomegaMatcher) {
+			vm, _ := watchtesting.DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Domain.Devices.AutoattachPanicDevice = autoAttach
+			vm.Spec.Template.Spec.Domain.Devices.PanicDevices = existingPanicDevices
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			sanityExecute(vm)
+
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmi.Spec.Domain.Devices.PanicDevices).To(matcher)
+		},
+			Entry("add default panic device when enabled in VirtualMachine", pointer.P(true), []v1.PanicDevice{},
+				HaveLen(1)),
+			Entry("not add default panic device when disabled by VirtualMachine", pointer.P(false), []v1.PanicDevice{},
+				BeEmpty()),
+			Entry("not add default panic device by default", nil, []v1.PanicDevice{},
+				BeEmpty()),
+			Entry("not add default panic device when devices already present in VirtualMachine", pointer.P(true),
+				[]v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}},
+				And(HaveLen(1), ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Model": Equal(pointer.P(v1.Hyperv)),
+				})))),
 		)
 
 		Context("Live update features", func() {
