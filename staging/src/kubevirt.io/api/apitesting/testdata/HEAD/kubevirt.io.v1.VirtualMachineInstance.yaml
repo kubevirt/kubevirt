@@ -234,6 +234,7 @@ spec:
       autoattachGraphicsDevice: true
       autoattachInputDevice: true
       autoattachMemBalloon: true
+      autoattachPanicDevice: true
       autoattachPodInterface: true
       autoattachSerialConsole: true
       autoattachVSOCK: true

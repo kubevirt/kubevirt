@@ -1151,6 +1151,11 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AutoattachPanicDevice != nil {
+		in, out := &in.AutoattachPanicDevice, &out.AutoattachPanicDevice
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
 		*out = new(Rng)

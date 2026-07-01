@@ -387,6 +387,7 @@
             "autoattachMemBalloon": true,
             "autoattachInputDevice": true,
             "autoattachVSOCK": true,
+            "autoattachPanicDevice": true,
             "rng": {},
             "blockMultiQueue": true,
             "networkInterfaceMultiqueue": true,

@@ -6447,6 +6447,11 @@ var CRDsValidation map[string]string = map[string]string{
                             Period can be adjusted in virt-config.
                             Defaults to true.
                           type: boolean
+                        autoattachPanicDevice:
+                          description: |-
+                            Whether to attach a Panic Device.
+                            Defaults to false.
+                          type: boolean
                         autoattachPodInterface:
                           description: Whether to attach a pod network interface.
                             Defaults to true.
@@ -10447,6 +10452,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredAutoattachMemBalloon optionally defines the preferred
                 value of AutoattachMemBalloon
               type: boolean
+            preferredAutoattachPanicDevice:
+              description: PreferredAutoattachPanicDevice optionally defines the preferred
+                value of AutoattachPanicDevice
+              type: boolean
             preferredAutoattachPodInterface:
               description: PreferredAutoattachPodInterface optionally defines the
                 preferred value of AutoattachPodInterface
@@ -12647,6 +12656,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Whether to attach the Memory balloon device with default period.
                     Period can be adjusted in virt-config.
                     Defaults to true.
+                  type: boolean
+                autoattachPanicDevice:
+                  description: |-
+                    Whether to attach a Panic Device.
+                    Defaults to false.
                   type: boolean
                 autoattachPodInterface:
                   description: Whether to attach a pod network interface. Defaults
@@ -16581,6 +16595,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Period can be adjusted in virt-config.
                     Defaults to true.
                   type: boolean
+                autoattachPanicDevice:
+                  description: |-
+                    Whether to attach a Panic Device.
+                    Defaults to false.
+                  type: boolean
                 autoattachPodInterface:
                   description: Whether to attach a pod network interface. Defaults
                     to true.
@@ -19137,6 +19156,11 @@ var CRDsValidation map[string]string = map[string]string{
                             Whether to attach the Memory balloon device with default period.
                             Period can be adjusted in virt-config.
                             Defaults to true.
+                          type: boolean
+                        autoattachPanicDevice:
+                          description: |-
+                            Whether to attach a Panic Device.
+                            Defaults to false.
                           type: boolean
                         autoattachPodInterface:
                           description: Whether to attach a pod network interface.
@@ -24271,6 +24295,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     Period can be adjusted in virt-config.
                                     Defaults to true.
                                   type: boolean
+                                autoattachPanicDevice:
+                                  description: |-
+                                    Whether to attach a Panic Device.
+                                    Defaults to false.
+                                  type: boolean
                                 autoattachPodInterface:
                                   description: Whether to attach a pod network interface.
                                     Defaults to true.
@@ -26881,6 +26910,10 @@ var CRDsValidation map[string]string = map[string]string{
             preferredAutoattachMemBalloon:
               description: PreferredAutoattachMemBalloon optionally defines the preferred
                 value of AutoattachMemBalloon
+              type: boolean
+            preferredAutoattachPanicDevice:
+              description: PreferredAutoattachPanicDevice optionally defines the preferred
+                value of AutoattachPanicDevice
               type: boolean
             preferredAutoattachPodInterface:
               description: PreferredAutoattachPodInterface optionally defines the
@@ -29911,6 +29944,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         Whether to attach the Memory balloon device with default period.
                                         Period can be adjusted in virt-config.
                                         Defaults to true.
+                                      type: boolean
+                                    autoattachPanicDevice:
+                                      description: |-
+                                        Whether to attach a Panic Device.
+                                        Defaults to false.
                                       type: boolean
                                     autoattachPodInterface:
                                       description: Whether to attach a pod network
