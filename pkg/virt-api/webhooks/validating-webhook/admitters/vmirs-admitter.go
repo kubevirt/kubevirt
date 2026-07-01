@@ -88,6 +88,7 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 			Field:   field.Child("template").String(),
 		})
 	}
+	causes = append(causes, validateGraceIOVirtualizationAnnotations(field.Child("template", "metadata"), &spec.Template.Spec, spec.Template.ObjectMeta.Annotations, config)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)

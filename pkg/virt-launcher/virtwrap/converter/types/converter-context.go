@@ -68,6 +68,7 @@ type ConverterContext struct {
 	SerialConsoleLog                bool
 	PCINUMAAwareTopologyEnabled     bool
 	GraceIOVirtualizationEnabled    bool
+	GraceHostDeviceAliases          []string
 	DomainAttachmentByInterfaceName map[string]string
 	HypervisorName                  string
 	IOMMUFDEnabled                  bool

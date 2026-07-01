@@ -3256,6 +3256,23 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(converterContext.PCINUMAAwareTopologyEnabled).To(BeFalse())
 		})
+
+		It("should set Grace conversion flags and expected aliases from options", func() {
+			options := &cmdv1.VirtualMachineOptions{
+				VirtualMachineSMBios: &cmdv1.SMBios{},
+				ClusterConfig: &cmdv1.ClusterConfig{
+					GraceIOVirtualizationEnabled: true,
+				},
+				GraceHostDeviceAliases: []string{"gpu-gpu0"},
+			}
+
+			libvirtManager := manager.(*LibvirtDomainManager)
+			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(converterContext.GraceIOVirtualizationEnabled).To(BeTrue())
+			Expect(converterContext.GraceHostDeviceAliases).To(Equal([]string{"gpu-gpu0"}))
+		})
 	})
 
 	Context("on GuestPing", func() {

@@ -95,6 +95,26 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		}
 	}
 
+	countControllersByModel := func(domainSpec *api.DomainSpec, model string) int {
+		count := 0
+		for _, controller := range domainSpec.Devices.Controllers {
+			if controller.Model == model {
+				count++
+			}
+		}
+		return count
+	}
+
+	expanderBusByIndex := func(domainSpec *api.DomainSpec, controllerIndex string) *api.Controller {
+		for index := range domainSpec.Devices.Controllers {
+			controller := &domainSpec.Devices.Controllers[index]
+			if controller.Model == api.ControllerModelPCIeExpanderBus && controller.Index == controllerIndex {
+				return controller
+			}
+		}
+		return nil
+	}
+
 	setupFakeSysfs := func() {
 		var err error
 		fakePciBasePath, err = os.MkdirTemp("", "pci_devices")
@@ -339,6 +359,71 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				expectedControllers: 0,
 			}),
 		)
+
+		It("places isolated devices with IOMMU on the assigned expander bus", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{createPCIDevice("isolated", "0x01")}
+			iommuDevice := &api.IOMMUDevice{
+				Model:  "smmuv3",
+				Driver: &api.IOMMUDriver{ATS: "on"},
+			}
+			assigner = newExpanderBusAssignerWithOptions(domainSpec, map[string]*api.IOMMUDevice{
+				"0000:01:00.0": iommuDevice,
+			}, nil)
+
+			err := assigner.PlaceNumaAlignedDevices()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.Devices.IOMMU).To(HaveLen(1))
+			Expect(domainSpec.Devices.IOMMU[0].Model).To(Equal("smmuv3"))
+			Expect(domainSpec.Devices.IOMMU[0].Driver.ATS).To(Equal("on"))
+			Expect(domainSpec.Devices.IOMMU[0].Driver.PCIBus).ToNot(BeEmpty())
+
+			expanderBus := expanderBusByIndex(domainSpec, domainSpec.Devices.IOMMU[0].Driver.PCIBus)
+			Expect(expanderBus).ToNot(BeNil())
+			Expect(expanderBus.Target).ToNot(BeNil())
+			Expect(expanderBus.Target.BusNr).ToNot(BeNil())
+			Expect(domainSpec.Devices.IOMMU[0].Driver.PCIBus).ToNot(Equal(strconv.FormatUint(uint64(*expanderBus.Target.BusNr), 10)))
+			Expect(expanderBus.Target.NUMANode).ToNot(BeNil())
+			Expect(*expanderBus.Target.NUMANode).To(Equal(uint32(0)))
+			Expect(domainSpec.Devices.HostDevices[0].Address).ToNot(BeNil())
+		})
+
+		It("splits isolated and normal devices on the same NUMA node", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("isolated", "0x01"),
+				createPCIDevice("normal", "0x03"),
+			}
+			assigner = newExpanderBusAssignerWithOptions(domainSpec, map[string]*api.IOMMUDevice{
+				"0000:01:00.0": &api.IOMMUDevice{Model: "smmuv3", Driver: &api.IOMMUDriver{}},
+			}, nil)
+
+			err := assigner.PlaceNumaAlignedDevices()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.Devices.IOMMU).To(HaveLen(1))
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeExpanderBus)).To(Equal(2))
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeRootPort)).To(Equal(2))
+			Expect(domainSpec.Devices.HostDevices[0].Address).ToNot(BeNil())
+			Expect(domainSpec.Devices.HostDevices[1].Address).ToNot(BeNil())
+		})
+
+		It("uses NUMA overrides when placing isolated devices", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{createPCIDevice("isolated", "0x01")}
+			assigner = newExpanderBusAssignerWithOptions(domainSpec,
+				map[string]*api.IOMMUDevice{"0000:01:00.0": &api.IOMMUDevice{Model: "smmuv3", Driver: &api.IOMMUDriver{}}},
+				map[string]uint32{"0000:01:00.0": 1},
+			)
+
+			err := assigner.PlaceNumaAlignedDevices()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.Devices.IOMMU).To(HaveLen(1))
+			expanderBus := expanderBusByIndex(domainSpec, domainSpec.Devices.IOMMU[0].Driver.PCIBus)
+			Expect(expanderBus).ToNot(BeNil())
+			Expect(expanderBus.Target).ToNot(BeNil())
+			Expect(expanderBus.Target.NUMANode).ToNot(BeNil())
+			Expect(*expanderBus.Target.NUMANode).To(Equal(uint32(1)))
+		})
 	})
 
 	Describe("PlacePCIDevicesWithNUMAAlignment", func() {

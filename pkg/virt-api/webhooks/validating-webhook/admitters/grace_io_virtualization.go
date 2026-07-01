@@ -40,11 +40,6 @@ type gracePCIDeviceRequest struct {
 	resourceName string
 }
 
-type pciVendorSelector struct {
-	vendorID string
-	deviceID string
-}
-
 func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	graceRequests, ambiguousNVIDIARequests := gracePCIDeviceRequests(field, spec, config.GetPermittedHostDevices())
 	if len(graceRequests) == 0 && len(ambiguousNVIDIARequests) == 0 {
@@ -85,7 +80,7 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 		})
 	}
 
-	if effectiveGraceMachineType(spec, config) != graceVirtMachineType {
+	if !strings.HasPrefix(effectiveGraceMachineType(spec, config), graceVirtMachineType) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("GraceIOVirtualization requires %q machine type", graceVirtMachineType),
@@ -122,6 +117,30 @@ func validateGraceIOVirtualization(field *k8sfield.Path, spec *v1.VirtualMachine
 	return causes
 }
 
+func validateGraceIOVirtualizationAnnotations(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, annotations map[string]string, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	graceRequests, _ := gracePCIDeviceRequests(k8sfield.NewPath("spec"), spec, config.GetPermittedHostDevices())
+	if len(graceRequests) == 0 {
+		return nil
+	}
+
+	var causes []metav1.StatusCause
+	if annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "GraceIOVirtualization is not compatible with placing PCI devices on the root complex",
+			Field:   field.Child("annotations").Key(v1.PlacePCIDevicesOnRootComplex).String(),
+		})
+	}
+	if annotations[v1.DisablePCIHole64] == "true" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "GraceIOVirtualization requires the 64-bit PCI hole",
+			Field:   field.Child("annotations").Key(v1.DisablePCIHole64).String(),
+		})
+	}
+	return causes
+}
+
 func gracePCIDeviceRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, permittedHostDevices *v1.PermittedHostDevices) ([]gracePCIDeviceRequest, []gracePCIDeviceRequest) {
 	resourceSelectors := permittedPCIResourceSelectors(permittedHostDevices)
 	if len(resourceSelectors) == 0 {
@@ -136,16 +155,11 @@ func gracePCIDeviceRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			continue
 		}
 
-		parsedSelector, ok := parsePCIVendorSelector(selector)
-		if !ok {
-			continue
-		}
-
-		if hwutil.IsNVIDIAGraceGPU(parsedSelector.vendorID, parsedSelector.deviceID) {
+		if hwutil.IsNVIDIAGracePCIVendorSelector(selector) {
 			graceRequests = append(graceRequests, request)
 			continue
 		}
-		if hwutil.IsNVIDIAPCIVendor(parsedSelector.vendorID) && parsedSelector.deviceID == "*" {
+		if hwutil.IsAmbiguousNVIDIAPCIVendorSelector(selector) {
 			ambiguousNVIDIARequests = append(ambiguousNVIDIARequests, request)
 		}
 	}
@@ -189,37 +203,6 @@ func requestedPCIDeviceResources(field *k8sfield.Path, spec *v1.VirtualMachineIn
 		})
 	}
 	return requests
-}
-
-func parsePCIVendorSelector(selector string) (pciVendorSelector, bool) {
-	parts := strings.Split(selector, ":")
-	if len(parts) != 2 {
-		return pciVendorSelector{}, false
-	}
-
-	parsedSelector := pciVendorSelector{
-		vendorID: hwutil.NormalizePCIID(parts[0]),
-		deviceID: hwutil.NormalizePCIID(parts[1]),
-	}
-	if !isHexPCIID(parsedSelector.vendorID) {
-		return pciVendorSelector{}, false
-	}
-	if parsedSelector.deviceID != "*" && !isHexPCIID(parsedSelector.deviceID) {
-		return pciVendorSelector{}, false
-	}
-	return parsedSelector, true
-}
-
-func isHexPCIID(id string) bool {
-	if len(id) != 4 {
-		return false
-	}
-	for _, char := range id {
-		if !strings.ContainsRune("0123456789ABCDEF", char) {
-			return false
-		}
-	}
-	return true
 }
 
 func effectiveGraceArchitecture(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) string {

@@ -955,7 +955,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 		return err, false
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
+	options := virtualMachineOptions(vmi, nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 	pluginsJSON, err := c.serializePlugins()
 	if err != nil {
@@ -1078,7 +1078,7 @@ func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1
 }
 
 func (c *MigrationTargetController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
+	options := virtualMachineOptions(vmi, nil, 0, nil, c.capabilities, c.clusterConfig)
 	topology, err := json.Marshal(options.Topology)
 	if err != nil {
 		return err
@@ -1118,6 +1118,7 @@ func (c *MigrationTargetController) hotplugCPU(vmi *v1.VirtualMachineInstance, c
 	}
 
 	options := virtualMachineOptions(
+		vmi,
 		nil,
 		0,
 		nil,
@@ -1179,7 +1180,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
+	options := virtualMachineOptions(vmi, nil, 0, nil, c.capabilities, c.clusterConfig)
 
 	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
 		// mark hotplug as failed
