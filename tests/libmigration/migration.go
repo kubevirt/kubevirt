@@ -480,6 +480,7 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 	ExpectWithOffset(1, vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 	ExpectWithOffset(1, string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 	ExpectWithOffset(1, vmi.Status.MigrationState.Failed).To(BeTrue())
+	ExpectWithOffset(1, vmi.Status.MigrationState.Completed).To(BeTrue())
 	ExpectWithOffset(1, vmi.Status.MigrationState.AbortRequested).To(BeTrue())
 	ExpectWithOffset(1, vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
 

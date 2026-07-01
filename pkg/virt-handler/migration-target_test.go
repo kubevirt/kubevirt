@@ -71,6 +71,31 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
+func decentralizedTargetAbortMigrationState(targetMigrationUID types.UID, targetNode, sourceNode string, start metav1.Time, abortRequested bool) *v1.VirtualMachineInstanceMigrationState {
+	syncAddress := "10.0.0.1:9185"
+	sourceVMIUID := types.UID("source-vmi-uid")
+	return &v1.VirtualMachineInstanceMigrationState{
+		TargetNode:     targetNode,
+		SourceNode:     sourceNode,
+		MigrationUID:   targetMigrationUID,
+		StartTimestamp: &start,
+		AbortRequested: abortRequested,
+		SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+				Node:                      sourceNode,
+				SyncAddress:               &syncAddress,
+				VirtualMachineInstanceUID: pointer.P(sourceVMIUID),
+			},
+		},
+		TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+				Node:         targetNode,
+				MigrationUID: targetMigrationUID,
+			},
+		},
+	}
+}
+
 var _ = Describe("VirtualMachineInstance migration target", func() {
 	var (
 		client         *cmdclient.MockLauncherClient
@@ -718,6 +743,139 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		client.EXPECT().SignalTargetPodCleanup(vmi)
 		sanityExecute()
+	})
+
+	DescribeTable("should mark migration failed when abort is requested on target",
+		func(withDomain bool) {
+			const (
+				targetMigrationUID  = types.UID("target-migration-uid")
+				domainFailureReason = "target domain reported migration abort via libvirt"
+			)
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+			start := metav1.Now()
+			vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			var domainEnd *metav1.Time
+			if withDomain {
+				domainEnd = pointer.P(metav1.Now())
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Shutoff
+				domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+					UID:            targetMigrationUID,
+					StartTimestamp: &start,
+					EndTimestamp:   domainEnd,
+					Failed:         true,
+					AbortStatus:    string(v1.MigrationAbortSucceeded),
+					FailureReason:  domainFailureReason,
+				}
+				addVMI(vmi, domain)
+			} else {
+				createVMI(vmi)
+			}
+
+			client.EXPECT().SignalTargetPodCleanup(gomock.Any())
+			controller.Execute()
+
+			expectedFailureReason := "Live migration has been aborted"
+			if withDomain {
+				testutils.ExpectEvent(recorder, domainFailureReason)
+				Expect(recorder.Events).NotTo(Receive(ContainSubstring(VMIAbortingMigration)))
+				expectedFailureReason = domainFailureReason
+			} else {
+				testutils.ExpectEvent(recorder, VMIAbortingMigration)
+			}
+
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.Failed).To(BeTrue())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+			if withDomain {
+				Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(domainEnd))
+			} else {
+				Expect(updatedVMI.Status.MigrationState.EndTimestamp).NotTo(BeNil())
+			}
+			Expect(updatedVMI.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
+			Expect(updatedVMI.Status.MigrationState.FailureReason).To(Equal(expectedFailureReason))
+		},
+		Entry("when domain is not active on target yet", false),
+		Entry("when abort status is synced from domain metadata", true),
+	)
+
+	It("should not mark migration failed while domain is still active on target", func() {
+		const targetMigrationUID = types.UID("target-migration-uid")
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		start := metav1.Now()
+		vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+		addVMI(vmi, domain)
+
+		controller.Execute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Status.MigrationState.Failed).To(BeFalse())
+		Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+		Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+		Expect(recorder.Events).NotTo(Receive(ContainSubstring(VMIAbortingMigration)))
+	})
+
+	It("should not re-handle abort when migration is already marked failed", func() {
+		const (
+			targetMigrationUID  = types.UID("target-migration-uid")
+			domainFailureReason = "target domain reported migration abort via libvirt"
+		)
+
+		start := metav1.Now()
+		end := metav1.Now()
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Scheduled
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+		vmi.Status.MigrationState.Failed = true
+		vmi.Status.MigrationState.Completed = true
+		vmi.Status.MigrationState.EndTimestamp = &end
+		vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortSucceeded
+		vmi.Status.MigrationState.FailureReason = domainFailureReason
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Shutoff
+		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+			UID:            targetMigrationUID,
+			StartTimestamp: &start,
+			EndTimestamp:   &end,
+			Failed:         true,
+			AbortStatus:    string(v1.MigrationAbortSucceeded),
+			FailureReason:  domainFailureReason,
+		}
+		addVMI(vmi, domain)
+
+		stateBefore := vmi.Status.MigrationState.DeepCopy()
+		Expect(controller.handleDecentralizedMigrationAbort(vmi, domain)).To(Succeed())
+		Expect(vmi.Status.MigrationState).To(Equal(stateBefore))
+		Expect(recorder.Events).NotTo(Receive())
 	})
 
 	It("should not accidentally update VMI spec on cleanup", func() {
