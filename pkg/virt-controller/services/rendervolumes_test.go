@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Container spec renderer", func() {
@@ -62,13 +63,13 @@ var _ = Describe("Container spec renderer", func() {
 				},
 			}
 
-			pvcStore := &cache.FakeCustomStore{
+			pvcStore := &testutils.FakeStore{FakeCustomStore: cache.FakeCustomStore{
 				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
 					return &k8sv1.PersistentVolumeClaim{
 						Spec: k8sv1.PersistentVolumeClaimSpec{},
 					}, true, nil
 				},
-			}
+			}}
 
 			var err error
 			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
@@ -123,11 +124,11 @@ var _ = Describe("Container spec renderer", func() {
 				},
 			}
 
-			pvcStore := &cache.FakeCustomStore{
+			pvcStore := &testutils.FakeStore{FakeCustomStore: cache.FakeCustomStore{
 				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
 					return &hostDisk, true, nil
 				},
-			}
+			}}
 
 			var err error
 			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
@@ -180,11 +181,11 @@ var _ = Describe("Container spec renderer", func() {
 				},
 			}
 
-			pvcStore := &cache.FakeCustomStore{
+			pvcStore := &testutils.FakeStore{FakeCustomStore: cache.FakeCustomStore{
 				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
 					return &cloudInitConfig, true, nil
 				},
-			}
+			}}
 
 			var err error
 			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
@@ -255,11 +256,11 @@ var _ = Describe("Container spec renderer", func() {
 				}},
 			}
 
-			pvcStore := &cache.FakeCustomStore{
+			pvcStore := &testutils.FakeStore{FakeCustomStore: cache.FakeCustomStore{
 				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
 					return &k8sv1.PersistentVolumeClaim{}, true, nil
 				},
-			}
+			}}
 
 			var err error
 			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))

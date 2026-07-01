@@ -78,13 +78,15 @@ func RequestCertificateWithContext(ctx context.Context, client clientset.Interfa
 		csr.Spec.ExpirationSeconds = DurationToExpirationSeconds(*requestedDuration)
 	}
 
+	logger := klog.FromContext(ctx)
+
 	reqName, reqUID, err = create(ctx, client, csr)
 	switch {
 	case err == nil:
+		logger.V(2).Info("Certificate signing request created", "csr", reqName)
 		return reqName, reqUID, err
 
 	case apierrors.IsAlreadyExists(err) && len(name) > 0:
-		logger := klog.FromContext(ctx)
 		logger.Info("csr for this node already exists, reusing")
 		req, err := get(ctx, client, name)
 		if err != nil {
@@ -178,14 +180,14 @@ func WaitForCertificate(ctx context.Context, client clientset.Interface, reqName
 	fieldSelector := fields.OneTermEqualSelector("metadata.name", reqName).String()
 	logger := klog.FromContext(ctx)
 
-	var lw *cache.ListWatch
+	var lw cache.ListerWatcher
 	var obj runtime.Object
 	for {
 		// see if the v1 API is available
 		if _, err := client.CertificatesV1().CertificateSigningRequests().List(ctx, metav1.ListOptions{FieldSelector: fieldSelector}); err == nil {
 			// watch v1 objects
 			obj = &certificatesv1.CertificateSigningRequest{}
-			lw = &cache.ListWatch{
+			lw = cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = fieldSelector
 					return client.CertificatesV1().CertificateSigningRequests().List(ctx, options)
@@ -194,7 +196,7 @@ func WaitForCertificate(ctx context.Context, client clientset.Interface, reqName
 					options.FieldSelector = fieldSelector
 					return client.CertificatesV1().CertificateSigningRequests().Watch(ctx, options)
 				},
-			}
+			}, client)
 			break
 		} else {
 			logger.V(2).Info("Error fetching v1 certificate signing request", "err", err)
@@ -209,7 +211,7 @@ func WaitForCertificate(ctx context.Context, client clientset.Interface, reqName
 		if _, err := client.CertificatesV1beta1().CertificateSigningRequests().List(ctx, metav1.ListOptions{FieldSelector: fieldSelector}); err == nil {
 			// watch v1beta1 objects
 			obj = &certificatesv1beta1.CertificateSigningRequest{}
-			lw = &cache.ListWatch{
+			lw = cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = fieldSelector
 					return client.CertificatesV1beta1().CertificateSigningRequests().List(ctx, options)
@@ -218,7 +220,7 @@ func WaitForCertificate(ctx context.Context, client clientset.Interface, reqName
 					options.FieldSelector = fieldSelector
 					return client.CertificatesV1beta1().CertificateSigningRequests().Watch(ctx, options)
 				},
-			}
+			}, client)
 			break
 		} else {
 			logger.V(2).Info("Error fetching v1beta1 certificate signing request", "err", err)

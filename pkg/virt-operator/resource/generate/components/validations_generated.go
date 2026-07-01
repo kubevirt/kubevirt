@@ -150,7 +150,7 @@ var CRDsValidation map[string]string = map[string]string{
             resources:
               description: |-
                 resources represents the minimum resources the volume should have.
-                If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                Users are allowed to specify resource requirements
                 that are lower than previous value but must still be higher than capacity recorded in the
                 status field of the claim.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -2901,9 +2901,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -3967,9 +3968,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -4661,7 +4663,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resources:
                         description: |-
                           resources represents the minimum resources the volume should have.
-                          If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                          Users are allowed to specify resource requirements
                           that are lower than previous value but must still be higher than capacity recorded in the
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -8187,9 +8189,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -14381,9 +14384,10 @@ var CRDsValidation map[string]string = map[string]string{
               operator:
                 description: |-
                   Operator represents a key's relationship to the value.
-                  Valid operators are Exists and Equal. Defaults to Equal.
+                  Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                   Exists is equivalent to wildcard for value, so that a pod can
                   tolerate all taints of a particular category.
+                  Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                 type: string
               tolerationSeconds:
                 description: |-
@@ -21158,9 +21162,10 @@ var CRDsValidation map[string]string = map[string]string{
                       operator:
                         description: |-
                           Operator represents a key's relationship to the value.
-                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                           Exists is equivalent to wildcard for value, so that a pod can
                           tolerate all taints of a particular category.
+                          Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                         type: string
                       tolerationSeconds:
                         description: |-
@@ -22768,7 +22773,7 @@ var CRDsValidation map[string]string = map[string]string{
                               resources:
                                 description: |-
                                   resources represents the minimum resources the volume should have.
-                                  If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                  Users are allowed to specify resource requirements
                                   that are lower than previous value but must still be higher than capacity recorded in the
                                   status field of the claim.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -26355,9 +26360,10 @@ var CRDsValidation map[string]string = map[string]string{
                               operator:
                                 description: |-
                                   Operator represents a key's relationship to the value.
-                                  Valid operators are Exists and Equal. Defaults to Equal.
+                                  Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                   Exists is equivalent to wildcard for value, so that a pod can
                                   tolerate all taints of a particular category.
+                                  Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                 type: string
                               tolerationSeconds:
                                 description: |-
@@ -28417,7 +28423,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   resources:
                                     description: |-
                                       resources represents the minimum resources the volume should have.
-                                      If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                                      Users are allowed to specify resource requirements
                                       that are lower than previous value but must still be higher than capacity recorded in the
                                       status field of the claim.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -32044,9 +32050,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   operator:
                                     description: |-
                                       Operator represents a key's relationship to the value.
-                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                       Exists is equivalent to wildcard for value, so that a pod can
                                       tolerate all taints of a particular category.
+                                      Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                     type: string
                                   tolerationSeconds:
                                     description: |-
@@ -33586,7 +33593,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resources:
                         description: |-
                           resources represents the minimum resources the volume should have.
-                          If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                          Users are allowed to specify resource requirements
                           that are lower than previous value but must still be higher than capacity recorded in the
                           status field of the claim.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources

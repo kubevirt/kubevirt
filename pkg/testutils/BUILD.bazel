@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "domain.go",
+        "fake_store.go",
         "matchers.go",
         "mock_config.go",
         "mock_priorityqueue.go",

@@ -92,21 +92,21 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 
 	return &topologyHinter{
 		clusterConfig: clusterConfigWithoutTSCFrequency(),
-		nodeStore: &cache.FakeCustomStore{
+		nodeStore: &testutils.FakeStore{FakeCustomStore: cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return NodesToObjects(nodes...)
 			},
-		},
+		}},
 	}
 }
 
 func hinterWithVMIs(vmis ...*virtv1.VirtualMachineInstance) *topologyHinter {
 	return &topologyHinter{
-		vmiStore: &cache.FakeCustomStore{
+		vmiStore: &testutils.FakeStore{FakeCustomStore: cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return VMIsToObjects(vmis...)
 			},
-		},
+		}},
 	}
 }
 
