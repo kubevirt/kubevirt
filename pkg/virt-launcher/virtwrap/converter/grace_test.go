@@ -283,6 +283,22 @@ var _ = Describe("Grace domain conversion", func() {
 		Expect(findGraceSibling(domainSpec.CPU.NUMA.Cells[1].Distances.Siblings, "0").Value).To(Equal(uint64(80)))
 	})
 
+	It("adds default SMMUv3 address capabilities", func() {
+		fakeRuntime.addGraceGPU("0000:81:00.0", 0, 16*1024*1024*1024)
+		fakeRuntime.giNodes = uint32Range(2, 9)
+		fakeRuntime.addDistances(append([]uint32{0}, fakeRuntime.giNodes...))
+		domainSpec := newGraceConversionDomain(
+			newGraceTestHostDevice("gpu-gpu0", api.HostDevicePCI, "0x0000", "0x81", "0x00", "0x0"),
+		)
+
+		err := configureGraceIOVirtualization(domainSpec, []string{"gpu-gpu0"}, true)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(domainSpec.Devices.IOMMU).To(HaveLen(1))
+		Expect(domainSpec.Devices.IOMMU[0].Driver.SSIDSize).To(Equal("20"))
+		Expect(domainSpec.Devices.IOMMU[0].Driver.OAS).To(Equal("48"))
+	})
+
 	It("creates an explicit PCIe root controller before placing Grace PCI devices", func() {
 		fakeRuntime.addGraceGPU("0000:81:00.0", 0, 16*1024*1024*1024)
 		fakeRuntime.giNodes = uint32Range(2, 9)
