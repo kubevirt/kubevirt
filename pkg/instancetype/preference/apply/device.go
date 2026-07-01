@@ -41,6 +41,7 @@ func ApplyAutoAttachPreferences(preferenceSpec *v1beta1.VirtualMachinePreference
 		{preferenceSpec.Devices.PreferredAutoattachPodInterface, &vmiSpec.Domain.Devices.AutoattachPodInterface},
 		{preferenceSpec.Devices.PreferredAutoattachSerialConsole, &vmiSpec.Domain.Devices.AutoattachSerialConsole},
 		{preferenceSpec.Devices.PreferredAutoattachInputDevice, &vmiSpec.Domain.Devices.AutoattachInputDevice},
+		{preferenceSpec.Devices.PreferredAutoattachPanicDevice, &vmiSpec.Domain.Devices.AutoattachPanicDevice},
 	}
 	for _, field := range autoAttachFields {
 		if field.preference != nil && *field.vmi == nil {

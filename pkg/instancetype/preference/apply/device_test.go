@@ -382,6 +382,10 @@ var _ = Describe("Preference.Devices", func() {
 				&preferenceSpec.Devices.PreferredAutoattachInputDevice,
 				&vmi.Spec.Domain.Devices.AutoattachInputDevice,
 			},
+			"PreferredAutoattachPanicDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachPanicDevice,
+				&vmi.Spec.Domain.Devices.AutoattachPanicDevice,
+			},
 		}
 		for name, f := range autoAttachFields {
 			*f.preference = preferenceValue
