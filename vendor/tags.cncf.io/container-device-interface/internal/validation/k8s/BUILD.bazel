@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "objectmeta.go",
+        "validation.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/tags.cncf.io/container-device-interface/internal/validation/k8s",
+    importpath = "tags.cncf.io/container-device-interface/internal/validation/k8s",
+    visibility = ["//vendor/tags.cncf.io/container-device-interface:__subpackages__"],
+)

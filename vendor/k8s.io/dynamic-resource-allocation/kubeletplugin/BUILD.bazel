@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "draplugin.go",
+        "endpoint.go",
+        "namespacedobject.go",
+        "noderegistrar.go",
+        "nonblockinggrpcserver.go",
+        "registrationserver.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/dynamic-resource-allocation/kubeletplugin",
+    importpath = "k8s.io/dynamic-resource-allocation/kubeletplugin",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/go.etcd.io/etcd/client/pkg/v3/fileutil:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/resource/v1:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/client:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/resourceclaim:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/resourceslice:go_default_library",
+        "//vendor/k8s.io/klog/v2:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/dra-health/v1alpha1:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/dra/v1:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/dra/v1beta1:go_default_library",
+        "//vendor/k8s.io/kubelet/pkg/apis/pluginregistration/v1:go_default_library",
+    ],
+)

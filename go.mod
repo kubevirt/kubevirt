@@ -71,9 +71,12 @@ require (
 	k8s.io/apiextensions-apiserver v0.34.3
 	k8s.io/apimachinery v0.34.3
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/dynamic-resource-allocation v0.34.2
+	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
+	k8s.io/kubelet v0.34.2
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	kubevirt.io/api v1.8.0
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
@@ -88,6 +91,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.22.5
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
+	tags.cncf.io/container-device-interface v1.1.0
+	tags.cncf.io/container-device-interface/specs-go v1.1.0
 )
 
 require (
@@ -141,13 +146,15 @@ require (
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
+	github.com/moby/sys/capability v0.4.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/opencontainers/runtime-spec v1.2.1 // indirect
+	github.com/opencontainers/runtime-spec v1.3.0 // indirect
+	github.com/opencontainers/runtime-tools v0.9.1-0.20251114084447-edf4cb3d2116 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e // indirect
@@ -160,7 +167,10 @@ require (
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.4 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
@@ -173,8 +183,8 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiserver v0.34.3 // indirect
-	k8s.io/klog/v2 v2.140.0 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
 	mvdan.cc/sh/v3 v3.8.0 // indirect
