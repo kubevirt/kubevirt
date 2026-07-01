@@ -31,6 +31,9 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -349,6 +352,56 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 
+		Context("BackupVirtualMachine", func() {
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = v1.NewVMIReferenceFromName("testvmi")
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+				}
+			})
+
+			It("should backup successfully", func() {
+				domainManager.EXPECT().BackupVirtualMachine(gomock.Any(), gomock.Any()).Return(nil)
+
+				err := client.VirtualMachineBackup(vmi, &backupv1.BackupOptions{
+					Cmd: backupv1.Abort,
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should return FailedPrecondition when CBT is not enabled", func() {
+				vmi.Status.ChangedBlockTracking = nil
+
+				err := client.VirtualMachineBackup(vmi, &backupv1.BackupOptions{
+					Cmd: backupv1.Abort,
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
+			})
+
+			It("should return Internal when domain manager fails", func() {
+				domainManager.EXPECT().BackupVirtualMachine(gomock.Any(), gomock.Any()).Return(errors.New("libvirt error"))
+
+				err := client.VirtualMachineBackup(vmi, &backupv1.BackupOptions{
+					Cmd: backupv1.Abort,
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.Internal))
+				Expect(err.Error()).To(ContainSubstring("libvirt error"))
+			})
+
+			It("should return InvalidArgument for bad backup options", func() {
+				err := client.VirtualMachineBackup(vmi, &backupv1.BackupOptions{
+					Cmd:  backupv1.Start,
+					Mode: "invalid-mode",
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+			})
+		})
+
 		Context("RedefineCheckpoint", func() {
 			var vmi *v1.VirtualMachineInstance
 			var checkpoint *backupv1.BackupCheckpoint
@@ -386,29 +439,38 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(checkpointInvalid).To(BeFalse())
 			})
 
-			It("should return error when redefinition fails", func() {
+			It("should return Internal error when redefinition fails with transient error", func() {
 				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(false, errors.New("redefinition failed"))
 
 				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
 				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.Internal))
 				Expect(err.Error()).To(ContainSubstring("redefinition failed"))
 				Expect(checkpointInvalid).To(BeFalse())
 			})
 
-			It("should return checkpointInvalid=true when checkpoint is corrupt", func() {
+			It("should return checkpointInvalid=true with CheckpointError detail when checkpoint is corrupt", func() {
 				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(true, errors.New("bitmap invalid"))
 
 				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
 				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
 				Expect(err.Error()).To(ContainSubstring("bitmap invalid"))
 				Expect(checkpointInvalid).To(BeTrue())
+
+				details := status.Convert(err).Details()
+				Expect(details).To(HaveLen(1))
+				cpErr, ok := details[0].(*cmdv1.CheckpointError)
+				Expect(ok).To(BeTrue())
+				Expect(cpErr.CheckpointInvalid).To(BeTrue())
 			})
 
-			It("should fail when CBT is not enabled", func() {
+			It("should return FailedPrecondition when CBT is not enabled", func() {
 				vmi.Status.ChangedBlockTracking = nil
 
 				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
 				Expect(err).To(HaveOccurred())
+				Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
 				Expect(err.Error()).To(ContainSubstring("ChangedBlockTracking is not enabled"))
 				Expect(checkpointInvalid).To(BeFalse())
 			})

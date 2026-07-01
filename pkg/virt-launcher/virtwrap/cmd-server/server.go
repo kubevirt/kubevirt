@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -122,6 +124,14 @@ func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.R
 	}
 
 	return &vmi, response
+}
+
+func unmarshalVMI(request *cmdv1.VMI) (*v1.VirtualMachineInstance, error) {
+	var vmi v1.VirtualMachineInstance
+	if err := json.Unmarshal(request.VmiJson, &vmi); err != nil {
+		return nil, fmt.Errorf("no valid vmi object present in command server request: %w", err)
+	}
+	return &vmi, nil
 }
 
 func getMigrationOptionsFromRequest(request *cmdv1.MigrationRequest) (*cmdclient.MigrationOptions, error) {
@@ -935,82 +945,58 @@ func validateBackupExportRequest(options *backupv1.BackupOptions) error {
 	return nil
 }
 
-func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.BackupRequest) (*cmdv1.Response, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return response, nil
+func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.BackupRequest) (*cmdv1.BackupResponse, error) {
+	vmi, err := unmarshalVMI(request.Vmi)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "BackupVirtualMachine: %v", err)
 	}
 
 	if !storage.IsChangedBlockTrackingEnabled(vmi) {
-		response.Success = false
-		response.Message = storage.ChangedBlockTrackingNotEnabledMsg
-		return response, nil
+		return nil, status.Errorf(codes.FailedPrecondition, "%s", storage.ChangedBlockTrackingNotEnabledMsg)
 	}
 
 	options, err := getBackupOptionsFromRequest(request)
 	if err != nil {
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, status.Errorf(codes.InvalidArgument, "BackupVirtualMachine: %v", err)
 	}
 
 	if err := l.domainManager.BackupVirtualMachine(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to run backup job")
-		response.Success = false
-		response.Message = err.Error()
-		return response, nil
+		return nil, status.Errorf(codes.Internal, "BackupVirtualMachine: %v", err)
 	}
 
 	log.Log.Object(vmi).Info("VMI backup job initiated")
-	return response, nil
+	return &cmdv1.BackupResponse{}, nil
 }
 
 func (l *Launcher) RedefineCheckpoint(_ context.Context, request *cmdv1.RedefineCheckpointRequest) (*cmdv1.RedefineCheckpointResponse, error) {
-	vmi, response := getVMIFromRequest(request.Vmi)
-	if !response.Success {
-		return &cmdv1.RedefineCheckpointResponse{
-			Response:          response,
-			CheckpointInvalid: false,
-		}, nil
+	vmi, err := unmarshalVMI(request.Vmi)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "RedefineCheckpoint: %v", err)
 	}
 
 	if !storage.IsChangedBlockTrackingEnabled(vmi) {
-		return &cmdv1.RedefineCheckpointResponse{
-			Response: &cmdv1.Response{
-				Success: false,
-				Message: "Redefine checkpoint failed: ChangedBlockTracking is not enabled",
-			},
-			CheckpointInvalid: false,
-		}, nil
+		return nil, status.Errorf(codes.FailedPrecondition, "RedefineCheckpoint: ChangedBlockTracking is not enabled")
 	}
 
 	checkpoint := &backupv1.BackupCheckpoint{}
 	if err := json.Unmarshal(request.Checkpoint, checkpoint); err != nil {
-		return &cmdv1.RedefineCheckpointResponse{
-			Response: &cmdv1.Response{
-				Success: false,
-				Message: fmt.Sprintf("Redefine checkpoint failed: invalid checkpoint info: %v", err),
-			},
-			CheckpointInvalid: false,
-		}, nil
+		return nil, status.Errorf(codes.InvalidArgument, "RedefineCheckpoint: invalid checkpoint info: %v", err)
 	}
 
 	checkpointInvalid, err := l.domainManager.RedefineCheckpoint(vmi, checkpoint)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to redefine checkpoint %s", checkpoint.Name)
-		return &cmdv1.RedefineCheckpointResponse{
-			Response: &cmdv1.Response{
-				Success: false,
-				Message: err.Error(),
-			},
-			CheckpointInvalid: checkpointInvalid,
-		}, nil
+		if checkpointInvalid {
+			st, detailErr := status.New(codes.InvalidArgument, err.Error()).WithDetails(&cmdv1.CheckpointError{CheckpointInvalid: true})
+			if detailErr != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "RedefineCheckpoint: %v", err)
+			}
+			return nil, st.Err()
+		}
+		return nil, status.Errorf(codes.Internal, "RedefineCheckpoint: %v", err)
 	}
 
 	log.Log.Object(vmi).Infof("Checkpoint %s redefined successfully", checkpoint.Name)
-	return &cmdv1.RedefineCheckpointResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}, nil
+	return &cmdv1.RedefineCheckpointResponse{}, nil
 }
