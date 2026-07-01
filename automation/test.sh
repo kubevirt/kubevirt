@@ -620,12 +620,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!ImageVolume)" "&&"
   fi
 
-  rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
-  if [[ "${rwofs_sc}" == "local" ]]; then
-    # local is a primitive non CSI storage class that doesn't support expansion
-    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
-  fi
-
   vmstate_sc=$(jq -r .storageVMState "${kubevirt_test_config}")
   if [[ "${vmstate_sc}" == "rook-ceph-block" ]]; then
     # ceph block doesn't do RWX FS

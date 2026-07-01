@@ -253,11 +253,6 @@ add_to_label_filter '(!requires-arm64)' '&&'
 add_to_label_filter '(!requires-s390x)' '&&'
 add_to_label_filter '(!requires-cross-arch-emulation)' '&&'
 add_to_label_filter '(!RequiresPersistentReservation)' '&&'
-rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
-if [[ "${rwofs_sc}" == "local" ]]; then
-    # local is a primitive non CSI storage class that doesn't support expansion
-    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
-fi
 
 if ! kubectl get clusterversion version &>/dev/null; then
   add_to_label_filter '(!OpenShift)' '&&'

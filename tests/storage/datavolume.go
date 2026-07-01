@@ -131,7 +131,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					Fail("Fail test when Block storage is not present")
 				}
 			} else {
-				sc, exists = libstorage.GetRWOFileSystemStorageClass()
+				sc, exists = libstorage.GetCSIStorageClass()
 				if !exists {
 					Fail("Fail test when Filesystem storage is not present")
 				}
@@ -206,8 +206,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		)
 
 		It("Check disk expansion accounts for actual usable size", func() {
-
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			sc, exists := libstorage.GetCSIStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
 			}
