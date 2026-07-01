@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -852,9 +853,7 @@ func (c *VirtLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance
 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
-	response, err := c.v1client.BackupVirtualMachine(ctx, request)
-
-	err = handleError(err, "Backup", response)
+	_, err = c.v1client.BackupVirtualMachine(ctx, request)
 	return err
 }
 
@@ -878,14 +877,13 @@ func (c *VirtLauncherClient) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, 
 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
-	response, err := c.v1client.RedefineCheckpoint(ctx, request)
+	_, err = c.v1client.RedefineCheckpoint(ctx, request)
 	if err != nil {
-		return false, fmt.Errorf("RedefineCheckpoint call failed: %v", err)
+		for _, detail := range status.Convert(err).Details() {
+			if cpErr, ok := detail.(*cmdv1.CheckpointError); ok {
+				return cpErr.CheckpointInvalid, err
+			}
+		}
 	}
-
-	if response.Response != nil && !response.Response.Success {
-		return response.CheckpointInvalid, fmt.Errorf("RedefineCheckpoint failed: %s", response.Response.Message)
-	}
-
-	return false, nil
+	return false, err
 }

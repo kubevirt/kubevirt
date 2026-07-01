@@ -21,10 +21,12 @@ package cbt
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
+	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -121,24 +123,18 @@ func (ctrl *VMBackupController) handleCheckpointRedefinition(tracker *backupv1.V
 func (ctrl *VMBackupController) handleRedefinitionError(tracker *backupv1.VirtualMachineBackupTracker, err error) error {
 	logger := log.Log.With("VirtualMachineBackupTracker", tracker.Name)
 
-	if isCheckpointInvalidError(err) {
-		logger.Warningf("Checkpoint invalid, clearing latestcheckpoint: %v", err)
+	if statusErr, ok := errors.AsType[*k8serrors.StatusError](err); ok && statusErr.Status().Code == http.StatusUnprocessableEntity {
+		reason := statusErr.Status().Message
+		checkpointName := tracker.Status.LatestCheckpoint.Name
+		logger.Warningf("Checkpoint %s invalid, clearing: %s", checkpointName, reason)
 		ctrl.recorder.Eventf(tracker, corev1.EventTypeWarning, "CheckpointRedefinitionFailed",
-			"Failed to redefine checkpoint %s: %v. Checkpoint cleared, next backup will be full.",
-			tracker.Status.LatestCheckpoint.Name, err)
+			"Checkpoint %s is invalid: %s. Cleared, next backup will be full.",
+			checkpointName, reason)
 		return ctrl.clearCheckpointAndFlag(tracker)
 	}
 
 	logger.Errorf("Checkpoint redefinition failed: %v", err)
 	return err
-}
-
-func isCheckpointInvalidError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "422") && strings.Contains(errStr, "Unprocessable Entity")
 }
 
 func (ctrl *VMBackupController) clearRedefinitionFlag(tracker *backupv1.VirtualMachineBackupTracker) error {

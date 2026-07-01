@@ -37,7 +37,7 @@ service Cmd {
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
   rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
-  rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
+  rpc BackupVirtualMachine(BackupRequest) returns (BackupResponse) {}
   rpc RedefineCheckpoint(RedefineCheckpointRequest) returns (RedefineCheckpointResponse) {}
   rpc GetVMStats(VMStatsRequest) returns (VMStatsResponse) {}
 }
@@ -233,15 +233,18 @@ message BackupRequest {
   bytes options = 2;
 }
 
+message BackupResponse {}
+
+message CheckpointError {
+  bool checkpoint_invalid = 1;
+}
+
 message RedefineCheckpointRequest {
   VMI vmi = 1;
   bytes checkpoint = 2;
 }
 
-message RedefineCheckpointResponse {
-  Response response = 1;
-  bool checkpointInvalid = 2;
-}
+message RedefineCheckpointResponse {}
 
 message DomainStatsRequest {}
 message DirtyRateRequest {}

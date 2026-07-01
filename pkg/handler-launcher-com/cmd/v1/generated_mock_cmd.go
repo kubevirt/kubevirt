@@ -42,14 +42,14 @@ func (m *MockCmdClient) EXPECT() *MockCmdClientMockRecorder {
 }
 
 // BackupVirtualMachine mocks base method.
-func (m *MockCmdClient) BackupVirtualMachine(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error) {
+func (m *MockCmdClient) BackupVirtualMachine(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*BackupResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "BackupVirtualMachine", varargs...)
-	ret0, _ := ret[0].(*Response)
+	ret0, _ := ret[0].(*BackupResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -786,10 +786,10 @@ func (m *MockCmdServer) EXPECT() *MockCmdServerMockRecorder {
 }
 
 // BackupVirtualMachine mocks base method.
-func (m *MockCmdServer) BackupVirtualMachine(arg0 context.Context, arg1 *BackupRequest) (*Response, error) {
+func (m *MockCmdServer) BackupVirtualMachine(arg0 context.Context, arg1 *BackupRequest) (*BackupResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BackupVirtualMachine", arg0, arg1)
-	ret0, _ := ret[0].(*Response)
+	ret0, _ := ret[0].(*BackupResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -22,12 +22,13 @@ package cbt
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -282,7 +283,10 @@ var _ = Describe("VMBackupController", func() {
 			testVMI := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithName("test-vmi"))
 			Expect(vmiInformer.GetStore().Add(testVMI)).To(Succeed())
 
-			invalidErr := errors.New("unexpected return code 422 (422 Unprocessable Entity), message: RedefineCheckpoint failed: virError(Code=109, Domain=10, Message='checkpoint inconsistent: missing or broken bitmap')")
+			invalidErr := k8serrors.NewGenericServerResponse(
+				http.StatusUnprocessableEntity, "PUT", v1.Resource("virtualmachineinstances"), "test-vmi",
+				"checkpoint inconsistent: missing or broken bitmap", 0, false,
+			)
 
 			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiInterface)
 			vmiInterface.EXPECT().RedefineCheckpoint(gomock.Any(), "test-vmi", gomock.Any()).Return(invalidErr)
@@ -313,14 +317,14 @@ var _ = Describe("VMBackupController", func() {
 			testVMI := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithName("test-vmi"))
 			Expect(vmiInformer.GetStore().Add(testVMI)).To(Succeed())
 
-			transientErr := apierrors.NewServiceUnavailable("service temporarily unavailable")
+			transientErr := k8serrors.NewServiceUnavailable("service temporarily unavailable")
 
 			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiInterface)
 			vmiInterface.EXPECT().RedefineCheckpoint(gomock.Any(), "test-vmi", gomock.Any()).Return(transientErr)
 
 			err = ctrl.executeTracker(testNamespace + "/tracker1")
 			Expect(err).To(HaveOccurred())
-			Expect(apierrors.IsServiceUnavailable(err)).To(BeTrue())
+			Expect(k8serrors.IsServiceUnavailable(err)).To(BeTrue())
 
 			// Verify tracker was NOT modified
 			updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
@@ -358,11 +362,11 @@ var _ = Describe("VMBackupController", func() {
 		})
 
 		It("should return transient error for requeue when error is ServiceUnavailable (HTTP 503)", func() {
-			transientErr := apierrors.NewServiceUnavailable("service temporarily unavailable")
+			transientErr := k8serrors.NewServiceUnavailable("service temporarily unavailable")
 
 			err := ctrl.handleRedefinitionError(tracker, transientErr)
 			Expect(err).To(HaveOccurred())
-			Expect(apierrors.IsServiceUnavailable(err)).To(BeTrue())
+			Expect(k8serrors.IsServiceUnavailable(err)).To(BeTrue())
 
 			// Verify checkpoint was NOT cleared (tracker unchanged in fake client)
 			updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
@@ -394,7 +398,10 @@ var _ = Describe("VMBackupController", func() {
 		It("should clear checkpoint when checkpoint is invalid/corrupt", func() {
 			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
 				Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
-			virtHandlerErr := errors.New("unexpected return code 422 (422 Unprocessable Entity), message: RedefineCheckpoint failed: virError(Code=109, Domain=10, Message='checkpoint inconsistent: missing or broken bitmap')")
+			virtHandlerErr := k8serrors.NewGenericServerResponse(
+				http.StatusUnprocessableEntity, "PUT", v1.Resource("virtualmachineinstances"), "test-vmi",
+				"checkpoint inconsistent: missing or broken bitmap", 0, false,
+			)
 
 			err := ctrl.handleRedefinitionError(tracker, virtHandlerErr)
 			Expect(err).ToNot(HaveOccurred())
