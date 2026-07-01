@@ -334,7 +334,7 @@ func recordEvent(ctx context.Context, sink EventSink, event *v1.Event, patch []b
 		newEvent, err = sink.Patch(event, patch)
 	}
 	// Update can fail because the event may have been removed and it no longer exists.
-	if !updateExistingEvent || (updateExistingEvent && util.IsKeyNotFoundError(err)) {
+	if !updateExistingEvent || util.IsKeyNotFoundError(err) {
 		// Making sure that ResourceVersion is empty on creation
 		event.ResourceVersion = ""
 		newEvent, err = sink.Create(event)
@@ -408,7 +408,10 @@ func (e *eventBroadcasterImpl) StartEventWatcher(eventHandler func(*v1.Event)) w
 			case <-e.cancelationCtx.Done():
 				watcher.Stop()
 				return
-			case watchEvent := <-watcher.ResultChan():
+			case watchEvent, ok := <-watcher.ResultChan():
+				if !ok {
+					return
+				}
 				event, ok := watchEvent.Object.(*v1.Event)
 				if !ok {
 					// This is all local, so there's no reason this should

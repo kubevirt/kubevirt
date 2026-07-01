@@ -5,8 +5,6 @@ go_library(
     srcs = [
         "catalog.go",
         "dict.go",
-        "go19.go",
-        "gopre19.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/text/message/catalog",
     importpath = "golang.org/x/text/message/catalog",
