@@ -76,7 +76,7 @@ function ensure_driver_is_loaded() {
 
 DRIVER="${DRIVER:-vfio-pci}"
 DRIVER_KMODULE="${DRIVER_KMODULE:-vfio_pci}"
-VFS_COUNT=${VFS_COUNT:-6}
+VFS_COUNT=${VFS_COUNT:-7}
 
 [ $((VFS_COUNT)) -lt 1 ] && echo "INFO: VFS_COUNT is lower then 1, nothing to do..." && exit 0
 
