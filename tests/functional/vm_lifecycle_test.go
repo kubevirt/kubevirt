@@ -45,7 +45,7 @@ var _ = Describe("VM Lifecycle", func() {
 				return 0
 			}
 			return len(vmis.Items)
-		}, 30*time.Second, 100*time.Millisecond).Should(Equal(1))
+		}, 10*time.Second, 100*time.Millisecond).Should(Equal(1))
 
 		By("waiting for the VMI controller to create a virt-launcher pod")
 		Eventually(func() int {
@@ -56,7 +56,7 @@ var _ = Describe("VM Lifecycle", func() {
 				return 0
 			}
 			return len(pods.Items)
-		}, 30*time.Second, 100*time.Millisecond).Should(Equal(1))
+		}, 10*time.Second, 100*time.Millisecond).Should(Equal(1))
 
 		By("waiting for the VMI to reach Scheduled phase after pod simulator makes pod Ready")
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -65,6 +65,6 @@ var _ = Describe("VM Lifecycle", func() {
 				return ""
 			}
 			return vmis.Items[0].Status.Phase
-		}, 30*time.Second, 100*time.Millisecond).Should(Equal(virtv1.Scheduled))
+		}, 10*time.Second, 100*time.Millisecond).Should(Equal(virtv1.Scheduled))
 	})
 })

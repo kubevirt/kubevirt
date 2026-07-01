@@ -92,6 +92,9 @@ go-test: go-build
 
 test: bazel-test
 
+test-functional:
+	KUBEBUILDER_ASSETS=$$(go run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest use --print path) go test ./tests/functional/... -count=1 -v
+
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
 
@@ -304,4 +307,5 @@ vmlog-checker:
 	rpm-deps-all \
 	feature-gate-report \
 	vmlog-checker \
+	test-functional \
 	$(NULL)

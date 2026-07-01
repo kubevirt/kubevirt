@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,6 +17,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	instancetypevmcontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
@@ -44,7 +47,8 @@ type Framework struct {
 }
 
 func New() *Framework {
-	crds := mustLoadCRDs()
+	crds, err := loadCRDs()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to load CRDs")
 	return &Framework{
 		env: &envtest.Environment{
 			CRDs: crds,
@@ -56,14 +60,10 @@ func (f *Framework) Start() {
 	ctx := context.Background()
 
 	cfg, err := f.env.Start()
-	if err != nil {
-		panic(fmt.Sprintf("failed to start envtest: %v", err))
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to start envtest")
 
 	f.virtClient, err = kubecli.GetKubevirtClientFromRESTConfig(cfg)
-	if err != nil {
-		panic(fmt.Sprintf("failed to create kubevirt client: %v", err))
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create kubevirt client")
 	f.k8sClient = f.virtClient
 
 	f.createSeedData(ctx)
@@ -83,11 +83,11 @@ func (f *Framework) Start() {
 	crInformer := informerFactory.ControllerRevision()
 	kubeVirtInformer := informerFactory.KubeVirt()
 
-	dataVolumeInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-	dataSourceInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-	storageProfileInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-	cdiInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
-	cdiConfigInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
+	dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+	dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+	storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
+	cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+	cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 
 	go dataVolumeInformer.Run(f.stopCh)
 	go dataSourceInformer.Run(f.stopCh)
@@ -116,8 +116,7 @@ func (f *Framework) Start() {
 		namespaceInformer.GetStore(),
 	)
 
-	var vmiCtrl *vmi.Controller
-	vmiCtrl, err = vmi.NewController(
+	vmiCtrl, err := vmi.NewController(
 		templateService,
 		vmiInformer,
 		vmInformer,
@@ -142,13 +141,10 @@ func (f *Framework) Start() {
 		nil,
 		nil,
 	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to create VMI controller: %v", err))
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create VMI controller")
 	f.vmiController = vmiCtrl
 
-	var vmCtrl *vm.Controller
-	vmCtrl, err = vm.NewController(
+	vmCtrl, err := vm.NewController(
 		vmiInformer,
 		vmInformer,
 		dataVolumeInformer,
@@ -166,9 +162,7 @@ func (f *Framework) Start() {
 		nil,
 		nil,
 	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to create VM controller: %v", err))
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create VM controller")
 	f.vmController = vmCtrl
 
 	f.podSimulator = NewPodSimulator(f.k8sClient, podInformer, testNodeName)
@@ -208,7 +202,7 @@ func (f *Framework) createSeedData(ctx context.Context) {
 			ObjectMeta: metav1.ObjectMeta{Name: ns},
 		}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			panic(fmt.Sprintf("failed to create namespace %s: %v", ns, err))
+			ExpectWithOffset(2, err).NotTo(HaveOccurred(), fmt.Sprintf("failed to create namespace %s", ns))
 		}
 	}
 
@@ -228,12 +222,10 @@ func (f *Framework) createSeedData(ctx context.Context) {
 			},
 		},
 	}, metav1.CreateOptions{})
-	if err != nil {
-		panic(fmt.Sprintf("failed to create node: %v", err))
-	}
+	ExpectWithOffset(2, err).NotTo(HaveOccurred(), "failed to create node")
 }
 
-func mustLoadCRDs() []*extv1.CustomResourceDefinition {
+func loadCRDs() ([]*extv1.CustomResourceDefinition, error) {
 	generators := []func() (*extv1.CustomResourceDefinition, error){
 		components.NewVirtualMachineInstanceCrd,
 		components.NewVirtualMachineCrd,
@@ -257,10 +249,10 @@ func mustLoadCRDs() []*extv1.CustomResourceDefinition {
 	for _, gen := range generators {
 		crd, err := gen()
 		if err != nil {
-			panic(fmt.Sprintf("failed to generate CRD: %v", err))
+			return nil, fmt.Errorf("failed to generate CRD: %w", err)
 		}
 		crds = append(crds, crd)
 	}
-	return crds
+	return crds, nil
 }
 

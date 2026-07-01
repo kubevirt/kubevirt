@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,8 +24,9 @@ type PodSimulator struct {
 
 	handlerReg cache.ResourceEventHandlerRegistration
 
-	mu       sync.Mutex
-	handled  map[string]bool
+	mu        sync.Mutex
+	handled   map[string]bool
+	ipCounter int32
 }
 
 func NewPodSimulator(k8sClient kubernetes.Interface, podInformer cache.SharedIndexInformer, nodeName string) *PodSimulator {
@@ -38,9 +43,7 @@ func (ps *PodSimulator) Start() {
 		AddFunc:    ps.onPodAdd,
 		UpdateFunc: ps.onPodUpdate,
 	})
-	if err != nil {
-		panic(fmt.Sprintf("failed to add pod event handler: %v", err))
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to add pod event handler")
 	ps.handlerReg = reg
 }
 
@@ -99,20 +102,21 @@ func (ps *PodSimulator) bindAndSetReady(pod *k8sv1.Pod) {
 		}
 		err := ps.k8sClient.CoreV1().Pods(pod.Namespace).Bind(ctx, binding, metav1.CreateOptions{})
 		if err != nil {
-			fmt.Printf("pod simulator: failed to bind pod %s/%s: %v\n", pod.Namespace, pod.Name, err)
+			fmt.Fprintf(GinkgoWriter, "pod simulator: failed to bind pod %s/%s: %v\n", pod.Namespace, pod.Name, err)
 			return
 		}
 	}
 
 	pod, err := ps.k8sClient.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 	if err != nil {
-		fmt.Printf("pod simulator: failed to get pod %s/%s after bind: %v\n", pod.Namespace, pod.Name, err)
+		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to get pod %s/%s after bind: %v\n", pod.Namespace, pod.Name, err)
 		return
 	}
 
+	ipOctet := atomic.AddInt32(&ps.ipCounter, 1) + 1
 	pod.Status = k8sv1.PodStatus{
 		Phase: k8sv1.PodRunning,
-		PodIP: "10.244.0.2",
+		PodIP: fmt.Sprintf("10.244.0.%d", ipOctet),
 		Conditions: []k8sv1.PodCondition{
 			{
 				Type:   k8sv1.PodReady,
@@ -136,7 +140,7 @@ func (ps *PodSimulator) bindAndSetReady(pod *k8sv1.Pod) {
 
 	_, err = ps.k8sClient.CoreV1().Pods(pod.Namespace).UpdateStatus(ctx, pod, metav1.UpdateOptions{})
 	if err != nil {
-		fmt.Printf("pod simulator: failed to update pod status %s/%s: %v\n", pod.Namespace, pod.Name, err)
+		fmt.Fprintf(GinkgoWriter, "pod simulator: failed to update pod status %s/%s: %v\n", pod.Namespace, pod.Name, err)
 	}
 }
 

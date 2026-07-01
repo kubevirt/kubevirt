@@ -59,7 +59,7 @@ var _ = Describe("Issue #16719", func() {
 				return ""
 			}
 			return vmis.Items[0].Status.Phase
-		}, 30*time.Second, 100*time.Millisecond).Should(Equal(virtv1.Scheduled))
+		}, 10*time.Second, 100*time.Millisecond).Should(Equal(virtv1.Scheduled))
 
 		By("changing hostname to a different value (non-live-updatable field)")
 		Eventually(func() error {
@@ -80,7 +80,7 @@ var _ = Describe("Issue #16719", func() {
 				return false
 			}
 			return conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired)
-		}, 30*time.Second, 100*time.Millisecond).Should(BeTrue(),
+		}, 10*time.Second, 100*time.Millisecond).Should(BeTrue(),
 			"RestartRequired should be set after changing a non-live-updatable field")
 
 		By("restoring hostname to original value")
@@ -101,7 +101,7 @@ var _ = Describe("Issue #16719", func() {
 				return true
 			}
 			return conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired)
-		}, 30*time.Second, 100*time.Millisecond).Should(BeFalse(),
+		}, 10*time.Second, 100*time.Millisecond).Should(BeFalse(),
 			"RestartRequired should be cleared when spec matches the original")
 	})
 })
