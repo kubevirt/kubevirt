@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 )
@@ -91,6 +92,41 @@ func (s *Stores) AllEmpty() bool {
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
+}
+
+func (s *Stores) LogNonEmptyStores() {
+	type namedStore struct {
+		name  string
+		store cache.Store
+	}
+	stores := []namedStore{
+		{"ServiceAccountCache", s.ServiceAccountCache},
+		{"ClusterRoleCache", s.ClusterRoleCache},
+		{"ClusterRoleBindingCache", s.ClusterRoleBindingCache},
+		{"RoleCache", s.RoleCache},
+		{"RoleBindingCache", s.RoleBindingCache},
+		{"OperatorCrdCache", s.OperatorCrdCache},
+		{"ServiceCache", s.ServiceCache},
+		{"DeploymentCache", s.DeploymentCache},
+		{"DaemonSetCache", s.DaemonSetCache},
+		{"ValidationWebhookCache", s.ValidationWebhookCache},
+		{"MutatingWebhookCache", s.MutatingWebhookCache},
+		{"APIServiceCache", s.APIServiceCache},
+		{"PodDisruptionBudgetCache", s.PodDisruptionBudgetCache},
+		{"RouteCache", s.RouteCache},
+		{"ServiceMonitorCache", s.ServiceMonitorCache},
+		{"PrometheusRuleCache", s.PrometheusRuleCache},
+		{"SecretCache", s.SecretCache},
+		{"ConfigMapCache", s.ConfigMapCache},
+		{"ValidatingAdmissionPolicyBindingCache", s.ValidatingAdmissionPolicyBindingCache},
+		{"ValidatingAdmissionPolicyCache", s.ValidatingAdmissionPolicyCache},
+	}
+	for _, ns := range stores {
+		count := len(ns.store.ListKeys())
+		if count > 0 {
+			log.Log.Infof("Non-empty store during deletion: %s (%d items)", ns.name, count)
+		}
+	}
 }
 
 func IsStoreEmpty(store cache.Store) bool {

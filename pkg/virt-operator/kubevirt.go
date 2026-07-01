@@ -1169,6 +1169,8 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	// If we still have cached objects around, more deletions need to take place.
 	if !c.stores.AllEmpty() {
+		c.stores.LogNonEmptyStores()
+
 		_, pending, err := c.loadInstallStrategy(kv)
 		if err != nil {
 			return err
