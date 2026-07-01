@@ -225,12 +225,26 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	return nil
 }
 
+// domainListWatch wraps a cache.ListWatch to explicitly opt out of the
+// WatchList streaming-list semantics. The WatchListClient feature gate is
+// enabled by default since client-go 1.35, which makes the reflector try a
+// watch-list first and expect a "k8s.io/initial-events-end" bookmark. The
+// domain informer is a local, non-apiserver informer backed by the
+// virt-launcher notify server, which never emits that bookmark, so the
+// reflector would fall back and perform an extra list pass. Reporting
+// unsupported semantics keeps the reflector on the plain list-then-watch path.
+type domainListWatch struct {
+	*cache.ListWatch
+}
+
+func (domainListWatch) IsWatchListSemanticsUnSupported() bool { return true }
+
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
 	consecutiveFails := new(int)
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}
-	lw := &cache.ListWatch{
+	lw := domainListWatch{&cache.ListWatch{
 		ListWithContextFunc: func(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
 			log.Log.V(3).Info("Synchronizing domains")
 			domains, err := listAllKnownDomains()
@@ -248,6 +262,6 @@ func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
 			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
 		},
-	}
+	}}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }

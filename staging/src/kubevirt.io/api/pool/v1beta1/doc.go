@@ -20,5 +20,6 @@
 // +k8s:deepcopy-gen=package
 // +groupName=pool.kubevirt.io
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=io.kubevirt.api.pool.v1beta1
 
 package v1beta1
