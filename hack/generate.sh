@@ -51,6 +51,8 @@ openapi-gen \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/api/ \
     --output-pkg kubevirt.io/client-go/api/ \
     --output-file openapi_generated.go \
+    --output-model-name-file zz_generated.model_name.go \
+    --readonly-pkg k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/util/intstr,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1 \
     --report-filename ${KUBEVIRT_DIR}/api/api-rule-violations.list \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
     k8s.io/api/core/v1 \
