@@ -69,13 +69,13 @@ const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
 type StallDetectorOptions struct {
 	StallMargin               float64
-	StallProgressTimeout      uint64
-	SwitchoverTimeout         uint64
-	EwmaAlpha                 float64
-	PrecopyPossibleFactor     float64
-	PatienceWindowDecayFactor float64
+	StallProgressTimeout      int64
+	SwitchoverTimeout         int64
+	EwmaAlpha                 resource.Quantity
+	PrecopyPossibleFactor     resource.Quantity
+	PatienceWindowDecayFactor resource.Quantity
 	SearchLocalMinima         bool
-	CompletionTimeoutFactor   float64
+	CompletionTimeoutFactor   resource.Quantity
 }
 
 type MigrationOptions struct {

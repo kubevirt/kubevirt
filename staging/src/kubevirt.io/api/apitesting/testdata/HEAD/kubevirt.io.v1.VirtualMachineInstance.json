@@ -1021,13 +1021,13 @@
         "experimental": {
           "stallDetector": {
             "stallMargin": -11,
-            "ewmaAlpha": "ewmaAlphaValue",
-            "stallProgressTimeout": 18446744073709551596,
-            "switchoverTimeout": 18446744073709551599,
-            "precopyPossibleFactor": "precopyPossibleFactorValue",
-            "patienceWindowDecayFactor": "patienceWindowDecayFactorValue",
+            "ewmaAlpha": "0",
+            "stallProgressTimeout": -20,
+            "switchoverTimeout": -17,
+            "precopyPossibleFactor": "0",
+            "patienceWindowDecayFactor": "0",
             "searchLocalMinima": true,
-            "completionTimeoutFactor": "completionTimeoutFactorValue"
+            "completionTimeoutFactor": "0"
           }
         }
       },

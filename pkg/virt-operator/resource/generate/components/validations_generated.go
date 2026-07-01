@@ -4143,32 +4143,48 @@ var CRDsValidation map[string]string = map[string]string{
             stallDetector:
               properties:
                 completionTimeoutFactor:
+                  anyOf:
+                  - type: integer
+                  - type: string
                   description: |-
                     CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
                     the total time budget for deciding whether a forced switchover can still finish in time,
                     and to extend the abort deadline after initiating a completion-timeout-driven switchover.
-                    Defaults to "2".
-                  type: string
+                    Defaults to 2.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
                 ewmaAlpha:
+                  anyOf:
+                  - type: integer
+                  - type: string
                   description: |-
                     EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
                     observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
                     the estimate would never incorporate new samples. Higher values weight recent samples
                     more heavily.
-                    Defaults to "0.4".
-                  type: string
+                    Defaults to 0.4.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
                 patienceWindowDecayFactor:
+                  anyOf:
+                  - type: integer
+                  - type: string
                   description: |-
                     PatienceWindowDecayFactor is the factor by which the relaxation patience window is
                     multiplied after each best-remaining-bytes relaxation step.
-                    Defaults to "0.5".
-                  type: string
+                    Defaults to 0.5.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
                 precopyPossibleFactor:
+                  anyOf:
+                  - type: integer
+                  - type: string
                   description: |-
                     PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
                     MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
-                    Defaults to "1.5".
-                  type: string
+                    Defaults to 1.5.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
                 searchLocalMinima:
                   description: |-
                     SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
@@ -4193,6 +4209,7 @@ var CRDsValidation map[string]string = map[string]string{
                     minimum remaining-bytes and detect when migration progress has stalled.
                     Defaults to 40.
                   format: int64
+                  minimum: 0
                   type: integer
                 switchoverTimeout:
                   description: |-
@@ -4200,6 +4217,7 @@ var CRDsValidation map[string]string = map[string]string{
                     switchover to complete after being triggered before the migration is aborted.
                     Defaults to 60.
                   format: int64
+                  minimum: 0
                   type: integer
               type: object
           type: object
@@ -15562,32 +15580,48 @@ var CRDsValidation map[string]string = map[string]string{
                     stallDetector:
                       properties:
                         completionTimeoutFactor:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
                             the total time budget for deciding whether a forced switchover can still finish in time,
                             and to extend the abort deadline after initiating a completion-timeout-driven switchover.
-                            Defaults to "2".
-                          type: string
+                            Defaults to 2.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         ewmaAlpha:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
                             observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
                             the estimate would never incorporate new samples. Higher values weight recent samples
                             more heavily.
-                            Defaults to "0.4".
-                          type: string
+                            Defaults to 0.4.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         patienceWindowDecayFactor:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             PatienceWindowDecayFactor is the factor by which the relaxation patience window is
                             multiplied after each best-remaining-bytes relaxation step.
-                            Defaults to "0.5".
-                          type: string
+                            Defaults to 0.5.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         precopyPossibleFactor:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
                             MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
-                            Defaults to "1.5".
-                          type: string
+                            Defaults to 1.5.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         searchLocalMinima:
                           description: |-
                             SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
@@ -15612,6 +15646,7 @@ var CRDsValidation map[string]string = map[string]string{
                             minimum remaining-bytes and detect when migration progress has stalled.
                             Defaults to 40.
                           format: int64
+                          minimum: 0
                           type: integer
                         switchoverTimeout:
                           description: |-
@@ -15619,6 +15654,7 @@ var CRDsValidation map[string]string = map[string]string{
                             switchover to complete after being triggered before the migration is aborted.
                             Defaults to 60.
                           format: int64
+                          minimum: 0
                           type: integer
                       type: object
                   type: object
@@ -16241,32 +16277,48 @@ var CRDsValidation map[string]string = map[string]string{
                     stallDetector:
                       properties:
                         completionTimeoutFactor:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
                             the total time budget for deciding whether a forced switchover can still finish in time,
                             and to extend the abort deadline after initiating a completion-timeout-driven switchover.
-                            Defaults to "2".
-                          type: string
+                            Defaults to 2.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         ewmaAlpha:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             EwmaAlpha is the smoothing factor for the exponentially weighted moving average of
                             observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
                             the estimate would never incorporate new samples. Higher values weight recent samples
                             more heavily.
-                            Defaults to "0.4".
-                          type: string
+                            Defaults to 0.4.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         patienceWindowDecayFactor:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             PatienceWindowDecayFactor is the factor by which the relaxation patience window is
                             multiplied after each best-remaining-bytes relaxation step.
-                            Defaults to "0.5".
-                          type: string
+                            Defaults to 0.5.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         precopyPossibleFactor:
+                          anyOf:
+                          - type: integer
+                          - type: string
                           description: |-
                             PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
                             MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
-                            Defaults to "1.5".
-                          type: string
+                            Defaults to 1.5.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         searchLocalMinima:
                           description: |-
                             SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
@@ -16291,6 +16343,7 @@ var CRDsValidation map[string]string = map[string]string{
                             minimum remaining-bytes and detect when migration progress has stalled.
                             Defaults to 40.
                           format: int64
+                          minimum: 0
                           type: integer
                         switchoverTimeout:
                           description: |-
@@ -16298,6 +16351,7 @@ var CRDsValidation map[string]string = map[string]string{
                             switchover to complete after being triggered before the migration is aborted.
                             Defaults to 60.
                           format: int64
+                          minimum: 0
                           type: integer
                       type: object
                   type: object

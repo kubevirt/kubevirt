@@ -729,14 +729,14 @@ status:
       disableTLS: true
       experimental:
         stallDetector:
-          completionTimeoutFactor: completionTimeoutFactorValue
-          ewmaAlpha: ewmaAlphaValue
-          patienceWindowDecayFactor: patienceWindowDecayFactorValue
-          precopyPossibleFactor: precopyPossibleFactorValue
+          completionTimeoutFactor: "0"
+          ewmaAlpha: "0"
+          patienceWindowDecayFactor: "0"
+          precopyPossibleFactor: "0"
           searchLocalMinima: true
           stallMargin: -11
-          stallProgressTimeout: 18446744073709551596
-          switchoverTimeout: 18446744073709551599
+          stallProgressTimeout: -20
+          switchoverTimeout: -17
       matchSELinuxLevelOnMigration: true
       maxDowntimeMs: 18446744073709551603
       network: networkValue

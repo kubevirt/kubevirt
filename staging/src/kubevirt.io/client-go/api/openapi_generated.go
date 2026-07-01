@@ -25986,9 +25986,8 @@ func schema_kubevirtio_api_core_v1_StallDetectorOptions(ref common.ReferenceCall
 					},
 					"ewmaAlpha": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because the estimate would never incorporate new samples. Higher values weight recent samples more heavily. Defaults to \"0.4\".",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because the estimate would never incorporate new samples. Higher values weight recent samples more heavily. Defaults to 0.4.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"stallProgressTimeout": {
@@ -26007,16 +26006,14 @@ func schema_kubevirtio_api_core_v1_StallDetectorOptions(ref common.ReferenceCall
 					},
 					"precopyPossibleFactor": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration. Defaults to \"1.5\".",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration. Defaults to 1.5.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"patienceWindowDecayFactor": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PatienceWindowDecayFactor is the factor by which the relaxation patience window is multiplied after each best-remaining-bytes relaxation step. Defaults to \"0.5\".",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "PatienceWindowDecayFactor is the factor by which the relaxation patience window is multiplied after each best-remaining-bytes relaxation step. Defaults to 0.5.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"searchLocalMinima": {
@@ -26028,14 +26025,15 @@ func schema_kubevirtio_api_core_v1_StallDetectorOptions(ref common.ReferenceCall
 					},
 					"completionTimeoutFactor": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine the total time budget for deciding whether a forced switchover can still finish in time, and to extend the abort deadline after initiating a completion-timeout-driven switchover. Defaults to \"2\".",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine the total time budget for deciding whether a forced switchover can still finish in time, and to extend the abort deadline after initiating a completion-timeout-driven switchover. Defaults to 2.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
