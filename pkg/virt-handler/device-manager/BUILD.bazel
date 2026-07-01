@@ -46,8 +46,10 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "common_test.go",
         "device_controller_test.go",
         "device_manager_suite_test.go",
+        "export_test.go",
         "generic_device_test.go",
         "iommufd_device_test.go",
         "mediated_device_test.go",
