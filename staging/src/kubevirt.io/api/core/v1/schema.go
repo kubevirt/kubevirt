@@ -570,6 +570,10 @@ type Devices struct {
 	// Whether to attach the VSOCK CID to the VM or not.
 	// VSOCK access will be available if set to true. Defaults to false.
 	AutoattachVSOCK *bool `json:"autoattachVSOCK,omitempty"`
+	// Whether to attach a Panic Device.
+	// Defaults to false.
+	// +optional
+	AutoattachPanicDevice *bool `json:"autoattachPanicDevice,omitempty"`
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
