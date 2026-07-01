@@ -51,11 +51,16 @@ const (
 	pciBaseAddressMemoryType64   = uint64(0x00000004)
 	pciBaseAddressMemoryPrefetch = uint64(0x00000008)
 
-	graceDefaultIOMMUAccel   = "on"
-	graceDefaultIOMMUATS     = "on"
-	graceDefaultIOMMURIL     = "off"
-	graceSMMUv3IOMMUModel    = "smmuv3"
-	graceHostDeviceIOMMUFDOn = "yes"
+	graceDefaultIOMMUAccel = "on"
+	graceDefaultIOMMUATS   = "on"
+	graceDefaultIOMMURIL   = "off"
+	// Current Grace Blackwell and Vera Rubin systems support SSIDSize=20 and
+	// OAS=48. Keep these defaults explicit until host SMMU capability probing is
+	// available, then cap them to the host-supported values.
+	graceDefaultIOMMUSSIDSize = "20"
+	graceDefaultIOMMUOAS      = "48"
+	graceSMMUv3IOMMUModel     = "smmuv3"
+	graceHostDeviceIOMMUFDOn  = "yes"
 )
 
 type verifiedGraceHostDevice struct {
@@ -648,6 +653,12 @@ func (capabilities gracePCICapabilities) withDefaults() gracePCICapabilities {
 	if capabilities.RIL == "" {
 		capabilities.RIL = graceDefaultIOMMURIL
 	}
+	if capabilities.SSIDSize == "" {
+		capabilities.SSIDSize = graceDefaultIOMMUSSIDSize
+	}
+	if capabilities.OAS == "" {
+		capabilities.OAS = graceDefaultIOMMUOAS
+	}
 	return capabilities
 }
 
@@ -738,9 +749,12 @@ func (p sysfsGraceRuntimeInfoProvider) PCIHole64SizeBytes(bdf string) (uint64, e
 }
 
 func (p sysfsGraceRuntimeInfoProvider) PCICapabilities(_ string) (gracePCICapabilities, error) {
-	// TODO: Populate SSIDSize, OAS, and related SMMUv3 fields from PCI
-	// extended config space or IOMMUFD hardware info. Use Grace defaults until
-	// capability probing is wired into this focused Grace conversion path.
+	// Grace Blackwell and Vera Rubin systems require explicit SMMUv3 address
+	// capabilities, and the current platform values are SSIDSize=20 and OAS=48.
+	// Longer term, these must be capped by the host SMMU capabilities rather
+	// than hardcoded. OAS is visible in the arm-smmu-v3 probe log, while SSIDSize
+	// requires decoding the SMMU ID registers. Use the known Grace defaults until
+	// the kernel exposes these capabilities through a consumable interface.
 	return gracePCICapabilities{}.withDefaults(), nil
 }
 
