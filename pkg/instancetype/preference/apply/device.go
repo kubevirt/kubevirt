@@ -122,7 +122,13 @@ func applyPanicDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenc
 		return
 	}
 
-	// Only apply any preferred panic device when the same panic device has not been provided by a user already
+	if len(vmiSpec.Domain.Devices.PanicDevices) == 0 {
+		vmiSpec.Domain.Devices.PanicDevices = append(vmiSpec.Domain.Devices.PanicDevices, virtv1.PanicDevice{
+			Model: preferenceSpec.Devices.PreferredPanicDeviceModel,
+		})
+		return
+	}
+
 	for idx := range vmiSpec.Domain.Devices.PanicDevices {
 		panicDevice := &vmiSpec.Domain.Devices.PanicDevices[idx]
 		if panicDevice.Model != nil {
