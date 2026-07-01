@@ -229,6 +229,7 @@ type LibvirtDomainManager struct {
 	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker        converter.DirectIOChecker
 	disksInfo              map[string]*osdisk.DiskInfo
+	guestDiskSizes         map[string]int64
 	domainInfoStats        *stats.DomainJobInfo
 	diskMemoryLimitBytes   int64
 
@@ -380,6 +381,7 @@ func newLibvirtDomainManager(
 		ephemeralDiskCreator: ephemeralDiskCreator,
 		directIOChecker:      directIOChecker,
 		disksInfo:            map[string]*osdisk.DiskInfo{},
+		guestDiskSizes:       map[string]int64{},
 		domainInfoStats:      &stats.DomainJobInfo{},
 
 		metadataCache:                      metadataCache,
@@ -1624,28 +1626,7 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 	}
 
-	// Resize and notify the VM about changed disks
-	for _, disk := range domain.Spec.Devices.Disks {
-		if !isPVCBacked(disk.Alias.GetName(), vmi) {
-			continue
-		}
-		ds := disksource.Resolve(disk)
-		if ok, possibleGuestSize := shouldExpandOnline(dom, disk, ds); ok {
-			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
-			if possibleGuestSize == 0 {
-				if ds.HasOverlay() {
-					// https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainBlockResize
-					continue
-				}
-				flags |= libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY
-			}
-			logger.V(1).Infof("resizing disk %s with flags %d with size %d", disk.Alias.GetName(), flags, possibleGuestSize)
-			err := dom.BlockResize(ds.SourcePath(), uint64(possibleGuestSize), flags)
-			if err != nil {
-				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
-			}
-		}
-	}
+	l.expandDisksOnline(dom, domain, vmi)
 
 	return nil
 }
@@ -1988,39 +1969,6 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("error checking for block device: %v", err)
-}
-
-func shouldExpandOnline(dom cli.VirDomain, disk api.Disk, dt disksource.ResolvedDiskSource) (bool, int64) {
-	blockInfo, err := dom.GetBlockInfo(dt.SourcePath(), 0)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Failed to get block info")
-		return false, 0
-	}
-	if blockInfo.Capacity == 0 {
-		// A zero capacity indicates the source is not a valid disk
-		// image or that libvirt could not determine its size; skip
-		// expansion rather than risk incorrect resizing.
-		log.DefaultLogger().Warningf("domain disk %s returned capacity 0", disk.Alias.GetName())
-		return false, 0
-	}
-	// If block device, expand if capacity is lower than physical
-	if dt.BackendIsBlock() && blockInfo.Capacity >= blockInfo.Physical {
-		return false, 0
-	}
-
-	possibleGuestSize, ok := possibleGuestSize(disk, dt)
-	log.DefaultLogger().V(3).Infof("domain disk: %s, blockInfo reported size: %d, possibleGuestSize: %d",
-		disk.Alias.GetName(),
-		blockInfo.Capacity,
-		possibleGuestSize,
-	)
-	if !ok {
-		return false, 0
-	}
-	if !dt.BackendIsBlock() && possibleGuestSize <= int64(blockInfo.Capacity) {
-		return false, 0
-	}
-	return true, possibleGuestSize
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
