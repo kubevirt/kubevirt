@@ -1,0 +1,40 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dra-test-driver
+rules:
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims/status"]
+  verbs: ["update"]
+# Kubernetes 1.36+ enforces granular authorization for ResourceClaim status
+# writes via the DRAResourceClaimGranularStatusAuthorization feature gate. As a
+# node-local driver, we need the "associated-node" verbs on
+# "resourceclaims/driver" for our own driver name. This rule is inert on older
+# clusters that have not yet enabled the feature gate.
+# See https://github.com/kubernetes/kubernetes/issues/138149
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims/driver"]
+  verbs: ["associated-node:update", "associated-node:patch"]
+  resourceNames: ["test.kubevirt.io"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get"]
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceslices"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dra-test-driver
+subjects:
+- kind: ServiceAccount
+  name: dra-test-driver
+  namespace: kubevirt
+roleRef:
+  kind: ClusterRole
+  name: dra-test-driver
+  apiGroup: rbac.authorization.k8s.io
