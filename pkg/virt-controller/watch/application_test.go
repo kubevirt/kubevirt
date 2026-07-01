@@ -39,7 +39,6 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	clone "kubevirt.io/api/clone/v1beta1"
@@ -155,7 +154,7 @@ var _ = Describe("Application", func() {
 			cdiConfigInformer,
 			kvInformer,
 			config,
-			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
+			topology.NewTopologyHinter(&testutils.FakeStore{}, &testutils.FakeStore{}, nil),
 			nil,
 			nil,
 			func(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error { return nil },

@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "gangschedulingpolicy.go",
+        "podgroup.go",
+        "podgroupresourceclaim.go",
+        "podgroupresourceclaimstatus.go",
+        "podgroupschedulingconstraints.go",
+        "podgroupschedulingpolicy.go",
+        "podgroupspec.go",
+        "podgroupstatus.go",
+        "podgrouptemplate.go",
+        "podgrouptemplatereference.go",
+        "topologyconstraint.go",
+        "typedlocalobjectreference.go",
+        "workload.go",
+        "workloadpodgrouptemplatereference.go",
+        "workloadspec.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/scheduling/v1alpha2",
+    importpath = "k8s.io/client-go/applyconfigurations/scheduling/v1alpha2",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/api/scheduling/v1alpha2:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/managedfields:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/internal:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/meta/v1:go_default_library",
+    ],
+)

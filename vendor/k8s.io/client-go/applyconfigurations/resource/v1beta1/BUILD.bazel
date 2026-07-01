@@ -32,6 +32,7 @@ go_library(
         "devicetaint.go",
         "devicetoleration.go",
         "networkdevicedata.go",
+        "nodeallocatableresourcemapping.go",
         "opaquedeviceconfiguration.go",
         "resourceclaim.go",
         "resourceclaimconsumerreference.go",
@@ -47,6 +48,7 @@ go_library(
     importpath = "k8s.io/client-go/applyconfigurations/resource/v1beta1",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/resource/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
