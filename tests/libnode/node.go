@@ -53,6 +53,27 @@ import (
 
 const workerLabel = "node-role.kubernetes.io/worker"
 
+// WorkerLabelSelector returns the label selector used to list worker nodes in tests.
+func WorkerLabelSelector() string {
+	return workerLabel
+}
+
+// GetWorkerNodes returns worker nodes, falling back to non-control-plane nodes when
+// the worker role label has not been applied yet (e.g. OpenShift SNO).
+func GetWorkerNodes(virtClient kubecli.KubevirtClient) []k8sv1.Node {
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+		LabelSelector: "!node-role.kubernetes.io/control-plane",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	if len(nodeList.Items) == 0 {
+		nodeList, err = virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+			LabelSelector: workerLabel,
+		})
+		Expect(err).ToNot(HaveOccurred())
+	}
+	return nodeList.Items
+}
+
 var SchedulableNode = ""
 
 func CleanNodes() {
@@ -377,7 +398,7 @@ func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
 
 func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8sv1.Node {
 	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
+		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, v1.CPUManager, "true"),
 	})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(nodeList).ToNot(BeNil())

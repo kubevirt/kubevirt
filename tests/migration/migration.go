@@ -2460,6 +2460,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			By("getting the list of worker nodes that have cpumanager enabled")
 			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
+			Expect(len(nodes)).To(BeNumerically(">=", 2), "Need at least 2 nodes with CPU manager enabled")
 			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = libpod.RenderPod("pause-", nil, nil)
 			pausePod.Spec.Containers[0].Name = "compute"
