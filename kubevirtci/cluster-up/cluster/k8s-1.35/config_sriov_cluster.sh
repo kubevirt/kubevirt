@@ -20,7 +20,7 @@ SRIOVDP_RESOURCE_PREFIX="kubevirt.io"
 SRIOVDP_RESOURCE_NAME="sriov_net"
 VFS_DRIVER="vfio-pci"
 VFS_DRIVER_KMODULE="vfio_pci"
-VFS_COUNT="${VFS_COUNT:-6}"
+VFS_COUNT="${VFS_COUNT:-7}"
 KUBEVIRT_USE_DRA=${KUBEVIRT_USE_DRA:-false}
 
 # Source SR-IOV components deployment functions
@@ -98,7 +98,7 @@ done
 
 echo ""
 # Collect PF names from all nodes
-PFS_IN_USE="eth1"  # Our SR-IOV interface
+PFS_IN_USE="sriov0"  # Our SR-IOV interface
 
 if [[ "$KUBEVIRT_USE_DRA" != "true" ]]; then
   echo ""

@@ -109,7 +109,11 @@ function cluster::install_dra_example_driver() {
         bash demo/build-driver.sh
     )
 
-    ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}"
+    if [ "${CONTAINER_TOOL}" == "podman" ]; then
+        ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}" --tls-verify=false
+    else
+        ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}"
+    fi
 
     create_privileged_dra_driver_namespace
 
