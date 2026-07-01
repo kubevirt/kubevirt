@@ -26,6 +26,9 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
@@ -373,7 +376,14 @@ func (lh *LifecycleHandler) BackupHandler(request *restful.Request, response *re
 	err = client.VirtualMachineBackup(vmi, opts)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed backing up VM")
-		response.WriteError(http.StatusBadRequest, err)
+		httpStatus := http.StatusInternalServerError
+		switch status.Convert(err).Code() {
+		case codes.FailedPrecondition:
+			httpStatus = http.StatusConflict
+		case codes.InvalidArgument:
+			httpStatus = http.StatusBadRequest
+		}
+		response.WriteError(httpStatus, err)
 		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "BackupError", "%s: %s", "Failed backing up VM", err.Error())
 		return
 	}
