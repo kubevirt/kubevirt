@@ -4,6 +4,7 @@ load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "disk_expansion.go",
         "generated_mock_manager.go",
         "iommufd.go",
         "live-migration-source.go",
@@ -97,6 +98,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "disk_expansion_test.go",
         "live-migration-source_test.go",
         "live-migration-target_test.go",
         "manager_test.go",
