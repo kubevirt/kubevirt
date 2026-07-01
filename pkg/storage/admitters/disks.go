@@ -223,7 +223,7 @@ func validateBusSupport(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.St
 	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread && bus != v1.DiskBusVirtio {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus),
+			Message: fmt.Sprintf("DedicatedIOThreads are not supported for disks on a %s bus", bus),
 			Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
 		})
 	}

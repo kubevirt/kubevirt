@@ -1328,11 +1328,14 @@ var _ = Describe("Converter", func() {
 			)
 		})
 
-		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func(arch, expectedModel string) {
+		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and shared iothreads set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
+			c.SCSIMultiIOThreadEnabled = true
 			one := uint(1)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
+			policy := v1.IOThreadsPolicy(v1.IOThreadsPolicyShared)
+			vmi.Spec.Domain.IOThreadsPolicy = &policy
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
@@ -2398,6 +2401,13 @@ var _ = Describe("Converter", func() {
 
 	Context("IOThreads", func() {
 
+		getModelForArch := func(arch string) string {
+			if arch == s390x {
+				return "virtio-scsi"
+			}
+			return "virtio-non-transitional"
+		}
+
 		DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2677,6 +2687,105 @@ var _ = Describe("Converter", func() {
 
 			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
 			Expect(domain.Spec.Devices.Disks[0].Driver.IOThreads).To(Equal(iothreads))
+		})
+
+		It("Should set the iothread pool for virtio-blk but NOT for SCSI controller when SCSIMultiIOThread feature gate is disabled", func() {
+			count := uint(4)
+			vmi := libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(uint32(count))}),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0", libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= int(count); id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: false})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
+			Expect(domain.Spec.Devices.Disks[0].Driver.IOThreads).To(Equal(iothreads))
+
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:   "scsi",
+				Index:  "0",
+				Model:  getModelForArch(runtime.GOARCH),
+				Driver: nil,
+			}))
+		})
+
+		It("Should set iothreads for a vmi using auto policy with scsi and virtio-blk disks", func() {
+			cores := uint(4)
+			vmi := libvmi.New(
+				libvmi.WithCPURequest(strconv.Itoa(int(cores))),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0", libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithPersistentVolumeClaim("disk1", "pvc1"),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: true})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(3)))
+
+			autoThreads := 2
+			// disk0 will get its own dedicated thread from the three total iothreads,
+			// with two auto threads this disk should be the last thread
+			disk0, err := getDiskByName(domain.Spec, "disk0")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(int(*disk0.Driver.IOThread)).To(Equal(autoThreads+1), "dedicated thread for this disk should be one index after the last auto thread")
+
+			// disk1 gets assigned thread in round robin from total auto threads
+			// since first disk uses dedicated thread, this disk will get the first auto thread
+			disk1, err := getDiskByName(domain.Spec, "disk1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(int(*disk1.Driver.IOThread)).To(Equal(1), "disk should get first thread from auto pool")
+
+			// scsi controller should get allocated all total auto threads
+			// making sure to exclude any dedicated io threads
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= autoThreads; id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+
+			// verify scsi controller exists and has correct iothreads set
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: getModelForArch(runtime.GOARCH),
+				Driver: &api.ControllerDriver{
+					IOThreads: iothreads,
+					Queues:    &cores,
+				},
+			}))
+		})
+
+		It("Should set the scsi controller iothread pool with the supplementalPool policy", func() {
+			count := uint(4)
+			vmi := libvmi.New(
+				libvmi.WithCPURequest(strconv.Itoa(int(count))),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(uint32(count))}),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: true})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
+
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= int(count); id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+			// verify scsi controller exists and has correct iothreads set
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: getModelForArch(runtime.GOARCH),
+				Driver: &api.ControllerDriver{
+					IOThreads: iothreads,
+					Queues:    &count,
+				},
+			}))
 		})
 
 		It("Should honor shared ioThreadsPolicy for single disk", func() {

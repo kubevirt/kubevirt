@@ -978,9 +978,18 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	hasIOThreads := iothreads.HasIOThreads(vmi)
-	var ioThreadCount, autoThreads int
+	var ioThreadCount, autoThreads, scsiControllerThreads int
+	supplementalIOThreads := iothreads.BuildSupplementalPoolIOThreads(vmi)
 	if hasIOThreads {
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
+		if c.SCSIMultiIOThreadEnabled {
+			// if autoThreads is 0, then supplementalPool is being used
+			if autoThreads == 0 {
+				scsiControllerThreads = ioThreadCount
+			} else {
+				scsiControllerThreads = autoThreads
+			}
+		}
 	}
 
 	architecture := c.Architecture.GetArchitecture()
@@ -1035,7 +1044,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewControllersDomainConfigurator(
 			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
 			compute.ControllersWithSCSIModel(scsiControllerModel),
-			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
+			compute.ControllersWithSCSIIOThreads(uint(scsiControllerThreads)),
 			compute.ControllersWithControllerDriver(controllerDriver),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
@@ -1133,7 +1142,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
 	currentDedicatedThread := uint(autoThreads + 1)
-	supplementalIOThreads := iothreads.BuildSupplementalPoolIOThreads(vmi)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 		emptyCDRom := false

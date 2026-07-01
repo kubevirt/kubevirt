@@ -782,9 +782,10 @@ type Controller struct {
 
 // BEGIN ControllerDriver
 type ControllerDriver struct {
-	IOThread *uint  `xml:"iothread,attr,omitempty"`
-	Queues   *uint  `xml:"queues,attr,omitempty"`
-	IOMMU    string `xml:"iommu,attr,omitempty"`
+	IOThread  *uint          `xml:"iothread,attr,omitempty"`
+	IOThreads *DiskIOThreads `xml:"iothreads"`
+	Queues    *uint          `xml:"queues,attr,omitempty"`
+	IOMMU     string         `xml:"iommu,attr,omitempty"`
 }
 
 // END ControllerDriver

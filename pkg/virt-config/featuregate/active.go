@@ -278,6 +278,13 @@ const (
 	// hardware-accelerated virtualization. Independent of useEmulation.
 	// See VEP #172.
 	CrossArchitectureVirtualization = "CrossArchitectureVirtualization"
+
+	// Owner: sig-storage / @dsanatar
+	// Alpha: v1.10.0
+	//
+	// SCSIMultiIOThread enables iothread virtqueue mapping for virtio-scsi devices
+	// by leveraging IOThreadsPolicy to allocate thread pools to the SCSI Controller Driver.
+	SCSIMultiIOThread = "SCSIMultiIOThread"
 )
 
 func init() {
@@ -327,4 +334,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Alpha})
 }
