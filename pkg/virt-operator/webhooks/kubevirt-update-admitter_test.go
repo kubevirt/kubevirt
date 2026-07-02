@@ -562,6 +562,19 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				[]string{"Gate1", "Gate2", "Gate3"},
 				"Gate1", "Gate2", "Gate3"),
 		)
+
+		DescribeTable("should not emit empty warnings for Alpha/Beta feature gates in FeatureGates", func(gate string) {
+			devConfig := &v1.DeveloperConfiguration{FeatureGates: []string{gate}}
+			response := admitUpdate(devConfig)
+			Expect(response.Allowed).To(BeTrue())
+			for _, w := range response.Warnings {
+				Expect(w).NotTo(BeEmpty(), "got empty-string warning for gate %q", gate)
+			}
+		},
+			Entry("Alpha gate CPUManager", featuregate.CPUManager),
+			Entry("Beta gate KubevirtSeccompProfile", featuregate.KubevirtSeccompProfile),
+			Entry("Beta gate NodeRestrictionGate", featuregate.NodeRestrictionGate),
+		)
 	})
 })
 

@@ -461,11 +461,10 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 	for _, featureGate := range featureGates {
-		deprectedFeature := featuregate.FeatureGateInfo(featureGate)
-		if deprectedFeature != nil {
-			warning := deprectedFeature.Message
-			warnings = append(warnings, warning)
-			log.Log.Warning(warning)
+		fg := featuregate.FeatureGateInfo(featureGate)
+		if fg != nil && fg.Message != "" {
+			warnings = append(warnings, fg.Message)
+			log.Log.Warning(fg.Message)
 		}
 	}
 
