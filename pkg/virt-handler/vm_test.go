@@ -3409,9 +3409,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(HaveLen(2))
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].VolumeName).To(Equal("rootdisk"))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].DiskTarget).To(Equal("vda"))
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].VolumeName).To(Equal("datadisk"))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].DiskTarget).To(Equal("vdb"))
 					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(domainBackupMetadata.BackupMsg))
 				} else {
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
@@ -3431,7 +3429,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					CheckpointName: "test-checkpoint",
 					BackupMsg:      "backup completed successfully",
 					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk","diskTarget":"vda"},{"volumeName":"datadisk","diskTarget":"vdb"}]`,
+					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
 				}, false,
 			),
 			Entry("not update backupStatus when backupStatus StartTimestamp and backupMetadata StartTimestamp do not match (race condition)",
@@ -3444,7 +3442,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					CheckpointName: "test-checkpoint",
 					BackupMsg:      "backup completed successfully",
 					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk","diskTarget":"vda"},{"volumeName":"datadisk","diskTarget":"vdb"}]`,
+					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
 				}, false,
 			),
 			Entry("update backupStatus when backupStatus name and backupMetadata name match",
@@ -3458,7 +3456,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					CheckpointName: "test-checkpoint",
 					BackupMsg:      "backup completed successfully",
 					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk","diskTarget":"vda"},{"volumeName":"datadisk","diskTarget":"vdb"}]`,
+					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
 				}, true,
 			),
 		)

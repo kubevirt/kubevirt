@@ -513,6 +513,13 @@ func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceBackupVolumeInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachineInstanceBackupVolumeInfo contains information about a volume included in a backup\n+k8s:openapi-gen=true",
+		"volumeName": "VolumeName is the volume name from VMI spec",
+	}
+}
+
 func (ChangedBlockTrackingStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM\n+k8s:openapi-gen=true",

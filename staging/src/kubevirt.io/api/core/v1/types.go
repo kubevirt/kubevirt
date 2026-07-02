@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -2254,10 +2253,17 @@ type VirtualMachineInstanceBackupStatus struct {
 	// Volumes lists the volumes included in the backup
 	// +optional
 	// +listType=atomic
-	Volumes []backupv1.BackupVolumeInfo `json:"volumes,omitempty"`
+	Volumes []VirtualMachineInstanceBackupVolumeInfo `json:"volumes,omitempty"`
 	// QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.
 	// +optional
 	QuiesceStatus string `json:"quiesceStatus,omitempty"`
+}
+
+// VirtualMachineInstanceBackupVolumeInfo contains information about a volume included in a backup
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceBackupVolumeInfo struct {
+	// VolumeName is the volume name from VMI spec
+	VolumeName string `json:"volumeName"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM

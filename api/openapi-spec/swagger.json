@@ -18705,9 +18705,23 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
+       "$ref": "#/definitions/v1.VirtualMachineInstanceBackupVolumeInfo"
       },
       "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceBackupVolumeInfo": {
+    "description": "VirtualMachineInstanceBackupVolumeInfo contains information about a volume included in a backup",
+    "type": "object",
+    "required": [
+     "volumeName"
+    ],
+    "properties": {
+     "volumeName": {
+      "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -20590,7 +20604,7 @@
       "type": "string"
      },
      "volumes": {
-      "description": "Volumes lists volumes and their disk targets at backup time",
+      "description": "Volumes lists volumes included in the backup",
       "type": "array",
       "items": {
        "default": {},
@@ -20646,18 +20660,12 @@
     "description": "BackupVolumeInfo contains information about a volume included in a backup",
     "type": "object",
     "required": [
-     "volumeName",
-     "diskTarget"
+     "volumeName"
     ],
     "properties": {
      "dataEndpoint": {
       "description": "DataEndpoint is the URL of the endpoint for read for pull mode",
       "type": "string"
-     },
-     "diskTarget": {
-      "description": "DiskTarget is the disk target device name at backup time",
-      "type": "string",
-      "default": ""
      },
      "mapEndpoint": {
       "description": "MapEndpoint is the URL of the endpoint for map for pull mode",

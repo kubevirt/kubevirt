@@ -205,7 +205,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint, []backupv1.BackupVolumeInfo) {
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
@@ -223,7 +223,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 	checkpointName := fmt.Sprintf("%s-%s", backupOptions.BackupName, backupTime)
 	backupDisks := &api.BackupDisks{}
 	checkpointDisks := &api.CheckpointDisks{}
-	var backupVolumesInfo []backupv1.BackupVolumeInfo
+	var backupVolumesInfo []v1.VirtualMachineInstanceBackupVolumeInfo
 	// the name of the volume should match the alias
 	for _, disk := range disks {
 		if disk.Target.Device == "" {
@@ -247,9 +247,8 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 				setBackupDiskTargetPath(&backupDisk, backupOptions, volumeName, backupPath)
 			}
 			checkpointDisk.Checkpoint = "bitmap"
-			backupVolumesInfo = append(backupVolumesInfo, backupv1.BackupVolumeInfo{
+			backupVolumesInfo = append(backupVolumesInfo, v1.VirtualMachineInstanceBackupVolumeInfo{
 				VolumeName: volumeName,
-				DiskTarget: disk.Target.Device,
 			})
 		} else {
 			backupDisk.Backup = "no"
