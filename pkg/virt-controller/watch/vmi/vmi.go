@@ -334,6 +334,9 @@ func (c *Controller) execute(key string) error {
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.vmiExpectations.SatisfiedExpectations(key) && c.pvcExpectations.SatisfiedExpectations(key)
 
 	if !needsSync {
+		// Re-enqueue so a missed expectation event (for example an attachment pod deletion)
+		// can't delay the sync until the next informer resync.
+		c.Queue.AddAfter(key, controller.ExpectationsTimeout)
 		return nil
 	}
 
