@@ -131,7 +131,7 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 					vmi = setupVMI(
 						virtClient,
 						libvmifact.NewAlpine(
-							libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+							libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						),
 					)
