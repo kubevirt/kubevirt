@@ -62,11 +62,67 @@ func (m *hotplugMounter) IsMounted(vmi *v1.VirtualMachineInstance, volumeName st
 	if virtLauncherUID == "" {
 		return false, nil
 	}
+	return m.isMountedForUID(virtLauncherUID, volumeName)
+}
+
+// isMountedForUID checks whether a hotplug container-disk volume is mounted under a
+// specific launcher pod, without requiring a running virt-launcher (no command socket).
+// Unlike IsMounted it must be usable during teardown, when the guest has already exited.
+func (m *hotplugMounter) isMountedForUID(virtLauncherUID types.UID, volumeName string) (bool, error) {
 	target, err := m.hotplugManager.GetFileSystemDiskTargetPathFromHostView(virtLauncherUID, volumeName, false)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	return isolation.IsMounted(target)
+}
+
+// candidateLauncherUIDs returns launcher/attachment pod UIDs that have a hotplug target
+// directory on this host, WITHOUT requiring a running command socket. findVirtlauncherUID
+// only returns pods that are still running, so it yields nothing during teardown (guest
+// exited) or when both source and target launchers exist during migration; in those cases
+// the mounts must still be cleaned up.
+func (m *hotplugMounter) candidateLauncherUIDs(vmi *v1.VirtualMachineInstance) []types.UID {
+	seen := make(map[types.UID]struct{})
+	var uids []types.UID
+	add := func(u types.UID) {
+		if u == "" {
+			return
+		}
+		if _, dup := seen[u]; dup {
+			return
+		}
+		// Only consider pods whose hotplug target dir exists on this host: this filters
+		// out pods scheduled to other nodes and already-cleaned pods.
+		if _, err := m.hotplugManager.GetHotplugTargetPodPathOnHost(u); err != nil {
+			return
+		}
+		seen[u] = struct{}{}
+		uids = append(uids, u)
+	}
+	for u := range vmi.Status.ActivePods {
+		add(u)
+	}
+	if vmi.Status.MigrationState != nil {
+		add(vmi.Status.MigrationState.TargetAttachmentPodUID)
+	}
+	return uids
+}
+
+// getMountedVolumesInWorldAll scans all candidate launcher pods for mounted hotplug
+// container-disk volumes. Used by teardown so cleanup does not depend on a running launcher.
+func (m *hotplugMounter) getMountedVolumesInWorldAll(vmi *v1.VirtualMachineInstance) ([]vmiMountTargetEntry, error) {
+	var entries []vmiMountTargetEntry
+	for _, uid := range m.candidateLauncherUIDs(vmi) {
+		e, err := m.getMountedVolumesInWorld(vmi, uid)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, e...)
+	}
+	return entries, nil
 }
 
 func NewHotplugMounter(isoDetector isolation.PodIsolationDetector,
@@ -434,7 +490,7 @@ func (m *hotplugMounter) getMountedVolumesInWorld(vmi *v1.VirtualMachineInstance
 	}
 	var mountedVolumes []vmiMountTargetEntry
 	for _, v := range volumes {
-		mounted, err := m.IsMounted(vmi, v)
+		mounted, err := m.isMountedForUID(virtLauncherUID, v)
 		if err != nil {
 			return nil, err
 		}
@@ -484,7 +540,7 @@ func (m *hotplugMounter) Umount(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
-	worldEntries, err := m.getMountedVolumesInWorld(vmi, m.findVirtlauncherUID(vmi))
+	worldEntries, err := m.getMountedVolumesInWorldAll(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to get world entries: %w", err)
 	}
@@ -583,7 +639,7 @@ func (m *hotplugMounter) UmountAll(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
-	worldEntries, err := m.getMountedVolumesInWorld(vmi, m.findVirtlauncherUID(vmi))
+	worldEntries, err := m.getMountedVolumesInWorldAll(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to get world entries: %w", err)
 	}
