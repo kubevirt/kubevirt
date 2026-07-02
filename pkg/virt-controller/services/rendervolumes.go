@@ -365,11 +365,13 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 				continue
 			}
 			volumeName := secretName + "-access-cred"
+			optional := true
 			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 				Name: volumeName,
 				VolumeSource: k8sv1.VolumeSource{
 					Secret: &k8sv1.SecretVolumeSource{
 						SecretName: secretName,
+						Optional:   &optional,
 					},
 				},
 			})
