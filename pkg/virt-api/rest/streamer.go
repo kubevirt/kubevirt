@@ -29,22 +29,13 @@ import (
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
-type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
-type validator func(vmi *v1.VirtualMachineInstance) *errors.StatusError
-type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult)
-type streamFuncResult error
-
-type dialer interface {
-	Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError)
-	DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *errors.StatusError)
-}
+type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error)
 
 type Streamer struct {
 	dialer          *DirectDialer
@@ -54,35 +45,29 @@ type Streamer struct {
 	streamToServer streamFunc
 }
 
-type DirectDialer struct {
-	fetchVMI    vmiFetcher
-	validateVMI validator
-	dial        dialer
-}
-
-func NewRawStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer {
+func NewRawStreamer(dialer *DirectDialer) *Streamer {
 	return &Streamer{
-		dialer: NewDirectDialer(fetch, validate, dial),
-		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		dialer: dialer,
+		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := io.Copy(serverConn, clientConn.UnderlyingConn())
 			result <- err
 		},
-		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := io.Copy(clientConn.UnderlyingConn(), serverConn)
 			result <- err
 		},
 	}
 }
 
-func NewWebsocketStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer {
+func NewWebsocketStreamer(dialer *DirectDialer) *Streamer {
 	return &Streamer{
-		dialer:          NewDirectDialer(fetch, validate, dial),
+		dialer:          dialer,
 		keepAliveClient: keepAliveClientStream,
-		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := kvcorev1.CopyFrom(serverConn, clientConn)
 			result <- err
 		},
-		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- error) {
 			_, err := kvcorev1.CopyTo(clientConn, serverConn)
 			result <- err
 		},
@@ -92,7 +77,7 @@ func NewWebsocketStreamer(fetch vmiFetcher, validate validator, dial dialer) *St
 func (s *Streamer) Handle(request *restful.Request, response *restful.Response) error {
 	namespace := request.PathParameter(definitions.NamespaceParamName)
 	name := request.PathParameter(definitions.NameParamName)
-	serverConn, statusErr := s.dialer.DialUnderlying(namespace, name)
+	serverConn, statusErr := s.dialer.Dial(namespace, name)
 
 	if statusErr != nil {
 		writeError(statusErr, response)
@@ -113,7 +98,7 @@ func (s *Streamer) Handle(request *restful.Request, response *restful.Response) 
 		go s.keepAliveClient(context.Background(), clientConn, cancel)
 	}
 
-	results := make(chan streamFuncResult, 2)
+	results := make(chan error, 2)
 	defer close(results)
 
 	go s.streamToClient(clientConn, serverConn, results)
@@ -171,41 +156,4 @@ func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel fun
 			}
 		}
 	}
-}
-
-func NewDirectDialer(fetch vmiFetcher, validate validator, dial dialer) *DirectDialer {
-	return &DirectDialer{
-		fetchVMI:    fetch,
-		validateVMI: validate,
-		dial:        dial,
-	}
-}
-
-func (d *DirectDialer) Dial(namespace, name string) (*websocket.Conn, *errors.StatusError) {
-	vmi, err := d.fetchAndValidateVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.dial.Dial(vmi)
-}
-
-func (d *DirectDialer) DialUnderlying(namespace, name string) (net.Conn, *errors.StatusError) {
-	vmi, err := d.fetchAndValidateVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return d.dial.DialUnderlying(vmi)
-}
-
-func (d *DirectDialer) fetchAndValidateVMI(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vmi, err := d.fetchVMI(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-	if err := d.validateVMI(vmi); err != nil {
-		return nil, err
-	}
-	return vmi, nil
 }

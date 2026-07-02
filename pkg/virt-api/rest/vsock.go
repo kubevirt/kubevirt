@@ -34,15 +34,15 @@ import (
 
 func (app *SubresourceAPIApp) VSOCKRequestHandler(request *restful.Request, response *restful.Response) {
 	streamer := NewRawStreamer(
-		app.FetchVirtualMachineInstance,
-		validateVMIForVSOCK,
-		app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-			tls := "true"
-			if request.QueryParameter("tls") != "" {
-				tls = request.QueryParameter("tls")
-			}
-			return conn.VSOCKURI(vmi, request.QueryParameter("port"), tls)
-		}),
+		NewDirectDialer(app.FetchVirtualMachineInstance, validateVMIForVSOCK,
+			app.virtHandlerDialer(func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+				tls := "true"
+				if request.QueryParameter("tls") != "" {
+					tls = request.QueryParameter("tls")
+				}
+				return conn.VSOCKURI(vmi, request.QueryParameter("port"), tls)
+			}),
+		),
 	)
 
 	streamer.Handle(request, response)

@@ -25,7 +25,10 @@ type StreamOptions struct {
 	Out io.Writer
 }
 type StreamInterface interface {
+	// Stream streams the input and output respectively from/to stream.
+	// On any error/EOF or end of input/stream it returns.
 	Stream(options StreamOptions) error
+	// AsConn returns net.Conn compatible stream
 	AsConn() net.Conn
 }
 
