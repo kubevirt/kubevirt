@@ -779,6 +779,22 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				addVMI(vmi, domain)
 			} else {
 				createVMI(vmi)
+
+				controller.Execute()
+
+				inProgressVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(inProgressVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+				Expect(inProgressVMI.Status.MigrationState.Completed).To(BeFalse())
+
+				sourceEnd := metav1.Now()
+				inProgressVMI.Status.MigrationState.EndTimestamp = &sourceEnd
+				_, err = virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Update(context.TODO(), inProgressVMI, metav1.UpdateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(controller.vmiStore.Update(inProgressVMI)).To(Succeed())
+				key, err := virtcontroller.KeyFunc(inProgressVMI)
+				Expect(err).NotTo(HaveOccurred())
+				controller.queue.Add(key)
 			}
 
 			client.EXPECT().SignalTargetPodCleanup(gomock.Any())
@@ -876,6 +892,157 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(controller.handleDecentralizedMigrationAbort(vmi, domain)).To(Succeed())
 		Expect(vmi.Status.MigrationState).To(Equal(stateBefore))
 		Expect(recorder.Events).NotTo(Receive())
+	})
+
+	Context("when decentralized target migration is cancelled while source is still migrating", func() {
+		const (
+			targetMigrationUID        = types.UID("target-migration-uid")
+			decentralizedSourceVMIUID = types.UID("source-vmi-uid")
+		)
+
+		setupDecentralizedTargetAbortWithProxy := func() string {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Annotations = map[string]string{v1.CreateMigrationTarget: "true"}
+			vmi.Status.Phase = v1.WaitingForSync
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+			vmi.Status.MigrationTransport = v1.MigrationTransportUnix
+
+			start := metav1.Now()
+			vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(BeNil())
+
+			vmi = addActivePods(vmi, podTestUUID, host)
+			createVMI(vmi)
+
+			Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)).To(Succeed())
+			socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
+			Expect(os.RemoveAll(socketFile)).To(Succeed())
+			socket, err := net.Listen("unix", socketFile)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoT().Cleanup(func() { socket.Close() })
+
+			Expect(controller.handleTargetMigrationProxy(vmi)).To(Succeed())
+			proxyKey := string(decentralizedSourceVMIUID)
+			Expect(controller.migrationProxy.GetTargetListenerPorts(proxyKey)).NotTo(BeEmpty())
+
+			return proxyKey
+		}
+
+		// Target VMIM deleted while source migration is still running. The target must
+		// not tear down the migration proxy until source abort completion is synced.
+		It("does not finalize target abort until source migration has completed", func() {
+			proxyKey := setupDecentralizedTargetAbortWithProxy()
+
+			controller.Execute()
+
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), "testvmi", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+			Expect(controller.migrationProxy.GetTargetListenerPorts(proxyKey)).NotTo(BeEmpty())
+
+			sourceEnd := metav1.Now()
+			updatedVMI.Status.MigrationState.EndTimestamp = &sourceEnd
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Update(context.TODO(), updatedVMI, metav1.UpdateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.vmiStore.Update(updatedVMI)).To(Succeed())
+			key, err := virtcontroller.KeyFunc(updatedVMI)
+			Expect(err).NotTo(HaveOccurred())
+			controller.queue.Add(key)
+
+			client.EXPECT().SignalTargetPodCleanup(gomock.Any())
+			sanityExecute()
+
+			updatedVMI, err = virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), "testvmi", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.Failed).To(BeTrue())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+			Expect(updatedVMI.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortSucceeded))
+			Expect(updatedVMI.Status.MigrationState.FailureReason).To(Equal("Live migration has been aborted"))
+			Expect(controller.migrationProxy.GetTargetListenerPorts(proxyKey)).To(BeEmpty())
+		})
+
+		It("should keep the migration proxy listening until the source abort has completed", func() {
+			proxyKey := setupDecentralizedTargetAbortWithProxy()
+
+			controller.Execute()
+
+			Expect(controller.migrationProxy.GetTargetListenerPorts(proxyKey)).NotTo(BeEmpty())
+
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), "testvmi", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+		})
+	})
+
+	Describe("processVMI when migration proxy is listening during abort", func() {
+		setupTargetAbortMigrationProxy := func(vmi *v1.VirtualMachineInstance) string {
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)).To(Succeed())
+			socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
+			Expect(os.RemoveAll(socketFile)).To(Succeed())
+			socket, err := net.Listen("unix", socketFile)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoT().Cleanup(func() { socket.Close() })
+
+			Expect(controller.handleTargetMigrationProxy(vmi)).To(Succeed())
+			proxyKey := migrationProxyKey(vmi)
+			Expect(controller.migrationProxy.GetTargetListenerPorts(proxyKey)).NotTo(BeEmpty())
+			return proxyKey
+		}
+
+		It("returns early for decentralized abort so source-abort wait stays in handleDecentralizedMigrationAbort", func() {
+			const targetMigrationUID = types.UID("target-migration-uid")
+
+			start := metav1.Now()
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Annotations = map[string]string{v1.CreateMigrationTarget: "true"}
+			vmi.Status.MigrationTransport = v1.MigrationTransportUnix
+			vmi.Labels = map[string]string{v1.MigrationTargetNodeNameLabel: host}
+			vmi.Status.MigrationState = decentralizedTargetAbortMigrationState(targetMigrationUID, host, "othernode", start, true)
+			Expect(vmi.IsDecentralizedMigration()).To(BeTrue())
+
+			setupTargetAbortMigrationProxy(vmi)
+
+			launcherClients := controller.launcherClients.(*launcherclients.MockLauncherClientManager)
+			launcherClients.UnResponsive = true
+
+			err, skipExpectations := controller.processVMI(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(skipExpectations).To(BeTrue(), "decentralized abort must take the prepared-target early return")
+		})
+
+		It("falls through for centralized abort so checkLauncherClient runs", func() {
+			start := metav1.Now()
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = map[string]string{v1.MigrationTargetNodeNameLabel: host}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:     host,
+				SourceNode:     "othernode",
+				MigrationUID:   "centralized-migration-uid",
+				StartTimestamp: &start,
+				AbortRequested: true,
+			}
+			Expect(vmi.IsDecentralizedMigration()).To(BeFalse())
+
+			setupTargetAbortMigrationProxy(vmi)
+
+			launcherClients := controller.launcherClients.(*launcherclients.MockLauncherClientManager)
+			launcherClients.UnResponsive = true
+
+			err, skipExpectations := controller.processVMI(vmi)
+			Expect(err).To(MatchError(ContainSubstring("unresponsive command server")))
+			Expect(skipExpectations).To(BeFalse(), "centralized abort must not take the prepared-target early return")
+		})
 	})
 
 	It("should not accidentally update VMI spec on cleanup", func() {
