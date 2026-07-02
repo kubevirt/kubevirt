@@ -204,13 +204,19 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			break
 		}
 	}
-
-	const resourceQuantityDefinition = "k8s.io.apimachinery.pkg.api.resource.Quantity"
-
-	quantity, exists := openapispec.Definitions[resourceQuantityDefinition]
+	resourceRequirements, exists := openapispec.Definitions["v1.ResourceRequirements"]
 	if exists {
-		quantity.Type = spec.StringOrArray{"string", "integer", "number"}
-		openapispec.Definitions[resourceQuantityDefinition] = quantity
+		limits, exists := resourceRequirements.Properties["limits"]
+		if exists {
+			limits.AdditionalProperties = nil
+			resourceRequirements.Properties["limits"] = limits
+		}
+		requests, exists := resourceRequirements.Properties["requests"]
+		if exists {
+			requests.AdditionalProperties = nil
+			resourceRequirements.Properties["requests"] = requests
+		}
+
 	}
 
 	objectMeta, exists := openapispec.Definitions[objectmeta]
