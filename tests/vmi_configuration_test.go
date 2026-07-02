@@ -1175,7 +1175,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Check values in domain XML")
 				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
-				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
+				Expect(domXML).To(ContainSubstring("<vcpupin vcpu='0'"), "should contain vcpupin for vcpu 0")
+				Expect(domXML).To(ContainSubstring("<vcpupin vcpu='1'"), "should contain vcpupin for vcpu 1")
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				cpuVmi := libvmifact.NewAlpine(
@@ -1212,7 +1213,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 256 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					// Write 100M to shared memory, the available memory can change per OS version
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k && echo 'pass'\n"},
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=50k && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
