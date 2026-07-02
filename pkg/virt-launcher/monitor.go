@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -260,7 +261,16 @@ func pidExists(pid int) (exists bool, isZombie bool, err error) {
 }
 
 func FindPid(domainName string, pidDir string) (int, error) {
-	content, err := os.ReadFile(filepath.Join(pidDir, domainName+".pid"))
+	pidFile, err := safepath.JoinAndResolveWithRelativeRoot(pidDir, domainName+".pid")
+	if err != nil {
+		return 0, err
+	}
+
+	var content []byte
+	err = pidFile.ExecuteNoFollow(func(safePath string) (err error) {
+		content, err = os.ReadFile(safePath)
+		return err
+	})
 	if err != nil {
 		return 0, err
 	}

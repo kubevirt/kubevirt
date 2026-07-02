@@ -15,6 +15,7 @@ go_library(
     deps = [
         "//pkg/filewatcher:go_default_library",
         "//pkg/os/disk:go_default_library",
+        "//pkg/safepath:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/volumepath:go_default_library",
         "//pkg/tpm:go_default_library",
