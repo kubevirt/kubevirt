@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
+	snapshotapi "kubevirt.io/api/snapshot/v1beta1"
 )
 
 func (k *kubevirtClient) ExpandSpec(namespace string) ExpandSpecInterface {
@@ -35,4 +36,24 @@ func (e *expandSpec) ForVirtualMachine(vm *v1.VirtualMachine) (*v1.VirtualMachin
 	expandedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return expandedVm, err
+}
+
+func (e *expandSpec) ForSnapshotVirtualMachine(snapshotVM *snapshotapi.VirtualMachine) (*snapshotapi.VirtualMachine, error) {
+	regularVM := &v1.VirtualMachine{
+		ObjectMeta: snapshotVM.ObjectMeta,
+		Spec:       snapshotVM.Spec,
+	}
+
+	expandedVM, err := e.ForVirtualMachine(regularVM)
+	if err != nil {
+		return nil, err
+	}
+
+	expandedSnapshotVM := &snapshotapi.VirtualMachine{
+		ObjectMeta: snapshotVM.ObjectMeta,
+		Spec:       expandedVM.Spec,
+		Status:     snapshotVM.Status,
+	}
+
+	return expandedSnapshotVM, nil
 }

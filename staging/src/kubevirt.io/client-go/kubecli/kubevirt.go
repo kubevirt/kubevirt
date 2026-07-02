@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
+	snapshotapi "kubevirt.io/api/snapshot/v1beta1"
 	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
 	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
 	generatedclient "kubevirt.io/client-go/kubevirt"
@@ -270,4 +271,5 @@ type ServerVersionInterface interface {
 
 type ExpandSpecInterface interface {
 	ForVirtualMachine(vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
+	ForSnapshotVirtualMachine(vm *snapshotapi.VirtualMachine) (*snapshotapi.VirtualMachine, error)
 }
