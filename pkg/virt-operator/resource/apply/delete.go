@@ -116,7 +116,22 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	if !util.IsStoreEmpty(stores.OperatorCrdCache) {
-		// wait until CRDs are gone
+		crdKeys := stores.OperatorCrdCache.ListKeys()
+		log.Log.Infof("DeleteAll: waiting on %d CRDs to be removed from cache: %v", len(crdKeys), crdKeys)
+		for _, obj := range stores.OperatorCrdCache.List() {
+			if crd, ok := obj.(*extv1.CustomResourceDefinition); ok {
+				dt := "nil"
+				if crd.DeletionTimestamp != nil {
+					dt = crd.DeletionTimestamp.String()
+				}
+				var conditions []string
+				for _, c := range crd.Status.Conditions {
+					conditions = append(conditions, fmt.Sprintf("%s=%s(%s)", c.Type, c.Status, c.Reason))
+				}
+				log.Log.Infof("DeleteAll: CRD %s deletionTimestamp=%s finalizers=%v conditions=%v",
+					crd.Name, dt, crd.Finalizers, conditions)
+			}
+		}
 		return nil
 	}
 
