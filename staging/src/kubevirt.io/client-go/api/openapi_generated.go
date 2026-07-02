@@ -546,8 +546,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SyNICTimer":                                                              schema_kubevirtio_api_core_v1_SyNICTimer(ref),
 		"kubevirt.io/api/core/v1.SysprepSource":                                                           schema_kubevirtio_api_core_v1_SysprepSource(ref),
 		"kubevirt.io/api/core/v1.TDX":                                                                     schema_kubevirtio_api_core_v1_TDX(ref),
+		"kubevirt.io/api/core/v1.TDXAttestation":                                                          schema_kubevirtio_api_core_v1_TDXAttestation(ref),
 		"kubevirt.io/api/core/v1.TDXAttestationConfiguration":                                             schema_kubevirtio_api_core_v1_TDXAttestationConfiguration(ref),
 		"kubevirt.io/api/core/v1.TDXConfiguration":                                                        schema_kubevirtio_api_core_v1_TDXConfiguration(ref),
+		"kubevirt.io/api/core/v1.TDXInitdataOptions":                                                      schema_kubevirtio_api_core_v1_TDXInitdataOptions(ref),
 		"kubevirt.io/api/core/v1.TLBFlush":                                                                schema_kubevirtio_api_core_v1_TLBFlush(ref),
 		"kubevirt.io/api/core/v1.TLSConfiguration":                                                        schema_kubevirtio_api_core_v1_TLSConfiguration(ref),
 		"kubevirt.io/api/core/v1.TPMDevice":                                                               schema_kubevirtio_api_core_v1_TPMDevice(ref),
@@ -21387,6 +21389,26 @@ func schema_kubevirtio_api_core_v1_Firmware(ref common.ReferenceCallback) common
 							Ref:         ref("kubevirt.io/api/core/v1.ACPI"),
 						},
 					},
+					"oemStrings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "OEM Strings to be set in the SMBIOS",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -26270,6 +26292,33 @@ func schema_kubevirtio_api_core_v1_TDX(ref common.ReferenceCallback) common.Open
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mrConfigId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Base64-encoded 48-byte value included in the TDX measurement (MRTD). When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"attestation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, run the attestation process for a vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.TDXAttestation"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.TDXAttestation"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_TDXAttestation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}
@@ -26318,6 +26367,46 @@ func schema_kubevirtio_api_core_v1_TDXConfiguration(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.TDXAttestationConfiguration"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_TDXInitdataOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TDXInitdataOptions is used to provide TDX initdata parameters.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mrConfigId": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"oemStrings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"mrConfigId", "oemStrings"},
+			},
+		},
 	}
 }
 

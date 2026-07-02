@@ -2089,6 +2089,10 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, nil
 	}
 
+	if c.shouldWaitForTDXAttestation(vmi) {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -2106,6 +2110,15 @@ func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMa
 		sev := vmi.Spec.Domain.LaunchSecurity.SEV
 		// Wait for the session parameters to be provided
 		return sev.Session == "" || sev.DHCert == ""
+	}
+	return false
+}
+
+func (c *VirtualMachineController) shouldWaitForTDXAttestation(vmi *v1.VirtualMachineInstance) bool {
+	if util.IsTDXAttestationRequested(vmi) {
+		tdx := vmi.Spec.Domain.LaunchSecurity.TDX
+		// Wait for the MRConfigId to be provided
+		return tdx.MRConfigId == ""
 	}
 	return false
 }

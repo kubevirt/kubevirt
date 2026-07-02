@@ -1816,6 +1816,20 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) SoftReboot(ctx, name 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SoftReboot", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).SoftReboot), ctx, name)
 }
 
+// TDXInjectInitdata mocks base method.
+func (m *MockVirtualMachineInstanceInterface) TDXInjectInitdata(ctx context.Context, name string, tdxInitdata *v122.TDXInitdataOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TDXInjectInitdata", ctx, name, tdxInitdata)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// TDXInjectInitdata indicates an expected call of TDXInjectInitdata.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) TDXInjectInitdata(ctx, name, tdxInitdata any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TDXInjectInitdata", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).TDXInjectInitdata), ctx, name, tdxInitdata)
+}
+
 // USBRedir mocks base method.
 func (m *MockVirtualMachineInstanceInterface) USBRedir(vmiName string) (v123.StreamInterface, error) {
 	m.ctrl.T.Helper()

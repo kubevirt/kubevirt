@@ -20,6 +20,7 @@
 package webhooks
 
 import (
+	"encoding/base64"
 	"fmt"
 	"slices"
 
@@ -158,6 +159,29 @@ func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineIn
 					Field:   field.Child("launchSecurity").String(),
 				})
 			}
+		}
+
+		if launchSecurity.TDX != nil &&
+			(startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+			if launchSecurity.TDX.Attestation != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("TDX attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+
+		if launchSecurity.TDX != nil && launchSecurity.TDX.MRConfigId != "" {
+			decoded, decodeErr := base64.StdEncoding.DecodeString(launchSecurity.TDX.MRConfigId)
+			if decodeErr != nil || len(decoded) != 48 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "MRConfigId must be a base64-encoded value of exactly 48 bytes",
+					Field:   field.Child("launchSecurity", "tdx", "mrConfigId").String(),
+				})
+			}
+
 		}
 
 		for _, iface := range spec.Domain.Devices.Interfaces {

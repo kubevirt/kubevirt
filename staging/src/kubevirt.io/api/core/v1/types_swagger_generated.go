@@ -1288,6 +1288,13 @@ func (SEVSecretOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (TDXInitdataOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "TDXInitdataOptions is used to provide TDX initdata parameters.",
+		"oemStrings": "+listType=atomic",
+	}
+}
+
 func (ObjectGraphNode) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "ObjectGraphNode represents an individual node in the graph.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",

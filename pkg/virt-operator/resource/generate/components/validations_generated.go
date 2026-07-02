@@ -7489,6 +7489,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 boot time
                               type: string
                           type: object
+                        oemStrings:
+                          description: OEM Strings to be set in the SMBIOS
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -7547,6 +7553,16 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
+                          properties:
+                            attestation:
+                              description: If specified, run the attestation process
+                                for a vmi.
+                              type: object
+                            mrConfigId:
+                              description: |-
+                                Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                                When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -10280,6 +10296,15 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
+              properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                mrConfigId:
+                  description: |-
+                    Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                    When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                  type: string
               type: object
           type: object
         memory:
@@ -13710,6 +13735,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Arguments to be passed to the kernel at boot time
                       type: string
                   type: object
+                oemStrings:
+                  description: OEM Strings to be set in the SMBIOS
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -13767,6 +13798,16 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
+                  properties:
+                    attestation:
+                      description: If specified, run the attestation process for a
+                        vmi.
+                      type: object
+                    mrConfigId:
+                      description: |-
+                        Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                        When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                      type: string
                   type: object
               type: object
             machine:
@@ -17803,6 +17844,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Arguments to be passed to the kernel at boot time
                       type: string
                   type: object
+                oemStrings:
+                  description: OEM Strings to be set in the SMBIOS
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -17860,6 +17907,16 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
+                  properties:
+                    attestation:
+                      description: If specified, run the attestation process for a
+                        vmi.
+                      type: object
+                    mrConfigId:
+                      description: |-
+                        Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                        When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                      type: string
                   type: object
               type: object
             machine:
@@ -20408,6 +20465,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 boot time
                               type: string
                           type: object
+                        oemStrings:
+                          description: OEM Strings to be set in the SMBIOS
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -20466,6 +20529,16 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
+                          properties:
+                            attestation:
+                              description: If specified, run the attestation process
+                                for a vmi.
+                              type: object
+                            mrConfigId:
+                              description: |-
+                                Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                                When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -22057,6 +22130,15 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
+              properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                mrConfigId:
+                  description: |-
+                    Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                    When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                  type: string
               type: object
           type: object
         memory:
@@ -25598,6 +25680,12 @@ var CRDsValidation map[string]string = map[string]string{
                                         at boot time
                                       type: string
                                   type: object
+                                oemStrings:
+                                  description: OEM Strings to be set in the SMBIOS
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
                                 serial:
                                   description: The system-serial-number in SMBIOS
                                   type: string
@@ -25659,6 +25747,16 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 tdx:
                                   description: Intel Trust Domain Extensions (TDX).
+                                  properties:
+                                    attestation:
+                                      description: If specified, run the attestation
+                                        process for a vmi.
+                                      type: object
+                                    mrConfigId:
+                                      description: |-
+                                        Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                                        When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                                      type: string
                                   type: object
                               type: object
                             machine:
@@ -31284,6 +31382,12 @@ var CRDsValidation map[string]string = map[string]string{
                                             kernel at boot time
                                           type: string
                                       type: object
+                                    oemStrings:
+                                      description: OEM Strings to be set in the SMBIOS
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
                                     serial:
                                       description: The system-serial-number in SMBIOS
                                       type: string
@@ -31345,6 +31449,16 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: object
                                     tdx:
                                       description: Intel Trust Domain Extensions (TDX).
+                                      properties:
+                                        attestation:
+                                          description: If specified, run the attestation
+                                            process for a vmi.
+                                          type: object
+                                        mrConfigId:
+                                          description: |-
+                                            Base64-encoded 48-byte value included in the TDX measurement (MRTD).
+                                            When TDX.Attestation is set, this field is populated via the tdx/injectInitdata subresource.
+                                          type: string
                                       type: object
                                   type: object
                                 machine:

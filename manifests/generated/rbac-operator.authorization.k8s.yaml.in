@@ -1070,6 +1070,7 @@ rules:
   - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/tdx/injectInitdata
   - virtualmachineinstances/evacuate/cancel
   verbs:
   - update
@@ -1256,6 +1257,7 @@ rules:
   - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/tdx/injectInitdata
   - virtualmachineinstances/evacuate/cancel
   verbs:
   - update
