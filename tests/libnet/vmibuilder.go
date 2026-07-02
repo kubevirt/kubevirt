@@ -25,8 +25,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 )
+
+func ConformancePodNetworkInterface(ports ...v1.Port) v1.Interface {
+	if flags.NetworkBindingPlugin == "" {
+		return libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)
+	}
+	return libvmi.InterfaceWithBindingPlugin(
+		v1.DefaultPodNetwork().Name,
+		v1.PluginBinding{Name: flags.NetworkBindingPlugin},
+		ports...,
+	)
+}
 
 func WithMasqueradeNetworking(ports ...v1.Port) libvmi.Option {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
