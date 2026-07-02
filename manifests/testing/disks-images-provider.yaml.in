@@ -19,6 +19,7 @@ spec:
       tolerations:
         - key: CriticalAddonsOnly
           operator: Exists
+      terminationGracePeriodSeconds: 10
       serviceAccountName: kubevirt-testing
       containers:
         - name: target
