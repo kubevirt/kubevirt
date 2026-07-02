@@ -20,8 +20,10 @@
 package webhooks
 
 import (
+	"encoding/base64"
 	"fmt"
 	"slices"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -156,6 +158,96 @@ func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineIn
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
 					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+		if launchSecurity.SNP != nil && launchSecurity.SNP.Policy != "" {
+			// Check if policy is a valid decimal or hex value
+			dec, err := strconv.ParseUint(launchSecurity.SNP.Policy, 0, 64)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is not a valid SEV-SNP Policy Config", launchSecurity.SNP.Policy),
+					Field:   field.Child("launchSecurity", "snp").String(),
+				})
+			}
+			// Ensure bit 17 (0x20000) is set to 1, which is required by AMD SEV-SNP specification
+			policyBitReserved := uint64(1 << 17)
+			if dec&policyBitReserved != policyBitReserved && err == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s SEV-SNP Policy Config must have bit 17 (0x%X) set to 1", launchSecurity.SNP.Policy, policyBitReserved),
+					Field:   field.Child("launchSecurity", "snp").String(),
+				})
+			}
+		}
+
+		if launchSecurity.SNP != nil && launchSecurity.SNP.HostData != "" {
+			// libvirt expects hostData as base64-encoded data that decodes to
+			// exactly 32 bytes.
+			decoded, err := base64.StdEncoding.DecodeString(launchSecurity.SNP.HostData)
+			if err != nil || len(decoded) != 32 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is not a valid SEV-SNP HostData value, must be base64-encoded data that decodes to exactly 32 bytes", launchSecurity.SNP.HostData),
+					Field:   field.Child("launchSecurity", "snp").Child("hostData").String(),
+				})
+			}
+		}
+
+		if launchSecurity.SNP != nil {
+			// IdBlock and IdAuth must be set together; AuthorKey is optional but
+			// requires both IdBlock and IdAuth when enabled.
+			hasAuthorKey := launchSecurity.SNP.AuthorKey != nil && *launchSecurity.SNP.AuthorKey
+			hasIdBlock := launchSecurity.SNP.IdBlock != ""
+			hasIdAuth := launchSecurity.SNP.IdAuth != ""
+
+			if hasIdBlock != hasIdAuth {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "IdBlock and IdAuth must be set together for guest identity attestation",
+					Field:   field.Child("launchSecurity", "snp").String(),
+				})
+			}
+			if hasAuthorKey && !(hasIdBlock && hasIdAuth) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "AuthorKey requires both IdBlock and IdAuth to be set",
+					Field:   field.Child("launchSecurity", "snp").String(),
+				})
+			}
+			// Validate base64 encoding and length, IdBlock, and IdAuth
+			if hasIdBlock {
+				decodedIdBlock, err := base64.StdEncoding.DecodeString(launchSecurity.SNP.IdBlock)
+				if err != nil || len(decodedIdBlock) != 96 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s is not a valid SEV-SNP IdBlock value, must be base64-encoded data that decodes to exactly 96 bytes", launchSecurity.SNP.IdBlock),
+						Field:   field.Child("launchSecurity", "snp").Child("idBlock").String(),
+					})
+				}
+			}
+			if hasIdAuth {
+				decodedIdAuth, err := base64.StdEncoding.DecodeString(launchSecurity.SNP.IdAuth)
+				if err != nil || len(decodedIdAuth) != 4096 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s is not a valid SEV-SNP IdAuth value, must be base64-encoded data that decodes to exactly 4096 bytes", launchSecurity.SNP.IdAuth),
+						Field:   field.Child("launchSecurity", "snp").Child("idAuth").String(),
+					})
+				}
+			}
+		}
+
+		if launchSecurity.SNP != nil && launchSecurity.SNP.KernelHashes != nil {
+			// Measured direct boot requires the kernel/initrd to be provided directly
+			if spec.Domain.Firmware == nil ||
+				spec.Domain.Firmware.KernelBoot == nil ||
+				spec.Domain.Firmware.KernelBoot.Container == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "KernelHashes requires direct kernel boot configuration (spec.domain.firmware.kernelBoot)",
+					Field:   field.Child("launchSecurity", "snp", "kernelHashes").String(),
 				})
 			}
 		}

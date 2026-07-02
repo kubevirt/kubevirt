@@ -627,7 +627,17 @@ spec:
             policy:
               encryptedState: true
             session: sessionValue
-          snp: {}
+          snp:
+            authorKey: true
+            cbitpos: cbitposValue
+            guestVisibleWorkarounds: guestVisibleWorkaroundsValue
+            hostData: hostDataValue
+            idAuth: idAuthValue
+            idBlock: idBlockValue
+            kernelHashes: true
+            policy: policyValue
+            reducedPhysBits: reducedPhysBitsValue
+            vcek: vcekValue
           tdx: {}
         machine:
           type: typeValue

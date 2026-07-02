@@ -25662,6 +25662,74 @@ func schema_kubevirtio_api_core_v1_SEVSNP(ref common.ReferenceCallback) common.O
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SNP-Policy flags as defined in AMD SEV-SNP API specification. Defaults to 0x30000 SMT Allowed + Reserved.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vcek": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorKey": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"kernelHashes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KernelHashes enables measured direct kernel boot by including hashes of the kernel, initrd and cmline in the launch measurement. Requires spec.domain.firmware.kernelBoot to be configured",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"cbitpos": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"idBlock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IdBlock is a 96-byte signature block that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the launch environment. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"idAuth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IdAuth is a 4096-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the launch environment. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reducedPhysBits": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"hostData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit. libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"guestVisibleWorkarounds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process. The size must be 16 bytes",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

@@ -7544,6 +7544,50 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          properties:
+                            authorKey:
+                              type: boolean
+                            cbitpos:
+                              type: string
+                            guestVisibleWorkarounds:
+                              description: |-
+                                GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                                The size must be 16 bytes
+                              type: string
+                            hostData:
+                              description: |-
+                                HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                                libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                              type: string
+                            idAuth:
+                              description: IdAuth is a 4096-byte hex string that is
+                                injected into the SEV-SNP launch measurement and can
+                                be used by the guest to identify the launch environment.
+                                It is not interpreted by SEV-SNP and can be used in
+                                any way the guest sees fit.
+                              type: string
+                            idBlock:
+                              description: IdBlock is a 96-byte signature block that
+                                is injected into the SEV-SNP launch measurement and
+                                can be used by the guest to identify the launch environment.
+                                It is not interpreted by SEV-SNP and can be used in
+                                any way the guest sees fit.
+                              type: string
+                            kernelHashes:
+                              description: |-
+                                KernelHashes enables measured direct kernel boot by including hashes of
+                                the kernel, initrd and cmline in the launch measurement. Requires
+                                spec.domain.firmware.kernelBoot to be configured
+                              type: boolean
+                            policy:
+                              description: |-
+                                SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                                Defaults to 0x30000 SMT Allowed + Reserved.
+                              type: string
+                            reducedPhysBits:
+                              type: string
+                            vcek:
+                              type: string
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
@@ -10277,6 +10321,48 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                authorKey:
+                  type: boolean
+                cbitpos:
+                  type: string
+                guestVisibleWorkarounds:
+                  description: |-
+                    GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                    The size must be 16 bytes
+                  type: string
+                hostData:
+                  description: |-
+                    HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                    libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                  type: string
+                idAuth:
+                  description: IdAuth is a 4096-byte hex string that is injected into
+                    the SEV-SNP launch measurement and can be used by the guest to
+                    identify the launch environment. It is not interpreted by SEV-SNP
+                    and can be used in any way the guest sees fit.
+                  type: string
+                idBlock:
+                  description: IdBlock is a 96-byte signature block that is injected
+                    into the SEV-SNP launch measurement and can be used by the guest
+                    to identify the launch environment. It is not interpreted by SEV-SNP
+                    and can be used in any way the guest sees fit.
+                  type: string
+                kernelHashes:
+                  description: |-
+                    KernelHashes enables measured direct kernel boot by including hashes of
+                    the kernel, initrd and cmline in the launch measurement. Requires
+                    spec.domain.firmware.kernelBoot to be configured
+                  type: boolean
+                policy:
+                  description: |-
+                    SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                    Defaults to 0x30000 SMT Allowed + Reserved.
+                  type: string
+                reducedPhysBits:
+                  type: string
+                vcek:
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
@@ -13764,6 +13850,48 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  properties:
+                    authorKey:
+                      type: boolean
+                    cbitpos:
+                      type: string
+                    guestVisibleWorkarounds:
+                      description: |-
+                        GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                        The size must be 16 bytes
+                      type: string
+                    hostData:
+                      description: |-
+                        HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                        libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                      type: string
+                    idAuth:
+                      description: IdAuth is a 4096-byte hex string that is injected
+                        into the SEV-SNP launch measurement and can be used by the
+                        guest to identify the launch environment. It is not interpreted
+                        by SEV-SNP and can be used in any way the guest sees fit.
+                      type: string
+                    idBlock:
+                      description: IdBlock is a 96-byte signature block that is injected
+                        into the SEV-SNP launch measurement and can be used by the
+                        guest to identify the launch environment. It is not interpreted
+                        by SEV-SNP and can be used in any way the guest sees fit.
+                      type: string
+                    kernelHashes:
+                      description: |-
+                        KernelHashes enables measured direct kernel boot by including hashes of
+                        the kernel, initrd and cmline in the launch measurement. Requires
+                        spec.domain.firmware.kernelBoot to be configured
+                      type: boolean
+                    policy:
+                      description: |-
+                        SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                        Defaults to 0x30000 SMT Allowed + Reserved.
+                      type: string
+                    reducedPhysBits:
+                      type: string
+                    vcek:
+                      type: string
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
@@ -17857,6 +17985,48 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 snp:
                   description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  properties:
+                    authorKey:
+                      type: boolean
+                    cbitpos:
+                      type: string
+                    guestVisibleWorkarounds:
+                      description: |-
+                        GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                        The size must be 16 bytes
+                      type: string
+                    hostData:
+                      description: |-
+                        HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                        libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                      type: string
+                    idAuth:
+                      description: IdAuth is a 4096-byte hex string that is injected
+                        into the SEV-SNP launch measurement and can be used by the
+                        guest to identify the launch environment. It is not interpreted
+                        by SEV-SNP and can be used in any way the guest sees fit.
+                      type: string
+                    idBlock:
+                      description: IdBlock is a 96-byte signature block that is injected
+                        into the SEV-SNP launch measurement and can be used by the
+                        guest to identify the launch environment. It is not interpreted
+                        by SEV-SNP and can be used in any way the guest sees fit.
+                      type: string
+                    kernelHashes:
+                      description: |-
+                        KernelHashes enables measured direct kernel boot by including hashes of
+                        the kernel, initrd and cmline in the launch measurement. Requires
+                        spec.domain.firmware.kernelBoot to be configured
+                      type: boolean
+                    policy:
+                      description: |-
+                        SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                        Defaults to 0x30000 SMT Allowed + Reserved.
+                      type: string
+                    reducedPhysBits:
+                      type: string
+                    vcek:
+                      type: string
                   type: object
                 tdx:
                   description: Intel Trust Domain Extensions (TDX).
@@ -20463,6 +20633,50 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         snp:
                           description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          properties:
+                            authorKey:
+                              type: boolean
+                            cbitpos:
+                              type: string
+                            guestVisibleWorkarounds:
+                              description: |-
+                                GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                                The size must be 16 bytes
+                              type: string
+                            hostData:
+                              description: |-
+                                HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                                libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                              type: string
+                            idAuth:
+                              description: IdAuth is a 4096-byte hex string that is
+                                injected into the SEV-SNP launch measurement and can
+                                be used by the guest to identify the launch environment.
+                                It is not interpreted by SEV-SNP and can be used in
+                                any way the guest sees fit.
+                              type: string
+                            idBlock:
+                              description: IdBlock is a 96-byte signature block that
+                                is injected into the SEV-SNP launch measurement and
+                                can be used by the guest to identify the launch environment.
+                                It is not interpreted by SEV-SNP and can be used in
+                                any way the guest sees fit.
+                              type: string
+                            kernelHashes:
+                              description: |-
+                                KernelHashes enables measured direct kernel boot by including hashes of
+                                the kernel, initrd and cmline in the launch measurement. Requires
+                                spec.domain.firmware.kernelBoot to be configured
+                              type: boolean
+                            policy:
+                              description: |-
+                                SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                                Defaults to 0x30000 SMT Allowed + Reserved.
+                              type: string
+                            reducedPhysBits:
+                              type: string
+                            vcek:
+                              type: string
                           type: object
                         tdx:
                           description: Intel Trust Domain Extensions (TDX).
@@ -22054,6 +22268,48 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             snp:
               description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              properties:
+                authorKey:
+                  type: boolean
+                cbitpos:
+                  type: string
+                guestVisibleWorkarounds:
+                  description: |-
+                    GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                    The size must be 16 bytes
+                  type: string
+                hostData:
+                  description: |-
+                    HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                    libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                  type: string
+                idAuth:
+                  description: IdAuth is a 4096-byte hex string that is injected into
+                    the SEV-SNP launch measurement and can be used by the guest to
+                    identify the launch environment. It is not interpreted by SEV-SNP
+                    and can be used in any way the guest sees fit.
+                  type: string
+                idBlock:
+                  description: IdBlock is a 96-byte signature block that is injected
+                    into the SEV-SNP launch measurement and can be used by the guest
+                    to identify the launch environment. It is not interpreted by SEV-SNP
+                    and can be used in any way the guest sees fit.
+                  type: string
+                kernelHashes:
+                  description: |-
+                    KernelHashes enables measured direct kernel boot by including hashes of
+                    the kernel, initrd and cmline in the launch measurement. Requires
+                    spec.domain.firmware.kernelBoot to be configured
+                  type: boolean
+                policy:
+                  description: |-
+                    SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                    Defaults to 0x30000 SMT Allowed + Reserved.
+                  type: string
+                reducedPhysBits:
+                  type: string
+                vcek:
+                  type: string
               type: object
             tdx:
               description: Intel Trust Domain Extensions (TDX).
@@ -25656,6 +25912,52 @@ var CRDsValidation map[string]string = map[string]string{
                                 snp:
                                   description: AMD SEV-SNP flags defined by the SEV-SNP
                                     specifications.
+                                  properties:
+                                    authorKey:
+                                      type: boolean
+                                    cbitpos:
+                                      type: string
+                                    guestVisibleWorkarounds:
+                                      description: |-
+                                        GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                                        The size must be 16 bytes
+                                      type: string
+                                    hostData:
+                                      description: |-
+                                        HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                                        libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                                      type: string
+                                    idAuth:
+                                      description: IdAuth is a 4096-byte hex string
+                                        that is injected into the SEV-SNP launch measurement
+                                        and can be used by the guest to identify the
+                                        launch environment. It is not interpreted
+                                        by SEV-SNP and can be used in any way the
+                                        guest sees fit.
+                                      type: string
+                                    idBlock:
+                                      description: IdBlock is a 96-byte signature
+                                        block that is injected into the SEV-SNP launch
+                                        measurement and can be used by the guest to
+                                        identify the launch environment. It is not
+                                        interpreted by SEV-SNP and can be used in
+                                        any way the guest sees fit.
+                                      type: string
+                                    kernelHashes:
+                                      description: |-
+                                        KernelHashes enables measured direct kernel boot by including hashes of
+                                        the kernel, initrd and cmline in the launch measurement. Requires
+                                        spec.domain.firmware.kernelBoot to be configured
+                                      type: boolean
+                                    policy:
+                                      description: |-
+                                        SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                                        Defaults to 0x30000 SMT Allowed + Reserved.
+                                      type: string
+                                    reducedPhysBits:
+                                      type: string
+                                    vcek:
+                                      type: string
                                   type: object
                                 tdx:
                                   description: Intel Trust Domain Extensions (TDX).
@@ -31342,6 +31644,52 @@ var CRDsValidation map[string]string = map[string]string{
                                     snp:
                                       description: AMD SEV-SNP flags defined by the
                                         SEV-SNP specifications.
+                                      properties:
+                                        authorKey:
+                                          type: boolean
+                                        cbitpos:
+                                          type: string
+                                        guestVisibleWorkarounds:
+                                          description: |-
+                                            GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.
+                                            The size must be 16 bytes
+                                          type: string
+                                        hostData:
+                                          description: |-
+                                            HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.
+                                            libvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.
+                                          type: string
+                                        idAuth:
+                                          description: IdAuth is a 4096-byte hex string
+                                            that is injected into the SEV-SNP launch
+                                            measurement and can be used by the guest
+                                            to identify the launch environment. It
+                                            is not interpreted by SEV-SNP and can
+                                            be used in any way the guest sees fit.
+                                          type: string
+                                        idBlock:
+                                          description: IdBlock is a 96-byte signature
+                                            block that is injected into the SEV-SNP
+                                            launch measurement and can be used by
+                                            the guest to identify the launch environment.
+                                            It is not interpreted by SEV-SNP and can
+                                            be used in any way the guest sees fit.
+                                          type: string
+                                        kernelHashes:
+                                          description: |-
+                                            KernelHashes enables measured direct kernel boot by including hashes of
+                                            the kernel, initrd and cmline in the launch measurement. Requires
+                                            spec.domain.firmware.kernelBoot to be configured
+                                          type: boolean
+                                        policy:
+                                          description: |-
+                                            SNP-Policy flags as defined in AMD SEV-SNP API specification.
+                                            Defaults to 0x30000 SMT Allowed + Reserved.
+                                          type: string
+                                        reducedPhysBits:
+                                          type: string
+                                        vcek:
+                                          type: string
                                       type: object
                                     tdx:
                                       description: Intel Trust Domain Extensions (TDX).
