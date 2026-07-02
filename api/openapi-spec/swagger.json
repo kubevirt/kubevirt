@@ -15312,7 +15312,17 @@
     }
    },
    "v1.FilesystemVirtiofs": {
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "readOnly": {
+      "description": "ReadOnly mounts the filesystem as read-only inside the guest. Defaults to false (read-write).",
+      "type": "boolean"
+     },
+     "subPath": {
+      "description": "SubPath specifies a sub-directory within the source volume to be exposed to the guest, instead of the volume's root. Defaults to \"\" (volume's root).",
+      "type": "string"
+     }
+    }
    },
    "v1.Firmware": {
     "type": "object",

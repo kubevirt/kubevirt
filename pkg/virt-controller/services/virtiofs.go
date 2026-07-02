@@ -15,9 +15,12 @@ import (
 )
 
 func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) []k8sv1.Container {
-	passthroughFSVolumes := make(map[string]struct{})
+	passthroughFSVolumes := make(map[string]v1.FilesystemVirtiofs)
 	for i := range vmi.Spec.Domain.Devices.Filesystems {
-		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+		if vmi.Spec.Domain.Devices.Filesystems[i].Virtiofs == nil {
+			continue
+		}
+		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = *vmi.Spec.Domain.Devices.Filesystems[i].Virtiofs
 	}
 	if len(passthroughFSVolumes) == 0 {
 		return nil
@@ -25,14 +28,14 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 
 	containers := []k8sv1.Container{}
 	for _, volume := range vmi.Spec.Volumes {
-		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
+		if virtioFS, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
 			// Skip ContainerPath volumes - they are handled by the pod mutating webhook
 			// because external mutators inject the actual volumes after pod creation
 			if volume.ContainerPath != nil {
 				continue
 			}
 			resources := virtiofs.ResourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
-			container := generateContainerFromVolume(&volume, image, resources)
+			container := generateContainerFromVolume(&volume, &virtioFS, image, resources)
 			containers = append(containers, container)
 
 		}
@@ -62,7 +65,7 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	return volumeMountPoint
 }
 
-func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
+func generateContainerFromVolume(volume *v1.Volume, virtioFS *v1.FilesystemVirtiofs, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
@@ -108,6 +111,8 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: virtioFSMountPoint(volume),
+			SubPath:   virtioFS.SubPath,
+			ReadOnly:  virtioFS.ReadOnly,
 		})
 	}
 

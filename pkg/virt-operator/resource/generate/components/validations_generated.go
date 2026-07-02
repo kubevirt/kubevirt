@@ -6696,6 +6696,24 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               virtiofs:
                                 description: Virtiofs is supported
+                                properties:
+                                  readOnly:
+                                    description: |-
+                                      ReadOnly mounts the filesystem as read-only inside the guest.
+                                      Defaults to false (read-write).
+                                    type: boolean
+                                  subPath:
+                                    description: |-
+                                      SubPath specifies a sub-directory within the source volume to be
+                                      exposed to the guest, instead of the volume's root.
+                                      Defaults to "" (volume's root).
+                                    maxLength: 4096
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: subPath must be a relative path (must not start with '/')
+                                      rule: '!self.startsWith(''/'')'
+                                    - message: subPath must not contain '..'
+                                      rule: '!self.contains(''..'')'
                                 type: object
                             required:
                             - name
@@ -12928,6 +12946,24 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       virtiofs:
                         description: Virtiofs is supported
+                        properties:
+                          readOnly:
+                            description: |-
+                              ReadOnly mounts the filesystem as read-only inside the guest.
+                              Defaults to false (read-write).
+                            type: boolean
+                          subPath:
+                            description: |-
+                              SubPath specifies a sub-directory within the source volume to be
+                              exposed to the guest, instead of the volume's root.
+                              Defaults to "" (volume's root).
+                            maxLength: 4096
+                            type: string
+                            x-kubernetes-validations:
+                            - message: subPath must be a relative path (must not start with '/')
+                              rule: '!self.startsWith(''/'')'
+                            - message: subPath must not contain '..'
+                              rule: '!self.contains(''..'')'
                         type: object
                     required:
                     - name
@@ -17021,6 +17057,24 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       virtiofs:
                         description: Virtiofs is supported
+                        properties:
+                          readOnly:
+                            description: |-
+                              ReadOnly mounts the filesystem as read-only inside the guest.
+                              Defaults to false (read-write).
+                            type: boolean
+                          subPath:
+                            description: |-
+                              SubPath specifies a sub-directory within the source volume to be
+                              exposed to the guest, instead of the volume's root.
+                              Defaults to "" (volume's root).
+                            maxLength: 4096
+                            type: string
+                            x-kubernetes-validations:
+                            - message: subPath must be a relative path (must not start with '/')
+                              rule: '!self.startsWith(''/'')'
+                            - message: subPath must not contain '..'
+                              rule: '!self.contains(''..'')'
                         type: object
                     required:
                     - name
@@ -19615,6 +19669,24 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               virtiofs:
                                 description: Virtiofs is supported
+                                properties:
+                                  readOnly:
+                                    description: |-
+                                      ReadOnly mounts the filesystem as read-only inside the guest.
+                                      Defaults to false (read-write).
+                                    type: boolean
+                                  subPath:
+                                    description: |-
+                                      SubPath specifies a sub-directory within the source volume to be
+                                      exposed to the guest, instead of the volume's root.
+                                      Defaults to "" (volume's root).
+                                    maxLength: 4096
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: subPath must be a relative path (must not start with '/')
+                                      rule: '!self.startsWith(''/'')'
+                                    - message: subPath must not contain '..'
+                                      rule: '!self.contains(''..'')'
                                 type: object
                             required:
                             - name
@@ -24789,6 +24861,24 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                       virtiofs:
                                         description: Virtiofs is supported
+                                        properties:
+                                          readOnly:
+                                            description: |-
+                                              ReadOnly mounts the filesystem as read-only inside the guest.
+                                              Defaults to false (read-write).
+                                            type: boolean
+                                          subPath:
+                                            description: |-
+                                              SubPath specifies a sub-directory within the source volume to be
+                                              exposed to the guest, instead of the volume's root.
+                                              Defaults to "" (volume's root).
+                                            maxLength: 4096
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: subPath must be a relative path (must not start with '/')
+                                              rule: '!self.startsWith(''/'')'
+                                            - message: subPath must not contain '..'
+                                              rule: '!self.contains(''..'')'
                                         type: object
                                     required:
                                     - name
@@ -30470,6 +30560,24 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                           virtiofs:
                                             description: Virtiofs is supported
+                                            properties:
+                                              readOnly:
+                                                description: |-
+                                                  ReadOnly mounts the filesystem as read-only inside the guest.
+                                                  Defaults to false (read-write).
+                                                type: boolean
+                                              subPath:
+                                                description: |-
+                                                  SubPath specifies a sub-directory within the source volume to be
+                                                  exposed to the guest, instead of the volume's root.
+                                                  Defaults to "" (volume's root).
+                                                maxLength: 4096
+                                                type: string
+                                                x-kubernetes-validations:
+                                                - message: subPath must be a relative path (must not start with '/')
+                                                  rule: '!self.startsWith(''/'')'
+                                                - message: subPath must not contain '..'
+                                                  rule: '!self.contains(''..'')'
                                             type: object
                                         required:
                                         - name

@@ -336,7 +336,10 @@ func (Filesystem) SwaggerDoc() map[string]string {
 }
 
 func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"readOnly": "ReadOnly mounts the filesystem as read-only inside the guest.\nDefaults to false (read-write).\n+optional",
+		"subPath":  "SubPath specifies a sub-directory within the source volume to be\nexposed to the guest, instead of the volume's root.\nDefaults to \"\" (volume's root).\n+optional\n+kubebuilder:validation:MaxLength=4096\n+kubebuilder:validation:XValidation:rule=\"!self.startsWith('/')\",message=\"subPath must be a relative path (must not start with '/')\"\n+kubebuilder:validation:XValidation:rule=\"!self.contains('..')\",message=\"subPath must not contain '..'\"",
+	}
 }
 
 func (DownwardMetrics) SwaggerDoc() map[string]string {

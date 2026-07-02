@@ -96,6 +96,85 @@ var _ = Describe("virtiofs container", func() {
 		Expect(container[1].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
 	})
 
+	It("should propagate SubPath and ReadOnly from FilesystemVirtiofs to the volume mount", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "sharedtestdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name: "sharedtestdisk",
+			Virtiofs: &v1.FilesystemVirtiofs{
+				SubPath:  "data/sub",
+				ReadOnly: true,
+			},
+		})
+
+		containers := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(containers).To(HaveLen(1))
+
+		// The first VolumeMount is the shared socket dir; the data volume mount is appended after it.
+		Expect(containers[0].VolumeMounts).To(HaveLen(2))
+		dataMount := containers[0].VolumeMounts[1]
+		Expect(dataMount.Name).To(Equal("sharedtestdisk"))
+		Expect(dataMount.SubPath).To(Equal("data/sub"))
+		Expect(dataMount.ReadOnly).To(BeTrue())
+	})
+
+	It("should default SubPath to empty and ReadOnly to false when FilesystemVirtiofs is empty", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "sharedtestdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "sharedtestdisk",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		containers := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(containers).To(HaveLen(1))
+
+		Expect(containers[0].VolumeMounts).To(HaveLen(2))
+		dataMount := containers[0].VolumeMounts[1]
+		Expect(dataMount.Name).To(Equal("sharedtestdisk"))
+		Expect(dataMount.SubPath).To(BeEmpty())
+		Expect(dataMount.ReadOnly).To(BeFalse())
+	})
+
+	It("should not add a data volume mount for auto-mounted volumes even when SubPath/ReadOnly are set", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "sa-volume",
+			VolumeSource: v1.VolumeSource{
+				ServiceAccount: &v1.ServiceAccountVolumeSource{
+					ServiceAccountName: "default",
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name: "sa-volume",
+			Virtiofs: &v1.FilesystemVirtiofs{
+				SubPath:  "ignored",
+				ReadOnly: true,
+			},
+		})
+
+		containers := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(containers).To(HaveLen(1))
+
+		// Auto-mounted volumes only get the socket mount; no data volume mount is appended,
+		// so SubPath/ReadOnly have nowhere to land.
+		Expect(containers[0].VolumeMounts).To(HaveLen(1))
+	})
+
 	It("should skip ContainerPath volumes", func() {
 		vmi := api.NewMinimalVMI("testvm")
 
