@@ -348,6 +348,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		Mode:           migrationMode,
 	}
 	l.metadataCache.Migration.Store(m)
+	l.resetDomainInfoStats()
 	log.Log.V(4).Infof("initialize migration metadata: %v", m)
 	return false, nil
 }
@@ -800,7 +801,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	elapsedNs := now - m.start
 
 	if stats != nil && stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
-		m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+		m.l.updateInflightMigrationStats(stats)
 		if stats.DataRemainingSet {
 			m.remainingData = stats.DataRemaining
 		}
@@ -840,9 +841,7 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	m.start = time.Now().UTC().UnixNano()
 	m.lastProgressUpdate = m.start
 
-	defer func() {
-		m.l.domainInfoStats = &stats.DomainJobInfo{}
-	}()
+	defer m.l.resetDomainInfoStats()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
@@ -1337,6 +1336,89 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	}
 
 	return nil
+}
+
+func (l *LibvirtDomainManager) resetDomainInfoStats() {
+	l.domainInfoStatsLock.Lock()
+	defer l.domainInfoStatsLock.Unlock()
+
+	l.domainInfoStats = &stats.DomainJobInfo{}
+	l.metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{})
+}
+
+func (l *LibvirtDomainManager) updateInflightMigrationStats(jobInfo *libvirt.DomainJobInfo) {
+	domainInfoStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(jobInfo)
+	domainInfoStats.DowntimeSet = false
+	domainInfoStats.DowntimeNetSet = false
+
+	l.domainInfoStatsLock.Lock()
+	defer l.domainInfoStatsLock.Unlock()
+
+	l.domainInfoStats = domainInfoStats
+}
+
+func (l *LibvirtDomainManager) rememberDomainStats(domainStats *stats.DomainStats) {
+	l.cachedDomainStatsLock.Lock()
+	defer l.cachedDomainStatsLock.Unlock()
+
+	if domainStats == nil {
+		l.cachedDomainStats = nil
+		return
+	}
+
+	domainStatsCopy := *domainStats
+	l.cachedDomainStats = &domainStatsCopy
+}
+
+func (l *LibvirtDomainManager) lastDomainStats() *stats.DomainStats {
+	l.cachedDomainStatsLock.Lock()
+	defer l.cachedDomainStatsLock.Unlock()
+
+	if l.cachedDomainStats == nil {
+		return nil
+	}
+
+	domainStatsCopy := *l.cachedDomainStats
+	return &domainStatsCopy
+}
+
+func (l *LibvirtDomainManager) completedMigrationDomainStats() *stats.DomainStats {
+	if domainInfoStats, exists := l.metadataCache.CompletedMigrationStats.Load(); exists && hasMigrationJobStats(domainInfoStats) {
+		return l.domainStatsWithMigrationStats(&domainInfoStats)
+	}
+	return nil
+}
+
+func (l *LibvirtDomainManager) domainStatsWithMigrationStats(domainInfoStats *stats.DomainJobInfo) *stats.DomainStats {
+	domainStats := l.lastDomainStats()
+	if domainStats == nil {
+		return nil
+	}
+
+	domainInfoStatsCopy := *domainInfoStats
+	domainStats.MigrateDomainJobInfo = &domainInfoStatsCopy
+	return domainStats
+}
+
+func hasMigrationJobStats(domainInfoStats stats.DomainJobInfo) bool {
+	return domainInfoStats.DataTotalSet ||
+		domainInfoStats.DataProcessedSet ||
+		domainInfoStats.MemoryBpsSet ||
+		domainInfoStats.DataRemainingSet ||
+		domainInfoStats.MemDirtyRateSet ||
+		domainInfoStats.DowntimeSet ||
+		domainInfoStats.DowntimeNetSet
+}
+
+func (l *LibvirtDomainManager) getDomainInfoStats() *stats.DomainJobInfo {
+	l.domainInfoStatsLock.RLock()
+	defer l.domainInfoStatsLock.RUnlock()
+
+	if l.domainInfoStats == nil {
+		return &stats.DomainJobInfo{}
+	}
+	domainInfoStats := *l.domainInfoStats
+	return &domainInfoStats
 }
 
 // prepareDomainForMigration perform necessary operation

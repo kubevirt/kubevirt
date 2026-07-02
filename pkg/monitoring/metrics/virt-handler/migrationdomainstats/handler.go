@@ -26,11 +26,14 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 const logVerbosityInfo = 3
 
 type vmiQueue interface {
+	addCompletedStats(stats.DomainJobInfo)
 	all() ([]result, bool)
 	startPolling()
 }
@@ -42,7 +45,7 @@ type handler struct {
 	vmiStats map[string]vmiQueue
 }
 
-func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
+func newHandler(vmiInformer cache.SharedIndexInformer, domainInformer cache.SharedInformer) (*handler, error) {
 	h := handler{
 		vmiStore: vmiInformer.GetStore(),
 		vmiStats: make(map[string]vmiQueue),
@@ -52,6 +55,16 @@ func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
 		AddFunc:    h.handleVmiAdd,
 		UpdateFunc: h.handleVmiUpdate,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if domainInformer != nil {
+		_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    h.handleDomainAdd,
+			UpdateFunc: h.handleDomainUpdate,
+		})
+	}
 
 	return &h, err
 }
@@ -93,6 +106,28 @@ func (h *handler) handleVmiAdd(obj interface{}) {
 	}
 
 	h.addMigration(vmi)
+}
+
+func (h *handler) handleDomainUpdate(_oldObj, newObj interface{}) {
+	h.handleDomainAdd(newObj)
+}
+
+func (h *handler) handleDomainAdd(obj interface{}) {
+	domain := obj.(*api.Domain)
+	if domain.Status.MigrationStats == nil || !hasCompletedDowntimeStats(*domain.Status.MigrationStats) {
+		return
+	}
+
+	key := controller.NamespacedKey(domain.Namespace, domain.Name)
+
+	h.Lock()
+	q, ok := h.vmiStats[key]
+	h.Unlock()
+	if !ok {
+		return
+	}
+
+	q.addCompletedStats(*domain.Status.MigrationStats)
 }
 
 func (h *handler) addMigration(vmi *v1.VirtualMachineInstance) {

@@ -36,9 +36,10 @@ import (
 )
 
 const (
-	collectionTimeout = 10 * time.Second
-	pollingInterval   = 5 * time.Second
-	bufferSize        = 10
+	collectionTimeout     = 10 * time.Second
+	pollingInterval       = 5 * time.Second
+	bufferSize            = 10
+	completedStatsTimeout = 3 * time.Minute
 
 	logVerbosityWarning = 2
 	logVerbosityDebug   = 4
@@ -56,10 +57,12 @@ type result struct {
 type queue struct {
 	sync.Mutex
 
-	vmiStore  cache.Store
-	vmi       *v1.VirtualMachineInstance
-	collector domstatsCollector.Collector
-	results   *ring.Ring
+	vmiStore    cache.Store
+	vmi         *v1.VirtualMachineInstance
+	collector   domstatsCollector.Collector
+	results     *ring.Ring
+	finished    bool
+	completedAt *time.Time
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -97,13 +100,10 @@ func (q *queue) startPolling() {
 }
 
 func (q *queue) collect() {
-	if q.isMigrationFinished() {
-		q.Lock()
-		defer q.Unlock()
-
-		q.ctxCancel()
-		return
-	}
+	// Check whether the VMI has already transitioned out of the migrating
+	// state, but keep scraping until virt-launcher's completed migration event
+	// stats (Downtime, DowntimeNet) are captured before the poller exits.
+	finished := q.isMigrationFinished()
 
 	values, err := q.scrapeDomainStats()
 	if err != nil {
@@ -121,9 +121,16 @@ func (q *queue) collect() {
 	}
 
 	q.Lock()
-	defer q.Unlock()
 	q.results.Value = r
 	q.results = q.results.Next()
+	q.Unlock()
+
+	if q.shouldStopPolling(finished, r.domainJobInfo) {
+		q.Lock()
+		q.finished = true
+		q.ctxCancel()
+		q.Unlock()
+	}
 }
 
 func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
@@ -139,6 +146,49 @@ func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
 	return values[0].GetVmiStats().DomainStats, nil
 }
 
+func (q *queue) addCompletedStats(domainJobInfo stats.DomainJobInfo) {
+	r := result{
+		vmi:       q.vmi.Name,
+		namespace: q.vmi.Namespace,
+		node:      q.vmi.Status.NodeName,
+
+		domainJobInfo: domainJobInfo,
+		timestamp:     time.Now(),
+	}
+
+	q.Lock()
+	q.results.Value = r
+	q.results = q.results.Next()
+	q.finished = true
+	if q.ctxCancel != nil {
+		q.ctxCancel()
+	}
+	q.Unlock()
+}
+
+func hasCompletedDowntimeStats(domainJobInfo stats.DomainJobInfo) bool {
+	return domainJobInfo.DowntimeSet || domainJobInfo.DowntimeNetSet
+}
+
+func (q *queue) shouldStopPolling(finished bool, domainJobInfo stats.DomainJobInfo) bool {
+	if !finished {
+		q.completedAt = nil
+		return false
+	}
+
+	if hasCompletedDowntimeStats(domainJobInfo) {
+		return true
+	}
+
+	if q.completedAt == nil {
+		completedAt := time.Now()
+		q.completedAt = &completedAt
+		return false
+	}
+
+	return time.Since(*q.completedAt) >= completedStatsTimeout
+}
+
 func (q *queue) all() ([]result, bool) {
 	q.Lock()
 	defer q.Unlock()
@@ -152,7 +202,7 @@ func (q *queue) all() ([]result, bool) {
 	})
 	q.results = q.results.Unlink(q.results.Len())
 
-	return results, q.isMigrationFinished()
+	return results, q.finished
 }
 
 func (q *queue) isMigrationFinished() bool {
