@@ -3414,29 +3414,31 @@ type StallDetectorOptions struct {
 	// observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because
 	// the estimate would never incorporate new samples. Higher values weight recent samples
 	// more heavily.
-	// Defaults to "0.4".
+	// Defaults to 0.4.
 	//+optional
-	EwmaAlpha *string `json:"ewmaAlpha,omitempty"`
+	EwmaAlpha *resource.Quantity `json:"ewmaAlpha,omitempty"`
 	// StallProgressTimeout is the duration in seconds of the sliding window used to track
 	// minimum remaining-bytes and detect when migration progress has stalled.
 	// Defaults to 40.
 	//+optional
-	StallProgressTimeout *uint64 `json:"stallProgressTimeout,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	StallProgressTimeout *int64 `json:"stallProgressTimeout,omitempty"`
 	// SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy
 	// switchover to complete after being triggered before the migration is aborted.
 	// Defaults to 60.
 	//+optional
-	SwitchoverTimeout *uint64 `json:"switchoverTimeout,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	SwitchoverTimeout *int64 `json:"switchoverTimeout,omitempty"`
 	// PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed
 	// MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration.
-	// Defaults to "1.5".
+	// Defaults to 1.5.
 	//+optional
-	PrecopyPossibleFactor *string `json:"precopyPossibleFactor,omitempty"`
+	PrecopyPossibleFactor *resource.Quantity `json:"precopyPossibleFactor,omitempty"`
 	// PatienceWindowDecayFactor is the factor by which the relaxation patience window is
 	// multiplied after each best-remaining-bytes relaxation step.
-	// Defaults to "0.5".
+	// Defaults to 0.5.
 	//+optional
-	PatienceWindowDecayFactor *string `json:"patienceWindowDecayFactor,omitempty"`
+	PatienceWindowDecayFactor *resource.Quantity `json:"patienceWindowDecayFactor,omitempty"`
 	// SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
 	// reach a local minimum near the best observed value. When false, actions may trigger
 	// as soon as a stall is detected.
@@ -3446,9 +3448,9 @@ type StallDetectorOptions struct {
 	// CompletionTimeoutFactor multiplies the computed migration completion timeout to determine
 	// the total time budget for deciding whether a forced switchover can still finish in time,
 	// and to extend the abort deadline after initiating a completion-timeout-driven switchover.
-	// Defaults to "2".
+	// Defaults to 2.
 	//+optional
-	CompletionTimeoutFactor *string `json:"completionTimeoutFactor,omitempty"`
+	CompletionTimeoutFactor *resource.Quantity `json:"completionTimeoutFactor,omitempty"`
 }
 
 // ExperimentalMigrationOptions is an alpha API for experimental migration tunables.
