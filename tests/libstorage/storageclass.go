@@ -21,6 +21,7 @@ package libstorage
 
 import (
 	"context"
+	"fmt"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -219,6 +220,35 @@ func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) 
 	}
 
 	return "", nil
+}
+
+func CreateWFFCStorageClass(client kubecli.KubevirtClient) (string, error) {
+	scName, exist := GetCSIStorageClass()
+	wffcName := fmt.Sprintf("%s-wffc", scName)
+
+	if !exist {
+		return "", fmt.Errorf("no CSI Storage Class exists")
+	}
+
+	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	// use the same storage provider, but change the binding mode to wffc
+	wffcSc := sc.DeepCopy()
+	wffcSc.ObjectMeta = metav1.ObjectMeta{
+		GenerateName: wffcName,
+		Labels: map[string]string{
+			kubevirtIoTest: wffcName,
+		},
+	}
+	wffcSc.VolumeBindingMode = &wffc
+	sc, err = client.StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
+	if err != nil {
+		return "", err
+	}
+	return sc.Name, nil
 }
 
 func GetCSIStorageClass() (string, bool) {
