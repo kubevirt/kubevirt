@@ -368,9 +368,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(console.SafeExpectBatch(stressedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
+				&expect.BSnd{S: "command -v stress-ng\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: stressCmd},
 				&expect.BExp{R: ""},
-			}, stressTestTimeout)).To(Succeed(), "should run a stress test")
+			}, stressTestTimeout)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
 
 			By("Validating that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
 			const consistencyTimeout = 30 * time.Second
