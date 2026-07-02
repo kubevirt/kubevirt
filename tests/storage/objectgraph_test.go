@@ -199,7 +199,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 		It("Object Graph should detect newly added resources", func() {
 			By("Creating DataVolume")
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 				libdv.WithStorage(),
 				libdv.WithForceBindAnnotation(),
 			)
