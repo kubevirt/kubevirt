@@ -1,6 +1,6 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
 
 go_library(
     name = "go_default_library",
@@ -31,12 +31,10 @@ pkg_tar(
     package_dir = "/cni",
 )
 
-oci_image(
+kubevirt_image(
     name = "network-passt-binding-cni-image",
     base = "@busybox",
     entrypoint = ["/cni/kubevirt-passt-binding"],
-    tars = [
-        ":passt-binding-tar",
-    ],
+    tars = [":passt-binding-tar"],
     visibility = ["//visibility:public"],
 )
