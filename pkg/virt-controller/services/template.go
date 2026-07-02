@@ -1092,6 +1092,10 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Labels: map[string]string{
 				v1.AppLabel: hotplugDisk,
 			},
+			Annotations: map[string]string{
+				v1.OwnerVMINameAnnotation: vmi.Name,
+				v1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+			},
 		},
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
@@ -1212,7 +1216,10 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
 
-	annotationsList := make(map[string]string)
+	annotationsList := map[string]string{
+		v1.OwnerVMINameAnnotation: vmi.Name,
+		v1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+	}
 	if tempPod {
 		// mark pod as temp - only used for provisioning
 		annotationsList[v1.EphemeralProvisioningObject] = "true"

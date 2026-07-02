@@ -1161,6 +1161,11 @@ const (
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
 	CreatedByLabel string = "kubevirt.io/created-by"
+	// Owner VMI name/UID recorded on a pod, used to recover the VMI when the
+	// owner chain cannot be resolved. Used on Pod.
+	// Internal use only.
+	OwnerVMINameAnnotation string = "kubevirt.io/owner-vmi-name"
+	OwnerVMIUIDAnnotation  string = "kubevirt.io/owner-vmi-uid"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
 	// This label indicates the migration name that a PDB is protecting.
