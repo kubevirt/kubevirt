@@ -482,7 +482,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("guestexec")).
 			To(subresourceApp.GuestExec).
-			Consumes(restful.MIME_JSON).
+			Consumes(mime.MIME_ANY).
 			Produces(restful.MIME_JSON).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"GuestExec").
