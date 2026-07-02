@@ -468,7 +468,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.IgnitionAnnotation),
 			),
 			Entry("without sidecar feature gate enabled",
-				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
+				map[string]string{hooks.HookSidecarListAnnotationName: `[{"image": "fake-image"}]`},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
 		)
@@ -491,10 +491,28 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				featuregate.IgnitionGate,
 			),
 			Entry("with sidecar feature gate enabled",
-				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
+				map[string]string{hooks.HookSidecarListAnnotationName: `[{"image": "fake-image", "downwardAPI": ["pod-info"]}]`},
 				featuregate.SidecarGate,
 			),
 		)
+
+		It("should reject unsupported hook sidecar downwardAPI values", func() {
+			enableFeatureGates(featuregate.SidecarGate)
+			vmi := newBaseVmi()
+			vmi.Annotations = map[string]string{
+				hooks.HookSidecarListAnnotationName: `[{"image": "fake-image", "downwardAPI": ["unsupported"]}]`,
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "fake-account"}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring(`unsupported downwardAPI value "unsupported"`))
+		})
 	})
 
 	Context("with VirtualMachineInstance spec", func() {

@@ -145,6 +145,30 @@ func downwardAPIDirVolume(name, path, fieldPath string) k8sv1.Volume {
 	}
 }
 
+func podInfoVolume() k8sv1.Volume {
+	return k8sv1.Volume{
+		Name: hooks.PodInfoVolumeName,
+		VolumeSource: k8sv1.VolumeSource{
+			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+				Items: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: hooks.PodInfoLabelsFile,
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: "metadata.labels",
+						},
+					},
+					{
+						Path: hooks.PodInfoAnnotationsFile,
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: "metadata.annotations",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeStatus []v1.VolumeStatus) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		hotplugVolumesByName := hotplugVolumes(vmiVolumeStatus, vmiSpecVolumes)
@@ -546,6 +570,13 @@ func withNetworkDeviceInfoMapAnnotation() VolumeRendererOption {
 			downwardAPIDirVolume(
 				downwardapi.NetworkInfoVolumeName, downwardapi.NetworkInfoVolumePath, fmt.Sprintf("metadata.annotations['%s']", downwardapi.NetworkInfoAnnot)),
 		)
+		return nil
+	}
+}
+
+func withPodInfoVolume() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumes = append(renderer.podVolumes, podInfoVolume())
 		return nil
 	}
 }

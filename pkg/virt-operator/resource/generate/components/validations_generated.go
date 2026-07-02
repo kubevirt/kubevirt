@@ -1518,7 +1518,7 @@ var CRDsValidation map[string]string = map[string]string{
                       downwardAPI:
                         description: |-
                           DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.
-                          Supported values: "device-info"
+                          Supported values: "device-info", "pod-info"
                           version: v1alphav1
                         type: string
                       migration:

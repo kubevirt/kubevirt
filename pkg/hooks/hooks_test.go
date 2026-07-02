@@ -37,6 +37,7 @@ var _ = Describe("HooksAPI", func() {
 				hooks.HookSidecar{
 					Image:           "some-image:v1",
 					ImagePullPolicy: "IfNotPresent",
+					DownwardAPI:     hooks.DownwardAPI{v1.PodInfo},
 				},
 				hooks.HookSidecar{
 					Image:           "another-image:v1",
@@ -50,7 +51,8 @@ var _ = Describe("HooksAPI", func() {
 [
   {
     "image": "some-image:v1",
-    "imagePullPolicy": "IfNotPresent"
+    "imagePullPolicy": "IfNotPresent",
+    "downwardAPI": ["pod-info"]
   },
   {
     "image": "another-image:v1",
@@ -64,6 +66,26 @@ var _ = Describe("HooksAPI", func() {
 			hookSidecarList, err := hooks.UnmarshalHookSidecarList(vmiHookObject)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(equality.Semantic.DeepEqual(hookSidecarList, expectedHookSidecarList)).To(BeTrue())
+		})
+
+		It("rejects unsupported downwardAPI values", func() {
+			vmiHookObject := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						hooks.HookSidecarListAnnotationName: `
+[
+  {
+    "image": "some-image:v1",
+    "downwardAPI": ["unsupported"]
+  }
+]
+`,
+					},
+				},
+			}
+
+			_, err := hooks.UnmarshalHookSidecarList(vmiHookObject)
+			Expect(err).To(MatchError(ContainSubstring(`unsupported downwardAPI value "unsupported"`)))
 		})
 	})
 })

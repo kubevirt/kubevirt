@@ -1270,13 +1270,24 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	}
 
 	// Validate sidecar feature gate if set when the corresponding annotation is found
-	if annotations[hooks.HookSidecarListAnnotationName] != "" && !config.SidecarEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
-				field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
-			Field: field.Child("annotations").String(),
-		})
+	if annotations[hooks.HookSidecarListAnnotationName] != "" {
+		if !config.SidecarEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
+					field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
+				Field: field.Child("annotations").String(),
+			})
+		} else if _, err := hooks.UnmarshalHookSidecarList(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Annotations: annotations},
+		}); err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("invalid hook sidecar annotation %s: %v",
+					field.Child("annotations", hooks.HookSidecarListAnnotationName).String(), err),
+				Field: field.Child("annotations").String(),
+			})
+		}
 	}
 
 	return causes

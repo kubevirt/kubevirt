@@ -6008,6 +6008,41 @@ var _ = Describe("Template", func() {
 		)
 	})
 
+	Context("hook sidecar downwardAPI", func() {
+		It("mounts pod info only into hook sidecars that request it", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			vmi.Annotations = map[string]string{
+				hooks.HookSidecarListAnnotationName: `[
+  {
+    "image": "pod-info-sidecar:v1",
+    "imagePullPolicy": "IfNotPresent",
+    "downwardAPI": ["pod-info"]
+  },
+  {
+    "image": "plain-sidecar:v1",
+    "imagePullPolicy": "IfNotPresent"
+  }
+]`,
+			}
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Volumes).To(ContainElement(podInfoVolume()))
+			Expect(pod.Spec.Containers).To(HaveLen(3))
+
+			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+			Expect(filterVolumeMountByName(pod.Spec.Containers[0].VolumeMounts, hooks.PodInfoVolumeName)).To(BeEmpty())
+
+			Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
+			Expect(filterVolumeMountByName(pod.Spec.Containers[1].VolumeMounts, hooks.PodInfoVolumeName)).To(ConsistOf(podInfoVolumeMount()))
+
+			Expect(pod.Spec.Containers[2].Name).To(Equal("hook-sidecar-1"))
+			Expect(filterVolumeMountByName(pod.Spec.Containers[2].VolumeMounts, hooks.PodInfoVolumeName)).To(BeEmpty())
+		})
+	})
+
 	Context("Network binding plugin", func() {
 		It("Should consider network binding plugin memory overhead", func() {
 			const (
@@ -6384,6 +6419,13 @@ func networkInfoAnnotVolumeMount() k8sv1.VolumeMount {
 	return k8sv1.VolumeMount{
 		Name:      "network-info-annotation",
 		MountPath: "/etc/podinfo",
+	}
+}
+
+func podInfoVolumeMount() k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      hooks.PodInfoVolumeName,
+		MountPath: hooks.PodInfoMountPath,
 	}
 }
 
