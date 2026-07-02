@@ -222,6 +222,7 @@ spec:
       - name: nameValue
         policy: policyValue
       isolateEmulatorThread: true
+      isolateVhostThread: true
       maxSockets: 4294967286
       model: modelValue
       numa:

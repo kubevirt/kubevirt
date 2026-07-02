@@ -19003,6 +19003,13 @@ func schema_kubevirtio_api_core_v1_CPU(ref common.ReferenceCallback) common.Open
 							Format:      "",
 						},
 					},
+					"isolateVhostThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IsolateVhostThread requests one more dedicated pCPU to be allocated for the VMI to place the vhost-net kernel threads on it. This prevents vhost threads from competing with the QEMU emulator thread for CPU cycles, which is critical for high-performance networking workloads. Requires IsolateEmulatorThread to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"realtime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
@@ -31829,6 +31836,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUInstancetype(ref common.Refer
 					"isolateEmulatorThread": {
 						SchemaProps: spec.SchemaProps{
 							Description: "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"isolateVhostThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IsolateVhostThread requests one more dedicated pCPU to be allocated for the VMI to place the vhost-net kernel threads on it. Requires IsolateEmulatorThread to be enabled.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

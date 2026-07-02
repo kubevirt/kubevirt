@@ -712,6 +712,13 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
 		})
 	}
+	if spec.Domain.CPU != nil && spec.Domain.CPU.IsolateVhostThread && !spec.Domain.CPU.IsolateEmulatorThread {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IsolateVhostThread requires IsolateEmulatorThread to be enabled",
+			Field:   field.Child("domain", "cpu", "isolateVhostThread").String(),
+		})
+	}
 	return causes
 }
 

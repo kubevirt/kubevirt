@@ -176,6 +176,7 @@ func (CPU) SwaggerDoc() map[string]string {
 		"dedicatedCpuPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
+		"isolateVhostThread":    "IsolateVhostThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe vhost-net kernel threads on it. This prevents vhost threads from competing with the\nQEMU emulator thread for CPU cycles, which is critical for high-performance networking\nworkloads. Requires IsolateEmulatorThread to be enabled.\n+optional",
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
 	}
 }

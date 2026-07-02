@@ -51,6 +51,11 @@ func (in *CPUInstancetype) DeepCopyInto(out *CPUInstancetype) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.IsolateVhostThread != nil {
+		in, out := &in.IsolateVhostThread, &out.IsolateVhostThread
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Realtime != nil {
 		in, out := &in.Realtime, &out.Realtime
 		*out = new(v1.Realtime)

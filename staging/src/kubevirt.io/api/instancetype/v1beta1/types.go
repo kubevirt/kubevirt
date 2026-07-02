@@ -160,6 +160,11 @@ type CPUInstancetype struct {
 	// +optional
 	IsolateEmulatorThread *bool `json:"isolateEmulatorThread,omitempty"`
 
+	// IsolateVhostThread requests one more dedicated pCPU to be allocated for the VMI to place
+	// the vhost-net kernel threads on it. Requires IsolateEmulatorThread to be enabled.
+	// +optional
+	IsolateVhostThread *bool `json:"isolateVhostThread,omitempty"`
+
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *v1.Realtime `json:"realtime,omitempty"`

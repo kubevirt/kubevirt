@@ -31,6 +31,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "housekeeping_test.go",
         "hypervisorbackend_test.go",
         "kvm_suite_test.go",
         "realtime_test.go",
@@ -40,11 +41,16 @@ go_test(
     deps = [
         "//pkg/hypervisor/common:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/virt-handler/cgroup:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/opencontainers/cgroups:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

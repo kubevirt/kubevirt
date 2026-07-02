@@ -52,6 +52,7 @@ func (CPUInstancetype) SwaggerDoc() map[string]string {
 		"dedicatedCPUPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
+		"isolateVhostThread":    "IsolateVhostThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe vhost-net kernel threads on it. Requires IsolateEmulatorThread to be enabled.\n+optional",
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
 		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+optional",
 	}

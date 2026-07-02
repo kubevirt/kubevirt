@@ -430,6 +430,7 @@ type KubeVirtMetadata struct {
 	Backup           *BackupMetadata           `xml:"backup,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
 	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
+	VhostCPUSet      string                    `xml:"vhostCPUSet,omitempty"`
 }
 
 type AccessCredentialMetadata struct {
