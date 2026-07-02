@@ -346,6 +346,14 @@ func (DataVolumeTemplateSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ResourceClaimTemplateEntry) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                          "ResourceClaimTemplateEntry defines a ResourceClaim that should be created\nfrom a ResourceClaimTemplate and bound to this VirtualMachine's lifecycle.\nThe VM controller creates the ResourceClaim with the VM as owner, ensuring\nthe claim persists across VMI restarts and is only deleted when the VM is deleted.",
+		"name":                      "Name is the logical name used to match this entry to\nspec.template.spec.resourceClaims[].name in the VMI template.\n+kubebuilder:validation:MinLength=1",
+		"resourceClaimTemplateName": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate\nobject in the same namespace to create the ResourceClaim from.\n+kubebuilder:validation:MinLength=1",
+	}
+}
+
 func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"metadata": "+kubebuilder:pruning:PreserveUnknownFields\n+nullable",
@@ -441,14 +449,15 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                      "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
-		"running":               "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy\nDeprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
-		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running\nFollowing are allowed values:\n- \"Always\": VMI should always be running.\n- \"Halted\": VMI should never be running.\n- \"Manual\": VMI can be started/stopped using API endpoints.\n- \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.\n- \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
-		"instancetype":          "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
-		"preference":            "PreferenceMatcher references a set of preference that is used to fill fields in Template",
-		"template":              "Template is the direct specification of VirtualMachineInstance",
-		"dataVolumeTemplates":   "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
-		"updateVolumesStrategy": "UpdateVolumesStrategy is the strategy to apply on volumes updates",
+		"":                       "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
+		"running":                "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy\nDeprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
+		"runStrategy":            "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running\nFollowing are allowed values:\n- \"Always\": VMI should always be running.\n- \"Halted\": VMI should never be running.\n- \"Manual\": VMI can be started/stopped using API endpoints.\n- \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.\n- \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
+		"instancetype":           "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
+		"preference":             "PreferenceMatcher references a set of preference that is used to fill fields in Template",
+		"template":               "Template is the direct specification of VirtualMachineInstance",
+		"dataVolumeTemplates":    "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"resourceClaimTemplates": "resourceClaimTemplates is a list of ResourceClaims that should be created from\nResourceClaimTemplates and are tied to the VirtualMachine's lifecycle.\nResourceClaims in this list are dynamically created for the VirtualMachine and\npersist across VMI restarts. When the VM is deleted, the ResourceClaims are\ngarbage-collected via owner references.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate in kubernetes.\nThis field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.\n\n+kubebuilder:validation:MaxItems:=256\n+listType=map\n+listMapKey=name\n+optional",
+		"updateVolumesStrategy":  "UpdateVolumesStrategy is the strategy to apply on volumes updates",
 	}
 }
 

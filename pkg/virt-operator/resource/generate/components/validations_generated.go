@@ -5173,6 +5173,45 @@ var CRDsValidation map[string]string = map[string]string{
                 initially captured the first time the instancetype is applied to the VirtualMachineInstance.
               type: string
           type: object
+        resourceClaimTemplates:
+          description: |-
+            resourceClaimTemplates is a list of ResourceClaims that should be created from
+            ResourceClaimTemplates and are tied to the VirtualMachine's lifecycle.
+            ResourceClaims in this list are dynamically created for the VirtualMachine and
+            persist across VMI restarts. When the VM is deleted, the ResourceClaims are
+            garbage-collected via owner references.
+
+            This is an alpha field and requires enabling the
+            DynamicResourceAllocation feature gate in kubernetes.
+            This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+          items:
+            description: |-
+              ResourceClaimTemplateEntry defines a ResourceClaim that should be created
+              from a ResourceClaimTemplate and bound to this VirtualMachine's lifecycle.
+              The VM controller creates the ResourceClaim with the VM as owner, ensuring
+              the claim persists across VMI restarts and is only deleted when the VM is deleted.
+            properties:
+              name:
+                description: |-
+                  Name is the logical name used to match this entry to
+                  spec.template.spec.resourceClaims[].name in the VMI template.
+                minLength: 1
+                type: string
+              resourceClaimTemplateName:
+                description: |-
+                  ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+                  object in the same namespace to create the ResourceClaim from.
+                minLength: 1
+                type: string
+            required:
+            - name
+            - resourceClaimTemplateName
+            type: object
+          maxItems: 256
+          type: array
+          x-kubernetes-list-map-keys:
+          - name
+          x-kubernetes-list-type: map
         runStrategy:
           description: |-
             Running state indicates the requested running state of the VirtualMachineInstance
@@ -23246,6 +23285,45 @@ var CRDsValidation map[string]string = map[string]string{
                         initially captured the first time the instancetype is applied to the VirtualMachineInstance.
                       type: string
                   type: object
+                resourceClaimTemplates:
+                  description: |-
+                    resourceClaimTemplates is a list of ResourceClaims that should be created from
+                    ResourceClaimTemplates and are tied to the VirtualMachine's lifecycle.
+                    ResourceClaims in this list are dynamically created for the VirtualMachine and
+                    persist across VMI restarts. When the VM is deleted, the ResourceClaims are
+                    garbage-collected via owner references.
+
+                    This is an alpha field and requires enabling the
+                    DynamicResourceAllocation feature gate in kubernetes.
+                    This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                  items:
+                    description: |-
+                      ResourceClaimTemplateEntry defines a ResourceClaim that should be created
+                      from a ResourceClaimTemplate and bound to this VirtualMachine's lifecycle.
+                      The VM controller creates the ResourceClaim with the VM as owner, ensuring
+                      the claim persists across VMI restarts and is only deleted when the VM is deleted.
+                    properties:
+                      name:
+                        description: |-
+                          Name is the logical name used to match this entry to
+                          spec.template.spec.resourceClaims[].name in the VMI template.
+                        minLength: 1
+                        type: string
+                      resourceClaimTemplateName:
+                        description: |-
+                          ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+                          object in the same namespace to create the ResourceClaim from.
+                        minLength: 1
+                        type: string
+                    required:
+                    - name
+                    - resourceClaimTemplateName
+                    type: object
+                  maxItems: 256
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 runStrategy:
                   description: |-
                     Running state indicates the requested running state of the VirtualMachineInstance
@@ -28906,6 +28984,45 @@ var CRDsValidation map[string]string = map[string]string{
                             initially captured the first time the instancetype is applied to the VirtualMachineInstance.
                           type: string
                       type: object
+                    resourceClaimTemplates:
+                      description: |-
+                        resourceClaimTemplates is a list of ResourceClaims that should be created from
+                        ResourceClaimTemplates and are tied to the VirtualMachine's lifecycle.
+                        ResourceClaims in this list are dynamically created for the VirtualMachine and
+                        persist across VMI restarts. When the VM is deleted, the ResourceClaims are
+                        garbage-collected via owner references.
+
+                        This is an alpha field and requires enabling the
+                        DynamicResourceAllocation feature gate in kubernetes.
+                        This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                      items:
+                        description: |-
+                          ResourceClaimTemplateEntry defines a ResourceClaim that should be created
+                          from a ResourceClaimTemplate and bound to this VirtualMachine's lifecycle.
+                          The VM controller creates the ResourceClaim with the VM as owner, ensuring
+                          the claim persists across VMI restarts and is only deleted when the VM is deleted.
+                        properties:
+                          name:
+                            description: |-
+                              Name is the logical name used to match this entry to
+                              spec.template.spec.resourceClaims[].name in the VMI template.
+                            minLength: 1
+                            type: string
+                          resourceClaimTemplateName:
+                            description: |-
+                              ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+                              object in the same namespace to create the ResourceClaim from.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        - resourceClaimTemplateName
+                        type: object
+                      maxItems: 256
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     runStrategy:
                       description: |-
                         Running state indicates the requested running state of the VirtualMachineInstance

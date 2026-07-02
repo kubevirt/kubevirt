@@ -17415,6 +17415,26 @@
      }
     }
    },
+   "v1.ResourceClaimTemplateEntry": {
+    "description": "ResourceClaimTemplateEntry defines a ResourceClaim that should be created from a ResourceClaimTemplate and bound to this VirtualMachine's lifecycle. The VM controller creates the ResourceClaim with the VM as owner, ensuring the claim persists across VMI restarts and is only deleted when the VM is deleted.",
+    "type": "object",
+    "required": [
+     "name",
+     "resourceClaimTemplateName"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name is the logical name used to match this entry to spec.template.spec.resourceClaims[].name in the VMI template.",
+      "type": "string",
+      "default": ""
+     },
+     "resourceClaimTemplateName": {
+      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace to create the ResourceClaim from.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.ResourceRequirements": {
     "type": "object",
     "properties": {
@@ -20210,6 +20230,18 @@
      "preference": {
       "description": "PreferenceMatcher references a set of preference that is used to fill fields in Template",
       "$ref": "#/definitions/v1.PreferenceMatcher"
+     },
+     "resourceClaimTemplates": {
+      "description": "resourceClaimTemplates is a list of ResourceClaims that should be created from ResourceClaimTemplates and are tied to the VirtualMachine's lifecycle. ResourceClaims in this list are dynamically created for the VirtualMachine and persist across VMI restarts. When the VM is deleted, the ResourceClaims are garbage-collected via owner references.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes. This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.ResourceClaimTemplateEntry"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
      },
      "runStrategy": {
       "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
