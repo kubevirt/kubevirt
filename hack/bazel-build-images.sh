@@ -33,6 +33,7 @@ other_images_default="
     //containerimages:fedora-with-test-tooling
     //images/disks-images-provider:disks-images-provider-image
     //images/vm-killer:vm-killer-image
+    //images/test-nfs-server:test-nfs-server-image
 "
 
 other_images_x86_64_aarch64="

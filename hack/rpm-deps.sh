@@ -228,6 +228,11 @@ exportserverbase_main="
   tar
 "
 
+nfsserver_main="
+  iptables-nft
+  nfs-utils
+"
+
 pr_helper="
   qemu-pr-helper
 "
@@ -393,6 +398,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $sidecar_shim
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name nfs-server_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $nfsserver_main
+
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
@@ -548,6 +564,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $sidecar_shim
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name nfs-server_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $nfsserver_main
+
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
@@ -693,6 +720,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_main \
         $centos_extra \
         $sidecar_shim
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name nfs-server_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $nfsserver_main
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \

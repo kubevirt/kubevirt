@@ -1,0 +1,39 @@
+load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "entrypoint-tar",
+    srcs = ["entrypoint.sh"],
+    mode = "0755",
+    package_dir = "/",
+)
+
+oci_image(
+    name = "test-nfs-server-image",
+    testonly = True,
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
+        "//conditions:default": "amd64",
+    }),
+    entrypoint = ["/entrypoint.sh"],
+    os = "linux",
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            "//rpm:testimage_aarch64",
+            "//rpm:nfs-server_aarch64",
+        ],
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            "//rpm:testimage_s390x",
+            "//rpm:nfs-server_s390x",
+        ],
+        "//conditions:default": [
+            "//rpm:testimage_x86_64",
+            "//rpm:nfs-server_x86_64",
+        ],
+    }) + [
+        "//images:passwd-tar",
+        ":entrypoint-tar",
+    ],
+    visibility = ["//visibility:public"],
+)
