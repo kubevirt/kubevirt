@@ -22,7 +22,6 @@ package main
 import (
 	"context"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -375,7 +374,7 @@ func main() {
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 	hypervisor := pflag.String("hypervisor", v1.KvmHypervisorName, "Hypervisor to be used by the VMI")
 
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
