@@ -83,6 +83,18 @@ func ValidateMigrationConfigurationOptions(
 		}
 	}
 
+	if didFieldChange(oldConfiguration, newConfiguration, func(c *v1.VMIMConfigurationOptions) any { return c.AllowPostCopy }) ||
+		didFieldChange(oldConfiguration, newConfiguration, func(c *v1.VMIMConfigurationOptions) any { return c.AllowWorkloadDisruption }) {
+		if newConfiguration.AllowPostCopy != nil && *newConfiguration.AllowPostCopy &&
+			(newConfiguration.AllowWorkloadDisruption != nil && !*newConfiguration.AllowWorkloadDisruption) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "AllowWorkloadDisruption must be true when AllowPostCopy is true",
+				Field:   sourceField.Child("allowWorkloadDisruption").String(),
+			})
+		}
+	}
+
 	// Note: Stall detector validation applies only when callers populate experimental options
 	// (MigrationPolicy today; KubeVirt CR MigrationConfiguration has no experimental field).
 	if didFieldChange(oldConfiguration, newConfiguration, stallDetectorAccessor) {
