@@ -259,9 +259,7 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 }
 
 func IsBackendStorageVolume(v corev1.VolumeStatus) bool {
-	// TODO https://github.com/kubevirt/kubevirt/issues/17369
-	// simplify to volume.Name == VolumeName
-	return strings.HasPrefix(v.Name, PVCPrefix)
+	return v.Name == VolumeName
 }
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
