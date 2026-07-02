@@ -1318,7 +1318,6 @@ var CRDsValidation map[string]string = map[string]string{
                 enabled:
                   description: |-
                     Enable the creation and removal of mediated devices by virt-handler
-                    Replaces the deprecated DisableMDEVConfiguration feature gate
                     Defaults to true
                   type: boolean
                 mediatedDeviceTypes:
