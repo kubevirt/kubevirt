@@ -151,12 +151,6 @@ const (
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
 
-	// PodSecondaryInterfaceNamingUpgrade enables the upgrade mechanism for VMs
-	// stuck with the obsolete ordinal naming scheme for their pod secondary networks
-	// Owner: SIG network
-	// Beta: v1.8
-	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
-
 	// ExternalNetResourceInjection disables the VMI controller query of NetworkAttachmentDefinition objects and
 	// the deployment of related RBAC rules by virt-operator.
 	// Owner: SIG network
@@ -319,7 +313,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})

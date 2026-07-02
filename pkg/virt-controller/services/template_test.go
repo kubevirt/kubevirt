@@ -529,7 +529,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should work", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
+				disableFeatureGate(featuregate.ImageVolume)
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -1156,7 +1156,7 @@ var _ = Describe("Template", func() {
 		Context("with node selectors", func() {
 			DescribeTable("should add node selectors to template", func(arch string, ovmfPath string) {
 				config, kvStore, svc = configFactory(arch)
-				disableFeatureGate(featuregate.ImageVolume, featuregate.PodSecondaryInterfaceNamingUpgrade)
+				disableFeatureGate(featuregate.ImageVolume)
 
 				nodeSelector := map[string]string{
 					k8sv1.LabelHostname: "master",
