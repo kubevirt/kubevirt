@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/emicklei/go-restful/v3"
 
@@ -49,6 +48,8 @@ const (
 
 	// defaultGuestExecTimeoutSeconds is used when the caller does not specify a timeout.
 	defaultGuestExecTimeoutSeconds = int32(30)
+	// maxGuestExecTimeoutSeconds bounds how long a synchronous guest-exec may block.
+	maxGuestExecTimeoutSeconds = int32(300)
 )
 
 type LifecycleHandler struct {
@@ -265,29 +266,37 @@ func (lh *LifecycleHandler) GuestExec(request *restful.Request, response *restfu
 	}
 	defer client.Close()
 
-	command := request.QueryParameter("command")
-	if command == "" {
+	if request.Request.Body == nil {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("guest exec request body is required"))
+		return
+	}
+	defer request.Request.Body.Close()
+
+	opts := &v1.GuestExecOptions{}
+	switch err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts); err {
+	case io.EOF, nil:
+		break
+	default:
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to decode guest exec options: %v", err))
+		return
+	}
+	if opts.Command == "" {
 		response.WriteError(http.StatusBadRequest, fmt.Errorf("guest exec command is required"))
 		return
 	}
-	args := request.Request.URL.Query()["args"]
 
 	timeoutSeconds := defaultGuestExecTimeoutSeconds
-	if rawTimeout := request.QueryParameter("timeoutSeconds"); rawTimeout != "" {
-		parsed, err := strconv.ParseInt(rawTimeout, 10, 32)
-		if err != nil {
-			response.WriteError(http.StatusBadRequest, fmt.Errorf("invalid timeoutSeconds: %v", err))
-			return
-		}
-		if parsed > 0 {
-			timeoutSeconds = int32(parsed)
-		}
+	if opts.TimeoutSeconds > 0 {
+		timeoutSeconds = opts.TimeoutSeconds
+	}
+	if timeoutSeconds > maxGuestExecTimeoutSeconds {
+		timeoutSeconds = maxGuestExecTimeoutSeconds
 	}
 
 	domainName := api.VMINamespaceKeyFunc(vmi)
-	log.Log.Object(vmi).Infof("Executing guest command [%s] on %s", command, vmi.Name)
+	log.Log.Object(vmi).V(2).Infof("Executing guest command via guest agent")
 
-	exitCode, stdOut, err := client.Exec(domainName, command, args, timeoutSeconds)
+	exitCode, stdOut, err := client.Exec(domainName, opts.Command, opts.Args, timeoutSeconds)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to execute guest command")
 		response.WriteError(http.StatusInternalServerError, err)

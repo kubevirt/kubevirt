@@ -76,6 +76,7 @@ type VirtHandlerConn interface {
 	SEVInjectLaunchSecretURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, body io.ReadCloser) error
+	PutWithResponse(url, contentType string, body io.ReadCloser) (string, error)
 	Get(url, contentType string) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -295,6 +296,21 @@ func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	}
 
 	return nil
+}
+
+// PutWithResponse issues a PUT with the given body and returns the response
+// payload. Unlike Put it is used for subresources that both send and receive a
+// body (e.g. guest-exec forwarding to virt-handler).
+func (v *virtHandlerConn) PutWithResponse(url, contentType string, body io.ReadCloser) (string, error) {
+	req, err := http.NewRequest(http.MethodPut, url, body)
+	if err != nil {
+		return "", err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Accept", contentType)
+	}
+	return v.doRequest(req)
 }
 
 func (v *virtHandlerConn) Get(url, contentType string) (string, error) {

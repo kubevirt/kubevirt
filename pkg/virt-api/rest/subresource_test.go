@@ -1010,13 +1010,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(body))
 		}
 
-		It("should execute a command on a running VMI with the guest agent connected", func() {
+		It("should proxy the request body to virt-handler and return its result", func() {
 			expectedResult := v1.GuestExecResult{ExitCode: 0, StdOut: "hello\n"}
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/v1/namespaces/default/virtualmachineinstances/testvmi/guestexec"),
-					ghttp.VerifyFormKV("command", "/bin/echo"),
-					ghttp.VerifyFormKV("args", "hello"),
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/guestexec"),
+					ghttp.VerifyJSONRepresenting(v1.GuestExecOptions{Command: "/bin/echo", Args: []string{"hello"}}),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedResult),
 				),
 			)
@@ -1029,14 +1028,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-		})
-
-		It("should fail when the command is missing", func() {
-			newGuestExecRequest(&v1.GuestExecOptions{})
-
-			app.GuestExec(request, response)
-
-			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
 		})
 
 		It("should fail when the VMI is not running", func() {

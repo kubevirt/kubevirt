@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -356,20 +354,14 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 
 // GuestExec handles the subresource for executing a command inside the guest
 // via the QEMU guest agent. The command runs synchronously and the exit code
-// plus captured stdout are returned to the caller.
+// plus captured stdout are returned to the caller. The request body is proxied
+// to virt-handler unchanged; body validation happens there.
 func (app *SubresourceAPIApp) GuestExec(request *restful.Request, response *restful.Response) {
-	opts := &v1.GuestExecOptions{}
-	if statusErr := decodeBody(request, opts); statusErr != nil {
-		writeError(statusErr, response)
-		return
-	}
-	if opts.Command == "" {
-		writeError(errors.NewBadRequest("guest exec command is required"), response)
-		return
-	}
-
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		if vmi == nil || vmi.Status.Phase != v1.Running {
+		if vmi == nil {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), "", fmt.Errorf(vmiNotRunning))
+		}
+		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
 		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
@@ -379,35 +371,18 @@ func (app *SubresourceAPIApp) GuestExec(request *restful.Request, response *rest
 		return nil
 	}
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		baseURL, err := conn.GuestExecURI(vmi)
-		if err != nil {
-			return "", err
-		}
-		parsed, err := url.Parse(baseURL)
-		if err != nil {
-			return "", err
-		}
-		query := parsed.Query()
-		query.Set("command", opts.Command)
-		for _, arg := range opts.Args {
-			query.Add("args", arg)
-		}
-		if opts.TimeoutSeconds > 0 {
-			query.Set("timeoutSeconds", strconv.Itoa(int(opts.TimeoutSeconds)))
-		}
-		parsed.RawQuery = query.Encode()
-		return parsed.String(), nil
+		return conn.GuestExecURI(vmi)
 	}
 
-	_, handlerURL, conn, statusErr := app.prepareConnection(request, validate, getURL)
+	_, url, conn, statusErr := app.prepareConnection(request, validate, getURL)
 	if statusErr != nil {
 		writeError(statusErr, response)
 		return
 	}
 
-	resp, conErr := conn.Get(handlerURL, restful.MIME_JSON)
+	resp, conErr := conn.PutWithResponse(url, restful.MIME_JSON, request.Request.Body)
 	if conErr != nil {
-		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		log.Log.Reason(conErr).Error("failed to execute guest command via virt-handler")
 		response.WriteError(http.StatusInternalServerError, conErr)
 		return
 	}

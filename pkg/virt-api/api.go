@@ -487,11 +487,7 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"GuestExec").
 			Doc("Execute a command inside the guest machine via guest agent").
-			// NOTE: typed .Reads(GuestExecOptions{})/.Writes(GuestExecResult{}) are omitted:
-			// virt-api builds an OpenAPI v3 spec at startup and panics if a route references a
-			// model that is not in the generated openapi definitions (openapi_generated.go).
-			// Empty-string models (like the other subresource routes) avoid that. Restore the
-			// typed Reads/Writes after running `make generate`.
+			// Typed Reads/Writes are added once GuestExecOptions/GuestExecResult are in the generated OpenAPI definitions (make generate).
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
