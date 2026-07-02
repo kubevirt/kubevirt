@@ -1,5 +1,8 @@
 # KubeVirt container-disk images
-The following images stored at `dockerhub.com/kubevirt` and can be used in Kubevirt tests:
+
+The following images are published to [quay.io/kubevirt](https://quay.io/organization/kubevirt)
+and can be used in KubeVirt tests. The legacy `dockerhub.com/kubevirt` organization is no
+longer maintained.
 
 - **alpine-container-disk-demo**
    Lightweight image for test suite.
@@ -10,105 +13,96 @@ The following images stored at `dockerhub.com/kubevirt` and can be used in Kubev
 - **cirros-custom-container-disk-demo**
     Used for e2e testing of custom base paths.
 
-- **fedora-cloud-container-disk-demo**
-    Fedora cloud edition image.
+- **virtio-container-disk**
+    Windows virtio drivers image.
 
-- **fedora-sriov-lane-container-disk**
-    Fedora cloud edition image with contains all necessary configuration and drivers for sriov lane tests.    
-    - This image contained the packages:  
-        - kernel-modules (includes sriov drivers)  
-        - qemu-guest-agent  
-    - Configurations:  
-        - Enable and start qemu-guest-agent  
-        - Load kernel modules needed for sriov  
-          mlx4, mlx5, i40e, igb  
+- **alpine-ext-kernel-boot-demo**
+    Alpine image with kernel boot support.
+
+- **alpine-with-test-tooling-container-disk**
+    Alpine image preconfigured with CI tooling.
+
+- **fedora-with-test-tooling-container-disk**
+    Fedora image preconfigured with CI tooling.
+
+- **fedora-realtime-container-disk**
+    Fedora image with realtime kernel support.
+
+- **s390x-guestless-kernel**
+    s390x kernel boot image.
 
 ## How to create new customized container-disk for tests
 
-Work-in-progress PR to automate this process https://github.com/kubevirt/kubevirtci/pull/428
+Customizing an image can be done by:
+- Editing the image with `virt-customize`
+  Adding a new package to an image, for example:
+  `virt-customize -a "fedora39.qcow2" --install dpdk`
 
-Customize an image can be done by:
-- Editing the image with `virt-customize`  
-  Adding new package to an image for example:  
-  `virt-customize -a "fedora32.qcow2" --install dpdk`
-
-- Spin-up live VM with the image you want using `virt-install`  
+- Spin up a live VM with the image you want using `virt-install`
   Once the VM is up apply the changes you want and when done
   shut down the VM gracefully with `sudo shutdown -h now`
 
-Next, it is necessary to prepare the image so there will be no unique files or configurations   
-so each VM that will be created with the new image will have unique machine-id, mac-address etc.. 
+Next, it is necessary to prepare the image so there will be no unique files or configurations
+so each VM that will be created with the new image will have unique machine-id, mac-address etc..
 We can do that with `virt-sysprep`:
  ```bash
- virt-sysprep -a fedora32.qcow --operations machine-id,bash-history,logfiles,tmp-files,net-hostname,net-hwaddr  
+ virt-sysprep -a fedora39.qcow2 --operations machine-id,bash-history,logfiles,tmp-files,net-hostname,net-hwaddr
  ```
-￼
 
-Once the image is ready it is necessary to convert it to   
-container image with `kubevirt/container-disk-v1alpha` layer, 
-so KubeVirt VM's can consume it according to  
-https://github.com/kubevirt/kubevirt/blob/main/docs/container-register-disks.md
+Once the image is ready it is necessary to convert it to
+a container image so KubeVirt VMs can consume it according to
+[docs/container-register-disks.md](../docs/container-register-disks.md)
 
 ```bash
 cat > Dockerfile <<EOF
-FROM kubevirt/container-disk-v1alpha
-ADD fedora32.qcow2 /disk/
+FROM scratch
+ADD --chown=107:107 fedora39.qcow2 /disk/
 EOF
 
-docker build -t kubevirt/fedora-sriov-testing:latest .
+podman build -t quay.io/kubevirt/fedora-custom-testing:latest .
 ```
 
 
-## Use image in Kubevirt tests
+## Use image in KubeVirt tests
 
-First we need pull the image from the remote registry (or local registry) by adding `container_pull` rule to `WORKSPACE` file:
-```bash
-container_pull(
-    name = "fedora_sriov_lane",
+First we need to pull the image from the remote registry (or local registry) by adding `oci_pull` rule to `WORKSPACE` file:
+```python
+oci_pull(
+    name = "fedora_custom_testing",
     # digest = ""
-    registry = "localhost:5000",
-    repository = "kubevirt/fedora-sriov-testing",
+    image = "localhost:5000/kubevirt/fedora-custom-testing",
     tag = "latest",
 )
 ```
-Once you verified the image works reach out to kubevirt CI maintainers and ask to upload the new image 
-then update the `container_pull` rule accordingly.
-```bash
-container_pull(
-    name = "fedora_sriov_lane",
-    digest = ""
-    registry = "index.docker.io",
-    repository = "kubevirt/fedora-sriov-testing",
-    # tag = "32",
+Once you verified the image works reach out to kubevirt CI maintainers and ask to upload the new image
+then update the `oci_pull` rule accordingly.
+```python
+oci_pull(
+    name = "fedora_custom_testing",
+    digest = "sha256:<digest>",
+    image = "quay.io/kubevirt/fedora-custom-testing",
 )
 ```
 
-Next we need to add `contaier_image` rule for the new image to `containerdisks/BUILD.bazel` file;
-```bash
-container_image(
-    name = "fedora-sriov-lane-container-disk-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
+Next we need to add an `oci_image` rule for the new image to the `containerimages/BUILD.bazel` file.
+```python
+oci_image(
+    name = "fedora-custom-container-disk-image",
     base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_sriov_lane_aarch64//image",
-        "//conditions:default": "@fedora_sriov_lane//image",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_custom_testing_aarch64",
+        "//conditions:default": "@fedora_custom_testing",
     }),
     visibility = ["//visibility:public"],
 )
 ```
 
-Then add new line for the container_bundle rules for each architecture at the pojects`BUILD.bazel` file
-```bash
-container_bundle(
-    name = "build-other-images_<arch>",
-    images = {
-        ...
-        "$(container_prefix)/$(image_prefix)fedora-sriov-lane-container-disk:$(container_tag)": "//containerimages:fedora-extended-container-disk-image",
-        ...
-    }
+Then add an `oci_push` rule in `BUILD.bazel`:
+```python
+oci_push(
+    name = "push-fedora-custom-container-disk",
+    image = "//containerimages:fedora-custom-container-disk-image",
+    repository = "quay.io/kubevirt/fedora-custom-container-disk",
 )
 ```
 
-Finally, in order to use the image in tests suite it is necessary to add it to `tests/containerdisks/containerdisks.go` file.
+Finally, in order to use the image in test suite it is necessary to add it to `tests/containerdisk/containerdisk.go` file.
