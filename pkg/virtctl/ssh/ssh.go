@@ -45,6 +45,7 @@ const (
 	knownHostsFilePathFlag                          = "known-hosts"
 	commandToExecute, commandToExecuteShort         = "command", "c"
 	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
+	vsockFlag                                       = "vsock"
 )
 
 type ssh struct {
@@ -60,6 +61,7 @@ type SSHOptions struct {
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
 	AdditionalSSHLocalOptions []string
+	UseVsock                  bool
 }
 
 func NewSSH(opts *SSHOptions) *ssh {
@@ -100,6 +102,8 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
 	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
 		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh client`, additionalOpts))
+	flagset.BoolVar(&opts.UseVsock, vsockFlag, opts.UseVsock,
+		fmt.Sprintf(`--%s: Use VSOCK to connect to the VM instead of port-forward`, vsockFlag))
 }
 
 func DefaultSSHOptions() *SSHOptions {
@@ -137,7 +141,11 @@ func (o *ssh) run(cmd *cobra.Command, args []string) error {
 	}
 
 	clientArgs := o.BuildSSHTarget(kind, namespace, name)
-	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs).Run()
+	sshCmd, err := LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs)
+	if err != nil {
+		return err
+	}
+	return sshCmd.Run()
 }
 
 func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
@@ -238,8 +246,17 @@ func ParseTarget(arg string) (kind, namespace, name, username string, err error)
 	return kind, namespace, name, username, err
 }
 
-func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
-	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort)}
+func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) (*exec.Cmd, error) {
+	var proxyCommandOption string
+	if options.UseVsock {
+		if kind != "vmi" {
+			return nil, fmt.Errorf("--vsock is only supported for VirtualMachineInstances (vmi), got %q", kind)
+		}
+		proxyCommandOption = BuildVsockProxyCommandOption(kind, namespace, name, options.SSHPort)
+	} else {
+		proxyCommandOption = BuildProxyCommandOption(kind, namespace, name, options.SSHPort)
+	}
+	args := []string{"-o", proxyCommandOption}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
 	}
@@ -255,14 +272,24 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	return cmd
+	return cmd, nil
 }
 
 func BuildProxyCommandOption(kind, namespace, name string, port int) string {
+	return buildProxyCommandOption("port-forward --stdio=true", kind, namespace, name, port)
+}
+
+func BuildVsockProxyCommandOption(kind, namespace, name string, port int) string {
+	return buildProxyCommandOption("vsock", kind, namespace, name, port)
+}
+
+func buildProxyCommandOption(subcommand, kind, namespace, name string, port int) string {
 	proxyCommand := strings.Builder{}
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
-	proxyCommand.WriteString(" port-forward --stdio=true ")
+	proxyCommand.WriteRune(' ')
+	proxyCommand.WriteString(subcommand)
+	proxyCommand.WriteRune(' ')
 	proxyCommand.WriteString(kind)
 	proxyCommand.WriteRune('/')
 	proxyCommand.WriteString(name)
