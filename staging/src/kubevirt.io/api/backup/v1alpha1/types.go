@@ -25,6 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	VirtualMachineBackupFinalizer        = "backup.kubevirt.io/vmbackup-protection"
+	VirtualMachineBackupTrackerFinalizer = "backup.kubevirt.io/vmbt-protection"
+)
+
 // BackupMode is the const type for the backup possible modes
 type BackupMode string
 
