@@ -64,11 +64,13 @@ func NewRawStreamer(fetch vmiFetcher, validate validator, dial dialer) *Streamer
 	return &Streamer{
 		dialer: NewDirectDialer(fetch, validate, dial),
 		streamToServer: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
-			_, err := io.Copy(serverConn, clientConn.UnderlyingConn())
+			buf := make([]byte, kvcorev1.WebsocketStreamingBufferSize)
+			_, err := io.CopyBuffer(serverConn, clientConn.UnderlyingConn(), buf)
 			result <- err
 		},
 		streamToClient: func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
-			_, err := io.Copy(clientConn.UnderlyingConn(), serverConn)
+			buf := make([]byte, kvcorev1.WebsocketStreamingBufferSize)
+			_, err := io.CopyBuffer(clientConn.UnderlyingConn(), serverConn, buf)
 			result <- err
 		},
 	}
