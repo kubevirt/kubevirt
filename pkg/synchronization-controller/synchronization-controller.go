@@ -350,8 +350,10 @@ func (s *SynchronizationController) execute(key string) error {
 		}
 		if migration.IsDecentralizedSource() {
 			if migration.DeletionTimestamp != nil {
-				log.Log.V(2).Object(migration).Infof("migration is being deleted, informing the target that the migration is canceled")
-				// migration is being deleted, inform the target that the migration is canceled
+				log.Log.V(2).Object(migration).Infof("migration is being deleted, syncing source state before canceling target migration")
+				if err := s.handleSourceState(vmi.DeepCopy(), migration); err != nil {
+					return s.updateDecentralizedFailureOnSource(vmi, migration, err)
+				}
 				if err := s.cancelTargetRemoteMigration(vmi, migration); err != nil {
 					return err
 				}
@@ -1348,6 +1350,16 @@ func copyLegacySourceFields(vmi *virtv1.VirtualMachineInstance, migrationState *
 	}
 	vmi.Status.MigrationState.SourcePod = migrationState.SourceState.Pod
 	copyCommonLegacyFields(vmi.Status.MigrationState, migrationState)
+	if migrationState.AbortRequested && migrationState.EndTimestamp != nil {
+		vmi.Status.MigrationState.Failed = migrationState.Failed
+		vmi.Status.MigrationState.Completed = migrationState.Completed
+		if migrationState.AbortStatus != "" {
+			vmi.Status.MigrationState.AbortStatus = migrationState.AbortStatus
+		}
+		if migrationState.FailureReason != "" {
+			vmi.Status.MigrationState.FailureReason = migrationState.FailureReason
+		}
+	}
 }
 
 func copyCommonLegacyFields(targetMigrationState, sourceMigrationState *virtv1.VirtualMachineInstanceMigrationState) {

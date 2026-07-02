@@ -164,6 +164,20 @@ var _ = Describe("Live migration source", func() {
 			Entry("marking the migration as failed should finalize", true),
 			Entry("marking the migration as completed should finalize", false),
 		)
+
+		// When the target migration proxy is torn down before source abort completes,
+		// libvirt reports "client socket is closed". setMigrationResult does not map
+		// that to abortStatus=Succeeded, which is why ConfirmVMIPostMigrationAborted
+		// fails on the source VMI in the decentralized delete-target-migration test.
+		It("records failed migration with blank AbortStatus when libvirt fails with client socket is closed", func() {
+			libvirtDomainManager.setMigrationResult(true, "client socket is closed")
+
+			migrationMetadata, exists := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(exists).To(BeTrue(), "migrationMetadata not found")
+			Expect(migrationMetadata.Failed).To(BeTrue())
+			Expect(migrationMetadata.FailureReason).To(Equal("client socket is closed"))
+			Expect(migrationMetadata.AbortStatus).To(BeEmpty())
+		})
 	})
 
 	Context("Migration abort status", func() {
