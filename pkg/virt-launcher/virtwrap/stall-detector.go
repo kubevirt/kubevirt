@@ -26,9 +26,8 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
 	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 type convergenceAction int
@@ -48,7 +47,7 @@ type iterationRecord struct {
 }
 
 type stallDetector struct {
-	stallDetectorOptions cmdclient.StallDetectorOptions
+	stallDetectorOptions migrationutils.StallDetectorOptions
 	maxDowntimeMs        uint64
 
 	// a bool indicating whether initial max downtime has been set (only set when maxDowntimeMs < 300, the default QEMU target downtime)

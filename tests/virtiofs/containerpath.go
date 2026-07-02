@@ -28,26 +28,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libpodmutator"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -99,20 +94,21 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			testContent                 = "Hello from webhook-injected volume!"
 		)
 
-		var webhookPod *k8sv1.Pod
-		var webhookService *k8sv1.Service
-		var webhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
+		var webhook *libpodmutator.Webhook
 
 		BeforeEach(func() {
-			webhookArgs := []string{
-				fmt.Sprintf("--port=%d", webhookPort),
-				"--volume-type=emptydir",
-			}
-			webhookPod, webhookService, webhookConfig = setupWebhook(webhookName, webhookSecretName, webhookPort, webhookArgs)
+			webhook = libpodmutator.Setup(libpodmutator.Options{
+				Name:       webhookName,
+				SecretName: webhookSecretName,
+				Port:       webhookPort,
+				VolumeInjection: &libpodmutator.VolumeInjection{
+					Type: libpodmutator.VolumeTypeEmptyDir,
+				},
+			})
 		})
 
 		AfterEach(func() {
-			teardownWebhook(webhookPod, webhookService, webhookConfig, webhookSecretName)
+			libpodmutator.Teardown(webhook, webhookSecretName)
 		})
 
 		It("Should access webhook-injected emptyDir via ContainerPath virtiofs", func() {
@@ -170,9 +166,7 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			testDataValue               = "Hello from migrated ConfigMap!"
 		)
 
-		var webhookPod *k8sv1.Pod
-		var webhookService *k8sv1.Service
-		var webhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
+		var webhook *libpodmutator.Webhook
 
 		BeforeEach(func() {
 			virtClient := kubevirt.Client()
@@ -191,19 +185,22 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			_, err := virtClient.CoreV1().ConfigMaps(testNamespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			webhookArgs := []string{
-				fmt.Sprintf("--port=%d", webhookPort),
-				"--volume-type=configmap",
-				fmt.Sprintf("--configmap-name=%s", configMapName),
-			}
-			webhookPod, webhookService, webhookConfig = setupWebhook(webhookName, webhookSecretName, webhookPort, webhookArgs)
+			webhook = libpodmutator.Setup(libpodmutator.Options{
+				Name:       webhookName,
+				SecretName: webhookSecretName,
+				Port:       webhookPort,
+				VolumeInjection: &libpodmutator.VolumeInjection{
+					Type:          libpodmutator.VolumeTypeConfigMap,
+					ConfigMapName: configMapName,
+				},
+			})
 		})
 
 		AfterEach(func() {
 			virtClient := kubevirt.Client()
 			testNamespace := testsuite.GetTestNamespace(nil)
 
-			teardownWebhook(webhookPod, webhookService, webhookConfig, webhookSecretName)
+			libpodmutator.Teardown(webhook, webhookSecretName)
 
 			err := virtClient.CoreV1().ConfigMaps(testNamespace).Delete(context.Background(), configMapName, metav1.DeleteOptions{})
 			if !errors.IsNotFound(err) {
@@ -316,214 +313,6 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 		})
 	})
 })
-
-// setupWebhook creates and deploys a test webhook with TLS certificates
-func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webhookArgs []string) (*k8sv1.Pod, *k8sv1.Service, *admissionregistrationv1.MutatingWebhookConfiguration) {
-	virtClient := kubevirt.Client()
-	testNamespace := testsuite.GetTestNamespace(nil)
-
-	By("Generating TLS certificates for webhook")
-	certPEM, keyPEM, caBundlePEM, err := libinfra.GenerateWebhookCertificates(webhookName, testNamespace, 24*time.Hour)
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Creating secret with webhook certificates")
-	secret := libsecret.New(webhookSecretName, libsecret.DataBytes{
-		"tls.crt": certPEM,
-		"tls.key": keyPEM,
-	})
-	_, err = virtClient.CoreV1().Secrets(testNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Deploying test-pod-mutator webhook")
-	webhookPod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      webhookName,
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				"app": webhookName,
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsNonRoot: pointer.P(true),
-				SeccompProfile: &k8sv1.SeccompProfile{
-					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
-			Containers: []k8sv1.Container{{
-				Name:            webhookName,
-				Image:           fmt.Sprintf("%s/test-helpers:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag),
-				ImagePullPolicy: k8sv1.PullAlways,
-				Command:         []string{"/usr/bin/test-pod-mutator"},
-				Args:            webhookArgs,
-				Ports: []k8sv1.ContainerPort{{
-					ContainerPort: webhookPort,
-					Name:          "https",
-				}},
-				VolumeMounts: []k8sv1.VolumeMount{{
-					Name:      "certs",
-					MountPath: "/etc/webhook/certs",
-					ReadOnly:  true,
-				}},
-				SecurityContext: &k8sv1.SecurityContext{
-					AllowPrivilegeEscalation: pointer.P(false),
-					Capabilities: &k8sv1.Capabilities{
-						Drop: []k8sv1.Capability{"ALL"},
-					},
-					RunAsNonRoot: pointer.P(true),
-					SeccompProfile: &k8sv1.SeccompProfile{
-						Type: k8sv1.SeccompProfileTypeRuntimeDefault,
-					},
-				},
-				ReadinessProbe: &k8sv1.Probe{
-					ProbeHandler: k8sv1.ProbeHandler{
-						HTTPGet: &k8sv1.HTTPGetAction{
-							Path:   "/health",
-							Port:   intstr.FromInt(int(webhookPort)),
-							Scheme: k8sv1.URISchemeHTTPS,
-						},
-					},
-					InitialDelaySeconds: 1,
-					PeriodSeconds:       1,
-				},
-			}},
-			Volumes: []k8sv1.Volume{{
-				Name: "certs",
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: webhookSecretName,
-					},
-				},
-			}},
-		},
-	}
-	webhookPod, err = virtClient.CoreV1().Pods(testNamespace).Create(context.Background(), webhookPod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Waiting for webhook pod to be ready")
-	Eventually(func() bool {
-		pod, err := virtClient.CoreV1().Pods(testNamespace).Get(context.Background(), webhookName, metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == k8sv1.PodReady && cond.Status == k8sv1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}, 60*time.Second, time.Second).Should(BeTrue(), "Webhook pod should be ready")
-
-	By("Creating service for webhook")
-	webhookService := &k8sv1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      webhookName,
-			Namespace: testNamespace,
-		},
-		Spec: k8sv1.ServiceSpec{
-			Selector: map[string]string{
-				"app": webhookName,
-			},
-			Ports: []k8sv1.ServicePort{{
-				Port:       webhookPort,
-				TargetPort: intstr.FromInt(int(webhookPort)),
-				Name:       "https",
-			}},
-		},
-	}
-	webhookService, err = virtClient.CoreV1().Services(testNamespace).Create(context.Background(), webhookService, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Waiting for service endpoints to be ready")
-	Eventually(func() bool {
-		slices, err := virtClient.DiscoveryV1().EndpointSlices(testNamespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("kubernetes.io/service-name=%s", webhookName),
-		})
-		if err != nil {
-			return false
-		}
-		for _, slice := range slices.Items {
-			for _, endpoint := range slice.Endpoints {
-				if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
-					return true
-				}
-			}
-		}
-		return false
-	}, 30*time.Second, time.Second).Should(BeTrue(), "Service endpoints should be ready")
-
-	By("Creating MutatingWebhookConfiguration with CA bundle")
-	failPolicy := admissionregistrationv1.Fail
-	sideEffects := admissionregistrationv1.SideEffectClassNone
-	webhookConfig := &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-%s", webhookName, testNamespace),
-		},
-		Webhooks: []admissionregistrationv1.MutatingWebhook{{
-			Name: fmt.Sprintf("%s.kubevirt.io", webhookName),
-			ClientConfig: admissionregistrationv1.WebhookClientConfig{
-				CABundle: caBundlePEM,
-				Service: &admissionregistrationv1.ServiceReference{
-					Namespace: testNamespace,
-					Name:      webhookName,
-					Path:      pointer.P("/mutate"),
-					Port:      pointer.P(webhookPort),
-				},
-			},
-			Rules: []admissionregistrationv1.RuleWithOperations{{
-				Operations: []admissionregistrationv1.OperationType{
-					admissionregistrationv1.Create,
-				},
-				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{""},
-					APIVersions: []string{"v1"},
-					Resources:   []string{"pods"},
-				},
-			}},
-			FailurePolicy: &failPolicy,
-			SideEffects:   &sideEffects,
-			NamespaceSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"kubernetes.io/metadata.name": testNamespace,
-				},
-			},
-			AdmissionReviewVersions: []string{"v1"},
-		}},
-	}
-	webhookConfig, err = virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), webhookConfig, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	return webhookPod, webhookService, webhookConfig
-}
-
-// teardownWebhook cleans up webhook resources
-func teardownWebhook(webhookPod *k8sv1.Pod, webhookService *k8sv1.Service, webhookConfig *admissionregistrationv1.MutatingWebhookConfiguration, webhookSecretName string) {
-	virtClient := kubevirt.Client()
-	testNamespace := testsuite.GetTestNamespace(nil)
-
-	if webhookConfig != nil {
-		err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhookConfig.Name, metav1.DeleteOptions{})
-		if !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-	if webhookService != nil {
-		err := virtClient.CoreV1().Services(testNamespace).Delete(context.Background(), webhookService.Name, metav1.DeleteOptions{})
-		if !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-	if webhookPod != nil {
-		err := virtClient.CoreV1().Pods(testNamespace).Delete(context.Background(), webhookPod.Name, metav1.DeleteOptions{})
-		if !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-	err := virtClient.CoreV1().Secrets(testNamespace).Delete(context.Background(), webhookSecretName, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
 
 // waitForVirtiofsContainerInPod waits for the virt-launcher pod to be running and verifies
 // it has the expected virtiofsd container for a ContainerPath volume. Returns the pod for further use.

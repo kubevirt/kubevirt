@@ -114,6 +114,17 @@ case "$TARGET" in
     export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
     source hack/config-default.sh
     ;;
+  *sig-compute-migrations-stall*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations-stall/}
+    export KUBEVIRT_E2E_PARALLEL_NODES=3
+    export KUBEVIRT_NUM_NODES=3
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+    export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+    source hack/config-default.sh
+    ;;
   *sig-compute-migrations*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
     export KUBEVIRT_E2E_PARALLEL_NODES=3
@@ -546,17 +557,19 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(secure-execution)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     label_filter='(sig-compute-realtime) && !(SEV, SEVES, secure-execution)'
+  elif [[ $TARGET =~ sig-compute-migrations-stall ]]; then
+    label_filter='(sig-compute-migrations-stall && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
+    label_filter='(sig-compute-migrations && !(GPU,VGPU,sig-compute-migrations-stall)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations,sig-compute-migrations-stall) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-compute-migrations-stall,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-compute-migrations-stall,sig-storage) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -620,7 +633,7 @@ fi
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,sig-compute-migrations-stall,requires-two-schedulable-nodes))' '&&'
   add_to_label_filter '!(multi-replica)' '&&'
 else
   add_to_label_filter '!(single-replica)' '&&'
