@@ -585,7 +585,7 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   "spec.configuration.migrations.maxDowntimeMs",
+				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
 				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
 			})
 		}

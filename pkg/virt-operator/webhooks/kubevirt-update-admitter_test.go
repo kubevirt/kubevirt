@@ -168,7 +168,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		if expectError {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(causes[0].Field).To(Equal("spec.configuration.migrations.maxDowntimeMs"))
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrationConfiguration.maxDowntimeMs"))
 		} else {
 			Expect(causes).To(BeEmpty())
 		}
