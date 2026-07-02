@@ -15133,6 +15133,10 @@
     "description": "ExperimentalMigrationOptions is an alpha API for experimental migration tunables. It is intended for experimental purposes only and will be removed in the future.",
     "type": "object",
     "properties": {
+     "compression": {
+      "description": "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
+      "type": "string"
+     },
      "stallDetector": {
       "$ref": "#/definitions/v1.StallDetectorOptions"
      }

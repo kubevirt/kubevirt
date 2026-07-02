@@ -90,6 +90,7 @@ type MigrationOptions struct {
 	AllowWorkloadDisruption  bool
 	StallDetectionEnabled    bool
 	StallDetectorOptions     StallDetectorOptions
+	Compression              *string
 }
 
 type LauncherClient interface {

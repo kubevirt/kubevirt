@@ -2147,6 +2147,103 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		})
 
+		Context("with migration compression", Serial, func() {
+			It("should migrate with zstd compression and confirm via API and logs", func() {
+				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+
+				By("Creating a migration policy with compression enabled")
+				policy := GeneratePolicyAndAlignVMI(vmi)
+				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					Compression: pointer.P(v1.MigrationCompressionZstd),
+				}
+				policy = CreateMigrationPolicy(virtClient, policy)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+				By("Starting the Migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				By("Confirming migration completed successfully")
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				By("Verifying the migration policy was applied")
+				Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
+				Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(policy.Name))
+
+				By("Verifying compression is set in the migration configuration")
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
+				Expect(*vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
+
+				By("Verifying compression was applied via launcher logs")
+				logs := getSourceLauncherLogs(virtClient, vmi)
+				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				// let's check for >1.00 at least, in CI it's typically around 3.00
+				Expect(logs).To(MatchRegexp(`CompressionRatio:([2-9]\d*|1\.\d*[1-9])\d*x`))
+			})
+
+			It("should migrate with compression, autoconverge, and postcopy combined", func() {
+				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
+				vmi.Namespace = testsuite.NamespacePrivileged
+
+				By("Creating a migration policy with compression + postcopy + autoconverge")
+				policyName := fmt.Sprintf("testpolicy-combo-%s", rand.String(5))
+				policy := kubecli.NewMinimalMigrationPolicy(policyName)
+				policy.Spec.AllowAutoConverge = pointer.P(true)
+				policy.Spec.AllowPostCopy = pointer.P(true)
+				policy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1))
+				policy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("5Mi"))
+				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					Compression: pointer.P(v1.MigrationCompressionZstd),
+				}
+				AlignPolicyAndVmi(vmi, policy)
+				policy = CreateMigrationPolicy(virtClient, policy)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Running stress test to generate memory pressure for postcopy")
+				runStressTest(vmi, stressLargeVMSize)
+
+				By("Starting the Migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
+
+				By("Confirming migration completed successfully")
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
+
+				By("Verifying the migration policy was applied")
+				Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
+				Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(policy.Name))
+
+				By("Verifying the migration configuration contains all settings")
+				mc := vmi.Status.MigrationState.VMIMConfigurationOptions
+				Expect(mc).ToNot(BeNil())
+				Expect(mc.AllowAutoConverge).ToNot(BeNil())
+				Expect(*mc.AllowAutoConverge).To(BeTrue())
+				Expect(mc.AllowPostCopy).ToNot(BeNil())
+				Expect(*mc.AllowPostCopy).To(BeTrue())
+				Expect(mc.ExperimentalMigrationOptions).ToNot(BeNil())
+				Expect(mc.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
+				Expect(*mc.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
+
+				By("Verifying compression via launcher logs")
+				logs := getSourceLauncherLogs(virtClient, vmi)
+				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				// let's check for >1.00 at least, in CI it's typically around 3.00
+				Expect(logs).To(MatchRegexp(`CompressionRatio:([2-9]\d*|1\.\d*[1-9])\d*x`))
+			})
+		})
+
 		Context(" with freePageReporting", Serial, decorators.WgS390x, func() {
 
 			BeforeEach(func() {
@@ -3210,4 +3307,18 @@ func withSubdomain(subdomain string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Subdomain = subdomain
 	}
+}
+
+func getSourceLauncherLogs(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	GinkgoHelper()
+	Expect(vmi.Status.MigrationState).ToNot(BeNil())
+	sourcePod := vmi.Status.MigrationState.SourcePod
+	Expect(sourcePod).ToNot(BeEmpty(), "source pod name must be populated after migration")
+
+	logsRaw, err := virtClient.CoreV1().
+		Pods(vmi.Namespace).
+		GetLogs(sourcePod, &k8sv1.PodLogOptions{Container: "compute"}).
+		DoRaw(context.Background())
+	Expect(err).ToNot(HaveOccurred(), "should get virt-launcher source pod logs")
+	return string(logsRaw)
 }
