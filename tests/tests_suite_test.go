@@ -28,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
+	"github.com/onsi/ginkgo/v2/types"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -66,6 +67,7 @@ import (
 
 var afterSuiteReporters = []Reporter{}
 var k8sReporter *reporter.KubernetesReporter
+var cleanupReporter *reporter.KubernetesReporter
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
@@ -95,6 +97,10 @@ func TestTests(t *testing.T) {
 
 	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, alwaysCollect)
 	k8sReporter.Cleanup()
+
+	cleanupFailuresPath := filepath.Join(artifactsPath, "cleanup_failures")
+	cleanupReporter = reporter.NewKubernetesReporter(cleanupFailuresPath, maxFails, alwaysCollect)
+	cleanupReporter.Cleanup()
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
@@ -175,6 +181,7 @@ var _ = ReportAfterSuite("TestTests", func(report Report) {
 
 var _ = ReportBeforeSuite(func(report Report) {
 	k8sReporter.ConfigurePerSpecReporting(report)
+	cleanupReporter.ConfigurePerSpecReporting(report)
 })
 
 // CRITICAL ORDER: These two JustAfterEach blocks must remain in this order!
@@ -192,6 +199,20 @@ var _ = JustAfterEach(func() {
 		return
 	}
 	k8sReporter.ReportSpec(CurrentSpecReport())
+})
+
+var _ = ReportAfterEach(func(specReport SpecReport) {
+	if flags.DeployFakeKWOKNodesFlag {
+		return
+	}
+	if !specReport.Failed() {
+		return
+	}
+	ft := specReport.Failure.FailureNodeType
+	if ft == types.NodeTypeAfterEach || ft == types.NodeTypeCleanupAfterEach ||
+		ft == types.NodeTypeAfterAll || ft == types.NodeTypeCleanupAfterAll {
+		cleanupReporter.ReportSpec(specReport)
+	}
 })
 
 func testCleanup() {

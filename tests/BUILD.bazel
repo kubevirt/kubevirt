@@ -183,6 +183,7 @@ go_test(
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/format:go_default_library",
         "//vendor/github.com/onsi/gomega/gmeasure:go_default_library",
