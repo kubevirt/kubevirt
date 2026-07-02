@@ -38,6 +38,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -118,7 +119,7 @@ var _ = Describe("SEV Subresources", func() {
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstanceMigration(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstanceMigrations(metav1.NamespaceDefault)).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(mockVirtClient, k8sfake.NewSimpleClientset(), backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {

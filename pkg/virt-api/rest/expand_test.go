@@ -38,6 +38,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	kubevirtcore "kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
@@ -99,7 +100,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		}
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		app = NewSubresourceAPIApp(virtClient, 0, nil, config)
+		app = NewSubresourceAPIApp(virtClient, k8sfake.NewSimpleClientset(), 0, nil, config)
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()

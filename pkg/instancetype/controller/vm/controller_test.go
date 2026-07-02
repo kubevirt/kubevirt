@@ -122,8 +122,6 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
 			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
-
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
 
@@ -144,6 +142,10 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
+		k8sClient := k8sfake.NewSimpleClientset()
+
+		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+
 		instancetypeController = instancetypecontroller.New(
 			instancetypeInformerStore,
 			clusterInstancetypeInformerStore,
@@ -151,6 +153,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			clusterPreferenceInformerStore,
 			controllerrevisionInformerStore,
 			virtClient,
+			k8sClient,
 			config,
 			recorder,
 		)

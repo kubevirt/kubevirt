@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -122,7 +123,7 @@ var _ = Describe("Object Graph", func() {
 			}
 			var config *virtconfig.ClusterConfig
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
-			app = NewSubresourceAPIApp(kvClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+			app = NewSubresourceAPIApp(kvClient, k8sfake.NewSimpleClientset(), backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 		})
 
 		disableFeatureGates := func() {

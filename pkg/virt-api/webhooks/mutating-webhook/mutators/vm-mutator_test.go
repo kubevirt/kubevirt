@@ -164,7 +164,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		cdiClient = cdifake.NewSimpleClientset()
 		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
-		mutator.instancetypeMutator = instancetypeVMWebhooks.NewMutator(virtClient)
+		mutator.instancetypeMutator = instancetypeVMWebhooks.NewMutator(virtClient, virtClient)
 	})
 
 	It("should allow VM being deleted without applying mutations", func() {

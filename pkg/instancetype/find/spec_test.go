@@ -101,6 +101,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			clusterInstancetypeInformerStore,
 			controllerRevisionInformerStore,
 			virtClient,
+			fakeK8sClientSet,
 		)
 	})
 
@@ -245,7 +246,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		})
 
 		It("returns expected instancetype using only the client", func() {
-			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
+			finder = find.NewSpecFinder(nil, nil, nil, virtClient, fakeK8sClientSet)
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
@@ -414,7 +415,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		})
 
 		It("returns expected instancetype using only the client", func() {
-			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
+			finder = find.NewSpecFinder(nil, nil, nil, virtClient, fakeK8sClientSet)
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))

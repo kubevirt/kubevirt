@@ -35,6 +35,7 @@ import (
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -90,7 +91,7 @@ var _ = Describe("VNC Subresource api", func() {
 		mockVirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		mockVirtClient.EXPECT().VirtualMachineInstance("").Return(virtClient.KubevirtV1().VirtualMachineInstances("")).AnyTimes()
 
-		app = NewSubresourceAPIApp(mockVirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(mockVirtClient, k8sfake.NewSimpleClientset(), backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	It("should fail with no 'name' path param", func() {

@@ -42,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -161,7 +162,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, k8sfake.NewSimpleClientset(), backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {

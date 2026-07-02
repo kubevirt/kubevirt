@@ -102,11 +102,13 @@ func SetupMetrics(
 			stores.ClusterInstancetype,
 			stores.ControllerRevision,
 			clientset,
+			clientset,
 		),
 		preferencefind.NewSpecFinder(
 			stores.Preference,
 			stores.ClusterPreference,
 			stores.ControllerRevision,
+			clientset,
 			clientset,
 		),
 	)
