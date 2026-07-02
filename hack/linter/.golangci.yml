@@ -114,6 +114,9 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: checks.SkipTestIfNoCPUManager'
+      - linters:
+          - mnd
+        source: 'WithTimeout\('
     paths:
       - third_party$
       - builtin$
@@ -125,7 +128,6 @@ linters:
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
       - tests/network/hotplug_sriov\.go$
-      - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
@@ -162,7 +164,6 @@ formatters:
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
       - tests/network/hotplug_sriov\.go$
-      - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
