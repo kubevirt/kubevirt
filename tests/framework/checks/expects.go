@@ -20,23 +20,66 @@
 package checks
 
 import (
+	"context"
 	"fmt"
-
-	"kubevirt.io/kubevirt/tests/libnode"
+	"slices"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-const (
-	DescriptionTwoWorkerNodesWCPUManagerRequired = "at least two worker nodes with cpumanager are required for migration"
-)
+const cpuManagerNodeWaitTimeout = 360 * time.Second
 
-// ExpectAtLeastTwoWorkerNodesWithCPUManager uses gomega.Expect to verify that the node list returned by
-// libnode.GetWorkerNodesWithCPUManagerEnabled contains at least two elements.
-// DescriptionTwoWorkerNodesWCPUManagerRequired is added to the default description via ginkgo.By
-func ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient kubecli.KubevirtClient) {
-	ginkgo.By(fmt.Sprintf("expect at least 2 nodes - %s", DescriptionTwoWorkerNodesWCPUManagerRequired))
-	_ = gomega.Expect(len(libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient))).To(gomega.BeNumerically(">=", 2), DescriptionTwoWorkerNodesWCPUManagerRequired)
+// EnforceDecoratedCPUManagerRequirements waits for virt-handler to label worker nodes
+// when the current spec carries a CPU manager requirement decorator.
+func EnforceDecoratedCPUManagerRequirements(virtClient kubecli.KubevirtClient) {
+	switch {
+	case specHasLabel(decorators.RequiresTwoWorkerNodesWithCPUManager):
+		waitForWorkerNodesWithCPUManager(virtClient, 2, "at least two worker nodes with cpumanager are required for migration")
+	case specHasLabel(decorators.RequiresNodeWithCPUManager):
+		waitForWorkerNodesWithCPUManager(virtClient, 1, "at least one worker node with cpumanager is required")
+	}
+}
+
+func specHasLabel(labels ginkgo.Labels) bool {
+	if len(labels) == 0 {
+		return false
+	}
+	specLabels := ginkgo.CurrentSpecReport().Labels()
+	for _, label := range labels {
+		if !slices.Contains(specLabels, label) {
+			return false
+		}
+	}
+	return true
+}
+
+func waitForWorkerNodesWithCPUManager(virtClient kubecli.KubevirtClient, minNodes int, description string) {
+	ginkgo.By(fmt.Sprintf("expect at least %d worker nodes with cpumanager - %s", minNodes, description))
+
+	workerNodes := libnode.GetWorkerNodes(virtClient)
+	if len(workerNodes) < minNodes {
+		ginkgo.Skip(fmt.Sprintf("not enough worker nodes: need at least %d to run this test but cluster has %d", minNodes, len(workerNodes))) //nolint:forbidigo
+	}
+
+	// Wait for virt-handler to reconcile the cpumanager label on all worker nodes.
+	// Existence-only (not =true) so we do not hang while labels are still propagating.
+	gomega.Eventually(func() int {
+		nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=,%s", libnode.WorkerLabelSelector(), v1.CPUManager),
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		return len(nodeList.Items)
+	}, cpuManagerNodeWaitTimeout, time.Second).Should(gomega.BeNumerically(">=", len(workerNodes)), "waiting for virt-handler to reconcile cpumanager labels on worker nodes")
+
+	gomega.Eventually(func() int {
+		return len(libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient))
+	}, cpuManagerNodeWaitTimeout, time.Second).Should(gomega.BeNumerically(">=", minNodes), description)
 }

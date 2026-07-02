@@ -31,6 +31,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
@@ -105,6 +107,10 @@ func TestTests(t *testing.T) {
 var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuiteSetup)
 
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
+
+var _ = BeforeEach(func() {
+	checks.EnforceDecoratedCPUManagerRequirements(kubevirt.Client())
+})
 
 var _ = AfterEach(func() {
 	if !hasOncePerOrderedCleanupLabel() {
