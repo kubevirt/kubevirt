@@ -258,7 +258,21 @@ func (m *hotplugMounter) mountAndVerify(vmi *v1.VirtualMachineInstance, sourceUI
 	}
 
 	if len(record.MountTargetEntries) > 0 {
-		err := m.setMountTargetRecord(vmi, &record)
+		// Merge with the existing record instead of overwriting it. Hotplug images are
+		// attached incrementally, so a reconcile that observes only a subset of the
+		// hotplug container disks in vmi.Spec.Volumes must not drop record entries for
+		// volumes that are already bind-mounted. Dropping them would leave the mount
+		// invisible to UmountAll at teardown (where the world scan is unavailable because
+		// the virt-launcher command socket is gone), orphaning the bind mount and wedging
+		// pod termination. Removing entries stays the responsibility of the unmount paths.
+		existingRecord, err := m.getMountTargetRecord(vmi)
+		if err != nil {
+			return nil, err
+		}
+		if existingRecord != nil {
+			record.MountTargetEntries = m.mergeMountEntries(record.MountTargetEntries, existingRecord.MountTargetEntries)
+		}
+		err = m.setMountTargetRecord(vmi, &record)
 		if err != nil {
 			return nil, err
 		}
