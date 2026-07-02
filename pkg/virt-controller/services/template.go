@@ -481,9 +481,6 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.LibvirtHooksServerAndClientEnabled() {
 			args = append(args, "--libvirt-hook-server-and-client")
 		}
-		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
-			args = append(args, "--upgrade-ordinal-ifaces")
-		}
 		if t.clusterConfig.VGPULiveMigrationEnabled() {
 			args = append(args, "--vgpu-dedicated-hook")
 		}
