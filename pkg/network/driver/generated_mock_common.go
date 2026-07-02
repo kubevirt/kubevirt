@@ -14,9 +14,6 @@ import (
 
 	netlink "github.com/vishvananda/netlink"
 	gomock "go.uber.org/mock/gomock"
-	v1 "kubevirt.io/api/core/v1"
-
-	cache "kubevirt.io/kubevirt/pkg/network/cache"
 )
 
 // MockNetworkHandler is a mock of NetworkHandler interface.
@@ -86,18 +83,4 @@ func (m *MockNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 func (mr *MockNetworkHandlerMockRecorder) LinkByName(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkByName", reflect.TypeOf((*MockNetworkHandler)(nil).LinkByName), name)
-}
-
-// StartDHCP mocks base method.
-func (m *MockNetworkHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartDHCP", nic, bridgeInterfaceName, dhcpOptions)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StartDHCP indicates an expected call of StartDHCP.
-func (mr *MockNetworkHandlerMockRecorder) StartDHCP(nic, bridgeInterfaceName, dhcpOptions any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartDHCP", reflect.TypeOf((*MockNetworkHandler)(nil).StartDHCP), nic, bridgeInterfaceName, dhcpOptions)
 }

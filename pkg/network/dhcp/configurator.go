@@ -31,6 +31,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
+	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
+	"kubevirt.io/kubevirt/pkg/network/dns"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
@@ -41,12 +44,14 @@ type Configurator interface {
 	Generate() (*cache.DHCPConfig, error)
 }
 
+type dhcpStartFunc func(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
+
 type configurator struct {
 	advertisingIfaceName string
 	configGenerator      ConfigGenerator
-	handler              netdriver.NetworkHandler
 	dhcpStartedDirectory string
 	podInterfaceName     string
+	startDHCPFunc        dhcpStartFunc
 }
 
 type ConfigGenerator interface {
@@ -58,8 +63,8 @@ func NewBridgeConfigurator(cacheCreator cacheCreator, advertisingIfaceName strin
 	return &configurator{
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
-		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
+		startDHCPFunc:        startDHCP,
 		configGenerator: &BridgeConfigGenerator{
 			handler:          handler,
 			podInterfaceName: podInterfaceName,
@@ -78,8 +83,8 @@ func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.Ne
 		advertisingIfaceName: advertisingIfaceName,
 		configGenerator: &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork,
 			subdomain: subdomain, podInterfaceName: podInterfaceName},
-		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
+		startDHCPFunc:        startDHCP,
 	}
 }
 
@@ -90,7 +95,7 @@ func (d *configurator) EnsureDHCPServerStarted(podInterfaceName string, dhcpConf
 	dhcpStartedFile := d.getDHCPStartedFilePath(podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := d.handler.StartDHCP(&dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
+		if err := d.startDHCPFunc(&dhcpConfig, d.advertisingIfaceName, dhcpOptions); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)
@@ -112,4 +117,53 @@ func (d *configurator) getDHCPStartedFilePath(podInterfaceName string) string {
 
 func (d *configurator) Generate() (*cache.DHCPConfig, error) {
 	return d.configGenerator.Generate()
+}
+
+func startDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
+	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
+	nameservers, searchDomains, err := dns.GetResolvConfDetailsFromPod()
+	if err != nil {
+		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
+	}
+
+	domain := dns.DomainNameWithSubdomain(searchDomains, nic.Subdomain)
+	if domain != "" {
+		searchDomains = append([]string{domain}, searchDomains...)
+	}
+
+	if nic.IP.IPNet != nil {
+		go func() {
+			if err = dhcpserver.SingleClientDHCPServer(
+				nic.MAC,
+				nic.IP.IP,
+				nic.IP.Mask,
+				bridgeInterfaceName,
+				nic.AdvertisingIPAddr,
+				nic.Gateway,
+				nameservers.IPv4,
+				nic.Routes,
+				searchDomains,
+				nic.Mtu,
+				dhcpOptions,
+			); err != nil {
+				log.Log.Errorf("failed to run DHCP Server: %v", err)
+				panic(err)
+			}
+		}()
+	}
+
+	if nic.IPv6.IPNet != nil {
+		go func() {
+			if err = dhcpserverv6.SingleClientDHCPv6Server(
+				nic.IPv6.IP,
+				bridgeInterfaceName,
+				nameservers.IPv6,
+			); err != nil {
+				log.Log.Reason(err).Error("failed to run DHCPv6 Server")
+				panic(err)
+			}
+		}()
+	}
+
+	return nil
 }

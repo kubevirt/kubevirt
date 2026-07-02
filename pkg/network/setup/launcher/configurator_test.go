@@ -192,10 +192,6 @@ func (s stubNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 	return nil, netlink.LinkNotFoundError{}
 }
 
-func (s stubNetworkHandler) StartDHCP(_ *cache.DHCPConfig, _ string, _ *v1.DHCPOptions) error {
-	return nil
-}
-
 func (s stubNetworkHandler) HasIPv4GlobalUnicastAddress(_ string) (bool, error) {
 	return false, nil
 }
