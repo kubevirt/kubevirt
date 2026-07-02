@@ -1390,6 +1390,18 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration garbage collection", func() {
+		createPod := func(name, ns string) {
+			pod := k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: ns,
+				},
+				Spec:   k8sv1.PodSpec{},
+				Status: k8sv1.PodStatus{},
+			}
+			_, err := kubeClient.CoreV1().Pods(ns).Create(context.Background(), &pod, metav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		}
 		DescribeTable("should garbage old finalized migration objects", func(phase v1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 
@@ -1484,6 +1496,24 @@ var _ = Describe("Migration watcher", func() {
 				migName := fmt.Sprintf("finalized-mig-%d", i)
 				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
 				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				if i < 3 {
+					// create source and target pods for migrations that are expected to be removed
+					createPod(fmt.Sprintf("source-mig-%d", i), vmi.Namespace)
+					createPod(fmt.Sprintf("target-mig-%d", i), vmi.Namespace)
+					mig.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+						SourcePod: fmt.Sprintf("source-mig-%d", i),
+						TargetPod: fmt.Sprintf("target-mig-%d", i),
+					}
+					if i == 0 {
+						// migration 0 succeed
+						mig.Status.MigrationState.Completed = true
+						mig.Status.MigrationState.Failed = false
+					} else if i == 1 {
+						// migrations 1 fails
+						mig.Status.MigrationState.Failed = true
+					}
+					// migration 2 doesn't finish (probably impossible or 3 couldn't have started, but we never know)
+				}
 				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
 				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1502,6 +1532,17 @@ var _ = Describe("Migration watcher", func() {
 				}
 				return migrationNames // No sort needed
 			}, ConsistOf("finalized-mig-3", "finalized-mig-4", "finalized-mig-5", "finalized-mig-6", "finalized-mig-7")))
+
+			// Verify remaining pods
+			podList, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(podList.Items).To(WithTransform(func(pods []k8sv1.Pod) []string {
+				var podNames []string
+				for _, pod := range pods {
+					podNames = append(podNames, pod.Name)
+				}
+				return podNames // No sort needed
+			}, ConsistOf("target-mig-0", "source-mig-1", "source-mig-2", "target-mig-2")))
 		})
 
 		It("should handle errors during garbage collection deletions", func() {
