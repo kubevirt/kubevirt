@@ -1583,10 +1583,26 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with grace period greater than 0", func() {
 			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, decorators.WgS390x, func() {
 				By("Setting a VirtualMachineInstance termination grace period to 5")
-				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithTerminationGracePeriod(5))
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithTerminationGracePeriod(5),
+				)
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+
+				By("Logging into the VirtualMachineInstance")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Waiting for the guest agent to connect")
+				Eventually(matcher.ThisVMI(vmi), 60*time.Second, 2*time.Second).Should(
+					matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Disabling the guest agent to ensure ACPI shutdown path")
+				Expect(console.RunCommand(vmi, "rc-service qemu-guest-agent stop", 10*time.Second)).To(Succeed())
+
+				By("Verifying the guest agent is not connected")
+				Eventually(matcher.ThisVMI(vmi), 60*time.Second, 2*time.Second).Should(
+					matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
@@ -1606,7 +1622,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
 				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
 
-				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
 			})
 		})
 	})
