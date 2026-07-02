@@ -95,6 +95,7 @@ const (
 	apiVMInstancesGuestOSInfo               = "virtualmachineinstances/guestosinfo"
 	apiVMInstancesFileSysList               = "virtualmachineinstances/filesystemlist"
 	apiVMInstancesUserList                  = "virtualmachineinstances/userlist"
+	apiVMInstancesGuestExec                 = "virtualmachineinstances/guestexec"
 	apiVMInstancesSEVFetchCertChain         = "virtualmachineinstances/sev/fetchcertchain"
 	apiVMInstancesSEVQueryLaunchMeasurement = "virtualmachineinstances/sev/querylaunchmeasurement"
 	apiVMInstancesSEVSetupSession           = "virtualmachineinstances/sev/setupsession"
@@ -243,6 +244,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
 					apiVMInstancesEvacuateCancel,
+					apiVMInstancesGuestExec,
 				},
 				Verbs: []string{
 					"update",
@@ -463,6 +465,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
 					apiVMInstancesEvacuateCancel,
+					apiVMInstancesGuestExec,
 				},
 				Verbs: []string{
 					"update",

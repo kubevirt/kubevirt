@@ -1549,6 +1549,21 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) FilesystemList(ctx, n
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilesystemList", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).FilesystemList), ctx, name)
 }
 
+// GuestExec mocks base method.
+func (m *MockVirtualMachineInstanceInterface) GuestExec(ctx context.Context, name string, guestExecOptions *v122.GuestExecOptions) (v122.GuestExecResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GuestExec", ctx, name, guestExecOptions)
+	ret0, _ := ret[0].(v122.GuestExecResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GuestExec indicates an expected call of GuestExec.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) GuestExec(ctx, name, guestExecOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GuestExec", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).GuestExec), ctx, name, guestExecOptions)
+}
+
 // Freeze mocks base method.
 func (m *MockVirtualMachineInstanceInterface) Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error {
 	m.ctrl.T.Helper()

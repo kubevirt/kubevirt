@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -350,6 +352,74 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 	}
 
 	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceFileSystemList{})
+}
+
+// GuestExec handles the subresource for executing a command inside the guest
+// via the QEMU guest agent. The command runs synchronously and the exit code
+// plus captured stdout are returned to the caller.
+func (app *SubresourceAPIApp) GuestExec(request *restful.Request, response *restful.Response) {
+	opts := &v1.GuestExecOptions{}
+	if statusErr := decodeBody(request, opts); statusErr != nil {
+		writeError(statusErr, response)
+		return
+	}
+	if opts.Command == "" {
+		writeError(errors.NewBadRequest("guest exec command is required"), response)
+		return
+	}
+
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiGuestAgentErr))
+		}
+		return nil
+	}
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		baseURL, err := conn.GuestExecURI(vmi)
+		if err != nil {
+			return "", err
+		}
+		parsed, err := url.Parse(baseURL)
+		if err != nil {
+			return "", err
+		}
+		query := parsed.Query()
+		query.Set("command", opts.Command)
+		for _, arg := range opts.Args {
+			query.Add("args", arg)
+		}
+		if opts.TimeoutSeconds > 0 {
+			query.Set("timeoutSeconds", strconv.Itoa(int(opts.TimeoutSeconds)))
+		}
+		parsed.RawQuery = query.Encode()
+		return parsed.String(), nil
+	}
+
+	_, handlerURL, conn, statusErr := app.prepareConnection(request, validate, getURL)
+	if statusErr != nil {
+		writeError(statusErr, response)
+		return
+	}
+
+	resp, conErr := conn.Get(handlerURL, restful.MIME_JSON)
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	result := v1.GuestExecResult{}
+	if err := json.Unmarshal([]byte(resp), &result); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling guest exec response")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(result)
 }
 
 func decodeBody(request *restful.Request, bodyStruct interface{}) *errors.StatusError {

@@ -1001,6 +1001,63 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	})
 
+	Context("Subresource api - Guest Exec", func() {
+		newGuestExecRequest := func(opts *v1.GuestExecOptions) {
+			request.PathParameters()["name"] = testVMIName
+			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+			body, err := json.Marshal(opts)
+			Expect(err).ToNot(HaveOccurred())
+			request.Request.Body = io.NopCloser(bytes.NewReader(body))
+		}
+
+		It("should execute a command on a running VMI with the guest agent connected", func() {
+			expectedResult := v1.GuestExecResult{ExitCode: 0, StdOut: "hello\n"}
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/v1/namespaces/default/virtualmachineinstances/testvmi/guestexec"),
+					ghttp.VerifyFormKV("command", "/bin/echo"),
+					ghttp.VerifyFormKV("args", "hello"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedResult),
+				),
+			)
+
+			newGuestExecRequest(&v1.GuestExecOptions{Command: "/bin/echo", Args: []string{"hello"}})
+			expectVMI(Running, UnPaused, guestAgentConnected)
+			response.SetRequestAccepts(restful.MIME_JSON)
+
+			app.GuestExec(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("should fail when the command is missing", func() {
+			newGuestExecRequest(&v1.GuestExecOptions{})
+
+			app.GuestExec(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+		})
+
+		It("should fail when the VMI is not running", func() {
+			newGuestExecRequest(&v1.GuestExecOptions{Command: "/bin/echo"})
+			expectVMI(NotRunning, UnPaused)
+
+			app.GuestExec(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("should fail when the guest agent is not connected", func() {
+			newGuestExecRequest(&v1.GuestExecOptions{Command: "/bin/echo"})
+			expectVMI(Running, UnPaused)
+
+			app.GuestExec(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+	})
+
 	Context("StateChange JSON", func() {
 		It("should create a stop request if status exists", func() {
 			uid := uuid.NewUUID()

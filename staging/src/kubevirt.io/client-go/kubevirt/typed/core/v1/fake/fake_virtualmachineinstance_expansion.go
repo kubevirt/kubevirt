@@ -115,6 +115,13 @@ func (c *fakeVirtualMachineInstances) FilesystemList(ctx context.Context, name s
 	return v1.VirtualMachineInstanceFileSystemList{}, err
 }
 
+func (c *fakeVirtualMachineInstances) GuestExec(ctx context.Context, name string, guestExecOptions *v1.GuestExecOptions) (v1.GuestExecResult, error) {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "guestexec", name, guestExecOptions), &v1.GuestExecResult{})
+
+	return v1.GuestExecResult{}, err
+}
+
 func (c *fakeVirtualMachineInstances) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "addvolume", name, addVolumeOptions), nil)

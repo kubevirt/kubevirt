@@ -480,6 +480,21 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("guestexec")).
+			To(subresourceApp.GuestExec).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"GuestExec").
+			Doc("Execute a command inside the guest machine via guest agent").
+			// NOTE: typed .Reads(GuestExecOptions{})/.Writes(GuestExecResult{}) are omitted:
+			// virt-api builds an OpenAPI v3 spec at startup and panics if a route references a
+			// model that is not in the generated openapi definitions (openapi_generated.go).
+			// Empty-string models (like the other subresource routes) avoid that. Restore the
+			// typed Reads/Writes after running `make generate`.
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("objectgraph")).
 			To(subresourceApp.VMIObjectGraph).
 			Consumes(restful.MIME_JSON).

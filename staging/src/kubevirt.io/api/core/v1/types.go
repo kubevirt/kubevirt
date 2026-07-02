@@ -2965,6 +2965,32 @@ type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
 }
 
+// GuestExecOptions is the request payload for executing a command inside the
+// guest via the QEMU guest agent (guest-exec). Execution is synchronous: the
+// call blocks until the command exits or TimeoutSeconds elapses.
+type GuestExecOptions struct {
+	// Command is the absolute path to the executable to run in the guest.
+	Command string `json:"command"`
+	// Args are the arguments passed to the command.
+	// +listType=atomic
+	// +optional
+	Args []string `json:"args,omitempty"`
+	// TimeoutSeconds is the maximum time to wait for the command to exit.
+	// If unset or zero, a server-side default is applied.
+	// +optional
+	TimeoutSeconds int32 `json:"timeoutSeconds,omitempty"`
+}
+
+// GuestExecResult is the result of a guest-exec command execution.
+type GuestExecResult struct {
+	metav1.TypeMeta `json:",inline"`
+	// ExitCode is the exit code the guest command returned.
+	ExitCode int `json:"exitCode"`
+	// StdOut is the captured standard output of the guest command.
+	// +optional
+	StdOut string `json:"stdOut,omitempty"`
+}
+
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info
 type VirtualMachineMemoryDumpRequest struct {
 	// ClaimName is the name of the pvc that will contain the memory dump

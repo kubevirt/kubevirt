@@ -55,6 +55,7 @@ type VirtualMachineInstanceExpansion interface {
 	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
+	GuestExec(ctx context.Context, name string, guestExecOptions *v1.GuestExecOptions) (v1.GuestExecResult, error)
 	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
@@ -314,6 +315,36 @@ func (c *virtualMachineInstances) FilesystemList(ctx context.Context, name strin
 		Into(&fsList)
 
 	return fsList, err
+}
+
+func (c *virtualMachineInstances) GuestExec(ctx context.Context, name string, guestExecOptions *v1.GuestExecOptions) (v1.GuestExecResult, error) {
+	result := v1.GuestExecResult{}
+	body, err := json.Marshal(guestExecOptions)
+	if err != nil {
+		return result, err
+	}
+
+	res := c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachineinstances").
+		Name(name).
+		SubResource("guestexec").
+		Body(body).
+		Do(ctx)
+
+	rawResult, err := res.Raw()
+	if err != nil {
+		log.Log.Errorf("cannot execute guest command: %s", err.Error())
+		return result, err
+	}
+
+	if err := json.Unmarshal(rawResult, &result); err != nil {
+		log.Log.Errorf("cannot unmarshal GuestExec response: %s", err.Error())
+		return result, err
+	}
+
+	return result, nil
 }
 
 func (c *virtualMachineInstances) ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error) {

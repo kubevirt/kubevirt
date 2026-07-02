@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/emicklei/go-restful/v3"
 
@@ -35,6 +36,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -43,6 +46,9 @@ const (
 	failedFreezeVMI        = "Failed to freeze VMI"
 	failedDetectCmdClient  = "Failed to detect cmd client"
 	failedConnectCmdClient = "Failed to connect cmd client"
+
+	// defaultGuestExecTimeoutSeconds is used when the caller does not specify a timeout.
+	defaultGuestExecTimeoutSeconds = int32(30)
 )
 
 type LifecycleHandler struct {
@@ -248,6 +254,50 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 	}
 
 	response.WriteEntity(fsList)
+}
+
+// GuestExec runs a command inside the guest via the QEMU guest agent (guest-exec)
+// and returns the exit code and captured stdout. Execution is synchronous.
+func (lh *LifecycleHandler) GuestExec(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+
+	command := request.QueryParameter("command")
+	if command == "" {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("guest exec command is required"))
+		return
+	}
+	args := request.Request.URL.Query()["args"]
+
+	timeoutSeconds := defaultGuestExecTimeoutSeconds
+	if rawTimeout := request.QueryParameter("timeoutSeconds"); rawTimeout != "" {
+		parsed, err := strconv.ParseInt(rawTimeout, 10, 32)
+		if err != nil {
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("invalid timeoutSeconds: %v", err))
+			return
+		}
+		if parsed > 0 {
+			timeoutSeconds = int32(parsed)
+		}
+	}
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	log.Log.Object(vmi).Infof("Executing guest command [%s] on %s", command, vmi.Name)
+
+	exitCode, stdOut, err := client.Exec(domainName, command, args, timeoutSeconds)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to execute guest command")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(v1.GuestExecResult{
+		ExitCode: exitCode,
+		StdOut:   stdOut,
+	})
 }
 
 func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, response *restful.Response) (*v1.VirtualMachineInstance, cmdclient.LauncherClient, error) {

@@ -35,6 +35,7 @@ const (
 	guestInfoTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 	userListTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
 	filesystemListTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
+	guestExecTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestexec"
 	screenshotTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc/screenshot"
 
 	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
@@ -79,6 +80,7 @@ type VirtHandlerConn interface {
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	GuestExecURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	RedefineCheckpointURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
@@ -329,6 +331,10 @@ func (v *virtHandlerConn) UserListURI(vmi *virtv1.VirtualMachineInstance) (strin
 
 func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(filesystemListTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) GuestExecURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(guestExecTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
