@@ -29,6 +29,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -57,8 +58,13 @@ func (m *MockStore) Get(_ interface{}) (item interface{}, exists bool, err error
 func (m *MockStore) GetByKey(_ string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
-func (m *MockStore) Replace([]interface{}, string) error { return nil }
-func (m *MockStore) Resync() error                       { return nil }
+func (m *MockStore) Replace([]interface{}, string) error  { return nil }
+func (m *MockStore) Resync() error                        { return nil }
+func (m *MockStore) Bookmark(_ string)                    {}
+func (m *MockStore) LastStoreSyncResourceVersion() string { return "" }
+func (m *MockStore) Transaction(_ ...cache.Transaction) *cache.TransactionError {
+	return nil
+}
 
 const (
 	Namespace = "ns"

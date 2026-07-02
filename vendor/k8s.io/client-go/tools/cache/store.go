@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -54,6 +55,15 @@ type Store interface {
 	// ListKeys returns a list of all the keys currently associated with non-empty accumulators
 	ListKeys() []string
 
+	// LastStoreSyncResourceVersion returns the latest resource version that the store has seen.
+	// This is used to determine the latest resource version the store has seen from objects
+	// observed being written to the store.
+	LastStoreSyncResourceVersion() string
+
+	// Bookmark observes a new resource version passed into it and
+	// will be used to get the latest resource version of the store.
+	Bookmark(rv string)
+
 	// Get returns the accumulator associated with the given object's key
 	Get(obj interface{}) (item interface{}, exists bool, err error)
 
@@ -69,6 +79,42 @@ type Store interface {
 	// meaning in some implementations that have non-trivial
 	// additional behavior (e.g., DeltaFIFO).
 	Resync() error
+}
+
+// TransactionType defines the type of a transaction operation. It is used to indicate whether
+// an object is being added, updated, or deleted.
+type TransactionType string
+
+const (
+	TransactionTypeAdd    TransactionType = "Add"
+	TransactionTypeUpdate TransactionType = "Update"
+	TransactionTypeDelete TransactionType = "Delete"
+)
+
+// Transaction represents a single operation or event in a process. It holds a generic Object
+// associated with the transaction and a Type indicating the kind of transaction being performed.
+type Transaction struct {
+	Object interface{}
+	Type   TransactionType
+}
+
+type TransactionStore interface {
+	// Transaction allows multiple operations to occur within a single lock acquisition to
+	// ensure progress can be made when there is contention.
+	Transaction(txns ...Transaction) *TransactionError
+}
+
+var _ error = &TransactionError{}
+
+type TransactionError struct {
+	SuccessfulIndices []int
+	TotalTransactions int
+	Errors            []error
+}
+
+func (t *TransactionError) Error() string {
+	return fmt.Sprintf("failed to execute (%d/%d) transactions failed due to: %v",
+		t.TotalTransactions-len(t.SuccessfulIndices), t.TotalTransactions, t.Errors)
 }
 
 // KeyFunc knows how to make a key from an object. Implementations should be deterministic.
@@ -163,9 +209,47 @@ type cache struct {
 	keyFunc KeyFunc
 	// Called with every object put in the cache.
 	transformer TransformFunc
+	// identifier is used to identify the store for metrics.
+	identifier InformerNameAndResource
+	// metrics is the metrics provider for the store.
+	metrics InformerMetricsProvider
 }
 
 var _ Store = &cache{}
+
+func (c *cache) Transaction(txns ...Transaction) *TransactionError {
+	txnStore, ok := c.cacheStorage.(ThreadSafeStoreWithTransaction)
+	if !ok {
+		return &TransactionError{
+			TotalTransactions: len(txns),
+			Errors: []error{
+				errors.New("transaction not supported"),
+			},
+		}
+	}
+	keyedTxns := make([]ThreadSafeStoreTransaction, 0, len(txns))
+	successfulIndices := make([]int, 0, len(txns))
+	errs := make([]error, 0)
+	for i := range txns {
+		txn := txns[i]
+		key, err := c.keyFunc(txn.Object)
+		if err != nil {
+			errs = append(errs, KeyError{txn.Object, err})
+			continue
+		}
+		successfulIndices = append(successfulIndices, i)
+		keyedTxns = append(keyedTxns, ThreadSafeStoreTransaction{txn, key})
+	}
+	txnStore.Transaction(keyedTxns...)
+	if len(errs) > 0 {
+		return &TransactionError{
+			SuccessfulIndices: successfulIndices,
+			TotalTransactions: len(txns),
+			Errors:            errs,
+		}
+	}
+	return nil
+}
 
 // Add inserts an item into the cache.
 func (c *cache) Add(obj interface{}) error {
@@ -205,7 +289,7 @@ func (c *cache) Delete(obj interface{}) error {
 	if err != nil {
 		return KeyError{obj, err}
 	}
-	c.cacheStorage.Delete(key)
+	c.cacheStorage.DeleteWithObject(key, obj)
 	return nil
 }
 
@@ -219,6 +303,14 @@ func (c *cache) List() []interface{} {
 // in the cache.
 func (c *cache) ListKeys() []string {
 	return c.cacheStorage.ListKeys()
+}
+
+func (c *cache) LastStoreSyncResourceVersion() string {
+	return c.cacheStorage.LastStoreSyncResourceVersion()
+}
+
+func (c *cache) Bookmark(rv string) {
+	c.cacheStorage.Bookmark(rv)
 }
 
 // GetIndexers returns the indexers of cache
@@ -307,22 +399,41 @@ func WithTransformer(transformer TransformFunc) StoreOption {
 	}
 }
 
+func WithStoreMetrics(identifier InformerNameAndResource, metrics InformerMetricsProvider) StoreOption {
+	return func(c *cache) {
+		c.identifier = identifier
+		c.metrics = metrics
+	}
+}
+
 // NewStore returns a Store implemented simply with a map and a lock.
 func NewStore(keyFunc KeyFunc, opts ...StoreOption) Store {
 	c := &cache{
-		cacheStorage: NewThreadSafeStore(Indexers{}, Indices{}),
-		keyFunc:      keyFunc,
+		keyFunc: keyFunc,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
+	threadSafeOpts := []ThreadSafeStoreOption{}
+	if c.metrics != nil {
+		threadSafeOpts = append(threadSafeOpts, WithThreadSafeStoreMetrics(c.identifier, c.metrics))
+	}
+	c.cacheStorage = NewThreadSafeStore(Indexers{}, Indices{}, threadSafeOpts...)
 	return c
 }
 
 // NewIndexer returns an Indexer implemented simply with a map and a lock.
-func NewIndexer(keyFunc KeyFunc, indexers Indexers) Indexer {
-	return &cache{
-		cacheStorage: NewThreadSafeStore(indexers, Indices{}),
-		keyFunc:      keyFunc,
+func NewIndexer(keyFunc KeyFunc, indexers Indexers, opts ...StoreOption) Indexer {
+	c := &cache{
+		keyFunc: keyFunc,
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	threadSafeOpts := []ThreadSafeStoreOption{}
+	if c.metrics != nil {
+		threadSafeOpts = append(threadSafeOpts, WithThreadSafeStoreMetrics(c.identifier, c.metrics))
+	}
+	c.cacheStorage = NewThreadSafeStore(indexers, Indices{}, threadSafeOpts...)
+	return c
 }

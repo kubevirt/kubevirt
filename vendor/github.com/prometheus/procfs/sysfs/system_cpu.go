@@ -1,4 +1,4 @@
-// Copyright 2018 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -132,6 +132,16 @@ func (c CPU) ThermalThrottle() (*CPUThermalThrottle, error) {
 	return t, nil
 }
 
+// Online returns the online status of a CPU from `/sys/devices/system/cpu/cpuN/online`.
+func (c CPU) Online() (bool, error) {
+	cpuPath := filepath.Join(string(c), "online")
+	str, err := util.SysReadFile(cpuPath)
+	if err != nil {
+		return false, err
+	}
+	return str == "1", nil
+}
+
 func parseCPUThermalThrottle(cpuPath string) (*CPUThermalThrottle, error) {
 	t := CPUThermalThrottle{}
 	var err error
@@ -162,11 +172,12 @@ func binSearch(elem uint16, elemSlice *[]uint16) bool {
 
 	for start <= end {
 		mid = (start + end) / 2
-		if (*elemSlice)[mid] == elem {
+		switch {
+		case (*elemSlice)[mid] == elem:
 			return true
-		} else if (*elemSlice)[mid] > elem {
+		case (*elemSlice)[mid] > elem:
 			end = mid - 1
-		} else if (*elemSlice)[mid] < elem {
+		case (*elemSlice)[mid] < elem:
 			start = mid + 1
 		}
 	}
@@ -244,7 +255,8 @@ func (fs FS) SystemCpufreq() ([]SystemCPUCpufreqStats, error) {
 		})
 	}
 
-	if err = g.Wait(); err != nil {
+	err = g.Wait()
+	if err != nil {
 		return nil, err
 	}
 
@@ -300,7 +312,7 @@ func parseCpufreqCpuinfo(cpuPath string) (*SystemCPUCpufreqStats, error) {
 	var cpuinfoFrequencyTransitionsTotal *uint64
 	cpuinfoFrequencyTransitionsTotalUint, err := util.ReadUintFromFile(filepath.Join(cpuPath, "stats", "total_trans"))
 	if err != nil {
-		if !(os.IsNotExist(err) || os.IsPermission(err)) {
+		if !os.IsNotExist(err) && !os.IsPermission(err) {
 			return &SystemCPUCpufreqStats{}, err
 		}
 	} else {
@@ -311,12 +323,12 @@ func parseCpufreqCpuinfo(cpuPath string) (*SystemCPUCpufreqStats, error) {
 	var cpuinfoFrequencyDuration *map[uint64]uint64
 	cpuinfoFrequencyDurationString, err := util.ReadFileNoStat(filepath.Join(cpuPath, "stats", "time_in_state"))
 	if err != nil {
-		if !(os.IsNotExist(err) || os.IsPermission(err)) {
+		if !os.IsNotExist(err) && !os.IsPermission(err) {
 			return &SystemCPUCpufreqStats{}, err
 		}
 	} else {
 		cpuinfoFrequencyDuration = &map[uint64]uint64{}
-		for _, line := range strings.Split(string(cpuinfoFrequencyDurationString), "\n") {
+		for line := range strings.SplitSeq(string(cpuinfoFrequencyDurationString), "\n") {
 			if line == "" {
 				continue
 			}
@@ -340,7 +352,7 @@ func parseCpufreqCpuinfo(cpuPath string) (*SystemCPUCpufreqStats, error) {
 	var cpuinfoTransitionTable *[][]uint64
 	cpuinfoTransitionTableString, err := util.ReadFileNoStat(filepath.Join(cpuPath, "stats", "trans_table"))
 	if err != nil {
-		if !(os.IsNotExist(err) || os.IsPermission(err)) {
+		if !os.IsNotExist(err) && !os.IsPermission(err) {
 			return &SystemCPUCpufreqStats{}, err
 		}
 	} else {
@@ -354,7 +366,7 @@ func parseCpufreqCpuinfo(cpuPath string) (*SystemCPUCpufreqStats, error) {
 			fields[0] = strings.TrimSuffix(fields[0], ":")
 			cpuinfoTransitionTableRow := make([]uint64, len(fields))
 			for i := range fields {
-				if len(fields[i]) == 0 {
+				if fields[i] == "" {
 					continue
 				}
 				f, err := strconv.ParseUint(fields[i], 10, 64)
@@ -399,7 +411,7 @@ func parseCPURange(data []byte) ([]uint16, error) {
 
 	var cpusInt = []uint16{}
 
-	for _, cpu := range strings.Split(strings.TrimSuffix(string(data), "\n"), ",") {
+	for cpu := range strings.SplitSeq(strings.TrimSuffix(string(data), "\n"), ",") {
 		if cpu == "" {
 			continue
 		}
