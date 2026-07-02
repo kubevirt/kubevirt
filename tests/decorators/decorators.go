@@ -60,6 +60,8 @@ var (
 	InPlaceHotplugNICs                   = Label("in-place-hotplug-NICs")
 	MigrationBasedHotplugNICs            = Label("migration-based-hotplug-NICs")
 	NetCustomBindingPlugins              = Label("netCustomBindingPlugins")
+	Masquerade                           = Label("masquerade")
+	IPv6                                 = Label("IPv6")
 	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
 	RequiresThreeSchedulableNodes        = Label("requires-three-schedulable-nodes")
 	RequiresDedicatedWorkerNodes         = Label("requires-dedicated-worker-nodes")
