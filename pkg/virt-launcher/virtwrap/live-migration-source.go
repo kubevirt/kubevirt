@@ -100,6 +100,22 @@ type migrationMonitor struct {
 	progressTimeout    int64
 }
 
+var libvirtCompressionMethods = map[v1.MigrationCompression]string{
+	v1.MigrationCompressionZstd: "zstd",
+}
+
+func shouldCompressMigration(options *cmdclient.MigrationOptions) (bool, string) {
+	if options.Compression == nil || *options.Compression == "" || *options.Compression == string(v1.MigrationCompressionNone) {
+		return false, ""
+	}
+	method, ok := libvirtCompressionMethods[v1.MigrationCompression(*options.Compression)]
+	if !ok {
+		log.Log.Warningf("Unsupported migration compression method %q, compression will be disabled", *options.Compression)
+		return false, ""
+	}
+	return true, method
+}
+
 func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
@@ -120,6 +136,9 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 	}
 	if shouldConfigureParallel, _ := shouldConfigureParallelMigration(options); shouldConfigureParallel {
 		migrateFlags |= libvirt.MIGRATE_PARALLEL
+	}
+	if shouldCompress, _ := shouldCompressMigration(options); shouldCompress {
+		migrateFlags |= libvirt.MIGRATE_COMPRESSED
 	}
 
 	return migrateFlags
@@ -938,14 +957,20 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
 	}
 
+	compressionInfo := ""
+	if info.DataProcessed > 0 && info.MemNormalBytes > info.DataProcessed {
+		ratio := float64(info.MemNormalBytes) / float64(info.DataProcessed)
+		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
-		`DiskMbps:%d`,
+		`DiskMbps:%d%s`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
-		bpsToMbps(info.DiskBps),
+		bpsToMbps(info.DiskBps), compressionInfo,
 	))
 }
 
@@ -1088,6 +1113,12 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		params.DisksURISet = true
 		params.MigrateDisksDetectZeroesList = copyDisks
 		params.MigrateDisksDetectZeroesSet = true
+	}
+
+	if shouldCompress, method := shouldCompressMigration(options); shouldCompress {
+		params.CompressionSet = true
+		params.Compression = method
+		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", method)
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)
