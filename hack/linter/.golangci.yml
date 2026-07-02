@@ -91,6 +91,7 @@ linters:
         - ^ExpectWithOffset$
         - ^console\.ExpectBatch$
         - ^console\.RunCommand$
+        - ^libnet\.VerifyDynamicInterfaceChange$
     nolintlint:
       require-explanation: false # don't require an explanation for nolint directives
       require-specific: false # don't require nolint directives to be specific about which linter is being skipped
@@ -114,6 +115,12 @@ linters:
       - linters:
           - staticcheck
         text: 'SA1019: checks.SkipTestIfNoCPUManager'
+      - linters:
+          - mnd
+        source: 'WithTimeout\('
+      - linters:
+          - mnd
+        source: 'WithPolling\('
     paths:
       - third_party$
       - builtin$
@@ -124,7 +131,6 @@ linters:
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
-      - tests/network/hotplug_sriov\.go$
       - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
@@ -161,7 +167,6 @@ formatters:
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
-      - tests/network/hotplug_sriov\.go$
       - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
