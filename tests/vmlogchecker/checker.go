@@ -45,8 +45,8 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    3,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(failed to get fs status before freeze vmi|Failed to (freeze|unfreeze) vmi).*Guest agent is not responding: QEMU guest agent is not connected`),
-		SIGs:  SIGCompute,
+		Regex: regexp.MustCompile(`"level":"error","msg":"(failed to get fs status before freeze vmi|Failed to (freeze|unfreeze) vmi|Failed to unfreeze filesystem after backup completion).*Guest agent is not responding: QEMU guest agent is not connected`),
+		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
 		ID:    4,
@@ -85,12 +85,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    11,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Connection to libvirt lost\.",".*"reason":".*(Connection reset by peer|End of file while reading data: Input/output error)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Connection to libvirt lost\.",".*"reason":".*(Connection reset by peer|End of file while reading data: Input/output error|internal error: client socket is closed|Failed to connect socket to '.*/virtqemud-sock': Connection refused)`),
 		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
 	},
 	{
 		ID:    12,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(Connection to libvirt lost\.|Getting the domain failed\.)",".*"reason":"virError\(Code=.*, Domain=.*, Message='internal error: client socket is closed'\)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Getting the domain failed\.",".*"reason":"virError\(Code=.*, Domain=.*, Message='(internal error: client socket is closed|Cannot recv data: Connection reset by peer|Cannot write data: Broken pipe|End of file while reading data: Input/output error|Failed to connect socket to '.*/virtqemud-sock': Connection refused)'\)"`),
 		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
 	},
 	{
@@ -140,7 +140,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    22,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(internal error: Child process|Hook script execution failed).*cannot touch '/run/kubevirt-private/backend-storage-meta/migrated'`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(internal error: Child process|Hook script execution failed).*(cannot touch '/run/kubevirt-private/backend-storage-meta/migrated'|failed to create marker file: open /run/kubevirt-private/backend-storage-meta/migrated: no such file or directory)`),
 		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
 	},
 	{
@@ -165,7 +165,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    27,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(migration successfully aborted|operation aborted: migration out: canceled by client)","pos":"qemuMigration(DstFinish|SrcNBDStorageCopy)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(migration successfully aborted|operation aborted: (migration out: canceled by client|job 'migration out' canceled by client))","pos":"qemuMigration(DstFinish|SrcNBDStorageCopy|JobCheckStatus)`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
@@ -275,12 +275,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    49,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to connect to notify server|Could not send domain notify event\.)","pos":"client.go.*"reason":"context deadline exceeded"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to connect to notify server|Could not send domain notify event\.)","pos":"client.go.*"reason":"(context deadline exceeded|could not check cmd server version: rpc error: code = DeadlineExceeded desc = context deadline exceeded)"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    50,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to send domain notify event\. closing connection\.","pos":"client.go.*"reason":"rpc error: code = Unavailable desc = connection error:.*(connection reset by peer|connection refused)`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to send domain notify event\. closing connection\.","pos":"client.go.*"reason":"rpc error: code = (Unavailable desc = connection error:.*(connection reset by peer|connection refused)|Unavailable desc = error reading from server: read unix .*domain-notify-pipe\.sock: read: connection reset by peer|DeadlineExceeded desc = context deadline exceeded)`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
@@ -310,7 +310,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    56,
-		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'migrate-start-postcopy': Postcopy must be started after migration has been started","pos":"qemuMonitorJSONCheckErrorFull`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'migrate-start-postcopy': (Postcopy must be started after migration has been started|Enable postcopy with migrate_set_capability before the start of migration)","pos":"qemuMonitorJSONCheckErrorFull`),
 		SIGs:  SIGCompute,
 	},
 	{
@@ -345,7 +345,7 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    63,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to run backup job".*"pos":"server\.go.*"reason":"(failed to abort backup: backup already completed|cannot abort backup, wrong operation or type: [0-9]+, [0-9]+)"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to run backup job|failed to abort backup, error calling abort job on domain)".*"pos":"(server|backup)\.go.*".*"reason":"(failed to abort backup: backup already completed|cannot abort backup, wrong operation or type: [0-9]+, [0-9]+|virError\(Code=.*, Domain=.*, Message='Requested operation is not valid: no job is active on the domain'\))"`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
@@ -405,12 +405,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    75,
-		Regex: regexp.MustCompile(`"level":"error","msg":"error encountered during MigrateToURI3 libvirt api call: virError\(Code=.*Domain=.*, Message='(operation aborted: migration out: canceled by client|internal error: process exited while connecting to monitor: .*The sum of offset.*actual size of the containing file.*)'\)".*"pos":"live-migration-source\.go`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"error encountered during MigrateToURI3 libvirt api call: virError\(Code=.*Domain=.*, Message='(operation aborted: migration out: canceled by client|operation aborted: job 'migration out' canceled by client|internal error: (process exited while connecting to monitor|QEMU unexpectedly closed the monitor).*The sum of offset.*actual size of the containing file.*)'\)".*"pos":"live-migration-source\.go`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
 		ID:    76,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Live migration failed\.".*"pos":"live-migration-source\.go.*"reason":"virError\(.*Message='operation aborted: migration out: canceled by client'\)"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Live migration failed\.".*"pos":"live-migration-source\.go.*"reason":"virError\(.*Message='(operation aborted: migration out: canceled by client|operation aborted: job 'migration out' canceled by client)'\)"`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
@@ -435,8 +435,8 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    81,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Timed out during operation: cannot acquire state change lock \(held by agent=(remoteDispatchDomainGetGuestInfo|qemuDispatchDomainAgentCommand)\)","pos":"virDomainObjBeginJobInternal`),
-		SIGs:  SIGCompute,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Timed out during operation: cannot acquire state change lock \(held by agent=(remoteDispatchDomainGetGuestInfo|qemuDispatchDomainAgentCommand|remoteDispatchDomainFSFreeze)\)","pos":"virDomainObjBeginJobInternal`),
+		SIGs:  SIGCompute | SIGStorage,
 	},
 	{
 		ID:    82,
@@ -450,8 +450,8 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    84,
-		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'query-command-line-options': JSON parse error, expecting value","pos":"qemuMonitorJSONCheckErrorFull`),
-		SIGs:  SIGPerformance,
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command '(query-command-line-options': JSON parse error, expecting value|query-qmp-schema': (JSON parse error, stray '-qm'|The command [a-z-]+ has not been found)|device-list-properties': JSON parse error, expecting value)","pos":"qemuMonitorJSONCheckErrorFull`),
+		SIGs:  SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    85,
@@ -485,12 +485,82 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    91,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Fetching guest info failed: virError\(Code=.*, Domain=.*, Message='(Domain not found: no domain with matching uuid '.*' \(kubevirt-test-.*\)|Timed out during operation: cannot acquire state change lock \(held by agent=qemuDispatchDomainAgentCommand\))'\)"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"Fetching guest info failed: virError\(Code=.*, Domain=.*, Message='(Domain not found: no domain with matching uuid '.*' \(kubevirt-test-.*\)|Timed out during operation: cannot acquire state change lock \(held by agent=(qemuDispatchDomainAgentCommand|remoteDispatchDomainGetGuestInfo|remoteDispatchDomainFSFreeze)\))'\)"`),
 		SIGs:  SIGCompute | SIGNetwork | SIGStorage | SIGMonitoring,
 	},
 	{
 		ID:    92,
-		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'blockdev-add': Failed to read (initial magic|option reply): Unexpected end-of-file before all data were read","pos":"qemuMonitorJSONCheckErrorFull`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'blockdev-add': Failed to read ((initial magic|option reply): Unexpected end-of-file before all data were read|option reply: Unable to read from socket: Connection reset by peer)","pos":"qemuMonitorJSONCheckErrorFull`),
+		SIGs:  SIGCompute | SIGStorage,
+	},
+	{
+		ID:    93,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Error detecting pid \([0-9]+\) status\.","pos":"monitor\.go.*"reason":"(read|open) /proc/[0-9]+/status: (no such process|no such file or directory)"`),
+		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
+	},
+	{
+		ID:    94,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Error encountered setting password for user \[[^"]+\]".*"pos":"access_credentials\.go.*"reason":"virError\(Code=.*, Domain=.*, Message='guest agent command failed: unable to execute QEMU agent command 'guest-set-user-password': Command guest-set-user-password has been disabled(: the command is not allowed)?'\)"`),
+		SIGs:  SIGCompute,
+	},
+	{
+		ID:    95,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Error encountered writing access credentials using guest agent".*"pos":"access_credentials\.go.*"reason":"failed to set SSH keys: error from guest-ssh-add-authorized-keys: virError\(Code=.*, Domain=.*, Message='guest agent command failed: unable to execute QEMU agent command 'guest-ssh-add-authorized-keys': Command guest-ssh-add-authorized-keys has been disabled(: the command is not allowed)?'\); error from using guest-file-write: unable to detect home directory of user .*guest-exec': Command guest-exec has been disabled(: the command is not allowed)?'\)"`),
+		SIGs:  SIGCompute,
+	},
+	{
+		ID:    96,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Timed out generating cloud-init iso at path .*","pos":"cloud-init\.go`),
+		SIGs:  SIGCompute | SIGPerformance,
+	},
+	{
+		ID:    97,
+		Regex: regexp.MustCompile(`"level":"error","msg":"xorrisofs returned non-zero exit code while generating iso file .*","pos":"cloud-init\.go.*"reason":"signal: killed"`),
+		SIGs:  SIGCompute | SIGPerformance,
+	},
+	{
+		ID:    98,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to sync vmi",".*"pos":"server\.go.*"reason":"generating local cloud-init data failed: signal: killed"`),
+		SIGs:  SIGCompute | SIGPerformance,
+	},
+	{
+		ID:    99,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Fetching guest info failed: virError\(Code=.*, Domain=.*, Message='guest agent command failed: unable to execute QEMU agent command 'guest-get-(users|load|osinfo)': Command guest-get-(users|load|osinfo) has been disabled(: the command is not allowed)?'\)","pos":"agent_poller\.go`),
+		SIGs:  SIGCompute | SIGNetwork | SIGStorage | SIGMonitoring,
+	},
+	{
+		ID:    100,
+		Regex: regexp.MustCompile(`"level":"error","msg":"operation failed: Lost connection to destination host","pos":"qemuMigrationAnyCompleted`),
+		SIGs:  SIGCompute | SIGStorage,
+	},
+	{
+		ID:    101,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to signal deletion for vmi",".*"reason":"virError\(Code=.*, Domain=.*, Message='(Cannot recv data: Connection reset by peer|Cannot write data: Broken pipe|internal error: client socket is closed|End of file while reading data: Input/output error)'\)"`),
+		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
+	},
+	{
+		ID:    102,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to prepare migration target pod",".*"reason":"failed to find the status of volume cloudinitdisk"`),
+		SIGs:  SIGCompute,
+	},
+	{
+		ID:    103,
+		Regex: regexp.MustCompile(`"level":"error".*"msg":"Live migration failed\.".+"reason":"migration channel closed"`),
+		SIGs:  SIGCompute | SIGNetwork | SIGStorage,
+	},
+	{
+		ID:    104,
+		Regex: regexp.MustCompile(`"level":"error".*"msg":"Failed to send domain notify event\. closing connection\.".+"reason":"rpc error: code = Unavailable desc = write unix .*domain-notify-pipe\.sock: write: broken pipe"`),
+		SIGs:  SIGCompute,
+	},
+	{
+		ID:    105,
+		Regex: regexp.MustCompile(`"level":"error".*"msg":"internal error: unable to execute QEMU command 'qmp_capabilities': JSON parse error, stray '_c'"`),
+		SIGs:  SIGPerformance,
+	},
+	{
+		ID:    106,
+		Regex: regexp.MustCompile(`"level":"error","msg":"internal error: unable to execute QEMU command 'block-job-cancel': Job '[^']+' in state 'concluded' cannot accept command verb 'cancel'"`),
 		SIGs:  SIGCompute | SIGStorage,
 	},
 }
