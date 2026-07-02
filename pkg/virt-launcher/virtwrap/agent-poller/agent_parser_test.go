@@ -60,7 +60,8 @@ var _ = Describe("Qemu agent poller", func() {
 		It("should strip Agent response", func() {
 			jsonInput := `{"return":{"version":"4.1"}}`
 
-			response := stripAgentResponse(jsonInput)
+			response, err := stripAgentResponse(jsonInput)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResponse := `{"version":"4.1"}`
 
 			Expect(response).To(Equal(expectedResponse))
@@ -101,6 +102,13 @@ var _ = Describe("Qemu agent poller", func() {
 				},
 			}
 			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))
+		})
+		It("should fail on malformed filesystem agent reply", func() {
+			jsonInput := `{dummy input}`
+
+			_, err := parseFilesystem(jsonInput)
+
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
