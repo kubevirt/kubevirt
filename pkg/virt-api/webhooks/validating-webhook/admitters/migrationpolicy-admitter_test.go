@@ -134,6 +134,13 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 				},
 			},
 		),
+
+		Entry("allowPostCopy true and allowWorkloadDisruption false",
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(false),
+			},
+		),
 	)
 
 	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -184,6 +191,19 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 						PrecopyPossibleFactor: pointer.P("2"),
 					},
 				},
+			},
+		),
+
+		Entry("allowPostCopy true and allowWorkloadDisruption true",
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(true),
+			},
+		),
+
+		Entry("allowPostCopy true and allowWorkloadDisruption nil",
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy: pointer.P(true),
 			},
 		),
 
@@ -258,6 +278,47 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("reject changing value on update", true,
 			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(4))},
 			&v1.StallDetectorOptions{StallMargin: pointer.P(int64(8))},
+			false,
+		),
+	)
+
+	DescribeTable("allowPostCopy + allowWorkloadDisruption ratcheting on update",
+		func(oldSpec, newSpec migrationsv1.MigrationPolicySpec, expectAllowed bool) {
+			oldPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			oldPolicy.Spec = oldSpec
+			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			newPolicy.Spec = newSpec
+			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
+		},
+		Entry("grandfather invalid combo when unrelated field changes",
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(false),
+			},
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(false),
+				CompletionTimeoutPerGiB: pointer.P(int64(120)),
+			},
+			true,
+		),
+		Entry("allow correcting invalid combo to valid",
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(false),
+			},
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(true),
+			},
+			true,
+		),
+		Entry("reject introducing invalid combo on update",
+			migrationsv1.MigrationPolicySpec{},
+			migrationsv1.MigrationPolicySpec{
+				AllowPostCopy:           pointer.P(true),
+				AllowWorkloadDisruption: pointer.P(false),
+			},
 			false,
 		),
 	)
