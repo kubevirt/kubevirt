@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -677,6 +678,37 @@ var _ = Describe("netstat", func() {
 				LinkState:     linkStateUp,
 			},
 		}))
+	})
+
+	It("should report SR-IOV interface with MAC from multus network-status when not in VMI spec", func() {
+		const (
+			networkName = "sriov-network"
+			networkMAC  = "72:83:99:bb:13:c2"
+		)
+
+		setup.addSRIOVNetworkInterface(
+			libvmi.InterfaceDeviceWithSRIOVBinding(networkName),
+			*libvmi.MultusNetwork(networkName, "test.network"),
+		)
+
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        networkMAC,
+				InfoSource: netvmispec.InfoSourceMultusStatus,
+			},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        networkMAC,
+				InfoSource: netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus),
+				QueueCount: netsetup.UnknownInterfaceQueueCount,
+			},
+		}), "the SR-IOV interface should be reported with MAC from multus status")
 	})
 
 	When("the desired state (VMI spec) is not in sync with the state in the guest (guest-agent)", func() {
