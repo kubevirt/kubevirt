@@ -88,7 +88,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
+	vsockmode "kubevirt.io/kubevirt/pkg/vsock/mode"
+	"kubevirt.io/kubevirt/pkg/vsock/server"
 )
 
 const (
@@ -305,10 +306,11 @@ func (app *virtHandlerApp) Run() {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
 		os.Exit(2)
 	}
-	vsockMgr := vsock.NewVSOCKHypervisorService(1, app.caManager)
+	vsockMgr := server.NewVSOCKHypervisorService(1, app.caManager)
 
 	vsockConfigCallback := func() {
 		if app.clusterConfig.VSOCKEnabled() {
+			logger.Infof("VSOCK child namespace mode: %s", vsockmode.VsockChildNsMode(vsockmode.DefaultProcPath))
 			vsockMgr.Start()
 		} else {
 			vsockMgr.Stop()

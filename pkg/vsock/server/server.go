@@ -17,7 +17,7 @@
  *
  */
 
-package vsock
+package server
 
 import (
 	"os"
@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util/tls"
-	"kubevirt.io/kubevirt/pkg/virt-handler/vsock/system"
+	"kubevirt.io/kubevirt/pkg/vsock/system"
 	v1 "kubevirt.io/kubevirt/pkg/vsock/system/v1"
 )
 

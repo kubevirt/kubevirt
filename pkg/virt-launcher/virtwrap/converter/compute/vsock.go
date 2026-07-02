@@ -23,14 +23,28 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/vsock"
+	"kubevirt.io/kubevirt/pkg/vsock/mode"
 )
 
-type VSOCKDomainConfigurator struct{}
+type VSOCKDomainConfigurator struct {
+	ProcPath string
+}
 
 func (v VSOCKDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	vsockCID := vmi.Status.VSOCKCID
 	if vsockCID == nil {
 		return nil
+	}
+
+	procPath := v.ProcPath
+	if procPath == "" {
+		procPath = mode.DefaultProcPath
+	}
+
+	cid := *vsockCID
+	if mode.VsockNsMode(procPath) == mode.ModeLocal {
+		cid = vsock.LocalCID
 	}
 
 	domain.Spec.Devices.VSOCK = &api.VSOCK{
@@ -39,7 +53,7 @@ func (v VSOCKDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 		Model: "virtio-non-transitional",
 		CID: api.CID{
 			Auto:    "no",
-			Address: *vsockCID,
+			Address: cid,
 		},
 	}
 

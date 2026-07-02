@@ -39,9 +39,12 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virtvsock "kubevirt.io/kubevirt/pkg/virt-handler/vsock"
+	"kubevirt.io/kubevirt/pkg/vsock/mode"
 )
 
 type ConsoleHandler struct {
@@ -231,36 +234,44 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
-	cid := *vmi.Status.VSOCKCID
 	t.stream(vmi, request, response, func() (net.Conn, error) {
-		log.Log.Object(vmi).Infof("Connecting to %d:%d", cid, port)
-		conn, err := vsock.Dial(cid, uint32(port), &vsock.Config{})
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("failed to dial vsock %d:%d", cid, port)
-			return nil, err
-		}
-		if !useTLS {
-			log.Log.Object(vmi).Infof("Connected to %d:%d", cid, port)
-			return conn, nil
-		}
-		tlsConn := tls.Client(conn, &tls.Config{
-			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS13,
-			GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				certificate := t.vsockCertManager.Current()
-				if certificate == nil {
-					return nil, fmt.Errorf("missing VSOCK certificate")
-				}
-				return certificate, nil
-			},
-		})
-		if err := tlsConn.Handshake(); err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to %d:%d over TLS", cid, port)
-			return nil, err
-		}
-		log.Log.Object(vmi).Infof("Connected to %d:%d over TLS", cid, port)
-		return tlsConn, nil
+		return t.dialVSOCK(vmi, uint32(port), useTLS)
 	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
+}
+
+func (t *ConsoleHandler) dialVSOCK(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) (net.Conn, error) {
+	dialer := virtvsock.NewDialer(t.podIsolationDetector,
+		mode.DefaultProcPath,
+		func(pid int, fn func() error) error { return netns.New(pid).Do(fn) },
+		vsock.Dial)
+
+	conn, err := dialer.Dial(vmi, port)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial VSOCK for VM: %w", err)
+	}
+	if !useTLS {
+		return conn, nil
+	}
+	tlsConn := tls.Client(conn, &tls.Config{
+		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS13,
+		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			certificate := t.vsockCertManager.Current()
+			if certificate == nil {
+				return nil, fmt.Errorf("missing VSOCK certificate")
+			}
+			return certificate, nil
+		},
+	})
+	if err := tlsConn.Handshake(); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to connect to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
+		if closeErr := tlsConn.Close(); closeErr != nil {
+			log.Log.Object(vmi).Reason(closeErr).Info("Failed to close connection.")
+		}
+		return nil, err
+	}
+	log.Log.Object(vmi).Infof("Connected to VSOCK port %d in VM %s/%s over TLS", port, vmi.Namespace, vmi.Name)
+	return tlsConn, nil
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) chan struct{} {
