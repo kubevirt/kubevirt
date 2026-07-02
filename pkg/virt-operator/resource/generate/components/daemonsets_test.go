@@ -16,6 +16,38 @@ var _ = Describe("Handler DaemonSet", func() {
 		config = &operatorutil.KubeVirtDeploymentConfig{}
 	})
 
+	It("should use the configured imagePullPolicy for the virt-launcher init container", func() {
+		config.AdditionalProperties = map[string]string{
+			operatorutil.AdditionalPropertiesNamePullPolicy: string(corev1.PullAlways),
+		}
+		ds := NewHandlerDaemonSet(config, "", "", "")
+		Expect(ds.Spec.Template.Spec.InitContainers).NotTo(BeEmpty())
+		Expect(ds.Spec.Template.Spec.InitContainers[0].Name).To(Equal("virt-launcher"))
+		Expect(ds.Spec.Template.Spec.InitContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
+	})
+
+	It("should default to IfNotPresent for the virt-launcher init container", func() {
+		ds := NewHandlerDaemonSet(config, "", "", "")
+		Expect(ds.Spec.Template.Spec.InitContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+	})
+
+	It("should use the configured imagePullPolicy for the virt-launcher-image-holder container", func() {
+		config.AdditionalProperties = map[string]string{
+			operatorutil.AdditionalPropertiesNamePullPolicy: string(corev1.PullAlways),
+			operatorutil.AdditionalPropertiesPullSecrets:    `[{"name":"test-secret"}]`,
+		}
+		ds := NewHandlerDaemonSet(config, "", "", "")
+		var imageHolder *corev1.Container
+		for i := range ds.Spec.Template.Spec.Containers {
+			if ds.Spec.Template.Spec.Containers[i].Name == "virt-launcher-image-holder" {
+				imageHolder = &ds.Spec.Template.Spec.Containers[i]
+				break
+			}
+		}
+		Expect(imageHolder).NotTo(BeNil(), "virt-launcher-image-holder container should exist when imagePullSecrets are configured")
+		Expect(imageHolder.ImagePullPolicy).To(Equal(corev1.PullAlways))
+	})
+
 	It("should not use bidirectional mount propagation for the kubelet volume", func() {
 		ds := NewHandlerDaemonSet(config, "", "", "")
 		container := ds.Spec.Template.Spec.Containers[0]
