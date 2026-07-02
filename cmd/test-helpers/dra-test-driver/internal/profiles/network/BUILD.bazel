@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["network.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/test-helpers/dra-test-driver/internal/profiles/network",
+    visibility = ["//cmd/test-helpers/dra-test-driver:__subpackages__"],
+    deps = [
+        "//cmd/test-helpers/dra-test-driver/internal/profiles:go_default_library",
+        "//cmd/test-helpers/dra-test-driver/internal/util:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/resourceslice:go_default_library",
+        "//vendor/tags.cncf.io/container-device-interface/pkg/cdi:go_default_library",
+        "//vendor/tags.cncf.io/container-device-interface/specs-go:go_default_library",
+    ],
+)

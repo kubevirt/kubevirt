@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "lastcap.go",
+        "validate.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/opencontainers/runtime-tools/validate/capabilities",
+    importpath = "github.com/opencontainers/runtime-tools/validate/capabilities",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/moby/sys/capability:go_default_library"],
+)

@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "generate.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/opencontainers/runtime-tools/generate",
+    importpath = "github.com/opencontainers/runtime-tools/generate",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/moby/sys/capability:go_default_library",
+        "//vendor/github.com/opencontainers/runtime-spec/specs-go:go_default_library",
+        "//vendor/github.com/opencontainers/runtime-tools/generate/seccomp:go_default_library",
+        "//vendor/github.com/opencontainers/runtime-tools/validate/capabilities:go_default_library",
+    ],
+)

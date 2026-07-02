@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["parser.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/tags.cncf.io/container-device-interface/pkg/parser",
+    importpath = "tags.cncf.io/container-device-interface/pkg/parser",
+    visibility = ["//visibility:public"],
+)

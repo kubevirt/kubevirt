@@ -363,6 +363,9 @@ github.com/mitchellh/mapstructure
 ## explicit; go 1.13
 github.com/moby/spdystream
 github.com/moby/spdystream/spdy
+# github.com/moby/sys/capability v0.4.0
+## explicit; go 1.21
+github.com/moby/sys/capability
 # github.com/moby/sys/mountinfo v0.7.2
 ## explicit; go 1.17
 github.com/moby/sys/mountinfo
@@ -462,9 +465,14 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runtime-spec v1.2.1
+# github.com/opencontainers/runtime-spec v1.3.0
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
+# github.com/opencontainers/runtime-tools v0.9.1-0.20251114084447-edf4cb3d2116
+## explicit; go 1.21
+github.com/opencontainers/runtime-tools/generate
+github.com/opencontainers/runtime-tools/generate/seccomp
+github.com/opencontainers/runtime-tools/validate/capabilities
 # github.com/opencontainers/selinux v1.13.0
 ## explicit; go 1.19
 github.com/opencontainers/selinux/go-selinux
@@ -599,6 +607,10 @@ github.com/wadey/gocovmerge
 # github.com/x448/float16 v0.8.4
 ## explicit; go 1.11
 github.com/x448/float16
+# go.etcd.io/etcd/client/pkg/v3 v3.6.4
+## explicit; go 1.23.0
+go.etcd.io/etcd/client/pkg/v3/fileutil
+go.etcd.io/etcd/client/pkg/v3/verify
 # go.mongodb.org/mongo-driver v1.14.0
 ## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson
@@ -611,6 +623,20 @@ go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.uber.org/mock v0.5.1
 ## explicit; go 1.22
 go.uber.org/mock/gomock
+# go.uber.org/multierr v1.11.0
+## explicit; go 1.19
+go.uber.org/multierr
+# go.uber.org/zap v1.27.0
+## explicit; go 1.19
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/zapcore
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
@@ -864,6 +890,7 @@ gopkg.in/inf.v0
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
+gopkg.in/yaml.v3
 # k8s.io/api v0.34.3 => k8s.io/api v0.34.2
 ## explicit; go 1.24.0
 k8s.io/api/admission/v1
@@ -1361,6 +1388,14 @@ k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
+# k8s.io/dynamic-resource-allocation v0.34.2
+## explicit; go 1.24.0
+k8s.io/dynamic-resource-allocation/api/v1beta1
+k8s.io/dynamic-resource-allocation/api/v1beta2
+k8s.io/dynamic-resource-allocation/client
+k8s.io/dynamic-resource-allocation/kubeletplugin
+k8s.io/dynamic-resource-allocation/resourceclaim
+k8s.io/dynamic-resource-allocation/resourceslice
 # k8s.io/klog/v2 v2.140.0
 ## explicit; go 1.21
 k8s.io/klog/v2
@@ -1401,6 +1436,12 @@ k8s.io/kube-openapi/pkg/validation/spec
 ## explicit; go 1.24.0
 k8s.io/kubectl/pkg/cmd/util/podcmd
 k8s.io/kubectl/pkg/util
+# k8s.io/kubelet v0.34.2 => k8s.io/kubelet v0.34.2
+## explicit; go 1.24.0
+k8s.io/kubelet/pkg/apis/dra-health/v1alpha1
+k8s.io/kubelet/pkg/apis/dra/v1
+k8s.io/kubelet/pkg/apis/dra/v1beta1
+k8s.io/kubelet/pkg/apis/pluginregistration/v1
 # k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 ## explicit; go 1.23
 k8s.io/utils/buffer
@@ -1494,6 +1535,15 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# tags.cncf.io/container-device-interface v1.1.0
+## explicit; go 1.21
+tags.cncf.io/container-device-interface/internal/validation
+tags.cncf.io/container-device-interface/internal/validation/k8s
+tags.cncf.io/container-device-interface/pkg/cdi
+tags.cncf.io/container-device-interface/pkg/parser
+# tags.cncf.io/container-device-interface/specs-go v1.1.0
+## explicit; go 1.19
+tags.cncf.io/container-device-interface/specs-go
 # k8s.io/api => k8s.io/api v0.34.2
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.2
 # k8s.io/apimachinery => k8s.io/apimachinery v0.34.2
