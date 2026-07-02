@@ -156,10 +156,10 @@ var _ = Describe("Optional socket device", func() {
 	})
 })
 
-func socketDeviceMocks() (selinux.Executor, PermissionManager) {
+func socketDeviceMocks() (selinux.Executor, permissionManager) {
 	ctrl := gomock.NewController(GinkgoT())
 	mockExec := selinux.NewMockExecutor(ctrl)
-	mockPermManager := NewMockPermissionManager(ctrl)
+	mockPermManager := NewMockpermissionManager(ctrl)
 	mockSelinux := selinux.NewMockSELinux(ctrl)
 	mockExec.EXPECT().NewSELinux().Return(mockSelinux, true, nil).AnyTimes()
 	mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
