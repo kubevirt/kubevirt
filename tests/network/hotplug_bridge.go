@@ -169,22 +169,6 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			Expect(libnet.SetInterfaceUp(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
 			By("creating another VM connected to the same secondary network")
-			net := v1.Network{
-				Name: ifaceName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: nadName,
-					},
-				},
-			}
-
-			iface := v1.Interface{
-				Name: ifaceName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
-			}
-
 			networkData, err := cloudinit.NewNetworkData(
 				cloudinit.WithEthernet("eth1",
 					cloudinit.WithAddresses(ip2+subnetMask),
@@ -193,10 +177,10 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			anotherVmi := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(iface),
-				libvmi.WithNetwork(&net),
+				libvmi.WithInterface(libvmi.NewInterface(ifaceName, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, nadName)),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName),
 			)
@@ -225,11 +209,11 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 			secondIfaceMac, err := libnet.GenerateRandomMac()
 			Expect(err).NotTo(HaveOccurred())
 
-			secondHotpluggedIface := libvmi.InterfaceWithMac(
-				libvmi.InterfaceDeviceWithBridgeBinding(secondHotpluggedIfaceName),
-				secondIfaceMac.String(),
+			secondHotpluggedIface := libvmi.NewInterface(secondHotpluggedIfaceName,
+				libvmi.WithBridgeBinding(),
+				libvmi.WithMac(secondIfaceMac.String()),
+				libvmi.WithState(v1.InterfaceStateLinkDown),
 			)
-			secondHotpluggedIface.State = v1.InterfaceStateLinkDown
 
 			Expect(
 				libnet.PatchVMWithNewInterface(hotPluggedVM,
@@ -316,13 +300,11 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("running a VM")
-			ifaceWithStateDown := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)
-			ifaceWithStateDown.State = v1.InterfaceStateLinkDown
 			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
-				libvmi.WithInterface(ifaceWithStateDown))
+				libvmi.WithInterface(libvmi.NewInterface(linuxBridgeNetworkName1, libvmi.WithBridgeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(linuxBridgeNetworkName2, libvmi.WithBridgeBinding(), libvmi.WithState(v1.InterfaceStateLinkDown))))
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -369,19 +351,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 }))
 
 func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
-	network := v1.Network{
-		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: netAttachDefName,
-			},
-		},
-	}
-	iface := v1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-	}
-	return network, iface
+	return *libvmi.MultusNetwork(name, netAttachDefName), libvmi.NewInterface(name, libvmi.WithBridgeBinding())
 }
 
 func addBridgeInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
