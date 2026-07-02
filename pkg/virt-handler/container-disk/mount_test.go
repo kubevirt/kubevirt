@@ -241,6 +241,38 @@ var _ = Describe("ContainerDisk", func() {
 					false,
 				),
 			)
+
+			It("treats an already-unmounted kernel-boot record as success when other mount entries remain", func() {
+				// Regression test: unmountKernelArtifacts returned
+				// "kernel artifacts record wasn't found" whenever the mount
+				// record still existed but no longer held a kernel-boot entry --
+				// e.g. the entry was removed on an earlier pass while a leftover
+				// containerDisk entry kept the record alive because its own
+				// unmount failed (an unresponsive virt-launcher socket). That
+				// error makes Unmount() return early on every retry, so the VMI's
+				// foregroundDeleteVirtualMachine finalizer is never removed and
+				// teardown wedges forever. A record with no kernel-boot entry
+				// means the artifacts are already unmounted.
+				record := &vmiMountTargetRecord{
+					MountTargetEntries: []vmiMountTargetEntry{{
+						TargetFile: "/var/run/kubevirt/container-disks/disk_0",
+						SocketFile: "somesocketfile",
+					}},
+				}
+				Expect(m.setMountTargetRecord(vmi, record)).To(Succeed())
+
+				Expect(m.unmountKernelArtifacts(vmi)).To(Succeed())
+			})
+
+			It("treats a kernel-boot record with no mount entries as already unmounted", func() {
+				// All entries (kernel-boot and otherwise) were already removed on
+				// earlier passes, leaving an empty-but-present record. This must
+				// also be treated as already unmounted rather than returning
+				// "kernel artifacts record wasn't found".
+				Expect(m.setMountTargetRecord(vmi, &vmiMountTargetRecord{})).To(Succeed())
+
+				Expect(m.unmountKernelArtifacts(vmi)).To(Succeed())
+			})
 		})
 
 		Context("with ImageVolume", func() {
