@@ -2181,6 +2181,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Verifying compression was applied via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
 				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				// let's check for >1.00 at least, in CI it's typically around 3.00
+				Expect(logs).To(MatchRegexp(`CompressionRatio:([2-9]\d*|1\.\d*[1-9])\d*x`))
 			})
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
@@ -2237,6 +2239,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Verifying compression via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
 				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				// let's check for >1.00 at least, in CI it's typically around 3.00
+				Expect(logs).To(MatchRegexp(`CompressionRatio:([2-9]\d*|1\.\d*[1-9])\d*x`))
 			})
 		})
 
