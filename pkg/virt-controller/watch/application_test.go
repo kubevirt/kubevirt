@@ -179,7 +179,6 @@ var _ = Describe("Application", func() {
 			virtClient,
 			config,
 			nil,
-			nil,
 			instancetypecontroller.NewControllerStub(),
 			[]string{},
 			[]string{},
