@@ -742,7 +742,7 @@ var _ = Describe(SIG("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Checking if a disk image for PVC has been created")
-						Expect(strings.Contains(output, diskImgName)).To(BeTrue())
+						Expect(output).To(ContainSubstring(diskImgName), "expected disk.img to be present in PVC for VMI %s", vmi.Name)
 					}
 				})
 			})
@@ -939,36 +939,19 @@ var _ = Describe(SIG("Storage", func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					if vmi.Status.Phase != v1.Pending {
-						return false
-					}
-					if len(vmi.Status.Conditions) == 0 {
-						return false
-					}
-
-					expectPodScheduledCondition := func(vmi *v1.VirtualMachineInstance) {
-						getType := func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }
-						getReason := func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }
-						getStatus := func(c v1.VirtualMachineInstanceCondition) k8sv1.ConditionStatus { return c.Status }
-						getMessage := func(c v1.VirtualMachineInstanceCondition) string { return c.Message }
-						Expect(vmi.Status.Conditions).To(
-							ContainElement(
-								And(
-									WithTransform(getType, Equal(string(k8sv1.PodScheduled))),
-									WithTransform(getReason, Equal(k8sv1.PodReasonUnschedulable)),
-									WithTransform(getStatus, Equal(k8sv1.ConditionFalse)),
-									WithTransform(getMessage, Equal(fmt.Sprintf("PVC %v/%v does not exist, waiting for it to appear", vmi.Namespace, pvcName))),
-								),
-							),
-						)
-					}
-					expectPodScheduledCondition(vmi)
-					return true
-				}, time.Duration(10)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to get Unschedulable condition")
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.Status.Phase).To(Equal(v1.Pending))
+					g.Expect(vmi.Status.Conditions).To(ContainElement(
+						And(
+							WithTransform(func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }, Equal(string(k8sv1.PodScheduled))),
+							WithTransform(func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }, Equal(k8sv1.PodReasonUnschedulable)),
+							WithTransform(func(c v1.VirtualMachineInstanceCondition) k8sv1.ConditionStatus { return c.Status }, Equal(k8sv1.ConditionFalse)),
+							WithTransform(func(c v1.VirtualMachineInstanceCondition) string { return c.Message }, Equal(fmt.Sprintf("PVC %v/%v does not exist, waiting for it to appear", vmi.Namespace, pvcName))),
+						),
+					))
+				}, time.Duration(10)*time.Second).Should(Succeed(), "Timed out waiting for VMI to get Unschedulable condition")
 
 			})
 		})
@@ -1341,6 +1324,6 @@ func runPodAndExpectPhase(pod *k8sv1.Pod, phase k8sv1.PodPhase) *k8sv1.Pod {
 
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())
-	Expect(pod).ToNot(BeNil())
+	Expect(pod).ToNot(BeNil(), "pod should not be nil after reaching phase %s", phase)
 	return pod
 }

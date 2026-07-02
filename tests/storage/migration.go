@@ -152,7 +152,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		)
 
 		waitMigrationToNotExist := func(vmiName, ns string) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				ls := labels.Set{
 					virtv1.VolumesUpdateMigration: vmiName,
 				}
@@ -160,13 +160,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					metav1.ListOptions{
 						LabelSelector: ls.String(),
 					})
-				Expect(err).ToNot(HaveOccurred())
-				if len(migList.Items) == 0 {
-					return true
-				}
-				return false
-
-			}, 120*time.Second, time.Second).Should(BeTrue())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(migList.Items).To(BeEmpty())
+			}, 120*time.Second, time.Second).Should(Succeed())
 		}
 		waitVMIToHaveVolumeChangeCond := func(vmiName, ns string) {
 			Eventually(matcher.ThisVMIWith(ns, vmiName), 120*time.Second, time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineInstanceVolumesChange))
@@ -174,7 +170,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		createDV := func() *cdiv1.DataVolume {
 			sc, exist := libstorage.GetRWOFileSystemStorageClass()
-			Expect(exist).To(BeTrue())
+			Expect(exist).To(BeTrue(), "expected an RWO filesystem storage class")
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
@@ -402,7 +398,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			var metricsIPs []string
 			volName := "disk0"
 			sc, exist := libstorage.GetRWOFileSystemStorageClass()
-			Expect(exist).To(BeTrue())
+			Expect(exist).To(BeTrue(), "expected an RWO filesystem storage class")
 			srcDV := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
@@ -598,7 +594,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		It("should migrate the source volume from a block source and filesystem destination DVs", decorators.RequiresBlockStorage, func() {
 			volName := "disk0"
 			sc, exist := libstorage.GetRWOBlockStorageClass()
-			Expect(exist).To(BeTrue())
+			Expect(exist).To(BeTrue(), "expected an RWO block storage class")
 			srcDV := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
@@ -691,21 +687,17 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			// After the volume migration abortion the VMI should have:
 			// 1. the source volume restored
 			// 2. condition VolumesChange set to false
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
 					metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
-				if claim != dv.Name {
-					return false
-				}
+				g.Expect(claim).To(Equal(dv.Name))
 				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 				c := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
-				if c == nil {
-					return false
-				}
-				return c.Status == k8sv1.ConditionFalse
-			}, 120*time.Second, time.Second).Should(BeTrue())
+				g.Expect(c).ToNot(BeNil())
+				g.Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+			}, 120*time.Second, time.Second).Should(Succeed())
 			waitMigrationToNotExist(vm.Name, ns)
 		})
 
@@ -1170,7 +1162,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					sc, exist = libstorage.GetRWOFileSystemStorageClass()
 					volumeMode = k8sv1.PersistentVolumeFilesystem
 				}
-				Expect(exist).To(BeTrue())
+				Expect(exist).To(BeTrue(), "expected an RWO storage class for volume mode %s", volumeMode)
 				rootDV := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc),
@@ -1221,7 +1213,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				if dstBlock {
 					sc, exist = libstorage.GetRWOBlockStorageClass()
 					volumeMode = k8sv1.PersistentVolumeBlock
-					Expect(exist).To(BeTrue())
+					Expect(exist).To(BeTrue(), "expected an RWO block storage class for the destination volume")
 				} else {
 					sc = testSc
 					volumeMode = k8sv1.PersistentVolumeFilesystem

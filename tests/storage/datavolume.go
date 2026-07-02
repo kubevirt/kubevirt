@@ -164,7 +164,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			origSize, exists := pvc.Status.Capacity[k8sv1.ResourceStorage]
-			Expect(exists).To(BeTrue())
+			Expect(exists).To(BeTrue(), "expected PVC %s/%s to report storage capacity", pvc.Namespace, pvc.Name)
 			newSize := *resource.NewQuantity(2*origSize.Value(), origSize.Format)
 			patchSet := patch.New(
 				patch.WithAdd("/spec/resources/requests/storage", newSize),
@@ -247,16 +247,13 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
 
 			// Let's wait for VMI to be ready
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, volStatus := range vmi.Status.VolumeStatus {
-					if volStatus.Name == "disk0" {
-						return true
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vmi.Status.VolumeStatus).To(ContainElement(
+					WithTransform(func(volumeStatus v1.VolumeStatus) string { return volumeStatus.Name }, Equal("disk0")),
+				))
+			}, 30*time.Second, time.Second).Should(Succeed())
 
 			virtualSize := getQemuImgInfo(vmi).VirtualSize
 			Expect(virtualSize).ToNot(BeNumerically(">", freeSize))
@@ -734,14 +731,13 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			createVMSuccess := func() {
 				// sometimes it takes a bit for permission to actually be applied so eventually
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 					if err != nil {
 						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
-						return false
 					}
-					return true
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+				}, 90*time.Second, 1*time.Second).Should(Succeed())
 
 				// start vm and check dv clone succeeded
 				vm = libvmops.StartVirtualMachine(vm)
@@ -908,16 +904,13 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 				// We check the expected event
 				By("Expecting SourcePVCNotAvailabe event")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) {
 					events, err := virtClient.CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, e := range events.Items {
-						if e.Reason == "SourcePVCNotAvailabe" {
-							return true
-						}
-					}
-					return false
-				}, 30*time.Second, 5*time.Second).Should(BeTrue())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(events.Items).To(ContainElement(
+						WithTransform(func(event k8sv1.Event) string { return event.Reason }, Equal("SourcePVCNotAvailabe")),
+					))
+				}, 30*time.Second, 5*time.Second).Should(Succeed())
 			})
 
 			DescribeTable("[storage-req] deny then allow clone request", decorators.Conformance, decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
@@ -1073,7 +1066,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			if preallocated {
 				// Preallocation means no changes to disk size
-				Eventually(imageSizeEqual, 120*time.Second).WithArguments(getImageActualSize(vmi), imageSizeAfterBoot).Should(BeTrue())
+				Eventually(imageSizeEqual, 120*time.Second).WithArguments(getImageActualSize(vmi), imageSizeAfterBoot).Should(BeTrue(), "expected preallocated image size to stay within 1 MiB of boot size")
 			} else {
 				Eventually(getImageActualSize, 120*time.Second).WithArguments(vmi).Should(BeNumerically(">", imageSizeAfterBoot))
 			}
@@ -1093,7 +1086,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				&expect.BExp{R: ""},
 			}, 60)).To(Succeed(), "should trim within the VM")
 
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				By("Running trim")
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo fstrim -v /\n"},
@@ -1101,22 +1094,21 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					&expect.BSnd{S: syncName},
 					&expect.BExp{R: ""},
 				}, 60)
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 
 				currentImageSize := getImageActualSize(vmi)
 				if expectSmaller {
 					// Trim should make the space usage go down
 					By(fmt.Sprintf("We expect disk usage to go down from the use of trim.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
-					return currentImageSize < imageSizeBeforeTrim
+					g.Expect(currentImageSize).To(BeNumerically("<", imageSizeBeforeTrim))
 				} else if preallocated {
 					By(fmt.Sprintf("Trim shouldn't do anything, and preallocation should mean no change to disk usage.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
-					return imageSizeEqual(currentImageSize, imageSizeBeforeTrim)
-
+					g.Expect(imageSizeEqual(currentImageSize, imageSizeBeforeTrim)).To(BeTrue(), "expected preallocated image size to stay within 1 MiB of size before trim")
 				} else {
 					By(fmt.Sprintf("Trim shouldn't do anything, but we expect size usage to go up, because we wrote another small file.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
-					return currentImageSize > imageSizeBeforeTrim
+					g.Expect(currentImageSize).To(BeNumerically(">", imageSizeBeforeTrim))
 				}
-			}, 120*time.Second).Should(BeTrue())
+			}, 120*time.Second).Should(Succeed())
 
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())

@@ -697,10 +697,11 @@ var _ = Describe(SIG("Hotplug", func() {
 			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "virt-handler pod is expected to be deleted")
 
 			By("Waiting for virt-handler pod to restart")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				virtHandlerPod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
-				return err == nil && virtHandlerPod.Status.Phase == k8sv1.PodRunning
-			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be restarted")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(virtHandlerPod.Status.Phase).To(Equal(k8sv1.PodRunning))
+			}, 60*time.Second, 1*time.Second).Should(Succeed(), "virt-handler pod is expected to be restarted")
 
 			By("Adding another hotplug block volume")
 			dv = createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
@@ -1579,13 +1580,12 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Patch(context.Background(), cdi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to patch CDI")
-			Eventually(func() bool {
-				cdiConfig, _ := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
-				if cdiConfig == nil {
-					return false
-				}
-				return cdiConfig.Generation > orgCdiConfig.Generation
-			}, 30*time.Second, 1*time.Second).Should(BeTrue(), "timed out waiting for CDI config generation to be updated")
+			Eventually(func(g Gomega) {
+				cdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(cdiConfig).ToNot(BeNil())
+				g.Expect(cdiConfig.Generation).To(BeNumerically(">", orgCdiConfig.Generation))
+			}, 30*time.Second, 1*time.Second).Should(Succeed(), "timed out waiting for CDI config generation to be updated")
 		}
 
 		updateCDIToRatio := func(memRatio, cpuRatio float64) {
@@ -2268,14 +2268,13 @@ func getAttachmentPodsForVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func waitForAttachmentPodToRun(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	Eventually(func() bool {
+	Eventually(func(g Gomega) {
 		attachmentPods := getAttachmentPodsForVMI(virtClient, vmi)
-		for _, pod := range attachmentPods {
-			By(fmt.Sprintf("Attachment pod %s phase: %s", pod.Name, pod.Status.Phase))
-			return pod.Status.Phase == k8sv1.PodRunning
-		}
-		return false
-	}, 270*time.Second, 2*time.Second).Should(BeTrue(), "timed out waiting for attachment pod to reach Running phase for VMI %s/%s", vmi.Namespace, vmi.Name)
+		g.Expect(attachmentPods).ToNot(BeEmpty())
+		pod := attachmentPods[0]
+		By(fmt.Sprintf("Attachment pod %s phase: %s", pod.Name, pod.Status.Phase))
+		g.Expect(pod.Status.Phase).To(Equal(k8sv1.PodRunning))
+	}, 270*time.Second, 2*time.Second).Should(Succeed(), "timed out waiting for attachment pod to reach Running phase for VMI %s/%s", vmi.Namespace, vmi.Name)
 }
 
 func verifySingleAttachmentPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
