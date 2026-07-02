@@ -400,7 +400,8 @@ type SpreadOptions struct {
 	//+optional
 	Across *SpreadAcross `json:"across,omitempty"`
 
-	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
+	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology.
+	// Mutually exclusive with Max.
 	//
 	// CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
 	// SocketsCores        - 1:N   - Controls the ratio of socket to cores.
@@ -410,6 +411,16 @@ type SpreadOptions struct {
 	//
 	//+optional
 	Ratio *uint32 `json:"ratio,omitempty"`
+
+	// Max optionally defines the maximum number of the outer scaling topology dimension.
+	// Mutually exclusive with Ratio.
+	//
+	// SocketsCores        - Limits the number of sockets. Cores are computed as vCPUs / sockets.
+	// CoresThreads        - Limits the number of cores. Threads are computed as vCPUs / cores.
+	// SocketsCoresThreads - Limits the number of sockets. Each core provides 2 threads. Cores are computed as vCPUs / (2 * sockets).
+	//
+	//+optional
+	Max *uint32 `json:"max,omitempty"`
 }
 
 // DevicePreferences contains various optional Device preferences.

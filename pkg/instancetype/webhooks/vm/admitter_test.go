@@ -242,6 +242,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
 			spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core " +
 				"%d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
+			spreadAcrossMaxErrFmt                    = "%d vCPUs provided by the instance type are not evenly divisible with a max of %d"
+			spreadAcrossSocketsCoresThreadsMaxErrFmt = "%d vCPUs provided by the instance type are not evenly divisible by the number of threads " +
+				"per core %d with a max of %d"
 		)
 
 		DescribeTable("should reject if PreferSpread requested with",
@@ -502,6 +505,57 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 					},
 				},
 				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 6, 2, 4),
+			),
+			Entry("5 vCPUs, SpreadAcrossSocketsCores and max of 3 with spread",
+				uint32(5),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(v1beta1.Spread),
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Max: pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossMaxErrFmt, 5, 3),
+			),
+			Entry("7 vCPUs, SpreadAcrossCoresThreads and max of 3 with spread",
+				uint32(7),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(v1beta1.Spread),
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+							Max:    pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossMaxErrFmt, 7, 3),
+			),
+			Entry("5 vCPUs, SpreadAcrossSocketsCoresThreads and max of 2 with spread",
+				uint32(5),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(v1beta1.Spread),
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Max:    pointer.P(uint32(2)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsMaxErrFmt, 5, 2, 2),
+			),
+			Entry("10 vCPUs, SpreadAcrossSocketsCoresThreads and max of 3 with spread",
+				uint32(10),
+				v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(v1beta1.Spread),
+						SpreadOptions: &v1beta1.SpreadOptions{
+							Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+							Max:    pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsMaxErrFmt, 10, 2, 3),
 			),
 		)
 

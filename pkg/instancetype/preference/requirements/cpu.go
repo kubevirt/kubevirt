@@ -102,7 +102,7 @@ func checkSpread(
 		conflicts conflict.Conflicts
 	)
 	baseConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
-	_, across := preferenceApply.GetSpreadOptions(preferenceSpec)
+	_, _, across := preferenceApply.GetSpreadOptions(preferenceSpec)
 	switch across {
 	case v1beta1.SpreadAcrossSocketsCores:
 		vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores

@@ -50,12 +50,13 @@ func GetPreferredTopology(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) 
 
 const defaultSpreadRatio uint32 = 2
 
-func GetSpreadOptions(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) (uint32, v1beta1.SpreadAcross) {
+func GetSpreadOptions(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) (uint32, *uint32, v1beta1.SpreadAcross) {
 	ratio := defaultSpreadRatio
 	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
 		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
 	}
 	across := v1beta1.SpreadAcrossSocketsCores
+	var max *uint32
 	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
 		if preferenceSpec.CPU.SpreadOptions.Across != nil {
 			across = *preferenceSpec.CPU.SpreadOptions.Across
@@ -63,6 +64,7 @@ func GetSpreadOptions(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) (uin
 		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
 			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
 		}
+		max = preferenceSpec.CPU.SpreadOptions.Max
 	}
-	return ratio, across
+	return ratio, max, across
 }

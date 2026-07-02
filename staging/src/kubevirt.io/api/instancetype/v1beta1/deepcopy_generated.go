@@ -439,6 +439,11 @@ func (in *SpreadOptions) DeepCopyInto(out *SpreadOptions) {
 		*out = new(uint32)
 		**out = **in
 	}
+	if in.Max != nil {
+		in, out := &in.Max, &out.Max
+		*out = new(uint32)
+		**out = **in
+	}
 	return
 }
 

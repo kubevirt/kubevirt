@@ -133,7 +133,8 @@ func (CPUPreferences) SwaggerDoc() map[string]string {
 func (SpreadOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional",
-		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional",
+		"ratio": "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology.\nMutually exclusive with Max.\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional",
+		"max":   "Max optionally defines the maximum number of the outer scaling topology dimension.\nMutually exclusive with Ratio.\n\nSocketsCores        - Limits the number of sockets. Cores are computed as vCPUs / sockets.\nCoresThreads        - Limits the number of cores. Threads are computed as vCPUs / cores.\nSocketsCoresThreads - Limits the number of sockets. Each core provides 2 threads. Cores are computed as vCPUs / (2 * sockets).\n\n+optional",
 	}
 }
 
