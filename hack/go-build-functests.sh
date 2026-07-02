@@ -43,9 +43,13 @@ function build_func_tests() {
     echo "building functional tests"
     rm -rf "${TESTS_OUT_DIR}"
     mkdir -p "${TESTS_OUT_DIR}/"
+    mkdir -p "${CMD_OUT_DIR}/dump" "${CMD_OUT_DIR}/virtctl" "${CMD_OUT_DIR}/example-guest-agent"
     GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${TESTS_OUT_DIR}/ginkgo" vendor/github.com/onsi/ginkgo/v2/ginkgo/main.go
     GOOS=linux GOARCH=${ARCH} GOPROXY=off go test -tags "${KUBEVIRT_GO_BUILD_TAGS}" -c -o "${TESTS_OUT_DIR}/tests.test" "${KUBEVIRT_DIR}/tests"
     GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${TESTS_OUT_DIR}/junit-merger" tools/junit-merger/junit-merger.go
+    GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${CMD_OUT_DIR}/dump/dump" ./cmd/dump
+    GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${CMD_OUT_DIR}/virtctl/virtctl" ./cmd/virtctl
+    GOOS=linux GOARCH=${ARCH} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o "${CMD_OUT_DIR}/example-guest-agent/example-guest-agent" ./cmd/example-guest-agent
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
