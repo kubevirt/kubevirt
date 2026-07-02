@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -47,8 +48,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-
+	cdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -810,6 +811,10 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 		return err
 	}
 
+	if err := c.setupLegacyContainerDiskBindMounts(vmi); err != nil {
+		return fmt.Errorf("failed to set up legacy container disk bind mounts: %v", err)
+	}
+
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
 		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
@@ -821,6 +826,70 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 		}
 	}
 
+	return nil
+}
+
+func (c *MigrationTargetController) setupLegacyContainerDiskBindMounts(vmi *v1.VirtualMachineInstance) error {
+	annotation, ok := vmi.Annotations[v1.ContainerDiskPathsAnnotation]
+	if !ok {
+		return nil
+	}
+
+	var pathMap map[string]string
+	if err := json.Unmarshal([]byte(annotation), &pathMap); err != nil {
+		return fmt.Errorf("failed to parse %s annotation: %v", v1.ContainerDiskPathsAnnotation, err)
+	}
+
+	diskTargetDir, err := cdisk.GetDiskTargetDirFromHostView(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to get disk target dir: %v", err)
+	}
+
+	for volumeName, oldPath := range pathMap {
+		newStyleName := cdisk.GetDiskTargetName(volumeName)
+
+		newStyleFile, err := safepath.JoinNoFollow(diskTargetDir, newStyleName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve new-style path for volume %s: %v", volumeName, err)
+		}
+
+		oldStyleBase := filepath.Base(oldPath)
+
+		// Create the old-style file as a bind mount target if it doesn't exist
+		oldStyleFile, err := safepath.JoinNoFollow(diskTargetDir, oldStyleBase)
+		if err != nil {
+			if err2 := newStyleFile.ExecuteNoFollow(func(newSafe string) error {
+				f, err := os.OpenFile(
+					filepath.Join(filepath.Dir(newSafe), oldStyleBase),
+					os.O_CREATE|os.O_RDONLY, 0644)
+				if err != nil && !os.IsExist(err) {
+					return err
+				}
+				if f != nil {
+					f.Close()
+				}
+				return nil
+			}); err2 != nil {
+				return fmt.Errorf("failed to create bind mount target for %s: %v", oldStyleBase, err2)
+			}
+			oldStyleFile, err = safepath.JoinNoFollow(diskTargetDir, oldStyleBase)
+			if err != nil {
+				return fmt.Errorf("failed to resolve legacy path after creation for volume %s: %v", volumeName, err)
+			}
+		}
+
+		if err := newStyleFile.ExecuteNoFollow(func(newSafe string) error {
+			return oldStyleFile.ExecuteNoFollow(func(oldSafe string) error {
+				return unix.Mount(newSafe, oldSafe, "", unix.MS_BIND, "")
+			})
+		}); err != nil {
+			return fmt.Errorf("failed to bind mount %s → %s for volume %s: %v",
+				newStyleName, oldStyleBase, volumeName, err)
+		}
+
+		c.logger.Object(vmi).Infof("Bind mounted legacy container disk: %s → %s (volume %s)",
+			newStyleName, oldStyleBase, volumeName)
+	}
 	return nil
 }
 
@@ -924,12 +993,6 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	}
 
 	vmi = vmi.DeepCopy()
-
-	if c.pluginExecutor != nil {
-		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPreMigrationTarget, vmi, c.host); err != nil {
-			return err, false
-		}
-	}
 
 	err = c.syncVolumes(vmi)
 	if goerror.Is(err, containerdisk.ErrWaitingForDisks) {
@@ -1233,12 +1296,6 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
 		cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
 		c.logger.Object(vmi).Info("Set CBT to Initializing after migration for checkpoint redefinition")
-	}
-
-	if c.pluginExecutor != nil {
-		if err := c.pluginExecutor.CallNodeHooks(pluginv1alpha1.NodeHookPostMigrationTarget, vmi, c.host); err != nil {
-			return err
-		}
 	}
 
 	vmi.Status.MigrationState.Completed = true

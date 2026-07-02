@@ -5,6 +5,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cbt.go",
+        "containerdisk_paths.go",
         "controller.go",
         "guestagent.go",
         "migration.go",
@@ -20,6 +21,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/config:go_default_library",
+        "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/executor:go_default_library",
@@ -68,6 +70,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/opencontainers/cgroups:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
@@ -88,6 +91,7 @@ go_test(
     timeout = "long",
     srcs = [
         "cbt_test.go",
+        "containerdisk_paths_test.go",
         "migration-source_test.go",
         "migration-target_test.go",
         "migration_test.go",

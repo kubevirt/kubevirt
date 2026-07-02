@@ -1076,6 +1076,10 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 		return err
 	}
 	err = c.netStat.UpdateStatus(vmi, domain)
+
+	if err := c.syncContainerDiskPathAnnotation(vmi, domain); err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to sync container disk path annotation")
+	}
 	return err
 }
 

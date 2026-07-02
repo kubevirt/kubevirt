@@ -1170,7 +1170,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
-	for diskIndex, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.Ephemeral != nil {
 			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
@@ -1191,7 +1191,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		_, existInCache := l.disksInfo[volume.Name]
 		if volume.ContainerDisk != nil && !existInCache {
-			info, err := osdisk.GetDiskInfoWithValidation(containerdisk.GetDiskTargetPathFromLauncherView(diskIndex), l.diskMemoryLimitBytes)
+			info, err := osdisk.GetDiskInfoWithValidation(containerdisk.GetDiskTargetPathFromLauncherView(volume.Name), l.diskMemoryLimitBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get container disk info: %v", err)
 			}
@@ -1410,6 +1410,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		logger.Error("Conversion failed.")
 		return nil, err
 	}
+
+	// Mark this domain as using v2 (volume-name-based) container disk paths.
+	// virt-handler reads this to skip writing the legacy path annotation.
+	domain.Spec.Metadata.KubeVirt.ContainerDiskNaming = "v2"
 
 	// Set defaults which are not coming from the cluster
 	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
@@ -2819,7 +2823,7 @@ func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineIn
 		if volume.ContainerDisk == nil {
 			continue
 		}
-		backingFile := containerdisk.GetDiskTargetPathFromLauncherView(volumeIndex)
+		backingFile := containerdisk.GetDiskTargetPathFromLauncherView(volume.Name)
 		fileToSoftLink, err := getDiskTargetPathFromImageVolumeView(volumeIndex, volume.ContainerDisk.Path)
 		if err != nil {
 			return fmt.Errorf("failed to find disk file from ImageVolume: %v", err)
