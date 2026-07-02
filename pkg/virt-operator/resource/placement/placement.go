@@ -38,7 +38,11 @@ const (
 )
 
 // InjectPlacementMetadata merges all Tolerations, Affinity and NodeSelectors from NodePlacement into pod spec
-func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec, nodePlacementOption DefaultInfraComponentsNodePlacement) {
+func InjectPlacementMetadata(
+	componentConfig *v1.ComponentConfig,
+	podSpec *corev1.PodSpec,
+	nodePlacementOption DefaultInfraComponentsNodePlacement,
+) {
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}
@@ -104,22 +108,35 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 			}
 
 		default:
-			log.Log.Errorf("Unknown nodePlacementOption %d provided to InjectPlacementMetadata. Falling back to the AnyNode option", nodePlacementOption)
+			log.Log.Errorf(
+				"Unknown nodePlacementOption %d provided to InjectPlacementMetadata. Falling back to the AnyNode option",
+				nodePlacementOption,
+			)
 			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
 		}
 	}
 
 	nodePlacement := componentConfig.NodePlacement
+	setDefaultNodeSelector(nodePlacement)
+	mergeNodeSelector(podSpec, nodePlacement)
+	mergeAffinity(podSpec, nodePlacement)
+	mergeTolerations(podSpec, nodePlacement)
+}
+
+func setDefaultNodeSelector(nodePlacement *v1.NodePlacement) {
 	if len(nodePlacement.NodeSelector) == 0 {
 		nodePlacement.NodeSelector = make(map[string]string)
 	}
+
 	if _, ok := nodePlacement.NodeSelector[KubernetesOSLabel]; !ok {
 		nodePlacement.NodeSelector[KubernetesOSLabel] = KubernetesOSLinux
 	}
+}
+
+func mergeNodeSelector(podSpec *corev1.PodSpec, nodePlacement *v1.NodePlacement) {
 	if len(podSpec.NodeSelector) == 0 {
 		podSpec.NodeSelector = make(map[string]string, len(nodePlacement.NodeSelector))
 	}
-	// podSpec.NodeSelector
 	for nsKey, nsVal := range nodePlacement.NodeSelector {
 		// Favor podSpec over NodePlacement. This prevents cluster admin from clobbering
 		// node selectors that KubeVirt intentionally set.
@@ -127,76 +144,86 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 			podSpec.NodeSelector[nsKey] = nsVal
 		}
 	}
+}
 
-	// podSpec.Affinity
-	if nodePlacement.Affinity != nil {
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = nodePlacement.Affinity.DeepCopy()
+func mergeAffinity(podSpec *corev1.PodSpec, nodePlacement *v1.NodePlacement) {
+	if nodePlacement.Affinity == nil {
+		return
+	}
+	if podSpec.Affinity == nil {
+		podSpec.Affinity = nodePlacement.Affinity.DeepCopy()
+		return
+	}
+	mergeNodeAffinity(podSpec, nodePlacement.Affinity.NodeAffinity)
+	mergePodAffinity(podSpec, nodePlacement.Affinity.PodAffinity)
+	mergePodAntiAffinity(podSpec, nodePlacement.Affinity.PodAntiAffinity)
+}
+
+func mergeNodeAffinity(podSpec *corev1.PodSpec, nodeAffinity *corev1.NodeAffinity) {
+	if nodeAffinity == nil {
+		return
+	}
+	if podSpec.Affinity.NodeAffinity == nil {
+		podSpec.Affinity.NodeAffinity = nodeAffinity.DeepCopy()
+		return
+	}
+	if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+		if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+			req := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = req
 		} else {
-			// podSpec.Affinity.NodeAffinity
-			if nodePlacement.Affinity.NodeAffinity != nil {
-				if podSpec.Affinity.NodeAffinity == nil {
-					podSpec.Affinity.NodeAffinity = nodePlacement.Affinity.NodeAffinity.DeepCopy()
-				} else {
-					// need to copy all affinity terms one by one
-					if nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
-						if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-							podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
-						} else {
-							// merge the list of terms from NodePlacement into podSpec
-							for _, term := range nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
-								podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
-							}
-						}
-					}
-
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
-
-				}
-			}
-			// podSpec.Affinity.PodAffinity
-			if nodePlacement.Affinity.PodAffinity != nil {
-				if podSpec.Affinity.PodAffinity == nil {
-					podSpec.Affinity.PodAffinity = nodePlacement.Affinity.PodAffinity.DeepCopy()
-				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
-					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
-				}
-			}
-			// podSpec.Affinity.PodAntiAffinity
-			if nodePlacement.Affinity.PodAntiAffinity != nil {
-				if podSpec.Affinity.PodAntiAffinity == nil {
-					podSpec.Affinity.PodAntiAffinity = nodePlacement.Affinity.PodAntiAffinity.DeepCopy()
-				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
-					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
-					for _, term := range nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-						podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-					}
-				}
-			}
+			podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+				podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+				nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...,
+			)
 		}
 	}
+	podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		nodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...,
+	)
+}
 
-	//podSpec.Tolerations
-	if len(nodePlacement.Tolerations) != 0 {
-		if len(podSpec.Tolerations) == 0 {
-			podSpec.Tolerations = []corev1.Toleration{}
-		}
-		for _, toleration := range nodePlacement.Tolerations {
-			podSpec.Tolerations = append(podSpec.Tolerations, toleration)
-		}
+func mergePodAffinity(podSpec *corev1.PodSpec, podAffinity *corev1.PodAffinity) {
+	if podAffinity == nil {
+		return
 	}
+	if podSpec.Affinity.PodAffinity == nil {
+		podSpec.Affinity.PodAffinity = podAffinity.DeepCopy()
+		return
+	}
+	podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+		podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+		podAffinity.RequiredDuringSchedulingIgnoredDuringExecution...,
+	)
+	podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		podAffinity.PreferredDuringSchedulingIgnoredDuringExecution...,
+	)
+}
+
+func mergePodAntiAffinity(podSpec *corev1.PodSpec, podAntiAffinity *corev1.PodAntiAffinity) {
+	if podAntiAffinity == nil {
+		return
+	}
+	if podSpec.Affinity.PodAntiAffinity == nil {
+		podSpec.Affinity.PodAntiAffinity = podAntiAffinity.DeepCopy()
+		return
+	}
+	podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(
+		podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+		podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution...,
+	)
+	podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution...,
+	)
+}
+
+func mergeTolerations(podSpec *corev1.PodSpec, nodePlacement *v1.NodePlacement) {
+	if len(nodePlacement.Tolerations) == 0 {
+		return
+	}
+
+	podSpec.Tolerations = append(podSpec.Tolerations, nodePlacement.Tolerations...)
 }

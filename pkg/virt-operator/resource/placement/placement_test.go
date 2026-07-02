@@ -17,6 +17,7 @@
  *
  */
 
+//nolint:goconst
 package placement_test
 
 import (
@@ -29,6 +30,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
+)
+
+const (
+	linuxCustomVal = "linux-custom"
 )
 
 var _ = Describe("Placement", func() {
@@ -59,140 +64,8 @@ var _ = Describe("Placement", func() {
 				Effect:   "NoSchedule",
 			}
 
-			affinity = &corev1.Affinity{
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "required",
-										Operator: "in",
-										Values:   []string{"test"},
-									},
-								},
-							},
-						},
-					},
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						{
-							Preference: corev1.NodeSelectorTerm{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "preferred",
-										Operator: "in",
-										Values:   []string{"test"},
-									},
-								},
-							},
-						},
-					},
-				},
-				PodAffinity: &corev1.PodAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"required": "term"},
-							},
-						},
-					},
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						{
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"preferred": "term"},
-								},
-							},
-						},
-					},
-				},
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"anti-required": "term"},
-							},
-						},
-					},
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						{
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"anti-preferred": "term"},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			affinity2 = &corev1.Affinity{
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "required2",
-										Operator: "in",
-										Values:   []string{"test"},
-									},
-								},
-							},
-						},
-					},
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						{
-							Preference: corev1.NodeSelectorTerm{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "preferred2",
-										Operator: "in",
-										Values:   []string{"test"},
-									},
-								},
-							},
-						},
-					},
-				},
-				PodAffinity: &corev1.PodAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"required2": "term"},
-							},
-						},
-					},
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						{
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"preferred2": "term"},
-								},
-							},
-						},
-					},
-				},
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{"anti-required2": "term"},
-							},
-						},
-					},
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						{
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"anti-preferred2": "term"},
-								},
-							},
-						},
-					},
-				},
-			}
-
+			affinity = newAffinity("")
+			affinity2 = newAffinity("2")
 		})
 
 		// Node Selectors
@@ -257,18 +130,18 @@ var _ = Describe("Placement", func() {
 
 		It("should favor NodeSelector OS label if present", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
-			nodePlacement.NodeSelector[placement.KubernetesOSLabel] = "linux-custom"
+			nodePlacement.NodeSelector[placement.KubernetesOSLabel] = linuxCustomVal
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
-			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal("linux-custom"))
+			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(linuxCustomVal))
 		})
 
 		It("should favor podSpec OS label if present", func() {
 			podSpec.NodeSelector = make(map[string]string)
-			podSpec.NodeSelector[placement.KubernetesOSLabel] = "linux-custom"
+			podSpec.NodeSelector[placement.KubernetesOSLabel] = linuxCustomVal
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
-			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal("linux-custom"))
+			Expect(podSpec.NodeSelector[placement.KubernetesOSLabel]).To(Equal(linuxCustomVal))
 		})
 
 		It("should preserve NodeSelectors if nodePlacement has none", func() {
@@ -282,11 +155,6 @@ var _ = Describe("Placement", func() {
 
 		// tolerations
 		It("should copy tolerations when podSpec is empty", func() {
-			toleration := corev1.Toleration{
-				Key:      "test-taint",
-				Operator: "Exists",
-				Effect:   "NoSchedule",
-			}
 			nodePlacement.Tolerations = []corev1.Toleration{toleration}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Tolerations).To(HaveLen(1))
@@ -311,7 +179,6 @@ var _ = Describe("Placement", func() {
 			nodePlacement.Affinity = affinity
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should copy NodePlacement if Node, Pod and Anti affinities are empty", func() {
@@ -319,7 +186,6 @@ var _ = Describe("Placement", func() {
 			podSpec.Affinity = &corev1.Affinity{}
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should merge NodePlacement and podSpec affinity terms", func() {
@@ -338,7 +204,8 @@ var _ = Describe("Placement", func() {
 		It("It should copy Required NodeAffinity", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
-			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			req := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = req
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 		})
@@ -346,7 +213,8 @@ var _ = Describe("Placement", func() {
 		It("It should copy Preferred NodeAffinity", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
-			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			pref := affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = pref
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
@@ -354,7 +222,8 @@ var _ = Describe("Placement", func() {
 		It("It should copy Required PodAffinity", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
-			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			req := affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = req
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
@@ -362,7 +231,8 @@ var _ = Describe("Placement", func() {
 		It("It should copy Preferred PodAffinity", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
-			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			pref := affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = pref
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
@@ -370,7 +240,8 @@ var _ = Describe("Placement", func() {
 		It("It should copy Required PodAntiAffinity", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			req := affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = req
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
@@ -378,7 +249,8 @@ var _ = Describe("Placement", func() {
 		It("It should copy Preferred PodAntiAffinity", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
-			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			pref := affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = pref
 			placement.InjectPlacementMetadata(componentConfig, podSpec, placement.AnyNode)
 			Expect(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
@@ -462,7 +334,75 @@ var _ = Describe("Placement", func() {
 					Expect(podSpec.Affinity).To(BeNil())
 				})
 			})
-
 		})
 	})
 })
+
+func newAffinity(suffix string) *corev1.Affinity {
+	return &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "required" + suffix,
+								Operator: "in",
+								Values:   []string{"test"},
+							},
+						},
+					},
+				},
+			},
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "preferred" + suffix,
+								Operator: "in",
+								Values:   []string{"test"},
+							},
+						},
+					},
+				},
+			},
+		},
+		PodAffinity: &corev1.PodAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"required" + suffix: "term"},
+					},
+				},
+			},
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"preferred" + suffix: "term"},
+						},
+					},
+				},
+			},
+		},
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+				{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"anti-required" + suffix: "term"},
+					},
+				},
+			},
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"anti-preferred" + suffix: "term"},
+						},
+					},
+				},
+			},
+		},
+	}
+}
