@@ -129,13 +129,6 @@ var _ = Describe("Migration watcher", func() {
 		Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 	}
 
-	expectPodAnnotationTimestamp := func(namespace, name, expectedTimestamp string) {
-		updatedPod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(updatedPod).ToNot(BeNil())
-		Expect(updatedPod.Annotations).To(HaveKeyWithValue(v1.MigrationTargetReadyTimestamp, expectedTimestamp))
-	}
-
 	expectMigrationSchedulingState := func(namespace, name string) {
 		updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -569,6 +562,7 @@ var _ = Describe("Migration watcher", func() {
 				runningMigration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 				runningTargetPod := newTargetPodForVirtualMachine(vmi, runningMigration, k8sv1.PodRunning)
 				runningTargetPod.Spec.NodeName = "node01"
+				sourcePod := newSourcePodForVirtualMachine(vmi)
 
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					MigrationUID:      runningMigration.UID,
@@ -579,10 +573,12 @@ var _ = Describe("Migration watcher", func() {
 					EndTimestamp:      pointer.P(metav1.Now()),
 					Failed:            false,
 					Completed:         true,
+					SourcePod:         sourcePod.Name,
+					TargetPod:         runningTargetPod.Name,
 				}
 				addMigration(runningMigration)
 				addVirtualMachineInstance(vmi)
-				addPod(newSourcePodForVirtualMachine(vmi))
+				addPod(sourcePod)
 				addPod(runningTargetPod)
 
 				sanityExecute()
@@ -1914,6 +1910,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			targetPod.Spec.NodeName = "node01"
+			sourcePod := newSourcePodForVirtualMachine(vmi)
 
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:                   migration.UID,
@@ -1925,16 +1922,17 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
+				SourcePod:                      sourcePod.Name,
+				TargetPod:                      targetPod.Name,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(sourcePod)
 			addPod(targetPod)
 
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulMigrationReason)
-			expectPodAnnotationTimestamp(targetPod.Namespace, targetPod.Name, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
 			expectMigrationCompletedState(migration.Namespace, migration.Name)
 		})
 
@@ -1983,6 +1981,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			targetPod.Spec.NodeName = "node01"
+			sourcePod := newSourcePodForVirtualMachine(vmi)
 
 			for _, c := range conditions {
 				vmi.Status.Conditions = append(vmi.Status.Conditions,
@@ -2003,16 +2002,17 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
+				SourcePod:                      sourcePod.Name,
+				TargetPod:                      targetPod.Name,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(sourcePod)
 			addPod(targetPod)
 
 			sanityExecute()
 
 			expectMigrationRunningState(migration.Namespace, migration.Name)
-			expectPodAnnotationTimestamp(targetPod.Namespace, targetPod.Name, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
 		},
 			Entry("CPU change condition", []v1.VirtualMachineInstanceConditionType{v1.VirtualMachineInstanceVCPUChange}),
 			Entry("Memory change condition", []v1.VirtualMachineInstanceConditionType{v1.VirtualMachineInstanceMemoryChange}),
@@ -3187,6 +3187,180 @@ var _ = Describe("Migration watcher", func() {
 			Expect(conditionManager.HasCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)).To(BeFalse(), "Condition should not be set when VMI does not have the condition")
 		})
 	})
+
+	Context("Annotations", func() {
+		const (
+			vmiName      = "testvmi"
+			sourceNode   = "sourceNode"
+			targetNode   = "targetNode"
+			migrationUID = "testmigrationuid"
+		)
+		DescribeTable("should update migration pods migration annotations",
+			func(
+				mig *v1.VirtualMachineInstanceMigration,
+				expectedSourceAnnotations map[string]string,
+				expectedTargetAnnotations map[string]string,
+				expectEvents ...string,
+			) {
+				vmi := newVirtualMachine(vmiName, v1.Running)
+				expectedTargetReadyTs := metav1.Now()
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNodeDomainReadyTimestamp: pointer.P(expectedTargetReadyTs),
+					TargetNode:                     targetNode,
+					SourceNode:                     sourceNode,
+					MigrationUID:                   migrationUID,
+					TargetNodeAddress:              "10.10.10.10:1234",
+				}
+				if mig.IsDecentralized() {
+					vmi.Status.MigrationState.SourceState = &v1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							MigrationUID: migrationUID,
+						},
+					}
+					vmi.Status.MigrationState.TargetState = &v1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							MigrationUID: migrationUID,
+						},
+					}
+				}
+				sourcePod := newSourcePodForVirtualMachine(vmi)
+				targetPod := newTargetPodForVirtualMachine(vmi, mig, k8sv1.PodRunning)
+				sourcePod.Spec.NodeName = sourceNode
+				targetPod.Spec.NodeName = targetNode
+
+				vmi.Status.MigrationState.SourcePod = sourcePod.Name
+				vmi.Status.MigrationState.TargetPod = targetPod.Name
+
+				addMigration(mig)
+				addVirtualMachineInstance(vmi)
+				addPod(sourcePod)
+				addPod(targetPod)
+
+				sanityExecute()
+
+				if _, exist := expectedTargetAnnotations[v1.MigrationTargetReadyTimestamp]; exist {
+					expectedTargetAnnotations[v1.MigrationTargetReadyTimestamp] = expectedTargetReadyTs.String()
+				}
+				if _, exist := expectedSourceAnnotations[v1.MigrationTargetReadyTimestamp]; exist {
+					expectedSourceAnnotations[v1.MigrationTargetReadyTimestamp] = expectedTargetReadyTs.String()
+				}
+
+				updatedTargetPod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), targetPod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedTargetPod.Annotations).To(Equal(expectedTargetAnnotations))
+
+				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedSourcePod.Annotations).To(Equal(expectedSourceAnnotations))
+
+				testutils.ExpectEvents(recorder, expectEvents...)
+			},
+			Entry("local migration, phase is running",
+				newMigration(migrationUID, vmiName, v1.MigrationRunning),
+				map[string]string{
+					v1.DomainAnnotation:              "testvmi",
+					v1.MigrationTargetReadyTimestamp: "",
+					v1.MigrationRole:                 "source",
+					v1.MigrationScope:                "local",
+				},
+				map[string]string{
+					v1.DomainAnnotation:              "testvmi",
+					v1.MigrationJobNameAnnotation:    "testmigrationuid",
+					v1.MigrationTargetReadyTimestamp: "",
+					v1.MigrationRole:                 "target",
+					v1.MigrationScope:                "local",
+				},
+			),
+			Entry("decentralized sender migration is running (handles source pod)",
+				newDecentralizedSenderMigration(migrationUID, vmiName, v1.MigrationRunning),
+				map[string]string{
+					v1.DomainAnnotation:              "testvmi",
+					v1.MigrationTargetReadyTimestamp: "",
+					v1.MigrationRole:                 "source",
+					v1.MigrationScope:                "decentralized",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+			),
+			Entry("decentralized receiver migration is running (handles target pod)",
+				newDecentralizedReceiverMigration(migrationUID, vmiName, v1.MigrationRunning),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:              "testvmi",
+					v1.MigrationJobNameAnnotation:    "testmigrationuid",
+					v1.MigrationTargetReadyTimestamp: "",
+					v1.MigrationRole:                 "target",
+					v1.MigrationScope:                "decentralized",
+				},
+			),
+			Entry("local migration succeeded",
+				newMigration(migrationUID, vmiName, v1.MigrationSucceeded),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+			),
+			Entry("decentralized sender migration succeeded (handles source pod)",
+				newDecentralizedSenderMigration(migrationUID, vmiName, v1.MigrationSucceeded),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+			),
+			Entry("decentralized receiver migration succeeded (handles target pod)",
+				newDecentralizedReceiverMigration(migrationUID, vmiName, v1.MigrationSucceeded),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+			),
+			Entry("local migration failed",
+				newMigration(migrationUID, vmiName, v1.MigrationFailed),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+				virtcontroller.FailedMigrationReason,
+			),
+			Entry("decentralized sender migration failed (handles source pod)",
+				newDecentralizedSenderMigration(migrationUID, vmiName, v1.MigrationFailed),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+			),
+			Entry("decentralized receiver migration failed (handles target pod)",
+				newDecentralizedReceiverMigration(migrationUID, vmiName, v1.MigrationFailed),
+				map[string]string{
+					v1.DomainAnnotation: "testvmi",
+				},
+				map[string]string{
+					v1.DomainAnnotation:           "testvmi",
+					v1.MigrationJobNameAnnotation: "testmigrationuid",
+				},
+				virtcontroller.FailedMigrationReason,
+			),
+		)
+	})
 })
 
 func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
@@ -3211,6 +3385,14 @@ func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMi
 	}
 	migration.UID = types.UID(name)
 	migration.Status.Phase = phase
+	return migration
+}
+
+func newDecentralizedSenderMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+	migration := newMigration(name, vmiName, phase)
+	migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+		MigrationID: vmiName,
+	}
 	return migration
 }
 
