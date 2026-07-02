@@ -290,6 +290,30 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 	return devSpecs
 }
 
+func formatVFIOCdevDeviceSpecs(pciAddress string) []*v1beta1.DeviceSpec {
+	vfioDevDir := filepath.Join(pciBasePath, pciAddress, "vfio-dev")
+	entries, err := os.ReadDir(vfioDevDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			log.DefaultLogger().V(4).Infof("No VFIO cdev found for %s", pciAddress)
+		} else {
+			log.DefaultLogger().Reason(err).Errorf("Failed to read VFIO cdev directory for %s", pciAddress)
+		}
+		return nil
+	}
+
+	devSpecs := make([]*v1beta1.DeviceSpec, 0, len(entries))
+	for _, entry := range entries {
+		cdevPath := filepath.Join("/dev/vfio/devices", entry.Name())
+		devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+			HostPath:      cdevPath,
+			ContainerPath: cdevPath,
+			Permissions:   "mrw",
+		})
+	}
+	return devSpecs
+}
+
 type deviceHealth struct {
 	DevId  string
 	Health string
