@@ -98,6 +98,14 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 		// and we are sure that all VMIs include the MemoryOverhead status field
 		memlockSize = m.GetMemoryOverhead(vmi, runtime.GOARCH, config.AdditionalGuestMemoryOverheadRatio)
 	}
+
+	// addedOverhead is included in GetMemoryOverhead for pod memory sizing,
+	// but should be excluded from the memlock rlimit when memLock is "NotRequired".
+	// See https://github.com/kubevirt/enhancements/issues/144
+	if util.RequiresMemoryOverheadReservation(vmi) && !util.RequiresLockingMemory(vmi) {
+		memlockSize.Sub(*vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead)
+	}
+
 	// Add memory assigned to the VM
 	vmiBaseMemory := getVMIBaseMemory(vmi)
 
