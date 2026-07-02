@@ -89,11 +89,6 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	return annotations, nil
 }
 
-// GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
-func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8scorev1.Pod) (map[string]string, error) {
-	return nil, nil
-}
-
 // GenerateFromActivePod generates additional pod annotations, bases on information that exists on a live virt-launcher pod
 func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) map[string]string {
 	annotations := map[string]string{}
