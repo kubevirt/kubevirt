@@ -65,6 +65,21 @@ const (
 	monitorLogInterval   = monitorLogPeriodMS / monitorSleepPeriodMS
 )
 
+const (
+	defaultInitialDowntimeMs   int64 = 150
+	defaultDowntimeSteps       int32 = 7
+	defaultStartAfterIteration int64 = 3
+	defaultCooldownSeconds     int32 = 10
+)
+
+type downtimeTuningConfig struct {
+	MaxDowntimeMs       uint64
+	InitialMs           uint64
+	Steps               int
+	StartAfterIteration uint64
+	CooldownSeconds     int
+}
+
 type migrationDisks struct {
 	shared         map[string]bool
 	generated      map[string]bool
@@ -93,11 +108,31 @@ type migrationMonitor struct {
 	stallDetector *stallDetector
 	logger        *log.FilteredLogger
 
+	downtimeTuning    *downtimeTuningConfig
+	currentDowntimeMs uint64
+	lastTunedAt       time.Time
+
 	// TODO: fields used by legacy stall detector; to be removed
 	lastProgressUpdate int64
 	progressWatermark  uint64
 	remainingData      uint64
 	progressTimeout    int64
+}
+
+var libvirtCompressionMethods = map[v1.MigrationCompression]string{
+	v1.MigrationCompressionZstd: "zstd",
+}
+
+func shouldCompressMigration(options *cmdclient.MigrationOptions) (bool, string) {
+	if options.Compression == "" || options.Compression == string(v1.MigrationCompressionNone) {
+		return false, ""
+	}
+	method, ok := libvirtCompressionMethods[v1.MigrationCompression(options.Compression)]
+	if !ok {
+		log.Log.Warningf("Unsupported migration compression method %q, compression will be disabled", options.Compression)
+		return false, ""
+	}
+	return true, method
 }
 
 func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
@@ -120,6 +155,9 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 	}
 	if shouldConfigureParallel, _ := shouldConfigureParallelMigration(options); shouldConfigureParallel {
 		migrateFlags |= libvirt.MIGRATE_PARALLEL
+	}
+	if shouldCompress, _ := shouldCompressMigration(options); shouldCompress {
+		migrateFlags |= libvirt.MIGRATE_COMPRESSED
 	}
 
 	return migrateFlags
@@ -466,7 +504,79 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		}
 	}
 
+	monitor.downtimeTuning = newDowntimeTuningConfig(options.MaxDowntimeMs, options.DowntimeTuning)
+	if monitor.downtimeTuning != nil {
+		monitor.logger.Infof("downtime tuning enabled: initial=%dms steps=%d startAfterIteration=%d cooldown=%ds ceiling=%dms",
+			monitor.downtimeTuning.InitialMs, monitor.downtimeTuning.Steps,
+			monitor.downtimeTuning.StartAfterIteration, monitor.downtimeTuning.CooldownSeconds,
+			monitor.downtimeTuning.MaxDowntimeMs)
+	}
+
 	return monitor
+}
+
+func newDowntimeTuningConfig(maxDowntimeMs uint64, dt *v1.DowntimeTuningOptions) *downtimeTuningConfig {
+	if dt == nil {
+		return nil
+	}
+
+	cfg := &downtimeTuningConfig{
+		MaxDowntimeMs:       maxDowntimeMs,
+		InitialMs:           uint64(defaultInitialDowntimeMs),
+		Steps:               int(defaultDowntimeSteps),
+		StartAfterIteration: uint64(defaultStartAfterIteration),
+		CooldownSeconds:     int(defaultCooldownSeconds),
+	}
+	if dt.InitialMs != nil && *dt.InitialMs >= 0 {
+		cfg.InitialMs = uint64(*dt.InitialMs)
+	}
+	if dt.Steps != nil {
+		cfg.Steps = max(int(*dt.Steps), 1)
+	}
+	if dt.StartAfterIteration != nil && *dt.StartAfterIteration >= 0 {
+		cfg.StartAfterIteration = uint64(*dt.StartAfterIteration)
+	}
+	if dt.CooldownSeconds != nil {
+		cfg.CooldownSeconds = max(int(*dt.CooldownSeconds), 1)
+	}
+	if cfg.InitialMs > cfg.MaxDowntimeMs {
+		cfg.InitialMs = cfg.MaxDowntimeMs
+	}
+	return cfg
+}
+
+func (m *migrationMonitor) tuneDowntime(dom cli.VirDomain, stats *libvirt.DomainJobInfo, logger *log.FilteredLogger) {
+	cfg := m.downtimeTuning
+	if cfg == nil {
+		return
+	}
+
+	var newDowntime uint64
+	switch {
+	case m.currentDowntimeMs == 0:
+		newDowntime = cfg.InitialMs
+	case stats == nil || !stats.MemIterationSet:
+		return
+	case stats.MemIteration < cfg.StartAfterIteration:
+		return
+	case time.Since(m.lastTunedAt) < time.Duration(cfg.CooldownSeconds)*time.Second:
+		return
+	default:
+		step := max((cfg.MaxDowntimeMs-cfg.InitialMs)/uint64(cfg.Steps), 1)
+		newDowntime = min(m.currentDowntimeMs+step, cfg.MaxDowntimeMs)
+		if newDowntime <= m.currentDowntimeMs {
+			return
+		}
+	}
+
+	if err := dom.MigrateSetMaxDowntime(newDowntime, 0); err != nil {
+		logger.Reason(err).Warningf("downtime tuning: failed to set max_downtime to %dms", newDowntime)
+		return
+	}
+	logger.V(2).Infof("downtime tuning: max_downtime %dms -> %dms (ceiling=%dms)",
+		m.currentDowntimeMs, newDowntime, cfg.MaxDowntimeMs)
+	m.currentDowntimeMs = newDowntime
+	m.lastTunedAt = time.Now()
 }
 
 func (m *migrationMonitor) isMigrationPostCopy() bool {
@@ -814,6 +924,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		m.handleStallDetection(dom, stats, elapsedNs, isIterationBoundary, logger)
 	} else {
 		// TODO: to be removed once stall detection graduates
+		m.tuneDowntime(dom, stats, logger)
 		m.handleLegacyConvergence(dom, elapsedNs, logger)
 	}
 }
@@ -938,14 +1049,20 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
 	}
 
+	compressionInfo := ""
+	if info.DataProcessed > 0 && info.MemNormalBytes > info.DataProcessed {
+		ratio := float64(info.MemNormalBytes) / float64(info.DataProcessed)
+		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
-		`DiskMbps:%d`,
+		`DiskMbps:%d%s`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
-		bpsToMbps(info.DiskBps),
+		bpsToMbps(info.DiskBps), compressionInfo,
 	))
 }
 
@@ -1088,6 +1205,12 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		params.DisksURISet = true
 		params.MigrateDisksDetectZeroesList = copyDisks
 		params.MigrateDisksDetectZeroesSet = true
+	}
+
+	if shouldCompress, method := shouldCompressMigration(options); shouldCompress {
+		params.CompressionSet = true
+		params.Compression = method
+		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", method)
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)

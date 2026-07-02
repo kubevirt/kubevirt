@@ -3451,11 +3451,55 @@ type StallDetectorOptions struct {
 	CompletionTimeoutFactor *string `json:"completionTimeoutFactor,omitempty"`
 }
 
+// MigrationCompression represents the compression method for live migration.
+type MigrationCompression string
+
+const (
+	// MigrationCompressionNone disables compression.
+	MigrationCompressionNone MigrationCompression = "none"
+	// MigrationCompressionZstd enables zstd compression on multifd channels.
+	MigrationCompressionZstd MigrationCompression = "zstd"
+)
+
 // ExperimentalMigrationOptions is an alpha API for experimental migration tunables.
 // It is intended for experimental purposes only and will be removed in the future.
 type ExperimentalMigrationOptions struct {
 	//+optional
 	StallDetector *StallDetectorOptions `json:"stallDetector,omitempty"`
+	// DowntimeTuning configures iteration-aware downtime ramping for live
+	// migration convergence.
+	//+optional
+	DowntimeTuning *DowntimeTuningOptions `json:"downtimeTuning,omitempty"`
+	// Compression selects the algorithm for compressing the live migration
+	// data stream. When omitted (nil) or set to "none", compression is
+	// disabled.
+	// +kubebuilder:validation:Enum=none;zstd
+	//+optional
+	Compression *MigrationCompression `json:"compression,omitempty"`
+}
+
+// DowntimeTuningOptions controls how virt-launcher gradually increases
+// QEMU's max_downtime during live migration to help convergence.
+type DowntimeTuningOptions struct {
+	// InitialMs is the initial max_downtime value in milliseconds
+	// set at the start of migration. Tuning steps increase from this value.
+	// Defaults to 150.
+	//+optional
+	InitialMs *int64 `json:"initialMs,omitempty"`
+	// Steps is the number of equal increments used to ramp from
+	// InitialMs to the cluster-level MaxDowntimeMs. Defaults to 7.
+	// +kubebuilder:validation:Minimum=1
+	//+optional
+	Steps *int32 `json:"steps,omitempty"`
+	// StartAfterIteration is the memory copy iteration after which
+	// downtime tuning begins. Defaults to 3.
+	//+optional
+	StartAfterIteration *int64 `json:"startAfterIteration,omitempty"`
+	// CooldownSeconds is the minimum interval in seconds
+	// between successive downtime increases. Defaults to 10.
+	// +kubebuilder:validation:Minimum=1
+	//+optional
+	CooldownSeconds *int32 `json:"cooldownSeconds,omitempty"`
 }
 
 // VMIMConfigurationOptions holds the resolved migration options for a single migration.

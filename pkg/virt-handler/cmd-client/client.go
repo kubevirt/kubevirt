@@ -90,6 +90,8 @@ type MigrationOptions struct {
 	AllowWorkloadDisruption  bool
 	StallDetectionEnabled    bool
 	StallDetectorOptions     StallDetectorOptions
+	Compression              string
+	DowntimeTuning           *v1.DowntimeTuningOptions
 }
 
 type LauncherClient interface {

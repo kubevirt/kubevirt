@@ -1028,7 +1028,14 @@
             "patienceWindowDecayFactor": "patienceWindowDecayFactorValue",
             "searchLocalMinima": true,
             "completionTimeoutFactor": "completionTimeoutFactorValue"
-          }
+          },
+          "downtimeTuning": {
+            "initialMs": -9,
+            "steps": -5,
+            "startAfterIteration": -19,
+            "cooldownSeconds": -15
+          },
+          "compression": "compressionValue"
         }
       },
       "targetCPUSet": [
