@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/monitoring/rules:go_default_library",
+        "//pkg/util/cluster:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/resource/generate/components/validatingadmissionpolicies:go_default_library",
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",

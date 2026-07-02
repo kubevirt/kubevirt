@@ -37,7 +37,7 @@ var _ = Describe("RBAC", func() {
 	const expectedNamespace = "default"
 
 	Context("GetAllController", func() {
-		forController := GetAllController(expectedNamespace, true)
+		forController := GetAllController(expectedNamespace, true, true)
 
 		DescribeTable("has finalizer rbac for installs with OwnerReferencesPermissionEnforcement", func(apiGroup, resource string) {
 			clusterRole := getObject(forController, reflect.TypeOf(&rbacv1.ClusterRole{}), components.ControllerServiceAccountName).(*rbacv1.ClusterRole)
@@ -70,12 +70,32 @@ var _ = Describe("RBAC", func() {
 		})
 
 		It("should exclude NAD rules when includeNADRules is false", func() {
-			forControllerWithoutNAD := GetAllController(expectedNamespace, false)
+			forControllerWithoutNAD := GetAllController(expectedNamespace, false, true)
 			clusterRole := getObject(forControllerWithoutNAD, reflect.TypeOf(&rbacv1.ClusterRole{}), components.ControllerServiceAccountName).(*rbacv1.ClusterRole)
 			Expect(clusterRole.Rules).ToNot(
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"APIGroups": ContainElement("k8s.cni.cncf.io"),
 					"Resources": ContainElement("network-attachment-definitions"),
+				})),
+			)
+		})
+
+		It("should include route.openshift.io rules when onOpenShift is true", func() {
+			role := getObject(forController, reflect.TypeOf(&rbacv1.Role{}), components.ControllerServiceAccountName).(*rbacv1.Role)
+			Expect(role.Rules).To(
+				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"APIGroups": ContainElement(GroupNameRoute),
+					"Resources": ContainElement("routes"),
+				})),
+			)
+		})
+
+		It("should exclude route.openshift.io rules when onOpenShift is false", func() {
+			forControllerOnKubernetes := GetAllController(expectedNamespace, true, false)
+			role := getObject(forControllerOnKubernetes, reflect.TypeOf(&rbacv1.Role{}), components.ControllerServiceAccountName).(*rbacv1.Role)
+			Expect(role.Rules).ToNot(
+				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"APIGroups": ContainElement(GroupNameRoute),
 				})),
 			)
 		})
