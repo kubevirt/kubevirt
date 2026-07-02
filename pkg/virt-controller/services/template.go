@@ -122,6 +122,17 @@ const (
 	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
+// Safety guards for the disjunctive cross-product merge below.
+const (
+	// maxNodeSelectorCrossProduct caps the size of an intermediate cross-product
+	// before pruning. Checked in mergeNodeSelectorTerms before allocation.
+	maxNodeSelectorCrossProduct = 1000
+	// maxNodeSelectorFinalTerms caps the simplified disjunction attached to the
+	// pod. Etcd's ~1.5MB object limit is the upstream constraint; this leaves
+	// plenty of room for the rest of the pod spec.
+	maxNodeSelectorFinalTerms = 100
+)
+
 type netMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
@@ -144,6 +155,7 @@ type TemplateService struct {
 	hotplugDiskDir             string
 	imagePullSecret            string
 	persistentVolumeClaimStore cache.Store
+	persistentVolumeStore      cache.Store
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
@@ -192,9 +204,75 @@ func setPersistentReservationAntiAffinity(vmi *v1.VirtualMachineInstance, pod *k
 	return nil
 }
 
-func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+func (t *TemplateService) getHotpluggedPVsForVMI(vmi *v1.VirtualMachineInstance) ([]*k8sv1.PersistentVolume, error) {
+	var pvs []*k8sv1.PersistentVolume
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		for _, volume := range vmi.Spec.Volumes {
+			// Assume (for now it's always true) that PVC name matches DV name
+			pvcName := ""
+			if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+				pvcName = volume.DataVolume.Name
+			} else if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+				pvcName = volume.PersistentVolumeClaim.ClaimName
+			}
+
+			if pvcName == "" {
+				continue
+			}
+
+			obj, exists, err := t.persistentVolumeClaimStore.GetByKey(vmi.Namespace + "/" + pvcName)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				// We can't tell if the PVC doesn't exist or if it's just not in the cache yet so if we don't find it here, we just skip it
+				// as there's nothing to take topology constraints from and creating the PVC after the VMI is not something we want to break
+				continue
+			}
+			pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+			if !ok {
+				return nil, fmt.Errorf("couldn't cast object to PersistentVolumeClaim: %+v", obj)
+			}
+			// Skip unbound PVCs (WaitForFirstConsumer) as there no topology constraints to enforce yet
+			if pvc.Status.Phase != k8sv1.ClaimBound || pvc.Spec.VolumeName == "" {
+				continue
+			}
+
+			pvName := pvc.Spec.VolumeName
+			obj, exists, err = t.persistentVolumeStore.GetByKey(pvName)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				// On the other hand, if the PVC exists and is Bound but we can't find the PV, it's definitely a cache timing issue so we should
+				// just return an error and retry instead of skipping the PV
+				return nil, fmt.Errorf("PersistentVolume %s not found in cache", pvName)
+			}
+			pv, ok := obj.(*k8sv1.PersistentVolume)
+			if !ok {
+				return nil, fmt.Errorf("couldn't cast object to PersistentVolume: %+v", obj)
+			}
+			pvs = append(pvs, pv)
+		}
+	}
+	return pvs, nil
+}
+
+func (t *TemplateService) setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	setNodeAffinityForHostModelCpuModel(vmi, pod)
 	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
+
+	hotpluggedVolumes, err := t.getHotpluggedPVsForVMI(vmi)
+	if err != nil {
+		return err
+	}
+
+	if len(hotpluggedVolumes) > 0 {
+		if err := t.setNodeAffinityForHotpluggedVolumeTopology(hotpluggedVolumes, pod); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func setPreferredArchitectureAffinity(architecture string, pod *k8sv1.Pod) {
@@ -227,7 +305,7 @@ func setPreferredArchitectureAffinity(architecture string, pod *k8sv1.Pod) {
 
 func setNodeAffinityForHostModelCpuModel(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
-		pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.NodeHostModelIsObsoleteLabel)
+		pod.Spec.Affinity = modifyNodeAffinityToRejectLabel(pod.Spec.Affinity, v1.NodeHostModelIsObsoleteLabel)
 	}
 }
 
@@ -238,12 +316,700 @@ func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *
 
 	for _, feature := range vmi.Spec.Domain.CPU.Features {
 		if feature.Policy == "forbid" {
-			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
+			pod.Spec.Affinity = modifyNodeAffinityToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
 		}
 	}
 }
 
-func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject string) *k8sv1.Affinity {
+func (t *TemplateService) setNodeAffinityForHotpluggedVolumeTopology(hotpluggedVolumes []*k8sv1.PersistentVolume, pod *k8sv1.Pod) error {
+	var requiredNodeSelectorTerms [][]k8sv1.NodeSelectorTerm
+	for _, vol := range hotpluggedVolumes {
+		if vol.Spec.NodeAffinity != nil && vol.Spec.NodeAffinity.Required != nil && len(vol.Spec.NodeAffinity.Required.NodeSelectorTerms) > 0 {
+			requiredNodeSelectorTerms = append(requiredNodeSelectorTerms, vol.Spec.NodeAffinity.Required.NodeSelectorTerms)
+		}
+	}
+
+	if len(requiredNodeSelectorTerms) == 0 {
+		return nil
+	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	podAffinity := pod.Spec.Affinity
+
+	if podAffinity.NodeAffinity == nil {
+		podAffinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	nodeAffinity := podAffinity.NodeAffinity
+
+	if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+	}
+	required := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+
+	if len(required.NodeSelectorTerms) != 0 {
+		requiredNodeSelectorTerms = append(requiredNodeSelectorTerms, required.NodeSelectorTerms)
+	}
+
+	mergedNodeSelectorTerms, err := mergeNestedNodeSelectorTerms(slices.Clone(requiredNodeSelectorTerms))
+	if err != nil {
+		return err
+	}
+	required.NodeSelectorTerms = mergedNodeSelectorTerms
+	return nil
+}
+
+// Clones term and sorts In/NotIn for easy pruning of duplicate terms
+func normalizeNodeSelectorTerms(term []k8sv1.NodeSelectorTerm) []k8sv1.NodeSelectorTerm {
+	res := make([]k8sv1.NodeSelectorTerm, 0, len(term))
+	for _, selector := range term {
+		matchExpression := make([]k8sv1.NodeSelectorRequirement, 0, len(selector.MatchExpressions))
+		for _, expr := range selector.MatchExpressions {
+			if expr.Operator == k8sv1.NodeSelectorOpIn || expr.Operator == k8sv1.NodeSelectorOpNotIn {
+				expr.Values = slices.Sorted(slices.Values(expr.Values))
+			}
+			matchExpression = append(matchExpression, expr)
+		}
+		matchFields := make([]k8sv1.NodeSelectorRequirement, 0, len(selector.MatchFields))
+		for _, expr := range selector.MatchFields {
+			if expr.Operator == k8sv1.NodeSelectorOpIn || expr.Operator == k8sv1.NodeSelectorOpNotIn {
+				expr.Values = slices.Sorted(slices.Values(expr.Values))
+			}
+			matchFields = append(matchFields, expr)
+		}
+		res = append(res, k8sv1.NodeSelectorTerm{
+			MatchExpressions: matchExpression,
+			MatchFields:      matchFields,
+		})
+	}
+	return res
+}
+
+func nodeSelectorRequirementByKeyAndOperator(reqs []k8sv1.NodeSelectorRequirement) map[string]map[k8sv1.NodeSelectorOperator][]k8sv1.NodeSelectorRequirement {
+	res := make(map[string]map[k8sv1.NodeSelectorOperator][]k8sv1.NodeSelectorRequirement)
+	for _, req := range reqs {
+		if _, exists := res[req.Key]; !exists {
+			res[req.Key] = make(map[k8sv1.NodeSelectorOperator][]k8sv1.NodeSelectorRequirement)
+		}
+		if _, exists := res[req.Key][req.Operator]; !exists {
+			res[req.Key][req.Operator] = make([]k8sv1.NodeSelectorRequirement, 0)
+		}
+		res[req.Key][req.Operator] = append(res[req.Key][req.Operator], req)
+	}
+	return res
+}
+
+// Assume terms are normalized already and simplify. At worst returns unique keys * 4 terms
+func simplifyNodeSelectorRequirements(reqs []k8sv1.NodeSelectorRequirement) ([]k8sv1.NodeSelectorRequirement, bool, error) {
+	stringsToSet := func(vals []string) map[string]struct{} {
+		res := make(map[string]struct{})
+		for _, val := range vals {
+			res[val] = struct{}{}
+		}
+		return res
+	}
+
+	newTerms := make([]k8sv1.NodeSelectorRequirement, 0)
+	byKeyAndOp := nodeSelectorRequirementByKeyAndOperator(reqs)
+	keys := slices.Sorted(maps.Keys(byKeyAndOp))
+	for _, key := range keys {
+		ops := byKeyAndOp[key]
+		// inValues are the intersection of all matches
+		var inValues map[string]struct{} = nil
+		inReqs, mustBeIn := ops[k8sv1.NodeSelectorOpIn]
+		for idx, req := range inReqs {
+			valsSet := stringsToSet(req.Values)
+			if idx == 0 {
+				inValues = valsSet
+				continue
+			}
+			for val := range inValues {
+				if _, exists := valsSet[val]; !exists {
+					delete(inValues, val)
+				}
+			}
+			if len(inValues) == 0 {
+				break
+			}
+		}
+
+		// notInValues are the union of all matches
+		var notInValues map[string]struct{} = make(map[string]struct{})
+		notInReqs, mustNotBeIn := ops[k8sv1.NodeSelectorOpNotIn]
+		for _, req := range notInReqs {
+			for _, val := range req.Values {
+				notInValues[val] = struct{}{}
+				delete(inValues, val)
+			}
+		}
+
+		// greater than the greatest term
+		var greaterThanValue int64 = 0
+		gtReqs, mustBeGreaterThan := ops[k8sv1.NodeSelectorOpGt]
+		for idx, req := range gtReqs {
+			if len(req.Values) == 0 {
+				return nil, false, fmt.Errorf("Gt requirement on key %q has no value", key)
+			}
+			val, err := strconv.ParseInt(req.Values[0], 10, 64)
+			if err != nil {
+				return nil, false, err
+			}
+			if idx == 0 {
+				greaterThanValue = val
+				continue
+			}
+			if val > greaterThanValue {
+				greaterThanValue = val
+			}
+		}
+		// If In and Gt are on the the same key, we can further simplify In
+		// This would likely be a bug in the user affinity
+		if mustBeGreaterThan && mustBeIn {
+			for val := range inValues {
+				valAsInt, err := strconv.ParseInt(val, 10, 64)
+				// K8S will drop non-integer constraints when Gt is applied
+				if err != nil || valAsInt <= greaterThanValue {
+					delete(inValues, val)
+				}
+			}
+		}
+
+		// less than the least term
+		var lessThanValue int64 = 0
+		ltReqs, mustBeLessThan := ops[k8sv1.NodeSelectorOpLt]
+		for idx, req := range ltReqs {
+			if len(req.Values) == 0 {
+				return nil, false, fmt.Errorf("Lt requirement on key %q has no value", key)
+			}
+			val, err := strconv.ParseInt(req.Values[0], 10, 64)
+			if err != nil {
+				return nil, false, err
+			}
+			if idx == 0 {
+				lessThanValue = val
+				continue
+			}
+			if val < lessThanValue {
+				lessThanValue = val
+			}
+		}
+		// If In and Lt are on the the same key, we can further simplify In
+		// This would likely be a bug in the user affinity
+		if mustBeLessThan && mustBeIn {
+			for val := range inValues {
+				valAsInt, err := strconv.ParseInt(val, 10, 64)
+				// K8S will drop non-integer constraints when Lt is applied
+				if err != nil || valAsInt >= lessThanValue {
+					delete(inValues, val)
+				}
+			}
+		}
+
+		// After all possible pruning of inValues, assert there is anything left
+		if mustBeIn && len(inValues) == 0 {
+			return nil, false, nil
+		}
+
+		// Assert that Lt and Gt constraints are satisfiable together
+		if mustBeLessThan && mustBeGreaterThan && lessThanValue <= greaterThanValue+1 {
+			return nil, false, nil
+		}
+
+		// At this point since In values are canonical (they encode NotIn/Gt/Lt) and are satisfiable
+		// we can just drop NotIn/Gt/Lt
+		if mustBeIn {
+			mustNotBeIn = false
+			mustBeGreaterThan = false
+			mustBeLessThan = false
+		}
+
+		// In/Gt/Lt imply Exists so we don't need an explicit selector
+		_, hasExists := ops[k8sv1.NodeSelectorOpExists]
+		mustExist := hasExists && !mustBeGreaterThan && !mustBeLessThan && !mustBeIn
+
+		// Nothing implies DoesNotExist
+		_, mustNotExist := ops[k8sv1.NodeSelectorOpDoesNotExist]
+
+		// All the other selectors other than mustNotBeIn need to be false for this to be satisfiable
+		if mustNotExist && (mustExist || mustBeLessThan || mustBeGreaterThan || mustBeIn) {
+			return nil, false, nil
+		}
+
+		// Always canonize in order of In/NotIn/Gt/Lt/Exists/DoesNotExist and sort values
+		if mustBeIn {
+			vals := slices.Sorted(maps.Keys(inValues))
+			newTerms = append(newTerms, k8sv1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: k8sv1.NodeSelectorOpIn,
+				Values:   vals,
+			})
+		}
+
+		if mustNotBeIn {
+			vals := slices.Sorted(maps.Keys(notInValues))
+			newTerms = append(newTerms, k8sv1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: k8sv1.NodeSelectorOpNotIn,
+				Values:   vals,
+			})
+		}
+
+		if mustBeGreaterThan {
+			val := strconv.FormatInt(greaterThanValue, 10)
+			newTerms = append(newTerms, k8sv1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: k8sv1.NodeSelectorOpGt,
+				Values:   []string{val},
+			})
+		}
+
+		if mustBeLessThan {
+			val := strconv.FormatInt(lessThanValue, 10)
+			newTerms = append(newTerms, k8sv1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: k8sv1.NodeSelectorOpLt,
+				Values:   []string{val},
+			})
+		}
+
+		if mustExist {
+			newTerms = append(newTerms, k8sv1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: k8sv1.NodeSelectorOpExists,
+			})
+		}
+
+		if mustNotExist {
+			newTerms = append(newTerms, k8sv1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: k8sv1.NodeSelectorOpDoesNotExist,
+			})
+		}
+	}
+
+	return newTerms, true, nil
+}
+
+func nodeSelectorRequirementsCanBeMadeRedundant(reqs1 []k8sv1.NodeSelectorRequirement, reqs2 []k8sv1.NodeSelectorRequirement) (bool, error) {
+	reqs1ByKeyOp := nodeSelectorRequirementByKeyAndOperator(reqs1)
+	reqs2ByKeyOp := nodeSelectorRequirementByKeyAndOperator(reqs2)
+	// If reqs1 is stricter (has more keys) then reqs2, it cannot made it redundant
+	if len(reqs1ByKeyOp) > len(reqs2ByKeyOp) {
+		return false, nil
+	}
+	// All keys in reqs1 must be in reqs2
+	for key := range reqs1ByKeyOp {
+		if _, exists := reqs2ByKeyOp[key]; !exists {
+			return false, nil
+		}
+	}
+	// Validate that we have reqs in canonical form
+	for key := range reqs1ByKeyOp {
+		for op, term := range reqs1ByKeyOp[key] {
+			if len(term) > 1 {
+				return false, fmt.Errorf("Received denormalized node selector terms for %v", op)
+			}
+		}
+	}
+	for key := range reqs2ByKeyOp {
+		for op, term := range reqs2ByKeyOp[key] {
+			if len(term) > 1 {
+				return false, fmt.Errorf("Received denormalized node selector terms for %v", op)
+			}
+		}
+	}
+
+	type normRec struct {
+		hasExists       bool
+		hasDoesNotExist bool
+		hasIn           bool
+		hasNotIn        bool
+		hasGt           bool
+		hasLt           bool
+		greaterThanVal  int64
+		lessThanVal     int64
+		inValuesSet     map[string]struct{}
+		notInValuesSet  map[string]struct{}
+	}
+
+	toNormRec := func(m map[k8sv1.NodeSelectorOperator][]k8sv1.NodeSelectorRequirement) (normRec, error) {
+		_, hasExists := m[k8sv1.NodeSelectorOpExists]
+		_, hasDoesNotExist := m[k8sv1.NodeSelectorOpDoesNotExist]
+
+		inTermSlice, hasIn := m[k8sv1.NodeSelectorOpIn]
+		var InValuesSet map[string]struct{}
+		if hasIn {
+			InValuesSet = make(map[string]struct{})
+			for _, val := range inTermSlice[0].Values {
+				InValuesSet[val] = struct{}{}
+			}
+		}
+
+		notInTermSlice, hasNotIn := m[k8sv1.NodeSelectorOpNotIn]
+		var notInValuesSet map[string]struct{}
+		if hasNotIn {
+			notInValuesSet = make(map[string]struct{})
+			for _, val := range notInTermSlice[0].Values {
+				notInValuesSet[val] = struct{}{}
+			}
+		}
+
+		gtTermSlice, hasGt := m[k8sv1.NodeSelectorOpGt]
+		var gtValue int64
+		if hasGt {
+			valStr := gtTermSlice[0].Values[0]
+			val, err := strconv.ParseInt(valStr, 10, 64)
+			if err != nil {
+				return normRec{}, err
+			}
+			gtValue = val
+		}
+
+		ltTermSlice, hasLt := m[k8sv1.NodeSelectorOpLt]
+		var ltValue int64
+		if hasLt {
+			valStr := ltTermSlice[0].Values[0]
+			val, err := strconv.ParseInt(valStr, 10, 64)
+			if err != nil {
+				return normRec{}, err
+			}
+			ltValue = val
+		}
+		return normRec{
+			hasExists:       hasExists,
+			hasDoesNotExist: hasDoesNotExist,
+			hasIn:           hasIn,
+			hasNotIn:        hasNotIn,
+			hasGt:           hasGt,
+			hasLt:           hasLt,
+			inValuesSet:     InValuesSet,
+			notInValuesSet:  notInValuesSet,
+			greaterThanVal:  gtValue,
+			lessThanVal:     ltValue,
+		}, nil
+	}
+
+	// Note: This set of function require that b.has<Operator> is true otherwise the result will be incorrect
+	impliesExists := func(a normRec, _ normRec) bool {
+		// Returns true if a implies b for the Exists operator
+		return a.hasExists || a.hasIn || a.hasGt || a.hasLt
+	}
+
+	impliesDoesNotExist := func(a normRec, _ normRec) bool {
+		// Returns true if a implies b for the DoesNotExist operator
+		return a.hasDoesNotExist
+	}
+
+	impliesIn := func(a normRec, b normRec) bool {
+		// Returns true if a implies b for the In operator
+		if a.hasIn {
+			for val := range a.inValuesSet {
+				if _, exists := b.inValuesSet[val]; !exists {
+					return false
+				}
+			}
+			return true
+		}
+
+		// A Gt+Lt-bounded range can imply In if every integer the range admits
+		// (minus NotIn'd values) appears in b.inValuesSet. We verify this by
+		// counting rather than enumerating, so a wide (Gt, Lt) is cheap.
+		if a.hasGt && a.hasLt {
+			rangeCount := a.lessThanVal - a.greaterThanVal - 1
+			if rangeCount <= 0 {
+				return false // simplify should have caught this; bail out conservatively
+			}
+			for sv := range a.notInValuesSet {
+				n, err := strconv.ParseInt(sv, 10, 64)
+				if err == nil && n > a.greaterThanVal && n < a.lessThanVal {
+					rangeCount -= 1
+				}
+			}
+			var matched int64
+			for sv := range b.inValuesSet {
+				n, err := strconv.ParseInt(sv, 10, 64)
+				if err != nil || n <= a.greaterThanVal || n >= a.lessThanVal {
+					continue
+				}
+				if _, denied := a.notInValuesSet[sv]; denied {
+					continue
+				}
+				matched++
+			}
+			return matched >= rangeCount
+		}
+
+		return false
+	}
+
+	impliesNotIn := func(a normRec, b normRec) bool {
+		// Returns true if a implies b for the NotIn operator
+		if a.hasDoesNotExist {
+			return true
+		}
+
+		for val := range b.notInValuesSet {
+			if a.hasIn {
+				if _, exists := a.inValuesSet[val]; exists {
+					return false
+				}
+				continue
+			}
+
+			if a.hasNotIn {
+				if _, exists := a.notInValuesSet[val]; exists {
+					continue
+				}
+			}
+
+			if a.hasLt || a.hasGt {
+				valInt64, err := strconv.ParseInt(val, 10, 64)
+				if err != nil {
+					continue
+				}
+				if a.hasGt && valInt64 <= a.greaterThanVal {
+					continue
+				}
+				if a.hasLt && valInt64 >= a.lessThanVal {
+					continue
+				}
+			}
+
+			return false
+		}
+
+		return true
+	}
+
+	impliesGt := func(a normRec, b normRec) bool {
+		// Returns true if a implies b for the Gt operator
+		if a.hasDoesNotExist || !(a.hasExists || a.hasIn || a.hasGt || a.hasLt) {
+			return false
+		}
+
+		if a.hasIn {
+			for val := range a.inValuesSet {
+				valInt64, err := strconv.ParseInt(val, 10, 64)
+				if err != nil {
+					return false
+				}
+				if valInt64 <= b.greaterThanVal {
+					return false
+				}
+			}
+			return true
+		}
+
+		if a.hasGt && a.greaterThanVal >= b.greaterThanVal {
+			return true
+		}
+
+		return false
+	}
+
+	impliesLt := func(a normRec, b normRec) bool {
+		// Returns true if a implies b for the Lt operator
+		if a.hasDoesNotExist || !(a.hasExists || a.hasIn || a.hasGt || a.hasLt) {
+			return false
+		}
+
+		if a.hasIn {
+			for val := range a.inValuesSet {
+				valInt64, err := strconv.ParseInt(val, 10, 64)
+				if err != nil {
+					return false
+				}
+				if valInt64 >= b.lessThanVal {
+					return false
+				}
+			}
+			return true
+		}
+
+		if a.hasLt && a.lessThanVal <= b.lessThanVal {
+			return true
+		}
+
+		return false
+	}
+
+	// For each (key, operator) in reqs1, if reqs2 at (key, operator) logically implies reqs1 at (key, operator)
+	// that means that for every node that would satisfy reqs2, reqs1 is also satisfied meaning reqs2 is redundant
+	// We only have to care about the operators of reqs1 since if all the operators in reqs1 are implied than
+	// any extra bounds on reqs2 could only make the set of nodes that satisfy reqs2 smaller than reqs1
+	for key := range reqs1ByKeyOp {
+		normRec1, err := toNormRec(reqs1ByKeyOp[key])
+		if err != nil {
+			return false, err
+		}
+		normRec2, err := toNormRec(reqs2ByKeyOp[key])
+		if err != nil {
+			return false, err
+		}
+		if normRec1.hasExists {
+			if !impliesExists(normRec2, normRec1) {
+				return false, nil
+			}
+		}
+		if normRec1.hasDoesNotExist {
+			if !impliesDoesNotExist(normRec2, normRec1) {
+				return false, nil
+			}
+		}
+		if normRec1.hasIn {
+			if !impliesIn(normRec2, normRec1) {
+				return false, nil
+			}
+		}
+		if normRec1.hasNotIn {
+			if !impliesNotIn(normRec2, normRec1) {
+				return false, nil
+			}
+		}
+		if normRec1.hasGt {
+			if !impliesGt(normRec2, normRec1) {
+				return false, nil
+			}
+		}
+		if normRec1.hasLt {
+			if !impliesLt(normRec2, normRec1) {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func pruneRedundantNodeSelectorTerms(terms []k8sv1.NodeSelectorTerm) ([]k8sv1.NodeSelectorTerm, error) {
+	// This logic cannot be better than n^2 but in all but the most pathological cases, this should be rather fast
+	type nodeSelectorTermsWithKeyset struct {
+		selector              k8sv1.NodeSelectorTerm
+		keySetMatchExpression map[string]struct{}
+		keySetMatchFields     map[string]struct{}
+	}
+
+	// For a set to be made redundant by another set with OR, it must have equal or less keys
+	// Sorting first by keyset cardinality is a small optimization by comparing each set
+	// first to sets that are more likely to able to make later constraints redundant
+	termsWithKeyset := make([]nodeSelectorTermsWithKeyset, 0, len(terms))
+	for _, term := range terms {
+		keySetMatchExpression := make(map[string]struct{})
+		keySetMatchFields := make(map[string]struct{})
+		for _, req := range term.MatchExpressions {
+			keySetMatchExpression[req.Key] = struct{}{}
+		}
+		for _, req := range term.MatchFields {
+			keySetMatchFields[req.Key] = struct{}{}
+		}
+		termsWithKeyset = append(termsWithKeyset, nodeSelectorTermsWithKeyset{
+			selector:              term,
+			keySetMatchExpression: keySetMatchExpression,
+			keySetMatchFields:     keySetMatchFields,
+		})
+	}
+	slices.SortStableFunc(termsWithKeyset, func(a nodeSelectorTermsWithKeyset, b nodeSelectorTermsWithKeyset) int {
+		return (len(a.keySetMatchExpression) + len(a.keySetMatchFields)) - (len(b.keySetMatchExpression) + len(b.keySetMatchFields))
+	})
+
+	newNodeTerms := make([]k8sv1.NodeSelectorTerm, 0)
+	for _, candidateWithKeyset := range termsWithKeyset {
+		candidateMatchExpressions := candidateWithKeyset.selector.MatchExpressions
+		candidateMatchFields := candidateWithKeyset.selector.MatchFields
+
+		canBeMadeRedundant := false
+		for _, kept := range newNodeTerms {
+			matchExpressionCanBeMadeRedundantByKept, err := nodeSelectorRequirementsCanBeMadeRedundant(kept.MatchExpressions, candidateMatchExpressions)
+			if err != nil {
+				return nil, err
+			}
+			matchFieldsCanBeMadeRedundantByKept, err := nodeSelectorRequirementsCanBeMadeRedundant(kept.MatchFields, candidateMatchFields)
+			if err != nil {
+				return nil, err
+			}
+			if matchExpressionCanBeMadeRedundantByKept && matchFieldsCanBeMadeRedundantByKept {
+				canBeMadeRedundant = true
+				break
+			}
+		}
+		if canBeMadeRedundant {
+			continue
+		}
+		// When cardinality of terms are the <= either matchExpressions/matchFields, this candidate can actually made redundant a node term from newNodeTerms
+		filteredNewNodeTerms := make([]k8sv1.NodeSelectorTerm, 0, len(newNodeTerms))
+		for _, kept := range newNodeTerms {
+			matchExpressionCanMadeRedundantKept, err := nodeSelectorRequirementsCanBeMadeRedundant(candidateMatchExpressions, kept.MatchExpressions)
+			if err != nil {
+				return nil, err
+			}
+			matchFieldsCanMadeRedundantKept, err := nodeSelectorRequirementsCanBeMadeRedundant(candidateMatchFields, kept.MatchFields)
+			if err != nil {
+				return nil, err
+			}
+			if !matchExpressionCanMadeRedundantKept || !matchFieldsCanMadeRedundantKept {
+				filteredNewNodeTerms = append(filteredNewNodeTerms, kept)
+			}
+		}
+		newNodeTerms = append(filteredNewNodeTerms, candidateWithKeyset.selector)
+	}
+
+	return newNodeTerms, nil
+}
+
+func mergeNodeSelectorTerms(terms1 []k8sv1.NodeSelectorTerm, terms2 []k8sv1.NodeSelectorTerm) ([]k8sv1.NodeSelectorTerm, error) {
+	if len(terms1)*len(terms2) > maxNodeSelectorCrossProduct {
+		return nil, fmt.Errorf("node selector cross-product would exceed %d terms (%d × %d); affinity inputs are likely pathological or incompatible", maxNodeSelectorCrossProduct, len(terms1), len(terms2))
+	}
+	newTerms := make([]k8sv1.NodeSelectorTerm, 0, max(len(terms1), len(terms2)))
+	for _, term1 := range terms1 {
+		for _, term2 := range terms2 {
+			matchExpressions, satisfiable, err := simplifyNodeSelectorRequirements(append(append([]k8sv1.NodeSelectorRequirement{}, term1.MatchExpressions...), term2.MatchExpressions...))
+			if err != nil {
+				return nil, err
+			}
+			if !satisfiable {
+				continue
+			}
+
+			matchFields, satisfiable, err := simplifyNodeSelectorRequirements(append(append([]k8sv1.NodeSelectorRequirement{}, term1.MatchFields...), term2.MatchFields...))
+			if err != nil {
+				return nil, err
+			}
+			if !satisfiable {
+				continue
+			}
+
+			newTerms = append(newTerms, k8sv1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+				MatchFields:      matchFields,
+			})
+		}
+	}
+	// Since nodeSelectorTerms are OR'd, only one term actually has to be satisfiable
+	// If nothing in the cross product is satisfiable we should error
+	if len(newTerms) == 0 {
+		return nil, fmt.Errorf("all merged terms are unsatisfiable for cross product")
+	}
+	return pruneRedundantNodeSelectorTerms(newTerms)
+}
+
+func mergeNestedNodeSelectorTerms(nestedTerms [][]k8sv1.NodeSelectorTerm) ([]k8sv1.NodeSelectorTerm, error) {
+	res := []k8sv1.NodeSelectorTerm{{}}
+	for _, term := range nestedTerms {
+		var err error
+		res, err = mergeNodeSelectorTerms(res, normalizeNodeSelectorTerms(term))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(res) > maxNodeSelectorFinalTerms {
+		return nil, fmt.Errorf("merged node selector produced %d terms (limit %d); disjuncts do not subsume each other", len(res), maxNodeSelectorFinalTerms)
+	}
+	return res, nil
+}
+
+func modifyNodeAffinityToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject string) *k8sv1.Affinity {
 	affinity := origAffinity.DeepCopy()
 	requirement := k8sv1.NodeSelectorRequirement{
 		Key:      labelToReject,
@@ -761,7 +1527,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	setNodeAffinityForPod(vmi, &pod)
+	if err := t.setNodeAffinityForPod(vmi, &pod); err != nil {
+		return nil, err
+	}
 	if err := setPersistentReservationAntiAffinity(vmi, &pod, t.persistentVolumeClaimStore); err != nil {
 		return nil, err
 	}
@@ -1394,6 +2162,7 @@ func NewTemplateService(launcherImage string,
 	hotplugDiskDir string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
+	persistentVolumeCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
@@ -1414,6 +2183,7 @@ func NewTemplateService(launcherImage string,
 		hotplugDiskDir:              hotplugDiskDir,
 		imagePullSecret:             imagePullSecret,
 		persistentVolumeClaimStore:  persistentVolumeClaimCache,
+		persistentVolumeStore:       persistentVolumeCache,
 		virtClient:                  virtClient,
 		clusterConfig:               clusterConfig,
 		launcherSubGid:              launcherSubGid,
