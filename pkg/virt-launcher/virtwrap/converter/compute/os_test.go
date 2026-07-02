@@ -168,6 +168,30 @@ var _ = Describe("OS Domain Configurator", func() {
 			Entry("with secure boot", true),
 		)
 
+		It("should back the EFI NVRAM with a raw block device when NVRAMBlockDevice is set", func() {
+			vmi := libvmi.New(withEFIBootloader(false))
+			var domain api.Domain
+			efiConfig.NVRAMBlockDevice = "/dev/vm-state"
+
+			Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, efiConfig).Configure(vmi, &domain)).To(Succeed())
+
+			expectedOS := api.OS{
+				BootLoader: &api.Loader{
+					Path:     efiConfig.EFICode,
+					ReadOnly: "yes",
+					Secure:   boolToYesNo(false),
+					Type:     "pflash",
+				},
+				NVRam: &api.NVRam{
+					Type:     "block",
+					Template: efiConfig.EFIVars,
+					Source:   &api.NVRamSource{Dev: "/dev/vm-state"},
+				},
+			}
+			expectedDomain := newDomainWithOS(expectedOS)
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
 		It("should use firmware auto-selection when enabled", func() {
 			vmi := libvmi.New(withEFIBootloader(true))
 			var domain api.Domain

@@ -81,9 +81,11 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -999,6 +1001,15 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	// One-time initialization of a Block-mode persistent EFI NVRAM device.
+	// libvirt does NOT auto-populate a *raw* block-backed <nvram> from the template
+	// (auto-population only happens for the qcow2 format, since libvirt 10.8.0), so on
+	// first boot the blank /dev/vm-state device must be seeded with the OVMF VARS
+	// template before libvirt opens it as pflash. Runs only here (domain not yet created).
+	if err := initializeBlockNVRAM(vmi, domain); err != nil {
+		return domain, fmt.Errorf("initializing block-backed EFI NVRAM failed: %v", err)
+	}
+
 	return domain, err
 }
 
@@ -1009,6 +1020,84 @@ func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+// initializeBlockNVRAM seeds a blank Block-mode EFI NVRAM device with the OVMF VARS
+// template. It is a no-op unless domain.Spec.OS.NVRam is the block form
+// (<nvram type='block'><source dev=.../></nvram>). The device node is attached to this
+// launcher pod as a raw VolumeDevice and owned by the pod user (virt-handler sets
+// ownership), so the seed is a plain byte copy of the template onto the device -- no
+// mount, no mkfs, no CAP_SYS_ADMIN.
+//
+// "Blank" is detected by reading the device's leading bytes: a freshly provisioned PVC
+// is zero-filled, while a previously seeded device starts with the OVMF VARS volume
+// header. We only write when the head is all-zero, so an already-persisted VARS blob
+// (e.g. after a reboot or a migration that carried the bytes in QEMU's pflash stream)
+// is never clobbered.
+func initializeBlockNVRAM(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	nvram := domain.Spec.OS.NVRam
+	if nvram == nil || nvram.Type != "block" || nvram.Source == nil || nvram.Source.Dev == "" {
+		return nil
+	}
+	devicePath := nvram.Source.Dev
+	templatePath := nvram.Template
+	if templatePath == "" {
+		return fmt.Errorf("block NVRAM device %s has no OVMF VARS template", devicePath)
+	}
+
+	logger := log.Log.Object(vmi)
+
+	blank, err := deviceHeadIsBlank(devicePath, blockNVRAMProbeBytes)
+	if err != nil {
+		return err
+	}
+	if !blank {
+		logger.Infof("block EFI NVRAM device %s already initialized, leaving as-is", devicePath)
+		return nil
+	}
+
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("reading OVMF VARS template %s: %v", templatePath, err)
+	}
+
+	dev, err := os.OpenFile(devicePath, os.O_WRONLY, 0)
+	if err != nil {
+		return fmt.Errorf("opening block NVRAM device %s: %v", devicePath, err)
+	}
+	defer dev.Close()
+	if _, err := dev.WriteAt(template, 0); err != nil {
+		return fmt.Errorf("writing OVMF VARS template to %s: %v", devicePath, err)
+	}
+	if err := dev.Sync(); err != nil {
+		return fmt.Errorf("syncing block NVRAM device %s: %v", devicePath, err)
+	}
+	logger.Infof("seeded block EFI NVRAM device %s with OVMF VARS template %s (%d bytes)", devicePath, templatePath, len(template))
+	return nil
+}
+
+// blockNVRAMProbeBytes is how many leading bytes are inspected to decide whether a
+// Block-mode NVRAM device is still blank (zero-filled) and needs seeding.
+const blockNVRAMProbeBytes = 4096
+
+// deviceHeadIsBlank reports whether the first n bytes of the device are all zero.
+func deviceHeadIsBlank(devicePath string, n int) (bool, error) {
+	dev, err := os.Open(devicePath)
+	if err != nil {
+		return false, fmt.Errorf("opening block NVRAM device %s: %v", devicePath, err)
+	}
+	defer dev.Close()
+	head := make([]byte, n)
+	read, err := io.ReadFull(dev, head)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return false, fmt.Errorf("reading block NVRAM device %s: %v", devicePath, err)
+	}
+	for _, b := range head[:read] {
+		if b != 0 {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -1220,7 +1309,15 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			vmType = efi.TDX
 		}
 
-		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled {
+		// Block-mode persistent EFI (the backend-storage PVC attached as a raw block
+		// device) needs an explicit OVMF loader + <nvram> element: the raw device backs
+		// the pflash VARS and must be seeded from a known template path, but firmware
+		// auto-selection hides that path so the device could not be pre-populated. Route
+		// these VMs through the explicit-loader branch so EFIVars is populated (for the
+		// one-time seed) and configureEFI emits the block <nvram>.
+		blockNVRAM := backendstorage.HasPersistentEFI(&vmi.Spec) && isBlockDeviceFile(backendstorage.BlockDevicePath)
+
+		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled && !blockNVRAM {
 			log.Log.V(4).Infof("Using firmware auto-selection for EFI Secure Boot")
 			efiConf = &convertertypes.EFIConfiguration{
 				SecureLoader:              true,
@@ -1242,6 +1339,19 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 				SecureLoader: secureLoader,
 			}
 		}
+
+		if blockNVRAM {
+			efiConf.NVRAMBlockDevice = backendstorage.BlockDevicePath
+		}
+	}
+
+	// Block-mode persistent vTPM (the second backend-storage PVC attached as a raw block
+	// device) backs the swtpm state file directly. Detect it by the device's presence in
+	// the pod -- symmetric to the EFI block-NVRAM detection above -- and let the TPM
+	// converter emit the <source type='file'> backend pointing at it.
+	tpmStateBlockDevice := ""
+	if tpm.HasPersistentDevice(&vmi.Spec) && isBlockDeviceFile(backendstorage.TPMBlockDevicePath) {
+		tpmStateBlockDevice = backendstorage.TPMBlockDevicePath
 	}
 
 	// Map the VirtualMachineInstance to the Domain
@@ -1257,6 +1367,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		IsBlockPVC:                isBlockPVCMap,
 		IsBlockDV:                 isBlockDVMap,
 		EFIConfiguration:          efiConf,
+		TPMStateBlockDevice:       tpmStateBlockDevice,
 		UseVirtioTransitional:     vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:          permanentVolumes,
 		EphemeraldiskCreator:      l.ephemeralDiskCreator,
@@ -1903,6 +2014,18 @@ func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 		return false
 	}
 	return false
+}
+
+// isBlockDeviceFile reports whether path exists and is a block (or character) device
+// node. Used to detect the Block-mode backend-storage device (/dev/vm-state) that the
+// controller attaches as a raw VolumeDevice; its presence is the signal to back the EFI
+// NVRAM pflash with the raw device.
+func isBlockDeviceFile(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return (fileInfo.Mode() & os.ModeDevice) != 0
 }
 
 var isBlockDeviceVolume = isBlockDeviceVolumeFunc

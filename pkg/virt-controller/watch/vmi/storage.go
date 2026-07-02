@@ -45,7 +45,14 @@ func (c *Controller) addPVC(obj interface{}) {
 	if pvc.DeletionTimestamp != nil {
 		return
 	}
+	// Both backend-storage PVCs carry the VMI name as the value of their prefix label: the
+	// EFI/state PVC under PVCPrefix and the second Block-mode vTPM-state PVC under TPMPVCPrefix.
+	// Both must close the VMI's pvcExpectations, otherwise a persistent-TPM-on-Block VMI (which
+	// creates both PVCs) never satisfies its expectations and its launcher pod is never created.
 	persistentStateFor, exists := pvc.Labels[backendstorage.PVCPrefix]
+	if !exists {
+		persistentStateFor, exists = pvc.Labels[backendstorage.TPMPVCPrefix]
+	}
 	if exists {
 		vmiKey := controller.NamespacedKey(pvc.Namespace, persistentStateFor)
 		c.pvcExpectations.CreationObserved(vmiKey)
@@ -109,6 +116,12 @@ func (c *Controller) listVMIsMatchingDV(namespace, dvName string) ([]*virtv1.Vir
 }
 
 // handleBackendStorage manages backend storage PVC creation for the VMI.
+//
+// In Block mode a persistent vTPM needs a SECOND backend-storage PVC (one raw device per
+// state blob), distinct from the EFI NVRAM PVC. This function ensures both: it always
+// returns the (primary) EFI/state PVC name used downstream for readiness and rendering,
+// and -- when NeedsBlockTPMPVC -- additionally ensures the vTPM-state PVC exists. Both PVCs
+// share the VMI's pvcExpectations so pod creation waits until both are observed.
 func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (string, common.SyncError) {
 	key, err := controller.KeyFunc(vmi)
 	if err != nil {
@@ -121,16 +134,47 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 				return "", common.NewSyncError(err, "Failed deleting backend storage")
 			}
 		}
+		if tpmPVC := backendstorage.PVCForVMITPM(c.pvcIndexer, vmi); tpmPVC != nil {
+			if err = c.backendStorage.DeletePVCForVMI(vmi, tpmPVC.Name); err != nil {
+				return "", common.NewSyncError(err, "Failed deleting backend storage")
+			}
+		}
 		return "", nil
 	}
+	// Block-mode persistent TPM needs a SECOND backend-storage PVC (vTPM state) alongside the
+	// EFI/state PVC. Both creations must be registered with a SINGLE ExpectCreations call:
+	// ExpectCreations SETS (not increments) the expected count, so calling it once per PVC
+	// would overwrite the first expectation, leaving the controller's bookkeeping off by one
+	// when both PVCs are created and racing pod creation. Count the needed creations up front
+	// and expect them together.
 	pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
+	needsTPMPVC := c.backendStorage.NeedsBlockTPMPVC(vmi) && backendstorage.PVCForVMITPM(c.pvcIndexer, vmi) == nil
+
+	creations := 0
 	if pvc == nil {
-		c.pvcExpectations.ExpectCreations(key, 1)
+		creations++
+	}
+	if needsTPMPVC {
+		creations++
+	}
+	if creations > 0 {
+		c.pvcExpectations.ExpectCreations(key, creations)
+	}
+
+	if pvc == nil {
 		if pvc, err = c.backendStorage.CreatePVCForVMI(vmi); err != nil {
 			c.pvcExpectations.CreationObserved(key)
 			return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 		}
 	}
+
+	if needsTPMPVC {
+		if _, err = c.backendStorage.CreatePVCForVMITPM(vmi); err != nil {
+			c.pvcExpectations.CreationObserved(key)
+			return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
+		}
+	}
+
 	return pvc.Name, nil
 }
 

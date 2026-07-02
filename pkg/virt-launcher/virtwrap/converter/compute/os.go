@@ -43,6 +43,12 @@ type EFIConfiguration struct {
 	EFIVars                   string
 	SecureLoader              bool
 	UsesFirmwareAutoSelection bool
+	// NVRAMBlockDevice, when non-empty, is the in-pod path of a raw block device
+	// (e.g. /dev/vm-state) that backs the persistent EFI NVRAM directly as a QEMU
+	// pflash device. It is set only when the backend-storage PVC was provisioned in
+	// Block mode (VMStateVolumeMode=Block). When empty, the NVRAM uses the legacy
+	// file-path form on the Filesystem-backed backend storage.
+	NVRAMBlockDevice string
 }
 
 type OSDomainConfigurator struct {
@@ -147,9 +153,28 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.NVRam = nil
 	} else {
 		domain.Spec.OS.BootLoader.Type = "pflash"
-		domain.Spec.OS.NVRam = &api.NVRam{
-			Template: o.efiConfiguration.EFIVars,
-			NVRam:    filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+		if o.efiConfiguration.NVRAMBlockDevice != "" {
+			// Block-mode persistent EFI: back the OVMF VARS pflash directly with a raw
+			// block device (no filesystem). libvirt (>= 8.5.0) accepts a block source for
+			// <nvram>; the template still names the OVMF_VARS firmware blob. Emits:
+			//   <nvram type='block' template='...OVMF_VARS.fd'>
+			//     <source dev='/dev/vm-state'/>
+			//   </nvram>
+			// NOTE: with a *raw* block backend libvirt does NOT auto-populate the VARS
+			// from the template (auto-population only happens for qcow2, since libvirt
+			// 10.8.0). virt-launcher seeds the blank device with the template once, in
+			// preStartHook, before libvirt opens it as pflash (see initializeBlockNVRAM).
+			domain.Spec.OS.NVRam = &api.NVRam{
+				Type:     "block",
+				Template: o.efiConfiguration.EFIVars,
+				Source:   &api.NVRamSource{Dev: o.efiConfiguration.NVRAMBlockDevice},
+			}
+		} else {
+			// Filesystem-mode persistent EFI (default): file-path NVRAM on backend storage.
+			domain.Spec.OS.NVRam = &api.NVRam{
+				Template: o.efiConfiguration.EFIVars,
+				NVRam:    filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			}
 		}
 	}
 }

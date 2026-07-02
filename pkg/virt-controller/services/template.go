@@ -961,7 +961,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
-		withBackendStorage(vmi, backendStoragePVCName),
+		withBackendStorage(t.persistentVolumeClaimStore, namespace, vmi, backendStoragePVCName),
 	}
 	if imageVolumeFeatureGateEnabled {
 		volumeOpts = append(volumeOpts, withImageVolumes(vmi))

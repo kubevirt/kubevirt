@@ -85,4 +85,40 @@ var _ = Describe("TPM Domain Configurator", func() {
 		}
 		Expect(domain).To(Equal(expectedDomain))
 	})
+
+	It("Should back the persistent TPM state with a block device when the TPM block device is set", func() {
+		vmi := libvmi.New(libvmi.WithTPM(true))
+		var domain api.Domain
+
+		Expect(compute.NewTPMDomainConfigurator("/dev/vm-state-tpm").Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					TPMs: []api.TPM{
+						{
+							Model: "tpm-crb",
+							Backend: api.TPMBackend{
+								Type:            "emulator",
+								Version:         "2.0",
+								PersistentState: "yes",
+								Source:          &api.TPMSource{Type: "file", Path: "/dev/vm-state-tpm"},
+							},
+						},
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("Should ignore the TPM block device for a non-persistent TPM", func() {
+		vmi := libvmi.New(libvmi.WithTPM(false))
+		var domain api.Domain
+
+		Expect(compute.NewTPMDomainConfigurator("/dev/vm-state-tpm").Configure(vmi, &domain)).To(Succeed())
+
+		Expect(domain.Spec.Devices.TPMs).To(HaveLen(1))
+		Expect(domain.Spec.Devices.TPMs[0].Backend.Source).To(BeNil())
+	})
 })

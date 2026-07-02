@@ -670,6 +670,18 @@ type TPMBackend struct {
 	Type            string `xml:"type,attr"`
 	Version         string `xml:"version,attr"`
 	PersistentState string `xml:"persistent_state,attr,omitempty"`
+	// Source, when set, points the swtpm emulator backend at an explicit state file via
+	// the file:// backend (swtpm >= 0.7, libvirt >= 10.9). For Block-mode persistent TPM
+	// the file is a raw block device (Type "file", Path /dev/vm-state-tpm). When nil,
+	// libvirt manages the swtpm state directory itself (the Filesystem-mode default).
+	Source *TPMSource `xml:"source,omitempty"`
+}
+
+// TPMSource mirrors libvirt's TPM emulator <source> element. For a block-backed vTPM,
+// Type is "file" and Path is the raw device path; swtpm opens it via its file:// backend.
+type TPMSource struct {
+	Type string `xml:"type,attr"`
+	Path string `xml:"path,attr"`
 }
 
 // RedirectedDevice describes a device to be redirected
@@ -1199,9 +1211,27 @@ type SMBios struct {
 }
 
 type NVRam struct {
-	Template string `xml:"template,attr,omitempty"`
-	Format   string `xml:"format,attr,omitempty"`
-	NVRam    string `xml:",chardata"`
+	// Type selects the NVRAM backend. Empty (legacy) and "file" use the NVRam
+	// chardata file path. "block" (libvirt >= 8.5.0) points the EFI NVRAM pflash at
+	// a raw block device described by the Source sub-element.
+	//
+	// NVRam (chardata) and Source are mutually exclusive: exactly one of them describes
+	// where the OVMF VARS live. The legacy/file form sets only NVRam (chardata host file
+	// path) and leaves Source nil; the source form (file/block) sets only Source and
+	// leaves NVRam empty. Setting both is invalid libvirt XML -- callers (see the
+	// converter in compute/os.go) must emit one form or the other, never both.
+	Type     string       `xml:"type,attr,omitempty"`
+	Template string       `xml:"template,attr,omitempty"`
+	Format   string       `xml:"format,attr,omitempty"`
+	NVRam    string       `xml:",chardata"`        // legacy/file form: host file path (exclusive with Source)
+	Source   *NVRamSource `xml:"source,omitempty"` // file/block source form (exclusive with NVRam chardata)
+}
+
+// NVRamSource mirrors libvirt's disk <source> for the NVRAM backend. For block-backed
+// NVRAM (type='block') the device path is set via Dev; for file-backed via File.
+type NVRamSource struct {
+	Dev  string `xml:"dev,attr,omitempty"`
+	File string `xml:"file,attr,omitempty"`
 }
 
 type Boot struct {

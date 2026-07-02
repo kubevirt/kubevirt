@@ -270,6 +270,7 @@ spec:
       disableSerialConsoleLog: {}
     vmRolloutStrategy: vmRolloutStrategyValue
     vmStateStorageClass: vmStateStorageClassValue
+    vmStateVolumeMode: vmStateVolumeModeValue
     webhookConfiguration:
       restClient:
         rateLimiter:
