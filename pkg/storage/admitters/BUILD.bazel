@@ -59,6 +59,7 @@ go_library(
         "vm-storage-admitter.go",
         "vm-storage-status.go",
         "vmexport.go",
+        "vmi-storage-admitter.go",
         "vmrestore.go",
         "vmsnapshot.go",
     ],

@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -196,9 +195,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateRealtime(field, spec)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
-
-	netValidator := netadmitter.NewValidator(field, spec, config)
-	causes = append(causes, netValidator.Validate()...)
 
 	causes = append(causes, draadmitter.ValidateCreation(field, spec, config)...)
 

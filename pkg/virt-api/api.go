@@ -65,6 +65,7 @@ import (
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
+	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
@@ -983,19 +984,37 @@ func (app *virtAPIApp) prepareCertManager() {
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts,
-			func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
-				return netadmitter.Validate(field, vmiSpec, clusterCfg)
+			// SIG-Network
+			func(field *field.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+				return netadmitter.Validate(field, spec, config)
 			},
+			// SIG-Storage
+			storageadmitters.Validate,
 		)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts,
+			// SIG-Network
+			func(field *field.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+				return netadmitter.Validate(field, spec, config)
+			},
+			// SIG-Storage
+			storageadmitters.Validate,
+		)
+
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
+		validating_webhook.ServeVMIRS(w, r, app.clusterConfig,
+			// SIG-Network
+			func(field *field.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+				return netadmitter.Validate(field, spec, config)
+			},
+			// SIG-Storage
+			storageadmitters.Validate,
+		)
 	})
 	http.HandleFunc(components.VMPoolValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMPool(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)

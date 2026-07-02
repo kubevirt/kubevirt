@@ -71,9 +71,10 @@ type VMsAdmitter struct {
 	InstancetypeAdmitter    instancetypeVMsAdmitter
 	ClusterConfig           *virtconfig.ClusterConfig
 	KubeVirtServiceAccounts map[string]struct{}
+	SpecValidators          []SpecValidator
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}, specValidators ...SpecValidator) *VMsAdmitter {
 	return &VMsAdmitter{
 		VirtClient:              client,
 		DataSourceInformer:      informers.DataSourceInformer,
@@ -81,6 +82,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(client),
 		ClusterConfig:           clusterConfig,
 		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+		SpecValidators:          specValidators,
 	}
 }
 
@@ -148,6 +150,9 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, isKubeVirtServiceAccount)
+	for _, validator := range admitter.SpecValidators {
+		causes = append(causes, validator(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)...)
+	}
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -436,6 +441,9 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 
 	// this simulates injecting the changes into the VMI template and validates it will work.
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec", "template", "spec"), newSpec, admitter.ClusterConfig)
+	for _, validator := range admitter.SpecValidators {
+		causes = append(causes, validator(k8sfield.NewPath("spec", "template", "spec"), newSpec, admitter.ClusterConfig)...)
+	}
 	if len(causes) > 0 {
 		return causes, nil
 	}
@@ -443,6 +451,9 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 	// This simulates injecting the changes directly into the vmi, if the vmi exists
 	if vmiExists {
 		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec", "template", "spec"), &vmi.Spec, admitter.ClusterConfig)
+		for _, validator := range admitter.SpecValidators {
+			causes = append(causes, validator(k8sfield.NewPath("spec", "template", "spec"), &vmi.Spec, admitter.ClusterConfig)...)
+		}
 		if len(causes) > 0 {
 			return causes, nil
 		}
