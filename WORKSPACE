@@ -370,19 +370,19 @@ oci_pull(
 # like stress and qemu guest agent pre-configured
 oci_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:a53fd982787799c2d8cfaa37a2b6fbac4f416437768a25d2eb246dff46bb9d79",
+    digest = "sha256:73ad845b934476c560ffb484b036e6de318e91f7a059178661c5460b35457062",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
 
 oci_pull(
     name = "alpine_with_test_tooling",
-    digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
+    digest = "sha256:699cf2a04a18b792d87664eb404a82b64d8d411ebf47f6b3112d727cb4286c30",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
 oci_pull(
     name = "alpine_with_test_tooling_arm64",
-    digest = "sha256:5b443506b62f29f5ef5ac1bbf709338212b0b289ee2579e4feead42205685f43",
+    digest = "sha256:7b415db6db13a387893164f379a3524f90f0cca5e5180785b46c97f42a91b3aa",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
