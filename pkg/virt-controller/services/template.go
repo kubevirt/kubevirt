@@ -483,7 +483,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
 			command = append(command, "--upgrade-ordinal-ifaces")
 		}
-		if t.clusterConfig.VGPULiveMigrationEnabled() {
+		if t.clusterConfig.LibvirtHooksServerAndClientEnabled() && t.clusterConfig.VGPULiveMigrationEnabled() {
 			command = append(command, "--vgpu-dedicated-hook")
 		}
 		if t.clusterConfig.VMStatsCollectorEnabled() {
