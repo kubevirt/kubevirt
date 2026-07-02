@@ -4681,6 +4681,15 @@ var _ = Describe("Template", func() {
 				RunAsNonRoot: pointer.P(true),
 				FSGroup:      &nonRootUser,
 			}),
+			Entry("with supplemental groups", func() *v1.VirtualMachineInstance {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi.Spec.SupplementalGroups = []int64{1000, 2000}
+				return vmi
+			}, &k8sv1.PodSecurityContext{
+				RunAsUser:          new(int64),
+				FSGroup:            pointer.P(int64(util.NonRootUID)),
+				SupplementalGroups: []int64{1000, 2000},
+			}),
 		)
 
 		It("should compute the correct security context when rendering hotplug attachment pods", func() {

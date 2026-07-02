@@ -202,6 +202,11 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
+	// SupplementalGroups is a list of groups applied to the first process run in each container,
+	// in addition to the container's primary GID. These are propagated to the virt-launcher pod.
+	// +optional
+	// +listType=atomic
+	SupplementalGroups []int64 `json:"supplementalGroups,omitempty"`
 }
 
 type VirtualMachineInstanceResourceClaim struct {

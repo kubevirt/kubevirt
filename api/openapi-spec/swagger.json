@@ -19893,6 +19893,16 @@
       "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.",
       "type": "string"
      },
+     "supplementalGroups": {
+      "description": "SupplementalGroups is a list of groups applied to the first process run in each container, in addition to the container's primary GID. These are propagated to the virt-launcher pod.",
+      "type": "array",
+      "items": {
+       "type": "integer",
+       "format": "int64",
+       "default": 0
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "terminationGracePeriodSeconds": {
       "description": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
       "type": "integer",
