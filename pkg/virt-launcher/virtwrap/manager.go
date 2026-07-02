@@ -891,6 +891,10 @@ func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineI
 // made to the domain will get set in libvirt after this function exits.
 func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, generateEmptyIsos bool, options *cmdv1.VirtualMachineOptions) (*api.Domain, error) {
 	logger := log.Log.Object(vmi)
+	preStartHookStart := time.Now()
+	defer func() {
+		logger.Infof("preStartHook completed in %v", time.Since(preStartHookStart))
+	}()
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
@@ -1382,6 +1386,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	defer l.domainModifyLock.Unlock()
 
 	logger := log.Log.Object(vmi)
+	syncStart := time.Now()
+	defer func() {
+		logger.Infof("SyncVMI total time: %v", time.Since(syncStart))
+	}()
 
 	domain := &api.Domain{}
 
@@ -1598,18 +1606,21 @@ func (l *LibvirtDomainManager) startDomain(
 	dom cli.VirDomain,
 ) error {
 	logger := log.Log.Object(vmi)
+	startDomainStart := time.Now()
 	if err := l.generateCloudInitISO(vmi, &dom); err != nil {
 		return err
 	}
+	logger.Infof("startDomain: generateCloudInitISO completed in %v", time.Since(startDomainStart))
 
 	createFlags := getDomainCreateFlags(vmi)
+	createStart := time.Now()
 	if err := dom.CreateWithFlags(createFlags); err != nil {
 		logger.Reason(err).
 			Errorf("Failed to start VirtualMachineInstance with flags %v.", createFlags)
 		return err
 	}
 
-	logger.Info("Domain started.")
+	logger.Infof("startDomain: CreateWithFlags completed in %v (total: %v)", time.Since(createStart), time.Since(startDomainStart))
 	if vmi.ShouldStartPaused() {
 		l.paused.add(vmi.UID)
 	}
@@ -1622,9 +1633,11 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	options *cmdv1.VirtualMachineOptions,
 ) (cli.VirDomain, error) {
 	logger := log.Log.Object(vmi)
+	start := time.Now()
 
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	if err == nil {
+		logger.Infof("lookupOrCreateVirDomain found existing domain in %v", time.Since(start))
 		return dom, nil
 	}
 
@@ -1648,7 +1661,7 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
-	logger.Info("Domain defined.")
+	logger.Infof("lookupOrCreateVirDomain created new domain in %v", time.Since(start))
 	return dom, err
 }
 
