@@ -1834,7 +1834,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should be left if VM owner is present", true, true, true),
 		)
 
-		DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase) {
+		DescribeTable("should do nothing if pod is handed to virt-handler", func(phase k8sv1.PodPhase, expectedVirtActions int) {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduled
 			pod := newPodForVirtualMachine(vmi, phase)
@@ -1845,23 +1845,23 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			setReadyCondition(vmi, k8sv1.ConditionFalse, unreadyReason)
 
+			addActivePods(vmi, pod.UID, "")
 			addVirtualMachine(vmi)
 			addPod(pod)
-			addActivePods(vmi, pod.UID, "")
 
 			sanityExecute()
-			Expect(virtClientset.Actions()).To(HaveLen(1))
+			Expect(virtClientset.Actions()).To(HaveLen(expectedVirtActions))
 			Expect(virtClientset.Actions()[0].GetVerb()).To(Equal("create"))
 			Expect(virtClientset.Actions()[0].GetResource().Resource).To(Equal("virtualmachineinstances"))
 			Expect(kubeClient.Actions()).To(HaveLen(1))
 			Expect(kubeClient.Actions()[0].GetVerb()).To(Equal("create"))
 			Expect(kubeClient.Actions()[0].GetResource().Resource).To(Equal("pods"))
 		},
-			Entry("and in running state", k8sv1.PodRunning),
-			Entry("and in unknown state", k8sv1.PodUnknown),
-			Entry("and in succeeded state", k8sv1.PodSucceeded),
-			Entry("and in failed state", k8sv1.PodFailed),
-			Entry("and in pending state", k8sv1.PodPending),
+			Entry("and in running state", k8sv1.PodRunning, 1),
+			Entry("and in unknown state", k8sv1.PodUnknown, 1),
+			Entry("and in succeeded state", k8sv1.PodSucceeded, 2),
+			Entry("and in failed state", k8sv1.PodFailed, 2),
+			Entry("and in pending state", k8sv1.PodPending, 1),
 		)
 
 		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
@@ -4529,8 +4529,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pod := newPodForVirtualMachine(vmi, podPhase)
 				pod.Spec.NodeName = "targetnode"
 
-				addVirtualMachine(vmi)
 				addActivePods(vmi, pod.UID, "targetnode")
+				addVirtualMachine(vmi)
 				addPod(pod)
 
 				sanityExecute()
@@ -5105,6 +5105,75 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 				stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
 				noConditionMatcher,
+			),
+		)
+	})
+
+	Context("setActivePods", func() {
+		type podSpec struct {
+			phase    k8sv1.PodPhase
+			uid      string
+			name     string
+			nodeName string
+		}
+
+		DescribeTable("should only include non-terminated pods", func(pods []podSpec, expectedLen int, expectedEntries map[types.UID]string) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+
+			for _, ps := range pods {
+				pod := newPodForVirtualMachine(vmi, ps.phase)
+				pod.UID = types.UID(ps.uid)
+				pod.Name = ps.name
+				pod.Spec.NodeName = ps.nodeName
+				Expect(controller.podIndexer.Add(pod)).To(Succeed())
+			}
+
+			updatedVMI, err := controller.setActivePods(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.ActivePods).To(HaveLen(expectedLen))
+			for uid, node := range expectedEntries {
+				Expect(updatedVMI.Status.ActivePods).To(HaveKeyWithValue(uid, node))
+			}
+		},
+			Entry("excludes succeeded pods",
+				[]podSpec{
+					{k8sv1.PodRunning, "running-uid", "running-pod", "node1"},
+					{k8sv1.PodSucceeded, "succeeded-uid", "succeeded-pod", "node2"},
+				},
+				1, map[types.UID]string{"running-uid": "node1"},
+			),
+			Entry("excludes failed pods",
+				[]podSpec{
+					{k8sv1.PodRunning, "running-uid", "running-pod", "node1"},
+					{k8sv1.PodFailed, "failed-uid", "failed-pod", "node2"},
+				},
+				1, map[types.UID]string{"running-uid": "node1"},
+			),
+			Entry("keeps only target pod after migration",
+				[]podSpec{
+					{k8sv1.PodSucceeded, "source-uid", "source-pod", "source-node"},
+					{k8sv1.PodRunning, "target-uid", "target-pod", "target-node"},
+				},
+				1, map[types.UID]string{"target-uid": "target-node"},
+			),
+			Entry("includes pending pods",
+				[]podSpec{
+					{k8sv1.PodPending, "pending-uid", "pending-pod", "node1"},
+				},
+				1, map[types.UID]string{"pending-uid": "node1"},
+			),
+			Entry("includes unknown pods",
+				[]podSpec{
+					{k8sv1.PodUnknown, "unknown-uid", "unknown-pod", "node1"},
+				},
+				1, map[types.UID]string{"unknown-uid": "node1"},
+			),
+			Entry("produces empty map when all pods are terminated",
+				[]podSpec{
+					{k8sv1.PodSucceeded, "succeeded-uid", "succeeded-pod", "node1"},
+				},
+				0, map[types.UID]string{},
 			),
 		)
 	})
