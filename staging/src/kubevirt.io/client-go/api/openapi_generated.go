@@ -538,6 +538,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                      schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                              schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                             schema_kubevirtio_api_core_v1_SoundDevice(ref),
+		"kubevirt.io/api/core/v1.StallDetectorOptions":                                                    schema_kubevirtio_api_core_v1_StallDetectorOptions(ref),
 		"kubevirt.io/api/core/v1.StartOptions":                                                            schema_kubevirtio_api_core_v1_StartOptions(ref),
 		"kubevirt.io/api/core/v1.StopOptions":                                                             schema_kubevirtio_api_core_v1_StopOptions(ref),
 		"kubevirt.io/api/core/v1.StorageMigratedVolumeInfo":                                               schema_kubevirtio_api_core_v1_StorageMigratedVolumeInfo(ref),
@@ -21022,8 +21023,17 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 			SchemaProps: spec.SchemaProps{
 				Description: "ExperimentalMigrationOptions is an alpha API for experimental migration tunables. It is intended for experimental purposes only and will be removed in the future.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stallDetector": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.StallDetectorOptions"),
+						},
+					},
+				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.StallDetectorOptions"},
 	}
 }
 
@@ -25956,6 +25966,74 @@ func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) com
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_StallDetectorOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stallMargin": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StallMargin is the fractional tolerance, expressed as a percentage, used when comparing remaining migration bytes against the best observed value to detect stalls and local minima. A stall is reported when remaining bytes stay above (1 - StallMargin/100) of the outside-window minimum. Defaults to 4.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"ewmaAlpha": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EwmaAlpha is the smoothing factor for the exponentially weighted moving average of observed migration bandwidth. Must be in the range (0, 1]; zero is invalid because the estimate would never incorporate new samples. Higher values weight recent samples more heavily. Defaults to \"0.4\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"stallProgressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StallProgressTimeout is the duration in seconds of the sliding window used to track minimum remaining-bytes and detect when migration progress has stalled. Defaults to 40.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"switchoverTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SwitchoverTimeout is the duration in seconds allowed for a stop-and-copy or post-copy switchover to complete after being triggered before the migration is aborted. Defaults to 60.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"precopyPossibleFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PrecopyPossibleFactor is the maximum factor by which estimated downtime may exceed MaxDowntime while still attempting a soft stop-and-copy instead of aborting the migration. Defaults to \"1.5\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"patienceWindowDecayFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PatienceWindowDecayFactor is the factor by which the relaxation patience window is multiplied after each best-remaining-bytes relaxation step. Defaults to \"0.5\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"searchLocalMinima": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SearchLocalMinima controls whether convergence actions are delayed until remaining bytes reach a local minimum near the best observed value. When false, actions may trigger as soon as a stall is detected. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"completionTimeoutFactor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompletionTimeoutFactor multiplies the computed migration completion timeout to determine the total time budget for deciding whether a forced switchover can still finish in time, and to extend the abort deadline after initiating a completion-timeout-driven switchover. Defaults to \"2\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
