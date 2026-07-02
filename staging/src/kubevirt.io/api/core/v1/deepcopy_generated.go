@@ -3110,6 +3110,11 @@ func (in *KubeVirtSpec) DeepCopyInto(out *KubeVirtSpec) {
 		*out = new(ComponentConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.SynchronizationPlacement != nil {
+		in, out := &in.SynchronizationPlacement, &out.SynchronizationPlacement
+		*out = new(ComponentConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	in.CustomizeComponents.DeepCopyInto(&out.CustomizeComponents)
 	return
 }
@@ -3558,6 +3563,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 	if in.MatchSELinuxLevelOnMigration != nil {
 		in, out := &in.MatchSELinuxLevelOnMigration, &out.MatchSELinuxLevelOnMigration
 		*out = new(bool)
+		**out = **in
+	}
+	if in.CrossClusterNetwork != nil {
+		in, out := &in.CrossClusterNetwork, &out.CrossClusterNetwork
+		*out = new(string)
 		**out = **in
 	}
 	return

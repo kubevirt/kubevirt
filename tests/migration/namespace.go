@@ -21,10 +21,13 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	expect "github.com/google/goexpect"
+	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -48,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -855,7 +859,178 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}
 		})
 	})
+
+	Context("with cross-cluster migration network proxy", Serial, decorators.Multus, decorators.RequiresCrossClusterMigrationProxy, func() {
+		var (
+			originalKubeVirt *v1.KubeVirt
+			crossClusterNAD  *k8snetworkplumbingwgv1.NetworkAttachmentDefinition
+		)
+
+		BeforeEach(func() {
+			By("Saving original KubeVirt configuration")
+			originalKubeVirt = libkubevirt.GetCurrentKv(virtClient)
+
+			By("Creating cross-cluster network attachment definition")
+			crossClusterNAD = generateCrossClusterNetworkAttachmentDefinition()
+			var err error
+			crossClusterNAD, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(crossClusterNAD.Namespace).Create(
+				context.Background(),
+				crossClusterNAD,
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Enabling DecentralizedLiveMigration and CrossClusterMigrationProxy feature gates")
+			config := originalKubeVirt.Spec.Configuration.DeepCopy()
+			if config.DeveloperConfiguration == nil {
+				config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration") {
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration")
+			}
+			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy") {
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy")
+			}
+			if config.MigrationConfiguration == nil {
+				config.MigrationConfiguration = &v1.MigrationConfiguration{}
+			}
+			config.MigrationConfiguration.CrossClusterNetwork = pointer.P(crossClusterNAD.Name)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
+			By("Ensuring that synchronization address is properly propagated to the KubeVirt CR")
+			Eventually(func() []string {
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				return kv.Status.SynchronizationAddresses
+			}, 120*time.Second, 2*time.Second).Should(ContainElement(HavePrefix("172.22.42")), "Synchronization address should be properly propagated to the KubeVirt CR")
+
+			By("Verifying connectionURL is in crosscluster network range")
+			connectionURL, err = getKubevirtSynchronizationSyncAddress(virtClient)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(connectionURL).To(HavePrefix("172.22.42"), "connectionURL should be in crosscluster network range (172.22.42.0/24), got %s", connectionURL)
+		})
+
+		AfterEach(func() {
+			By("Restoring original KubeVirt configuration")
+			if originalKubeVirt != nil {
+				kvconfig.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+			}
+
+			By("Deleting cross-cluster network attachment definition")
+			if crossClusterNAD != nil {
+				err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(crossClusterNAD.Namespace).Delete(
+					context.Background(),
+					crossClusterNAD.Name,
+					metav1.DeleteOptions{},
+				)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+		})
+
+		It("should successfully migrate using proxy", func() {
+			By("Creating source VM")
+			sourceVMI := libvmifact.NewAlpine(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+
+			By("Creating target VM in different namespace")
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+			createReceiverVMFromVMISpec(targetVMI)
+
+			By("Verifying synchronization controllers have cross-cluster network attached")
+			Eventually(func() []string {
+				return getSyncControllerNetworkInterfaces(virtClient)
+			}, 120*time.Second, 2*time.Second).Should(ContainElement("crosscluster0"), "Sync controllers should have cross-cluster network attached")
+
+			By("Starting cross-namespace migration")
+			migrationID := fmt.Sprintf("mig-proxy-%s", rand.String(5))
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+
+			By("Running migration and waiting for completion")
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+
+			By("Verifying migration completed successfully")
+			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
+
+			By("Verifying VM is functional after migration")
+			Expect(console.LoginToAlpine(targetVMI)).To(Succeed())
+
+			By("Cleaning up migration resources")
+			deleteMigration(sourceMigration)
+			deleteMigration(targetMigration)
+
+			By("Cleaning up VMs")
+			deleteVM(sourceVM)
+		})
+	})
 }))
+
+func generateCrossClusterNetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
+	config := map[string]interface{}{
+		"cniVersion": "0.3.1",
+		"name":       "crosscluster-bridge",
+		"type":       "bridge",
+		"bridge":     "br-crosscluster",
+		"ipam": map[string]string{
+			"type":  "whereabouts",
+			"range": "172.22.42.0/24",
+		},
+	}
+
+	configJSON, err := json.Marshal(config)
+	Expect(err).ToNot(HaveOccurred())
+
+	return &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "crosscluster-cni",
+			Namespace: flags.KubeVirtInstallNamespace,
+		},
+		Spec: k8snetworkplumbingwgv1.NetworkAttachmentDefinitionSpec{
+			Config: string(configJSON),
+		},
+	}
+}
+
+func getSyncControllerNetworkInterfaces(virtClient kubecli.KubevirtClient) []string {
+	var networks []string
+
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: "kubevirt.io=virt-synchronization-controller"},
+	)
+	if err != nil || len(pods.Items) == 0 {
+		return networks
+	}
+
+	// Parse network status from any sync controller pod
+	for _, pod := range pods.Items {
+		if networkStatus, ok := pod.Annotations["k8s.v1.cni.cncf.io/network-status"]; ok {
+			// Parse network status JSON to extract interface names
+			var networkList []map[string]interface{}
+			if err := json.Unmarshal([]byte(networkStatus), &networkList); err != nil {
+				continue
+			}
+
+			for _, network := range networkList {
+				if name, ok := network["interface"].(string); ok {
+					networks = append(networks, name)
+				}
+			}
+
+			// Return networks from first pod with valid annotation
+			if len(networks) > 0 {
+				return networks
+			}
+		}
+	}
+
+	return networks
+}
 
 func getKubevirtSynchronizationSyncAddress(virtClient kubecli.KubevirtClient) (string, error) {
 	kv := libkubevirt.GetCurrentKv(virtClient)

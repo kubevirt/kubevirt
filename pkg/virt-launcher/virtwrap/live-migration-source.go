@@ -1012,7 +1012,14 @@ func generateDomainName(vmi *v1.VirtualMachineInstance) string {
 }
 
 func updateFilePathsToNewDomain(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) {
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetState != nil && vmi.Status.MigrationState.TargetState.DomainNamespace != nil {
+	// Modify the domain XML to update paths to the target volumes to match the new domain
+	// Mirror generateDomainName() validation: check both non-nil and non-empty
+	// Empty string would corrupt paths via strings.Replace(path, namespace, "", 1)
+	if domSpec != nil &&
+		vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.TargetState != nil &&
+		vmi.Status.MigrationState.TargetState.DomainNamespace != nil &&
+		*vmi.Status.MigrationState.TargetState.DomainNamespace != "" {
 		targetNS := *vmi.Status.MigrationState.TargetState.DomainNamespace
 		// Modify the domain XML to update paths to the target volumes to match the new domain
 		for i, disk := range domSpec.Devices.Disks {
@@ -1024,14 +1031,30 @@ func updateFilePathsToNewDomain(vmi *v1.VirtualMachineInstance, domSpec *api.Dom
 				log.Log.Object(vmi).V(4).Infof("Updated disk %s datastore backend path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.DataStore.Source.File)
 			}
 			if disk.Source.File != "" && strings.Contains(disk.Source.File, vmi.Namespace) {
+				// Need to update the namespace in the path to the new namespace.
 				oldPath := disk.Source.File
-				domSpec.Devices.Disks[i].Source.File = strings.Replace(disk.Source.File, vmi.Namespace, targetNS, 1)
-				log.Log.Object(vmi).V(4).Infof("Updated disk %s source path from %s to %s", disk.Alias.GetName(), oldPath, domSpec.Devices.Disks[i].Source.File)
+				newPath := strings.Replace(disk.Source.File, vmi.Namespace, *vmi.Status.MigrationState.TargetState.DomainNamespace, 1)
+
+				// Also need to update the VMI name in the path if DomainName is set and non-empty
+				// Mirror generateDomainName() validation to prevent path corruption from empty string
+				if vmi.Status.MigrationState.TargetState.DomainName != nil &&
+					*vmi.Status.MigrationState.TargetState.DomainName != "" {
+					newPath = strings.Replace(newPath, vmi.Name, *vmi.Status.MigrationState.TargetState.DomainName, 1)
+				} else {
+					log.Log.Object(vmi).Warning("vmi.Status.MigrationState.TargetState.DomainName is nil or empty, skipping update of file paths to new domain")
+				}
+
+				domSpec.Devices.Disks[i].Source.File = newPath
+				log.Log.Object(vmi).V(4).Infof("Updated disk %s source path from %s to %s", disk.Alias.GetName(), oldPath, newPath)
 			}
 			if bp := disksource.Resolve(domSpec.Devices.Disks[i]).BackendPath(); bp != "" {
 				log.Log.Object(vmi).V(4).Infof("Paths of disk %s: %s", disk.Alias.GetName(), bp)
 			}
 		}
+	} else if domSpec == nil {
+		log.Log.Object(vmi).Warning("domSpec is nil, skipping update of file paths to new domain")
+	} else {
+		log.Log.Object(vmi).Warning("vmi.Status.MigrationState is nil, skipping update of file paths to new domain")
 	}
 }
 

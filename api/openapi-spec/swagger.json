@@ -16333,6 +16333,10 @@
       "description": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
       "type": "string"
      },
+     "synchronizationPlacement": {
+      "description": "SynchronizationPlacement allows customization of node placement for synchronization controllers. This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to the cross-cluster migration network). By default, sync controllers use control-plane placement.",
+      "$ref": "#/definitions/v1.ComponentConfig"
+     },
      "synchronizationPort": {
       "description": "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
       "type": "string"
@@ -16724,6 +16728,10 @@
       "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
       "type": "integer",
       "format": "int64"
+     },
+     "crossClusterNetwork": {
+      "description": "CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations. When specified, synchronization controllers will attach to this network in addition to the in-cluster migration network, and will proxy migration traffic between the two networks. This reduces IP address requirements on the cross-cluster network. By default, not set.",
+      "type": "string"
      },
      "disableTLS": {
       "description": "When set to true, DisableTLS will disable the additional layer of live migration encryption provided by KubeVirt. This is usually a bad idea. Defaults to false",

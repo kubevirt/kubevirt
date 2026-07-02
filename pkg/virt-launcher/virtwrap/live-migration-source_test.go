@@ -426,6 +426,148 @@ var _ = Describe("Live migration source", func() {
 				"/var/lib/libvirt/qemu/cbt/vol.qcow2",
 				"/var/run/kubevirt-private/vmi-disks/vol/disk.img"),
 		)
+
+		Context("full kubevirt path rewriting", func() {
+			var vmi *v1.VirtualMachineInstance
+			var domSpec *api.DomainSpec
+
+			BeforeEach(func() {
+				vmi = &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+					},
+					Status: v1.VirtualMachineInstanceStatus{},
+				}
+
+				domSpec = &api.DomainSpec{
+					Devices: api.Devices{
+						Disks: []api.Disk{
+							{
+								Alias: api.NewUserDefinedAlias("disk0"),
+								Source: api.DiskSource{
+									File: "/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/test-vm/noCloud.iso",
+								},
+							},
+							{
+								Alias: api.NewUserDefinedAlias("disk1"),
+								Source: api.DiskSource{
+									File: "/var/run/kubevirt/default/test-vm/disk.img",
+								},
+							},
+							{
+								Alias: api.NewUserDefinedAlias("disk2"),
+								Source: api.DiskSource{
+									File: "/other/path/without/namespace",
+								},
+							},
+						},
+					},
+				}
+			})
+
+			DescribeTable("path rewriting",
+				func(targetNamespace, targetName *string, expectedPaths []string) {
+					By("Setting up migration state")
+					if targetNamespace != nil || targetName != nil {
+						vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+							TargetState: &v1.VirtualMachineInstanceMigrationTargetState{},
+						}
+						if targetNamespace != nil {
+							vmi.Status.MigrationState.TargetState.DomainNamespace = targetNamespace
+						}
+						if targetName != nil {
+							vmi.Status.MigrationState.TargetState.DomainName = targetName
+						}
+					}
+
+					By("Calling updateFilePathsToNewDomain")
+					updateFilePathsToNewDomain(vmi, domSpec)
+
+					By("Verifying updated paths")
+					for i, expectedPath := range expectedPaths {
+						Expect(domSpec.Devices.Disks[i].Source.File).To(Equal(expectedPath),
+							"Disk %d path should match expected", i)
+					}
+				},
+				Entry("no migration state - paths unchanged",
+					nil, nil,
+					[]string{
+						"/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/test-vm/noCloud.iso",
+						"/var/run/kubevirt/default/test-vm/disk.img",
+						"/other/path/without/namespace",
+					},
+				),
+				Entry("namespace only changed",
+					pointer.P("target-ns"), nil,
+					[]string{
+						"/var/run/kubevirt-ephemeral-disks/cloud-init-data/target-ns/test-vm/noCloud.iso",
+						"/var/run/kubevirt/target-ns/test-vm/disk.img",
+						"/other/path/without/namespace",
+					},
+				),
+				Entry("namespace and name both changed",
+					pointer.P("target-ns"), pointer.P("target-vm"),
+					[]string{
+						"/var/run/kubevirt-ephemeral-disks/cloud-init-data/target-ns/target-vm/noCloud.iso",
+						"/var/run/kubevirt/target-ns/target-vm/disk.img",
+						"/other/path/without/namespace",
+					},
+				),
+				Entry("empty namespace (path corruption prevention)",
+					pointer.P(""), pointer.P("target-vm"),
+					[]string{
+						"/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/test-vm/noCloud.iso",
+						"/var/run/kubevirt/default/test-vm/disk.img",
+						"/other/path/without/namespace",
+					},
+				),
+				Entry("empty name (path corruption prevention)",
+					pointer.P("target-ns"), pointer.P(""),
+					[]string{
+						"/var/run/kubevirt-ephemeral-disks/cloud-init-data/target-ns/test-vm/noCloud.iso",
+						"/var/run/kubevirt/target-ns/test-vm/disk.img",
+						"/other/path/without/namespace",
+					},
+				),
+				Entry("both empty (path corruption prevention)",
+					pointer.P(""), pointer.P(""),
+					[]string{
+						"/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/test-vm/noCloud.iso",
+						"/var/run/kubevirt/default/test-vm/disk.img",
+						"/other/path/without/namespace",
+					},
+				),
+			)
+
+			It("should not panic on nil TargetState", func() {
+				By("Setting up migration state with nil TargetState")
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetState: nil,
+				}
+
+				By("Calling updateFilePathsToNewDomain")
+				Expect(func() {
+					updateFilePathsToNewDomain(vmi, domSpec)
+				}).ToNot(Panic())
+
+				By("Verifying paths unchanged")
+				Expect(domSpec.Devices.Disks[0].Source.File).To(Equal(
+					"/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/test-vm/noCloud.iso"))
+			})
+
+			It("should not panic on nil domSpec", func() {
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{},
+				}
+				vmi.Status.MigrationState.TargetState.DomainNamespace = pointer.P("target-ns")
+				vmi.Status.MigrationState.TargetState.DomainName = pointer.P("target-vm")
+
+				Expect(func() {
+					updateFilePathsToNewDomain(vmi, nil)
+				}).ToNot(Panic())
+			})
+		})
 	})
 
 	Context("convertDisks", func() {

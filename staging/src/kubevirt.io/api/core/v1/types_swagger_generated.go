@@ -630,22 +630,23 @@ func (KubeVirtWorkloadUpdateStrategy) SwaggerDoc() map[string]string {
 
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"imageTag":                "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
-		"imageRegistry":           "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy":         "The ImagePullPolicy to use for KubeVirt operator-managed infrastructure\nimages (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).\nFor pull policy of user workload pods, see\nspec.configuration.imagePullPolicy.",
-		"imagePullSecrets":        "The imagePullSecrets to pull the container images from\nDefaults to none\n+listType=atomic",
-		"monitorNamespace":        "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
-		"serviceMonitorNamespace": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
-		"monitorAccount":          "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
-		"workloadUpdateStrategy":  "WorkloadUpdateStrategy defines at the cluster level how to handle\nautomated workload updates",
-		"uninstallStrategy":       "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
-		"productVersion":          "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
-		"productName":             "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
-		"productComponent":        "Designate the apps.kubevirt.io/component label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductComponent is not specified, the component label default value is kubevirt.",
-		"synchronizationPort":     "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
-		"configuration":           "holds kubevirt configurations.\nsame as the virt-configMap",
-		"infra":                   "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
-		"workloads":               "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"imageTag":                 "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":            "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
+		"imagePullPolicy":          "The ImagePullPolicy to use for KubeVirt operator-managed infrastructure\nimages (virt-api, virt-controller, virt-handler, virt-exportproxy, etc.).\nFor pull policy of user workload pods, see\nspec.configuration.imagePullPolicy.",
+		"imagePullSecrets":         "The imagePullSecrets to pull the container images from\nDefaults to none\n+listType=atomic",
+		"monitorNamespace":         "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
+		"serviceMonitorNamespace":  "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
+		"monitorAccount":           "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
+		"workloadUpdateStrategy":   "WorkloadUpdateStrategy defines at the cluster level how to handle\nautomated workload updates",
+		"uninstallStrategy":        "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
+		"productVersion":           "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
+		"productName":              "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
+		"productComponent":         "Designate the apps.kubevirt.io/component label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductComponent is not specified, the component label default value is kubevirt.",
+		"synchronizationPort":      "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
+		"configuration":            "holds kubevirt configurations.\nsame as the virt-configMap",
+		"infra":                    "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
+		"workloads":                "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"synchronizationPlacement": "SynchronizationPlacement allows customization of node placement for synchronization controllers.\nThis can be used to schedule sync controllers on specific nodes (e.g., nodes with access to\nthe cross-cluster migration network). By default, sync controllers use control-plane placement.\n+optional",
 	}
 }
 
@@ -1078,6 +1079,7 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
 		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
+		"crossClusterNetwork":               "CrossClusterNetwork is the name of the CNI network to use for cross-cluster live migrations.\nWhen specified, synchronization controllers will attach to this network in addition to the\nin-cluster migration network, and will proxy migration traffic between the two networks.\nThis reduces IP address requirements on the cross-cluster network. By default, not set.",
 	}
 }
 
