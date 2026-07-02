@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors.
  *
  */
-//nolint:dupl
 package revision
 
 import (
@@ -25,6 +24,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
@@ -140,12 +141,55 @@ func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 		return nil, err
 	}
 
+	// Populate InstancetypeStatusResources unless the VM has a pending restart,
+	// in which case the existing resources reflect the currently active
+	// instancetype and should be preserved until the restart occurs.
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if !(vm.Status.Created && vmConditionManager.HasConditionWithStatus(
+		vm, virtv1.VirtualMachineRestartRequired, k8sv1.ConditionTrue)) {
+		if err := h.populateInstancetypeStatusResources(vm, statusRef); err != nil {
+			return nil, err
+		}
+	}
+
 	if equality.Semantic.DeepEqual(vm.Status.InstancetypeRef, statusRef) {
 		return nil, nil
 	}
 
 	vm.Status.InstancetypeRef = statusRef
 	return vm.Status.InstancetypeRef, nil
+}
+
+func (h *revisionHandler) populateInstancetypeStatusResources(
+	vm *virtv1.VirtualMachine,
+	statusRef *virtv1.InstancetypeStatusRef,
+) error {
+	vmApplier := apply.NewVMApplier(
+		find.NewSpecFinder(h.instancetypeStore, h.clusterInstancetypeStore, h.revisionStore, h.virtClient),
+		preferenceFind.NewSpecFinder(h.preferenceStore, h.clusterPreferenceStore, h.revisionStore, h.virtClient),
+	)
+	vmCopy := vm.DeepCopy()
+	if err := vmApplier.ApplyToVM(vmCopy); err != nil {
+		return err
+	}
+
+	domain := vmCopy.Spec.Template.Spec.Domain
+	if domain.CPU == nil {
+		return fmt.Errorf("cpu not defined after applying instancetype to VirtualMachine")
+	}
+	if domain.Memory == nil || domain.Memory.Guest == nil {
+		return fmt.Errorf("memory not defined after applying instancetype to VirtualMachine")
+	}
+
+	statusRef.Resources = &virtv1.InstancetypeStatusResources{
+		CPU: virtv1.CPUTopology{
+			Cores:   domain.CPU.Cores,
+			Sockets: domain.CPU.Sockets,
+			Threads: domain.CPU.Threads,
+		},
+		Memory: domain.Memory.Guest.DeepCopy(),
+	}
+	return nil
 }
 
 func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {

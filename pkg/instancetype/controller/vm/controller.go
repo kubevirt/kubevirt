@@ -92,11 +92,13 @@ func New(
 ) *controller {
 	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
 	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
+	storeHandler := revision.New(
+		instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
 	return &controller{
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
-		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		storeHandler:            storeHandler,
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
 		upgradeHandler:          upgrade.New(revisionStore, virtClient),
 		clientset:               virtClient,
