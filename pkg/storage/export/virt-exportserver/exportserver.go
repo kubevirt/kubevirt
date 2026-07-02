@@ -22,6 +22,7 @@ package virtexportserver
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -576,7 +577,7 @@ func tokenChecker(tokenGetter TokenGetterFunc, nextHandler http.Handler) http.Ha
 			return
 		}
 		for _, tok := range []string{getTokenQueryParam(r), getTokenHeader(r)} {
-			if tok == token {
+			if subtle.ConstantTimeCompare([]byte(tok), []byte(token)) == 1 {
 				nextHandler.ServeHTTP(w, r)
 				return
 			}
