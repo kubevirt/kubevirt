@@ -2144,20 +2144,47 @@ func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachine
 
 func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
 	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
+	networksByName := netvmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
 
 	sriovSpecIfacesNames := netvmispec.IndexInterfaceSpecByName(sriovSpecInterfaces)
+	draSriovSpecIfacesNames := map[string]struct{}{}
+	desiredSriovIfaceNames := map[string]struct{}{}
+	for _, sriovIface := range sriovSpecInterfaces {
+		if sriovIface.State == v1.InterfaceStateAbsent {
+			continue
+		}
+
+		if net, exists := networksByName[sriovIface.Name]; exists && netvmispec.IsDRANetwork(net) {
+			draSriovSpecIfacesNames[sriovIface.Name] = struct{}{}
+			desiredSriovIfaceNames[sriovIface.Name] = struct{}{}
+			continue
+		}
+
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, sriovIface.Name)
+		if ifaceStatus != nil && netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus) {
+			desiredSriovIfaceNames[sriovIface.Name] = struct{}{}
+		}
+	}
+
 	attachedSriovStatusIfaces := netvmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, func(iface v1.VirtualMachineInstanceNetworkInterface) bool {
 		_, exist := sriovSpecIfacesNames[iface.Name]
-		return exist && netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceDomain) &&
-			netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
+		if !exist {
+			return false
+		}
+
+		if _, shouldBeHotplugged := desiredSriovIfaceNames[iface.Name]; !shouldBeHotplugged {
+			return false
+		}
+
+		if !netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceDomain) {
+			return false
+		}
+
+		_, isDRAIface := draSriovSpecIfacesNames[iface.Name]
+		return isDRAIface || netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
 	})
 
-	desiredSriovMultusPluggedIfaces := netvmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, func(iface v1.VirtualMachineInstanceNetworkInterface) bool {
-		_, exist := sriovSpecIfacesNames[iface.Name]
-		return exist && netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
-	})
-
-	if len(desiredSriovMultusPluggedIfaces) == len(attachedSriovStatusIfaces) {
+	if len(desiredSriovIfaceNames) == len(attachedSriovStatusIfaces) {
 		c.sriovHotplugExecutorPool.Delete(vmi.UID)
 		return nil
 	}

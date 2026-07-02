@@ -63,6 +63,7 @@ import (
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -1551,6 +1552,46 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 				Expect(controller.processVmCleanup(vmi)).To(Succeed())
+			})
+		})
+
+		Context("reacting to a VMI with SR-IOV DRA interfaces", func() {
+			newSriovDRAVMI := func() *v1.VirtualMachineInstance {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+					Name: "sriov-dra",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						SRIOV: &v1.InterfaceSRIOV{},
+					},
+				}}
+				vmi.Spec.Networks = []v1.Network{{
+					Name: "sriov-dra",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "claim-ref",
+							RequestName: "req1",
+						},
+					},
+				}}
+				return vmi
+			}
+
+			It("should not trigger SR-IOV hotplug when DRA interface is already attached", func() {
+				vmi := newSriovDRAVMI()
+				vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{
+					Name:       "sriov-dra",
+					InfoSource: netvmispec.InfoSourceDomain,
+				}}
+
+				Expect(controller.hotplugSriovInterfaces(vmi)).To(Succeed())
+			})
+
+			It("should trigger SR-IOV hotplug when DRA interface is not attached yet", func() {
+				vmi := newSriovDRAVMI()
+				client.EXPECT().HotplugHostDevices(vmi).Return(nil)
+
+				Expect(controller.hotplugSriovInterfaces(vmi)).To(Succeed())
 			})
 		})
 

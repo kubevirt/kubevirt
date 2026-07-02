@@ -75,6 +75,12 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+    if [[ "${KUBEVIRT_PROVIDER}" == "k8s-1.36" ]]; then
+      export KUBEVIRT_WITH_SRIOV=true
+      export KUBEVIRT_USE_DRA=true
+      export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
+      add_feature_gate "NetworkDevicesWithDRA"
+    fi
     ;;
   *emulated-igb*)
     export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
@@ -177,6 +183,8 @@ fi
 if [[ $TARGET =~ sriov.* ]]; then
   if [[ $TARGET =~ kind.* ]]; then
     export KUBEVIRT_NUM_NODES=3
+    # TODO do this only for DRA SR-IOV tests
+    # export KUBEVIRT_USE_DRA=true
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
@@ -525,6 +533,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(Windows)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
+    if [[ "${KUBEVIRT_PROVIDER}" == "k8s-1.36" ]]; then
+      label_filter="(${label_filter},(DRA-Network))"
+    fi
     # SR-IOV tests runs on dedicated lane (matching the pattern: *kind-sriov*)
     add_to_label_filter "(!SRIOV)" "&&"
     if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
@@ -571,6 +582,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ emulated-igb ]]; then
     label_filter='(SRIOV)'
+    # Enable NetworkDevicesWithDRA feature gate for DRA SR-IOV tests
+    # kubectl patch kubevirt -n kubevirt kubevirt --type=merge -p='{"spec":{"configuration":{"developerConfiguration":{"featureGates":["NetworkDevicesWithDRA"]}}}}'
+    # label_filter='(DRA-Network)
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
   else

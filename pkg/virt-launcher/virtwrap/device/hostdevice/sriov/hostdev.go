@@ -42,12 +42,19 @@ import (
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	networksByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
 	SRIOVInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		if iface.SRIOV == nil {
 			return false
 		}
 		ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
-		return ifaceStatus != nil && vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+		if ifaceStatus == nil || !vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) {
+			return false
+		}
+		// For DRA-backed interfaces, skip legacy network-info and resolve from
+		// KEP-5304 metadata via CreateDRAHostDevices.
+		network, exists := networksByName[iface.Name]
+		return !exists || !vmispec.IsDRANetwork(network)
 	})
 	if len(SRIOVInterfaces) == 0 {
 		return []api.HostDevice{}, nil
@@ -144,12 +151,8 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 // CreateDRAHostDevices creates SR-IOV host devices for networks that use DRA.
 // PCI addresses are resolved from pod-local DRA metadata files.
 func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, metadataBasePath string) ([]api.HostDevice, error) {
-	sriovInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
-	if len(sriovInterfaces) == 0 {
-		return []api.HostDevice{}, nil
-	}
-
 	networksByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
+	sriovInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
 
 	// filter to only DRA-backed SR-IOV interfaces
 	var sriovDRAInterfaces []v1.Interface
@@ -225,6 +228,13 @@ func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.Doma
 	if err != nil {
 		return nil, err
 	}
+
+	sriovDRADevices, err := CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
+	if err != nil {
+		return nil, err
+	}
+	sriovDevices = append(sriovDevices, sriovDRADevices...)
+
 	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, deviceinfo.SRIOVAliasPrefix)
 
 	sriovHostDevicesToAttach := hostdevice.DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
