@@ -208,10 +208,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 			Context(" with node tainted during node drain", Serial, func() {
 
-				var (
-					nodeAffinity     *k8sv1.NodeAffinity
-					nodeAffinityTerm k8sv1.PreferredSchedulingTerm
-				)
+				var nodeAffinity *k8sv1.NodeAffinity
 
 				expectVMIMigratedToAnotherNode := func(vmiNamespace, vmiName, sourceNodeName string) {
 					EventuallyWithOffset(1, func() error {
@@ -241,21 +238,15 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						config.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 
-					controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
-
-					// This nodeAffinity will make sure the vmi, initially, will not be scheduled in the control-plane node in those clusters where there is only one.
-					// This is mandatory, since later the tests will drain the node where the vmi will be scheduled.
-					nodeAffinityTerm = k8sv1.PreferredSchedulingTerm{
-						Weight: int32(1),
-						Preference: k8sv1.NodeSelectorTerm{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{Key: k8sv1.LabelHostname, Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
-							},
-						},
-					}
-
+					// Ensure VMIs don't land on the control-plane node, since the tests drain the node they start on.
 					nodeAffinity = &k8sv1.NodeAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{nodeAffinityTerm},
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{Key: "node-role.kubernetes.io/control-plane", Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{""}},
+								},
+							}},
+						},
 					}
 				})
 
@@ -330,49 +321,46 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					const labelKey = "testkey"
 
 					// give an affinity rule to ensure the vmi's get placed on the same node.
-					podAffinityTerm := k8sv1.WeightedPodAffinityTerm{
-						Weight: int32(1),
-						PodAffinityTerm: k8sv1.PodAffinityTerm{
-							LabelSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{
-										Key:      labelKey,
-										Operator: metav1.LabelSelectorOpIn,
-										Values:   []string{""}},
-								},
+					podAffinityTerm := k8sv1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      labelKey,
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{""}},
 							},
-							TopologyKey: k8sv1.LabelHostname,
 						},
+						TopologyKey: k8sv1.LabelHostname,
 					}
 					vmi_evict1 := libvmifact.NewGuestless(
 						libnet.WithMasqueradeNetworking(),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
-						libvmi.WithPreferredPodAffinity(podAffinityTerm),
-						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+						libvmi.WithRequiredPodAffinity(podAffinityTerm),
+						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
 					vmi_evict2 := libvmifact.NewGuestless(
 						libnet.WithMasqueradeNetworking(),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
-						libvmi.WithPreferredPodAffinity(podAffinityTerm),
-						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+						libvmi.WithRequiredPodAffinity(podAffinityTerm),
+						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
 					vmi_noevict := libvmifact.NewGuestless(
 						libnet.WithMasqueradeNetworking(),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithLabel(labelKey, ""),
-						libvmi.WithPreferredPodAffinity(podAffinityTerm),
-						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+						libvmi.WithRequiredPodAffinity(podAffinityTerm),
+						libvmi.WithNodeAntiaffinityForLabel("node-role.kubernetes.io/control-plane", ""),
 					)
 
 					By("Starting the VirtualMachineInstance with eviction set to live migration")
-					vm_evict1 := libvmi.NewVirtualMachine(vmi_evict1)
-					vm_evict2 := libvmi.NewVirtualMachine(vmi_evict2)
-					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict)
+					vm_evict1 := libvmi.NewVirtualMachine(vmi_evict1, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm_evict2 := libvmi.NewVirtualMachine(vmi_evict2, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 					// post VMs
 					vm_evict1, err := virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1, metav1.CreateOptions{})
@@ -382,15 +370,18 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vm_noevict, err = virtClient.VirtualMachine(vm_noevict.Namespace).Create(context.Background(), vm_noevict, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					// Start VMs
-					vm_evict1 = libvmops.StartVirtualMachine(vm_evict1)
-					vm_evict2 = libvmops.StartVirtualMachine(vm_evict2)
-					vm_noevict = libvmops.StartVirtualMachine(vm_noevict)
+					// Wait for all three VMs to be ready before proceeding
+					Eventually(matcher.ThisVM(vm_evict1), libvmops.StartupTimeoutSecondsXHuge*time.Second, time.Second).Should(matcher.BeReady())
+					Eventually(matcher.ThisVM(vm_evict2), libvmops.StartupTimeoutSecondsXHuge*time.Second, time.Second).Should(matcher.BeReady())
+					Eventually(matcher.ThisVM(vm_noevict), libvmops.StartupTimeoutSecondsXHuge*time.Second, time.Second).Should(matcher.BeReady())
 
 					// Get VMIs
 					vmi_evict1, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_evict1.Name, metav1.GetOptions{})
-					vmi_evict2, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_evict2.Name, metav1.GetOptions{})
-					vmi_noevict, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_noevict.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					vmi_evict2, err = virtClient.VirtualMachineInstance(vmi_evict2.Namespace).Get(context.Background(), vmi_evict2.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					vmi_noevict, err = virtClient.VirtualMachineInstance(vmi_noevict.Namespace).Get(context.Background(), vmi_noevict.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Verifying all VMIs are collcated on the same node")
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_evict2.Status.NodeName))

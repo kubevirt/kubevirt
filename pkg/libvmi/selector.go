@@ -50,10 +50,14 @@ func WithToleration(toleration k8sv1.Toleration) Option {
 }
 
 func WithNodeAffinityForLabel(nodeLabelKey, nodeLabelValue string) Option {
+	return withRequiredNodeAffinityForLabel(nodeLabelKey, nodeLabelValue, k8sv1.NodeSelectorOpIn)
+}
+
+func withRequiredNodeAffinityForLabel(nodeLabelKey, nodeLabelValue string, op k8sv1.NodeSelectorOperator) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		nodeSelectorTerm := k8sv1.NodeSelectorTerm{
 			MatchExpressions: []k8sv1.NodeSelectorRequirement{
-				{Key: nodeLabelKey, Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeLabelValue}},
+				{Key: nodeLabelKey, Operator: op, Values: []string{nodeLabelValue}},
 			},
 		}
 
@@ -110,6 +114,10 @@ func WithPreferredPodAffinity(term k8sv1.WeightedPodAffinityTerm) Option {
 			vmi.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term,
 		)
 	}
+}
+
+func WithNodeAntiaffinityForLabel(nodeLabelKey, nodeLabelValue string) Option {
+	return withRequiredNodeAffinityForLabel(nodeLabelKey, nodeLabelValue, k8sv1.NodeSelectorOpNotIn)
 }
 
 func WithPreferredNodeAffinity(term k8sv1.PreferredSchedulingTerm) Option {
