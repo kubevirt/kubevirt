@@ -297,14 +297,16 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 	panicInfo, err := util.ReadPanicInfoFromLog(logPath)
 
 	var eventMessage string
-	if err != nil {
-		log.Log.Reason(err).Warning("Failed to read panic info from log")
+	if panicInfo == nil || err != nil {
+		if err != nil {
+			log.Log.Reason(err).Warning("Failed to read panic info from log")
+		}
 		eventMessage = "GuestPanicked (details unavailable)"
 		panicInfo = &api.GuestPanicInfo{Type: "unknown"}
 	} else {
 		eventMessage = util.FormatGuestPanicInfo(panicInfo)
-		log.Log.Infof("Guest panic detected: %s", eventMessage)
 	}
+	log.Log.Infof("Guest panic detected: %s", eventMessage)
 
 	// Only mark as handled for PANICKED events. CRASHLOADED indicates kdump-based
 	// recovery where the guest reboots, so subsequent panic events should still fire.
