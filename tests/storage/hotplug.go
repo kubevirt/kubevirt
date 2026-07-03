@@ -725,21 +725,26 @@ var _ = Describe(SIG("Hotplug", func() {
 		})
 	})
 
-	Context("WFFC storage", decorators.RequiresWFFCStorageClass, func() {
+	Context("WFFC storage", func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
 		)
-		const numPVs = 3
+		const (
+			numDVs = 3
+		)
+
 		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-				Fail("fail test, no wffc storage class available")
-			}
+			sc, err = libstorage.CreateWFFCStorageClass(virtClient)
+			Expect(err).ToNot(HaveOccurred(), "Could not create dummy wffc storage class, %s", err)
 		})
 
-		It("Should be able to boot from WFFC local storage", decorators.StorageCritical, func() {
+		AfterEach(func() {
+			// clean up the storage class created for this test
+			libstorage.DeleteStorageClass(sc)
+		})
+
+		It("Should be able to boot from WFFC storage", decorators.StorageCritical, func() {
 			dvName := "disk0"
 			vm = createBootableHotplugVM(sc)
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -750,7 +755,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 		})
 
-		It("Should be able to add and use WFFC local storage", func() {
+		It("Should be able to add and use WFFC storage", func() {
 			vm = createAndStartWFFCStorageHotplugVM()
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to get VMI %s for WFFC storage test", vm.Name)
@@ -758,7 +763,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				libwait.WithTimeout(240),
 			)
 			dvNames := make([]string, 0)
-			for i := 0; i < numPVs; i++ {
+			for i := 0; i < numDVs; i++ {
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
@@ -769,7 +774,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				dvNames = append(dvNames, dv.Name)
 			}
 
-			for i := 0; i < numPVs; i++ {
+			for i := 0; i < numDVs; i++ {
 				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
 				addDVVolumeVM(vm.Name, vm.Namespace, dvNames[i], dvNames[i], v1.DiskBusSCSI, false, "")
 			}
