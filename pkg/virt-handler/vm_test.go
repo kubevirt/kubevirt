@@ -2139,6 +2139,71 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 		})
 
+		It("should clean up orphaned VM for VMI that migrated to another node", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.NodeNameLabel] = "othernode"
+			now := metav1.Now()
+			// the target node acked the migration completion and took over the VMI
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   "testmigration",
+				SourceNode:     host,
+				TargetNode:     "othernode",
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+				Completed:      true,
+			}
+			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
+			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(os.RemoveAll(filepath.Dir(sockFile))).To(Succeed())
+			})
+			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.ObjectMeta.DeletionTimestamp = &now
+
+			addDomain(domain)
+			createVMI(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			sanityExecuteNoDomain()
+
+			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+		})
+
+		It("should not clean up orphaned VM while the vmi is migrating to this node", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			// during the migration the vmi is still owned by the source node
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.NodeNameLabel] = "othernode"
+			// this node is the migration target; the source has not started
+			// transferring yet, so the migration is not in progress and the
+			// freshly defined incoming domain carries no migration metadata
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "testmigration",
+				SourceNode:   "othernode",
+				TargetNode:   host,
+			}
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+
+			addDomain(domain)
+			createVMI(vmi)
+			sanityExecute()
+
+			// the incoming target domain must not be torn down
+			Expect(controller.domainStore.List()).To(HaveLen(1))
+		})
+
 		It("should not try to migrate a vmi twice", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
