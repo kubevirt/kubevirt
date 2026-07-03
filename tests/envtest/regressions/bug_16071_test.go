@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -18,8 +17,9 @@ import (
 
 // Bug #16071: Stale status.preferenceRef after removing spec.preference
 //
-// Removing spec.preference leaves status.preferenceRef populated. The
-// stale ref persists until the Clear() fix from PR #16203 lands.
+// Removing spec.preference left status.preferenceRef populated. The
+// instancetype controller's Clear() now clears stale status refs when
+// the corresponding spec matchers are nil.
 var _ = Describe("Bug #16071", func() {
 	var f *framework.Framework
 	var ctx context.Context
@@ -71,13 +71,8 @@ var _ = Describe("Bug #16071", func() {
 			return err
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
-		By("verifying status.preferenceRef is stale")
-		// FIXME: status.preferenceRef should be cleared when
-		// spec.preference is removed but the instancetype controller
-		// currently returns early without clearing the stale ref.
-		vm, err = f.VirtClient().VirtualMachine("default").Get(ctx, vm.Name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(vm.Status.PreferenceRef).NotTo(BeNil(),
-			"BUG: status.preferenceRef is not cleared when spec.preference is removed")
+		By("verifying status.preferenceRef is cleared by the instancetype controller")
+		Eventually(matcher.ThisVM(vm), 10*time.Second, 100*time.Millisecond).ShouldNot(
+			matcher.HavePreferenceControllerRevisionRef())
 	})
 })
