@@ -59,6 +59,12 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		newKv := libkubevirt.GetCurrentKv(kubevirt.Client())
 		Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
 		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
+		// Ensure config are propagated to virt-template components
+		waitTimeout := 10 * time.Second
+		config.WaitForConfigToBePropagatedToComponent("app.kubernetes.io/name=virt-template,control-plane=apiserver",
+			newKv.ResourceVersion, config.ExpectResourceVersionToBeLessEqualThanConfigVersion, waitTimeout)
+		config.WaitForConfigToBePropagatedToComponent("app.kubernetes.io/name=virt-template,control-plane=controller-manager",
+			newKv.ResourceVersion, config.ExpectResourceVersionToBeLessEqualThanConfigVersion, waitTimeout)
 	})
 
 	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components",
