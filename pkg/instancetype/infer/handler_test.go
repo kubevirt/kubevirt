@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -34,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
+	snapshotfake "kubevirt.io/client-go/externalsnapshotter/fake"
 	"kubevirt.io/client-go/kubecli"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -52,27 +54,35 @@ var _ = Describe("InferFromVolume", func() {
 		virtClient *kubecli.MockKubevirtClient
 		handler    inferHandler
 
-		pvc             *k8sv1.PersistentVolumeClaim
-		dvWithSourcePVC *cdiv1.DataVolume
-		dvWithLabels    *cdiv1.DataVolume
-		dsWithSourcePVC *cdiv1.DataSource
-		dsWithLabels    *cdiv1.DataSource
+		pvc                  *k8sv1.PersistentVolumeClaim
+		dvWithSourcePVC      *cdiv1.DataVolume
+		dvWithLabels         *cdiv1.DataVolume
+		dsWithSourcePVC      *cdiv1.DataSource
+		dsWithLabels         *cdiv1.DataSource
+		volumeSnapshot       *vsv1.VolumeSnapshot
+		dsWithSourceSnapshot *cdiv1.DataSource
+		dvWithSourceSnapshot *cdiv1.DataVolume
 	)
 
 	const (
-		inferVolumeName           = "inferVolumeName"
-		defaultInferedNameFromPVC = "defaultInferedNameFromPVC"
-		defaultInferedKindFromPVC = "defaultInferedKindFromPVC"
-		defaultInferedNameFromDV  = "defaultInferedNameFromDV"
-		defaultInferedKindFromDV  = "defaultInferedKindFromDV"
-		defaultInferedNameFromDS  = "defaultInferedNameFromDS"
-		defaultInferedKindFromDS  = "defaultInferedKindFromDS"
-		pvcName                   = "pvcName"
-		dvWithSourcePVCName       = "dvWithSourcePVCName"
-		dsWithSourcePVCName       = "dsWithSourcePVCName"
-		dsWithLabelsName          = "dsWithLabelsName"
-		unknownPVCName            = "unknownPVCName"
-		unknownDVName             = "unknownDVName"
+		inferVolumeName                = "inferVolumeName"
+		defaultInferedNameFromPVC      = "defaultInferedNameFromPVC"
+		defaultInferedKindFromPVC      = "defaultInferedKindFromPVC"
+		defaultInferedNameFromDV       = "defaultInferedNameFromDV"
+		defaultInferedKindFromDV       = "defaultInferedKindFromDV"
+		defaultInferedNameFromDS       = "defaultInferedNameFromDS"
+		defaultInferedKindFromDS       = "defaultInferedKindFromDS"
+		defaultInferedNameFromSnapshot = "defaultInferedNameFromSnapshot"
+		defaultInferedKindFromSnapshot = "defaultInferedKindFromSnapshot"
+		pvcName                        = "pvcName"
+		volumeSnapshotName             = "volumeSnapshotName"
+		dvWithSourcePVCName            = "dvWithSourcePVCName"
+		dvWithSourceSnapshotName       = "dvWithSourceSnapshotName"
+		dsWithSourcePVCName            = "dsWithSourcePVCName"
+		dsWithSourceSnapshotName       = "dsWithSourceSnapshotName"
+		dsWithLabelsName               = "dsWithLabelsName"
+		unknownPVCName                 = "unknownPVCName"
+		unknownDVName                  = "unknownDVName"
 	)
 
 	BeforeEach(func() {
@@ -89,6 +99,7 @@ var _ = Describe("InferFromVolume", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sfake.NewSimpleClientset().CoreV1()).AnyTimes()
 		virtClient.EXPECT().CdiClient().Return(cdifake.NewSimpleClientset()).AnyTimes()
+		virtClient.EXPECT().KubernetesSnapshotClient().Return(snapshotfake.NewSimpleClientset()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(
 			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachinePreferences(vm.Namespace)).AnyTimes()
@@ -171,6 +182,58 @@ var _ = Describe("InferFromVolume", func() {
 			context.Background(), dsWithLabels, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
+		volumeSnapshot = &vsv1.VolumeSnapshot{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      volumeSnapshotName,
+				Namespace: vm.Namespace,
+				Labels: map[string]string{
+					apiinstancetype.DefaultInstancetypeLabel:     defaultInferedNameFromSnapshot,
+					apiinstancetype.DefaultInstancetypeKindLabel: defaultInferedKindFromSnapshot,
+					apiinstancetype.DefaultPreferenceLabel:       defaultInferedNameFromSnapshot,
+					apiinstancetype.DefaultPreferenceKindLabel:   defaultInferedKindFromSnapshot,
+				},
+			},
+		}
+		_, err = virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(vm.Namespace).Create(
+			context.Background(), volumeSnapshot, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		dvWithSourceSnapshot = &cdiv1.DataVolume{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      dvWithSourceSnapshotName,
+				Namespace: vm.Namespace,
+			},
+			Spec: cdiv1.DataVolumeSpec{
+				Source: &cdiv1.DataVolumeSource{
+					Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+						Name:      volumeSnapshot.Name,
+						Namespace: volumeSnapshot.Namespace,
+					},
+				},
+			},
+		}
+		dvWithSourceSnapshot, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(
+			context.Background(), dvWithSourceSnapshot, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		dsWithSourceSnapshot = &cdiv1.DataSource{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      dsWithSourceSnapshotName,
+				Namespace: vm.Namespace,
+			},
+			Spec: cdiv1.DataSourceSpec{
+				Source: cdiv1.DataSourceSource{
+					Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+						Name:      volumeSnapshot.Name,
+						Namespace: volumeSnapshot.Namespace,
+					},
+				},
+			},
+		}
+		dsWithSourceSnapshot, err = virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(
+			context.Background(), dsWithSourceSnapshot, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
 		handler = infer.New(virtClient)
 	})
 
@@ -216,8 +279,9 @@ var _ = Describe("InferFromVolume", func() {
 		),
 	)
 
-	DescribeTable("should infer defaults from DataVolumeSource and PersistentVolumeClaim",
+	DescribeTable("should infer defaults from DataVolumeSource",
 		func(
+			dvName string,
 			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
 			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
 		) {
@@ -227,7 +291,7 @@ var _ = Describe("InferFromVolume", func() {
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: dvWithSourcePVCName,
+						Name: dvName,
 					},
 				},
 			}}
@@ -236,7 +300,8 @@ var _ = Describe("InferFromVolume", func() {
 			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
-		Entry("for InstancetypeMatcher",
+		Entry("with DataVolumeSourcePVC for InstancetypeMatcher",
+			dvWithSourcePVCName,
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
@@ -245,7 +310,8 @@ var _ = Describe("InferFromVolume", func() {
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
 		),
-		Entry("for PreferenceMatcher",
+		Entry("with DataVolumeSourcePVC for PreferenceMatcher",
+			dvWithSourcePVCName,
 			nil, nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
@@ -255,10 +321,32 @@ var _ = Describe("InferFromVolume", func() {
 				Kind: defaultInferedKindFromPVC,
 			},
 		),
+		Entry("with DataVolumeSourceSnapshot for InstancetypeMatcher",
+			dvWithSourceSnapshotName,
+			&v1.InstancetypeMatcher{
+				InferFromVolume: inferVolumeName,
+			},
+			&v1.InstancetypeMatcher{
+				Name: defaultInferedNameFromSnapshot,
+				Kind: defaultInferedKindFromSnapshot,
+			}, nil, nil,
+		),
+		Entry("with DataVolumeSourceSnapshot for PreferenceMatcher",
+			dvWithSourceSnapshotName,
+			nil, nil,
+			&v1.PreferenceMatcher{
+				InferFromVolume: inferVolumeName,
+			},
+			&v1.PreferenceMatcher{
+				Name: defaultInferedNameFromSnapshot,
+				Kind: defaultInferedKindFromSnapshot,
+			},
+		),
 	)
 
-	DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourcePVC and PersistentVolumeClaim",
+	DescribeTable("should infer defaults from DataVolumeTemplate",
 		func(
+			dvSource *cdiv1.DataVolumeSource,
 			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
 			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
 		) {
@@ -277,11 +365,108 @@ var _ = Describe("InferFromVolume", func() {
 					Name: "dataVolume",
 				},
 				Spec: cdiv1.DataVolumeSpec{
-					Source: &cdiv1.DataVolumeSource{
-						PVC: &cdiv1.DataVolumeSourcePVC{
-							Name:      pvc.Name,
-							Namespace: pvc.Namespace,
-						},
+					Source: dvSource,
+				},
+			}}
+
+			Expect(handler.Infer(vm)).To(Succeed())
+			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+		},
+		Entry("with DataVolumeSourcePVC for InstancetypeMatcher",
+			&cdiv1.DataVolumeSource{
+				PVC: &cdiv1.DataVolumeSourcePVC{
+					Name:      pvcName,
+					Namespace: k8sv1.NamespaceDefault,
+				},
+			},
+			&v1.InstancetypeMatcher{
+				InferFromVolume: inferVolumeName,
+			},
+			&v1.InstancetypeMatcher{
+				Name: defaultInferedNameFromPVC,
+				Kind: defaultInferedKindFromPVC,
+			}, nil, nil,
+		),
+		Entry("with DataVolumeSourcePVC for PreferenceMatcher",
+			&cdiv1.DataVolumeSource{
+				PVC: &cdiv1.DataVolumeSourcePVC{
+					Name:      pvcName,
+					Namespace: k8sv1.NamespaceDefault,
+				},
+			},
+			nil, nil,
+			&v1.PreferenceMatcher{
+				InferFromVolume: inferVolumeName,
+			},
+			&v1.PreferenceMatcher{
+				Name: defaultInferedNameFromPVC,
+				Kind: defaultInferedKindFromPVC,
+			},
+		),
+		Entry("with DataVolumeSourceSnapshot for InstancetypeMatcher",
+			&cdiv1.DataVolumeSource{
+				Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+					Name:      volumeSnapshotName,
+					Namespace: k8sv1.NamespaceDefault,
+				},
+			},
+			&v1.InstancetypeMatcher{
+				InferFromVolume: inferVolumeName,
+			},
+			&v1.InstancetypeMatcher{
+				Name: defaultInferedNameFromSnapshot,
+				Kind: defaultInferedKindFromSnapshot,
+			}, nil, nil,
+		),
+		Entry("with DataVolumeSourceSnapshot for PreferenceMatcher",
+			&cdiv1.DataVolumeSource{
+				Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+					Name:      volumeSnapshotName,
+					Namespace: k8sv1.NamespaceDefault,
+				},
+			},
+			nil, nil,
+			&v1.PreferenceMatcher{
+				InferFromVolume: inferVolumeName,
+			},
+			&v1.PreferenceMatcher{
+				Name: defaultInferedNameFromSnapshot,
+				Kind: defaultInferedKindFromSnapshot,
+			},
+		),
+	)
+
+	DescribeTable("should infer defaults from DataVolumeSourceRef, DataSource with Snapshot source and VolumeSnapshot",
+		func(
+			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
+			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+		) {
+			vm.Spec.Instancetype = instancetypeMatcher
+			vm.Spec.Preference = preferenceMatcher
+
+			dvWithSourceRef := &cdiv1.DataVolume{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      "dvWithSnapshotSourceRef",
+					Namespace: vm.Namespace,
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Name:      dsWithSourceSnapshotName,
+						Kind:      "DataSource",
+						Namespace: &dsWithSourceSnapshot.Namespace,
+					},
+				},
+			}
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(
+				context.Background(), dvWithSourceRef, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dvWithSourceRef.Name,
 					},
 				},
 			}}
@@ -295,8 +480,8 @@ var _ = Describe("InferFromVolume", func() {
 				InferFromVolume: inferVolumeName,
 			},
 			&v1.InstancetypeMatcher{
-				Name: defaultInferedNameFromPVC,
-				Kind: defaultInferedKindFromPVC,
+				Name: defaultInferedNameFromSnapshot,
+				Kind: defaultInferedKindFromSnapshot,
 			}, nil, nil,
 		),
 		Entry("for PreferenceMatcher",
@@ -305,11 +490,12 @@ var _ = Describe("InferFromVolume", func() {
 				InferFromVolume: inferVolumeName,
 			},
 			&v1.PreferenceMatcher{
-				Name: defaultInferedNameFromPVC,
-				Kind: defaultInferedKindFromPVC,
+				Name: defaultInferedNameFromSnapshot,
+				Kind: defaultInferedKindFromSnapshot,
 			},
 		),
 	)
+
 	DescribeTable("should infer defaults from DataVolume with labels",
 		func(
 			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
@@ -1063,8 +1249,8 @@ var _ = Describe("InferFromVolume", func() {
 				Expect(vm.Spec.Instancetype).To(BeNil())
 				Expect(vm.Spec.Preference).To(BeNil())
 			} else {
-				Expect(handler.Infer(vm)).To(
-					MatchError(ContainSubstring("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")))
+				Expect(handler.Infer(vm)).To(MatchError(
+					ContainSubstring("doesn't provide DataVolumeSourcePVC or DataVolumeSourceSnapshot")))
 			}
 		},
 		Entry("for InstancetypeMatcher",
