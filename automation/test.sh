@@ -328,7 +328,8 @@ check_for_panics() {
     if [ -d "${ARTIFACTS_PATH}" ]; then
         local panic_files=$(grep -rlE --color=never -i "\bpanic(ked)?\b" "${ARTIFACTS_PATH}" 2>/dev/null | \
             while IFS= read -r file; do
-                grep -qE "panicked:\s*false" "$file" 2>/dev/null || echo "$file"
+                grep -vE 'panicked:\s*false|<testcase\b|Simulated virt-launcher crash' "$file" 2>/dev/null | grep -qiE "\bpanic(ked)?\b" || continue
+                echo "$file"
             done)
         if [ -n "$panic_files" ]; then
             echo ""
