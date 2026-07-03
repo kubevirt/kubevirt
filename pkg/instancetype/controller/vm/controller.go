@@ -65,8 +65,9 @@ type expandHandler interface {
 	Expand(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
 }
 
-type storeHandler interface {
+type revisionHandler interface {
 	Store(*virtv1.VirtualMachine) error
+	Clear(*virtv1.VirtualMachine)
 }
 
 type upgradeHandler interface {
@@ -75,7 +76,7 @@ type upgradeHandler interface {
 
 type controller struct {
 	applyVMHandler
-	storeHandler
+	revisionHandler
 	expandHandler
 	upgradeHandler
 	instancetypeFindHandler
@@ -96,7 +97,7 @@ func New(
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
-		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		revisionHandler:         revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
 		upgradeHandler:          upgrade.New(revisionStore, virtClient),
 		clientset:               virtClient,
@@ -112,6 +113,8 @@ const (
 )
 
 func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
+	c.Clear(vm)
+
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return vm, nil
 	}
