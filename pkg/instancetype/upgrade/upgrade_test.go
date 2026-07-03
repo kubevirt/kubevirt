@@ -22,7 +22,6 @@ package upgrade_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -147,17 +145,19 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
+		// Upgrade() now modifies vm.Status locally instead of calling PatchStatus
+		// VM controller is responsible for persisting via UpdateStatus()
 		Expect(sanityUpgrade(vm)).To(Succeed())
 
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
+		// Verify local VM object Status was updated (not persisted to API)
 		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
+		// Verify old CR was deleted (side effect is OK per architectural decision)
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
+		// Verify new CR was created and has correct version
 		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -374,75 +374,4 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 		),
 	)
-
-	It("should update vm.ObjectMeta.ResourceVersion after PatchStatus during Upgrade", func() {
-		// Add reactor to simulate ResourceVersion incrementation on PatchStatus
-		// This reactor ONLY sets ResourceVersion and doesn't try to apply the patch
-		// The test focuses on verifying the fix: vm.ObjectMeta = patchedVM.ObjectMeta
-		resourceVersionCounter := 0
-		fakeVMClient.Fake.PrependReactor("patch", "virtualmachines", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-			patchAction := action.(testing.PatchAction)
-			if patchAction.GetSubresource() == "status" {
-				resourceVersionCounter++
-				// Return a minimal VM with updated ResourceVersion
-				// This simulates what a real API server would return
-				return true, &virtv1.VirtualMachine{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            patchAction.GetName(),
-						Namespace:       patchAction.GetNamespace(),
-						ResourceVersion: fmt.Sprintf("%d", resourceVersionCounter),
-					},
-				}, nil
-			}
-			return false, nil, nil
-		})
-
-		// Create a ControllerRevision without version label to trigger upgrade
-		instancetypeCR := createControllerRevisionFromObject(
-			&instancetypev1beta1.VirtualMachineClusterInstancetype{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-instancetype",
-					Namespace: vm.Namespace,
-				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
-						Guest: uint32(2),
-					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
-						Guest: resource.MustParse("256Mi"),
-					},
-				},
-			},
-		)
-		instancetypeCR.Name = "test-instancetype-cr"
-		delete(instancetypeCR.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
-
-		Expect(controllerrevisionInformerStore.Add(instancetypeCR)).To(Succeed())
-		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
-			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
-				Name: instancetypeCR.Name,
-			},
-		}
-
-		var err error
-		vm, err = fakeVMClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		// Manually set initial ResourceVersion since fake clientset doesn't populate it on Create
-		vm.ResourceVersion = "0"
-		initialResourceVersion := vm.ResourceVersion
-		Expect(initialResourceVersion).ToNot(BeEmpty())
-
-		// Call Upgrade which will internally call PatchStatus
-		err = upgradeHandler.Upgrade(vm)
-		Expect(err).ToNot(HaveOccurred())
-
-		// Verify that ResourceVersion was updated by PatchStatus
-		// The fake clientset increments ResourceVersion on updates
-		Expect(vm.ResourceVersion).ToNot(Equal(initialResourceVersion))
-		Expect(vm.ResourceVersion).ToNot(BeEmpty())
-
-		// Verify that the upgrade actually happened
-		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(instancetypeCR.Name))
-	})
 })
