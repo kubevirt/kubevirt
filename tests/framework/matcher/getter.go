@@ -5,6 +5,7 @@ import (
 
 	policyv1 "k8s.io/api/policy/v1"
 
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/apps/v1"
@@ -17,6 +18,12 @@ import (
 )
 
 var getClient = kubevirt.Client
+
+// SetClient overrides the client function used by all getter helpers.
+// This allows envtest-based tests to inject their own client.
+func SetClient(fn func() kubecli.KubevirtClient) {
+	getClient = fn
+}
 
 // ThisPod fetches the latest state of the pod. If the object does not exist, nil is returned.
 func ThisPod(pod *v1.Pod) func() (*v1.Pod, error) {
