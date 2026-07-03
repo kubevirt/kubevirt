@@ -184,7 +184,7 @@ var _ = Describe("Panic Info", func() {
 			Expect(result.Arg1).To(Equal(uint64(0x5a)))
 		})
 
-		It("should return empty struct when no panic line found", func() {
+		It("should return nil when no panic line found", func() {
 			logFile := filepath.Join(tmpDir, "test.log")
 			content := `2024-09-30 16:30:48.000+0000: normal log line
 2024-09-30 16:30:50.000+0000: more log lines
@@ -195,8 +195,7 @@ var _ = Describe("Panic Info", func() {
 			result, err := ReadPanicInfoFromLog(logFile)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result).NotTo(BeNil())
-			Expect(result.Type).To(Equal(""))
+			Expect(result).To(BeNil())
 		})
 
 		It("should return last panic info when multiple panics in log", func() {
@@ -213,6 +212,19 @@ panic hyper-v: arg1='0x3'
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
 			Expect(result.Arg1).To(Equal(uint64(0x3)))
+		})
+
+		It("should return nil when log has no panic lines", func() {
+			logFile := filepath.Join(tmpDir, "test.log")
+			content := `2024-09-30T16:30:49.000000Z qemu-kvm: some normal log line
+2024-09-30T16:30:50.000000Z qemu-kvm: another normal line
+`
+			err := os.WriteFile(logFile, []byte(content), 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := ReadPanicInfoFromLog(logFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeNil())
 		})
 
 		It("should return error for non-existent file", func() {
