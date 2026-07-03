@@ -411,6 +411,25 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 
 	if vmiExists && !c.isVMIOwnedByNode(vmi) {
+		// Only clean up leftover local state (cached domain, ghost record) once
+		// the VMI's migration away from this node has terminated. NodeName and
+		// the NodeNameLabel are moved to the target node only in
+		// ackMigrationCompletion(), in the same VMI update that sets
+		// MigrationState.EndTimestamp. During an in-flight migration this node
+		// may be the migration target: !isVMIOwnedByNode(vmi) then holds for
+		// the whole migration while the incoming domain is cached locally, so
+		// relying on the isMigrationInProgress() check above (or on the domain
+		// carrying in-progress migration metadata) would be fragile. Requiring
+		// a terminated migration keeps this cleanup from ever racing a running
+		// source or target.
+		if string(domainCachedUID) != "" &&
+			vmi.Status.MigrationState != nil &&
+			vmi.Status.MigrationState.EndTimestamp != nil {
+			c.logger.Object(vmi).Info("cleaning up stale local state for vmi that migrated to another node")
+			if err := c.processVmCleanup(vmi); err != nil {
+				return err
+			}
+		}
 		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is not owned by this node")
 		return nil
 	}
