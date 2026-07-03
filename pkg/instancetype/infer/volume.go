@@ -34,21 +34,26 @@ const (
 	unsupportedVolumeTypeFmt          = "unable to infer defaults from volume %s as type is not supported"
 	missingLabelFmt                   = "unable to find required %s label on the volume"
 	unsupportedDataVolumeSource       = "unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported"
-	missingDataVolumeSourcePVC        = "unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC"
 	unsupportedDataVolumeSourceRefFmt = "unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported"
+	missingDataSourceSource           = "unable to infer defaults from DataSource that doesn't provide " +
+		"DataVolumeSourcePVC or DataVolumeSourceSnapshot"
 )
 
 /*
-Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources and PVCs:
+Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources, PVCs and VolumeSnapshots:
 
 Volume -> PersistentVolumeClaimVolumeSource -> PersistentVolumeClaim
 Volume -> DataVolumeSource -> DataVolume
 Volume -> DataVolumeSource -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeSourceSnapshot -> VolumeSnapshot
 Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> VolumeSnapshot
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceSnapshot -> VolumeSnapshot
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> VolumeSnapshot
 */
 func (h *handler) fromVolumes(
 	vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameLabel, defaultKindLabel string,
@@ -84,6 +89,17 @@ func (h *handler) fromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLa
 	return fromLabels(pvc.Labels, defaultNameLabel, defaultKindLabel)
 }
 
+func (h *handler) fromVolumeSnapshot(
+	snapshotName, snapshotNamespace, defaultNameLabel, defaultKindLabel string,
+) (defaultName, defaultKind string, err error) {
+	snapshot, err := h.virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(snapshotNamespace).Get(
+		context.Background(), snapshotName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	return fromLabels(snapshot.Labels, defaultNameLabel, defaultKindLabel)
+}
+
 func (h *handler) fromDataVolume(
 	vm *virtv1.VirtualMachine, dvName, defaultNameLabel, defaultKindLabel string,
 ) (defaultName, defaultKind string, err error) {
@@ -115,8 +131,15 @@ func (h *handler) fromDataVolume(
 func (h *handler) fromDataVolumeSpec(
 	dataVolumeSpec *cdiv1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string,
 ) (defaultName, defaultKind string, err error) {
-	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
-		return h.fromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
+	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil {
+		if dataVolumeSpec.Source.PVC != nil {
+			return h.fromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
+		}
+		if dataVolumeSpec.Source.Snapshot != nil {
+			return h.fromVolumeSnapshot(
+				dataVolumeSpec.Source.Snapshot.Name, dataVolumeSpec.Source.Snapshot.Namespace,
+				defaultNameLabel, defaultKindLabel)
+		}
 	}
 	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
 		return h.fromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace)
@@ -140,7 +163,10 @@ func (h *handler) fromDataSource(
 	if ds.Spec.Source.PVC != nil {
 		return h.fromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
 	}
-	return "", "", NewIgnoreableInferenceError(errors.New(missingDataVolumeSourcePVC))
+	if ds.Spec.Source.Snapshot != nil {
+		return h.fromVolumeSnapshot(ds.Spec.Source.Snapshot.Name, ds.Spec.Source.Snapshot.Namespace, defaultNameLabel, defaultKindLabel)
+	}
+	return "", "", NewIgnoreableInferenceError(errors.New(missingDataSourceSource))
 }
 
 func (h *handler) fromDataVolumeSourceRef(
