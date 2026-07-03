@@ -20,6 +20,9 @@
 set -e
 set -o pipefail
 
+DRA_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${DRA_SCRIPT_DIR}/../../../hack/detect_cri.sh"
+
 DRA_EXAMPLE_DRIVER_REPO="https://github.com/Sreeja1725/dra-example-driver.git"
 DRA_EXAMPLE_DRIVER_BRANCH="kubevirt-dra-profile"
 DRA_EXAMPLE_DRIVER_DIR=${DRA_EXAMPLE_DRIVER_DIR:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_dra-example-driver"}
@@ -46,19 +49,51 @@ function _dra_driver_image_tag() {
         | sed -E 's/^appVersion:[[:space:]]*"?([^"]*)"?/\1/'
 }
 
-function _container_tool() {
-    if [ -n "${CONTAINER_TOOL:-}" ]; then
-        echo "${CONTAINER_TOOL}"
-    elif [ -n "${_cri_bin:-}" ]; then
-        echo "${_cri_bin}"
-    elif docker ps >/dev/null 2>&1; then
-        echo docker
-    elif podman ps >/dev/null 2>&1; then
-        echo podman
-    else
-        echo "ERROR: no working container runtime found" >&2
+function _helm_bin() {
+    if command -v helm >/dev/null 2>&1; then
+        echo "Using helm binary: $(command -v helm)" >&2
+        command -v helm
+        return
+    fi
+
+    local version="${HELM_VERSION:-v3.16.4}"
+
+    [[ "${version}" == v* ]] || version="v${version}"
+
+    local os arch install_dir helm_bin url tarball
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    arch="$(uname -m)"
+    case "${arch}" in
+        x86_64) arch=amd64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *)
+            echo "ERROR: unsupported architecture for helm: ${arch}" >&2
+            return 1
+            ;;
+    esac
+
+    install_dir="${KUBEVIRTCI_CONFIG_PATH}/.tools/helm-${version}"
+    helm_bin="${install_dir}/helm"
+    if [ -x "${helm_bin}" ]; then
+        echo "${helm_bin}"
+        return
+    fi
+
+    mkdir -p "${install_dir}"
+    url="https://get.helm.sh/helm-${version}-${os}-${arch}.tar.gz"
+    tarball="${install_dir}/helm.tar.gz"
+    if ! curl -fsSL -o "${tarball}" "${url}"; then
+        echo "ERROR: failed to download helm from ${url}" >&2
+        echo "       check that HELM_VERSION=${version} is a real release for ${os}-${arch}." >&2
+        rm -f "${tarball}"
         return 1
     fi
+    
+    tar -xz -C "${install_dir}" -f "${tarball}" "${os}-${arch}/helm"
+    mv "${install_dir}/${os}-${arch}/helm" "${helm_bin}"
+    rm -f "${tarball}"
+    rmdir "${install_dir}/${os}-${arch}" 2>/dev/null || true
+    echo "${helm_bin}"
 }
 
 function clone_dra_example_driver() {
@@ -99,7 +134,7 @@ function cluster::install_dra_example_driver() {
     local local_image_repo="${docker_prefix}/${DRA_DRIVER_IMAGE_NAME}"
     local manifest_image_repo="${manifest_docker_prefix}/${DRA_DRIVER_IMAGE_NAME}"
 
-    export CONTAINER_TOOL="$(_container_tool)"
+    CONTAINER_TOOL="${CONTAINER_TOOL:-$(detect_cri)}"; export CONTAINER_TOOL
     export DRIVER_IMAGE_REGISTRY="${docker_prefix}"
     export DRIVER_IMAGE_NAME="${DRA_DRIVER_IMAGE_NAME}"
     export DRIVER_IMAGE_TAG="${driver_image_tag}"
@@ -109,7 +144,7 @@ function cluster::install_dra_example_driver() {
         bash demo/build-driver.sh
     )
 
-    if [ "${CONTAINER_TOOL}" == "podman" ]; then
+    if [[ "${CONTAINER_TOOL}" = "podman" ]]; then
         ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}" --tls-verify=false
     else
         ${CONTAINER_TOOL} push "${local_image_repo}:${driver_image_tag}"
@@ -117,7 +152,9 @@ function cluster::install_dra_example_driver() {
 
     create_privileged_dra_driver_namespace
 
-    helm upgrade -i dra-example-driver "${DRA_EXAMPLE_DRIVER_DIR}/deployments/helm/dra-example-driver" \
+    local helm_bin
+    helm_bin="$(_helm_bin)"
+    "${helm_bin}" upgrade -i dra-example-driver "${DRA_EXAMPLE_DRIVER_DIR}/deployments/helm/dra-example-driver" \
         --kubeconfig "${KUBECONFIG}" \
         --namespace "${DRA_DRIVER_NAMESPACE}" \
         --set deviceProfile="${DRA_DRIVER_PROFILE}" \
