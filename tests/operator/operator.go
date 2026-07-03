@@ -655,6 +655,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
 		DescribeTable("[release-blocker][test_id:3145]to target tested release", func(previousRelease int, updateOperator bool) {
+			// [Focus-for-flakes]
 			if !libstorage.HasCDI() {
 				Fail("Fail update test when CDI is not present")
 			}
