@@ -22,7 +22,6 @@ import (
 	"errors"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	api "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
@@ -30,12 +29,14 @@ import (
 const logVerbosityLevel = 3
 
 type handler struct {
-	virtClient kubecli.KubevirtClient
+	instancetypeHandler *volumeHandler
+	preferenceHandler   *volumeHandler
 }
 
 func New(virtClient kubecli.KubevirtClient) *handler {
 	return &handler{
-		virtClient: virtClient,
+		instancetypeHandler: newInstancetypeVolumeHandler(virtClient),
+		preferenceHandler:   newPreferenceVolumeHandler(virtClient),
 	}
 }
 
@@ -63,8 +64,7 @@ func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	}
 
 	ignoreFailure := shouldIgnoreFailure(vm.Spec.Instancetype.InferFromVolumeFailurePolicy)
-	defaultName, defaultKind, err := h.fromVolumes(
-		vm, vm.Spec.Instancetype.InferFromVolume, api.DefaultInstancetypeLabel, api.DefaultInstancetypeKindLabel)
+	defaultName, defaultKind, err := h.instancetypeHandler.fromVolumes(vm)
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
@@ -96,8 +96,7 @@ func (h *handler) Preference(vm *virtv1.VirtualMachine) error {
 	}
 
 	ignoreFailure := shouldIgnoreFailure(vm.Spec.Preference.InferFromVolumeFailurePolicy)
-	defaultName, defaultKind, err := h.fromVolumes(
-		vm, vm.Spec.Preference.InferFromVolume, api.DefaultPreferenceLabel, api.DefaultPreferenceKindLabel)
+	defaultName, defaultKind, err := h.preferenceHandler.fromVolumes(vm)
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
