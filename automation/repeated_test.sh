@@ -197,6 +197,11 @@ elif should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     exit 0
 fi
 
+# Tests triggered by a Prow batch should stop after the first failure to save CI resources
+if [[ -n ${PROW_JOB_ID:-} && ${JOB_TYPE} == "batch" ]]; then
+  ginkgo_params="$ginkgo_params --fail-fast"
+fi
+
 # for some tests we need three nodes aka two nodes with cpu manager installed
 # TODO: check whether no test with label `RequiresTwoWorkerNodesWithCPUManager` is present, in that case use two nodes
 KUBEVIRT_NUM_NODES=3
