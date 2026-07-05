@@ -23,6 +23,8 @@ source hack/common.sh
 source hack/config.sh
 source hack/virt-template/default.sh
 
+ARCHITECTURE=$(format_archname "${BUILD_ARCH:-$(uname -m)}")
+
 virt_template_targets="virt-template-apiserver virt-template-controller"
 
 for target in ${virt_template_targets}; do
