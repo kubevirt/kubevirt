@@ -969,13 +969,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	var controllerDriver *api.ControllerDriver
-	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
-		controllerDriver = &api.ControllerDriver{
-			IOMMU: "on",
-		}
-	}
-
 	hasIOThreads := iothreads.HasIOThreads(vmi)
 	var ioThreadCount, autoThreads int
 	if hasIOThreads {
@@ -1035,7 +1028,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
 			compute.ControllersWithSCSIModel(scsiControllerModel),
 			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
-			compute.ControllersWithControllerDriver(controllerDriver),
+			compute.ControllersWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			compute.ControllersWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
 		),

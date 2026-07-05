@@ -39,7 +39,8 @@ type ControllersDomainConfigurator struct {
 	isUSBNeeded               bool
 	scsiModel                 string
 	autoThreads               uint
-	controllerDriver          *api.ControllerDriver
+	useLaunchSecuritySEV      bool
+	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
 	virtioSerialModel         string
 }
@@ -59,8 +60,15 @@ func NewControllersDomainConfigurator(options ...controllersOption) ControllersD
 func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
 
+	var controllerDriver *api.ControllerDriver
+	if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
+		controllerDriver = &api.ControllerDriver{
+			IOMMU: "on",
+		}
+	}
+
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, uint(c.autoThreads), c.controllerDriver.DeepCopy())
+		scsiControllerDriver := assignSCSIControllerIOThread(vmi, uint(c.autoThreads), controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -69,7 +77,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresVirtioSerialController(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newVirtioSerialController(c.virtioSerialModel, c.controllerDriver))
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newVirtioSerialController(c.virtioSerialModel, controllerDriver))
 	}
 
 	return nil
@@ -93,9 +101,15 @@ func ControllersWithSCSIIOThreads(autoThreads uint) controllersOption {
 	}
 }
 
-func ControllersWithControllerDriver(controllerDriver *api.ControllerDriver) controllersOption {
+func ControllersWithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
-		c.controllerDriver = controllerDriver
+		c.useLaunchSecuritySEV = useLaunchSecuritySEV
+	}
+}
+
+func ControllersWithUseLaunchSecurityPV(useLaunchSecurityPV bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.useLaunchSecurityPV = useLaunchSecurityPV
 	}
 }
 
