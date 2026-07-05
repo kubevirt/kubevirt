@@ -500,7 +500,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 			})
 
-			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
+			DescribeTable("IPv6", decorators.IPv6, func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, networkCIDR)
@@ -531,7 +531,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
-			It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+			It("should be able to reach the outside world", decorators.IPv6, Label("RequiresOutsideConnectivity"), func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
@@ -609,7 +609,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
 			)
 
-			It("should preserve connectivity - IPv6", decorators.Conformance, func() {
+			It("should preserve connectivity - IPv6", decorators.Conformance, decorators.IPv6, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				var err error
