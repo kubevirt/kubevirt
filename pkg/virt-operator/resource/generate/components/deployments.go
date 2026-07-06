@@ -726,8 +726,12 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("150Mi"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
 
