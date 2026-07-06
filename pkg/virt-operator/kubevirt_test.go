@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"time"
@@ -54,7 +56,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -135,6 +139,7 @@ type KubeVirtTestData struct {
 	mockQueue      *testutils.MockWorkQueue[string]
 	virtClient     *kubecli.MockKubevirtClient
 	virtFakeClient *kubevirtfake.Clientset
+	dynamicClient  dynamic.Interface
 	kubeClient     *fake.Clientset
 	secClient      *secv1fake.FakeSecurityV1
 	extClient      *extclientfake.Clientset
@@ -255,6 +260,14 @@ func (k *KubeVirtTestData) BeforeTest() {
 	}
 
 	k.virtFakeClient = kubevirtfake.NewSimpleClientset()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"apiVersion":"v1","kind":"List","metadata":{"resourceVersion":""},"items":[]}`)
+	}))
+	DeferCleanup(ts.Close)
+	k.dynamicClient = dynamic.NewForConfigOrDie(&rest.Config{Host: ts.URL})
+	k.virtClient.EXPECT().DynamicClient().Return(k.dynamicClient).AnyTimes()
 
 	k.virtClient.EXPECT().SecClient().Return(k.secClient).AnyTimes()
 	k.virtClient.EXPECT().ExtensionsClient().Return(k.extClient).AnyTimes()

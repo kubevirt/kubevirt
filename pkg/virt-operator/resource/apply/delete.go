@@ -22,6 +22,8 @@ package apply
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -34,7 +36,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
@@ -607,6 +612,85 @@ func crdFilterNeedFinalizerRemoved(crds []*extv1.CustomResourceDefinition) []*ex
 	return filtered
 }
 
+func storedGVR(crd *extv1.CustomResourceDefinition) (schema.GroupVersionResource, bool) {
+	var version string
+	for _, v := range crd.Spec.Versions {
+		if v.Storage {
+			version = v.Name
+			break
+		}
+	}
+	if version == "" || crd.Status.AcceptedNames.Plural == "" {
+		return schema.GroupVersionResource{}, false
+	}
+	return schema.GroupVersionResource{
+		Group:    crd.Spec.Group,
+		Version:  version,
+		Resource: crd.Status.AcceptedNames.Plural,
+	}, true
+}
+
+// deleteAllCRDInstances pre-deletes all CR instances for each CRD so that
+// the k8s CRD finalizer completes quickly when CRDs are later deleted.
+// Returns true if any CRD type still has instances remaining.
+func deleteAllCRDInstances(ctx context.Context, crds []*extv1.CustomResourceDefinition, dynamicClient dynamic.Interface) bool {
+	gracePeriod := int64(0)
+	deleteOpts := metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+	}
+
+	hasInstances := false
+	for _, crd := range crds {
+		if crd.DeletionTimestamp != nil {
+			continue
+		}
+		gvr, ok := storedGVR(crd)
+		if !ok {
+			continue
+		}
+
+		list, err := dynamicClient.Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
+		if err != nil {
+			log.Log.Warningf("Failed to list instances of %s: %v", gvr.Resource, err)
+			continue
+		}
+		if len(list.Items) == 0 {
+			continue
+		}
+		hasInstances = true
+		log.Log.Infof("Deleting instances of %s before CRD deletion", gvr.Resource)
+
+		if crd.Spec.Scope == extv1.ClusterScoped {
+			if err := dynamicClient.Resource(gvr).DeleteCollection(ctx, deleteOpts, metav1.ListOptions{}); err != nil {
+				log.Log.Warningf("Failed to delete-collection for cluster-scoped %s: %v", gvr.Resource, err)
+			}
+			continue
+		}
+
+		nsList, err := dynamicClient.Resource(gvr).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			log.Log.Warningf("Failed to list instances of %s for namespace discovery: %v", gvr.Resource, err)
+			continue
+		}
+		for _, ns := range uniqueNamespaces(nsList) {
+			if err := dynamicClient.Resource(gvr).Namespace(ns).DeleteCollection(ctx, deleteOpts, metav1.ListOptions{}); err != nil {
+				log.Log.Warningf("Failed to delete-collection for %s in namespace %s: %v", gvr.Resource, ns, err)
+			}
+		}
+	}
+	return hasInstances
+}
+
+func uniqueNamespaces(list *unstructured.UnstructuredList) []string {
+	seen := make(map[string]struct{}, len(list.Items))
+	for _, item := range list.Items {
+		if ns := item.GetNamespace(); ns != "" {
+			seen[ns] = struct{}{}
+		}
+	}
+	return slices.Collect(maps.Keys(seen))
+}
+
 func crdHandleDeletion(kvkey string,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
@@ -627,8 +711,17 @@ func crdHandleDeletion(kvkey string,
 		crds = append(crds, crd)
 	}
 
-	needFinalizerAdded := crdFilterNeedFinalizerAdded(crds)
 	needDeletion := crdFilterNeedDeletion(crds)
+
+	// Pre-delete CR instances so the k8s CRD finalizer completes quickly
+	// when CRDs are later deleted. This avoids the 60s PollUntilContextTimeout
+	// in the k8s CRD finalizer controller hitting slow etcd Range calls.
+	if len(needDeletion) > 0 && deleteAllCRDInstances(context.Background(), crds, clientset.DynamicClient()) {
+		log.Log.Info("Waiting for CR instances to be deleted before proceeding with CRD deletion")
+		return nil
+	}
+
+	needFinalizerAdded := crdFilterNeedFinalizerAdded(crds)
 	needFinalizerRemoved := crdFilterNeedFinalizerRemoved(crds)
 
 	for _, crd := range needFinalizerAdded {
