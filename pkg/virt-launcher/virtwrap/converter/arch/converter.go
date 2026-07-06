@@ -41,6 +41,7 @@ type Converter interface {
 	ShouldVerboseLogsBeEnabled() bool
 	SupportPCIHole64Disabling() bool
 	SupportPCIePlacement() bool
+	IsMemfdSupported() bool
 }
 
 func NewConverter(arch string) Converter {

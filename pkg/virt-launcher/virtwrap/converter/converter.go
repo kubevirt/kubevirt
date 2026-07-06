@@ -1069,8 +1069,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.MemoryBacking = &api.MemoryBacking{
 			HugePages: &api.HugePages{},
 		}
-		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
-			isMemfdRequired = true
+		if c.Architecture.IsMemfdSupported() {
+			if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
+				isMemfdRequired = true
+			}
 		}
 	}
 	// virtiofs require shared access
