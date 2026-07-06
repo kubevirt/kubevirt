@@ -26,13 +26,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
 var _ = Describe("Clock Domain Configurator", func() {
-	It("Should not set clock domain attribute when clock is unspecified on the VMI", func() {
+	It("should not set clock when clock is unspecified on the VMI", func() {
 		vmi := libvmi.New()
 
 		var domain api.Domain
@@ -41,30 +42,193 @@ var _ = Describe("Clock Domain Configurator", func() {
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
-	It("Should set timezone attribute when timezone is specified on the VMI", func() {
-		const expectedTimezone = "America/New_York"
-		clock := v1.Clock{
-			ClockOffset: v1.ClockOffset{
-				Timezone: pointer.P(v1.ClockOffsetTimezone(expectedTimezone)),
+	DescribeTable("should configure the domain clock from the VMI spec",
+		func(vmi *v1.VirtualMachineInstance, expectedClock *api.Clock) {
+			var domain api.Domain
+
+			Expect(compute.ClockDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := newDomainWithClock(expectedClock)
+			Expect(domain).To(Equal(expectedDomain))
+		},
+		Entry("timezone offset",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				ClockOffset: v1.ClockOffset{
+					Timezone: pointer.P(v1.ClockOffsetTimezone("America/New_York")),
+				},
+			})),
+			&api.Clock{
+				Offset:   "timezone",
+				Timezone: "America/New_York",
 			},
-			Timer: &v1.Timer{},
-		}
-		vmi := libvmi.New(libvmi.WithClock(clock))
-
-		var domain api.Domain
-
-		Expect(compute.ClockDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
-
-		expectedDomain := api.Domain{
-			Spec: api.DomainSpec{
-				Clock: &api.Clock{
-					Offset:     "timezone",
-					Timezone:   expectedTimezone,
-					Adjustment: "",
-					Timer:      nil,
+		),
+		Entry("utc offset with adjustment=reset when no offset seconds",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				ClockOffset: v1.ClockOffset{
+					UTC: &v1.ClockOffsetUTC{},
+				},
+			})),
+			&api.Clock{
+				Offset:     "utc",
+				Adjustment: "reset",
+			},
+		),
+		Entry("utc offset with seconds adjustment",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				ClockOffset: v1.ClockOffset{
+					UTC: &v1.ClockOffsetUTC{
+						OffsetSeconds: pointer.P(3600),
+					},
+				},
+			})),
+			&api.Clock{
+				Offset:     "utc",
+				Adjustment: "3600",
+			},
+		),
+		Entry("RTC timer",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				Timer: &v1.Timer{
+					RTC: &v1.RTCTimer{
+						Track:      v1.TrackGuest,
+						TickPolicy: v1.RTCTickPolicyCatchup,
+						Enabled:    pointer.P(true),
+					},
+				},
+			})),
+			&api.Clock{
+				Timer: []api.Timer{
+					{Name: "rtc", Track: "guest", TickPolicy: "catchup", Present: "yes"},
 				},
 			},
-		}
-		Expect(domain).To(Equal(expectedDomain))
-	})
+		),
+		Entry("PIT timer with disabled state",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				Timer: &v1.Timer{
+					PIT: &v1.PITTimer{
+						TickPolicy: v1.PITTickPolicyDelay,
+						Enabled:    pointer.P(false),
+					},
+				},
+			})),
+			&api.Clock{
+				Timer: []api.Timer{
+					{Name: "pit", TickPolicy: "delay", Present: "no"},
+				},
+			},
+		),
+		Entry("KVM timer",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				Timer: &v1.Timer{
+					KVM: &v1.KVMTimer{},
+				},
+			})),
+			&api.Clock{
+				Timer: []api.Timer{
+					{Name: "kvmclock", Present: "yes"},
+				},
+			},
+		),
+		Entry("HPET timer",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				Timer: &v1.Timer{
+					HPET: &v1.HPETTimer{
+						TickPolicy: v1.HPETTickPolicyDelay,
+						Enabled:    pointer.P(true),
+					},
+				},
+			})),
+			&api.Clock{
+				Timer: []api.Timer{
+					{Name: "hpet", TickPolicy: "delay", Present: "yes"},
+				},
+			},
+		),
+		Entry("Hyperv timer",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				Timer: &v1.Timer{
+					Hyperv: &v1.HypervTimer{
+						Enabled: pointer.P(true),
+					},
+				},
+			})),
+			&api.Clock{
+				Timer: []api.Timer{
+					{Name: "hypervclock", Present: "yes"},
+				},
+			},
+		),
+		Entry("all timers together",
+			libvmi.New(libvmi.WithClock(v1.Clock{
+				ClockOffset: v1.ClockOffset{
+					UTC: &v1.ClockOffsetUTC{},
+				},
+				Timer: &v1.Timer{
+					RTC:    &v1.RTCTimer{Track: v1.TrackWall, TickPolicy: v1.RTCTickPolicyDelay},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyCatchup},
+					KVM:    &v1.KVMTimer{Enabled: pointer.P(true)},
+					HPET:   &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
+				},
+			})),
+			&api.Clock{
+				Offset:     "utc",
+				Adjustment: "reset",
+				Timer: []api.Timer{
+					{Name: "rtc", Track: "wall", TickPolicy: "delay", Present: "yes"},
+					{Name: "pit", TickPolicy: "catchup", Present: "yes"},
+					{Name: "kvmclock", Present: "yes"},
+					{Name: "hpet", TickPolicy: "catchup", Present: "yes"},
+					{Name: "hypervclock", Present: "yes"},
+				},
+			},
+		),
+		Entry("TSC timer without existing clock",
+			libvmi.New(
+				libvmi.WithCPUFeature("invtsc", "require"),
+				libvmistatus.WithStatus(libvmistatus.New(withTSCFrequency(1234567890))),
+			),
+			&api.Clock{
+				Timer: []api.Timer{
+					{Name: "tsc", Frequency: "1234567890"},
+				},
+			},
+		),
+		Entry("TSC timer appended to existing clock timers",
+			libvmi.New(
+				libvmi.WithClock(v1.Clock{
+					ClockOffset: v1.ClockOffset{
+						UTC: &v1.ClockOffsetUTC{},
+					},
+					Timer: &v1.Timer{
+						KVM: &v1.KVMTimer{},
+					},
+				}),
+				libvmi.WithCPUFeature("invtsc", "require"),
+				libvmistatus.WithStatus(libvmistatus.New(withTSCFrequency(9999))),
+			),
+			&api.Clock{
+				Offset:     "utc",
+				Adjustment: "reset",
+				Timer: []api.Timer{
+					{Name: "kvmclock", Present: "yes"},
+					{Name: "tsc", Frequency: "9999"},
+				},
+			},
+		),
+	)
 })
+
+func newDomainWithClock(clock *api.Clock) api.Domain {
+	return api.Domain{
+		Spec: api.DomainSpec{
+			Clock: clock,
+		},
+	}
+}
+
+func withTSCFrequency(freq int64) libvmistatus.Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.TopologyHints = &v1.TopologyHints{TSCFrequency: &freq}
+	}
+}
