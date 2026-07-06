@@ -2,10 +2,14 @@ package framework
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
+	"path/filepath"
 
 	. "github.com/onsi/gomega"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,9 +26,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	instancetypevmcontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
+	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
@@ -34,6 +42,14 @@ const (
 	testNamespace = "kubevirt"
 )
 
+type Option func(*Framework)
+
+func WithWebhooks() Option {
+	return func(f *Framework) {
+		f.webhooksEnabled = true
+	}
+}
+
 type Framework struct {
 	env        *envtest.Environment
 	virtClient kubecli.KubevirtClient
@@ -42,19 +58,32 @@ type Framework struct {
 	vmController  *vm.Controller
 	vmiController *vmi.Controller
 
-	podSimulator *PodSimulator
+	podSimulator  *PodSimulator
+	webhookServer *http.Server
+
+	webhooksEnabled bool
 
 	stopCh chan struct{}
 }
 
-func New() *Framework {
+func New(opts ...Option) *Framework {
 	crds, err := loadCRDs()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to load CRDs")
-	return &Framework{
+	f := &Framework{
 		env: &envtest.Environment{
 			CRDs: crds,
 		},
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	if f.webhooksEnabled {
+		f.env.WebhookInstallOptions = envtest.WebhookInstallOptions{
+			MutatingWebhooks:  filterMutatingWebhooks(components.NewVirtAPIMutatingWebhookConfiguration(testNamespace)),
+			ValidatingWebhooks: filterValidatingWebhooks(components.NewVirtAPIValidatingWebhookConfiguration(testNamespace)),
+		}
+	}
+	return f
 }
 
 func (f *Framework) Start() {
@@ -190,9 +219,16 @@ func (f *Framework) Start() {
 	go f.vmController.Run(3, f.stopCh)
 
 	f.podSimulator.Start()
+
+	if f.webhooksEnabled {
+		f.startWebhookServer(clusterConfig)
+	}
 }
 
 func (f *Framework) Stop() {
+	if f.webhookServer != nil {
+		f.webhookServer.Close()
+	}
 	if f.podSimulator != nil {
 		f.podSimulator.Stop()
 	}
@@ -270,5 +306,65 @@ func loadCRDs() ([]*extv1.CustomResourceDefinition, error) {
 		crds = append(crds, crd)
 	}
 	return crds, nil
+}
+
+func (f *Framework) startWebhookServer(clusterConfig *virtconfig.ClusterConfig) {
+	opts := f.env.WebhookInstallOptions
+	certPath := filepath.Join(opts.LocalServingCertDir, "tls.crt")
+	keyPath := filepath.Join(opts.LocalServingCertDir, "tls.key")
+
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to load webhook TLS certs")
+
+	webhookInformers := &webhooks.Informers{}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeVMs(w, r, clusterConfig, f.virtClient)
+	})
+	mux.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMs(w, r, clusterConfig, f.virtClient, webhookInformers, nil)
+	})
+
+	f.webhookServer = &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", opts.LocalServingHost, opts.LocalServingPort),
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		},
+	}
+	go f.webhookServer.ListenAndServeTLS("", "")
+}
+
+func filterMutatingWebhooks(cfg *admissionregistrationv1.MutatingWebhookConfiguration) []*admissionregistrationv1.MutatingWebhookConfiguration {
+	filtered := cfg.DeepCopy()
+	var kept []admissionregistrationv1.MutatingWebhook
+	for _, wh := range filtered.Webhooks {
+		for _, rule := range wh.Rules {
+			for _, res := range rule.Resources {
+				if res == "virtualmachines" {
+					kept = append(kept, wh)
+				}
+			}
+		}
+	}
+	filtered.Webhooks = kept
+	return []*admissionregistrationv1.MutatingWebhookConfiguration{filtered}
+}
+
+func filterValidatingWebhooks(cfg *admissionregistrationv1.ValidatingWebhookConfiguration) []*admissionregistrationv1.ValidatingWebhookConfiguration {
+	filtered := cfg.DeepCopy()
+	var kept []admissionregistrationv1.ValidatingWebhook
+	for _, wh := range filtered.Webhooks {
+		for _, rule := range wh.Rules {
+			for _, res := range rule.Resources {
+				if res == "virtualmachines" {
+					kept = append(kept, wh)
+				}
+			}
+		}
+	}
+	filtered.Webhooks = kept
+	return []*admissionregistrationv1.ValidatingWebhookConfiguration{filtered}
 }
 
