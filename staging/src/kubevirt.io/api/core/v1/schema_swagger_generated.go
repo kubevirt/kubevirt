@@ -451,7 +451,18 @@ func (SEVPolicy) SwaggerDoc() map[string]string {
 }
 
 func (SEVSNP) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"policy":                  "SNP-Policy flags as defined in AMD SEV-SNP API specification.\nDefaults to 0x30000 SMT Allowed + Reserved.\n+optional",
+		"vcek":                    "+optional",
+		"authorKey":               "+optional",
+		"kernelHashes":            "KernelHashes enables measured direct kernel boot by including hashes of\nthe kernel, initrd and cmline in the launch measurement. Requires\nspec.domain.firmware.kernelBoot to be configured\n+optional",
+		"cbitpos":                 "+optional",
+		"idBlock":                 "IdBlock is a 96-byte signature block that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the launch environment. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.\n+optional",
+		"idAuth":                  "IdAuth is a 4096-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the launch environment. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.\n+optional",
+		"reducedPhysBits":         "+optional",
+		"hostData":                "HostData is a 32-byte hex string that is injected into the SEV-SNP launch measurement and can be used by the guest to identify the host. It is not interpreted by SEV-SNP and can be used in any way the guest sees fit.\nlibvirt expects this value to be base64 encoded data that decodes to exactly 32 bytes.\n+optional",
+		"guestVisibleWorkarounds": "GuestVisibleWorkarounds is a 16-byte opaque blob passed from the hypervisor to the AMD-SP, but it is injected earlier in the boot process.\nThe size must be 16 bytes\n+optional",
+	}
 }
 
 func (SEVAttestation) SwaggerDoc() map[string]string {

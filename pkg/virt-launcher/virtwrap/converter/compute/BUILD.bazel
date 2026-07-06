@@ -90,6 +90,7 @@ go_test(
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",

@@ -401,10 +401,10 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 	ginkgo.Context("LaunchSecurity round-trip", func() {
 		ginkgo.It("should round-trip SEV-SNP launch security with all fields", func() {
 			launchSecurity := &LaunchSecurity{
-				Type:            "sev-snp",
-				Policy:          "0x30000",
-				Cbitpos:         "51",
-				ReducedPhysBits: "1",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
 
 			xmlBytes, err := xml.Marshal(launchSecurity)
@@ -415,18 +415,20 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLaunchSecurity := LaunchSecurity{
-				Type:            "sev-snp",
-				Policy:          "0x30000",
-				Cbitpos:         "51",
-				ReducedPhysBits: "1",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
 			Expect(unmarshalled).To(Equal(expectedLaunchSecurity))
 		})
 
 		ginkgo.It("should round-trip SEV-SNP launch security with minimal fields", func() {
 			launchSecurity := &LaunchSecurity{
-				Type:   "sev-snp",
-				Policy: "0x30000",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
 
 			xmlBytes, err := xml.Marshal(launchSecurity)
@@ -441,23 +443,27 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLaunchSecurity := LaunchSecurity{
-				Type:   "sev-snp",
-				Policy: "0x30000",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
 			Expect(unmarshalled).To(Equal(expectedLaunchSecurity))
 		})
 
 		ginkgo.It("should round-trip SEV vs SEV-SNP configurations", func() {
 			sevConfig := &LaunchSecurity{
-				Type:    "sev",
-				Policy:  "0x0001",
-				DHCert:  "test-dh-cert",
-				Session: "test-session",
+				Type: "sev",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x0001",
+				},
 			}
 
 			snpConfig := &LaunchSecurity{
-				Type:   "sev-snp",
-				Policy: "0x30000",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
 
 			// Test SEV round-trip
@@ -466,10 +472,10 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			var sevUnmarshalled LaunchSecurity
 			Expect(xml.Unmarshal(sevXML, &sevUnmarshalled)).To(Succeed())
 			sevExpected := LaunchSecurity{
-				Type:    "sev",
-				Policy:  "0x0001",
-				DHCert:  "test-dh-cert",
-				Session: "test-session",
+				Type: "sev",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x0001",
+				},
 			}
 			Expect(sevUnmarshalled).To(Equal(sevExpected))
 
@@ -479,9 +485,12 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			var snpUnmarshalled LaunchSecurity
 			Expect(xml.Unmarshal(snpXML, &snpUnmarshalled)).To(Succeed())
 			snpExpected := LaunchSecurity{
-				Type:   "sev-snp",
-				Policy: "0x30000",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
+
 			Expect(snpUnmarshalled).To(Equal(snpExpected))
 
 			// Verify type differentiation
@@ -508,8 +517,10 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 		ginkgo.It("should round-trip domain with SEV-SNP launch security", func() {
 			domain := NewMinimalDomainSpec("test-domain")
 			domain.LaunchSecurity = &LaunchSecurity{
-				Type:   "sev-snp",
-				Policy: "0x30000",
+				Type: "sev-snp",
+				LaunchSecuritySEVCommon: LaunchSecuritySEVCommon{
+					Policy: "0x30000",
+				},
 			}
 
 			xmlBytes, err := xml.Marshal(domain)

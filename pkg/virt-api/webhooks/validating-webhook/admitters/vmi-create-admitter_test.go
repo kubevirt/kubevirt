@@ -21,6 +21,7 @@ package admitters
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -2850,6 +2851,198 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			It("should accept when persistent EFI variables are not specified", func() {
 				// persistent field is nil by default
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept valid decimal SNP policy with bit 17 set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = "131072" // 2^17
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept valid hexadecimal SNP policy with bit 17 set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = "0x20000" // 2^17 in hex
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept complex SNP policy with multiple bits set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = "0x30003" // bits 0, 1, and 17 set
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject SNP policy with bit 17 not set (value 0) )", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = "0"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("SEV-SNP Policy Config must have bit 17 (0x20000) set to 1"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject SNP policy with bit 17 not set (value with other bits set)", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = "3" // bits 0 and 1 set, but not bit 17
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("SEV-SNP Policy Config must have bit 17 (0x20000) set to 1"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject SNP policy with invalid non-numeric value", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = "invalid-policy"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("is not a valid SEV-SNP Policy Config"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should accept when SNP policy is empty string", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.Policy = ""
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			validIdBlock := base64.StdEncoding.EncodeToString(make([]byte, 96))
+			validIdAuth := base64.StdEncoding.EncodeToString(make([]byte, 4096))
+			validHostData := base64.StdEncoding.EncodeToString(make([]byte, 32))
+
+			It("should accept when IdBlock and IdAuth are set together without AuthorKey", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = validIdBlock
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = validIdAuth
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when AuthorKey, IdBlock, and IdAuth are all set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.AuthorKey = pointer.P(true)
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = validIdBlock
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = validIdAuth
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when AuthorKey, IdBlock, and IdAuth are all empty", func() {
+				// All fields are empty by default
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject when only IdBlock is set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = validIdBlock
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("IdBlock and IdAuth must be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when only IdAuth is set", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = validIdAuth
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("IdBlock and IdAuth must be set together"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject when AuthorKey is set without IdBlock and IdAuth", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.AuthorKey = pointer.P(true)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("AuthorKey requires both IdBlock and IdAuth"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp"))
+			})
+
+			It("should reject IdBlock that is not valid base64", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = "not-valid-base64!!!"
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = validIdAuth
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("must be base64-encoded data that decodes to exactly 96 bytes"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.idBlock"))
+			})
+
+			It("should reject IdBlock with the wrong decoded length", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = base64.StdEncoding.EncodeToString(make([]byte, 64))
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = validIdAuth
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("must be base64-encoded data that decodes to exactly 96 bytes"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.idBlock"))
+			})
+
+			It("should reject IdAuth with the wrong decoded length", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdBlock = validIdBlock
+				vmi.Spec.Domain.LaunchSecurity.SNP.IdAuth = base64.StdEncoding.EncodeToString(make([]byte, 100))
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("must be base64-encoded data that decodes to exactly 4096 bytes"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.idAuth"))
+			})
+
+			It("should accept valid HostData", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.HostData = validHostData
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject HostData with the wrong decoded length", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.HostData = base64.StdEncoding.EncodeToString(make([]byte, 16))
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("must be base64-encoded data that decodes to exactly 32 bytes"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.hostData"))
+			})
+
+			It("should reject HostData that is not valid base64", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.HostData = "not-valid-base64!!!"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("is not a valid SEV-SNP HostData value"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.hostData"))
+			})
+
+			It("should reject when KernelHashes is true without kernel boot", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.KernelHashes = pointer.P(true)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("KernelHashes requires direct kernel boot"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity.snp.kernelHashes"))
+			})
+
+			It("should accept when KernelHashes is true with kernel boot configured", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.KernelHashes = pointer.P(true)
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(false),
+						},
+					},
+					KernelBoot: &v1.KernelBoot{
+						Container: &v1.KernelBootContainer{
+							Image:      "registry.example.com/kernel:latest",
+							KernelPath: "/boot/vmlinuz",
+							InitrdPath: "/boot/initrd",
+						},
+					},
+				}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when KernelHashes is unset", func() {
+				vmi.Spec.Domain.LaunchSecurity.SNP.KernelHashes = nil
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
