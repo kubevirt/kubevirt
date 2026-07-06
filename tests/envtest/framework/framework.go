@@ -34,6 +34,14 @@ const (
 	testNamespace = "kubevirt"
 )
 
+type Option func(*Framework)
+
+func WithKubeVirtConfig(config *virtv1.KubeVirtConfiguration) Option {
+	return func(f *Framework) {
+		f.kvConfig = config
+	}
+}
+
 type Framework struct {
 	env        *envtest.Environment
 	virtClient kubecli.KubevirtClient
@@ -44,17 +52,23 @@ type Framework struct {
 
 	podSimulator *PodSimulator
 
+	kvConfig *virtv1.KubeVirtConfiguration
+
 	stopCh chan struct{}
 }
 
-func New() *Framework {
+func New(opts ...Option) *Framework {
 	crds, err := loadCRDs()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to load CRDs")
-	return &Framework{
+	f := &Framework{
 		env: &envtest.Environment{
 			CRDs: crds,
 		},
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 func (f *Framework) Start() {
@@ -102,7 +116,11 @@ func (f *Framework) Start() {
 	go cdiInformer.Run(f.stopCh)
 	go cdiConfigInformer.Run(f.stopCh)
 
-	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
+	kvConfig := f.kvConfig
+	if kvConfig == nil {
+		kvConfig = &virtv1.KubeVirtConfiguration{}
+	}
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
 	recorder := record.NewFakeRecorder(1000)
 
