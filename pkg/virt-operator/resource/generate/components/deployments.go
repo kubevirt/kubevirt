@@ -731,10 +731,17 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 		PeriodSeconds:       10,
 	}
 
+	// Burstable on purpose: low requests avoid reserving storm capacity while
+	// idle; higher limits contain transfer bursts. Resource HPA targets are
+	// >100% of request so scale-out aligns with ~70% of these limits.
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("150Mi"),
+			corev1.ResourceCPU:    resource.MustParse("350m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
 
