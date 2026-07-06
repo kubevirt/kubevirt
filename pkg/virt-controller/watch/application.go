@@ -53,6 +53,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -145,11 +146,14 @@ var (
 type VirtControllerApp struct {
 	service.ServiceListen
 
-	clientSet       kubecli.KubevirtClient
-	templateService *services.TemplateService
-	restClient      *clientrest.RESTClient
-	informerFactory controller.KubeInformerFactory
-	kvPodInformer   cache.SharedIndexInformer
+	clientSet             kubecli.KubevirtClient
+	k8sClient             kubernetes.Interface
+	templateService       *services.TemplateService
+	restClient            *clientrest.RESTClient
+	informerFactory       controller.KubeInformerFactory
+	kvPodInformer         cache.SharedIndexInformer
+	resourceClaimInformer cache.SharedIndexInformer
+	resourceSliceInformer cache.SharedIndexInformer
 
 	nodeInformer   cache.SharedIndexInformer
 	nodeController *node.Controller
@@ -320,6 +324,11 @@ func Execute() {
 	}
 	clientConfig.RateLimiter = app.reloadableRateLimiter
 	app.clientSet, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		golog.Fatal(err)
+	}
+
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -839,6 +848,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clusterPreferenceInformer.GetStore(),
 			vca.controllerRevisionInformer.GetStore(),
 			vca.clientSet,
+			vca.k8sClient,
 			vca.clusterConfig,
 			recorder,
 		),

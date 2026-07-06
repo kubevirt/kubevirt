@@ -284,8 +284,11 @@ func (k *KubeVirtTestData) BeforeTest() {
 		}
 
 		if action.GetVerb() == "create" && action.GetResource().Resource == "configmaps" {
-			dummyConfigMap := &k8sv1.ConfigMap{}
-			return true, dummyConfigMap, nil
+			create, ok := action.(testing.CreateAction)
+			if ok {
+				return true, create.GetObject(), nil
+			}
+			return true, &k8sv1.ConfigMap{}, nil
 		}
 
 		if action.GetVerb() == "update" && action.GetResource().Resource == "configmaps" {
