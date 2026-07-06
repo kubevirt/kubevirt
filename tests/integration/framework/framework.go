@@ -21,6 +21,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -99,8 +100,11 @@ type Framework struct {
 	vmController  *vm.Controller
 	vmiController *vmi.Controller
 
-	podSimulator *PodSimulator
-	kvConfig     *v1.KubeVirtConfiguration
+	podSimulator    *PodSimulator
+	kvConfig        *v1.KubeVirtConfiguration
+	webhooksEnabled bool
+	webhookServer   *http.Server
+	webhookDone     chan struct{}
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -154,6 +158,10 @@ func (f *Framework) Start(ctx context.Context) {
 	}
 	Expect(cache.WaitForCacheSync(f.ctx.Done(), syncs...)).To(BeTrue(), "failed to sync informer caches")
 
+	if f.webhooksEnabled {
+		f.startWebhookServer(clusterConfig, factory)
+	}
+
 	f.wg.Go(func() { f.vmiController.Run(controllerWorkers, f.ctx.Done()) })
 	f.wg.Go(func() { f.vmController.Run(controllerWorkers, f.ctx.Done()) })
 	f.podSimulator.Start(f.ctx)
@@ -168,6 +176,10 @@ func (f *Framework) Stop() {
 		f.podSimulator.Stop()
 	}
 	f.wg.Wait()
+	if f.webhookServer != nil {
+		Expect(f.webhookServer.Close()).To(Succeed())
+		<-f.webhookDone
+	}
 	if f.env != nil {
 		Expect(f.env.Stop()).To(Succeed())
 	}
