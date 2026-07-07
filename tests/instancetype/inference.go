@@ -135,7 +135,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		vm = &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "vm-",
+				GenerateName: vmGenerateNamePrefix,
 				Namespace:    namespace,
 			},
 			Spec: virtv1.VirtualMachineSpec{

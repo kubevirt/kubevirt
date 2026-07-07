@@ -59,6 +59,11 @@ func deepCopyList(objects []interface{}) []interface{} {
 }
 
 var _ = Describe("ControllerRevision upgrades", func() {
+	const (
+		instancetypeObjectName = "instancetype"
+		preferenceObjectName   = "preference"
+	)
+
 	type upgrader interface {
 		Upgrade(vm *virtv1.VirtualMachine) error
 	}
@@ -187,7 +192,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				cr := createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instancetype",
+							Name:      instancetypeObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -208,7 +213,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				cr := createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "preference",
+							Name:      preferenceObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
@@ -228,7 +233,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				cr := createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instancetype",
+							Name:      instancetypeObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -249,7 +254,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				cr := createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "preference",
+							Name:      preferenceObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
@@ -308,7 +313,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				return createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instancetype",
+							Name:      instancetypeObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -326,7 +331,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				return createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "preference",
+							Name:      preferenceObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
@@ -343,7 +348,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				return createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "instancetype",
+							Name:      instancetypeObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -361,7 +366,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 				return createControllerRevisionFromObject(
 					&instancetypev1beta1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "preference",
+							Name:      preferenceObjectName,
 							Namespace: vm.Namespace,
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{

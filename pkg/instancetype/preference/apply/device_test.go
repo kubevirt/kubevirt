@@ -35,6 +35,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
+const (
+	preferredVideoTypeVirtio = "virtio"
+	preferredVideoTypeVga    = "vga"
+)
+
 var _ = Describe("Preference.Devices", func() {
 	var (
 		vmi                  *virtv1.VirtualMachineInstance
@@ -329,19 +334,19 @@ var _ = Describe("Preference.Devices", func() {
 				Expect(vmi.Spec.Domain.Devices.Video).To(Equal(expectedVideo))
 			},
 			Entry("only apply when video device type is empty within VMI spec",
-				pointer.P("virtio"),
+				pointer.P(preferredVideoTypeVirtio),
 				&virtv1.VideoDevice{},
-				&virtv1.VideoDevice{Type: "virtio"},
+				&virtv1.VideoDevice{Type: preferredVideoTypeVirtio},
 			),
 			Entry("not apply when video device type is already set within VMI spec",
-				pointer.P("virtio"),
-				&virtv1.VideoDevice{Type: "vga"},
-				&virtv1.VideoDevice{Type: "vga"},
+				pointer.P(preferredVideoTypeVirtio),
+				&virtv1.VideoDevice{Type: preferredVideoTypeVga},
+				&virtv1.VideoDevice{Type: preferredVideoTypeVga},
 			),
 			Entry("create video device and apply when video device is not provided in the VMI spec",
-				pointer.P("virtio"),
+				pointer.P(preferredVideoTypeVirtio),
 				nil,
-				&virtv1.VideoDevice{Type: "virtio"},
+				&virtv1.VideoDevice{Type: preferredVideoTypeVirtio},
 			),
 			Entry("not apply when preferredVideoType is nil",
 				nil,

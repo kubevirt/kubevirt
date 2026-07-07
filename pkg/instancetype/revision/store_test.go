@@ -50,6 +50,7 @@ const (
 	nonExistingResourceName           = "non-existing-resource"
 	resourceUID             types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
 	resourceGeneration      int64     = 1
+	foobarKind                        = "foobar"
 )
 
 type handler interface {
@@ -124,7 +125,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 	Context("store instancetype", func() {
 		It("store returns error when instancetypeMatcher kind is invalid", func() {
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Kind: "foobar",
+				Kind: foobarKind,
 			}
 			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("got unexpected kind in InstancetypeMatcher")))
 		})
@@ -429,7 +430,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 	Context("store preference", func() {
 		It("store returns error when preferenceMatcher kind is invalid", func() {
 			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Kind: "foobar",
+				Kind: foobarKind,
 			}
 			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
 		})
