@@ -36,8 +36,8 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No running virt-operator pods were detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -52,8 +52,8 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Less than 75% of desired virt-operator pods are running.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -64,8 +64,8 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: getRestCallsFailedWarning(eightyPercent, "virt-operator", fiveMinutes),
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -79,8 +79,8 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "Some virt-operators are running but not ready.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -91,8 +91,8 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No ready virt-operator was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 		{
@@ -103,8 +103,8 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "No leading virt-operator was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "critical",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityCritical,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 	}

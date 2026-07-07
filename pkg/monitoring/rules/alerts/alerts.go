@@ -44,6 +44,12 @@ const (
 
 	eightyPercent = 80
 	fiveMinutes   = 5
+
+	alertSeverityCritical = "critical"
+	alertSeverityInfo     = "info"
+	alertSeverityWarning  = "warning"
+
+	operatorHealthImpactNone = "none"
 )
 
 func Register(registry *operatorrules.Registry, namespace string) error {

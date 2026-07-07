@@ -100,7 +100,7 @@ var (
 		labels,
 	)
 
-	labels = []string{"name", "namespace"}
+	labels = []string{metricLabelName, metricLabelNamespace}
 
 	startingStatuses = []k6tv1.VirtualMachinePrintableStatus{
 		k6tv1.VirtualMachineStatusProvisioning,
@@ -138,15 +138,15 @@ var (
 			Name: "kubevirt_vm_resource_requests",
 			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
 		},
-		[]string{"name", "namespace", "resource", "unit", "source"},
+		[]string{metricLabelName, metricLabelNamespace, metricLabelResource, labelUnit, "source"},
 	)
 
 	vmResourceLimits = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vm_resource_limits",
+			Name: metricVMResourceLimits,
 			Help: "Resource limits set for a Virtual Machine. Reports CPU and memory limits only when they are defined.",
 		},
-		[]string{"name", "namespace", "resource", "unit"},
+		[]string{metricLabelName, metricLabelNamespace, metricLabelResource, labelUnit},
 	)
 
 	vmInfo = operatormetrics.NewGaugeVec(
@@ -156,19 +156,19 @@ var (
 		},
 		[]string{
 			// Basic info
-			"name", "namespace",
+			metricLabelName, metricLabelNamespace,
 
 			// VM annotations
-			"os", "workload", "flavor",
+			labelOS, labelWorkload, metricLabelFlavor,
 
 			// VM Machine Type
 			"machine_type",
 
 			// Instance type
-			"instance_type", "preference",
+			metricLabelInstanceType, labelPreference,
 
 			// Status
-			"status", "status_group",
+			metricLabelStatus, "status_group",
 		},
 	)
 
@@ -179,7 +179,7 @@ var (
 				"Includes persistentvolumeclaim (PVC name), volume_mode (disk presentation mode: Filesystem or Block), " +
 				"and device (disk name).",
 		},
-		[]string{"name", "namespace", "persistentvolumeclaim", "volume_mode", "device"},
+		[]string{metricLabelName, metricLabelNamespace, "persistentvolumeclaim", "volume_mode", "device"},
 	)
 
 	vmCreationTimestamp = operatormetrics.NewGaugeVec(
@@ -187,7 +187,7 @@ var (
 			Name: "kubevirt_vm_create_date_timestamp_seconds",
 			Help: "Virtual Machine creation timestamp.",
 		},
-		[]string{"name", "namespace"},
+		[]string{metricLabelName, metricLabelNamespace},
 	)
 
 	vmVnicInfo = operatormetrics.NewGaugeVec(
@@ -196,7 +196,7 @@ var (
 			Help: "Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, " +
 				"and binding name for each vNIC defined in the VM's configuration.",
 		},
-		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name", "model"},
+		[]string{metricLabelName, metricLabelNamespace, metricLabelVNICName, labelBindingType, labelNetwork, metricLabelBindingName, labelModel},
 	)
 
 	vmLabels = operatormetrics.NewGaugeVec(
@@ -313,7 +313,7 @@ func getVMStatusGroup(status k6tv1.VirtualMachinePrintableStatus) string {
 	case containsStatus(status, startingStatuses):
 		return "starting"
 	case containsStatus(status, runningStatuses):
-		return "running"
+		return vmStatusGroupRunning
 	case containsStatus(status, migratingStatuses):
 		return "migrating"
 	case containsStatus(status, nonRunningStatuses):
@@ -446,7 +446,7 @@ func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) 
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(memoryRequested.Value()),
-			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "domain"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameMemory, resourceUnitBytes, resourceSourceDomain},
 		})
 	}
 
@@ -459,7 +459,7 @@ func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) 
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(guestMemory.Value()),
-			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameMemory, resourceUnitBytes, resourceSourceGuest},
 		})
 	}
 
@@ -470,7 +470,7 @@ func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) 
 			cr = append(cr, operatormetrics.CollectorResult{
 				Metric: vmResourceRequests,
 				Value:  float64(quantity.Value()),
-				Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "hugepages"},
+				Labels: []string{vm.Name, vm.Namespace, resourceNameMemory, resourceUnitBytes, resourceSourceHugepages},
 			})
 		}
 	}
@@ -491,7 +491,7 @@ func collectMemoryResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []
 	return []operatormetrics.CollectorResult{{
 		Metric: vmResourceLimits,
 		Value:  float64(memoryLimit.Value()),
-		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
+		Labels: []string{vm.Name, vm.Namespace, resourceNameMemory, resourceUnitBytes},
 	}}
 }
 
@@ -509,7 +509,7 @@ func collectAllocatedMemoryValues(vm *k6tv1.VirtualMachine) []operatormetrics.Co
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(allocatedMemory.Value()),
-			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest_effective"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameMemory, resourceUnitBytes, resourceSourceGuestEffective},
 		})
 	}
 	return cr
@@ -526,21 +526,21 @@ func collectCPUResourceRequestsFromDomainCPU(vm *k6tv1.VirtualMachine) []operato
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Cores),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "domain"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitCores, resourceSourceDomain},
 		})
 	}
 	if vm.Spec.Template.Spec.Domain.CPU.Threads != 0 {
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Threads),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "domain"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitThreads, resourceSourceDomain},
 		})
 	}
 	if vm.Spec.Template.Spec.Domain.CPU.Sockets != 0 {
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Sockets),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "domain"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitSockets, resourceSourceDomain},
 		})
 	}
 	return cr
@@ -560,15 +560,15 @@ func collectCPUResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []o
 			return append(cr,
 				operatormetrics.CollectorResult{
 					Metric: vmResourceRequests, Value: 1.0,
-					Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"},
+					Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitCores, resourceSourceDefault},
 				},
 				operatormetrics.CollectorResult{
 					Metric: vmResourceRequests, Value: 1.0,
-					Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"},
+					Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitThreads, resourceSourceDefault},
 				},
 				operatormetrics.CollectorResult{
 					Metric: vmResourceRequests, Value: 1.0,
-					Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"},
+					Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitSockets, resourceSourceDefault},
 				},
 			)
 		}
@@ -578,7 +578,7 @@ func collectCPUResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []o
 	cr = append(cr, operatormetrics.CollectorResult{
 		Metric: vmResourceRequests,
 		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
-		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "requests"},
+		Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitCores, resourceSourceRequests},
 	})
 	return cr
 }
@@ -598,7 +598,7 @@ func collectCPUResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []ope
 	cr = append(cr, operatormetrics.CollectorResult{
 		Metric: vmResourceLimits,
 		Value:  float64(cpuLimits.ScaledValue(resource.Milli)) / 1000,
-		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+		Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitCores},
 	})
 	return cr
 }
@@ -616,13 +616,13 @@ func collectAllocatedCPUValues(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(allocatedVCPUs),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "guest_effective"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitCores, resourceSourceGuestEffective},
 		})
 	} else {
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  1.0,
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "guest_effective"},
+			Labels: []string{vm.Name, vm.Namespace, resourceNameCPU, resourceUnitCores, resourceSourceGuestEffective},
 		})
 	}
 	return cr
@@ -800,13 +800,13 @@ func getBinding(iface k6tv1.Interface) (bindingType, bindingName string) {
 	switch {
 	case iface.Masquerade != nil:
 		bindingType = bindingTypeCore
-		bindingName = "masquerade"
+		bindingName = bindingNameMasquerade
 	case iface.Bridge != nil:
 		bindingType = bindingTypeCore
-		bindingName = "bridge"
+		bindingName = bindingNameBridge
 	case iface.SRIOV != nil:
 		bindingType = bindingTypeCore
-		bindingName = "sriov"
+		bindingName = bindingNameSRIOV
 	case iface.Binding != nil:
 		bindingType = bindingTypePlugin
 		bindingName = iface.Binding.Name
@@ -818,7 +818,7 @@ func getBinding(iface k6tv1.Interface) (bindingType, bindingName string) {
 func getNetworkName(ifaceName string, networks []k6tv1.Network) (string, bool) {
 	if net := LookupNetworkByName(networks, ifaceName); net != nil {
 		if net.Pod != nil {
-			return "pod networking", true
+			return networkNamePod, true
 		} else if net.Multus != nil {
 			return net.Multus.NetworkName, true
 		}

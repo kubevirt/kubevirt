@@ -41,8 +41,8 @@ var _ = Describe("domainstats", func() {
 			vmiReport = &VirtualMachineInstanceReport{
 				vmi: &k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-vmi-1",
-						Namespace: "test-ns-1",
+						Name:      testDomainstatsVMIName,
+						Namespace: testDomainstatsNamespace,
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
 						NodeName: "test-node-1",
@@ -59,8 +59,8 @@ var _ = Describe("domainstats", func() {
 			Expect(cr.Value).To(Equal(5.0))
 
 			Expect(cr.ConstLabels).To(HaveKeyWithValue("node", "test-node-1"))
-			Expect(cr.ConstLabels).To(HaveKeyWithValue("namespace", "test-ns-1"))
-			Expect(cr.ConstLabels).To(HaveKeyWithValue("name", "test-vmi-1"))
+			Expect(cr.ConstLabels).To(HaveKeyWithValue("namespace", testDomainstatsNamespace))
+			Expect(cr.ConstLabels).To(HaveKeyWithValue("name", testDomainstatsVMIName))
 
 			Expect(cr.ConstLabels).To(HaveKeyWithValue("test-label-1", "test-value-1"))
 		})
@@ -73,8 +73,8 @@ var _ = Describe("domainstats", func() {
 			Expect(cr.Value).To(Equal(5.0))
 
 			Expect(cr.ConstLabels).To(HaveKeyWithValue("node", "test-node-1"))
-			Expect(cr.ConstLabels).To(HaveKeyWithValue("namespace", "test-ns-1"))
-			Expect(cr.ConstLabels).To(HaveKeyWithValue("name", "test-vmi-1"))
+			Expect(cr.ConstLabels).To(HaveKeyWithValue("namespace", testDomainstatsNamespace))
+			Expect(cr.ConstLabels).To(HaveKeyWithValue("name", testDomainstatsVMIName))
 		})
 	})
 })
