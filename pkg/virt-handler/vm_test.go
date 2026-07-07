@@ -1135,80 +1135,86 @@ var _ = Describe("VirtualMachineInstance", func() {
 				return vmi
 			}
 
-			newPanicDomain := func(panicInfo *api.GuestPanicInfo) *api.Domain {
+			newPanicDomain := func(panicInfo *api.GuestPanicInfo, panicCount int) *api.Domain {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Crashed
 				domain.Status.Reason = api.ReasonPanicked
 				domain.Status.GuestPanicInfo = panicInfo
+				domain.Status.PanicCount = panicCount
 				return domain
 			}
 
+			BeforeEach(func() {
+				vhmetrics.GetGuestOSPanicTotal().Reset()
+				controller.lastSeenPanicCount.Range(func(key, _ any) bool {
+					controller.lastSeenPanicCount.Delete(key)
+					return true
+				})
+			})
+
 			It("should increment counter on hyper-v panic with bugcheck code", func() {
 				vmi := newPanicVMI()
-				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e})
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e}, 1)
 
-				vhmetrics.GetGuestOSPanicTotal().Reset()
-				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
-				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				controller.emitPanicMetricIfNeeded(domain, vmi)
 				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
 			})
 
-			It("should not increment counter for non-panic crash reasons", func() {
+			It("should not increment counter when PanicCount is zero", func() {
 				vmi := newPanicVMI()
 
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Crashed
 				domain.Status.Reason = api.ReasonCrashed
 
-				vhmetrics.GetGuestOSPanicTotal().Reset()
-				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
-				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				controller.emitPanicMetricIfNeeded(domain, vmi)
 				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "", 0.0)
 			})
 
-			It("should not double-increment counter when already in Failed phase", func() {
+			It("should not double-increment counter when PanicCount unchanged", func() {
 				vmi := newPanicVMI()
-				vmi.Status.Phase = v1.Failed
-				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e})
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e}, 1)
 
-				vhmetrics.GetGuestOSPanicTotal().Reset()
-				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
-				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 0.0)
+				controller.emitPanicMetricIfNeeded(domain, vmi)
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
+
+				controller.emitPanicMetricIfNeeded(domain, vmi)
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
 			})
 
-			It("should default to unknown type and empty bugcheck code when GuestPanicInfo has no details", func() {
+			It("should increment again when PanicCount increases (CRASHLOADED)", func() {
 				vmi := newPanicVMI()
-				domain := newPanicDomain(&api.GuestPanicInfo{})
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e}, 1)
 
-				vhmetrics.GetGuestOSPanicTotal().Reset()
-				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
-				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				controller.emitPanicMetricIfNeeded(domain, vmi)
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
+
+				domain.Status.PanicCount = 2
+				controller.emitPanicMetricIfNeeded(domain, vmi)
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 2.0)
+			})
+
+			It("should default to unknown type when GuestPanicInfo has no details", func() {
+				vmi := newPanicVMI()
+				domain := newPanicDomain(&api.GuestPanicInfo{}, 1)
+
+				controller.emitPanicMetricIfNeeded(domain, vmi)
 				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "unknown", 1.0)
 			})
 
 			It("should preserve bugcheck code even when panic type falls back to unknown", func() {
 				vmi := newPanicVMI()
-				domain := newPanicDomain(&api.GuestPanicInfo{Type: "", Arg1: 0x50})
+				domain := newPanicDomain(&api.GuestPanicInfo{Type: "", Arg1: 0x50}, 1)
 
-				vhmetrics.GetGuestOSPanicTotal().Reset()
-				Expect(controller.setVmPhaseForStatusReason(domain, vmi)).To(Succeed())
-				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+				controller.emitPanicMetricIfNeeded(domain, vmi)
 				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "0x50", 1.0)
 			})
 
-			It("should use domainStore fallback for GuestPanicInfo when domain is nil", func() {
+			It("should not increment when domain is nil", func() {
 				vmi := newPanicVMI()
-				domain := newPanicDomain(&api.GuestPanicInfo{Type: "hyper-v", Arg1: 0x7e})
-				Expect(controller.domainStore.Add(domain)).To(Succeed())
 
-				controller.launcherClients = &launcherclients.MockLauncherClientManager{
-					Initialized:  true,
-					UnResponsive: true,
-				}
-
-				vhmetrics.GetGuestOSPanicTotal().Reset()
-				Expect(controller.setVmPhaseForStatusReason(nil, vmi)).To(Succeed())
-				expectPanicMetricValue(vmi.Namespace, vmi.Name, "hyper-v", "0x7e", 1.0)
+				controller.emitPanicMetricIfNeeded(nil, vmi)
+				expectPanicMetricValue(vmi.Namespace, vmi.Name, "unknown", "unknown", 0.0)
 			})
 		})
 
