@@ -234,6 +234,7 @@ format:
 fmt: format
 
 lint:
+	hack/dockerized "hack/lint-suite-test-setup.sh"
 	hack/dockerized "hack/lint-test-cleanup-label.sh"
 	hack/dockerized "hack/lint-newcirros-deprecation.sh"
 	hack/dockerized "hack/golangci-lint.sh"
