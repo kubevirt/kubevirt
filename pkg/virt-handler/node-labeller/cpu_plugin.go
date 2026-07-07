@@ -133,6 +133,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	n.hostCapabilities.usableModels = usableModels
 	n.hostCapabilities.knownModels = knownModels
 	n.SEV = hostDomCapabilities.SEV
+	n.CCA = hostDomCapabilities.CCA
 	n.SecureExecution = hostDomCapabilities.SecureExecution
 	n.TDX = hostDomCapabilities.TDX
 
@@ -178,6 +179,12 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 	} else {
 		hostDomCapabilities.SEV.SupportedES = isUnusable
 		hostDomCapabilities.SEV.SupportedSNP = isUnusable
+	}
+
+	if hostDomCapabilities.CCA.Supported == isSupported {
+		if hostDomCapabilities.CCA.MeasurementAlgo.Name != "measurement-algo" || len(hostDomCapabilities.CCA.MeasurementAlgo.Values) < 1 {
+			hostDomCapabilities.CCA.Supported = isUnusable
+		}
 	}
 
 	return hostDomCapabilities, err
