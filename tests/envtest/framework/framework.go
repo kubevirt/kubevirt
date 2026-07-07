@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	. "github.com/onsi/gomega"
@@ -50,6 +51,12 @@ func WithWebhooks() Option {
 	}
 }
 
+func WithFakeLibvirt() Option {
+	return func(f *Framework) {
+		f.fakeLibvirtEnabled = true
+	}
+}
+
 type Framework struct {
 	env        *envtest.Environment
 	virtClient kubecli.KubevirtClient
@@ -60,8 +67,10 @@ type Framework struct {
 
 	podSimulator  *PodSimulator
 	webhookServer *http.Server
+	fakeLibvirt   *FakeLibvirt
 
-	webhooksEnabled bool
+	webhooksEnabled  bool
+	fakeLibvirtEnabled bool
 
 	stopCh chan struct{}
 }
@@ -220,12 +229,22 @@ func (f *Framework) Start() {
 
 	f.podSimulator.Start()
 
+	if f.fakeLibvirtEnabled {
+		tmpDir, err := os.MkdirTemp("", "envtest-fakelibvirt-")
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "failed to create temp dir for fake libvirt")
+		f.fakeLibvirt = newFakeLibvirt(tmpDir, vmiInformer, f.virtClient)
+		ExpectWithOffset(1, f.fakeLibvirt.Start()).To(Succeed(), "failed to start fake libvirt gRPC server")
+	}
+
 	if f.webhooksEnabled {
 		f.startWebhookServer(clusterConfig)
 	}
 }
 
 func (f *Framework) Stop() {
+	if f.fakeLibvirt != nil {
+		f.fakeLibvirt.Stop()
+	}
 	if f.webhookServer != nil {
 		f.webhookServer.Close()
 	}
@@ -246,6 +265,10 @@ func (f *Framework) VirtClient() kubecli.KubevirtClient {
 
 func (f *Framework) K8sClient() kubernetes.Interface {
 	return f.k8sClient
+}
+
+func (f *Framework) FakeLibvirt() *FakeLibvirt {
+	return f.fakeLibvirt
 }
 
 func (f *Framework) createSeedData(ctx context.Context) {
