@@ -253,7 +253,7 @@ update-generated-api-testdata:
 
 feature-gate-report:
 	hack/dockerized "bazel build //tools/feature-gate-report && \
-		./bazel-bin/tools/feature-gate-report/feature-gate-report_/feature-gate-report"
+		./bazel-bin/tools/feature-gate-report/feature-gate-report_/feature-gate-report $(FEATURE_GATE_REPORT_ARGS)"
 
 vmlog-checker:
 	@echo "Building vmlog-checker..."
