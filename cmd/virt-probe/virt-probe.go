@@ -20,7 +20,6 @@
 package main
 
 import (
-	goflag "flag"
 	"fmt"
 	"os"
 	"runtime/pprof"
@@ -40,7 +39,7 @@ func main() {
 	timeoutSeconds := pflag.Int32("timeoutSeconds", 1, "Duration in seconds the probe will wait for the guest command to return.")
 	guestAgentPing := pflag.Bool("guestAgentPing", false, "Flag to specify readiness probe based of guest-agent ping")
 
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.Parse()
 
 	log.InitializeLogging("virt-probe")

@@ -27,6 +27,7 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"kubevirt.io/client-go/kubecli"
+	kvlog "kubevirt.io/client-go/log"
 )
 
 func init() {
@@ -53,7 +54,7 @@ func (service *ServiceListen) Address() string {
 }
 
 func (service *ServiceListen) InitFlags() {
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	flag.CommandLine.AddGoFlag(kvlog.VerbosityFlag())
 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("kubeconfig"))
 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("master"))
 }

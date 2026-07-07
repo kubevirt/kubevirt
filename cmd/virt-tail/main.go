@@ -22,7 +22,6 @@ package main
 import (
 	"context"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -102,7 +101,7 @@ func (v *VirtTail) tailLogs(location tail.SeekInfo) (*tail.SeekInfo, error) {
 }
 
 func main() {
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.CommandLine.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	logFile := pflag.String("logfile", "", "path of the logfile to be streamed")
 	pflag.Parse()

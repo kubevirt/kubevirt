@@ -21,6 +21,7 @@ package log
 
 import (
 	"errors"
+	goflag "flag"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -449,6 +450,40 @@ func TestObjectContextLeakage(t *testing.T) {
 		}
 	}
 
+	tearDown()
+}
+
+func TestVerbosityFlagDoesNotRegisterOnCommandLine(t *testing.T) {
+	goflag.CommandLine.VisitAll(func(f *goflag.Flag) {
+		if f.Name == "v" {
+			t.Fatal("\"v\" flag must not be registered on flag.CommandLine")
+		}
+	})
+}
+
+func TestVerbosityFlagReturnsNonNil(t *testing.T) {
+	f := VerbosityFlag()
+	if f == nil {
+		t.Fatal("VerbosityFlag() returned nil")
+	}
+	if f.Name != "v" {
+		t.Fatalf("VerbosityFlag() returned flag with name %q, want \"v\"", f.Name)
+	}
+}
+
+func TestVerbosityFlagSharesDefaultVerbosity(t *testing.T) {
+	setUp()
+	original := defaultVerbosity
+	defer func() { defaultVerbosity = original }()
+
+	f := VerbosityFlag()
+	if err := f.Value.Set("5"); err != nil {
+		t.Fatalf("Setting verbosity flag value: %v", err)
+	}
+	assert(t, defaultVerbosity == 5, "VerbosityFlag value must be shared with defaultVerbosity")
+
+	log := MakeLogger(MockLogger{})
+	assert(t, log.verbosityLevel == 5, "MakeLogger must pick up updated defaultVerbosity")
 	tearDown()
 }
 

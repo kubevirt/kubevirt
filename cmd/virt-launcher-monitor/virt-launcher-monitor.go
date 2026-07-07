@@ -22,7 +22,6 @@ package main
 import (
 	"bufio"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -62,7 +61,7 @@ func main() {
 	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.CommandLine.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	pflag.Parse()
 

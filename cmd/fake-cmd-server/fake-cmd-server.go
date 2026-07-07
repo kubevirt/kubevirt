@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	goflag "flag"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/mock/gomock"
@@ -18,7 +17,7 @@ import (
 func main() {
 	socket := pflag.String("socket", cmdclient.SocketOnGuest(), "Socket for the cmd server")
 
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.Parse()
 
 	log.InitializeLogging("fake-cmd-server")
