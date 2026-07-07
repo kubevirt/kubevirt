@@ -56,6 +56,7 @@ import (
 )
 
 var _ = Describe("AccessCredentials", func() {
+	const injectedSSHKey = "ssh some injected key"
 	var mockLibvirt *testing.Libvirt
 	var ctrl *gomock.Controller
 	var manager *AccessCredentialManager
@@ -121,7 +122,7 @@ var _ = Describe("AccessCredentials", func() {
 		const domName = "some-domain"
 		const user = "someowner"
 
-		authorizedKeys := []string{"ssh some injected key"}
+		authorizedKeys := []string{injectedSSHKey}
 
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
 		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
@@ -137,7 +138,7 @@ var _ = Describe("AccessCredentials", func() {
 		const user = "someowner"
 		const filePath = "/home/someowner/.ssh"
 
-		authorizedKeys := []string{"ssh some injected key"}
+		authorizedKeys := []string{injectedSSHKey}
 
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
 		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
@@ -219,7 +220,7 @@ var _ = Describe("AccessCredentials", func() {
 		const domName = "some-domain"
 		const user = "someowner"
 
-		authorizedKeys := []string{"ssh some injected key"}
+		authorizedKeys := []string{injectedSSHKey}
 
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
 		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
