@@ -1628,19 +1628,29 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should convert hugepages", func() {
+		DescribeTable("should convert hugepages", func(arch string, expectMemfd bool) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Hugepages: &v1.Hugepages{},
 			}
+			c.Architecture = archconverter.NewConverter(arch)
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
-			Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
-			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
 
+			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))
-		})
+
+			if expectMemfd {
+				Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
+				Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
+			} else {
+				Expect(domainSpec.MemoryBacking.Source).To(BeNil())
+			}
+		},
+			Entry("with memfd on amd64", amd64, true),
+			Entry("with memfd on arm64", arm64, true),
+			Entry("without memfd on s390x", s390x, false),
+		)
 
 		It("should not add RNG when not present", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)

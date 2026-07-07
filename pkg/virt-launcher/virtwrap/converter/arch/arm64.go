@@ -73,3 +73,7 @@ func (converterARM64) SupportPCIHole64Disabling() bool {
 func (converterARM64) SupportPCIePlacement() bool {
 	return true
 }
+
+func (converterARM64) IsMemfdSupported() bool {
+	return true
+}

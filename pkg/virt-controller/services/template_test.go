@@ -2638,7 +2638,7 @@ var _ = Describe("Template", func() {
 						k8sv1.Volume{
 							Name: "hugetblfs-dir",
 							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
 							}}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
@@ -2718,7 +2718,7 @@ var _ = Describe("Template", func() {
 						k8sv1.Volume{
 							Name: "hugetblfs-dir",
 							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
 							}}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
