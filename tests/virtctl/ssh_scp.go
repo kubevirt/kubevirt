@@ -44,10 +44,16 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	ttyFlag                  = "-t"
+	usernameFlag             = "--username"
+	identityFileFlag         = "--identity-file"
+	strictHostKeyCheckingOpt = "-o StrictHostKeyChecking=no"
+	userKnownHostsFileOpt    = "-o UserKnownHostsFile=/dev/null"
+)
+
 var _ = Describe(SIG("[sig-compute]SSH and SCP", decorators.SigCompute, Ordered, decorators.OncePerOrderedCleanup, func() {
-	const (
-		randSuffixLen = 8
-	)
+	const randSuffixLen = 8
 
 	var (
 		keyFile string
@@ -126,10 +132,10 @@ func runSSHCommand(name, user, keyFile string) {
 	args := []string{
 		"ssh",
 		namespaceFlag, testsuite.GetTestNamespace(nil),
-		"--username", user,
-		"--identity-file", keyFile,
-		"-t", "-o StrictHostKeyChecking=no",
-		"-t", "-o UserKnownHostsFile=/dev/null",
+		usernameFlag, user,
+		identityFileFlag, keyFile,
+		ttyFlag, strictHostKeyCheckingOpt,
+		ttyFlag, userKnownHostsFileOpt,
 		"--command", "true",
 		"vmi/" + name,
 	}
@@ -142,10 +148,10 @@ func runSCPCommand(src, dst, keyFile string, recursive bool) {
 	args := []string{
 		"scp",
 		namespaceFlag, testsuite.GetTestNamespace(nil),
-		"--username", "root",
-		"--identity-file", keyFile,
-		"-t", "-o StrictHostKeyChecking=no",
-		"-t", "-o UserKnownHostsFile=/dev/null",
+		usernameFlag, "root",
+		identityFileFlag, keyFile,
+		ttyFlag, strictHostKeyCheckingOpt,
+		ttyFlag, userKnownHostsFileOpt,
 	}
 	if recursive {
 		args = append(args, "--recursive")

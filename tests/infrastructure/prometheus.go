@@ -202,7 +202,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
 		epsList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{
-				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+				LabelSelector: kubevirtMetricsSelector,
 			})
 		Expect(err).ToNot(HaveOccurred())
 		// should only have one EndpointSlice
@@ -241,7 +241,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	It("[test_id:4139]should return Prometheus metrics", func() {
 		endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{
-				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+				LabelSelector: kubevirtMetricsSelector,
 			})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(endpointSliceList.Items).ToNot(BeEmpty(), "Expected at least one EndpointSlice")
@@ -405,7 +405,7 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 	readyMetric := fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component)
 	endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
 		context.Background(), metav1.ListOptions{
-			LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			LabelSelector: kubevirtMetricsSelector,
 		})
 	if err != nil {
 		return nil, err

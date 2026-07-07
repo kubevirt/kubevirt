@@ -44,6 +44,8 @@ import (
 )
 
 var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
+	const criticalAddonsOnly = "CriticalAddonsOnly"
+
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -88,7 +90,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			possiblyTaintedNodeName = nodeName
 
 			taints := append(selectedNode.Spec.Taints, k8sv1.Taint{
-				Key:    "CriticalAddonsOnly",
+				Key:    criticalAddonsOnly,
 				Value:  "",
 				Effect: k8sv1.TaintEffectNoExecute,
 			})
@@ -113,7 +115,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			var hasTaint bool
 			var otherTaints []k8sv1.Taint
 			for _, taint := range selectedNode.Spec.Taints {
-				if taint.Key == "CriticalAddonsOnly" {
+				if taint.Key == criticalAddonsOnly {
 					hasTaint = true
 				} else {
 					otherTaints = append(otherTaints, taint)

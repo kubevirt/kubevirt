@@ -48,6 +48,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
+const virshCmd = "virsh"
+
 var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SEV, decorators.SigCompute, func() {
 	const (
 		diskSecret = "qwerty123"
@@ -363,7 +365,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(matcher.ThisVMI(vmi), 60).Should(matcher.BeInPhase(v1.Scheduled))
 
 			By("Querying virsh nodesevinfo")
-			nodeSevInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
+			nodeSevInfo := libpod.RunCommandOnVmiPod(vmi, []string{virshCmd, "nodesevinfo"})
 			Expect(nodeSevInfo).ToNot(BeEmpty())
 			entries := parseVirshInfo(nodeSevInfo, []string{"pdh", "cert-chain"})
 			expectedSEVPlatformInfo.PDH = entries["pdh"]
@@ -383,7 +385,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(matcher.ThisVMI(vmi), 60).Should(And(matcher.BeRunning(), matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused)))
 
 			By("Querying virsh domlaunchsecinfo 1")
-			domLaunchSecInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "domlaunchsecinfo", "1"})
+			domLaunchSecInfo := libpod.RunCommandOnVmiPod(vmi, []string{virshCmd, "domlaunchsecinfo", "1"})
 			Expect(domLaunchSecInfo).ToNot(BeEmpty())
 			entries = parseVirshInfo(domLaunchSecInfo, []string{
 				"sev-measurement", "sev-api-major", "sev-api-minor", "sev-build-id", "sev-policy",
