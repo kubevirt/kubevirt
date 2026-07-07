@@ -4661,6 +4661,34 @@ var _ = Describe("Template", func() {
 			}))
 		})
 
+		It("should render owner VMI annotations on hotplug attachment pod", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "fake-vmi-uid"
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, map[string]*k8sv1.PersistentVolumeClaim{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMINameAnnotation, vmi.Name))
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMIUIDAnnotation, string(vmi.UID)))
+		})
+
+		It("should render owner VMI annotations on hotplug attachment trigger pods", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "fake-vmi-uid"
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", true, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMINameAnnotation, vmi.Name))
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.OwnerVMIUIDAnnotation, string(vmi.UID)))
+		})
+
 		It("should compute the correct tolerations when rendering hotplug attachment pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			duplicateToleration := []k8sv1.Toleration{{Key: "test", Operator: k8sv1.TolerationOpExists, Effect: k8sv1.TaintEffectNoSchedule},
