@@ -48,6 +48,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	metricLabelName      = "name"
+	metricLabelNamespace = "namespace"
+)
+
 var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	var virtClient kubecli.KubevirtClient
 	var metrics *libmonitoring.QueryRequestResult
@@ -131,11 +136,11 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 		It("should contain VNIC metrics", func() {
 			labels := map[string]string{
-				"namespace":    vm.Namespace,
-				"name":         vm.Name,
-				"binding_type": "core",
-				"network":      "pod networking",
-				"binding_name": "masquerade",
+				metricLabelNamespace: vm.Namespace,
+				metricLabelName:      vm.Name,
+				"binding_type":       "core",
+				"network":            "pod networking",
+				"binding_name":       "masquerade",
 			}
 
 			By("Verifying VM vnic info metric")
@@ -157,8 +162,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 				Name: "kubevirt_vm_disk_allocated_size_bytes",
 			})
 			labels := map[string]string{
-				"namespace":             vm.Namespace,
-				"name":                  vm.Name,
+				metricLabelNamespace:    vm.Namespace,
+				metricLabelName:         vm.Name,
 				"persistentvolumeclaim": "test-vm-pvc",
 				"volume_mode":           "Filesystem",
 				"device":                "testdisk",
@@ -172,8 +177,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 				Name: "kubevirt_vm_labels",
 			})
 			labels := map[string]string{
-				"namespace":                 vm.Namespace,
-				"name":                      vm.Name,
+				metricLabelNamespace:        vm.Namespace,
+				metricLabelName:             vm.Name,
 				"label_vm_kubevirt_io_test": "test-vm-labels",
 			}
 			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
@@ -210,8 +215,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			By("Waiting until vmi sync metrics are removed")
 			Eventually(func() error {
 				_, err := libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_sync_total", map[string]string{
-					"namespace": vmiRef.Namespace,
-					"name":      vmiRef.Name,
+					metricLabelNamespace: vmiRef.Namespace,
+					metricLabelName:      vmiRef.Name,
 				})
 				return err
 			}, 3*time.Minute, 10*time.Second).Should(HaveOccurred())
@@ -304,17 +309,17 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vm := createRunningVM(virtClient, vmi, v1.RunStrategyAlways, true)
 
 	By("Waiting for the VM to be reported")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "namespace:kubevirt_vm:sum", 1, map[string]string{"namespace": vm.Namespace}, 1)
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "namespace:kubevirt_vm:sum", 1, map[string]string{metricLabelNamespace: vm.Namespace}, 1)
 
 	By("Waiting for the VMI to be reported")
 	labels := map[string]string{
-		"namespace": vm.Namespace,
-		"name":      vm.Name,
+		metricLabelNamespace: vm.Namespace,
+		metricLabelName:      vm.Name,
 	}
 	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 
 	By("Waiting for the VM domainstats metrics to be reported")
-	fsLabels := map[string]string{"namespace": vm.Namespace, "name": vm.Name}
+	fsLabels := map[string]string{metricLabelNamespace: vm.Namespace, metricLabelName: vm.Name}
 	libmonitoring.WaitForMetricValueWithLabelsToBe(
 		virtClient, "kubevirt_vmi_filesystem_capacity_bytes", fsLabels, 0, ">", 0,
 	)

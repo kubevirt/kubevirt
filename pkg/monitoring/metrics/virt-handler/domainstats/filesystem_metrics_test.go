@@ -34,8 +34,8 @@ var _ = Describe("filesystem metrics", func() {
 	Context("on Collect", func() {
 		vmi := &k6tv1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vmi-1",
-				Namespace: "test-ns-1",
+				Name:      testDomainstatsVMIName,
+				Namespace: testDomainstatsNamespace,
 			},
 		}
 

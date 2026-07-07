@@ -26,6 +26,12 @@ import (
 )
 
 var _ = Describe("GPU Info Collector", func() {
+	const (
+		testNodeWorker1 = "worker-1"
+		testNamespace   = "test-ns"
+		testPodName     = "virt-launcher-test-vmi-abc123"
+		testGPUResource = "nvidia.com/NVIDIA_A2-2Q"
+	)
 	Context("collectCallback", func() {
 		It("should return nil when cache is not initialized", func() {
 			gpuCache = nil
@@ -35,19 +41,19 @@ var _ = Describe("GPU Info Collector", func() {
 
 		It("should return correct collector results from cache", func() {
 			gpuCache = &gpuInfoCache{
-				nodeName:    "worker-1",
+				nodeName:    testNodeWorker1,
 				lastRefresh: time.Now(),
 				allocations: []GPUAllocation{
 					{
-						Namespace: "test-ns",
-						PodName:   "virt-launcher-test-vmi-abc123",
-						Resource:  "nvidia.com/NVIDIA_A2-2Q",
+						Namespace: testNamespace,
+						PodName:   testPodName,
+						Resource:  testGPUResource,
 						UUID:      "gpu-uuid-123",
 					},
 					{
-						Namespace: "test-ns",
-						PodName:   "virt-launcher-test-vmi-abc123",
-						Resource:  "nvidia.com/NVIDIA_A2-2Q",
+						Namespace: testNamespace,
+						PodName:   testPodName,
+						Resource:  testGPUResource,
 						UUID:      "gpu-uuid-456",
 					},
 				},
@@ -57,10 +63,10 @@ var _ = Describe("GPU Info Collector", func() {
 			Expect(results).To(HaveLen(2))
 
 			Expect(results[0].Value).To(Equal(float64(1)))
-			Expect(results[0].ConstLabels["node"]).To(Equal("worker-1"))
-			Expect(results[0].ConstLabels["namespace"]).To(Equal("test-ns"))
-			Expect(results[0].ConstLabels["pod"]).To(Equal("virt-launcher-test-vmi-abc123"))
-			Expect(results[0].ConstLabels["resource"]).To(Equal("nvidia.com/NVIDIA_A2-2Q"))
+			Expect(results[0].ConstLabels["node"]).To(Equal(testNodeWorker1))
+			Expect(results[0].ConstLabels["namespace"]).To(Equal(testNamespace))
+			Expect(results[0].ConstLabels["pod"]).To(Equal(testPodName))
+			Expect(results[0].ConstLabels["resource"]).To(Equal(testGPUResource))
 			Expect(results[0].ConstLabels["uuid"]).To(Equal("gpu-uuid-123"))
 
 			Expect(results[1].ConstLabels["uuid"]).To(Equal("gpu-uuid-456"))
@@ -68,7 +74,7 @@ var _ = Describe("GPU Info Collector", func() {
 
 		It("should return empty results when cache has no allocations", func() {
 			gpuCache = &gpuInfoCache{
-				nodeName:    "worker-1",
+				nodeName:    testNodeWorker1,
 				lastRefresh: time.Now(),
 			}
 

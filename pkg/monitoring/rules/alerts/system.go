@@ -36,8 +36,8 @@ func systemAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey:     "At least two nodes with kvm resource required for VM live migration.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityWarning,
 			},
 		},
 		{
@@ -52,8 +52,8 @@ func systemAlerts(namespace string) []promv1.Rule {
 				summaryAnnotationKey: "There are no available nodes in the cluster to run VMs.",
 			},
 			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "critical",
+				severityAlertLabelKey:        alertSeverityWarning,
+				operatorHealthImpactLabelKey: alertSeverityCritical,
 			},
 		},
 	}

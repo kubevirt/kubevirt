@@ -24,6 +24,11 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 )
 
+const (
+	namespaceLabel = "namespace"
+	vmiLabel       = "vmi"
+)
+
 var (
 	connectionMetrics = []operatormetrics.Metric{
 		activePortForwardTunnels,
@@ -33,7 +38,7 @@ var (
 		vmiLastConnectionTimestamp,
 	}
 
-	namespaceAndVMILabels = []string{"namespace", "vmi"}
+	namespaceAndVMILabels = []string{namespaceLabel, vmiLabel}
 
 	activePortForwardTunnels = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{

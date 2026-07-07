@@ -52,7 +52,7 @@ var (
 		},
 		[]string{
 			// phase of the vmi
-			"phase",
+			metricLabelPhase,
 			// last phase of the vmi
 			"last_phase",
 		},
@@ -68,7 +68,7 @@ var (
 		},
 		[]string{
 			// phase of the vmi
-			"phase",
+			metricLabelPhase,
 		},
 	)
 
@@ -82,7 +82,7 @@ var (
 		},
 		[]string{
 			// phase of the vmi
-			"phase",
+			metricLabelPhase,
 		},
 	)
 )

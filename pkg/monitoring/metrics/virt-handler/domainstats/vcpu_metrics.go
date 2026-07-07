@@ -27,6 +27,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
+const vcpuIDLabel = "id"
+
 var (
 	vcpuSeconds = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
@@ -74,22 +76,22 @@ func (vcpuMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatorme
 
 		if vcpu.TimeSet {
 			additionalLabels := map[string]string{
-				"id":    stringVcpuIdx,
-				"state": humanReadableState(vcpu.State),
+				vcpuIDLabel: stringVcpuIdx,
+				"state":     humanReadableState(vcpu.State),
 			}
 			crs = append(crs, vmiReport.newCollectorResultWithLabels(vcpuSeconds, nanosecondsToSeconds(vcpu.Time), additionalLabels))
 		}
 
 		if vcpu.WaitSet {
 			additionalLabels := map[string]string{
-				"id": stringVcpuIdx,
+				vcpuIDLabel: stringVcpuIdx,
 			}
 			crs = append(crs, vmiReport.newCollectorResultWithLabels(vcpuWaitSeconds, nanosecondsToSeconds(vcpu.Wait), additionalLabels))
 		}
 
 		if vcpu.DelaySet {
 			additionalLabels := map[string]string{
-				"id": stringVcpuIdx,
+				vcpuIDLabel: stringVcpuIdx,
 			}
 			crs = append(crs, vmiReport.newCollectorResultWithLabels(vcpuDelaySeconds, nanosecondsToSeconds(vcpu.Delay), additionalLabels))
 		}

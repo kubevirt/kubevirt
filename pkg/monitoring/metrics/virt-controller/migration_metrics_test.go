@@ -63,8 +63,8 @@ func createVMIMigrationSForPhaseTransitionTime(
 
 	migration := &v1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "test-ns",
-			Name:              "testvmimigration",
+			Namespace:         testNamespace,
+			Name:              testVMIMName,
 			CreationTimestamp: creation,
 		},
 		Status: v1.VirtualMachineInstanceMigrationStatus{

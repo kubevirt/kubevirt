@@ -39,14 +39,14 @@ var _ = Describe("domain stats collector", func() {
 		vmis := []*k6tv1.VirtualMachineInstance{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vmi-1",
-					Namespace: "test-ns-1",
+					Name:      testDomainstatsVMIName,
+					Namespace: testDomainstatsNamespace,
 				},
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vmi-1",
-					Namespace: "test-ns-1",
+					Name:      testDomainstatsVMIName,
+					Namespace: testDomainstatsNamespace,
 				},
 			},
 		}

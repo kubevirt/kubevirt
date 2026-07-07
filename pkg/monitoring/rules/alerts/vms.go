@@ -35,6 +35,8 @@ import (
 const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|" +
 	"tracefs|configfs|binfmt_misc|bpf|devpts|mqueue|nsfs|rpc_pipefs|ramfs|rootfs|overlay|cgroup.*|fuse\\\\..*|fusectl"
 
+const alertGuestFilesystemAlmostOutOfSpace = "GuestFilesystemAlmostOutOfSpace"
+
 var vmsAlerts = []promv1.Rule{
 	{
 		Alert: "VirtLauncherPodsStuckFailed",
@@ -44,8 +46,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey: "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes.",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "critical",
-			operatorHealthImpactLabelKey: "critical",
+			severityAlertLabelKey:        alertSeverityCritical,
+			operatorHealthImpactLabelKey: alertSeverityCritical,
 		},
 	},
 	{
@@ -60,8 +62,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey: "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "warning",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: alertSeverityWarning,
 		},
 	},
 	{
@@ -77,8 +79,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey: "The VM's eviction strategy is set to Live Migration but the VM is not migratable",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -92,8 +94,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey: "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours.",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -104,8 +106,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey: "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -116,8 +118,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 10",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -128,8 +130,8 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey:     "Guest vCPU Queue within collection cycle > 20",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "critical",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityCritical,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -146,8 +148,8 @@ var vmsAlerts = []promv1.Rule{
 				"{{ $labels.status }} state for more than 10 minutes.",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -167,8 +169,8 @@ var vmsAlerts = []promv1.Rule{
 				"node.",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -187,12 +189,12 @@ var vmsAlerts = []promv1.Rule{
 			summaryAnnotationKey: "The VirtualMachine is under memory pressure (possible thrashing)",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityWarning,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
-		Alert: "GuestFilesystemAlmostOutOfSpace",
+		Alert: alertGuestFilesystemAlmostOutOfSpace,
 		Expr: intstr.FromString(fmt.Sprintf(
 			"(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / "+
 				"kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95",
@@ -206,11 +208,11 @@ var vmsAlerts = []promv1.Rule{
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:        "warning",
-			operatorHealthImpactLabelKey: "none",
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
-		Alert: "GuestFilesystemAlmostOutOfSpace",
+		Alert: alertGuestFilesystemAlmostOutOfSpace,
 		Expr: intstr.FromString(fmt.Sprintf(
 			"(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / "+
 				"kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95",
@@ -222,8 +224,8 @@ var vmsAlerts = []promv1.Rule{
 				"filesystem {{ $labels.disk_name }} ({{ $labels.mount_point }}) usage above 95% (current: {{ $value }}%).",
 		},
 		Labels: map[string]string{
-			severityAlertLabelKey:        "critical",
-			operatorHealthImpactLabelKey: "none",
+			severityAlertLabelKey:        alertSeverityCritical,
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -244,7 +246,7 @@ var vmsAlerts = []promv1.Rule{
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:        "info",
-			operatorHealthImpactLabelKey: "none",
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 	{
@@ -257,7 +259,7 @@ var vmsAlerts = []promv1.Rule{
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:        "critical",
-			operatorHealthImpactLabelKey: "none",
+			operatorHealthImpactLabelKey: operatorHealthImpactNone,
 		},
 	},
 }

@@ -27,6 +27,8 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
+const testNodeName = "test-node"
+
 var _ = Describe("deprecated machine types metric", func() {
 	Context("ReportDeprecatedMachineTypes", func() {
 		BeforeEach(func() {
@@ -40,7 +42,7 @@ var _ = Describe("deprecated machine types metric", func() {
 				{Name: "machine2", Deprecated: "true"},
 			}
 
-			ReportDeprecatedMachineTypes(machineTypes, "test-node")
+			ReportDeprecatedMachineTypes(machineTypes, testNodeName)
 
 			Expect(machineTypeMetrics).ToNot(BeEmpty())
 			Expect(deprecatedMachineTypeMetric).ToNot(BeNil(), "deprecatedMachineTypeMetric should be initialized")
@@ -48,7 +50,7 @@ var _ = Describe("deprecated machine types metric", func() {
 			for _, machine := range machineTypes {
 				labels := map[string]string{
 					"machine_type": machine.Name,
-					"node":         "test-node",
+					"node":         testNodeName,
 				}
 				_, err := deprecatedMachineTypeMetric.GetMetricWith(labels)
 				Expect(err).ToNot(HaveOccurred(), "should initialize metric with labels %v", labels)

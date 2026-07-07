@@ -47,6 +47,14 @@ const (
 
 	annotationPrefix        = "vm.kubevirt.io/"
 	instancetypeVendorLabel = "instancetype.kubevirt.io/vendor"
+
+	labelOS          = "os"
+	labelPreference  = "preference"
+	labelBindingType = "binding_type"
+	labelUnit        = "unit"
+	labelWorkload    = "workload"
+	labelModel       = "model"
+	labelNetwork     = "network"
 )
 
 var (
@@ -75,11 +83,11 @@ var (
 		},
 		[]string{
 			// Basic info
-			"node", "namespace", "name",
+			metricLabelNode, metricLabelNamespace, metricLabelName,
 			// Domain info
-			"phase", "os", "workload", "flavor",
+			metricLabelPhase, labelOS, labelWorkload, metricLabelFlavor,
 			// Instance type
-			"instance_type", "preference",
+			metricLabelInstanceType, labelPreference,
 			// Guest OS info
 			"guest_os_kernel_release", "guest_os_machine", "guest_os_arch", "guest_os_name", "guest_os_version_id",
 			// State info
@@ -94,7 +102,7 @@ var (
 			Name: "kubevirt_vmi_non_evictable",
 			Help: "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
 		},
-		[]string{"node", "namespace", "name"},
+		[]string{metricLabelNode, metricLabelNamespace, metricLabelName},
 	)
 
 	vmiAddresses = operatormetrics.NewGaugeVec(
@@ -104,7 +112,7 @@ var (
 				"interface associated with the VMI in the 'address' label, and about the type of address, such as " +
 				"internal IP, in the 'type' label.",
 		},
-		[]string{"node", "namespace", "name", "vnic_name", "interface_name", "address", "type"},
+		[]string{metricLabelNode, metricLabelNamespace, metricLabelName, metricLabelVNICName, "interface_name", "address", "type"},
 	)
 
 	vmiMigrationStartTime = operatormetrics.NewGaugeVec(
@@ -112,7 +120,7 @@ var (
 			Name: "kubevirt_vmi_migration_start_time_seconds",
 			Help: "The time at which the migration started.",
 		},
-		[]string{"node", "namespace", "name", "migration_name"},
+		[]string{metricLabelNode, metricLabelNamespace, metricLabelName, metricLabelMigrationName},
 	)
 
 	vmiMigrationEndTime = operatormetrics.NewGaugeVec(
@@ -120,7 +128,7 @@ var (
 			Name: "kubevirt_vmi_migration_end_time_seconds",
 			Help: "The time at which the migration ended.",
 		},
-		[]string{"node", "namespace", "name", "migration_name", "status"},
+		[]string{metricLabelNode, metricLabelNamespace, metricLabelName, metricLabelMigrationName, metricLabelStatus},
 	)
 
 	vmiVnicInfo = operatormetrics.NewGaugeVec(
@@ -129,7 +137,7 @@ var (
 			Help: "Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, " +
 				"network name, and binding name for each vNIC of a running instance.",
 		},
-		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name", "model"},
+		[]string{metricLabelName, metricLabelNamespace, metricLabelVNICName, labelBindingType, labelNetwork, metricLabelBindingName, labelModel},
 	)
 
 	vmiLauncherMemoryOverhead = operatormetrics.NewGaugeVec(
@@ -137,7 +145,7 @@ var (
 			Name: "kubevirt_vmi_launcher_memory_overhead_bytes",
 			Help: "Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU).",
 		},
-		[]string{"namespace", "name"},
+		[]string{metricLabelNamespace, metricLabelName},
 	)
 )
 
@@ -230,7 +238,7 @@ func getSystemInfoFromAnnotations(annotations map[string]string) (os, workload, 
 		os = val
 	}
 
-	if val, ok := annotations[annotationPrefix+"workload"]; ok {
+	if val, ok := annotations[annotationPrefix+labelWorkload]; ok {
 		workload = val
 	}
 
@@ -394,7 +402,7 @@ func collectVMIInterfaceInfo(
 	vmi *k6tv1.VirtualMachineInstance,
 	iface k6tv1.VirtualMachineInstanceNetworkInterface,
 ) *operatormetrics.CollectorResult {
-	interfaceType := "ExternalInterface"
+	interfaceType := vmiInterfaceTypeExternal
 
 	if iface.IP == "" {
 		if iface.Name == "" && iface.InterfaceName == "" {
@@ -402,7 +410,7 @@ func collectVMIInterfaceInfo(
 			return nil
 		}
 
-		interfaceType = "SystemInterface"
+		interfaceType = vmiInterfaceTypeSystem
 	}
 
 	return &operatormetrics.CollectorResult{
@@ -455,7 +463,7 @@ func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrat
 		return "failed"
 	}
 
-	return "succeeded"
+	return migrationStatusSucceeded
 }
 
 func getMigrationNameFromMigrationUID(migrationUID types.UID) string {

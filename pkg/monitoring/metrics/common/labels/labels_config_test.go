@@ -26,6 +26,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 )
 
+const (
+	configMapAllowlistKey  = "allowlist"
+	configMapIgnorelistKey = "ignorelist"
+)
+
 var _ = Describe("labels config", func() {
 	var cfg *configImpl
 
@@ -50,8 +55,8 @@ var _ = Describe("labels config", func() {
 	Context("ConfigMap updates", func() {
 		It("should prioritize ignorelist over allowlist when overlapping", func() {
 			cm := &k8sv1.ConfigMap{Data: map[string]string{
-				"allowlist":  "*",
-				"ignorelist": "vm.kubevirt.io/template",
+				configMapAllowlistKey:  "*",
+				configMapIgnorelistKey: "vm.kubevirt.io/template",
 			}}
 			cfg.updateFromConfigMap(cm)
 
@@ -61,8 +66,8 @@ var _ = Describe("labels config", func() {
 
 		It("should not report when allowlist is empty", func() {
 			cm := &k8sv1.ConfigMap{Data: map[string]string{
-				"allowlist":  "",
-				"ignorelist": "",
+				configMapAllowlistKey:  "",
+				configMapIgnorelistKey: "",
 			}}
 			cfg.updateFromConfigMap(cm)
 			Expect(cfg.ShouldReport("a")).To(BeFalse())
@@ -70,8 +75,8 @@ var _ = Describe("labels config", func() {
 
 		It("should not treat '*' in ignorelist as wildcard", func() {
 			cm := &k8sv1.ConfigMap{Data: map[string]string{
-				"allowlist":  "*",
-				"ignorelist": "*",
+				configMapAllowlistKey:  "*",
+				configMapIgnorelistKey: "*",
 			}}
 			cfg.updateFromConfigMap(cm)
 			Expect(cfg.ShouldReport("environment")).To(BeTrue())

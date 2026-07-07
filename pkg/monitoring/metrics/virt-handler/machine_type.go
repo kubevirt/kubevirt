@@ -24,6 +24,11 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
+const (
+	machineTypeLabel = "machine_type"
+	nodeLabel        = "node"
+)
+
 var (
 	machineTypeMetrics = []operatormetrics.Metric{
 		deprecatedMachineTypeMetric,
@@ -34,7 +39,7 @@ var (
 			Name: "kubevirt_node_deprecated_machine_types",
 			Help: "List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler.",
 		},
-		[]string{"machine_type", "node"},
+		[]string{machineTypeLabel, nodeLabel},
 	)
 )
 
