@@ -2785,7 +2785,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			bootOrder := uint(1)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
+				{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
@@ -2963,7 +2963,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			bootOrder := uint(1)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
+				{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
@@ -4125,7 +4125,7 @@ var _ = Describe("additional tests", func() {
 			Name: "testnet",
 		}
 		order := uint(1)
-		iface := v1.Interface{Name: net.Name, BootOrder: &order}
+		iface := v1.Interface{Name: net.Name, BootOrder: &order, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 		spec.Networks = []v1.Network{net}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
@@ -4141,7 +4141,7 @@ var _ = Describe("additional tests", func() {
 			Name: "testnet",
 		}
 		order := uint(0)
-		iface := v1.Interface{Name: net.Name, BootOrder: &order}
+		iface := v1.Interface{Name: net.Name, BootOrder: &order, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 		spec.Networks = []v1.Network{net}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
@@ -4158,7 +4158,7 @@ var _ = Describe("additional tests", func() {
 			Name: "testnet",
 		}
 		order1 := uint(7)
-		iface := v1.Interface{Name: net.Name, BootOrder: &order1}
+		iface := v1.Interface{Name: net.Name, BootOrder: &order1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 		spec.Networks = []v1.Network{net}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 		order2 := uint(77)
@@ -4193,7 +4193,7 @@ var _ = Describe("additional tests", func() {
 			Name: "testnet",
 		}
 		order := uint(7)
-		iface := v1.Interface{Name: net.Name, BootOrder: &order}
+		iface := v1.Interface{Name: net.Name, BootOrder: &order, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 		spec.Networks = []v1.Network{net}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
 		disk := v1.Disk{
