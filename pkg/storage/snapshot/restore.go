@@ -343,7 +343,7 @@ func (ctrl *VMRestoreController) doUpdateErrorWithFailure(restore *snapshotv1.Vi
 		updateRestoreCondition(updated, newFailureCondition(corev1.ConditionTrue, errMsg))
 	}
 
-	ctrl.Recorder.Eventf(
+	ctrl.Recorder.Event(
 		restore,
 		corev1.EventTypeWarning,
 		eventReason,
