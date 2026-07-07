@@ -30,6 +30,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
+const testAnnotationKey1 = "annotation-1"
+
 var _ = Describe("Instancetype.Spec.Annotations", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
@@ -44,8 +46,8 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 
 		instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			Annotations: map[string]string{
-				"annotation-1": "1",
-				"annotation-2": "2",
+				testAnnotationKey1: "1",
+				"annotation-2":     "2",
 			},
 		}
 	})
@@ -65,7 +67,7 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 
 		It("should detect conflict when annotation with different value already exists", func() {
 			vmi.Annotations = map[string]string{
-				"annotation-1": "conflict",
+				testAnnotationKey1: "conflict",
 			}
 
 			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)

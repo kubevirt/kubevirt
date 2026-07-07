@@ -32,6 +32,11 @@ import (
 )
 
 var _ = Describe("Architecture requirements", func() {
+	const (
+		amd64Architecture = "amd64"
+		arm64Architecture = "arm64"
+	)
+
 	requirementsChecker := requirements.New()
 
 	DescribeTable("should pass when architecture requirement is met",
@@ -43,21 +48,21 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires amd64 and vmi uses amd64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("amd64"),
+					Architecture: pointer.P(amd64Architecture),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "amd64",
+				Architecture: amd64Architecture,
 			},
 		),
 		Entry("when preference requires arm64 and vmi uses arm64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("arm64"),
+					Architecture: pointer.P(arm64Architecture),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "arm64",
+				Architecture: arm64Architecture,
 			},
 		),
 		Entry("when preference requires s390x and vmi uses s390x",
@@ -75,13 +80,13 @@ var _ = Describe("Architecture requirements", func() {
 				Requirements: &v1beta1.PreferenceRequirements{},
 			},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "amd64",
+				Architecture: amd64Architecture,
 			},
 		),
 		Entry("when preference has no requirements at all",
 			&v1beta1.VirtualMachinePreferenceSpec{},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "amd64",
+				Architecture: amd64Architecture,
 			},
 		),
 	)
@@ -101,26 +106,26 @@ var _ = Describe("Architecture requirements", func() {
 		Entry("when preference requires amd64 but vmi uses arm64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("amd64"),
+					Architecture: pointer.P(amd64Architecture),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "arm64",
+				Architecture: arm64Architecture,
 			},
 			conflict.Conflicts{conflict.New("spec", "template", "spec", "architecture")},
-			fmt.Sprintf("preference requires architecture %s but %s is being requested", "amd64", "arm64"),
+			fmt.Sprintf("preference requires architecture %s but %s is being requested", amd64Architecture, arm64Architecture),
 		),
 		Entry("when preference requires arm64 but vmi uses amd64",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("arm64"),
+					Architecture: pointer.P(arm64Architecture),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "amd64",
+				Architecture: amd64Architecture,
 			},
 			conflict.Conflicts{conflict.New("spec", "template", "spec", "architecture")},
-			fmt.Sprintf("preference requires architecture %s but %s is being requested", "arm64", "amd64"),
+			fmt.Sprintf("preference requires architecture %s but %s is being requested", arm64Architecture, amd64Architecture),
 		),
 		Entry("when preference requires s390x but vmi uses amd64",
 			&v1beta1.VirtualMachinePreferenceSpec{
@@ -129,22 +134,22 @@ var _ = Describe("Architecture requirements", func() {
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
-				Architecture: "amd64",
+				Architecture: amd64Architecture,
 			},
 			conflict.Conflicts{conflict.New("spec", "template", "spec", "architecture")},
-			fmt.Sprintf("preference requires architecture %s but %s is being requested", "s390x", "amd64"),
+			fmt.Sprintf("preference requires architecture %s but %s is being requested", "s390x", amd64Architecture),
 		),
 		Entry("when preference requires amd64 but vmi uses empty architecture",
 			&v1beta1.VirtualMachinePreferenceSpec{
 				Requirements: &v1beta1.PreferenceRequirements{
-					Architecture: pointer.P("amd64"),
+					Architecture: pointer.P(amd64Architecture),
 				},
 			},
 			&v1.VirtualMachineInstanceSpec{
 				Architecture: "",
 			},
 			conflict.Conflicts{conflict.New("spec", "template", "spec", "architecture")},
-			fmt.Sprintf("preference requires architecture %s but %s is being requested", "amd64", ""),
+			fmt.Sprintf("preference requires architecture %s but %s is being requested", amd64Architecture, ""),
 		),
 	)
 })

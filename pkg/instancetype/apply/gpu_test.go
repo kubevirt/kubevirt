@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors.
  */
 
-//nolint:dupl
 package apply_test
 
 import (
@@ -33,6 +32,11 @@ import (
 )
 
 var _ = Describe("instancetype.Spec.GPUs", func() {
+	const (
+		gpuConflictName = "foobar"
+		gpuDeviceName   = "vendor.com/gpu_name"
+	)
+
 	var (
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
@@ -43,7 +47,7 @@ var _ = Describe("instancetype.Spec.GPUs", func() {
 			GPUs: []virtv1.GPU{
 				{
 					Name:       "barfoo",
-					DeviceName: "vendor.com/gpu_name",
+					DeviceName: gpuDeviceName,
 				},
 			},
 		}
@@ -62,8 +66,8 @@ var _ = Describe("instancetype.Spec.GPUs", func() {
 	It("should detect GPU conflict", func() {
 		vmi.Spec.Domain.Devices.GPUs = []virtv1.GPU{
 			{
-				Name:       "foobar",
-				DeviceName: "vendor.com/gpu_name",
+				Name:       gpuConflictName,
+				DeviceName: gpuDeviceName,
 			},
 		}
 

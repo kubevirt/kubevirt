@@ -20,6 +20,14 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	instancetypeGenerateNamePrefix = "instancetype-"
+	preferenceGenerateNamePrefix   = "preference-"
+	virtualMachineInstancetypeKind = "VirtualMachineInstancetype"
+	virtualMachinePreferenceKind   = "VirtualMachinePreference"
+	vmGenerateNamePrefix           = "vm-"
+)
+
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Preference requirements", decorators.SigCompute, decorators.SigComputeInstancetype, decorators.WgS390x, func() {
 	var (
 		guestMemory2GB = resource.MustParse("2Gi")
@@ -57,7 +65,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype meets CPU requirements",
 			&instancetypev1beta1.VirtualMachineInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "instancetype-",
+					GenerateName: instancetypeGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
@@ -67,7 +75,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -79,15 +87,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
-						Kind: "VirtualMachineInstancetype",
+						Kind: virtualMachineInstancetypeKind,
 					},
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -100,7 +108,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype meets Memory requirements",
 			&instancetypev1beta1.VirtualMachineInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "instancetype-",
+					GenerateName: instancetypeGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1beta1.MemoryInstancetype{
@@ -110,7 +118,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -122,15 +130,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
-						Kind: "VirtualMachineInstancetype",
+						Kind: virtualMachineInstancetypeKind,
 					},
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -144,7 +152,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -156,12 +164,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -181,7 +189,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -196,12 +204,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -221,7 +229,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -233,12 +241,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -252,7 +260,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -267,12 +275,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -292,7 +300,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -307,12 +315,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -332,7 +340,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -344,12 +352,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -385,7 +393,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype does not meet CPU requirements",
 			&instancetypev1beta1.VirtualMachineInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "instancetype-",
+					GenerateName: instancetypeGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
@@ -395,7 +403,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -407,15 +415,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
-						Kind: "VirtualMachineInstancetype",
+						Kind: virtualMachineInstancetypeKind,
 					},
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -429,7 +437,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineInstancetype does not meet Memory requirements",
 			&instancetypev1beta1.VirtualMachineInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "instancetype-",
+					GenerateName: instancetypeGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1beta1.MemoryInstancetype{
@@ -439,7 +447,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -451,15 +459,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Instancetype: &virtv1.InstancetypeMatcher{
-						Kind: "VirtualMachineInstancetype",
+						Kind: virtualMachineInstancetypeKind,
 					},
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -474,7 +482,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -486,12 +494,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -512,7 +520,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -527,12 +535,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -553,7 +561,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -568,12 +576,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -594,7 +602,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -609,12 +617,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -635,7 +643,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -647,12 +655,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
@@ -671,7 +679,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			nil,
 			&instancetypev1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "preference-",
+					GenerateName: preferenceGenerateNamePrefix,
 				},
 				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
@@ -683,12 +691,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			},
 			&virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "vm-",
+					GenerateName: vmGenerateNamePrefix,
 				},
 				Spec: virtv1.VirtualMachineSpec{
 					RunStrategy: pointer.P(virtv1.RunStrategyHalted),
 					Preference: &virtv1.PreferenceMatcher{
-						Kind: "VirtualMachinePreference",
+						Kind: virtualMachinePreferenceKind,
 					},
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{

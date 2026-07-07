@@ -36,6 +36,13 @@ import (
 )
 
 var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
+	const (
+		barFeatureName           = "bar"
+		fooFeatureName           = "foo"
+		cpuFeaturePolicyRequire  = "require"
+		cpuFeaturePolicyOptional = "optional"
+	)
+
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
@@ -514,11 +521,11 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			CPU: &v1beta1.CPUPreferences{
 				PreferredCPUFeatures: []virtv1.CPUFeature{
 					{
-						Name:   "foo",
-						Policy: "require",
+						Name:   fooFeatureName,
+						Policy: cpuFeaturePolicyRequire,
 					},
 					{
-						Name:   "bar",
+						Name:   barFeatureName,
 						Policy: "force",
 					},
 				},
@@ -527,8 +534,8 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 		vmi.Spec.Domain.CPU = &virtv1.CPU{
 			Features: []virtv1.CPUFeature{
 				{
-					Name:   "bar",
-					Policy: "optional",
+					Name:   barFeatureName,
+					Policy: cpuFeaturePolicyOptional,
 				},
 			},
 		}
@@ -536,12 +543,12 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 		Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(2))
 		Expect(vmi.Spec.Domain.CPU.Features).To(ContainElements([]virtv1.CPUFeature{
 			{
-				Name:   "foo",
-				Policy: "require",
+				Name:   fooFeatureName,
+				Policy: cpuFeaturePolicyRequire,
 			},
 			{
-				Name:   "bar",
-				Policy: "optional",
+				Name:   barFeatureName,
+				Policy: cpuFeaturePolicyOptional,
 			},
 		}))
 	})

@@ -51,6 +51,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 	const (
 		nonExistingResourceName = "non-existing-resource"
 		storedName              = "stored"
+		foobarKind              = "foobar"
 	)
 
 	type instancetypeSpecFinder interface {
@@ -209,7 +210,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 				func(vm *v1.VirtualMachine, crName string) {
 					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
 						ControllerRevisionRef: &v1.ControllerRevisionRef{
-							Name: "foobar",
+							Name: foobarKind,
 						},
 					}
 					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
@@ -386,7 +387,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 				func(vm *v1.VirtualMachine, crName string) {
 					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
 						ControllerRevisionRef: &v1.ControllerRevisionRef{
-							Name: "foobar",
+							Name: foobarKind,
 						},
 					}
 					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
