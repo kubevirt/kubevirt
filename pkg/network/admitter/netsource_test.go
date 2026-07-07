@@ -31,6 +31,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
+const (
+	defaultNetworkName1 = "default1"
+	requestName1        = "request1"
+	multusNet2          = "multus-net2"
+	net2Name            = "multus2"
+)
+
 var _ = Describe("Validate network source", func() {
 	It("support only a single pod network", func() {
 		const net1Name = "default"
@@ -56,9 +63,9 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{
 			{
-				Name: "default",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "default1"},
+					Multus: &v1.MultusNetwork{NetworkName: defaultNetworkName1},
 					Pod:    &v1.PodNetwork{},
 				},
 			},
@@ -92,14 +99,14 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{Name: draSRIOVNetName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 		}
-		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+		spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: draClaimName, ResourceClaimName: ptr.To(draClaimName)}}
 		spec.Networks = []v1.Network{
 			{
 				Name: draSRIOVNetName,
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "request1",
+						ClaimName:   draClaimName,
+						RequestName: requestName1,
 					},
 				},
 			},
@@ -113,16 +120,16 @@ var _ = Describe("Validate network source", func() {
 		func(networkSource v1.NetworkSource) {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: net1Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
 			}
-			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: "claim1", ResourceClaimName: ptr.To("claim1")}}
+			spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{{Name: draClaimName, ResourceClaimName: ptr.To(draClaimName)}}
 			spec.Networks = []v1.Network{
 				{
-					Name: "default",
+					Name: net1Name,
 					NetworkSource: v1.NetworkSource{
 						ResourceClaim: &v1.ClaimRequest{
-							ClaimName:   "claim1",
-							RequestName: "request1",
+							ClaimName:   draClaimName,
+							RequestName: requestName1,
 						},
 						Pod:    networkSource.Pod,
 						Multus: networkSource.Multus,
@@ -134,14 +141,14 @@ var _ = Describe("Validate network source", func() {
 			Expect(causes).To(ContainElement(HaveField("Message", "should have only one network type")))
 		},
 		Entry("pod network", v1.NetworkSource{Pod: &v1.PodNetwork{}}),
-		Entry("multus network", v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "default1"}}),
+		Entry("multus network", v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: defaultNetworkName1}}),
 	)
 
 	It("should reject multus network source without networkName", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{{
-			Name:          "default",
+			Name:          net1Name,
 			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
 		}}
 
@@ -165,13 +172,13 @@ var _ = Describe("Validate network source", func() {
 			{
 				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+					Multus: &v1.MultusNetwork{NetworkName: multusNet1Name, Default: true},
 				},
 			},
 			{
 				Name: net2Name,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
+					Multus: &v1.MultusNetwork{NetworkName: multusNet2, Default: true},
 				},
 			},
 		}
@@ -179,7 +186,7 @@ var _ = Describe("Validate network source", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
-		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+		Expect(string(causes[0].Type)).To(Equal(fieldValueInvalidType))
 		Expect(causes[0].Field).To(Equal("fake.networks"))
 		Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
 	})
@@ -199,7 +206,7 @@ var _ = Describe("Validate network source", func() {
 
 		spec.Networks = []v1.Network{
 			{
-				Name: "default",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
 					Pod: &v1.PodNetwork{},
 				},
@@ -207,7 +214,7 @@ var _ = Describe("Validate network source", func() {
 			{
 				Name: defaultMultusNetName,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+					Multus: &v1.MultusNetwork{NetworkName: multusNet1Name, Default: true},
 				},
 			},
 		}
@@ -216,7 +223,7 @@ var _ = Describe("Validate network source", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
-		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+		Expect(string(causes[0].Type)).To(Equal(fieldValueInvalidType))
 		Expect(causes[0].Field).To(Equal("fake.networks"))
 		Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
 	})
@@ -226,12 +233,12 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			*v1.DefaultBridgeNetworkInterface(),
 		}
-		spec.Domain.Devices.Interfaces[0].Name = "multus1"
+		spec.Domain.Devices.Interfaces[0].Name = net1Name
 		spec.Networks = []v1.Network{
 			{
-				Name: "multus1",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+					Multus: &v1.MultusNetwork{NetworkName: multusNet1Name, Default: true},
 				},
 			},
 		}
@@ -246,7 +253,7 @@ var _ = Describe("Validate network source", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{
 			{
-				Name: "default",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
 					Multus: &v1.MultusNetwork{NetworkName: "default"},
 				},
@@ -262,19 +269,19 @@ var _ = Describe("Validate network source", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "default",
+				Name: net1Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Bridge: &v1.InterfaceBridge{},
 				},
 			},
 			{
-				Name: "multus1",
+				Name: secondaryIfaceName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Bridge: &v1.InterfaceBridge{},
 				},
 			},
 			{
-				Name: "multus2",
+				Name: net2Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Bridge: &v1.InterfaceBridge{},
 				},
@@ -283,21 +290,21 @@ var _ = Describe("Validate network source", func() {
 
 		spec.Networks = []v1.Network{
 			{
-				Name: "default",
+				Name: net1Name,
 				NetworkSource: v1.NetworkSource{
 					Pod: &v1.PodNetwork{},
 				},
 			},
 			{
-				Name: "multus1",
+				Name: secondaryIfaceName,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1"},
+					Multus: &v1.MultusNetwork{NetworkName: multusNet1Name},
 				},
 			},
 			{
-				Name: "multus2",
+				Name: net2Name,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net2"},
+					Multus: &v1.MultusNetwork{NetworkName: multusNet2},
 				},
 			},
 		}

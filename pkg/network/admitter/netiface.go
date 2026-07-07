@@ -236,11 +236,17 @@ func validateForwardPortsName(field *k8sfield.Path, idx int, ports []v1.Port) []
 	return causes
 }
 
+const (
+	tcpProtocol        = "TCP"
+	udpProtocol        = "UDP"
+	unknownProtocolMsg = "Unknown protocol, only TCP or UDP allowed"
+)
+
 func validateForwardPortProtocol(field *k8sfield.Path, idx int, forwardPort v1.Port, portIdx int) []metav1.StatusCause {
-	if forwardPort.Protocol != "" && forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+	if forwardPort.Protocol != "" && forwardPort.Protocol != tcpProtocol && forwardPort.Protocol != udpProtocol {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Unknown protocol, only TCP or UDP allowed",
+			Message: unknownProtocolMsg,
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
 		}}
 	}
@@ -341,7 +347,7 @@ func validateForwardPortRanges(field *k8sfield.Path, idx int, portRanges []v1.Po
 		case portRange.Protocol != "TCP" && portRange.Protocol != "UDP":
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Unknown protocol, only TCP or UDP allowed",
+				Message: unknownProtocolMsg,
 				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("portRanges").Index(portRangeIdx).Child("protocol").String(),
 			})
 		case portRange.Start <= 0 || portRange.Start >= 65536:

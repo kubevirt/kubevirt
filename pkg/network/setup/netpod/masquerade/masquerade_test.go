@@ -34,6 +34,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
+const (
+	defaultPodNetworkName       = "default"
+	defaultPodBridgeName        = "k6t-eth0"
+	masqueradeBridgeMACAddress  = "bb:bb:bb:bb:bb:bb"
+	defaultPodBridgeIPv4Address = "10.0.2.1"
+	defaultPodBridgeIPv6Address = "fd10:0:2::1"
+	defaultPrimaryPodIfaceName  = "eth0"
+	podInterfaceMACAddress      = "aa:aa:aa:aa:aa:aa"
+	primaryIPv4Address          = "10.222.222.1"
+	primaryIPv6Address          = "2001::1"
+	httpPortName                = "http"
+	tcpProtocol                 = "TCP"
+	tcpProtocolLower            = "tcp"
+)
+
 var _ = Describe("masquerade (NAT)", func() {
 	It("setup fails", func() {
 		testErr := errors.New("test error")
@@ -51,35 +66,35 @@ var _ = Describe("masquerade (NAT)", func() {
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			},
 		)
@@ -110,35 +125,35 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			},
 		)
@@ -169,46 +184,46 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			},
 		)
@@ -252,50 +267,50 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				Ports: []v1.Port{
-					{Name: "http", Protocol: "tcp", Port: 80},
-					{Name: "http", Protocol: "tcp", Port: 8080},
+					{Name: httpPortName, Protocol: tcpProtocolLower, Port: 80},
+					{Name: httpPortName, Protocol: tcpProtocolLower, Port: 8080},
 				},
 			},
 		)
@@ -345,38 +360,38 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				PortRanges: []v1.PortRange{
-					{Start: 80, End: 81, Protocol: "TCP"},
+					{Start: 80, End: 81, Protocol: tcpProtocol},
 				},
 			},
 		)
@@ -410,49 +425,49 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 				},
-				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				PortRanges: []v1.PortRange{
-					{Start: 80, End: 81, Protocol: "TCP"},
-					{Start: 443, End: 444, Protocol: "TCP"},
+					{Start: 80, End: 81, Protocol: tcpProtocol},
+					{Start: 443, End: 444, Protocol: tcpProtocol},
 				},
 			},
 		)
@@ -505,47 +520,47 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 443-444 
 
 		err := masqPod.Setup(
 			&nmstate.Interface{
-				Name:       "k6t-eth0",
+				Name:       defaultPodBridgeName,
 				Index:      1,
 				TypeName:   nmstate.TypeBridge,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "bb:bb:bb:bb:bb:bb",
+				MacAddress: masqueradeBridgeMACAddress,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+					Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 				},
 			},
 			&nmstate.Interface{
-				Name:       "eth0",
+				Name:       defaultPrimaryPodIfaceName,
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "aa:aa:aa:aa:aa:aa",
+				MacAddress: podInterfaceMACAddress,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
 			},
 			v1.Interface{
-				Name:                   "default",
+				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				PortRanges: []v1.PortRange{
-					{Start: 1000, End: 2000, Protocol: "TCP"},
+					{Start: 1000, End: 2000, Protocol: tcpProtocol},
 					{Start: 1500, End: 2500, Protocol: "UDP"}, // Overlaps with TCP range but different protocol - should be allowed
 				},
 			},
@@ -597,46 +612,46 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 1500-250
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				},
 			)
@@ -688,50 +703,50 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					Ports: []v1.Port{
-						{Name: "http", Protocol: "tcp", Port: 80},
-						{Name: "http", Protocol: "tcp", Port: 8080},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 80},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 8080},
 					},
 				},
 			)
@@ -784,50 +799,50 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					Ports: []v1.Port{
-						{Name: "http", Protocol: "tcp", Port: 80},
-						{Name: "http", Protocol: "tcp", Port: 8080},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 80},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 8080},
 					},
 				},
 			)
@@ -876,50 +891,50 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					Ports: []v1.Port{
-						{Name: "http", Protocol: "tcp", Port: 22},
-						{Name: "http", Protocol: "tcp", Port: 8080},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 22},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 8080},
 					},
 				},
 			)
@@ -970,49 +985,49 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					Ports: []v1.Port{
-						{Name: "http", Protocol: "tcp", Port: 15000},
+						{Name: httpPortName, Protocol: tcpProtocolLower, Port: 15000},
 					},
 				},
 			)
@@ -1058,49 +1073,49 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 15000 co
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					PortRanges: []v1.PortRange{
-						{Protocol: "TCP", Start: 1000, End: 1500},
+						{Protocol: tcpProtocol, Start: 1000, End: 1500},
 					},
 				},
 			)
@@ -1146,49 +1161,49 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 1000-150
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					PortRanges: []v1.PortRange{
-						{Protocol: "TCP", Start: 20, End: 25},
+						{Protocol: tcpProtocol, Start: 20, End: 25},
 					},
 				},
 			)
@@ -1236,49 +1251,49 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 20-25 co
 
 			err := masqPod.Setup(
 				&nmstate.Interface{
-					Name:       "k6t-eth0",
+					Name:       defaultPodBridgeName,
 					Index:      1,
 					TypeName:   nmstate.TypeBridge,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "bb:bb:bb:bb:bb:bb",
+					MacAddress: masqueradeBridgeMACAddress,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv4Address, PrefixLen: 24}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
-						Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}},
+						Address: []nmstate.IPAddress{{IP: defaultPodBridgeIPv6Address, PrefixLen: 120}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				&nmstate.Interface{
-					Name:       "eth0",
+					Name:       defaultPrimaryPodIfaceName,
 					Index:      0,
 					TypeName:   nmstate.TypeVETH,
 					State:      nmstate.IfaceStateUp,
-					MacAddress: "aa:aa:aa:aa:aa:aa",
+					MacAddress: podInterfaceMACAddress,
 					MTU:        1500,
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "10.222.222.1",
+							IP:        primaryIPv4Address,
 							PrefixLen: 30,
 						}},
 					},
 					IPv6: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{
-							IP:        "2001::1",
+							IP:        primaryIPv6Address,
 							PrefixLen: 64,
 						}},
 					},
-					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
+					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 				},
 				v1.Interface{
-					Name:                   "default",
+					Name:                   defaultPodNetworkName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					PortRanges: []v1.PortRange{
-						{Protocol: "TCP", Start: 14000, End: 16000},
+						{Protocol: tcpProtocol, Start: 14000, End: 16000},
 					},
 				},
 			)

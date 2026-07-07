@@ -32,17 +32,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/multus"
 )
 
+const (
+	defaultPrimaryPodIfaceName = "eth0"
+	secondaryNetworkName       = "meganet"
+	primaryPodNetworkName      = "k8s-pod-network"
+	secondaryPodIfaceName      = "pod7e0055a6880"
+	clusterDefaultNetworkName  = "cluster-default"
+	networkNameNet1            = "net1"
+	someNetName                = "some-net"
+)
+
 var _ = Describe("Network Status", func() {
 	Context("NetworkStatusesByPodIfaceName", func() {
 		It("Should map network statuses by pod interface name with multiple networks", func() {
 			networkStatuses := []networkv1.NetworkStatus{
-				{Name: "cluster-default", Interface: "eth0"},
-				{Name: "meganet", Interface: "pod7e0055a6880"},
+				{Name: clusterDefaultNetworkName, Interface: defaultPrimaryPodIfaceName},
+				{Name: secondaryNetworkName, Interface: secondaryPodIfaceName},
 			}
 
 			expected := map[string]networkv1.NetworkStatus{
-				"eth0":           {Name: "cluster-default", Interface: "eth0"},
-				"pod7e0055a6880": {Name: "meganet", Interface: "pod7e0055a6880"},
+				defaultPrimaryPodIfaceName: {Name: clusterDefaultNetworkName, Interface: defaultPrimaryPodIfaceName},
+				secondaryPodIfaceName:      {Name: secondaryNetworkName, Interface: secondaryPodIfaceName},
 			}
 
 			Expect(multus.NetworkStatusesByPodIfaceName(networkStatuses)).To(Equal(expected))
@@ -75,7 +85,7 @@ var _ = Describe("Network Status", func() {
 				},
 				{
 					Name:      "meganet",
-					Interface: "pod7e0055a6880",
+					Interface: secondaryPodIfaceName,
 					Mac:       "8a:37:d9:e7:0f:18",
 					Default:   false,
 					DNS:       networkv1.DNS{},
@@ -88,8 +98,7 @@ var _ = Describe("Network Status", func() {
 
 	Context("LookupPodPrimaryIfaceName", func() {
 		const (
-			defaultPrimaryPodIfaceName = "eth0"
-			customPrimaryPodIfaceName  = "custom-iface"
+			customPrimaryPodIfaceName = "custom-iface"
 		)
 
 		DescribeTable("should return empty string", func(networkStatuses []networkv1.NetworkStatus) {
@@ -99,12 +108,12 @@ var _ = Describe("Network Status", func() {
 			Entry("when network status is empty", []networkv1.NetworkStatus{}),
 			Entry("when network status does not report interface name",
 				[]networkv1.NetworkStatus{
-					{Name: "k8s-pod-network", Default: true},
+					{Name: primaryPodNetworkName, Default: true},
 				},
 			),
 			Entry("when network status does not report a default interface name",
 				[]networkv1.NetworkStatus{
-					{Name: "net1", Interface: "", Default: false},
+					{Name: networkNameNet1, Interface: "", Default: false},
 					{Name: "net2", Interface: "pod12345", Default: false},
 				},
 			),
@@ -115,16 +124,16 @@ var _ = Describe("Network Status", func() {
 		},
 			Entry("When the primary pod interface name is reported and its the default value",
 				[]networkv1.NetworkStatus{
-					{Name: "k8s-pod-network", Interface: defaultPrimaryPodIfaceName, Default: true},
-					{Name: "some-net", Interface: "pod123456", Default: false},
+					{Name: primaryPodNetworkName, Interface: defaultPrimaryPodIfaceName, Default: true},
+					{Name: someNetName, Interface: "pod123456", Default: false},
 				},
 				defaultPrimaryPodIfaceName,
 			),
 			Entry("When the primary pod interface name is reported and it has the custom value",
 				[]networkv1.NetworkStatus{
-					{Name: "k8s-pod-network", Interface: defaultPrimaryPodIfaceName, Default: false},
-					{Name: "k8s-pod-network", Interface: customPrimaryPodIfaceName, Default: true},
-					{Name: "some-net", Interface: "net1", Default: false},
+					{Name: primaryPodNetworkName, Interface: defaultPrimaryPodIfaceName, Default: false},
+					{Name: primaryPodNetworkName, Interface: customPrimaryPodIfaceName, Default: true},
+					{Name: someNetName, Interface: networkNameNet1, Default: false},
 				},
 				customPrimaryPodIfaceName,
 			),

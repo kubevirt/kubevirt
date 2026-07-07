@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
@@ -248,6 +249,8 @@ var _ = Describe("Annotations Generator", func() {
 
 			deviceInfoPlugin    = "deviceinfo"
 			nonDeviceInfoPlugin = "non_deviceinfo"
+			deviceInfoTypePci   = "pci"
+			deviceInfoVersion   = "1.0.0"
 		)
 
 		const (
@@ -455,8 +458,8 @@ var _ = Describe("Annotations Generator", func() {
 				{
 					Network: networkName3,
 					DeviceInfo: &networkv1.DeviceInfo{
-						Type:    "pci",
-						Version: "1.0.0",
+						Type:    deviceInfoTypePci,
+						Version: deviceInfoVersion,
 						Pci: &networkv1.PciDevice{
 							PciAddress: "0000:65:00.3",
 						},
@@ -465,8 +468,8 @@ var _ = Describe("Annotations Generator", func() {
 				{
 					Network: networkName2,
 					DeviceInfo: &networkv1.DeviceInfo{
-						Type:    "pci",
-						Version: "1.0.0",
+						Type:    deviceInfoTypePci,
+						Version: deviceInfoVersion,
 						Pci: &networkv1.PciDevice{
 							PciAddress: "0000:65:00.2",
 						},
@@ -480,6 +483,7 @@ var _ = Describe("Annotations Generator", func() {
 
 	Context("NIC Hotplug / Hotunplug", func() {
 		const (
+			defaultPrimaryPodIfaceName       = "eth0"
 			network1Name                     = "red"
 			networkAttachmentDefinitionName1 = "some-net"
 
@@ -595,7 +599,10 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
-						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:             testNamespace,
+							PodInterfaceName: namescheme.PrimaryPodInterfaceName,
+						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       network1Name,
 							InfoSource: vmispec.InfoSourceMultusStatus,
@@ -717,7 +724,10 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
-						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:             testNamespace,
+							PodInterfaceName: defaultPrimaryPodIfaceName,
+						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       network1Name,
 							InfoSource: vmispec.InfoSourceMultusStatus,
@@ -753,7 +763,10 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
-						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:             testNamespace,
+							PodInterfaceName: defaultPrimaryPodIfaceName,
+						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       network1Name,
 							InfoSource: vmispec.InfoSourceMultusStatus,
