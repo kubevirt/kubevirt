@@ -58,11 +58,11 @@ func validateSingleInterfaceState(field *k8sfield.Path, idx int, iface v1.Interf
 
 	var causes []metav1.StatusCause
 
-	if iface.SRIOV != nil &&
+	if iface.Bridge == nil && iface.Masquerade == nil && iface.Binding == nil &&
 		(iface.State == v1.InterfaceStateLinkDown || iface.State == v1.InterfaceStateLinkUp) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%q interface's state %q is not supported for SR-IOV NICs", iface.Name, iface.State),
+			Message: fmt.Sprintf("%q interface's state %q is not supported for this binding type", iface.Name, iface.State),
 			Field:   stateField,
 		})
 	}
