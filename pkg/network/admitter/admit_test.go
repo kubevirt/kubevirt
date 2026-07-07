@@ -63,8 +63,9 @@ var _ = Describe("Validating VMI network spec", func() {
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 			libvmi.WithInterface(v1.Interface{
-				Name:  "foo",
-				State: v1.InterfaceState("foo"),
+				Name:                   "foo",
+				State:                  v1.InterfaceState("foo"),
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			}),
 		)
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
