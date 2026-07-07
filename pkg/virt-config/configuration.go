@@ -315,6 +315,9 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 
 func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) error {
 	kvConfig := &kv.Spec.Configuration
+	if kvConfig.ImagePullPolicy == "" && kv.Spec.ImagePullPolicy != "" {
+		config.ImagePullPolicy = kv.Spec.ImagePullPolicy
+	}
 	overrides, err := json.Marshal(kvConfig)
 	if err != nil {
 		return err

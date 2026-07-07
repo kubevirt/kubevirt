@@ -450,6 +450,44 @@ var _ = Describe("test configuration", func() {
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
 	})
 
+	It("should fall back to spec.imagePullPolicy when spec.configuration.imagePullPolicy is unset", func() {
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				ImagePullPolicy: kubev1.PullNever,
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullNever))
+	})
+	It("should prefer spec.configuration.imagePullPolicy over spec.imagePullPolicy when both are set", func() {
+		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				ImagePullPolicy: kubev1.PullNever,
+				Configuration: v1.KubeVirtConfiguration{
+					ImagePullPolicy: kubev1.PullAlways,
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
+	})
+
 	It("should return the default config if no config map exists", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		result := clusterConfig.GetMigrationConfiguration()
