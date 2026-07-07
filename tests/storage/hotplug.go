@@ -2117,20 +2117,31 @@ var _ = Describe(SIG("Hotplug", func() {
 			pvc                       *k8sv1.PersistentVolumeClaim
 			pv                        *k8sv1.PersistentVolume
 			vm                        *v1.VirtualMachine
+			vmi                       *v1.VirtualMachineInstance
 		)
 
 		BeforeEach(func() {
+			vmi = nil
 			nodeName = libnode.GetNodeNameWithHandler()
 			address, device = CreateSCSIDisk(nodeName, []string{})
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
 			pv, pvc, err = CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred(), "failed to create PV and PVC for SCSI disk")
+			DeferCleanup(func() {
+				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+				RemoveSCSIDisk(nodeName, address)
+			})
 		})
 
 		AfterEach(func() {
-			// Delete the scsi disk
-			RemoveSCSIDisk(nodeName, address)
-			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred(), "failed to delete PersistentVolume %s", pv.Name)
+			if vmi != nil {
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+				Expect(err).To(Or(
+					Not(HaveOccurred()),
+					MatchError(errors.IsNotFound, "errors.IsNotFound"),
+				))
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, time.Second*180)).To(Succeed())
+			}
 			err := deleteVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred(), "failed to delete VirtualMachine")
 		})
