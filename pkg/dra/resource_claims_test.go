@@ -30,6 +30,8 @@ import (
 )
 
 var _ = Describe("ResourceClaims", func() {
+	const directClaimName = "direct-claim"
+	const templateClaimName = "template-claim"
 	DescribeTable("should convert VMI resourceClaims to Pod resourceClaims",
 		func(resourceClaims []v1.VirtualMachineInstanceResourceClaim, expected []k8sv1.PodResourceClaim) {
 			Expect(ToPodResourceClaims(resourceClaims)).To(Equal(expected))
@@ -45,21 +47,21 @@ var _ = Describe("ResourceClaims", func() {
 		Entry("direct and template resourceClaims",
 			[]v1.VirtualMachineInstanceResourceClaim{
 				{
-					Name:              "direct-claim",
+					Name:              directClaimName,
 					ResourceClaimName: ptr.To("resource-claim"),
 				},
 				{
-					Name:                      "template-claim",
+					Name:                      templateClaimName,
 					ResourceClaimTemplateName: ptr.To("resource-claim-template"),
 				},
 			},
 			[]k8sv1.PodResourceClaim{
 				{
-					Name:              "direct-claim",
+					Name:              directClaimName,
 					ResourceClaimName: ptr.To("resource-claim"),
 				},
 				{
-					Name:                      "template-claim",
+					Name:                      templateClaimName,
 					ResourceClaimTemplateName: ptr.To("resource-claim-template"),
 				},
 			},
