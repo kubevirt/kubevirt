@@ -1373,7 +1373,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesWithDRAGate)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
 				{
@@ -1409,7 +1409,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -1432,7 +1431,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept permitted host devices", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{

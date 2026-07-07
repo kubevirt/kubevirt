@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -213,7 +212,6 @@ var _ = Describe("Mediated Device", func() {
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				MediatedDevices: []v1.MediatedHostDevice{
 					{
