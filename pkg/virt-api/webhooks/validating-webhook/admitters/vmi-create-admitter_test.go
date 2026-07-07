@@ -629,7 +629,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 			})
 
-			enableFeatureGates(featuregate.DeclarativeHotplugVolumesGate)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
@@ -1336,8 +1335,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA GPU", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.GPUsWithDRAGate)
-			defer disableFeatureGates()
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
 				{
@@ -1372,7 +1370,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate)
 			defer disableFeatureGates()
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
@@ -2735,7 +2733,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.Architecture = "amd64"
-			enableFeatureGates(featuregate.WorkloadEncryptionSEV)
 		})
 
 		It("should accept when the feature gate is enabled and OVMF is configured", func() {
@@ -3999,7 +3996,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a GPU that sets both deviceName and claimRequest", func() {
-			enableFeatureGates(featuregate.GPUsWithDRAGate)
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
@@ -4060,8 +4056,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a DRA-GPU if its claim is missing from spec.resourceClaims", func() {
-			enableFeatureGates(featuregate.GPUsWithDRAGate)
-
 			vmi := libvmi.New()
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				{
@@ -4082,8 +4076,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a DRA-GPU when the gate is enabled and the claim is listed", func() {
-			enableFeatureGates(featuregate.GPUsWithDRAGate)
-
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),

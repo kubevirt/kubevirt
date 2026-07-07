@@ -891,13 +891,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Setting RoleAggregationStrategy to Manual after upgrade")
 			currentKV := libkubevirt.GetCurrentKv(virtClient)
 			savedConfig := currentKV.Spec.Configuration.DeepCopy()
-			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
-				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-			}
-			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
-				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-				featuregate.OptOutRoleAggregation,
-			)
 			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
 
