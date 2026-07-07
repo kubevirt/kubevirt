@@ -100,6 +100,10 @@ func (q *queue) startPolling() {
 }
 
 func (q *queue) collect() {
+	if q.isFinished() {
+		return
+	}
+
 	// Check whether the VMI has already transitioned out of the migrating
 	// state, but keep scraping until virt-launcher's completed migration event
 	// stats (Downtime, DowntimeNet) are captured before the poller exits.
@@ -108,6 +112,9 @@ func (q *queue) collect() {
 	values, err := q.scrapeDomainStats()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to scrape domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+		if q.shouldStopPolling(finished, stats.DomainJobInfo{}) {
+			q.stopPolling()
+		}
 		return
 	}
 
@@ -121,15 +128,16 @@ func (q *queue) collect() {
 	}
 
 	q.Lock()
+	if q.finished {
+		q.Unlock()
+		return
+	}
 	q.results.Value = r
 	q.results = q.results.Next()
 	q.Unlock()
 
 	if q.shouldStopPolling(finished, r.domainJobInfo) {
-		q.Lock()
-		q.finished = true
-		q.ctxCancel()
-		q.Unlock()
+		q.stopPolling()
 	}
 }
 
@@ -164,6 +172,27 @@ func (q *queue) addCompletedStats(domainJobInfo stats.DomainJobInfo) {
 		q.ctxCancel()
 	}
 	q.Unlock()
+}
+
+func (q *queue) isFinished() bool {
+	q.Lock()
+	defer q.Unlock()
+
+	return q.finished
+}
+
+func (q *queue) stopPolling() {
+	q.Lock()
+	defer q.Unlock()
+
+	if q.finished {
+		return
+	}
+
+	q.finished = true
+	if q.ctxCancel != nil {
+		q.ctxCancel()
+	}
 }
 
 func hasCompletedDowntimeStats(domainJobInfo stats.DomainJobInfo) bool {

@@ -124,10 +124,47 @@ func (h *handler) handleDomainAdd(obj interface{}) {
 	q, ok := h.vmiStats[key]
 	h.Unlock()
 	if !ok {
-		return
+		vmi, exists := h.vmiForCompletedStats(key)
+		if !exists {
+			log.Log.V(logVerbosityInfo).Infof("dropping completed migration stats for VMI %s: VMI not found", key)
+			return
+		}
+
+		q = newQueue(h.vmiStore, vmi)
+
+		h.Lock()
+		if existingQueue, exists := h.vmiStats[key]; exists {
+			q = existingQueue
+		} else {
+			h.vmiStats[key] = q
+		}
+		h.Unlock()
 	}
 
 	q.addCompletedStats(*domain.Status.MigrationStats)
+}
+
+func (h *handler) vmiForCompletedStats(key string) (*v1.VirtualMachineInstance, bool) {
+	if h.vmiStore == nil {
+		return nil, false
+	}
+
+	obj, exists, err := h.vmiStore.GetByKey(key)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to look up VMI %s for completed migration stats", key)
+		return nil, false
+	}
+	if !exists {
+		return nil, false
+	}
+
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok {
+		log.Log.Errorf("failed to look up VMI %s for completed migration stats: unexpected object type %T", key, obj)
+		return nil, false
+	}
+
+	return vmi, true
 }
 
 func (h *handler) addMigration(vmi *v1.VirtualMachineInstance) {

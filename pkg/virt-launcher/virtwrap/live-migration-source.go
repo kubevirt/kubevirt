@@ -860,8 +860,6 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	m.start = time.Now().UTC().UnixNano()
 	m.lastProgressUpdate = m.start
 
-	defer m.l.resetDomainInfoStats()
-
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.l.virConn.LookupDomainByName(domName)
 
@@ -1379,6 +1377,8 @@ func (l *LibvirtDomainManager) resetDomainInfoStats() {
 
 func (l *LibvirtDomainManager) updateInflightMigrationStats(jobInfo *libvirt.DomainJobInfo) {
 	domainInfoStats := statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(jobInfo)
+	// Active job downtime is an estimate. Only completed migration events expose
+	// the final downtime values used by the exported metrics.
 	domainInfoStats.DowntimeSet = false
 	domainInfoStats.DowntimeNetSet = false
 

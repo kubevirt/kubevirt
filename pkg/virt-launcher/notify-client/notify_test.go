@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -426,6 +427,31 @@ var _ = Describe("Notify", func() {
 			Expect(completedStats.Downtime).To(Equal(uint64(150)))
 			Expect(completedStats.DowntimeNetSet).To(BeTrue())
 			Expect(completedStats.DowntimeNet).To(Equal(uint64(120)))
+		})
+
+		It("should include cached completed migration stats in domain notify events", func() {
+			domain := api.NewMinimalDomain("test")
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+			metadataCache := metadata.NewCache()
+			metadataCache.CompletedMigrationStats.Store(stats.DomainJobInfo{DowntimeSet: true, Downtime: 150})
+
+			e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache, false)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+
+			domainEvent, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(domainEvent.Status.MigrationStats).ToNot(BeNil())
+			Expect(domainEvent.Status.MigrationStats.DowntimeSet).To(BeTrue())
+			Expect(domainEvent.Status.MigrationStats.Downtime).To(Equal(uint64(150)))
 		})
 	})
 

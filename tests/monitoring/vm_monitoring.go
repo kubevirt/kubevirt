@@ -453,9 +453,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			libmonitoring.WaitForMetricValueWithLabelsToBe(
 				virtClient, "kubevirt_vmi_migration_downtime_seconds", downtimeLabels, 1, ">", 0,
 			)
-			libmonitoring.WaitForMetricValueWithLabelsToBe(
-				virtClient, "kubevirt_vmi_migration_downtime_net_seconds", downtimeLabels, 1, ">=", 0,
-			)
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(

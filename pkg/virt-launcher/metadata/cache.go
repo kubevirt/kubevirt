@@ -50,6 +50,7 @@ func NewCache() *Cache {
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
 	cache.Backup.dirtyChanel = cache.notificationSignal
 	cache.GuestPanicHandled.dirtyChanel = cache.notificationSignal
+	cache.CompletedMigrationStats.dirtyChanel = cache.notificationSignal
 	return cache
 }
 
