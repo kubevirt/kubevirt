@@ -793,23 +793,6 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	Context("[storage-req]", decorators.StorageReq, func() {
-		findCPUManagerWorkerNode := func() string {
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
-				LabelSelector: "node-role.kubernetes.io/worker",
-			})
-			Expect(err).ToNot(HaveOccurred(), "failed to list nodes")
-			for _, node := range nodes.Items {
-				nodeLabels := node.GetLabels()
-
-				for label, val := range nodeLabels {
-					if label == v1.CPUManager && val == "true" {
-						return node.Name
-					}
-				}
-			}
-			return ""
-		}
-
 		validateDryRun := func(obj metav1.Object, addVolumeFunc addVolumeFunction, sc string, volumeMode k8sv1.PersistentVolumeMode) {
 			dv := createDataVolumeAndWaitForImport(sc, volumeMode)
 
@@ -836,12 +819,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					Fail("Fail test when CSI storage class is not present")
 				}
 
-				node := findCPUManagerWorkerNode()
-				opts := []libvmi.Option{}
-				if node != "" {
-					opts = append(opts, libvmi.WithNodeSelectorFor(node))
-				}
-				vmi = libvmifact.NewAlpineWithTestTooling(opts...)
+				vmi = libvmifact.NewAlpineWithTestTooling()
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to create VMI %s/%s", vmi.Namespace, vmi.Name)
@@ -882,12 +860,7 @@ var _ = Describe(SIG("Hotplug", func() {
 					Fail("Fail test when CSI storage class is not present")
 				}
 
-				node := findCPUManagerWorkerNode()
-				opts := []libvmi.Option{}
-				if node != "" {
-					opts = append(opts, libvmi.WithNodeSelectorFor(node))
-				}
-				vmi := libvmifact.NewAlpineWithTestTooling(opts...)
+				vmi := libvmifact.NewAlpineWithTestTooling()
 
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
