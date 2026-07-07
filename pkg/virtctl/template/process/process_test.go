@@ -19,8 +19,6 @@
 
 package process_test
 
-const subresourceProcess = "process"
-
 import (
 	"context"
 	"encoding/json"

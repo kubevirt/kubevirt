@@ -27,10 +27,12 @@ import (
 )
 
 var _ = Describe("Qemu agent poller", func() {
+	const frozenStatus = "frozen"
+	const version41 = "4.1"
 	Context("receiving a reply from the agent", func() {
 		It("should parse FSFreezeStatus", func() {
 			jsonInput := `{"return":"frozen"}`
-			expectedFSFreezeStatus := api.FSFreeze{Status: "frozen"}
+			expectedFSFreezeStatus := api.FSFreeze{Status: frozenStatus}
 			Expect(ParseFSFreezeStatus(jsonInput)).To(Equal(expectedFSFreezeStatus))
 		})
 
@@ -53,7 +55,7 @@ var _ = Describe("Qemu agent poller", func() {
                 }
             }`
 
-			expectedAgent := AgentInfo{Version: "4.1"}
+			expectedAgent := AgentInfo{Version: version41}
 			Expect(parseAgent(jsonInput)).To(Equal(expectedAgent))
 		})
 
