@@ -82,12 +82,13 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtControllersCount",
 			Expr: intstr.FromString(fmt.Sprintf(
-				"cluster:kubevirt_virt_controller_up:sum / on() kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
+				"cluster:kubevirt_virt_controller_pods_running:count / on() "+
+					"kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
 				namespace,
 			)),
 			For: ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "Less than 75% of desired virt-controller pods are ready.",
+				summaryAnnotationKey: "Less than 75% of desired virt-controller pods are running.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
