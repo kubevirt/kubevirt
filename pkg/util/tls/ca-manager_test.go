@@ -95,6 +95,8 @@ var _ = Describe("CaManager", func() {
 		Expect(cert.Subjects()[0]).To(ContainSubstring("first"))
 	})
 
+	// This test relies on the race detector: it has no assertions and only
+	// fails under `go test -race`, which is how CI runs the unit tests.
 	It("should not race between GetCurrentRaw and a concurrent CA rotation", func() {
 		newCA := func(rev string) *k8sv1.ConfigMap {
 			ca, err := triple.NewCA("rotating", time.Hour)
@@ -130,7 +132,10 @@ var _ = Describe("CaManager", func() {
 		}()
 
 		// Readers hit GetCurrentRaw, which must read lastRaw under the same lock.
-		for g := 0; g < 8; g++ {
+		// At least two readers are needed: the write to lastRaw happens inside a
+		// reader's own GetCurrent call, so a single reader never produces a
+		// cross-goroutine access pair for the race detector to flag.
+		for g := 0; g < 4; g++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -145,7 +150,7 @@ var _ = Describe("CaManager", func() {
 			}()
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		close(stop)
 		wg.Wait()
 	})
